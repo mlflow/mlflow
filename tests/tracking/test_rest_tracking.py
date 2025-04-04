@@ -400,6 +400,36 @@ def test_log_metric_validation(mlflow_client):
     )
 
 
+def test_log_metric_model(mlflow_client: MlflowClient):
+    experiment_id = mlflow_client.create_experiment("metrics validation")
+    run = mlflow_client.create_run(experiment_id)
+    model = mlflow_client.create_logged_model(experiment_id)
+    mlflow_client.log_metric(
+        run.info.run_id,
+        key="metric",
+        value=0.5,
+        timestamp=123456789,
+        step=1,
+        dataset_name="name",
+        dataset_digest="digest",
+        model_id=model.model_id,
+    )
+
+    model = mlflow_client.get_logged_model(model.model_id)
+    assert model.metrics == [
+        Metric(
+            key="metric",
+            value=0.5,
+            timestamp=123456789,
+            step=1,
+            model_id=model.model_id,
+            dataset_name="name",
+            dataset_digest="digest",
+            run_id=run.info.run_id,
+        )
+    ]
+
+
 def test_log_param_validation(mlflow_client):
     experiment_id = mlflow_client.create_experiment("params validation")
     created_run = mlflow_client.create_run(experiment_id)
