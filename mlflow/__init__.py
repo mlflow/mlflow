@@ -210,6 +210,7 @@ from mlflow.tracking.fluent import (
     create_experiment,
     create_external_model,
     delete_experiment,
+    delete_logged_model_tag,
     delete_run,
     delete_tag,
     end_run,
@@ -246,6 +247,7 @@ from mlflow.tracking.fluent import (
     set_experiment,
     set_experiment_tag,
     set_experiment_tags,
+    set_logged_model_tags,
     set_tag,
     set_tags,
     start_run,
@@ -346,6 +348,8 @@ __all__ = [
     "register_prompt",
     "set_prompt_alias",
     "delete_prompt_alias",
+    "set_logged_model_tags",
+    "delete_logged_model_tag",
 ]
 
 
