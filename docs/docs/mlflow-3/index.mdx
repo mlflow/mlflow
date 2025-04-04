@@ -38,10 +38,16 @@ Similarly, every deep learning checkpoint is stored as a <APILink fn="mlflow.ent
 
 ### Quickstart
 
+Prerequisites:
+Run the following command to install MLflow 3.0 and OpenAI packages.
+```
+pip install --upgrade mlflow>=3.0.0rc0 --pre
+pip install openai
+```
+
 This quickstart demonstrates how to create a generative AI application with prompt engineering and evaluate it using MLflow 3.0. 
 It highlights the integration of the LoggedModel lineage feature with runs and traces, showcasing seamless tracking and observability for GenAI workflows.
 
-Prerequisites: run ``pip install --upgrade mlflow>=3.0.0rc0 --pre`` ``pip install openai`` to install MLflow 3.0 and OpenAI packages.
 
 ```python
 from openai import OpenAI

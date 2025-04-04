@@ -6,11 +6,16 @@ import { APILink } from "@site/src/components/APILink";
 
 # GenAI Agent with MLflow 3.0
 
+Prerequisites:
+Run the following command to install MLflow 3.0 and OpenAI packages.
+```
+pip install --upgrade mlflow>=3.0.0rc0 --pre
+pip install openai
+```
+
 This example demonstrates how to use MLflow to trace and evaluate OpenAI requests with prompts engineering.
 It showcases how to register prompts, generate traces, and assess response performance using evaluation datasets.
 The example also highlights the ability to track interactive traces and link them to the logged model for better observability.
-
-Prerequisites: run ``pip install --upgrade mlflow>=3.0.0rc0 --pre`` ``pip install openai`` to install MLflow 3.0 and OpenAI packages.
 
 ## Initialize OpenAI client
 
