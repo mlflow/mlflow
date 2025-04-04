@@ -161,7 +161,6 @@ def test_python_env_file_does_not_exist(sklearn_model, tmp_path):
         model_info = mlflow.sklearn.log_model(sklearn_model.model, "model")
 
     mlflow.artifacts.download_artifacts(artifact_uri=model_info.model_uri, dst_path=tmp_path)
-    tmp_path = tmp_path / "model"
     python_env = next(tmp_path.rglob(_PYTHON_ENV_FILE_NAME))
     python_env.unlink()
 
@@ -175,7 +174,6 @@ def test_python_env_file_and_requirements_file_do_not_exist(sklearn_model, tmp_p
         model_info = mlflow.sklearn.log_model(sklearn_model.model, "model")
 
     mlflow.artifacts.download_artifacts(artifact_uri=model_info.model_uri, dst_path=tmp_path)
-    tmp_path = tmp_path / "model"
     python_env = next(tmp_path.rglob(_PYTHON_ENV_FILE_NAME))
     python_env.unlink()
     requirements = next(tmp_path.rglob(_REQUIREMENTS_FILE_NAME))
@@ -225,7 +223,6 @@ def test_restore_environment_from_conda_yaml_containing_conda_packages(sklearn_m
         )
 
     mlflow.artifacts.download_artifacts(artifact_uri=model_info.model_uri, dst_path=tmp_path)
-    tmp_path = tmp_path / "model"
     python_env = next(tmp_path.rglob(_PYTHON_ENV_FILE_NAME))
     python_env.unlink()
     serve_and_score(tmp_path, sklearn_model.X_pred)

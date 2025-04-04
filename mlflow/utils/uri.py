@@ -544,3 +544,12 @@ def strip_scheme(uri: str) -> str:
     # `_replace` looks like a private method, but it's actually part of the public API:
     # https://docs.python.org/3/library/collections.html#collections.somenamedtuple._replace
     return urllib.parse.urlunparse(parsed._replace(scheme=""))
+
+
+def is_models_uri(uri: str) -> bool:
+    try:
+        parsed = urllib.parse.urlparse(uri)
+    except ValueError:
+        return False
+
+    return parsed.scheme == "models"

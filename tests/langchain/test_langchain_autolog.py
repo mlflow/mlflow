@@ -1,4 +1,3 @@
-import os
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -50,19 +49,13 @@ try:
 except ImportError:
     from langchain.text_splitter import CharacterTextSplitter
 
+import json
+
 from packaging.version import Version
 
 import mlflow
-from mlflow import MlflowClient
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.langchain._langchain_autolog import (
-    UNSUPPORTED_LOG_MODEL_MESSAGE,
-    _resolve_tags,
-)
-from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, set_retriever_schema
-from mlflow.models.signature import infer_signature
-from mlflow.models.utils import _read_example
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey, TraceMetadataKey
 
 from tests.langchain.conftest import DeterministicDummyEmbeddings
@@ -73,11 +66,6 @@ MODEL_DIR = "model"
 # The mock OpenAI endpoint simply echos the prompt back as the completion.
 # So the expected output will be the prompt itself.
 TEST_CONTENT = "What is MLflow?"
-
-
-def get_mlflow_model(artifact_uri, model_subpath=MODEL_DIR):
-    model_conf_path = os.path.join(artifact_uri, model_subpath, "MLmodel")
-    return Model.load(model_conf_path)
 
 
 def create_openai_llmchain():
@@ -97,6 +85,18 @@ def create_openai_runnable(temperature=0.9):
         template="What is {product}?",
     )
     return prompt | ChatOpenAI(temperature=temperature) | StrOutputParser()
+
+
+@pytest.fixture
+def model_infos():
+    models = [create_openai_runnable(temperature=temperature / 10) for temperature in range(1, 5)]
+    model_infos = []
+    for model in models:
+        with mlflow.start_run():
+            model_infos.append(
+                mlflow.langchain.log_model(model, "model", input_example={"product": "MLflow"})
+            )
+    return model_infos
 
 
 def create_retriever(tmp_path):
@@ -163,82 +163,6 @@ def create_runnable_sequence():
     return chain_with_history, input_example
 
 
-def test_autolog_manage_run(async_logging_enabled):
-    mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
-    run = mlflow.start_run()
-    model = create_openai_llmchain()
-    model.invoke("MLflow")
-    assert model.run_id == run.info.run_id
-
-    # The run_id should be propagated to the second call via model instance to
-    # avoid duplicate logging
-    model.invoke("MLflow")
-    assert model.run_id == run.info.run_id
-
-    # Active run created by an user should not be terminated
-    assert mlflow.active_run() is not None
-    assert run.info.status != "FINISHED"
-
-    assert MlflowClient().get_run(run.info.run_id).data.tags["test_tag"] == "test"
-    assert MlflowClient().get_run(run.info.run_id).data.tags["mlflow.autologging"] == "langchain"
-    mlflow.end_run()
-
-    if async_logging_enabled:
-        mlflow.flush_trace_async_logging(terminate=True)
-
-    traces = get_traces()
-    assert len(traces) == 2
-    for trace in traces:
-        span = trace.data.spans[0]
-        assert span.span_type == "CHAIN"
-        assert span.inputs == {"product": "MLflow"}
-        assert span.outputs == {"text": TEST_CONTENT}
-
-
-def test_autolog_manage_run_no_active_run():
-    mlflow.langchain.autolog(log_models=True, extra_tags={"test_tag": "test"})
-    assert mlflow.active_run() is None
-
-    model = create_openai_llmchain()
-    model.invoke("MLflow")
-
-    # A new run should be created, and terminated after the inference
-    run = MlflowClient().get_run(model.run_id)
-    assert run.info.run_name.startswith("langchain-")
-    assert run.info.status == "FINISHED"
-
-    # The run_id should be propagated to the second call via model instance to
-    # avoid duplicate logging
-    model.invoke("MLflow")
-    assert model.run_id == run.info.run_id
-
-    assert mlflow.active_run() is None
-    assert run.data.tags["test_tag"] == "test"
-    assert run.data.tags["mlflow.autologging"] == "langchain"
-
-
-def test_resolve_tags():
-    extra_tags = {"test_tag": "test"}
-    # System tags and extra tags should be logged
-    actual_tags = set(_resolve_tags(extra_tags).keys())
-    assert actual_tags == {
-        "mlflow.autologging",
-        "mlflow.source.name",
-        "mlflow.source.type",
-        "mlflow.user",
-        "test_tag",
-    }
-
-    with mlflow.start_run() as run:
-        actual_tags = set(_resolve_tags(extra_tags, run).keys())
-
-    # The immutable tags starts with 'mlflow.' in the run should not be overridden
-    assert actual_tags == {
-        "mlflow.autologging",
-        "test_tag",
-    }
-
-
 def test_autolog_record_exception(async_logging_enabled):
     def always_fail(input):
         raise Exception("Error!")
@@ -262,16 +186,11 @@ def test_autolog_record_exception(async_logging_enabled):
 
 
 def test_llmchain_autolog(async_logging_enabled):
-    mlflow.langchain.autolog(log_models=True)
+    mlflow.langchain.autolog()
     question = "MLflow"
-    answer = {"product": "MLflow", "text": TEST_CONTENT}
     model = create_openai_llmchain()
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        assert model.invoke(question) == answer
-        # Call twice to test that the model is only logged once
-        assert model.invoke(question) == answer
-        log_model_mock.assert_called_once()
-
+    assert model.invoke(question) == {"product": "MLflow", "text": TEST_CONTENT}
+    model.invoke(question)
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
@@ -333,44 +252,41 @@ def test_llmchain_autolog_no_optional_artifacts_by_default():
     assert len(spans) == 2
 
 
-def test_llmchain_autolog_with_registered_model_name():
-    registered_model_name = "llmchain"
-    mlflow.langchain.autolog(log_models=True, registered_model_name=registered_model_name)
-    model = create_openai_llmchain()
-    model.invoke("MLflow")
-    registered_model = MlflowClient().get_registered_model(registered_model_name)
-    assert registered_model.name == registered_model_name
-
-
 @pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 @pytest.mark.skipif(
     Version(langchain.__version__) >= Version("0.3.0"),
     reason="LLMChain saving does not work in LangChain v0.3.0",
 )
 def test_loaded_llmchain_autolog():
-    mlflow.langchain.autolog(log_models=True, log_input_examples=True)
+    mlflow.langchain.autolog()
     model = create_openai_llmchain()
     question = {"product": "MLflow"}
-    answer = {"product": "MLflow", "text": TEST_CONTENT}
     with mlflow.start_run() as run:
-        assert model.invoke(question) == answer
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        loaded_model = mlflow.langchain.load_model(f"runs:/{run.info.run_id}/model")
-        assert loaded_model.invoke(question) == answer
-        log_model_mock.assert_not_called()
+        for _ in range(3):
+            model.invoke(question)
 
-        mlflow_model = get_mlflow_model(run.info.artifact_uri)
-        model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
-        input_example = _read_example(mlflow_model, model_path)
-        assert input_example == question
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    assert len(logged_models) == 1
+    logged_model = logged_models[0]
 
-        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
-        # _TestLangChainWrapper mocks this result
-        assert pyfunc_model.predict(question) == [TEST_CONTENT]
-        log_model_mock.assert_not_called()
+    traces = get_traces()
+    assert len(traces) == 3
+    for i in range(3):
+        assert (
+            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+            == logged_model.model_id
+        )
 
-        signature = mlflow_model.signature
-        assert signature == infer_signature(question, [TEST_CONTENT])
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model", input_example=question)
+    assert model_info.model_id != logged_model.model_id
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    loaded_model.invoke(question)
+    traces = get_traces()
+    assert len(traces) == 4
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
 
 
 @pytest.mark.skipif(
@@ -502,7 +418,7 @@ def test_chat_model_bind_tool_autolog():
     reason="ToolCall message is not available in older versions",
 )
 def test_agent_autolog(async_logging_enabled):
-    mlflow.langchain.autolog(log_models=True)
+    mlflow.langchain.autolog()
 
     # Load the agent definition (with OpenAI mock) from the sample script
     from tests.langchain.sample_code.openai_agent import create_openai_agent
@@ -511,25 +427,18 @@ def test_agent_autolog(async_logging_enabled):
     input = {"input": "The result of 2 * 3 is 6."}
     expected_output = {"output": "The result of 2 * 3 is 6."}
 
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        # ensure __call__ is patched
-        assert model(input, return_only_outputs=True) == expected_output
-        assert model(input, return_only_outputs=True) == expected_output
-        log_model_mock.assert_called_once()
+    assert model(input, return_only_outputs=True) == expected_output
 
     model = create_openai_agent()
 
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        # ensure invoke is patched
-        assert model.invoke(input, return_only_outputs=True) == expected_output
-        assert model.invoke(input, return_only_outputs=True) == expected_output
-        log_model_mock.assert_called_once()
+    # ensure invoke is patched
+    assert model.invoke(input, return_only_outputs=True) == expected_output
 
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
-    assert len(traces) == 4
+    assert len(traces) == 2
     for trace in traces:
         spans = [(s.name, s.span_type) for s in trace.data.spans]
         assert len(spans) == 16
@@ -538,18 +447,15 @@ def test_agent_autolog(async_logging_enabled):
 
 
 def test_runnable_sequence_autolog(async_logging_enabled):
-    mlflow.langchain.autolog(log_models=True)
+    mlflow.langchain.autolog()
     chain, input_example = create_runnable_sequence()
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        assert chain.invoke(input_example) == TEST_CONTENT
-        assert chain.invoke(input_example) == TEST_CONTENT
-        log_model_mock.assert_called_once()
+    assert chain.invoke(input_example) == TEST_CONTENT
 
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
-    assert len(traces) == 2
+    assert len(traces) == 1
     for trace in traces:
         spans = {(s.name, s.span_type) for s in trace.data.spans}
         # Since the chain includes parallel execution, the order of some
@@ -569,40 +475,11 @@ def test_runnable_sequence_autolog(async_logging_enabled):
         }
 
 
-def test_loaded_runnable_sequence_autolog():
-    mlflow.langchain.autolog(log_models=True, log_input_examples=True)
-    chain, input_example = create_runnable_sequence()
-    with mlflow.start_run() as run:
-        assert chain.invoke(input_example) == TEST_CONTENT
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        loaded_model = mlflow.langchain.load_model(f"runs:/{run.info.run_id}/model")
-        assert loaded_model.invoke(input_example) == TEST_CONTENT
-        log_model_mock.assert_not_called()
-
-        mlflow_model = get_mlflow_model(run.info.artifact_uri)
-        model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
-        saved_example = _read_example(mlflow_model, model_path)
-        assert saved_example == input_example
-
-        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
-        assert pyfunc_model.predict(input_example) == [TEST_CONTENT]
-        log_model_mock.assert_not_called()
-
-        signature = mlflow_model.signature
-        assert signature == infer_signature(input_example, [TEST_CONTENT])
-
-
 @pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 def test_retriever_autolog(tmp_path, async_logging_enabled):
-    mlflow.langchain.autolog(log_models=True)
+    mlflow.langchain.autolog()
     model, query = create_retriever(tmp_path)
-    with (
-        mock.patch("mlflow.langchain.log_model") as log_model_mock,
-        mock.patch("mlflow.langchain._langchain_autolog._logger.info") as logger_mock,
-    ):
-        model.invoke(query)
-        log_model_mock.assert_not_called()
-        logger_mock.assert_called_once_with(UNSUPPORTED_LOG_MODEL_MESSAGE)
+    model.invoke(query)
 
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
@@ -615,33 +492,6 @@ def test_retriever_autolog(tmp_path, async_logging_enabled):
     assert spans[0].span_type == "RETRIEVER"
     assert spans[0].inputs == query
     assert spans[0].outputs[0]["metadata"] == {"source": "tests/langchain/state_of_the_union.txt"}
-
-
-@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
-def test_unsupported_log_model_models_autolog(tmp_path):
-    mlflow.langchain.autolog(log_models=True)
-    retriever, _ = create_retriever(tmp_path)
-    prompt = ChatPromptTemplate.from_template(
-        "Answer the following question based on the context: {context}\nQuestion: {question}"
-    )
-    chat_model = create_fake_chat_model()
-    retrieval_chain = (
-        {
-            "context": retriever,
-            "question": RunnablePassthrough(),
-        }
-        | prompt
-        | chat_model
-        | StrOutputParser()
-    )
-    question = "What is MLflow?"
-    with (
-        mock.patch("mlflow.langchain._langchain_autolog._logger.info") as logger_mock,
-        mock.patch("mlflow.langchain.log_model") as log_model_mock,
-    ):
-        assert retrieval_chain.invoke(question) == TEST_CONTENT
-        logger_mock.assert_called_once_with(UNSUPPORTED_LOG_MODEL_MESSAGE)
-        log_model_mock.assert_not_called()
 
 
 class CustomCallbackHandler(BaseCallbackHandler):
@@ -1260,3 +1110,250 @@ def test_langchain_tracing_multi_threads():
         )
         == temperatures
     )
+
+
+def test_autolog_traces_linked_to_models():
+    # log two models + load model
+    mlflow.langchain.autolog()
+    messages = {"product": "MLflow"}
+    model1 = create_openai_runnable(temperature=0.9)
+    model2 = create_openai_runnable(temperature=0.1)
+
+    with mlflow.start_run():
+        mlflow.langchain.log_model(model2, "model2")
+    logged_model2 = mlflow.last_logged_model()
+
+    with mlflow.start_run():
+        mlflow.langchain.log_model(model1, "model1")
+    logged_model1 = mlflow.last_logged_model()
+    assert logged_model1.model_id != logged_model2.model_id
+
+    # traces generated after model logging should be linked to the logged model
+    model2.invoke(messages)
+    model1.invoke(messages)
+
+    # traces generated on loaded model should be linked to the logged model
+    model3 = mlflow.langchain.load_model(logged_model1.model_uri)
+    model3.invoke(messages)
+
+    traces = get_traces()
+    assert len(traces) == 3
+    assert (
+        traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model1.model_id
+    )
+    assert traces[1].data.spans[2].get_attribute("invocation_params")["temperature"] == 0.9
+    assert (
+        traces[1].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model1.model_id
+    )
+    span2 = traces[2].data.spans[2]
+    assert span2.get_attribute("invocation_params")["temperature"] == 0.1
+    assert span2.get_attribute(SpanAttributeKey.MODEL_ID) == logged_model2.model_id
+
+
+@pytest.mark.asyncio
+async def test_autolog_traces_linked_to_loaded_models(model_infos):
+    mlflow.langchain.autolog()
+
+    for model_info in model_infos:
+        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+        await loaded_model.ainvoke(
+            {"product": f"{loaded_model.steps[1].temperature}_{model_info.model_id}"}
+        )
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        temp = trace.data.spans[2].get_attribute("invocation_params")["temperature"]
+        logged_temp, logged_model_id = json.loads(trace.data.request)["product"].split(
+            "_", maxsplit=1
+        )
+        assert logged_model_id is not None
+        assert str(temp) == logged_temp
+        assert trace.data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+
+
+@pytest.mark.parametrize("func", ["invoke", "batch", "stream"])
+def test_autolog_traces_linked_to_models_inference(model_infos, func):
+    mlflow.langchain.autolog()
+
+    for model_info in model_infos:
+        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+        msg = {"product": f"{loaded_model.steps[1].temperature}_{model_info.model_id}"}
+        if func == "invoke":
+            loaded_model.invoke(msg)
+        elif func == "batch":
+            loaded_model.batch([msg])
+        elif func == "stream":
+            list(loaded_model.stream(msg))
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        temp = trace.data.spans[2].get_attribute("invocation_params")["temperature"]
+        logged_temp, logged_model_id = json.loads(trace.data.request)["product"].split(
+            "_", maxsplit=1
+        )
+        assert logged_model_id is not None
+        assert str(temp) == logged_temp
+        assert trace.data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+
+
+def test_autolog_traces_linked_to_models_multi_threading(model_infos):
+    mlflow.langchain.autolog()
+
+    # This needs to be outside of _invoke because load_model disables tracing
+    # and it impacts tracing behavior in multi-threads
+    model_and_model_ids = [
+        (mlflow.langchain.load_model(model_info.model_uri), model_info.model_id)
+        for model_info in model_infos
+    ]
+
+    def _invoke(loaded_model, model_id):
+        loaded_model.invoke({"product": f"{loaded_model.steps[1].temperature}_{model_id}"})
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [
+            executor.submit(_invoke, loaded_model, model_id)
+            for loaded_model, model_id in model_and_model_ids
+        ]
+        for future in futures:
+            future.result()
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        temp = trace.data.spans[2].get_attribute("invocation_params")["temperature"]
+        logged_temp, logged_model_id = json.loads(trace.data.request)["product"].split(
+            "_", maxsplit=1
+        )
+        assert logged_model_id is not None
+        assert str(temp) == logged_temp
+        assert trace.data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+
+
+def test_new_model_logged_after_loaded():
+    mlflow.langchain.autolog()
+
+    model = create_openai_runnable()
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(model, "model", input_example={"product": "MLflow"})
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    loaded_model.invoke({"product": "MLflow"})
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+
+    with mlflow.start_run():
+        new_model_info = mlflow.langchain.log_model(
+            model, "model", input_example={"product": "MLflow"}
+        )
+    assert new_model_info.model_id != model_info.model_id
+
+    loaded_model.invoke({"product": "MLflow"})
+    traces = get_traces()
+    assert len(traces) == 2
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+
+    new_loaded_model = mlflow.langchain.load_model(new_model_info.model_uri)
+    new_loaded_model.invoke({"product": "MLflow"})
+    traces = get_traces()
+    assert len(traces) == 3
+    assert (
+        traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == new_model_info.model_id
+    )
+
+
+def test_log_model_multiple_times_different_model_id():
+    mlflow.langchain.autolog()
+
+    model = create_openai_runnable()
+    with mlflow.start_run():
+        model_info1 = mlflow.langchain.log_model(
+            model, "model", input_example={"product": "MLflow"}
+        )
+        model_info2 = mlflow.langchain.log_model(
+            model, "model", input_example={"product": "MLflow"}
+        )
+    assert model_info1.model_id != model_info2.model_id
+
+    model.invoke({"product": "MLflow"})
+    traces = get_traces()
+    assert len(traces) == 1
+    # traces link to the latest model_id
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info2.model_id
+
+
+@pytest.mark.parametrize("log_models", [True, False])
+def test_autolog_log_models_and_link_traces_invoke(log_models):
+    mlflow.langchain.autolog(log_models=log_models)
+    chain, input_example = create_runnable_sequence()
+    with mlflow.start_run() as run:
+        for _ in range(3):
+            chain.invoke(input_example)
+
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    traces = get_traces()
+    assert len(traces) == 3
+    if log_models:
+        assert len(logged_models) == 1
+        logged_model_id = logged_models[0].model_id
+        for i in range(3):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        logged_model_id = None
+        for i in range(3):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model", input_example=input_example)
+
+    assert model_info.model_id != logged_model_id
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    loaded_model.invoke(input_example)
+    traces = get_traces()
+    assert len(traces) == 4
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("log_models", [True, False])
+async def test_autolog_log_models_and_link_traces_ainvoke(log_models):
+    mlflow.langchain.autolog(log_models=log_models)
+    chain, input_example = create_runnable_sequence()
+    with mlflow.start_run() as run:
+        for _ in range(3):
+            await chain.ainvoke(input_example)
+
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    traces = get_traces()
+    assert len(traces) == 3
+    if log_models:
+        assert len(logged_models) == 1
+        logged_model_id = logged_models[0].model_id
+        for i in range(3):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        logged_model_id = None
+        for i in range(3):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model", input_example=input_example)
+
+    assert model_info.model_id != logged_model_id
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    await loaded_model.ainvoke(input_example)
+    traces = get_traces()
+    assert len(traces) == 4
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
