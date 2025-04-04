@@ -923,6 +923,11 @@ async def test_autolog_log_models_and_link_traces(client, log_models):
     )
     if log_models:
         assert len(logged_models) == 1
+        logged_model = logged_models[0]
+        assert logged_model.params["model"] == "gpt-4o-mini"
+        assert logged_model.params["task"] == "chat.completions"
+        assert logged_model.params["temperature"] == "0.1"
+        assert "messages" not in logged_model.params
         logged_model_id = logged_models[0].model_id
         for i in range(3):
             assert (
