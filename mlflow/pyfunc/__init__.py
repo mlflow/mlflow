@@ -2507,8 +2507,7 @@ e.g., struct<a:int, b:array<int>>.
 
     tracking_uri = mlflow.get_tracking_uri()
 
-    @pandas_udf(result_type)
-    def udf(
+    def _udf(
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
@@ -2693,6 +2692,52 @@ e.g., struct<a:int, b:array<int>>.
                 if scoring_server_proc is not None:
                     os.kill(scoring_server_proc.pid, signal.SIGTERM)
 
+    import functools
+    import tempfile
+    tmp_folder = uuid.uuid4().hex
+    tmp_dir = f"/tmp/{tmp_folder}"
+    def _wrapped_udf(*args, **kwargs):
+        import os
+        import sys
+        stdout_dst = open(os.path.join(tmp_dir, "stdout.log"), "w")
+        stdout_dst_fd = stdout_dst.fileno()
+        stdout_fd = sys.stdout.fileno()
+        os.close(stdout_fd)
+        os.dup2(stdout_dst_fd, stdout_fd)
+        stderr_dst = open(os.path.join(tmp_dir, "stderr.log"), "w")
+        stderr_dst_fd = stderr_dst.fileno()
+        stderr_fd = sys.stderr.fileno()
+        os.close(stderr_fd)
+        os.dup2(stderr_dst_fd, stderr_fd)
+
+        udf_is_running = False
+        def copy_logs():
+            while udf_is_running:
+                import time
+                time.sleep(1)
+                shutil.copytree(tmp_dir, f"/dbfs/tmp/weichen/{tmp_folder}", dirs_exist_ok=True)
+        threading.Thread(target=copy_logs).start()
+
+        try:
+            return _udf(*args, **kwargs)
+        except Exception as e:
+            import traceback
+            stdout_dst.flush()
+            stderr_dst.flush()
+            with open(os.path.join(tmp_dir, "stdout.log"), "r") as fp:
+                stdout_data = fp.read()
+            with open(os.path.join(tmp_dir, "stderr.log"), "r") as fp:
+                stderr_data = fp.read()
+            raise RuntimeError(
+                f"spark_udf remote task failed.\n"
+                f"stdout logs:\n{stdout_data}\n"
+                f"stderr logs:\n{stderr_data}\n"
+                f"error: {repr(e)}\n"
+                f"error stack: {traceback.format_exc()}"
+            )
+    _wrapped_udf = functools.update_wrapper(_wrapped_udf, _udf)
+
+    udf = pandas_udf(_wrapped_udf, result_type)
     udf.metadata = model_metadata
 
     @functools.wraps(udf)
