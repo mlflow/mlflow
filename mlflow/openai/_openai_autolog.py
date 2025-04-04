@@ -110,6 +110,15 @@ def _get_span_type(task: type) -> str:
     except ImportError:
         pass
 
+    try:
+        # Responses API only available in openai>=1.66.0
+        from openai.resources.responses import AsyncResponses, Responses
+
+        span_type_mapping[Responses] = SpanType.CHAT_MODEL
+        span_type_mapping[AsyncResponses] = SpanType.CHAT_MODEL
+    except ImportError:
+        pass
+
     return span_type_mapping.get(task, SpanType.UNKNOWN)
 
 
@@ -341,7 +350,7 @@ def _end_span_on_success(
             set_span_chat_attributes(span, inputs, result)
             end_client_span_or_trace(mlflow_client, span, outputs=result)
         except Exception as e:
-            _logger.warning(f"Encountered unexpected error when ending trace: {e}")
+            _logger.warning(f"Encountered unexpected error when ending trace: {e}", exc_info=True)
 
 
 def _end_span_on_exception(mlflow_client: MlflowClient, span: LiveSpan, e: Exception):

@@ -1,5 +1,5 @@
 import json
-from typing import Union
+from typing import Any, Union
 
 import fastapi
 from pydantic import BaseModel
@@ -222,4 +222,56 @@ def models(model: str):
         "object": "model",
         "created": 1686935002,
         "owned_by": "openai",
+    }
+
+
+class ResponsesPayload(BaseModel):
+    # Text or one of supported content types: https://platform.openai.com/docs/api-reference/responses/create
+    input: Union[str, list[Any]]
+
+
+@app.post("/responses")
+def responses(payload: ResponsesPayload):
+    return {
+        "id": "responses-123",
+        "object": "response",
+        "created": 1589478378,
+        "status": "completed",
+        "error": None,
+        "incomplete_details": None,
+        "max_output_tokens": None,
+        "model": "gpt-4o-mini",
+        "output": [
+            {
+                "type": "message",
+                "id": "msg_67ccd2bf17f0819081ff3bb2cf6508e60bb6a6b452d3795b",
+                "status": "completed",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": "Hello world",
+                    }
+                ],
+            }
+        ],
+        "parallel_tool_calls": True,
+        "previous_response_id": None,
+        "reasoning": {"effort": None, "generate_summary": None},
+        "store": True,
+        "temperature": 1.0,
+        "text": {"format": {"type": "text"}},
+        "tool_choice": "auto",
+        "tools": [],
+        "top_p": 1.0,
+        "truncation": "disabled",
+        "usage": {
+            "input_tokens": 36,
+            "input_tokens_details": {"cached_tokens": 0},
+            "output_tokens": 87,
+            "output_tokens_details": {"reasoning_tokens": 0},
+            "total_tokens": 123,
+        },
+        "user": None,
+        "metadata": {},
     }
