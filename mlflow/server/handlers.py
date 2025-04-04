@@ -911,7 +911,7 @@ def _log_inputs():
         LogInputs(),
         schema={
             "run_id": [_assert_required, _assert_string],
-            "datasets": [_assert_required, _assert_array],
+            "datasets": [_assert_array],
         },
     )
     run_id = request_message.run_id
