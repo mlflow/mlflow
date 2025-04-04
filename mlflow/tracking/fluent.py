@@ -1251,8 +1251,8 @@ def log_inputs(
             mlflow.log_inputs(
                 [dataset, dataset2],
                 contexts=["training", "test"],
-                tags_list=[None, {"my_tag": "tag_value"},
-                models=None
+                tags_list=[None, {"my_tag": "tag_value"}],
+                models=None,
             )
     """
     from mlflow.utils.databricks_utils import is_databricks_uri
