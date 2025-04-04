@@ -1,6 +1,6 @@
 from mlflow.tracing.display import disable_notebook_display, enable_notebook_display
 from mlflow.tracing.provider import disable, enable, reset, set_destination
-from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
+from mlflow.tracing.utils import set_model_id, set_span_chat_messages, set_span_chat_tools
 
 __all__ = [
     "disable",
@@ -10,5 +10,6 @@ __all__ = [
     "set_span_chat_messages",
     "set_span_chat_tools",
     "set_destination",
+    "set_model_id",
     "reset",
 ]
