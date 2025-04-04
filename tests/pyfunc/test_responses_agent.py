@@ -2,7 +2,7 @@ from uuid import uuid4
 
 import mlflow
 from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
-from mlflow.pyfunc.model import ResponsesAgent
+from mlflow.pyfunc.model import _DEFAULT_RESPONSES_AGENT_METADATA_TASK, ResponsesAgent
 from mlflow.types.responses import (
     RESPONSES_AGENT_INPUT_EXAMPLE,
     RESPONSES_AGENT_INPUT_SCHEMA,
@@ -96,17 +96,6 @@ class SimpleResponsesAgent(ResponsesAgent):
         yield from get_stream_mock_response()
 
 
-class CustomInputsResponsesAgent(ResponsesAgent):
-    def predict(self, request: ResponsesRequest) -> ResponsesResponse:
-        mock_response = get_mock_response(request)
-        return ResponsesResponse(**mock_response, custom_outputs=request.custom_inputs)
-
-    def predict_stream(self, request: ResponsesRequest):
-        for r in get_stream_mock_response():
-            r["custom_outputs"] = request.custom_inputs
-            yield r
-
-
 def test_responses_agent_save_load(tmp_path):
     model = SimpleResponsesAgent()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
@@ -117,6 +106,7 @@ def test_responses_agent_save_load(tmp_path):
     output_schema = loaded_model.metadata.get_output_schema()
     assert input_schema == RESPONSES_AGENT_INPUT_SCHEMA
     assert output_schema == RESPONSES_AGENT_OUTPUT_SCHEMA
+    assert loaded_model.metadata["task"] == _DEFAULT_RESPONSES_AGENT_METADATA_TASK
 
 
 def test_responses_agent_predict(tmp_path):
@@ -137,6 +127,17 @@ def test_responses_agent_predict_stream(tmp_path):
     # most of this test is that the predict_stream parsing works in _ResponsesAgentPyfuncWrapper
     for r in responses:
         assert "type" in r
+
+
+class CustomInputsResponsesAgent(ResponsesAgent):
+    def predict(self, request: ResponsesRequest) -> ResponsesResponse:
+        mock_response = get_mock_response(request)
+        return ResponsesResponse(**mock_response, custom_outputs=request.custom_inputs)
+
+    def predict_stream(self, request: ResponsesRequest):
+        for r in get_stream_mock_response():
+            r["custom_outputs"] = request.custom_inputs
+            yield r
 
 
 def test_responses_agent_custom_inputs(tmp_path):

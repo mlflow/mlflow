@@ -79,7 +79,7 @@ CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
 _DEFAULT_CHAT_AGENT_METADATA_TASK = "agent/v2/chat"
-_DEFAULT_RESPONSES_AGENT_METADATA_TASK = "agent/v3/chat"
+_DEFAULT_RESPONSES_AGENT_METADATA_TASK = "agent/v1/responses"
 
 _logger = logging.getLogger(__name__)
 
