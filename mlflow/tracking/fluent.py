@@ -1255,6 +1255,8 @@ def log_inputs(
                 models=None
             )
     """
+    from mlflow.utils.databricks_utils import is_databricks_uri
+
     run_id = _get_or_start_run().info.run_id
 
     if not (
@@ -1267,6 +1269,10 @@ def log_inputs(
             "`mlflow.log_inputs` requires `datasets`, `contexts`, `tags_list` to be "
             "non-empty list and have the same length."
         )
+
+    if not is_databricks_uri(mlflow.get_tracking_uri()):
+        raise MlflowException("'models' argument is not supported by open-sourced MLflow.")
+
     dataset_inputs = []
     for dataset, context, tags in zip(datasets, contexts, tags_list):
         dataset_inputs.append(_create_dataset_input(dataset, context, tags))
