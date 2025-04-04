@@ -6,74 +6,87 @@ import { APILink } from "@site/src/components/APILink";
 
 # GenAI Agent with MLflow 3.0
 
-This example demonstrates how to use MLflow to log and evaluate a generative AI agent.
-It showcases how to register prompts, log models, and assess their performance using evaluation datasets.
+This example demonstrates how to use MLflow to trace and evaluate OpenAI requests with prompts.
+It showcases how to register prompts, generate traces, and assess response performance using evaluation datasets.
 The example also highlights the ability to track interactive traces and link them to the logged model for better observability.
 
-Prerequisite: ``pip install langchain langchain-community langchain-openai``
+Prerequisite: ``pip install mlflow==3.0.0.rc0 openai``
 
-## Create an agent
+## Initialize OpenAI client
 
-First, we create an agent and utilize MLflow's prompt registry capability to manage and link prompts effectively.
+First, we initialize an OpenAI client, use its chat completions API for answering questions, and utilize MLflow's prompt registry capability to manage and link prompts effectively.
 
 ```python
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from openai import OpenAI
 
 import mlflow
 
 mlflow.set_experiment("genai_example")
 
+client = OpenAI()
+question = "What is MLflow?"
+
 # register a prompt so we can link it when logging the model
 system_prompt = mlflow.register_prompt(
-    name="system_prompt",
-    template="You are a chatbot that can answer questions about IT.",
-    commit_message="Initial version of system prompt",
+    name="chatbot_prompt",
+    template="You are a chatbot that can answer questions about IT. Answer this question: {{question}}",
+    commit_message="Initial version of chatbot",
 )
 
-chat_model = ChatOpenAI(
-    model="gpt-4o-mini", temperature=0.1, max_completion_tokens=2000
+print(
+    client.completions.create(
+        prompt=system_prompt.format(question=question),
+        model="gpt-3.5-turbo-instruct",
+        temperature=0.1,
+        max_tokens=2000,
+    )
+    .choices[0]
+    .text
 )
-chat_prompt = ChatPromptTemplate.from_messages(
-    [("system", system_prompt.to_single_brace_format()), ("user", "{messages}")]
-)
-chain = chat_prompt | chat_model
-print(chain.invoke({"messages": "What is MLflow?"}))
 ```
 
 Switch to the **Prompts** tab to view the registered prompt and its details:
 
 <div className="center-div" style={{ width: "100%" }}>
-    ![The MLflow UI showing a prompt version](/images/mlflow-3/genai/system_prompt.png)
+    ![The MLflow UI showing a prompt version](/images/mlflow-3/genai/chatbot_prompt.png)
 </div>
 
-## Test the agent with tracing observability
+## Test the model with tracing observability
 
-In this section, we manually test the agent with example queries and leverage MLflow Tracing to analyze the outputs and debug potential issues. 
+In this section, we manually test the model with example queries and leverage MLflow Tracing to analyze the outputs and debug potential issues. 
 With autologging enabled, MLflow automatically creates a LoggedModel and links the generated traces to it, ensuring seamless observability.
 
 ```python
-# Enable autologging so that interactive traces from the chain are automatically linked to a LoggedModel
-mlflow.langchain.autolog()
+# Enable autologging so that interactive traces from the client are automatically linked to a LoggedModel
+mlflow.openai.autolog()
 
-chain_inputs = [
+questions = [
     "What is MLflow Tracking and how does it work?",
     "What is Unity Catalog?",
     "What are user-defined functions (UDFs)?",
 ]
 outputs = []
 
-for chain_input in chain_inputs:
-    outputs.append(chain.invoke({"messages": chain_input}).content)
+for question in questions:
+    outputs.append(
+        client.completions.create(
+            prompt=system_prompt.format(question=question),
+            model="gpt-3.5-turbo-instruct",
+            temperature=0.1,
+            max_tokens=2000,
+        )
+        .choices[0]
+        .text
+    )
 
 logged_model = mlflow.last_logged_model()
 traces = mlflow.search_traces(model_id=logged_model.model_id)
 print(traces)
 
-#                          request_id                                              trace   timestamp_ms  ...                                              spans                                               tags assessments
-# 0  c4922d6515004439ba6745506969c401  Trace(request_id=c4922d6515004439by6745506969c...  1742786913864  ...  [{'name': 'RunnableSequence', 'context': {'spa...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
-# 1  a6e4de782b5540f1af2f2661ba85abd2  Trace(request_id=a6e4de782b5540f1af2f2661by85a...  1742786909657  ...  [{'name': 'RunnableSequence', 'context': {'spa...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
-# 2  bc72367e96ae4e978e28594d5ce438e8  Trace(request_id=bc72367e96ae4e978e28594d5ce43...  1742786905377  ...  [{'name': 'RunnableSequence', 'context': {'spa...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
+#                          request_id                                              trace  ...                                               tags assessments
+# 0  56be163823ff457db4b30a97e704c709  Trace(request_id=56be163823ff457db4b30a97e704c...  ...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
+# 1  71b7dc5eafd7486b989712e428a96522  Trace(request_id=71b7dc5eafd7486b989712e428a96...  ...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
+# 2  68fa9c943dbc44df96da0b89611ed643  Trace(request_id=68fa9c943dbc44df96da0b89611ed...  ...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
 ```
 
 Check out the **Models** tab in the experiment to view the newly logged model.
@@ -106,7 +119,7 @@ from mlflow.entities import LoggedModelInput
 
 eval_df = pd.DataFrame(
     {
-        "messages": chain_inputs,
+        "messages": questions,
         "expected_response": [
             """MLflow Tracking is a key component of the MLflow platform designed to record and manage machine learning experiments. It enables data scientists and engineers to log parameters, code versions, metrics, and artifacts in a systematic way, facilitating experiment tracking and reproducibility.\n\nHow It Works:\n\nAt the heart of MLflow Tracking is the concept of a run, which is an execution of a machine learning code. Each run can log the following:\n\nParameters: Input variables or hyperparameters used in the model (e.g., learning rate, number of trees). Metrics: Quantitative measures to evaluate the model's performance (e.g., accuracy, loss). Artifacts: Output files like models, datasets, or images generated during the run. Source Code: The version of the code or Git commit hash used. These logs are stored in a tracking server, which can be set up locally or on a remote server. The tracking server uses a backend storage (like a database or file system) to keep a record of all runs and their associated data.\n\n Users interact with MLflow Tracking through its APIs available in multiple languages (Python, R, Java, etc.). By invoking these APIs in the code, you can start and end runs, and log data as the experiment progresses. Additionally, MLflow offers autologging capabilities for popular machine learning libraries, automatically capturing relevant parameters and metrics without manual code changes.\n\nThe logged data can be visualized using the MLflow UI, a web-based interface that displays all experiments and runs. This UI allows you to compare runs side-by-side, filter results, and analyze performance metrics over time. It aids in identifying the best models and understanding the impact of different parameters.\n\nBy providing a structured way to record experiments, MLflow Tracking enhances collaboration among team members, ensures transparency, and makes it easier to reproduce results. It integrates seamlessly with other MLflow components like Projects and Model Registry, offering a comprehensive solution for managing the machine learning lifecycle.""",
             """Unity Catalog is a feature in Databricks that allows you to create a centralized inventory of your data assets, such as tables, views, and functions, and share them across different teams and projects. It enables easy discovery, collaboration, and reuse of data assets within your organization.\n\nWith Unity Catalog, you can:\n\n1. Create a single source of truth for your data assets: Unity Catalog acts as a central repository of all your data assets, making it easier to find and access the data you need.\n2. Improve collaboration: By providing a shared inventory of data assets, Unity Catalog enables data scientists, engineers, and other stakeholders to collaborate more effectively.\n3. Foster reuse of data assets: Unity Catalog encourages the reuse of existing data assets, reducing the need to create new assets from scratch and improving overall efficiency.\n4. Enhance data governance: Unity Catalog provides a clear view of data assets, enabling better data governance and compliance.\n\nUnity Catalog is particularly useful in large organizations where data is scattered across different teams, projects, and environments. It helps create a unified view of data assets, making it easier to work with data across different teams and projects.""",
@@ -133,17 +146,17 @@ with mlflow.start_run() as evaluation_run:
         model_type="question-answering",
         extra_metrics=[
             mlflow.metrics.latency(),
-            mlflow.metrics.genai.answer_correctness("openai:/gpt-4o-mini"),
+            mlflow.metrics.genai.answer_correctness("openai:/gpt-4o"),
         ],
         # This is needed since answer_correctness looks for 'inputs' field
         evaluator_config={"col_mapping": {"inputs": "messages"}},
     )
 
 print(result.tables["eval_results_table"])
-#                                         messages                                  expected_response  ... answer_correctness/v1/score                answer_correctness/v1/justification
-# 0  What is MLflow Tracking and how does it work?  MLflow Tracking is a key component of the MLfl...  ...                           5  The output accurately describes MLflow Trackin...
-# 1                         What is Unity Catalog?  Unity Catalog is a feature in Databricks that ...  ...                           5  The output accurately describes Unity Catalog ...
-# 2        What are user-defined functions (UDFs)?  User-defined functions (UDFs) in the context o...  ...                           5  The output accurately describes user-defined f...
+#                                         messages  ...                answer_correctness/v1/justification
+# 0  What is MLflow Tracking and how does it work?  ...  The output is mostly correct, providing accura...
+# 1                         What is Unity Catalog?  ...  The output is completely incorrect as it descr...
+# 2        What are user-defined functions (UDFs)?  ...  The output provides a general definition of us...
 ```
 Navigating to the evaluation run, you can see the metrics and their details displayed in the MLflow UI. This includes metrics like latency and answer correctness, providing insights into the model's performance.
 

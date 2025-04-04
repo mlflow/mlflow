@@ -66,9 +66,7 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                     new_config = {
                         k: False if k.startswith("log_") else v for k, v in original_config.items()
                     }
-                    # log_models needs to be disabled
-                    # so we don't init LoggedModels during eval for some GenAI flavors
-                    new_config |= {"log_traces": True, "silent": True, "log_models": False}
+                    new_config |= {"log_traces": True, "silent": True}
                     _kwargs_safe_invoke(autolog, new_config)
 
                     global _SHOWN_TRACE_MESSAGE_BEFORE

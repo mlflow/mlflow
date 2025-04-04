@@ -92,19 +92,21 @@ with mlflow.start_run() as run:
 
         # Log a checkpoint with metrics every 10 epochs
         if epoch % 10 == 0:
-            # Each newly created LoggedModel checkpoint is linked with its
-            # name, params, and step
+            # Each newly created LoggedModel checkpoint is linked with its name and step
             model_info = mlflow.pytorch.log_model(
                 pytorch_model=scripted_model,
                 name=f"torch-iris-{epoch}",
+                step=epoch,
+                input_example=X_train.numpy(),
+            )
+            # log params to the run, LoggedModel inherits those params
+            mlflow.log_params(
                 params={
                     "n_layers": 3,
                     "activation": "ReLU",
                     "criterion": "CrossEntropyLoss",
                     "optimizer": "Adam",
-                },
-                step=epoch,
-                input_example=X_train.numpy(),
+                }
             )
             # Log metric on training dataset at step and link to LoggedModel
             mlflow.log_metric(
@@ -141,27 +143,24 @@ best_checkpoint = ranked_checkpoints[0]
 print(f"Best model: {best_checkpoint}")
 print(best_checkpoint.metrics)
 
-# Best model: <LoggedModel: artifact_location='file:///Users/serena.ruan/Documents/repos/mlflow-3-doc/mlruns/0/models/b8dd0434-ab8f-4c88-a8a8-b03db8d369e3/artifacts', creation_timestamp=1743498164146, experiment_id='0', last_updated_timestamp=1743498169558, metrics=[<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='b8dd0434-ab8f-4c88-a8a8-b03db8d369e3', run_id='952b7560796c4897b220ecd4148ce9ef', step=100, timestamp=1743498169567, value=0.975>], model_id='b8dd0434-ab8f-4c88-a8a8-b03db8d369e3', model_type=None, model_uri='models:/b8dd0434-ab8f-4c88-a8a8-b03db8d369e3', name='torch-iris-100', params={'activation': 'ReLU',
+# Best model: <LoggedModel: artifact_location='file:///Users/serena.ruan/Documents/repos/mlflow-3-doc/mlruns/0/models/41bd5a16-25a6-447b-90e0-0f7b7e5cb6cf/artifacts', creation_timestamp=1743734069924, experiment_id='0', last_updated_timestamp=1743734075018, metrics=[<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='41bd5a16-25a6-447b-90e0-0f7b7e5cb6cf', run_id='12f143a7fda1461e9240d7ffad4ea5bd', step=100, timestamp=1743734075029, value=0.975>], model_id='41bd5a16-25a6-447b-90e0-0f7b7e5cb6cf', model_type='', model_uri='models:/41bd5a16-25a6-447b-90e0-0f7b7e5cb6cf', name='torch-iris-100', params={'activation': 'ReLU',
 #  'criterion': 'CrossEntropyLoss',
 #  'n_layers': '3',
-#  'optimizer': 'Adam'}, source_run_id='952b7560796c4897b220ecd4148ce9ef', status=<LoggedModelStatus.READY: 'READY'>, status_message=None, tags={'mlflow.source.git.commit': 'e99cad7594da23ba9d852688718e3dafcd923db1',
+#  'optimizer': 'Adam'}, source_run_id='12f143a7fda1461e9240d7ffad4ea5bd', status=<LoggedModelStatus.READY: 'READY'>, status_message='', tags={'mlflow.source.git.commit': '7324c807f07a1766d4b951733e3d723504b4576e',
 #  'mlflow.source.name': 'a.py',
 #  'mlflow.source.type': 'LOCAL',
 #  'mlflow.user': 'serena.ruan'}>
-# [<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='b8dd0434-ab8f-4c88-a8a8-b03db8d369e3', run_id='952b7560796c4897b220ecd4148ce9ef', step=100, timestamp=1743498169567, value=0.975>]
+# [<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='41bd5a16-25a6-447b-90e0-0f7b7e5cb6cf', run_id='12f143a7fda1461e9240d7ffad4ea5bd', step=100, timestamp=1743734075029, value=0.975>]
 
 worst_checkpoint = ranked_checkpoints[-1]
 print(f"Worst model: {worst_checkpoint}")
 print(worst_checkpoint.metrics)
 
-# Worst model: <LoggedModel: artifact_location='file:///Users/serena.ruan/Documents/repos/mlflow-3-doc/mlruns/0/models/5f43bd61-7a62-45ee-bac5-bf6ea8d2a6c9/artifacts', creation_timestamp=1743498110245, experiment_id='0', last_updated_timestamp=1743498116621, metrics=[<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='5f43bd61-7a62-45ee-bac5-bf6ea8d2a6c9', run_id='952b7560796c4897b220ecd4148ce9ef', step=0, timestamp=1743498116631, value=0.325>], model_id='5f43bd61-7a62-45ee-bac5-bf6ea8d2a6c9', model_type=None, model_uri='models:/5f43bd61-7a62-45ee-bac5-bf6ea8d2a6c9', name='torch-iris-0', params={'activation': 'ReLU',
-#  'criterion': 'CrossEntropyLoss',
-#  'n_layers': '3',
-#  'optimizer': 'Adam'}, source_run_id='952b7560796c4897b220ecd4148ce9ef', status=<LoggedModelStatus.READY: 'READY'>, status_message=None, tags={'mlflow.source.git.commit': 'e99cad7594da23ba9d852688718e3dafcd923db1',
+# Worst model: <LoggedModel: artifact_location='file:///Users/serena.ruan/Documents/repos/mlflow-3-doc/mlruns/0/models/0d789084-9a3b-4b85-9d43-6a148c014b7e/artifacts', creation_timestamp=1743734016290, experiment_id='0', last_updated_timestamp=1743734022728, metrics=[<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='0d789084-9a3b-4b85-9d43-6a148c014b7e', run_id='12f143a7fda1461e9240d7ffad4ea5bd', step=0, timestamp=1743734022737, value=0.3>], model_id='0d789084-9a3b-4b85-9d43-6a148c014b7e', model_type='', model_uri='models:/0d789084-9a3b-4b85-9d43-6a148c014b7e', name='torch-iris-0', params={}, source_run_id='12f143a7fda1461e9240d7ffad4ea5bd', status=<LoggedModelStatus.READY: 'READY'>, status_message='', tags={'mlflow.source.git.commit': '7324c807f07a1766d4b951733e3d723504b4576e',
 #  'mlflow.source.name': 'a.py',
 #  'mlflow.source.type': 'LOCAL',
 #  'mlflow.user': 'serena.ruan'}>
-# [<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='5f43bd61-7a62-45ee-bac5-bf6ea8d2a6c9', run_id='952b7560796c4897b220ecd4148ce9ef', step=0, timestamp=1743498116631, value=0.325>]
+# [<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='0d789084-9a3b-4b85-9d43-6a148c014b7e', run_id='12f143a7fda1461e9240d7ffad4ea5bd', step=0, timestamp=1743734022737, value=0.3>]
 ```
 
 Artifacts of the model can be viewed on the **Artifacts** tab of the model page:

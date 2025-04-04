@@ -8,7 +8,7 @@ import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
 import { CardGroup, PageCard } from "@site/src/components/Card";
 
-# MLflow 3.0
+# MLflow 3.0 (Preview)
 
 Discover the next generation of MLflow, designed to streamline your AI experimentation and accelerate your journey from idea to production. MLflow 3.0 brings cutting-edge support for GenAI workflows, enabling seamless integration of generative AI models into your projects.
 
@@ -44,32 +44,81 @@ Specifically, you will be able to:
 
 ### Quickstart
 
-This quickstart example demonstrates how to use the LoggedModel lineage feature in MLflow 3.0 with a custom Python model, showcasing its integration with runs and traces.
+This quickstart example demonstrates how to use the LoggedModel lineage feature in MLflow 3.0 with openai sdk, showcasing its integration with runs and traces.
+
+Prerequisite: ``pip install mlflow==3.0.0.rc0 openai``
 
 ```python
+from openai import OpenAI
+
 import mlflow
+from mlflow.metrics.genai import answer_correctness, answer_similarity, faithfulness
 
+# turn on autologging for automatic tracing
+mlflow.openai.autolog()
 
-class MyModel(mlflow.pyfunc.PythonModel):
-    @mlflow.trace
-    def predict(self, model_input: list[str]):
-        return ",".join(model_input)
+client = OpenAI()
 
+mlflow_ground_truth = (
+    "MLflow is an open-source platform for managing "
+    "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
+    "a company that specializes in big data and machine learning solutions. MLflow is "
+    "designed to address the challenges that data scientists and machine learning "
+    "engineers face when developing, training, and deploying machine learning models."
+)
+# Define evaluation metrics
+metrics = {
+    "answer_similarity": answer_similarity(model="openai:/gpt-4o"),
+    "answer_correctness": answer_correctness(model="openai:/gpt-4o"),
+    "faithfulness": faithfulness(model="openai:/gpt-4o"),
+}
+question = "What is MLflow?"
 
 with mlflow.start_run():
-    model_info = mlflow.pyfunc.log_model(
-        python_model=MyModel(), name="my_model", input_example=["a", "b", "c"]
+    response = (
+        client.chat.completions.create(
+            messages=[{"role": "user", "content": question}],
+            model="gpt-4o-mini",
+            temperature=0.1,
+            max_tokens=2000,
+        )
+        .choices[0]
+        .message.content
     )
 
-print(f"LoggedModel model id: {model_info.model_id}")
+    # Calculate metrics based on the input, response and ground truth
+    # The evaluation metrics are callables that can be invoked directly
+    answer_similarity_score = metrics["answer_similarity"](
+        predictions=response, inputs=question, targets=mlflow_ground_truth
+    ).scores[0]
+    answer_correctness_score = metrics["answer_correctness"](
+        predictions=response, inputs=question, targets=mlflow_ground_truth
+    ).scores[0]
+    faithfulness_score = metrics["faithfulness"](
+        predictions=response, inputs=question, context=mlflow_ground_truth
+    ).scores[0]
 
-pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-pyfunc_model.predict(["x", "y", "z"])
-traces = mlflow.search_traces(model_id=model_info.model_id)
+    # Fetch the LoggedModel that's automatically created during autologging
+    logged_model = mlflow.last_logged_model()
+    # Log metrics and pass model_id to link the metrics
+    mlflow.log_metrics(
+        {
+            "answer_similarity": answer_similarity_score,
+            "answer_correctness": answer_correctness_score,
+            "faithfulness": faithfulness_score,
+        },
+        model_id=logged_model.model_id,
+    )
+
+
+print(f"LoggedModel model id: {logged_model.model_id}")
+# LoggedModel model id: a208e70b-e80b-4f8e-b210-20737faadd20
+
+traces = mlflow.search_traces(model_id=logged_model.model_id)
 print(traces)
-
-#                          request_id                                              trace   timestamp_ms  ...                                              spans                                               tags assessments
-# 0  af5da8c78a6f49c793f57ebb19dcb6c7  Trace(request_id=af5da8c78a6f49c793f57ebb19dcb...  1742781867233  ...  [{'name': 'predict', 'context': {'span_id': '0...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
+#                          request_id                                              trace  ...                                               tags assessments
+# 0  5882df1240cf4dbf845fdc9fa26c4168  Trace(request_id=5882df1240cf4dbf845fdc9fa26c4...  ...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
+# [1 rows x 11 columns]
 ```
 
 Navigate to the run's page to view the LoggedModel:
@@ -78,7 +127,7 @@ Navigate to the run's page to view the LoggedModel:
     ![The MLflow UI showing the run and logged model](/images/mlflow-3/simple_example_run_page.png)
 </div>
 
-Clicking on the logged model takes you to the model page, where you can view its details, including the model ID, source run, associated metrics, traces and artifacts:
+Clicking on the logged model takes you to the model page, where you can view its details, including the model ID, source run, associated parameters, metrics and traces:
 
 <div className="center-div" style={{ width: "100%" }}>
     ![The MLflow UI showing the logged model](/images/mlflow-3/simple_example_model.png)
@@ -86,10 +135,6 @@ Clicking on the logged model takes you to the model page, where you can view its
 <div className="center-div" style={{ width: "100%" }}>
     ![The MLflow UI showing the logged model traces](/images/mlflow-3/simple_example_traces.png)
 </div>
-<div className="center-div" style={{ width: "100%" }}>
-    ![The MLflow UI showing the logged model artifacts](/images/mlflow-3/simple_example_artifacts.png)
-</div>
-
 
 ## MLflow 3.0 Showcases
 
