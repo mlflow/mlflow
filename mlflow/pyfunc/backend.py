@@ -107,7 +107,8 @@ class PyFuncBackend(FlavorBackend):
         self._environment = None
 
     def prepare_env(
-        self, model_uri, capture_output=False, pip_requirements_override=None, extra_envs=None
+        self, model_uri, capture_output=False, pip_requirements_override=None, extra_envs=None,
+        forbid_env_creation=False,
     ):
         if self._environment is not None:
             return self._environment
@@ -140,6 +141,7 @@ class PyFuncBackend(FlavorBackend):
                 capture_output=capture_output,
                 pip_requirements_override=pip_requirements_override,
                 env_manager=self._env_manager,
+                forbid_env_creation=forbid_env_creation,
             )
             self._environment = Environment(activate_cmd, extra_env=extra_envs)
         elif self._env_manager == em.CONDA:

@@ -248,6 +248,7 @@ def _create_virtualenv(
     extra_env: Optional[dict[str, str]] = None,
     capture_output: bool = False,
     pip_requirements_override: Optional[list[str]] = None,
+    forbid_env_creation=False,
 ):
     if env_manager not in {em.VIRTUALENV, em.UV}:
         raise MlflowException.invalid_parameter_value(
@@ -259,6 +260,9 @@ def _create_virtualenv(
     if env_dir.exists():
         _logger.info(f"Environment {env_dir} already exists")
         return activate_cmd
+
+    if forbid_env_creation:
+        raise MlflowException("Loading prepared env failed!")
 
     if env_manager == em.VIRTUALENV:
         python_bin_path = _install_python(
@@ -378,6 +382,7 @@ def _get_or_create_virtualenv(  # noqa: D417
     capture_output=False,
     pip_requirements_override: Optional[list[str]] = None,
     env_manager: Literal["virtualenv", "uv"] = em.UV,
+    forbid_env_creation=False,
 ):
     """Restores an MLflow model's environment in a virtual environment and returns a command
     to activate it.
@@ -440,4 +445,5 @@ def _get_or_create_virtualenv(  # noqa: D417
         extra_env=extra_env,
         capture_output=capture_output,
         pip_requirements_override=pip_requirements_override,
+        forbid_env_creation=forbid_env_creation,
     )
