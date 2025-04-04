@@ -28,6 +28,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.logged_model import LoggedModel
+from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
@@ -919,6 +920,7 @@ def _log_inputs():
         schema={
             "run_id": [_assert_required, _assert_string],
             "datasets": [_assert_array],
+            "models": [_assert_array],
         },
     )
     run_id = request_message.run_id
@@ -926,8 +928,16 @@ def _log_inputs():
         DatasetInput.from_proto(proto_dataset_input)
         for proto_dataset_input in request_message.datasets
     ]
+    models = (
+        [
+            LoggedModelInput.from_proto(proto_logged_model_input)
+            for proto_logged_model_input in request_message.models
+        ]
+        if request_message.models
+        else None
+    )
 
-    _get_tracking_store().log_inputs(run_id, datasets=datasets)
+    _get_tracking_store().log_inputs(run_id, datasets=datasets, models=models)
     response_message = LogInputs.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
