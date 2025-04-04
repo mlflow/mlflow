@@ -6,6 +6,7 @@ from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.deployments import get_deploy_client
 from mlflow.tracing.destination import TraceDestination
+from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 _logger = logging.getLogger(__name__)

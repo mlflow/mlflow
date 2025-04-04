@@ -122,6 +122,9 @@ def test_export(experiment_id, timeout, monkeypatch):
         },
     }
 
+    # Last active trace ID should be set
+    assert mlflow.get_last_active_trace_id() == trace_id
+
 
 def test_export_catch_failure(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")

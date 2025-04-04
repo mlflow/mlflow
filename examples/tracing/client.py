@@ -73,8 +73,9 @@ def run(x: int, y: int) -> int:
 
 assert run(1, 2) == 10
 
-# Retrieve the trace just created using get_last_active_trace() API.
-trace = mlflow.get_last_active_trace()
+# Retrieve the trace just created using get_last_active_trace_id() API.
+trace_id = mlflow.get_last_active_trace_id()
+trace = client.get_trace(trace_id)
 
 # Alternatively, you can use search_traces() API
 # to retrieve the traces from the tracking server.
