@@ -105,6 +105,10 @@ def test_log_model_finalizes_existing_pending_model():
     assert updated_model.status == LoggedModelStatus.READY
 
 
+def test_log_model_permits_logging_model_artifacts_to_external_models(tmp_path):
+    pass
+
+
 def test_log_model_does_not_update_artifacts_or_status_for_finalized_models(tmp_path):
     model = mlflow.create_external_model(name="testmodel")
     assert model.status == LoggedModelStatus.READY
