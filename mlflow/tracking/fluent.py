@@ -1213,7 +1213,7 @@ def log_inputs(
     datasets: list[Optional[Dataset]],
     contexts: list[Optional[str]],
     tags_list: list[Optional[dict[str, str]]],
-    models: list[Optional[LoggedModelInput]],
+    models: list[Optional[LoggedModelInput]] = None,
 ) -> None:
     """
     Log a batch of datasets used in the current run.
@@ -1228,8 +1228,8 @@ def log_inputs(
             This will be set as an input tag with key `mlflow.data.context`.
         tags_list: List of tags to be associated with the dataset. Dictionary of
             tag_key -> tag_value.
-        models: List of :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input
-            to the run.
+        models: List of :py:class:`mlflow.entities.LoggedModelInput` instance to log as input
+            to the run. Currently only Databricks managed MLflow supports this argument.
 
     .. code-block:: python
         :test:
@@ -1270,7 +1270,7 @@ def log_inputs(
             "non-empty list and have the same length."
         )
 
-    if not is_databricks_uri(mlflow.get_tracking_uri()):
+    if models and not is_databricks_uri(mlflow.get_tracking_uri()):
         raise MlflowException("'models' argument is not supported by open-sourced MLflow.")
 
     dataset_inputs = []
