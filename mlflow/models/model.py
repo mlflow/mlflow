@@ -47,6 +47,7 @@ from mlflow.utils.environment import (
     _write_requirements_to_file,
 )
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.uri import (
     append_to_uri_path,
     get_uri_scheme,
@@ -977,7 +978,8 @@ class Model:
                     else None,
                 )
 
-            if LoggedModelStatus.is_finalized(model.status):
+            model_is_external = model.tags.get(MLFLOW_MODEL_IS_EXTERNAL, "false").lower() == "true"
+            if LoggedModelStatus.is_finalized(model.status) and model_is_external:
                 raise MlflowException(
                     f"Model with id {model.model_id} has the status '{model.status}', "
                     f"so its artifacts cannot be modified.",
@@ -1076,6 +1078,8 @@ class Model:
                 )
             mlflow_model.env_vars = env_vars
             client.log_model_artifacts(model.model_id, local_path)
+            if model_is_external:
+                client.delete_logged_model_tag(model.model_id, MLFLOW_MODEL_IS_EXTERNAL)
             client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
             # Associate prompts to the model Run
