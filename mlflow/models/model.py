@@ -979,7 +979,7 @@ class Model:
                 )
 
             model_is_external = model.tags.get(MLFLOW_MODEL_IS_EXTERNAL, "false").lower() == "true"
-            if LoggedModelStatus.is_finalized(model.status) and model_is_external:
+            if LoggedModelStatus.is_finalized(model.status) and not model_is_external:
                 raise MlflowException(
                     f"Model with id {model.model_id} has the status '{model.status}', "
                     f"so its artifacts cannot be modified.",

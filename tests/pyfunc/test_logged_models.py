@@ -7,7 +7,9 @@ import pytest
 import mlflow
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.exceptions import MlflowException
+from mlflow.models import Model
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 
 
 class DummyModel(mlflow.pyfunc.PythonModel):
@@ -106,18 +108,45 @@ def test_log_model_finalizes_existing_pending_model():
 
 
 def test_log_model_permits_logging_model_artifacts_to_external_models(tmp_path):
-    pass
+    model = mlflow.create_external_model(name="testmodel")
+    assert model.status == LoggedModelStatus.READY
+    assert model.tags.get(MLFLOW_MODEL_IS_EXTERNAL) == "true"
+    dst_dir_1 = os.path.join(tmp_path, "dst_1")
+    mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=dst_dir_1)
+    mlflow_model: Model = Model.load(os.path.join(dst_dir_1, "MLmodel"))
+
+    mlflow.pyfunc.log_model(python_model=DummyModel(), model_id=model.model_id)
+
+    # Verify that the model can now be loaded and is no longer tagged as external
+    mlflow.pyfunc.load_model(f"models:/{model.model_id}")
+    assert MLFLOW_MODEL_IS_EXTERNAL not in mlflow.get_logged_model(model.model_id).tags
+    dst_dir_2 = os.path.join(tmp_path, "dst_2")
+    mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=dst_dir_2)
+    mlflow_model = Model.load(os.path.join(dst_dir_2, "MLmodel"))
+    assert MLFLOW_MODEL_IS_EXTERNAL not in (mlflow_model.metadata or {})
 
 
 def test_log_model_does_not_update_artifacts_or_status_for_finalized_models(tmp_path):
-    model = mlflow.create_external_model(name="testmodel")
+    model_id = mlflow.pyfunc.log_model(python_model=DummyModel()).model_id
+    model = mlflow.get_logged_model(model_id)
     assert model.status == LoggedModelStatus.READY
     dst_dir_1 = os.path.join(tmp_path, "dst_1")
     mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=dst_dir_1)
     model_artifacts = set(os.listdir(dst_dir_1))
 
+    extra_model_artifact_path = os.path.join(tmp_path, "extra_artifact")
+    with open(extra_model_artifact_path, "w") as f:
+        f.write("foo")
     with pytest.raises(MlflowException, match="artifacts cannot be modified"):
-        mlflow.pyfunc.log_model(python_model=DummyModel(), model_id=model.model_id)
+        mlflow.pyfunc.log_model(
+            python_model=DummyModel(),
+            model_id=model_id,
+            # Add extra artifacts to the second pyfunc model directory, allowing us to verify that
+            # they are *not* logged when the model is rejected due to already being finalized
+            artifacts={
+                "extra_artifact": extra_model_artifact_path,
+            },
+        )
 
     dst_dir_2 = os.path.join(tmp_path, "dst_2")
     mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=dst_dir_2)
