@@ -44,16 +44,18 @@ def model_path(tmp_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="langchain-databricks requires langchain >= 0.2.0",
+    Version(langchain.__version__) < Version("0.3.0"),
+    reason="databricks-langchain requires langchain >= 0.3.0",
 )
 def test_save_and_load_chat_databricks(model_path):
-    from langchain_databricks import ChatDatabricks
+    from databricks_langchain import ChatDatabricks
 
-    llm = ChatDatabricks(endpoint="databricks-meta-llama-3-70b-instruct")
+    llm = ChatDatabricks(model="databricks-meta-llama-3-70b-instruct")
     prompt = PromptTemplate.from_template("What is {product}?")
     chain = prompt | llm | StrOutputParser()
 
+    # mlflow.langchain.save_model(chain, path=model_path,
+    #     extra_pip_requirements=["databricks-langchain"])
     mlflow.langchain.save_model(chain, path=model_path)
 
     with model_path.joinpath("requirements.txt").open() as f:
@@ -69,8 +71,8 @@ def test_save_and_load_chat_databricks(model_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="langchain-databricks requires langchain >= 0.2.0",
+    Version(langchain.__version__) < Version("0.3.0"),
+    reason="databricks-langchain requires langchain >= 0.3.0",
 )
 def test_save_and_load_chat_databricks_legacy(model_path):
     # Test saving and loading the community version of ChatDatabricks

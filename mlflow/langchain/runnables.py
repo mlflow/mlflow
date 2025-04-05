@@ -57,6 +57,11 @@ def _load_model_from_config(path, model_config):
     from langchain.chains.loading import type_to_loader_dict as chains_type_to_loader_dict
     from langchain.llms import get_type_to_cls_dict as llms_get_type_to_cls_dict
 
+    warnings.warn("ROSHNI -- " + str(llms_get_type_to_cls_dict()["chat-databricks"]))
+    import inspect
+    code, line_no = inspect.getsourcelines(llms_get_type_to_cls_dict()["chat-databricks"])
+    warnings.warn("ROSHNICODE -- " + ''.join(code))
+
     try:
         from langchain.prompts.loading import type_to_loader_dict as prompts_types
     except ImportError:
@@ -73,6 +78,7 @@ def _load_model_from_config(path, model_config):
             f"Cannot load runnable without a config file. Got path {config_path}."
         )
     _type = config.get("_type")
+    warnings.warn("MALANI" + _type)
     if _type in chains_type_to_loader_dict:
         from langchain.chains.loading import load_chain
 
@@ -84,6 +90,14 @@ def _load_model_from_config(path, model_config):
     elif _type in llms_get_type_to_cls_dict():
         from langchain_community.llms.loading import load_llm
 
+        warnings.warn("ROSHNILOAD -- " + str(_patch_loader(load_llm)))
+        import inspect
+        code, line_no = inspect.getsourcelines(_patch_loader(load_llm))
+        warnings.warn("ROSHNILODECODE -- " + ''.join(code))
+        warnings.warn("ROSHNILOADCONFIG -- " + str(_patch_loader(load_llm)(config_path)))
+        warnings.warn("MALANITEST -- " + str(llms_get_type_to_cls_dict()[_type]))
+        code, line_no = inspect.getsourcelines(llms_get_type_to_cls_dict()[_type])
+        warnings.warn("MALANITEST -- " + ''.join(code))
         return _patch_loader(load_llm)(config_path)
     elif _type in custom_type_to_loader_dict():
         return custom_type_to_loader_dict()[_type](config)
@@ -269,6 +283,7 @@ def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
             _load_model_from_config(path, conf)
         else:
             raise Exception("Cannot save runnable without `save` or `dict` methods.")
+    warnings.warn("ROSHNIMALANI -- " + str(conf))
     return conf
 
 
