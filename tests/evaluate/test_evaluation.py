@@ -2145,3 +2145,114 @@ def test_env_manager_set_on_served_pyfunc_model(multiclass_logistic_regressor_mo
     served_model_1 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=1)
     served_model_1.env_manager = "virtualenv"
     assert served_model_1.env_manager == "virtualenv"
+
+
+def test_evaluate_with_model_id(multiclass_logistic_regressor_model_uri, iris_dataset):
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
+    ):
+        evaluator1_config = {"eval1_confg_a": 3, "eval1_confg_b": 4}
+        evaluator1_return_value = EvaluationResult(
+            metrics={"m1": 5, "m2": 6},
+            artifacts={"a1": FakeArtifact1(uri="uri1"), "a2": FakeArtifact2(uri="uri2")},
+        )
+        with (
+            mock.patch.object(FakeEvaluator1, "can_evaluate", return_value=True),
+            mock.patch.object(
+                FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
+            ) as mock_evaluate,
+        ):
+            with mlflow.start_run() as run:
+                specified_model_id = "custom_model_id_123"
+                result = evaluate(
+                    multiclass_logistic_regressor_model_uri,
+                    iris_dataset._constructor_args["data"],
+                    model_type="classifier",
+                    targets=iris_dataset._constructor_args["targets"],
+                    evaluators="test_evaluator1",
+                    evaluator_config=evaluator1_config,
+                    model_id=specified_model_id,
+                )
+                assert result.metrics == evaluator1_return_value.metrics
+                assert result.artifacts == evaluator1_return_value.artifacts
+
+                mock_evaluate.assert_called_once_with(
+                    model=PyFuncModelMatcher(),
+                    model_type="classifier",
+                    model_id=specified_model_id,  # Should use specified model_id
+                    dataset=iris_dataset,
+                    run_id=run.info.run_id,
+                    evaluator_config=evaluator1_config,
+                    custom_metrics=None,
+                    extra_metrics=None,
+                    custom_artifacts=None,
+                    predictions=None,
+                )
+
+
+def test_evaluate_model_id_precedence(multiclass_logistic_regressor_model_uri, iris_dataset):
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
+    ):
+        evaluator1_config = {"eval1_confg_a": 3, "eval1_confg_b": 4}
+        evaluator1_return_value = EvaluationResult(
+            metrics={"m1": 5, "m2": 6},
+            artifacts={"a1": FakeArtifact1(uri="uri1"), "a2": FakeArtifact2(uri="uri2")},
+        )
+        with (
+            mock.patch.object(FakeEvaluator1, "can_evaluate", return_value=True),
+            mock.patch.object(
+                FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
+            ) as mock_evaluate,
+        ):
+            with mlflow.start_run() as run:
+                # First test with model URI - specified model_id should take precedence
+                specified_model_id = "custom_model_id_123"
+                evaluate(
+                    multiclass_logistic_regressor_model_uri,
+                    iris_dataset._constructor_args["data"],
+                    model_type="classifier",
+                    targets=iris_dataset._constructor_args["targets"],
+                    evaluators="test_evaluator1",
+                    evaluator_config=evaluator1_config,
+                    model_id=specified_model_id,
+                )
+                mock_evaluate.assert_called_once_with(
+                    model=PyFuncModelMatcher(),
+                    model_type="classifier",
+                    model_id=specified_model_id,  # Should use specified model_id
+                    dataset=iris_dataset,
+                    run_id=run.info.run_id,
+                    evaluator_config=evaluator1_config,
+                    custom_metrics=None,
+                    extra_metrics=None,
+                    custom_artifacts=None,
+                    predictions=None,
+                )
+
+                # Reset mock
+                mock_evaluate.reset_mock()
+
+                # Now test with PyFuncModel - specified model_id should take precedence
+                model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+                evaluate(
+                    model,
+                    iris_dataset._constructor_args["data"],
+                    model_type="classifier",
+                    targets=iris_dataset._constructor_args["targets"],
+                    evaluators="test_evaluator1",
+                    evaluator_config=evaluator1_config,
+                    model_id=specified_model_id,
+                )
+                mock_evaluate.assert_called_once_with(
+                    model=PyFuncModelMatcher(),
+                    model_type="classifier",
+                    model_id=specified_model_id,  # Should use specified model_id
+                    dataset=iris_dataset,
+                    run_id=run.info.run_id,
+                    evaluator_config=evaluator1_config,
+                    custom_metrics=None,
+                    extra_metrics=None,
+                    custom_artifacts=None,
+                    predictions=None,
+                )

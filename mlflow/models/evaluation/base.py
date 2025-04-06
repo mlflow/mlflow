@@ -1116,6 +1116,7 @@ def evaluate(  # noqa: D417
     model_config=None,
     baseline_config=None,
     inference_params=None,
+    model_id=None,
 ):
     '''
     Evaluate the model performance on given data and selected metrics.
@@ -1682,6 +1683,8 @@ def evaluate(  # noqa: D417
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    # If model_id is specified, it takes precedence over any model_id derived from the model
+    specified_model_id = model_id
     model_id = None
     if isinstance(model, str):
         model_id = _parse_model_id_if_present(model)
@@ -1715,6 +1718,9 @@ def evaluate(  # noqa: D417
             "a function, or None.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+    # Use specified model_id if provided, otherwise use derived model_id
+    model_id = specified_model_id if specified_model_id is not None else model_id
 
     evaluators: list[EvaluatorBundle] = resolve_evaluators_and_configs(
         evaluators, evaluator_config, model_type
