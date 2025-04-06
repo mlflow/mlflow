@@ -4,7 +4,6 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.dspy.save import FLAVOR_NAME
-from mlflow.entities import LoggedModelStatus
 from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import construct_full_inputs
@@ -93,7 +92,6 @@ def autolog(
             _MODEL_TRACKER.set_active_model_id(model_id)
         elif not _MODEL_TRACKER._is_active_model_id_set and log_models:
             logged_model = mlflow.create_external_model(name=self.__class__.__name__)
-            mlflow.finalize_logged_model(logged_model.model_id, LoggedModelStatus.READY)
             _MODEL_TRACKER.set(id(self), logged_model.model_id)
             _MODEL_TRACKER.set_active_model_id(logged_model.model_id)
         else:
