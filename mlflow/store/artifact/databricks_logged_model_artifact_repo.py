@@ -47,8 +47,8 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         model_id = m.group("model_id")
         relative_path = m.group("relative_path") or ""
         self.root_path = f"/Mlflow/Artifacts/{experiment_id}/LoggedModels/{model_id}{relative_path}"
-        self.databricks_artifact_repo = DatabricksArtifactRepository(artifact_uri)
         self.wc = WorkspaceClient(config=Config(enable_experimental_files_api_client=True))
+        self.databricks_artifact_repo = DatabricksArtifactRepository(artifact_uri)
 
     @property
     def files_api(self) -> FilesAPI:
