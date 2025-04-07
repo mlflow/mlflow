@@ -572,7 +572,8 @@ class SqlAlchemyStore(AbstractStore):
                 dataset_entity = dataset_sql.to_mlflow_entity()
                 dataset_input = DatasetInput(dataset=dataset_entity, tags=[])
                 dataset_inputs[dataset_uuid] = dataset_input
-            dataset_input.tags.append(tag_sql.to_mlflow_entity())
+            if tag_sql is not None:
+                dataset_input.tags.append(tag_sql.to_mlflow_entity())
         return [list(dataset_inputs_per_run[run_uuid].values()) for run_uuid in run_uuids]
 
     @staticmethod
