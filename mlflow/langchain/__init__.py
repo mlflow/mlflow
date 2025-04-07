@@ -1040,7 +1040,7 @@ def autolog(
                 "registered_model_name": registered_model_name,
                 "extra_tags": extra_tags,
             }.items()
-            if value is True or value is not None
+            if value not in [False, None]
         }
         if user_specified_args:
             color_warning(
