@@ -951,7 +951,7 @@ def _autolog(
     if log_models:
         color_warning(
             "The `log_models` parameter's behavior will be changed in a future release. "
-            "MLflow no longer log model artifacts automatically, use `mlflow.openai.log_model` "
+            "MLflow no longer logs model artifacts automatically, use `mlflow.openai.log_model` "
             "to log model artifacts manually if needed.",
             stacklevel=2,
             color="red",
