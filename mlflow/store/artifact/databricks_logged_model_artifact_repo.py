@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.config import Config
 from databricks.sdk.errors.platform import NotFound
 from databricks.sdk.service.files import FilesAPI
 
@@ -30,7 +31,6 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
 
     def __init__(self, artifact_uri: str) -> None:
         super().__init__(artifact_uri)
-        self.wc = WorkspaceClient()
         m = self._URI_REGEX.search(artifact_uri)
         if not m:
             raise MlflowException.invalid_parameter_value(
@@ -42,6 +42,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         relative_path = m.group("relative_path") or ""
         self.root_path = f"/Mlflow/Artifacts/{experiment_id}/LoggedModels/{model_id}{relative_path}"
         self.databricks_artifact_repo = DatabricksArtifactRepository(artifact_uri)
+        self.wc = WorkspaceClient(config=Config(enable_experimental_files_api_client=True))
 
     @property
     def files_api(self) -> FilesAPI:
