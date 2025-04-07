@@ -556,7 +556,7 @@ async def test_autolog_raw_response_stream(client):
     Version(openai.__version__) < Version("1.40"), reason="Requires OpenAI SDK >= 1.40"
 )
 @pytest.mark.asyncio
-async def test_structured_output(client):
+async def test_response_format(client):
     mlflow.openai.autolog()
 
     class Person(BaseModel):

@@ -89,9 +89,7 @@ def _parse_response_item(
     item: Union[str, dict[str, Any], BaseModel],
     past_messages: list[ChatMessage],
 ) -> list[ChatMessage]:
-    """
-    Translates Response API output into MLflow standard chat spec.
-    """
+    """Parse Response API output into MLflow standard chat messages"""
     if isinstance(item, BaseModel):
         item = item.model_dump()
 
