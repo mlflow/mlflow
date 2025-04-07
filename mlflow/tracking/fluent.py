@@ -1262,9 +1262,7 @@ def log_inputs(
     datasets = datasets or []
     contexts = contexts or []
     tags_list = tags_list or []
-    if not (
-        len(datasets) == len(contexts) == len(tags_list)
-    ):
+    if not (len(datasets) == len(contexts) == len(tags_list)):
         raise MlflowException(
             "`mlflow.log_inputs` requires `datasets`, `contexts`, `tags_list` to be "
             "non-empty list and have the same length."
