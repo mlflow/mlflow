@@ -61,15 +61,12 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
             return False
         return True
 
-    def path(self, artifact_path: str) -> str:
-        """
-        Construct the full path to the artifact, given the artifact's relative path.
-        """
+    def full_path(self, artifact_path: str) -> str:
         return f"{self.root_path}/{artifact_path}" if artifact_path else self.root_path
 
     def _log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
         with open(local_file, "rb") as f:
-            self.files_api.upload(self.path(artifact_path), f, overwrite=True)
+            self.files_api.upload(self.full_path(artifact_path), f, overwrite=True)
 
     def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
         try:
@@ -111,7 +108,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
     def _list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         file_infos: list[FileInfo] = []
 
-        dest_path = self.path(path)
+        dest_path = self.full_path(path)
         if not self._is_dir(dest_path):
             return file_infos
 
@@ -141,7 +138,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
             return self.databricks_artifact_repo.list_artifacts(path)
 
     def __download_file(self, remote_file_path: str, local_path: str) -> None:
-        download_resp = self.files_api.download(self.path(remote_file_path))
+        download_resp = self.files_api.download(self.full_path(remote_file_path))
         with open(local_path, "wb") as f:
             while chunk := download_resp.contents.read(10 * 1024 * 1024):
                 f.write(chunk)
