@@ -1,7 +1,7 @@
 import logging
 import posixpath
 import re
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
@@ -82,7 +82,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
             return self.databricks_artifact_repo.log_artifact(local_file, artifact_path)
 
     def _log_artifacts(self, local_dir: str, artifact_path: Optional[str] = None) -> None:
-        futures = []
+        futures: list[Future[None]] = []
         with ThreadPoolExecutor() as executor:
             for f in Path(local_dir).rglob("*"):
                 if f.is_file():
