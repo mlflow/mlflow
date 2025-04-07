@@ -249,7 +249,7 @@ async def completions_response_stream_choice_empty_text():
 @app.post("/completions")
 def completions(payload: CompletionsPayload):
     if payload.stream:
-        if ChatChunkVariant.EMPTY_CHOICES == payload.prompt:
+        if CompletionsChunkVariant.EMPTY_CHOICES == payload.prompt:
             content = (
                 f"data: {json.dumps(d)}\n\n"
                 async for d in completions_response_stream_empty_choices()
