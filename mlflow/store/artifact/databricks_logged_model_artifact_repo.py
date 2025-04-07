@@ -69,7 +69,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         try:
             self._log_artifact(local_file, artifact_path)
         except Exception:
-            _logger.info(
+            _logger.debug(
                 (
                     "Failed to log artifact using Databricks SDK, falling back to "
                     "DatabricksArtifactRepository"
@@ -93,7 +93,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         try:
             self._log_artifacts(local_dir, artifact_path)
         except Exception:
-            _logger.info(
+            _logger.debug(
                 (
                     "Failed to log artifacts using Databricks SDK, falling back to "
                     "DatabricksArtifactRepository"
@@ -125,7 +125,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         try:
             return self._list_artifacts(path)
         except Exception:
-            _logger.info(
+            _logger.debug(
                 (
                     "Failed to list artifacts using Databricks SDK, falling back to "
                     "DatabricksArtifactRepository"
@@ -144,7 +144,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         try:
             self.__download_file(remote_file_path, local_path)
         except Exception:
-            _logger.info(
+            _logger.debug(
                 (
                     "Failed to download file using Databricks SDK, falling back to "
                     "DatabricksArtifactRepository"
