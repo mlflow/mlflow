@@ -1163,7 +1163,7 @@ def _create_dataset_input(
         )
     tags_to_log = []
     if tags:
-        tags_to_log.extend([InputTag(key=key, value=value) for key, value in tags.items()])
+        tags_to_log = [InputTag(key=key, value=value) for key, value in tags.items()]
     if context:
         tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
 
@@ -1210,10 +1210,10 @@ def log_input(
 
 
 def log_inputs(
-    datasets: list[Optional[Dataset]],
-    contexts: list[Optional[str]],
-    tags_list: list[Optional[dict[str, str]]],
-    models: list[Optional[LoggedModelInput]] = None,
+    datasets: Optional[list[Optional[Dataset]]] = None,
+    contexts: Optional[list[Optional[str]]] = None,
+    tags_list: Optional[list[Optional[dict[str, str]]]] = None,
+    models: Optional[list[Optional[LoggedModelInput]]] = None,
 ) -> None:
     """
     Log a batch of datasets used in the current run.
@@ -1259,11 +1259,11 @@ def log_inputs(
 
     run_id = _get_or_start_run().info.run_id
 
+    datasets = datasets or []
+    contexts = contexts or []
+    tags_list = tags_list or []
     if not (
-        datasets is not None
-        and contexts is not None
-        and tags_list is not None
-        and len(datasets) == len(contexts) == len(tags_list)
+        len(datasets) == len(contexts) == len(tags_list)
     ):
         raise MlflowException(
             "`mlflow.log_inputs` requires `datasets`, `contexts`, `tags_list` to be "
@@ -1271,11 +1271,12 @@ def log_inputs(
         )
 
     if models and not is_databricks_uri(mlflow.get_tracking_uri()):
-        raise MlflowException("'models' argument is not supported by open-sourced MLflow.")
+        raise MlflowException("'models' argument is only supported by Databricks managed MLflow.")
 
-    dataset_inputs = []
-    for dataset, context, tags in zip(datasets, contexts, tags_list):
-        dataset_inputs.append(_create_dataset_input(dataset, context, tags))
+    dataset_inputs = [
+        _create_dataset_input(dataset, context, tags)
+        for dataset, context, tags in zip(datasets, contexts, tags_list)
+    ]
 
     MlflowClient().log_inputs(run_id=run_id, datasets=dataset_inputs, models=models)
 
