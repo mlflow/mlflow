@@ -139,17 +139,6 @@ class ResponseFunctionToolCall(Status):
     id: Optional[str] = None
 
 
-class Summary(BaseModel):
-    text: str
-    type: str = "summary_text"
-
-
-class ResponseReasoningItem(Status):
-    id: str
-    summary: list[Summary]
-    type: str = "reasoning"
-
-
 class OutputItem(BaseModel):
     model_config = ConfigDict(extra="allow")
     type: str
@@ -160,12 +149,11 @@ class OutputItem(BaseModel):
             ResponseOutputMessage(**self.model_dump_compat())
         elif self.type == "function_call":
             ResponseFunctionToolCall(**self.model_dump_compat())
-        elif self.type == "reasoning":
-            ResponseReasoningItem(**self.model_dump_compat())
         elif self.type not in {
             "file_search_call",
             "computer_call",
             "web_search_call",
+            "reasoning",
         }:
             warnings.warn(f"Invalid type: {self.type}.")
         return self
@@ -236,7 +224,7 @@ class ToolChoice(BaseModel):
 
     @model_validator(mode="after")
     def check_tool_choice(self) -> "ToolChoice":
-        if isinstance(self.tool_choice, str):
+        if self.tool_choice and isinstance(self.tool_choice, str):
             warnings.warn(f"Not validating tool choice: {self.tool_choice}")
         return self
 
@@ -248,13 +236,13 @@ class Reasoning(BaseModel):
 
     @model_validator(mode="after")
     def check_generate_summary(self) -> "Reasoning":
-        if self.generate_summary not in {"concise", "detailed"}:
+        if self.generate_summary and self.generate_summary not in {"concise", "detailed"}:
             raise ValueError(f"Invalid generate_summary: {self.generate_summary}")
         return self
 
     @model_validator(mode="after")
     def check_effort(self) -> "Reasoning":
-        if self.effort not in {"low", "medium", "high"}:
+        if self.effort and self.effort not in {"low", "medium", "high"}:
             raise ValueError(f"Invalid effort: {self.effort}")
         return self
 
@@ -340,19 +328,19 @@ class Response(Tools, Truncation, ToolChoice):
         if not self.output:
             raise ValueError("output must be a non-empty list")
         for output in self.output:
-            if isinstance(
-                output, (ResponseOutputMessage, ResponseFunctionToolCall, ResponseReasoningItem)
-            ):
-                continue
-            elif isinstance(output, dict):
-                if "type" not in output:
-                    raise ValueError("dict must have a type key")
-                if output["type"] not in {
-                    "file_search_call",
-                    "computer_call",
-                    "web_search_call",
-                }:
-                    raise ValueError(f"Invalid type: {output['type']}.")
+            OutputItem.model_validate(output)
+            # if isinstance(output, (ResponseOutputMessage, ResponseFunctionToolCall)):
+            #     continue
+            # elif isinstance(output, dict):
+            #     if "type" not in output:
+            #         raise ValueError("dict must have a type key")
+            #     if output["type"] not in {
+            #         "file_search_call",
+            #         "computer_call",
+            #         "web_search_call",
+            #         "reasoning",
+            #     }:
+            #         raise ValueError(f"Invalid type: {output['type']}.")
         return self
 
     @model_validator(mode="after")
@@ -471,20 +459,6 @@ class ResponseTextAnnotationDeltaEvent(BaseModel):
     item_id: str
     output_index: int
     type: str = "response.output_text.annotation.added"
-
-
-class ResponseFunctionCallArgumentsDeltaEvent(BaseModel):
-    delta: str
-    item_id: str
-    output_index: int
-    type: str = "response.function_call_arguments.delta"
-
-
-class ResponseFunctionCallArgumentsDoneEvent(BaseModel):
-    arguments: str
-    item_id: str
-    output_index: int
-    type: str = "response.function_call_arguments.done"
 
 
 class ResponseOutputItemAddedEvent(BaseModel):

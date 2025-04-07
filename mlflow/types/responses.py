@@ -14,8 +14,6 @@ from mlflow.types.responses_helpers import (
     ResponseContentPartAddedEvent,
     ResponseContentPartDoneEvent,
     ResponseErrorEvent,
-    ResponseFunctionCallArgumentsDeltaEvent,
-    ResponseFunctionCallArgumentsDoneEvent,
     ResponseFunctionToolCall,
     ResponseOutputItemAddedEvent,
     ResponseOutputItemDoneEvent,
@@ -96,10 +94,6 @@ class ResponsesStreamEvent(BaseModel):
             ResponseTextDoneEvent(**self.model_dump_compat())
         elif self.type == "response.output_text.annotation.added":
             ResponseTextAnnotationDeltaEvent(**self.model_dump_compat())
-        elif self.type == "response.function_call_arguments.delta":
-            ResponseFunctionCallArgumentsDeltaEvent(**self.model_dump_compat())
-        elif self.type == "response.function_call_arguments.done":
-            ResponseFunctionCallArgumentsDoneEvent(**self.model_dump_compat())
         elif self.type == "response.error":
             ResponseErrorEvent(**self.model_dump_compat())
         elif self.type == "response.completed":
@@ -114,6 +108,8 @@ class ResponsesStreamEvent(BaseModel):
             "response.content_part.done",
             "response.refusal.delta",
             "response.refusal.done",
+            "response.function_call_arguments.delta",
+            "response.function_call_arguments.done",
             "response.file_search_call.in_progress",
             "response.file_search_call.searching",
             "response.file_search_call.completed",
