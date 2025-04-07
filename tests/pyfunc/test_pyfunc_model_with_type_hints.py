@@ -1120,3 +1120,40 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
             pass
 
     assert mock_warning.call_count == 0
+
+
+def test_load_context_type_hint():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            self.context_loaded = True
+
+        def predict(self, model_input: list[str], params=None) -> list[str]:
+            assert getattr(self, "context_loaded", False), "load_context was not executed"
+            return model_input
+
+    input_example = ["Hello", "World"]
+    signature = infer_signature(input_example, input_example)
+
+    with mlflow.start_run() as run:
+        with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
+            mlflow.pyfunc.log_model(
+                "model",
+                python_model=MyModel(),
+                input_example=input_example,
+                signature=signature,
+            )
+        assert not any(
+            "Failed to run the predict function on input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
+        model_uri = f"runs:/{run.info.run_id}/model"
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+    underlying_model = pyfunc_model._model_impl.python_model
+    assert getattr(underlying_model, "context_loaded", False), (
+        "load_context was not called as expected."
+    )
+
+    new_data = ["New", "Data"]
+    prediction = pyfunc_model.predict(new_data)
+    assert prediction == new_data
