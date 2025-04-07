@@ -106,12 +106,11 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
             self.databricks_artifact_repo.log_artifacts(local_dir, artifact_path)
 
     def _list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
-        file_infos: list[FileInfo] = []
-
         dest_path = self.full_path(path)
         if not self._is_dir(dest_path):
-            return file_infos
+            return []
 
+        file_infos: list[FileInfo] = []
         for directory_entry in self.files_api.list_directory_contents(dest_path):
             relative_path = posixpath.relpath(directory_entry.path, self.root_path)
             file_infos.append(
