@@ -1,3 +1,4 @@
+import logging
 import posixpath
 import re
 from concurrent.futures import ThreadPoolExecutor
@@ -11,6 +12,9 @@ from databricks.sdk.service.files import FilesAPI
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+
+_logger = logging.getLogger(__name__)
 
 
 class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
@@ -37,6 +41,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         model_id = m.group("model_id")
         relative_path = m.group("relative_path") or ""
         self.root_path = f"/Mlflow/Artifacts/{experiment_id}/LoggedModels/{model_id}{relative_path}"
+        self.databricks_artifact_repo = DatabricksArtifactRepository(artifact_uri)
 
     @property
     def files_api(self) -> FilesAPI:
@@ -55,11 +60,25 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         """
         return f"{self.root_path}/{artifact_path}" if artifact_path else self.root_path
 
-    def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
+    def _log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
         with open(local_file, "rb") as f:
             self.files_api.upload(self.path(artifact_path), f, overwrite=True)
 
-    def log_artifacts(self, local_dir: str, artifact_path: Optional[str] = None) -> None:
+    def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
+        try:
+            self._log_artifact(local_file, artifact_path)
+        except Exception:
+            _logger.debug(
+                (
+                    "Failed to log artifact using Databricks SDK, falling back to "
+                    "DatabricksArtifactRepository"
+                ),
+                exc_info=True,
+            )
+            self.databricks_artifact_repo.log_artifact(local_file, artifact_path)
+            return self.databricks_artifact_repo.log_artifact(local_file, artifact_path)
+
+    def _log_artifacts(self, local_dir: str, artifact_path: Optional[str] = None) -> None:
         futures = []
         with ThreadPoolExecutor() as executor:
             for f in Path(local_dir).rglob("*"):
@@ -70,7 +89,20 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         for fut in futures:
             fut.result()
 
-    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def log_artifacts(self, local_dir, artifact_path=None):
+        try:
+            self._log_artifacts(local_dir, artifact_path)
+        except Exception:
+            _logger.debug(
+                (
+                    "Failed to log artifacts using Databricks SDK, falling back to "
+                    "DatabricksArtifactRepository"
+                ),
+                exc_info=True,
+            )
+            self.databricks_artifact_repo.log_artifacts(local_dir, artifact_path)
+
+    def _list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         file_infos: list[FileInfo] = []
 
         dest_path = self.path(path)
@@ -89,8 +121,35 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
 
         return sorted(file_infos, key=lambda f: f.path)
 
-    def _download_file(self, remote_file_path: str, local_path: str) -> None:
+    def _list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+        try:
+            return self._list_artifacts(path)
+        except Exception:
+            _logger.debug(
+                (
+                    "Failed to list artifacts using Databricks SDK, falling back to "
+                    "DatabricksArtifactRepository"
+                ),
+                exc_info=True,
+            )
+            return self.databricks_artifact_repo.list_artifacts(path)
+
+    def __download_file(self, remote_file_path: str, local_path: str) -> None:
         download_resp = self.files_api.download(self.path(remote_file_path))
         with open(local_path, "wb") as f:
             while chunk := download_resp.contents.read(10 * 1024 * 1024):
                 f.write(chunk)
+
+    def _download_file(self, remote_file_path: str, local_path: str) -> None:
+        try:
+            self.__download_file(remote_file_path, local_path)
+        except Exception:
+            _logger.debug(
+                (
+                    "Failed to download file using Databricks SDK, falling back to "
+                    "DatabricksArtifactRepository"
+                ),
+                exc_info=True,
+            )
+            self.databricks_artifact_repo.download_file(remote_file_path, local_path)
+            return self.databricks_artifact_repo.download_file(remote_file_path, local_path)
