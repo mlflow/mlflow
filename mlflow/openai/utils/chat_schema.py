@@ -165,7 +165,8 @@ def _parse_response_item(
         ]
 
     elif item_type == "reasoning":
-        return [ChatMessage(role="assistant", content=item["summary"][0]["text"])]
+        summary = item["summary"][0]["text"] if item["summary"] else None
+        return [ChatMessage(role="assistant", content=summary)]
 
     raise MlflowException(f"Unknown output type: {type(output)}")
 

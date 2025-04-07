@@ -296,7 +296,7 @@ def _log_optional_artifacts(
 
 def _start_span(mlflow_client: MlflowClient, instance: Any, inputs: dict[str, Any], run_id: str):
     # Record input parameters to attributes
-    attributes = {k: v for k, v in inputs.items() if k != "messages"}
+    attributes = {k: v for k, v in inputs.items() if k  not in ("messages", "input")}
 
     # If there is an active span, create a child span under it, otherwise create a new trace
     span = start_client_span_or_trace(
