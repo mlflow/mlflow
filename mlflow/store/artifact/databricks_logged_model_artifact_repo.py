@@ -26,7 +26,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
     )
 
     @staticmethod
-    def is_logged_model_uri(artifact_uri):
+    def is_logged_model_uri(artifact_uri: str) -> bool:
         return bool(DatabricksLoggedModelArtifactRepository._URI_REGEX.search(artifact_uri))
 
     def __init__(self, artifact_uri: str) -> None:
@@ -76,7 +76,6 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
                 ),
                 exc_info=True,
             )
-            self.databricks_artifact_repo.log_artifact(local_file, artifact_path)
             return self.databricks_artifact_repo.log_artifact(local_file, artifact_path)
 
     def _log_artifacts(self, local_dir: str, artifact_path: Optional[str] = None) -> None:
@@ -90,7 +89,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         for fut in futures:
             fut.result()
 
-    def log_artifacts(self, local_dir, artifact_path=None):
+    def log_artifacts(self, local_dir: str, artifact_path: Optional[str] = None) -> None:
         try:
             self._log_artifacts(local_dir, artifact_path)
         except Exception:
@@ -122,7 +121,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
 
         return sorted(file_infos, key=lambda f: f.path)
 
-    def _list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         try:
             return self._list_artifacts(path)
         except Exception:
@@ -153,4 +152,3 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
                 exc_info=True,
             )
             self.databricks_artifact_repo.download_file(remote_file_path, local_path)
-            return self.databricks_artifact_repo.download_file(remote_file_path, local_path)
