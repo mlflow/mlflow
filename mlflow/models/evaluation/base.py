@@ -1782,6 +1782,12 @@ def evaluate(  # noqa: D417
             if isinstance(model, _ServedPyFuncModel):
                 os.kill(model.pid, signal.SIGTERM)
 
+        # if model_id is specified log metrics to the eval run and logged model
+        if model_id is not None:
+            from mlflow import log_metrics
+
+            log_metrics(metrics=evaluate_result.metrics, dataset=data, model_id=model_id)
+
     # TODO: Remove this block in a future release when we
     # remove the deprecated arguments.
     if baseline_model is not None and validation_thresholds is not None:
