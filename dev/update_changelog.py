@@ -143,7 +143,7 @@ def main(prev_version, release_version, remote):
     author_to_prs = defaultdict(list)
     unlabelled_prs = []
     for pr in prs:
-        if pr.author in ["mlflow-automation", "mlflow-app[bot]"]:
+        if pr.author == "mlflow-app[bot]":
             continue
 
         if len(pr.release_note_labels) == 0:
