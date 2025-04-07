@@ -30,6 +30,7 @@ MLflow trace automatically captures the following information about OpenAI calls
 * Model name
 * Additional metadata such as `temperature`, `max_tokens`, if specified.
 * Function calling if returned in the response
+* Built-in tools such as web search, file search, computer use, etc.
 * Any exception if raised
 
 :::tip
@@ -52,7 +53,7 @@ MLflow supports automatic tracing for the following OpenAI APIs. To request supp
 
 |Normal|Function Calling|Web Search|File Search|Computer Use|Reasoning|Streaming|Async|Image|
 |:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
-|✅|✅|✅|✅|✅|✅|-|✅|-|
+|✅|✅|✅|✅|✅|✅|✅|✅|-|
 
 Responses API is supported since MLflow 2.22.0.
 
@@ -114,8 +115,7 @@ See [OpenAI Agents SDK Tracing](/tracing/integrations/openai-agent) for more det
     openai_client = openai.OpenAI()
 
     response = client.responses.create(
-        model="gpt-4o-mini",
-        input="What is the capital of France?"
+        model="gpt-4o-mini", input="What is the capital of France?"
     )
     ```
   </TabItem>
@@ -125,25 +125,49 @@ See [OpenAI Agents SDK Tracing](/tracing/integrations/openai-agent) for more det
 
 MLflow Tracing supports streaming API of the OpenAI SDK. With the same set up of auto tracing, MLflow automatically traces the streaming response and render the concatenated output in the span UI. The actual chunks in the response stream can be found in the `Event` tab as well.
 
-```python
-import openai
-import mlflow
+<Tabs>
+  <TabItem value="chat" label="Chat Completion API" default>
+    ```python
+    import openai
+    import mlflow
 
-# Enable trace logging
-mlflow.openai.autolog()
+    # Enable trace logging
+    mlflow.openai.autolog()
 
-client = openai.OpenAI()
+    client = openai.OpenAI()
 
-stream = client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[
-        {"role": "user", "content": "How fast would a glass of water freeze on Titan?"}
-    ],
-    stream=True,  # Enable streaming response
-)
-for chunk in stream:
-    print(chunk.choices[0].delta.content or "", end="")
-```
+    stream = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "user", "content": "How fast would a glass of water freeze on Titan?"}
+        ],
+        stream=True,  # Enable streaming response
+    )
+    for chunk in stream:
+        print(chunk.choices[0].delta.content or "", end="")
+    ```
+  </TabItem>
+  <TabItem value="responses" label="Responses API">
+    ```python
+    import openai
+    import mlflow
+
+    # Enable trace logging
+    mlflow.openai.autolog()
+
+    client = openai.OpenAI()
+
+    stream = client.responses.create(
+        model="gpt-4o-mini",
+        input="How fast would a glass of water freeze on Titan?",
+        stream=True,  # Enable streaming response
+    )
+    for event in stream:
+        print(event)
+    ```
+  </TabItem>
+</ Tabs>
+
 
 
 ## Async
@@ -182,8 +206,7 @@ MLflow Tracing supports asynchronous API of the OpenAI SDK since MLflow 2.21.0. 
     client = openai.AsyncOpenAI()
 
     response = await client.responses.create(
-        model="gpt-4o-mini",
-        input="How fast would a glass of water freeze on Titan?"
+        model="gpt-4o-mini", input="How fast would a glass of water freeze on Titan?"
     )
     ```
   </TabItem>
@@ -293,25 +316,31 @@ The following example implements a simple function calling agent using OpenAI Fu
     # Define the tool function. Decorate it with `@mlflow.trace` to create a span for its execution.
     @mlflow.trace(span_type=SpanType.TOOL)
     def get_weather(latitude, longitude):
-        response = requests.get(f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m")
+        response = requests.get(
+            f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m"
+        )
         data = response.json()
-        return data['current']['temperature_2m']
+        return data["current"]["temperature_2m"]
 
-    tools = [{
-        "type": "function",
-        "name": "get_weather",
-        "description": "Get current temperature for provided coordinates in celsius.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "latitude": {"type": "number"},
-                "longitude": {"type": "number"}
+
+    tools = [
+        {
+            "type": "function",
+            "name": "get_weather",
+            "description": "Get current temperature for provided coordinates in celsius.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "latitude": {"type": "number"},
+                    "longitude": {"type": "number"},
+                },
+                "required": ["latitude", "longitude"],
+                "additionalProperties": False,
             },
-            "required": ["latitude", "longitude"],
-            "additionalProperties": False
-        },
-        "strict": True
-    }]
+            "strict": True,
+        }
+    ]
+
 
     # Define a simple tool calling agent
     @mlflow.trace(span_type=SpanType.AGENT)
@@ -332,12 +361,13 @@ The following example implements a simple function calling agent using OpenAI Fu
 
         # Sent the tool results to the model and get a new response
         messages.append(tool_call)
-        messages.append({
-            "type": "function_call_output",
-            "call_id": tool_call.call_id,
-            "output": str(result)
-        })
-
+        messages.append(
+            {
+                "type": "function_call_output",
+                "call_id": tool_call.call_id,
+                "output": str(result),
+            }
+        )
 
         response = client.responses.create(
             model="gpt-4o-mini",
@@ -346,6 +376,7 @@ The following example implements a simple function calling agent using OpenAI Fu
         )
 
         return response.output[0].content[0].text
+
 
     # Run the tool calling agent
     question = "What's the weather like in Paris today?"

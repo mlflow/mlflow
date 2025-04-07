@@ -296,7 +296,7 @@ def _log_optional_artifacts(
 
 def _start_span(mlflow_client: MlflowClient, instance: Any, inputs: dict[str, Any], run_id: str):
     # Record input parameters to attributes
-    attributes = {k: v for k, v in inputs.items() if k  not in ("messages", "input")}
+    attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
 
     # If there is an active span, create a child span under it, otherwise create a new trace
     span = start_client_span_or_trace(
@@ -332,7 +332,8 @@ def _end_span_on_success(
             for i, chunk in enumerate(stream):
                 output.append(_process_chunk(span, i, chunk))
                 yield chunk
-            _end_span_on_success(mlflow_client, span, inputs, "".join(output))
+            output = chunk.response if _is_responses_final_event(chunk) else "".join(output)
+            _end_span_on_success(mlflow_client, span, inputs, output)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     elif isinstance(result, AsyncStream):
@@ -342,7 +343,8 @@ def _end_span_on_success(
             async for chunk in stream:
                 output.append(_process_chunk(span, len(output), chunk))
                 yield chunk
-            _end_span_on_success(mlflow_client, span, inputs, "".join(output))
+            output = chunk.response if _is_responses_final_event(chunk) else "".join(output)
+            _end_span_on_success(mlflow_client, span, inputs, output)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     else:
@@ -351,6 +353,15 @@ def _end_span_on_success(
             end_client_span_or_trace(mlflow_client, span, outputs=result)
         except Exception as e:
             _logger.warning(f"Encountered unexpected error when ending trace: {e}", exc_info=True)
+
+
+def _is_responses_final_event(chunk: Any) -> bool:
+    try:
+        from openai.types.responses import ResponseCompletedEvent
+
+        return isinstance(chunk, ResponseCompletedEvent)
+    except ImportError:
+        return False
 
 
 def _end_span_on_exception(mlflow_client: MlflowClient, span: LiveSpan, e: Exception):
