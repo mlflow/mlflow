@@ -1442,7 +1442,7 @@ def evaluate(  # noqa: D417
                     # other arguments if needed
                 )
         dataset_path: (Optional) The path where the data is stored. Must not contain double
-            quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
+            quotes (``"``). If specified, the path is logged to the ``mlflow.datasets``
             tag for lineage tracking purposes.
 
         feature_names: (Optional) A list. If the ``data`` argument is a numpy array or list,
@@ -1591,6 +1591,12 @@ def evaluate(  # noqa: D417
         inference_params: (Optional) A dictionary of inference parameters to be passed to the model
             when making predictions, such as ``{"max_tokens": 100}``. This is only used when
             the ``model`` is an MLflow Deployments endpoint URI e.g. ``"endpoints:/my-chat"``
+
+        model_id: (Optional) A string ID to associate with the model being evaluated. If specified,
+            this ID takes precedence over any model ID derived from the model (e.g., from a model
+            URI or PyFuncModel). All metrics computed by the evaluator will be linked to this model
+            ID. If not specified and the model has an associated model ID (e.g., from a model URI or
+            PyFuncModel), that ID will be used.
 
     Returns:
         An :py:class:`mlflow.models.EvaluationResult` instance containing
