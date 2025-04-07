@@ -26,7 +26,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
     )
 
     @staticmethod
-    def is_logged_model_uri(artifact_uri: str) -> bool:
+    def is_logged_model_uri(artifact_uri):
         return bool(DatabricksLoggedModelArtifactRepository._URI_REGEX.search(artifact_uri))
 
     def __init__(self, artifact_uri: str) -> None:
