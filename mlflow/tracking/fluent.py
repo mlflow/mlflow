@@ -2421,6 +2421,32 @@ def delete_run(run_id: str) -> None:
     MlflowClient().delete_run(run_id)
 
 
+def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
+    """
+    Set tags on the specified logged model.
+
+    Args:
+        model_id: ID of the model.
+        tags: Tags to set on the model.
+
+    Returns:
+        None
+    """
+    MlflowClient().set_logged_model_tags(model_id, tags)
+
+
+def delete_logged_model_tag(model_id: str, key: str) -> None:
+    """
+    Delete a tag from the specified logged model.
+
+    Args:
+        model_id: ID of the model.
+        key: Tag key to delete.
+
+    """
+    MlflowClient().delete_logged_model_tag(model_id, key)
+
+
 def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
     """
     Get the absolute URI of the specified artifact in the currently active run.

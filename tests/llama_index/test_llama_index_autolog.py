@@ -1,3 +1,4 @@
+import asyncio
 from unittest import mock
 
 import importlib_metadata
@@ -10,6 +11,7 @@ from llama_index.llms.openai import OpenAI
 from packaging.version import Version
 
 import mlflow
+from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
@@ -295,3 +297,124 @@ def test_autolog_link_traces_to_original_model_after_logging(single_index):
     model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
     assert model_id is not None
     assert span.inputs["str_or_query_bundle"] == f"Hello {model_id}"
+
+
+@pytest.mark.parametrize("is_async", [False, True])
+def test_autolog_create_logged_model_and_link_traces_index(single_index, is_async):
+    mlflow.llama_index.autolog()
+
+    with mlflow.start_run() as run:
+        engine = single_index.as_query_engine()
+        for _ in range(5):
+            if is_async:
+                asyncio.run(engine.aquery("Hello"))
+            else:
+                engine.query("Hello")
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    assert len(logged_models) == 1
+    logged_model = logged_models[0]
+    traces = get_traces()
+    assert len(traces) == 5
+    for i in range(5):
+        assert (
+            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+            == logged_model.model_id
+        )
+
+    with mlflow.start_run():
+        model_info = mlflow.llama_index.log_model(
+            single_index, "model", input_example="Hello", engine_type="query"
+        )
+    loaded_index = mlflow.llama_index.load_model(model_info.model_uri)
+    if is_async:
+        asyncio.run(loaded_index.as_query_engine().aquery("Hello"))
+        asyncio.run(loaded_index.as_chat_engine().achat("Hello"))
+        asyncio.run(loaded_index.as_retriever().aretrieve("Hello"))
+    else:
+        loaded_index.as_query_engine().query("Hello")
+        loaded_index.as_chat_engine().chat("Hello")
+        loaded_index.as_retriever().retrieve("Hello")
+    traces = get_traces()
+    assert len(traces) == 8
+    for i in range(3):
+        assert (
+            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
+        )
+    # This is required because settings contains OpenAIEmbedding, it might introduce
+    # some side effect on tracing when multiple tests run together
+    mlflow.llama_index.autolog(disable=True)
+
+
+@pytest.mark.parametrize("is_async", [True, False])
+def test_autolog_create_logged_model_and_link_traces_engine(single_index, is_async):
+    engine = single_index.as_query_engine()
+    mlflow.llama_index.autolog()
+
+    with mlflow.start_run() as run:
+        for _ in range(5):
+            if is_async:
+                asyncio.run(engine.aquery("Hello"))
+            else:
+                engine.query("Hello")
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    assert len(logged_models) == 1
+    logged_model = logged_models[0]
+    traces = get_traces()
+    assert len(traces) == 5
+    for i in range(5):
+        assert (
+            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+            == logged_model.model_id
+        )
+    # This is required because settings contains OpenAIEmbedding, it might introduce
+    # some side effect on tracing when two tests run together
+    mlflow.llama_index.autolog(disable=True)
+
+
+@pytest.mark.skipif(
+    llama_core_version < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+@pytest.mark.parametrize("log_models", [True, False])
+def test_autolog_create_logged_model_and_link_traces_workflow(log_models):
+    with mlflow.start_run():
+        model_info = mlflow.llama_index.log_model(
+            "tests/llama_index/sample_code/simple_workflow.py",
+            "model",
+            input_example={"topic": "Hello"},
+        )
+    workflow = mlflow.llama_index.load_model(model_info.model_uri)
+    # clear here to mimic the model is not loaded, only for testing
+    _MODEL_TRACKER.clear()
+
+    # This is needed since pytest.asyncio doesn't function well
+    async def run_workflow(topic):
+        await workflow.run(topic=topic)
+
+    mlflow.llama_index.autolog(log_models=log_models)
+
+    with mlflow.start_run() as run:
+        for i in range(5):
+            asyncio.run(run_workflow("Hello"))
+            traces = get_traces()
+            assert len(traces) == i + 1
+    traces = get_traces()
+    assert len(traces) == 5
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    if log_models:
+        assert len(logged_models) == 1
+        logged_model_id = logged_models[0].model_id
+        for i in range(5):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        for i in range(5):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes

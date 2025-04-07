@@ -682,11 +682,12 @@ class SqlAlchemyStore(AbstractStore):
             mlflow_run = run.to_mlflow_entity()
             # Get the run inputs and add to the run
             inputs = self._get_run_inputs(run_uuids=[run_id], session=session)[0]
+            model_inputs = self._get_model_inputs(run_id, session)
             model_outputs = self._get_model_outputs(run_id, session)
             return Run(
                 mlflow_run.info,
                 mlflow_run.data,
-                RunInputs(dataset_inputs=inputs),
+                RunInputs(dataset_inputs=inputs, model_inputs=model_inputs),
                 RunOutputs(model_outputs),
             )
 
@@ -1550,17 +1551,20 @@ class SqlAlchemyStore(AbstractStore):
             experiment_id = run.experiment_id
             self._check_run_is_active(run)
             try:
-                self._log_inputs_impl(experiment_id, run_id, datasets)
+                self._log_inputs_impl(experiment_id, run_id, datasets, models)
             except MlflowException as e:
                 raise e
             except Exception as e:
                 raise MlflowException(e, INTERNAL_ERROR)
 
     def _log_inputs_impl(
-        self, experiment_id, run_id, dataset_inputs: Optional[list[DatasetInput]] = None
+        self,
+        experiment_id,
+        run_id,
+        dataset_inputs: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
     ):
-        if dataset_inputs is None or len(dataset_inputs) == 0:
-            return
+        dataset_inputs = dataset_inputs or []
         for dataset_input in dataset_inputs:
             if dataset_input.dataset is None:
                 raise MlflowException(
@@ -1669,6 +1673,18 @@ class SqlAlchemyStore(AbstractStore):
                             )
                         )
 
+            if models:
+                for model in models:
+                    session.merge(
+                        SqlInput(
+                            input_uuid=uuid.uuid4().hex,
+                            source_type="RUN_INPUT",
+                            source_id=run_id,
+                            destination_type="MODEL_INPUT",
+                            destination_id=model.model_id,
+                        )
+                    )
+
             session.add_all(objs_to_write)
 
     def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
@@ -1686,6 +1702,24 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 for model in models
             )
+
+    def _get_model_inputs(
+        self,
+        run_id: str,
+        session: Optional[sqlalchemy.orm.Session] = None,
+    ) -> list[LoggedModelInput]:
+        return [
+            LoggedModelInput(model_id=input.destination_id)
+            for input in (
+                session.query(SqlInput)
+                .filter(
+                    SqlInput.source_type == "RUN_INPUT",
+                    SqlInput.source_id == run_id,
+                    SqlInput.destination_type == "MODEL_INPUT",
+                )
+                .all()
+            )
+        ]
 
     def _get_model_outputs(
         self,
