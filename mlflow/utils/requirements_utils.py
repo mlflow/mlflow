@@ -429,6 +429,7 @@ DATABRICKS_MODULES_TO_PACKAGES = {
     "databricks.automl": ["databricks-automl-runtime"],
     "databricks.automl_runtime": ["databricks-automl-runtime"],
     "databricks.model_monitoring": ["databricks-model-monitoring"],
+    "databricks.langchain": ["databricks-langchain"],
 }
 MLFLOW_MODULES_TO_PACKAGES = {
     "mlflow.gateway": ["mlflow[gateway]"],

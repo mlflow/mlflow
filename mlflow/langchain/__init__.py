@@ -347,6 +347,8 @@ def save_model(
             _MODEL_TYPE_KEY: lc_model.__class__.__name__,
             **model_data_kwargs,
         }
+    logger.warn("ROSHNIMODEL -- model_data_kwargs = " + str(model_data_kwargs))
+    logger.warn("ROSHNIMODEL -- flavor_conf= " + str(flavor_conf))
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -373,7 +375,9 @@ def save_model(
                 "to mlflow.langchain.log_model() to ensure authorization to "
                 "dependent resources succeeds when the model is deployed."
             )
+            logger.warning("MALANI -- " + str(databricks_resources))
             serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
+            logger.warning("ROSHNI -- " + str(serialized_databricks_resources))
             mlflow_model.resources = serialized_databricks_resources
             needs_databricks_auth = any(
                 isinstance(r, DatabricksFunction) for r in databricks_resources
@@ -386,6 +390,7 @@ def save_model(
         streamable=streamable,
         **flavor_conf,
     )
+    warnings.warn("MALANIFLAVOR -- " + str(mlflow_model))
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -398,6 +403,7 @@ def save_model(
                 if needs_databricks_auth and is_in_databricks_serverless_runtime()
                 else None
             )
+            warnings.warn("ROSHNI EXTRA ENV VARS -- " + str(extra_env_vars))
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 str(path), FLAVOR_NAME, fallback=default_reqs, extra_env_vars=extra_env_vars
             )
