@@ -19,6 +19,12 @@ _logger = logging.getLogger(__name__)
 
 
 class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
+    """
+    Artifact repository for interacting with logged model artifacts in a Databricks workspace.
+    If operations using the Databricks SDK fail for any reason, this repository automatically
+    falls back to using the `DatabricksArtifactRepository`, ensuring operational resilience.
+    """
+
     # Matches URIs of the form:
     # databricks/mlflow-tracking/<experiment_id>/logged_models/<model_id>/<relative_path>
     _URI_REGEX = re.compile(
