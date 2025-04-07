@@ -153,4 +153,4 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
                 ),
                 exc_info=True,
             )
-            self.databricks_artifact_repo.download_file(remote_file_path, local_path)
+            self.databricks_artifact_repo._download_file(remote_file_path, local_path)
