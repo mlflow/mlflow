@@ -414,6 +414,4 @@ jobs:
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server \
             tests
-          # MLeap is incompatible on Windows with PySpark3.4 release.
-          # Reinstate tests when MLeap has released a fix. [ML-30491]
-          # pytest tests/mleap
+

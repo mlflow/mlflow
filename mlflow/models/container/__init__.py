@@ -16,7 +16,7 @@ from subprocess import Popen, check_call
 
 import mlflow
 import mlflow.version
-from mlflow import mleap, pyfunc
+from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME, MLFLOW_DISABLE_ENV_CREATION
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -36,7 +36,7 @@ DEFAULT_INFERENCE_SERVER_PORT = 8000
 DEFAULT_NGINX_SERVER_PORT = 8080
 DEFAULT_MLSERVER_PORT = 8080
 
-SUPPORTED_FLAVORS = [pyfunc.FLAVOR_NAME, mleap.FLAVOR_NAME]
+SUPPORTED_FLAVORS = [pyfunc.FLAVOR_NAME]
 
 DISABLE_NGINX = "DISABLE_NGINX"
 ENABLE_MLSERVER = "ENABLE_MLSERVER"
@@ -74,12 +74,10 @@ def _serve(env_manager):
     # Older versions of mlflow may not specify a deployment configuration
     serving_flavor = MLFLOW_DEPLOYMENT_FLAVOR_NAME.get() or pyfunc.FLAVOR_NAME
 
-    if serving_flavor == mleap.FLAVOR_NAME:
-        _serve_mleap()
-    elif pyfunc.FLAVOR_NAME in m.flavors:
+    if pyfunc.FLAVOR_NAME in m.flavors:
         _serve_pyfunc(m, env_manager)
     else:
-        raise Exception("This container only supports models with the MLeap or PyFunc flavors.")
+        raise Exception("This container only supports models with the PyFunc flavors.")
 
 
 def _install_pyfunc_deps(
@@ -263,24 +261,6 @@ def _read_registered_model_meta(model_path):
         model_meta = read_yaml(model_path, REGISTERED_MODEL_META_FILE_NAME)
 
     return model_meta
-
-
-def _serve_mleap():
-    serve_cmd = [
-        "java",
-        "-cp",
-        '"/opt/java/jars/*"',
-        "org.mlflow.sagemaker.ScoringServer",
-        MODEL_PATH,
-        str(DEFAULT_SAGEMAKER_SERVER_PORT),
-    ]
-    # Invoke `Popen` with a single string command in the shell to support wildcard usage
-    # with the mlflow jar version.
-    serve_cmd = " ".join(serve_cmd)
-    mleap = Popen(serve_cmd, shell=True)
-    signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[mleap.pid]))
-    awaited_pids = _await_subprocess_exit_any(procs=[mleap])
-    _sigterm_handler(awaited_pids)
 
 
 def _container_includes_mlflow_source():

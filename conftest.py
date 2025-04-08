@@ -184,7 +184,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/lightgbm",
             "tests/litellm",
             "tests/mistral",
-            "tests/mleap",
             "tests/models",
             "tests/onnx",
             "tests/openai",

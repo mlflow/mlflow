@@ -12,7 +12,6 @@ The built-in flavors are:
 - :py:mod:`mlflow.langchain`
 - :py:mod:`mlflow.lightgbm`
 - :py:mod:`mlflow.llama_index`
-- :py:mod:`mlflow.mleap`
 - :py:mod:`mlflow.onnx`
 - :py:mod:`mlflow.openai`
 - :py:mod:`mlflow.paddle`

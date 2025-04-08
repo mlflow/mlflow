@@ -17,7 +17,6 @@ def main():
         "fastai",
         "h2o",
         "lightgbm",
-        "mleap",
         "onnx",
         "pytorch_lightning",
         "pyspark.ml",

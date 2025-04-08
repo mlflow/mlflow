@@ -55,13 +55,6 @@ def test_get_flavor_configuration_throws_exception_when_requested_flavor_is_miss
     )
     assert sklearn_flavor_config is not None
 
-    # The saved model does not contain the "mleap" flavor, so this call should fail
-    with pytest.raises(MlflowException, match='Model does not have the "mleap" flavor') as exc:
-        mlflow_model_utils._get_flavor_configuration(
-            model_path=model_path, flavor_name=MLEAP_FLAVOR_NAME
-        )
-    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-
 
 def test_get_flavor_configuration_with_present_flavor_returns_expected_configuration(
     sklearn_knn_model, model_path
