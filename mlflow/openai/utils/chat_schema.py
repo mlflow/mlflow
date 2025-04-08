@@ -166,7 +166,7 @@ def _parse_response_item(
         summary = item["summary"][0]["text"] if item["summary"] else None
         return [ChatMessage(role="assistant", content=summary)]
 
-    raise MlflowException(f"Unknown output type: {type(output)}")
+    raise MlflowException(f"Unknown output type: {type(item)}")
 
 
 def _parse_message_content(
