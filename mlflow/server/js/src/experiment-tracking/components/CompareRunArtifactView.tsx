@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ShowArtifactPage from './artifact-view-components/ShowArtifactPage';
 import { RunInfoEntity } from '../types';
 import { useRunsArtifacts } from './experiment-page/hooks/useRunsArtifacts';
@@ -19,9 +19,27 @@ export const CompareRunArtifactView = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const [artifactPath, setArtifactPath] = useState<string | undefined>();
+  const [containerHeight, setContainerHeight] = useState('calc(100vh - 80px)');
 
   const { artifactsKeyedByRun } = useRunsArtifacts(runUuids);
   const commonArtifacts = getCommonArtifacts(artifactsKeyedByRun);
+
+  useEffect(() => {
+    const calculateDimensions = () => {
+      const windowHeight = window.innerHeight;
+      const headerHeight = 100;
+      const availableHeight = windowHeight - headerHeight;
+
+      setContainerHeight(`${availableHeight}px`);
+    };
+
+    calculateDimensions();
+    window.addEventListener('resize', calculateDimensions);
+
+    return () => {
+      window.removeEventListener('resize', calculateDimensions);
+    };
+  }, [runUuids.length, artifactPath]);
 
   if (commonArtifacts.length === 0) {
     return (
@@ -33,19 +51,21 @@ export const CompareRunArtifactView = ({
       </h2>
     );
   }
+
   return (
     <div
       css={{
         display: 'flex',
         flexDirection: 'row',
-        height: '100vh',
+        height: containerHeight,
+        overflow: 'hidden',
       }}
     >
       <div
         css={{
           backgroundColor: theme.colors.backgroundPrimary,
           color: theme.colors.textPrimary,
-          flex: '1 1 0%',
+          width: '25%',
           whiteSpace: 'nowrap',
           border: `1px solid ${theme.colors.grey300}`,
           overflowY: 'auto',
@@ -66,26 +86,78 @@ export const CompareRunArtifactView = ({
           borderLeft: 'none',
           display: 'flex',
           flexDirection: 'column',
+          flex: 1,
           overflow: 'hidden',
+          height: '100%',
         }}
       >
-        <div css={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap' }}>
-          {runUuids.map((runUuid, index) => (
-            <div
-              key={runUuid}
-              style={{
-                width: `${colWidth}px`,
-                borderBottom: `1px solid ${theme.colors.grey300}`,
-                padding: !artifactPath ? theme.spacing.md : 0,
-                overflow: 'auto',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <ShowArtifactPage runUuid={runUuid} artifactRootUri={runInfos[index].artifactUri} path={artifactPath} />
-            </div>
-          ))}
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            height: '100%',
+            overflow: 'auto',
+            gap: '16px',
+            padding: '16px',
+          }}
+        >
+          {runUuids.map((runUuid, index) => {
+            return (
+              <div
+                key={runUuid}
+                css={{
+                  width: `${colWidth}px`,
+                  minWidth: '500px',
+                  flex: `1 1 ${colWidth}px`,
+                  height: artifactPath ? 'calc(100% - 32px)' : 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  css={{
+                    padding: '8px 12px',
+                    borderBottom: `1px solid ${theme.colors.grey200}`,
+                    fontWeight: 500,
+                  }}
+                >
+                  Run {index + 1}: {runUuid}
+                </div>
+  
+                <div
+                  css={{
+                    overflow: 'auto',
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '8px',
+                    height: '100%',
+                  }}
+                >
+                  <div
+                    css={{
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <ShowArtifactPage
+                      runUuid={runUuid}
+                      artifactRootUri={runInfos[index].artifactUri}
+                      path={artifactPath}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
-  );
+  );  
 };
