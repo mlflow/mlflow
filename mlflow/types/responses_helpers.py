@@ -21,7 +21,7 @@ class Status(BaseModel):
             "completed",
             "incomplete",
         }:
-            raise ValueError(
+            warnings.warn(
                 f"Invalid status: {self.status}. "
                 "Must be 'in_progress', 'completed', or 'incomplete'."
             )
@@ -57,7 +57,7 @@ class ResponseError(BaseModel):
             "failed_to_download_image",
             "image_file_not_found",
         }:
-            raise ValueError(f"Invalid error code: {self.code}")
+            warnings.warn(f"Invalid error code: {self.code}")
         return self
 
 
@@ -94,7 +94,7 @@ class Annotation(BaseModel):
         elif self.type == "file_path":
             AnnotationFilePath(**self.model_dump_compat())
         else:
-            raise ValueError(f"Invalid annotation type: {self.type}")
+            warnings.warn(f"Invalid annotation type: {self.type}")
         return self
 
 
@@ -120,7 +120,7 @@ class Content(BaseModel):
         elif self.type == "refusal":
             ResponseOutputRefusal(**self.model_dump_compat())
         else:
-            raise ValueError(f"Invalid content type: {self.type}")
+            warnings.warn(f"Invalid content type: {self.type}")
         return self
 
 
@@ -166,7 +166,7 @@ class IncompleteDetails(BaseModel):
     @model_validator(mode="after")
     def check_reason(self) -> "IncompleteDetails":
         if self.reason not in {"max_output_tokens", "content_filter"}:
-            raise ValueError(f"Invalid reason: {self.reason}")
+            warnings.warn(f"Invalid reason: {self.reason}")
         return self
 
 
@@ -237,13 +237,13 @@ class Reasoning(BaseModel):
     @model_validator(mode="after")
     def check_generate_summary(self) -> "Reasoning":
         if self.generate_summary and self.generate_summary not in {"concise", "detailed"}:
-            raise ValueError(f"Invalid generate_summary: {self.generate_summary}")
+            warnings.warn(f"Invalid generate_summary: {self.generate_summary}")
         return self
 
     @model_validator(mode="after")
     def check_effort(self) -> "Reasoning":
         if self.effort and self.effort not in {"low", "medium", "high"}:
-            raise ValueError(f"Invalid effort: {self.effort}")
+            warnings.warn(f"Invalid effort: {self.effort}")
         return self
 
 
@@ -279,9 +279,7 @@ class Truncation(BaseModel):
     @model_validator(mode="after")
     def check_truncation(self) -> "Truncation":
         if self.truncation is not None and self.truncation not in {"auto", "disabled"}:
-            raise ValueError(
-                f"Invalid truncation: {self.truncation}. Must be 'auto' or 'disabled'."
-            )
+            warnings.warn(f"Invalid truncation: {self.truncation}. Must be 'auto' or 'disabled'.")
         return self
 
 
@@ -326,21 +324,9 @@ class Response(Tools, Truncation, ToolChoice):
     @model_validator(mode="after")
     def check_output(self) -> "Response":
         if not self.output:
-            raise ValueError("output must be a non-empty list")
+            warnings.warn("output must be a non-empty list")
         for output in self.output:
             OutputItem.model_validate(output)
-            # if isinstance(output, (ResponseOutputMessage, ResponseFunctionToolCall)):
-            #     continue
-            # elif isinstance(output, dict):
-            #     if "type" not in output:
-            #         raise ValueError("dict must have a type key")
-            #     if output["type"] not in {
-            #         "file_search_call",
-            #         "computer_call",
-            #         "web_search_call",
-            #         "reasoning",
-            #     }:
-            #         raise ValueError(f"Invalid type: {output['type']}.")
         return self
 
     @model_validator(mode="after")
@@ -351,7 +337,7 @@ class Response(Tools, Truncation, ToolChoice):
             "in_progress",
             "incomplete",
         }:
-            raise ValueError(
+            warnings.warn(
                 f"Invalid status: {self.status}. Must be 'completed', 'failed', "
                 "'in_progress', or 'incomplete'."
             )
@@ -367,7 +353,6 @@ class ResponseInputTextParam(BaseModel):
 
 
 class Message(Status):
-    # TODO bbqiu revisit to see if we shouldn't combine w/ EasyInputMessageParam
     content: Union[str, list[Union[ResponseInputTextParam, dict[str, Any]]]]
     role: str
     status: Optional[str] = None
@@ -381,13 +366,13 @@ class Message(Status):
                     if "type" not in item:
                         raise ValueError("dict must have a type key")
                     if item["type"] not in {"input_image", "input_file"}:
-                        raise ValueError(f"Invalid type: {item['type']}.")
+                        warnings.warn(f"Invalid type: {item['type']}.")
         return self
 
     @model_validator(mode="after")
     def check_role(self) -> "Message":
         if self.role not in {"user", "assistant", "system", "developer"}:
-            raise ValueError(
+            warnings.warn(
                 f"Invalid role: {self.role}. Must be 'user', 'assistant', 'system', or 'developer'."
             )
         return self
@@ -401,7 +386,6 @@ class FunctionCallOutput(Status):
 
 
 class BaseRequestPayload(Truncation, ToolChoice):
-    model: Optional[str] = None
     max_output_tokens: Optional[int] = None
     metadata: Optional[dict[str, str]] = None
     parallel_tool_calls: Optional[bool] = None
@@ -409,7 +393,6 @@ class BaseRequestPayload(Truncation, ToolChoice):
     store: Optional[bool] = None
     stream: Optional[bool] = None
     temperature: Optional[float] = None
-    # TODO bbqiu revisit this ResponseFormatTextConfig: TypeAlias
     text: Optional[Any] = None
     top_p: Optional[float] = None
     user: Optional[str] = None
@@ -420,36 +403,12 @@ class BaseRequestPayload(Truncation, ToolChoice):
 #####################################
 
 
-class ResponseContentPartAddedEvent(BaseModel):
-    content_index: int
-    item_id: str
-    output_index: int
-    part: Content
-    type: str = "response.content_part.added"
-
-
-class ResponseContentPartDoneEvent(BaseModel):
-    content_index: int
-    item_id: str
-    output_index: int
-    part: Content
-    type: str = "response.content_part.done"
-
-
 class ResponseTextDeltaEvent(BaseModel):
     content_index: int
     delta: str
     item_id: str
     output_index: int
     type: str = "response.output_text.delta"
-
-
-class ResponseTextDoneEvent(BaseModel):
-    content_index: int
-    item_id: str
-    output_index: int
-    text: str
-    type: str = "response.output_text.done"
 
 
 class ResponseTextAnnotationDeltaEvent(BaseModel):
@@ -459,12 +418,6 @@ class ResponseTextAnnotationDeltaEvent(BaseModel):
     item_id: str
     output_index: int
     type: str = "response.output_text.annotation.added"
-
-
-class ResponseOutputItemAddedEvent(BaseModel):
-    item: OutputItem
-    output_index: int
-    type: str = "response.output_item.added"
 
 
 class ResponseOutputItemDoneEvent(BaseModel):
