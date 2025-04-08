@@ -1202,10 +1202,11 @@ def log_input(
             mlflow.log_input(dataset, context="training")
     """
     run_id = _get_or_start_run().info.run_id
-    dataset_input = _create_dataset_input(dataset, context, tags)
+    datasets = [_create_dataset_input(dataset, context, tags)] if dataset else None
+    models = [model] if model else None
 
     MlflowClient().log_inputs(
-        run_id=run_id, datasets=dataset_input and [dataset_input], models=model and [model]
+        run_id=run_id, datasets=datasets, models=models
     )
 
 
