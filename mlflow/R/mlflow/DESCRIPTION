@@ -50,7 +50,6 @@ Imports:
 Suggests:
     carrier,
     covr,
-    h2o,
     keras,
     lintr,
     sparklyr,
@@ -71,7 +70,6 @@ Collate:
     'model-python.R'
     'model.R'
     'model-utils.R'
-    'model-h2o.R'
     'model-keras.R'
     'model-registry.R'
     'model-serve.R'
