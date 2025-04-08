@@ -2190,69 +2190,55 @@ def test_evaluate_with_model_id(multiclass_logistic_regressor_model_uri, iris_da
                 )
 
 
-def test_evaluate_model_id_precedence(multiclass_logistic_regressor_model_uri, iris_dataset):
-    with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
-    ):
-        evaluator1_config = {"eval1_confg_a": 3, "eval1_confg_b": 4}
-        evaluator1_return_value = EvaluationResult(
-            metrics={"m1": 5, "m2": 6},
-            artifacts={"a1": FakeArtifact1(uri="uri1"), "a2": FakeArtifact2(uri="uri2")},
+def test_evaluate_model_id_consistency_check(multiclass_logistic_regressor_model_uri, iris_dataset):
+    """
+    Test that an error is thrown when the specified model_id contradicts the model's associated ID.
+    """
+    # Create a model with a known model ID
+    with mlflow.start_run():
+        model = sklearn.linear_model.LogisticRegression()
+        model.fit(iris_dataset._constructor_args["data"], iris_dataset._constructor_args["targets"])
+        model_info = mlflow.sklearn.log_model(
+            model,
+            "model",
         )
-        with (
-            mock.patch.object(FakeEvaluator1, "can_evaluate", return_value=True),
-            mock.patch.object(
-                FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
-            ) as mock_evaluate,
+        model_uri = model_info.model_uri
+        model_id = model_info.model_uuid
+
+        # Test that specifying matching model_id works
+        result = evaluate(
+            model_uri,
+            iris_dataset._constructor_args["data"],
+            targets=iris_dataset._constructor_args["targets"],
+            model_type="classifier",
+            model_id=model_id,
+        )
+        assert result.metrics
+        assert result.artifacts
+
+        # Test that specifying different model_id raises
+        with pytest.raises(
+            MlflowException,
+            match=(
+                r"The specified value of the 'model_id' parameter '.*' "
+                r"contradicts the model_id '.*' associated with the model\. Please ensure "
+                r"they match or omit the 'model_id' parameter\."
+            ),
         ):
-            with mlflow.start_run() as run:
-                # First test with model URI - specified model_id should take precedence
-                specified_model_id = "custom_model_id_123"
-                evaluate(
-                    multiclass_logistic_regressor_model_uri,
-                    iris_dataset._constructor_args["data"],
-                    model_type="classifier",
-                    targets=iris_dataset._constructor_args["targets"],
-                    evaluators="test_evaluator1",
-                    evaluator_config=evaluator1_config,
-                    model_id=specified_model_id,
-                )
-                mock_evaluate.assert_called_once_with(
-                    model=PyFuncModelMatcher(),
-                    model_type="classifier",
-                    model_id=specified_model_id,  # Should use specified model_id
-                    dataset=iris_dataset,
-                    run_id=run.info.run_id,
-                    evaluator_config=evaluator1_config,
-                    custom_metrics=None,
-                    extra_metrics=None,
-                    custom_artifacts=None,
-                    predictions=None,
-                )
+            evaluate(
+                model_uri,
+                iris_dataset._constructor_args["data"],
+                targets=iris_dataset._constructor_args["targets"],
+                model_type="classifier",
+                model_id="different_model_id",
+            )
 
-                # Reset mock
-                mock_evaluate.reset_mock()
-
-                # Now test with PyFuncModel - specified model_id should take precedence
-                model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
-                evaluate(
-                    model,
-                    iris_dataset._constructor_args["data"],
-                    model_type="classifier",
-                    targets=iris_dataset._constructor_args["targets"],
-                    evaluators="test_evaluator1",
-                    evaluator_config=evaluator1_config,
-                    model_id=specified_model_id,
-                )
-                mock_evaluate.assert_called_once_with(
-                    model=PyFuncModelMatcher(),
-                    model_type="classifier",
-                    model_id=specified_model_id,  # Should use specified model_id
-                    dataset=iris_dataset,
-                    run_id=run.info.run_id,
-                    evaluator_config=evaluator1_config,
-                    custom_metrics=None,
-                    extra_metrics=None,
-                    custom_artifacts=None,
-                    predictions=None,
-                )
+        # Test that not specifying model_id works
+        result = evaluate(
+            model_uri,
+            iris_dataset._constructor_args["data"],
+            targets=iris_dataset._constructor_args["targets"],
+            model_type="classifier",
+        )
+        assert result.metrics
+        assert result.artifacts

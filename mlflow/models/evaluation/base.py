@@ -1689,7 +1689,6 @@ def evaluate(  # noqa: D417
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    # If model_id is specified, it takes precedence over any model_id derived from the model
     specified_model_id = model_id
     model_id = None
     if isinstance(model, str):
@@ -1722,6 +1721,17 @@ def evaluate(  # noqa: D417
             message="The model argument must be a string URI referring to an MLflow model, "
             "an MLflow Deployments endpoint URI, an instance of `mlflow.pyfunc.PyFuncModel`, "
             "a function, or None.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # If model_id is specified, verify it matches the derived model_id
+    if specified_model_id is not None and model_id is not None and specified_model_id != model_id:
+        raise MlflowException(
+            message=(
+                f"The specified value of the 'model_id' parameter '{specified_model_id}' "
+                f"contradicts the model_id '{model_id}' associated with the model. Please ensure "
+                f"they match or omit the 'model_id' parameter."
+            ),
             error_code=INVALID_PARAMETER_VALUE,
         )
 
