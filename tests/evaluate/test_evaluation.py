@@ -2147,47 +2147,45 @@ def test_env_manager_set_on_served_pyfunc_model(multiclass_logistic_regressor_mo
     assert served_model_1.env_manager == "virtualenv"
 
 
-def test_evaluate_with_model_id(multiclass_logistic_regressor_model_uri, iris_dataset):
-    with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
-    ):
-        evaluator1_config = {"eval1_confg_a": 3, "eval1_confg_b": 4}
-        evaluator1_return_value = EvaluationResult(
-            metrics={"m1": 5, "m2": 6},
-            artifacts={"a1": FakeArtifact1(uri="uri1"), "a2": FakeArtifact2(uri="uri2")},
-        )
-        with (
-            mock.patch.object(FakeEvaluator1, "can_evaluate", return_value=True),
-            mock.patch.object(
-                FakeEvaluator1, "evaluate", return_value=evaluator1_return_value
-            ) as mock_evaluate,
-        ):
-            with mlflow.start_run() as run:
-                specified_model_id = "custom_model_id_123"
-                result = evaluate(
-                    multiclass_logistic_regressor_model_uri,
-                    iris_dataset._constructor_args["data"],
-                    model_type="classifier",
-                    targets=iris_dataset._constructor_args["targets"],
-                    evaluators="test_evaluator1",
-                    evaluator_config=evaluator1_config,
-                    model_id=specified_model_id,
-                )
-                assert result.metrics == evaluator1_return_value.metrics
-                assert result.artifacts == evaluator1_return_value.artifacts
+def test_evaluate_with_model_id(iris_dataset):
+    # Create and log a model
+    with mlflow.start_run():
+        model = sklearn.linear_model.LogisticRegression()
+        model.fit(iris_dataset._constructor_args["data"], iris_dataset._constructor_args["targets"])
+        model_info = mlflow.sklearn.log_model(model, "model")
+        model_id = model_info.model_id
 
-                mock_evaluate.assert_called_once_with(
-                    model=PyFuncModelMatcher(),
-                    model_type="classifier",
-                    model_id=specified_model_id,  # Should use specified model_id
-                    dataset=iris_dataset,
-                    run_id=run.info.run_id,
-                    evaluator_config=evaluator1_config,
-                    custom_metrics=None,
-                    extra_metrics=None,
-                    custom_artifacts=None,
-                    predictions=None,
-                )
+    # Evaluate the model with the specified model ID
+    with mlflow.start_run():
+        result = evaluate(
+            model_info.model_uri,
+            iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            model_id=model_id,
+        )
+
+        # Verify metrics were logged
+        assert result.metrics is not None
+        assert len(result.metrics) > 0
+
+        # Verify metrics are linked to the model ID
+        logged_model = mlflow.get_logged_model(model_id)
+        assert logged_model is not None
+        assert logged_model.model_id == model_id
+
+        # Convert metrics list to a dictionary for easier lookup
+        logged_metrics = {metric.key: metric.value for metric in logged_model.metrics}
+
+        # Verify each metric from the evaluation result matches the logged model metrics
+        for metric_name, metric_value in result.metrics.items():
+            assert metric_name in logged_metrics, (
+                f"Metric {metric_name} not found in logged model metrics"
+            )
+            assert logged_metrics[metric_name] == metric_value, (
+                f"Metric {metric_name} value mismatch: "
+                f"expected {metric_value}, got {logged_metrics[metric_name]}"
+            )
 
 
 def test_evaluate_model_id_consistency_check(multiclass_logistic_regressor_model_uri, iris_dataset):
