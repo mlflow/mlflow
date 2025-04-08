@@ -1152,6 +1152,24 @@ def log_params(
     )
 
 
+def _create_dataset_input(
+    dataset: Optional[Dataset],
+    context: Optional[str] = None,
+    tags: Optional[dict[str, str]] = None,
+) -> Optional[DatasetInput]:
+    if (context or tags) and dataset is None:
+        raise MlflowException.invalid_parameter_value(
+            "`dataset` must be specified if `context` or `tags` is specified."
+        )
+    tags_to_log = []
+    if tags:
+        tags_to_log = [InputTag(key=key, value=value) for key, value in tags.items()]
+    if context:
+        tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
+
+    return DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log) if dataset else None
+
+
 def log_input(
     dataset: Optional[Dataset] = None,
     context: Optional[str] = None,
@@ -1166,8 +1184,8 @@ def log_input(
         context: Context in which the dataset is used. For example: "training", "testing".
             This will be set as an input tag with key `mlflow.data.context`.
         tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
-        model: A :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input to the
-            run.
+        model: A :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input
+            to the run.
 
     .. code-block:: python
         :test:
@@ -1183,22 +1201,81 @@ def log_input(
         with mlflow.start_run():
             mlflow.log_input(dataset, context="training")
     """
-    if (context or tags) and dataset is None:
-        raise MlflowException.invalid_parameter_value(
-            "`dataset` must be specified if `context` or `tags` is specified."
-        )
     run_id = _get_or_start_run().info.run_id
-    tags_to_log = []
-    if tags:
-        tags_to_log.extend([InputTag(key=key, value=value) for key, value in tags.items()])
-    if context:
-        tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
+    datasets = [_create_dataset_input(dataset, context, tags)] if dataset else None
+    models = [model] if model else None
 
-    datasets = (
-        [DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)] if dataset else None
-    )
+    MlflowClient().log_inputs(run_id=run_id, datasets=datasets, models=models)
 
-    MlflowClient().log_inputs(run_id=run_id, datasets=datasets, models=model and [model])
+
+def log_inputs(
+    datasets: Optional[list[Optional[Dataset]]] = None,
+    contexts: Optional[list[Optional[str]]] = None,
+    tags_list: Optional[list[Optional[dict[str, str]]]] = None,
+    models: Optional[list[Optional[LoggedModelInput]]] = None,
+) -> None:
+    """
+    Log a batch of datasets used in the current run.
+
+    The lists of `datasets`, `contexts`, `tags_list` must have the same length.
+    The entries in these lists can be ``None``, which represents empty value to the
+    corresponding input.
+
+    Args:
+        datasets: List of :py:class:`mlflow.data.dataset.Dataset` object to be logged.
+        contexts: List of context in which the dataset is used. For example: "training", "testing".
+            This will be set as an input tag with key `mlflow.data.context`.
+        tags_list: List of tags to be associated with the dataset. Dictionary of
+            tag_key -> tag_value.
+        models: List of :py:class:`mlflow.entities.LoggedModelInput` instance to log as input
+            to the run. Currently only Databricks managed MLflow supports this argument.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import numpy as np
+        import mlflow
+
+        array = np.asarray([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        dataset = mlflow.data.from_numpy(array, source="data.csv")
+
+        array2 = np.asarray([[-1, 2, 3], [-4, 5, 6]])
+        dataset2 = mlflow.data.from_numpy(array2, source="data2.csv")
+
+        # Log 2 input datasets used for training and test,
+        # the training dataset has no tag.
+        # the test dataset has tags `{"my_tag": "tag_value"}`.
+        with mlflow.start_run():
+            mlflow.log_inputs(
+                [dataset, dataset2],
+                contexts=["training", "test"],
+                tags_list=[None, {"my_tag": "tag_value"}],
+                models=None,
+            )
+    """
+    from mlflow.utils.databricks_utils import is_databricks_uri
+
+    run_id = _get_or_start_run().info.run_id
+
+    datasets = datasets or []
+    contexts = contexts or []
+    tags_list = tags_list or []
+    if not (len(datasets) == len(contexts) == len(tags_list)):
+        raise MlflowException(
+            "`mlflow.log_inputs` requires `datasets`, `contexts`, `tags_list` to be "
+            "non-empty list and have the same length."
+        )
+
+    if models and not is_databricks_uri(mlflow.get_tracking_uri()):
+        raise MlflowException("'models' argument is only supported by Databricks managed MLflow.")
+
+    dataset_inputs = [
+        _create_dataset_input(dataset, context, tags)
+        for dataset, context, tags in zip(datasets, contexts, tags_list)
+    ]
+
+    MlflowClient().log_inputs(run_id=run_id, datasets=dataset_inputs, models=models)
 
 
 def set_experiment_tags(tags: dict[str, Any]) -> None:
