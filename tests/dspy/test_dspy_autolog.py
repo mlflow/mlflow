@@ -640,39 +640,89 @@ def test_autolog_log_nested_compile():
     assert "best_model.json" in artifacts
 
 
-skip_if_callback_unavailable = pytest.mark.skipif(
+skip_if_evaluate_callback_unavailable = pytest.mark.skipif(
     Version(importlib.metadata.version("dspy")) < Version("2.6.12"),
     reason="evaluate callback is available since 2.6.12",
 )
 
 
-@skip_if_callback_unavailable
+# Evaluate.call starts to return dspy.Prediction since 2.7.0
+is_2_7_or_newer = Version(importlib.metadata.version("dspy")) >= Version("2.7.0")
+
+
+@skip_if_evaluate_callback_unavailable
 @pytest.mark.parametrize("log_evals", [True, False])
-def test_autolog_log_evals(log_evals):
-    dspy.settings.configure(
-        lm=DummyLM(
+@pytest.mark.parametrize("return_outputs", [True, False])
+@pytest.mark.parametrize(
+    ("lm", "examples", "expected_result_table"),
+    [
+        (
+            DummyLM(
+                {
+                    "What is 1 + 1?": {"answer": "2"},
+                    "What is 2 + 2?": {"answer": "1000"},
+                }
+            ),
+            [
+                Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+                Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
+            ],
             {
-                "What is 1 + 1?": {"answer": "2"},
-                "What is 2 + 2?": {"answer": "1000"},
-            }
-        )
-    )
-    dataset = [
-        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
-        Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
-    ]
+                "columns": ["score", "example_question", "example_answer", "pred_answer"],
+                "data": [
+                    [True, "What is 1 + 1?", "2", "2"],
+                    [False, "What is 2 + 2?", "4", "1000"],
+                ],
+            },
+        ),
+        (
+            DummyLM(
+                {
+                    "What is 1 + 1?": {"answer": "2"},
+                    "What is 2 + 2?": {"answer": "1000"},
+                }
+            ),
+            [
+                Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+                Example(question="What is 2 + 2?", answer="4", reason="should be 4").with_inputs(
+                    "question"
+                ),
+            ],
+            {
+                "columns": [
+                    "score",
+                    "example_question",
+                    "example_answer",
+                    "pred_answer",
+                    "example_reason",
+                ],
+                "data": [
+                    [True, "What is 1 + 1?", "2", "2", None],
+                    [False, "What is 2 + 2?", "4", "1000", "should be 4"],
+                ],
+            },
+        ),
+    ],
+)
+def test_autolog_log_evals(
+    tmp_path, log_evals, return_outputs, lm, examples, expected_result_table
+):
+    dspy.settings.configure(lm=lm)
     program = Predict("question -> answer")
-    evaluator = Evaluate(devset=dataset, metric=answer_exact_match)
+    if is_2_7_or_newer:
+        evaluator = Evaluate(devset=examples, metric=answer_exact_match)
+    else:
+        # return_outputs arg does not exist after 2.7
+        evaluator = Evaluate(
+            devset=examples, metric=answer_exact_match, return_outputs=return_outputs
+        )
 
     mlflow.dspy.autolog(log_evals=log_evals)
-    evaluator(program, devset=dataset)
+    evaluator(program, devset=examples)
 
     run = mlflow.last_active_run()
     if log_evals:
         assert run is not None
-        client = MlflowClient()
-        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
-        assert "model.json" in artifacts
         assert run.data.metrics == {"eval": 50.0}
         assert run.data.params == {
             "Predict.signature.fields.0.description": "${question}",
@@ -681,11 +731,21 @@ def test_autolog_log_evals(log_evals):
             "Predict.signature.fields.1.prefix": "Answer:",
             "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
         }
+        client = MlflowClient()
+        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+        assert "model.json" in artifacts
+        if is_2_7_or_newer:
+            assert "result_table.json" in artifacts
+            client.download_artifacts(
+                run_id=run.info.run_id, path="result_table.json", dst_path=tmp_path
+            )
+            result_table = json.loads((tmp_path / "result_table.json").read_text())
+            assert result_table == expected_result_table
     else:
         assert run is None
 
 
-@skip_if_callback_unavailable
+@skip_if_evaluate_callback_unavailable
 def test_autolog_log_compile_with_evals():
     class EvalOptimizer(dspy.teleprompt.Teleprompter):
         def compile(self, program, eval, trainset, valset):
@@ -867,3 +927,93 @@ def test_autolog_with_pyfunc_model_link_traces():
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_info.model_id
+
+
+@pytest.mark.parametrize("log_models", [False, True])
+def test_autolog_log_models_and_link_traces(log_models):
+    mlflow.dspy.autolog(log_models=log_models)
+
+    dspy.settings.configure(
+        lm=DummyLM(
+            [
+                {
+                    "answer": "test output",
+                    "reasoning": "No more responses",
+                }
+            ]
+            * 6
+        )
+    )
+
+    dspy_model = CoT()
+    with mlflow.start_run() as run:
+        for _ in range(5):
+            dspy_model("test")
+
+    traces = get_traces()
+    assert len(traces) == 5
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    if log_models:
+        assert len(logged_models) == 1
+        logged_model = logged_models[0]
+        for i in range(5):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+                == logged_model.model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        for i in range(5):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
+
+
+def test_autolog_create_new_model_logged_after_loaded():
+    mlflow.dspy.autolog()
+
+    dspy.settings.configure(
+        lm=DummyLM(
+            [
+                {
+                    "answer": "test output",
+                    "reasoning": "No more responses",
+                }
+            ]
+            * 3
+        )
+    )
+
+    dspy_model = CoT()
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(dspy_model, "model")
+    loaded_model_id = model_info.model_id
+    loaded_model = mlflow.dspy.load_model(model_info.model_uri)
+    dspy_model("test")
+    loaded_model("test")
+    traces = get_traces()
+    assert len(traces) == 2
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == loaded_model_id
+    assert traces[1].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == loaded_model_id
+
+    # log the model again will create a new LoggedModel
+    with mlflow.start_run():
+        model_info2 = mlflow.dspy.log_model(dspy_model, "model2")
+    assert model_info2.model_id != loaded_model_id
+
+    # dspy_model links to the latest model_id
+    dspy_model("test")
+    traces = get_traces()
+    assert len(traces) == 3
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info2.model_id
+
+    loaded_model2 = mlflow.dspy.load_model(model_info2.model_uri)
+    loaded_model2("test")
+    traces = get_traces()
+    assert len(traces) == 4
+    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info2.model_id
+
+    # log the loaded model again will create a new LoggedModel
+    with mlflow.start_run():
+        model_info3 = mlflow.dspy.log_model(loaded_model, "model3")
+    assert model_info3.model_id != loaded_model_id

@@ -43,6 +43,7 @@ from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.pydantic_utils import model_dump_compat
 
 _logger = logging.getLogger(__name__)
@@ -150,11 +151,21 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         llama_span = self.open_spans.get(event.span_id) or self._pending_spans.get(event.span_id)
         return llama_span._mlflow_span if llama_span else None
 
-    def _get_model_id(self, instance: Any) -> Optional[str]:
-        if model_id := _MODEL_TRACKER.get(id(instance)):
-            return model_id
-        if hasattr(instance, "_mlflow_model_id"):
-            return instance._mlflow_model_id
+    def _get_model_id(self, instance: Any, parent_span: Any) -> Optional[str]:
+        if parent_span is None:
+            if model_id := getattr(instance, "_mlflow_model_id", None):
+                return model_id
+            if model_id := _MODEL_TRACKER.get(id(instance)):
+                return model_id
+            autologging_config = AutoLoggingConfig.init(mlflow.llama_index.FLAVOR_NAME)
+            if autologging_config.log_models:
+                logged_model = mlflow.create_external_model(name=instance.__class__.__name__)
+                _MODEL_TRACKER.set(id(instance), logged_model.model_id)
+                _logger.debug(
+                    f"Created LoggedModel with model_id {logged_model.model_id} "
+                    f"for {instance.__class__.__name__}"
+                )
+                return logged_model.model_id
         return None
 
     def new_span(
@@ -173,7 +184,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         try:
             input_args = bound_args.arguments
             attributes = self._get_instance_attributes(instance)
-            if model_id := self._get_model_id(instance):
+            if model_id := self._get_model_id(instance, parent_span):
                 attributes = {
                     **(attributes or {}),
                     SpanAttributeKey.MODEL_ID: model_id,

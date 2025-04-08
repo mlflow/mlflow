@@ -75,7 +75,7 @@ from mlflow.server.handlers import (
     _transition_stage,
     _update_model_version,
     _update_registered_model,
-    _validate_source,
+    _validate_source_run,
     catch_mlflow_exception,
     get_endpoints,
 )
@@ -868,7 +868,7 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
                 "run specified by the run_id"
             ),
         ):
-            _validate_source("/local/path/xyz", run_id)
+            _validate_source_run("/local/path/xyz", run_id)
 
 
 @pytest.mark.parametrize(

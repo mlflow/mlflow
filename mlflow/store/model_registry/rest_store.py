@@ -272,6 +272,8 @@ class RestStore(BaseRestStore):
                 run_link=run_link,
                 tags=proto_tags,
                 description=description,
+                model_id=model_id,
+                model_params=model_params,
             )
         )
         response_proto = self._call_endpoint(CreateModelVersion, req_body)

@@ -887,9 +887,7 @@ class RestStore(AbstractStore):
             None
         """
         endpoint = get_logged_model_endpoint(model_id)
-        json_body = message_to_json(
-            SetLoggedModelTags(model_id=model_id, tags=[tag.to_proto() for tag in tags])
-        )
+        json_body = message_to_json(SetLoggedModelTags(tags=[tag.to_proto() for tag in tags]))
         self._call_endpoint(SetLoggedModelTags, json_body=json_body, endpoint=f"{endpoint}/tags")
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:

@@ -44,7 +44,7 @@ pytorch:
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
-      "< 2.3": ["numpy<2"]
+      "< 2.3": ["numpy<2", "transformers<=4.49.0"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -491,15 +491,14 @@ paddle:
   package_info:
     pip_release: "paddlepaddle"
   models:
-    minimum: "2.4.1"
+    minimum: "2.5.2"
     maximum: "2.6.2"
     requirements:
       "< 2.6.0": ["numpy<2"]
-      "< 2.5.0": ["google-cloud-storage==2.14.0"]
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autologging:
-    minimum: "2.4.1"
+    minimum: "2.5.2"
     maximum: "2.6.2"
     requirements:
       "< 2.6.0": ["numpy<2"]
@@ -832,7 +831,7 @@ autogen:
     #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
   autologging:
     minimum: "0.2.36"
-    maximum: "0.4.9"
+    maximum: "0.2.40"
     python:
       "== dev": "3.10"
     requirements:
@@ -922,6 +921,8 @@ sentence_transformers:
           "einops",
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
+          # Fix for https://github.com/huggingface/transformers/issues/37326
+          "accelerate",
         ]
       "== 2.2.2": ["huggingface-hub<0.26"]
     run: |

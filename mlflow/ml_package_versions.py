@@ -217,11 +217,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "paddlepaddle"
         },
         "models": {
-            "minimum": "2.4.1",
+            "minimum": "2.5.2",
             "maximum": "2.6.2"
         },
         "autologging": {
-            "minimum": "2.4.1",
+            "minimum": "2.5.2",
             "maximum": "2.6.2"
         }
     },
@@ -310,7 +310,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.2.36",
-            "maximum": "0.4.9"
+            "maximum": "0.2.40"
         }
     },
     "gemini": {

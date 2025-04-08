@@ -28,6 +28,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.logged_model import LoggedModel
+from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
@@ -868,6 +869,9 @@ def _log_metric():
             "value": [_assert_required, _assert_floatlike],
             "timestamp": [_assert_intlike, _assert_required],
             "step": [_assert_intlike],
+            "model_id": [_assert_string],
+            "dataset_name": [_assert_string],
+            "dataset_digest": [_assert_string],
         },
     )
     metric = Metric(
@@ -875,6 +879,10 @@ def _log_metric():
         request_message.value,
         request_message.timestamp,
         request_message.step,
+        request_message.model_id or None,
+        request_message.dataset_name or None,
+        request_message.dataset_digest or None,
+        request_message.run_id or None,
     )
     run_id = request_message.run_id or request_message.run_uuid
     _get_tracking_store().log_metric(run_id, metric)
@@ -911,7 +919,8 @@ def _log_inputs():
         LogInputs(),
         schema={
             "run_id": [_assert_required, _assert_string],
-            "datasets": [_assert_required, _assert_array],
+            "datasets": [_assert_array],
+            "models": [_assert_array],
         },
     )
     run_id = request_message.run_id
@@ -919,8 +928,16 @@ def _log_inputs():
         DatasetInput.from_proto(proto_dataset_input)
         for proto_dataset_input in request_message.datasets
     ]
+    models = (
+        [
+            LoggedModelInput.from_proto(proto_logged_model_input)
+            for proto_logged_model_input in request_message.models
+        ]
+        if request_message.models
+        else None
+    )
 
-    _get_tracking_store().log_inputs(run_id, datasets=datasets)
+    _get_tracking_store().log_inputs(run_id, datasets=datasets, models=models)
     response_message = LogInputs.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
@@ -1877,7 +1894,7 @@ def _validate_non_local_source_contains_relative_paths(source: str):
         raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
 
 
-def _validate_source(source: str, run_id: str) -> None:
+def _validate_source_run(source: str, run_id: str) -> None:
     if is_local_uri(source):
         if run_id:
             store = _get_tracking_store()
@@ -1894,6 +1911,31 @@ def _validate_source(source: str, run_id: str) -> None:
             f"Invalid model version source: '{source}'. To use a local path as a model version "
             "source, the run_id request parameter has to be specified and the local path has to be "
             "contained within the artifact directory of the run specified by the run_id.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    # Checks if relative paths are present in the source (a security threat). If any are present,
+    # raises an Exception.
+    _validate_non_local_source_contains_relative_paths(source)
+
+
+def _validate_source_model(source: str, model_id: str) -> None:
+    if is_local_uri(source):
+        if model_id:
+            store = _get_tracking_store()
+            model = store.get_logged_model(model_id)
+            source = pathlib.Path(local_file_uri_to_path(source)).resolve()
+            if is_local_uri(model.artifact_location):
+                run_artifact_dir = pathlib.Path(
+                    local_file_uri_to_path(model.artifact_location)
+                ).resolve()
+                if run_artifact_dir in [source, *source.parents]:
+                    return
+
+        raise MlflowException(
+            f"Invalid model version source: '{source}'. To use a local path as a model version "
+            "source, the model_id request parameter has to be specified and the local path has to "
+            "be contained within the artifact directory of the run specified by the model_id.",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -1921,7 +1963,10 @@ def _create_model_version():
 
     # If the model version is a prompt, we don't validate the source
     if not _is_prompt_request(request_message):
-        _validate_source(request_message.source, request_message.run_id)
+        if request_message.model_id:
+            _validate_source_model(request_message.source, request_message.model_id)
+        else:
+            _validate_source_run(request_message.source, request_message.run_id)
 
     model_version = _get_model_registry_store().create_model_version(
         name=request_message.name,
@@ -1933,6 +1978,13 @@ def _create_model_version():
         model_id=request_message.model_id,
         model_params=request_message.model_params,
     )
+    if not _is_prompt_request(request_message) and request_message.model_id:
+        tracking_store = _get_tracking_store()
+        tracking_store.set_model_versions_tags(
+            name=request_message.name,
+            version=model_version.version,
+            model_id=request_message.model_id,
+        )
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
 
@@ -2699,13 +2751,10 @@ def _delete_logged_model(model_id: str):
 def _set_logged_model_tags(model_id: str):
     request_message = _get_request_message(
         SetLoggedModelTags(),
-        schema={
-            "model_id": [_assert_string, _assert_required],
-            "tags": [_assert_array],
-        },
+        schema={"tags": [_assert_array]},
     )
     tags = [LoggedModelTag(key=tag.key, value=tag.value) for tag in request_message.tags]
-    _get_tracking_store().set_logged_model_tags(request_message.model_id, tags)
+    _get_tracking_store().set_logged_model_tags(model_id, tags)
     return _wrap_response(SetLoggedModelTags.Response())
 
 

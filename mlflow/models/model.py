@@ -24,7 +24,11 @@ from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models.auth_policy import AuthPolicy
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -962,7 +966,7 @@ class Model:
                     **(params or {}),
                     **(client.get_run(run_id).data.params if run_id else {}),
                 }
-                model = mlflow.create_logged_model(
+                model = mlflow.initialize_logged_model(
                     # TODO: Update model name
                     name=name,
                     source_run_id=run_id,
@@ -971,6 +975,13 @@ class Model:
                     tags={key: str(value) for key, value in tags.items()}
                     if tags is not None
                     else None,
+                )
+
+            if LoggedModelStatus.is_finalized(model.status):
+                raise MlflowException(
+                    f"Model with id {model.model_id} has the status '{model.status}', "
+                    f"so its artifacts cannot be modified.",
+                    BAD_REQUEST,
                 )
 
             if run_id is not None:
@@ -1392,13 +1403,14 @@ class _ModelTracker:
     """
 
     def __init__(self):
-        # stores id(model) -> model_id of LoggedModel mapping
-        self.model_ids: dict[int, str] = {}
+        # maps model identity (id(model)) to model_id for logged models
+        self._model_ids: dict[int, str] = {}
         self._lock = threading.Lock()
         # use model-level locks to avoid contention
         self._model_locks = defaultdict(threading.Lock)
         # thread-safe variable to track active model_id
         self._active_model_id = ContextVar("_active_model_id", default=None)
+        self._is_active_model_id_set = False
 
     def get(self, identity: int) -> Optional[str]:
         """
@@ -1407,7 +1419,7 @@ class _ModelTracker:
         if not isinstance(identity, int):
             raise TypeError("identity must be an integer")
         with self._model_locks[identity]:
-            return self.model_ids.get(identity)
+            return self._model_ids.get(identity)
 
     def set(self, identity: int, model_id: str) -> None:
         """
@@ -1416,7 +1428,7 @@ class _ModelTracker:
         if not isinstance(identity, int):
             raise TypeError("identity must be an integer")
         with self._model_locks[identity]:
-            self.model_ids[identity] = model_id
+            self._model_ids[identity] = model_id
 
     def set_active_model_id(self, model_id: Optional[str]) -> None:
         """
@@ -1432,24 +1444,12 @@ class _ModelTracker:
         """
         return self._active_model_id.get()
 
-    def set_active_model_id_for_identity(self, identity: int) -> None:
-        """
-        Set the current active model id for the given model identity.
-        This should be default behavior for most model objects.
-        """
-        # we don't restore _active_model_id value because
-        # original function could be a coroutine.
-        # If the model identity is not stored we set active_model_id to
-        # None to avoid inheriting the previous active model id.
-        if model_id := self.get(identity):
-            self.set_active_model_id(model_id)
-        else:
-            self.set_active_model_id(None)
-
     def clear(self) -> None:
         with self._lock:
-            self.model_ids.clear()
+            self._model_ids.clear()
             self._model_locks.clear()
+            self._active_model_id.set(None)
+            self._is_active_model_id_set = False
 
 
 _MODEL_TRACKER = _ModelTracker()

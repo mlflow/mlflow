@@ -15,6 +15,14 @@ class LoggedModelStatus(str, Enum):
     def __str__(self):
         return self.value
 
+    @staticmethod
+    def is_finalized(status) -> bool:
+        """
+        Determines whether or not a LoggedModelStatus is a finalized status.
+        A finalized status indicates that no further status updates will occur.
+        """
+        return status in [LoggedModelStatus.READY, LoggedModelStatus.FAILED]
+
     def to_proto(self):
         if self == LoggedModelStatus.UNSPECIFIED:
             return pb2.LoggedModelStatus.LOGGED_MODEL_STATUS_UNSPECIFIED

@@ -22,6 +22,7 @@ from mlflow.entities import (
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
+    LoggedModelStatus,
     Metric,
     Param,
     Run,
@@ -60,11 +61,13 @@ from mlflow.utils.autologging_utils import (
     is_testing,
 )
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
+    MLFLOW_MODEL_IS_EXTERNAL,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
@@ -1149,6 +1152,24 @@ def log_params(
     )
 
 
+def _create_dataset_input(
+    dataset: Optional[Dataset],
+    context: Optional[str] = None,
+    tags: Optional[dict[str, str]] = None,
+) -> Optional[DatasetInput]:
+    if (context or tags) and dataset is None:
+        raise MlflowException.invalid_parameter_value(
+            "`dataset` must be specified if `context` or `tags` is specified."
+        )
+    tags_to_log = []
+    if tags:
+        tags_to_log = [InputTag(key=key, value=value) for key, value in tags.items()]
+    if context:
+        tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
+
+    return DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log) if dataset else None
+
+
 def log_input(
     dataset: Optional[Dataset] = None,
     context: Optional[str] = None,
@@ -1163,8 +1184,8 @@ def log_input(
         context: Context in which the dataset is used. For example: "training", "testing".
             This will be set as an input tag with key `mlflow.data.context`.
         tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
-        model: A :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input to the
-            run.
+        model: A :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input
+            to the run.
 
     .. code-block:: python
         :test:
@@ -1180,22 +1201,81 @@ def log_input(
         with mlflow.start_run():
             mlflow.log_input(dataset, context="training")
     """
-    if (context or tags) and dataset is None:
-        raise MlflowException.invalid_parameter_value(
-            "`dataset` must be specified if `context` or `tags` is specified."
-        )
     run_id = _get_or_start_run().info.run_id
-    tags_to_log = []
-    if tags:
-        tags_to_log.extend([InputTag(key=key, value=value) for key, value in tags.items()])
-    if context:
-        tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
+    datasets = [_create_dataset_input(dataset, context, tags)] if dataset else None
+    models = [model] if model else None
 
-    datasets = (
-        [DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)] if dataset else None
-    )
+    MlflowClient().log_inputs(run_id=run_id, datasets=datasets, models=models)
 
-    MlflowClient().log_inputs(run_id=run_id, datasets=datasets, models=model and [model])
+
+def log_inputs(
+    datasets: Optional[list[Optional[Dataset]]] = None,
+    contexts: Optional[list[Optional[str]]] = None,
+    tags_list: Optional[list[Optional[dict[str, str]]]] = None,
+    models: Optional[list[Optional[LoggedModelInput]]] = None,
+) -> None:
+    """
+    Log a batch of datasets used in the current run.
+
+    The lists of `datasets`, `contexts`, `tags_list` must have the same length.
+    The entries in these lists can be ``None``, which represents empty value to the
+    corresponding input.
+
+    Args:
+        datasets: List of :py:class:`mlflow.data.dataset.Dataset` object to be logged.
+        contexts: List of context in which the dataset is used. For example: "training", "testing".
+            This will be set as an input tag with key `mlflow.data.context`.
+        tags_list: List of tags to be associated with the dataset. Dictionary of
+            tag_key -> tag_value.
+        models: List of :py:class:`mlflow.entities.LoggedModelInput` instance to log as input
+            to the run. Currently only Databricks managed MLflow supports this argument.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import numpy as np
+        import mlflow
+
+        array = np.asarray([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        dataset = mlflow.data.from_numpy(array, source="data.csv")
+
+        array2 = np.asarray([[-1, 2, 3], [-4, 5, 6]])
+        dataset2 = mlflow.data.from_numpy(array2, source="data2.csv")
+
+        # Log 2 input datasets used for training and test,
+        # the training dataset has no tag.
+        # the test dataset has tags `{"my_tag": "tag_value"}`.
+        with mlflow.start_run():
+            mlflow.log_inputs(
+                [dataset, dataset2],
+                contexts=["training", "test"],
+                tags_list=[None, {"my_tag": "tag_value"}],
+                models=None,
+            )
+    """
+    from mlflow.utils.databricks_utils import is_databricks_uri
+
+    run_id = _get_or_start_run().info.run_id
+
+    datasets = datasets or []
+    contexts = contexts or []
+    tags_list = tags_list or []
+    if not (len(datasets) == len(contexts) == len(tags_list)):
+        raise MlflowException(
+            "`mlflow.log_inputs` requires `datasets`, `contexts`, `tags_list` to be "
+            "non-empty list and have the same length."
+        )
+
+    if models and not is_databricks_uri(mlflow.get_tracking_uri()):
+        raise MlflowException("'models' argument is only supported by Databricks managed MLflow.")
+
+    dataset_inputs = [
+        _create_dataset_input(dataset, context, tags)
+        for dataset, context, tags in zip(datasets, contexts, tags_list)
+    ]
+
+    MlflowClient().log_inputs(run_id=run_id, datasets=dataset_inputs, models=models)
 
 
 def set_experiment_tags(tags: dict[str, Any]) -> None:
@@ -2007,7 +2087,7 @@ def delete_experiment(experiment_id: str) -> None:
 
 
 @experimental
-def create_logged_model(
+def initialize_logged_model(
     name: Optional[str] = None,
     source_run_id: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
@@ -2016,18 +2096,121 @@ def create_logged_model(
     experiment_id: Optional[str] = None,
 ) -> LoggedModel:
     """
-    Create a new logged model.
+    Initialize a LoggedModel. Creates a LoggedModel with status ``PENDING`` and no artifacts. You
+    must add artifacts to the model and finalize it to the ``READY`` state, for example by calling
+    a flavor-specific ``log_model()`` method such as :py:func:`mlflow.pyfunc.log_model()`.
 
     Args:
         name: The name of the model. If not specified, a random name will be generated.
-        source_run_id: The ID of the run that the model is associated with.
+        source_run_id: The ID of the run that the model is associated with. If unspecified and a
+                       run is active, the active run ID will be used.
         tags: A dictionary of string keys and values to set as tags on the model.
         params: A dictionary of string keys and values to set as parameters on the model.
         model_type: The type of the model.
         experiment_id: The experiment ID of the experiment to which the model belongs.
 
     Returns:
-        The created logged model.
+        A new :py:class:`mlflow.entities.LoggedModel` object with status ``PENDING``.
+    """
+    model = _create_logged_model(
+        name=name,
+        source_run_id=source_run_id,
+        tags=tags,
+        params=params,
+        model_type=model_type,
+        experiment_id=experiment_id,
+    )
+    _last_logged_model_id.set(model.model_id)
+    return model
+
+
+def create_external_model(
+    name: Optional[str] = None,
+    source_run_id: Optional[str] = None,
+    tags: Optional[dict[str, str]] = None,
+    params: Optional[dict[str, str]] = None,
+    model_type: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+) -> LoggedModel:
+    """
+    Create a new LoggedModel whose artifacts are stored outside of MLflow. This is useful for
+    tracking parameters and performance data (metrics, traces etc.) for a model, application, or
+    generative AI agent that is not packaged using the MLflow Model format.
+
+    Args:
+        name: The name of the model. If not specified, a random name will be generated.
+        source_run_id: The ID of the run that the model is associated with. If unspecified and a
+                       run is active, the active run ID will be used.
+        tags: A dictionary of string keys and values to set as tags on the model.
+        params: A dictionary of string keys and values to set as parameters on the model.
+        model_type: The type of the model. This is a user-defined string that can be used to
+                    search and compare related models. For example, setting ``model_type="agent"``
+                    enables you to easily search for this model and compare it to other models of
+                    type ``"agent"`` in the future.
+        experiment_id: The experiment ID of the experiment to which the model belongs.
+
+    Returns:
+        A new :py:class:`mlflow.entities.LoggedModel` object with status ``READY``.
+    """
+    from mlflow.models.model import MLMODEL_FILE_NAME, Model
+    from mlflow.models.utils import get_external_mlflow_model_spec
+
+    tags = dict(tags) if tags else {}
+    tags[MLFLOW_MODEL_IS_EXTERNAL] = "true"
+
+    client = MlflowClient()
+    model = _create_logged_model(
+        name=name,
+        source_run_id=source_run_id,
+        tags=tags,
+        params=params,
+        model_type=model_type,
+        experiment_id=experiment_id,
+    )
+
+    # If a model is external, its artifacts (code, weights, etc.) are not stored in MLflow.
+    # Accordingly, we finalize the model immediately after creation, since there aren't
+    # any model artifacts for the client to upload to MLflow. Additionally, we create a
+    # dummy MLModel file to ensure that the model can be registered to the Model Registry
+    mlflow_model: Model = get_external_mlflow_model_spec(model)
+    with TempDir() as tmp:
+        mlflow_model.save(tmp.path(MLMODEL_FILE_NAME))
+        MlflowClient().log_model_artifacts(
+            model_id=model.model_id,
+            local_dir=tmp.path(),
+        )
+
+    model = client.finalize_logged_model(model_id=model.model_id, status=LoggedModelStatus.READY)
+    _last_logged_model_id.set(model.model_id)
+
+    return model
+
+
+def _create_logged_model(
+    name: Optional[str] = None,
+    source_run_id: Optional[str] = None,
+    tags: Optional[dict[str, str]] = None,
+    params: Optional[dict[str, str]] = None,
+    model_type: Optional[str] = None,
+    experiment_id: Optional[str] = None,
+) -> LoggedModel:
+    """
+    Create a new LoggedModel in the ``PENDING`` state.
+
+    Args:
+        name: The name of the model. If not specified, a random name will be generated.
+        source_run_id: The ID of the run that the model is associated with. If unspecified and a
+                       run is active, the active run ID will be used.
+        tags: A dictionary of string keys and values to set as tags on the model.
+        params: A dictionary of string keys and values to set as parameters on the model.
+        model_type: The type of the model. This is a user-defined string that can be used to
+                    search and compare related models. For example, setting ``model_type="agent"``
+                    enables you to easily search for this model and compare it to other models of
+                    type ``"agent"`` in the future.
+        experiment_id: The experiment ID of the experiment to which the model belongs.
+
+    Returns:
+        A new LoggedModel in the ``PENDING`` state.
     """
     if source_run_id is None and (run := active_run()):
         source_run_id = run.info.run_id
@@ -2036,7 +2219,7 @@ def create_logged_model(
     elif experiment_id is None:
         experiment_id = _get_experiment_id()
     resolved_tags = context_registry.resolve_tags(tags)
-    model = MlflowClient().create_logged_model(
+    return MlflowClient().create_logged_model(
         experiment_id=experiment_id,
         name=name,
         source_run_id=source_run_id,
@@ -2044,8 +2227,21 @@ def create_logged_model(
         params=params,
         model_type=model_type,
     )
-    _last_logged_model_id.set(model.model_id)
-    return model
+
+
+@experimental
+def finalize_logged_model(model_id: str, status: LoggedModelStatus) -> LoggedModel:
+    """
+    Finalize a model by updating its status.
+
+    Args:
+        model_id: ID of the model to finalize.
+        status: Final status to set on the model.
+
+    Returns:
+        The updated model.
+    """
+    return MlflowClient().finalize_logged_model(model_id, status)
 
 
 @experimental
@@ -2076,12 +2272,19 @@ def last_logged_model() -> Optional[LoggedModel]:
         :test:
         :caption: Example
 
+        from typing import List
+
         import mlflow
 
-        model = mlflow.create_logged_model()
-        last_model = mlflow.last_logged_model()
-        assert last_model.model_id == model.model_id
 
+        class Model(mlflow.pyfunc.PythonModel):
+            def predict(self, integers: List[int]) -> List[int]:
+                return integers * 2
+
+
+        logged_model = mlflow.pyfunc.log_model(python_model=Model())
+        last_model = mlflow.last_logged_model()
+        assert last_model.model_id == logged_model.model_id
     """
     if id := _last_logged_model_id.get():
         return get_logged_model(id)
@@ -2213,6 +2416,32 @@ def delete_run(run_id: str) -> None:
 
     """
     MlflowClient().delete_run(run_id)
+
+
+def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
+    """
+    Set tags on the specified logged model.
+
+    Args:
+        model_id: ID of the model.
+        tags: Tags to set on the model.
+
+    Returns:
+        None
+    """
+    MlflowClient().set_logged_model_tags(model_id, tags)
+
+
+def delete_logged_model_tag(model_id: str, key: str) -> None:
+    """
+    Delete a tag from the specified logged model.
+
+    Args:
+        model_id: ID of the model.
+        key: Tag key to delete.
+
+    """
+    MlflowClient().delete_logged_model_tag(model_id, key)
 
 
 def get_artifact_uri(artifact_path: Optional[str] = None) -> str:

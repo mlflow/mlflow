@@ -61,9 +61,9 @@ def assert_models_match(models1, models2):
     assert m1 == m2
 
 
-def test_create_logged_model_when_set_experiment():
+def test_initialize_logged_model_when_set_experiment():
     exp = mlflow.set_experiment("test")
-    logged_model = mlflow.create_logged_model(exp.experiment_id)
+    logged_model = mlflow.initialize_logged_model(exp.experiment_id)
     assert_logged_model_attributes(
         logged_model,
         exp.experiment_id,

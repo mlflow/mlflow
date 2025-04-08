@@ -94,11 +94,16 @@ def patched_call(original, self, *args, **kwargs):
 
     model_id = None
     task = mlflow.openai._get_task_name(self.__class__)
-    model_identity = _generate_model_identity({"task": task, **kwargs})
+    model_dict = {"task": task, **kwargs}
+    model_identity = _generate_model_identity(model_dict)
     model_id = _MODEL_TRACKER.get(model_identity)
-    # TODO: create LoggedModel if model_id is None and set into _MODEL_TRACKER
-
     if config.log_traces:
+        if model_id is None and config.log_models:
+            params = _generate_model_params_dict(model_dict)
+            logged_model = mlflow.create_external_model(name="openai", params=params)
+            _MODEL_TRACKER.set(model_identity, logged_model.model_id)
+            model_id = logged_model.model_id
+
         span = _start_span(mlflow_client, self, kwargs, run_id, model_id)
 
     # Execute the original function
@@ -122,9 +127,15 @@ async def async_patched_call(original, self, *args, **kwargs):
     mlflow_client = mlflow.MlflowClient()
 
     task = mlflow.openai._get_task_name(self.__class__)
-    model_identity = _generate_model_identity({"task": task, **kwargs})
+    model_dict = {"task": task, **kwargs}
+    model_identity = _generate_model_identity(model_dict)
     model_id = _MODEL_TRACKER.get(model_identity)
     if config.log_traces:
+        if model_id is None and config.log_models:
+            params = _generate_model_params_dict(model_dict)
+            logged_model = mlflow.create_external_model(name="openai", params=params)
+            _MODEL_TRACKER.set(model_identity, logged_model.model_id)
+            model_id = logged_model.model_id
         span = _start_span(mlflow_client, self, kwargs, run_id, model_id)
 
     # Execute the original function
@@ -297,6 +308,23 @@ def patched_swarm_run(original, self, *args, **kwargs):
     """
     traced_fn = mlflow.trace(original, span_type=SpanType.AGENT)
     return traced_fn(self, *args, **kwargs)
+
+
+def _generate_model_params_dict(model_dict: dict[str, Any]) -> dict[str, str]:
+    # drop input fields
+    exclude_fields = {
+        "messages",
+        "prompt",
+        "input",
+    }
+    return {
+        k: (
+            model_dict[k]
+            if isinstance(model_dict[k], str)
+            else json.dumps(model_dict[k], default=str)
+        )
+        for k in sorted(model_dict.keys() - exclude_fields)
+    }
 
 
 def _generate_model_identity(model_dict) -> int:

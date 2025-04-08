@@ -6,7 +6,8 @@ import importlib
 import inspect
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Union
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, Optional, Union
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
@@ -17,10 +18,6 @@ from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import (
-    MLFLOW_TRACE_BUFFER_MAX_SIZE,
-    MLFLOW_TRACE_BUFFER_TTL_SECONDS,
-)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -30,7 +27,6 @@ from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_VALUE_KEY,
     SpanAttributeKey,
 )
-from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.provider import (
     is_tracing_enabled,
     safe_set_span_in_context,
@@ -49,7 +45,6 @@ from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_d
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 
 _logger = logging.getLogger(__name__)
 
@@ -57,13 +52,13 @@ if TYPE_CHECKING:
     import pandas
 
 
-# Traces are stored in memory after completion so they can be retrieved conveniently.
-# For example, Databricks model serving fetches the trace data from the buffer after
-# making the prediction request, and logging them into the Inference Table.
-TRACE_BUFFER = TTLCache(
-    maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
-    ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
-)
+_LAST_ACTIVE_TRACE_ID_GLOBAL = None
+_LAST_ACTIVE_TRACE_ID_THREAD_LOCAL = ContextVar("last_active_trace_id", default=None)
+
+# Cache mapping between evaluation request ID to MLflow backend request ID.
+# This is necessary for evaluation harness to access generated traces during
+# evaluation using the dataset row ID (evaluation request ID).
+_EVAL_REQUEST_ID_TO_TRACE_ID = TTLCache(maxsize=10000, ttl=3600)
 
 
 def trace(
@@ -421,13 +416,6 @@ def start_span(
         :py:func:`MLflow Client APIs <mlflow.client.MlflowClient.start_trace>`
         and pass the parent span ID explicitly.
 
-    .. note::
-
-        All spans created under the root span (i.e. a single trace) are buffered in memory and
-        not exported until the root span is ended. The buffer has a default size of 1000 traces
-        and TTL of 1 hour. You can configure the buffer size and TTL using the environment variables
-        ``MLFLOW_TRACE_BUFFER_MAX_SIZE`` and ``MLFLOW_TRACE_BUFFER_TTL_SECONDS`` respectively.
-
     Args:
         name: The name of the span.
         span_type: The type of the span. Can be either a string or
@@ -496,9 +484,8 @@ def get_trace(request_id: str) -> Optional[Trace]:
     Returns:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
     """
-    # Try to get the trace from the in-memory buffer first
-    if trace := TRACE_BUFFER.get(request_id, None):
-        return trace
+    # Special handling for evaluation request ID.
+    request_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(request_id) or request_id
 
     try:
         return MlflowClient().get_trace(request_id, display=False)
@@ -518,18 +505,18 @@ def search_traces(
     order_by: Optional[list[str]] = None,
     extract_fields: Optional[list[str]] = None,
     run_id: Optional[str] = None,
+    return_type: Literal["pandas", "list"] = "pandas",
     model_id: Optional[str] = None,
     sql_warehouse_id: Optional[str] = None,
-) -> "pandas.DataFrame":
+) -> Union["pandas.DataFrame", list[Trace]]:
     """
     Return traces that match the given list of search expressions within the experiments.
 
-    .. tip::
+    .. note::
 
-        This API returns a **Pandas DataFrame** that contains the traces as rows. To retrieve
-        a list of the original :py:class:`Trace <mlflow.entities.Trace>` objects,
-        you can use the :py:meth:`MlflowClient().search_traces
-        <mlflow.client.MlflowClient.search_traces>` method instead.
+        If expected number of search results is large, consider using the
+        `MlflowClient.search_traces` API directly to paginate through the results. This
+        function returns all results in memory and may not be suitable for large result sets.
 
     Args:
         experiment_ids: List of experiment ids to scope the search. If not provided, the search
@@ -540,6 +527,11 @@ def search_traces(
         order_by: List of order_by clauses.
         extract_fields: Specify fields to extract from traces using the format
             ``"span_name.[inputs|outputs].field_name"`` or ``"span_name.[inputs|outputs]"``.
+
+            .. note::
+
+                This parameter is only supported when the return type is set to "pandas".
+
             For instance, ``"predict.outputs.result"`` retrieves the output ``"result"`` field from
             a span named ``"predict"``, while ``"predict.outputs"`` fetches the entire outputs
             dictionary, including keys ``"result"`` and ``"explanation"``.
@@ -560,15 +552,27 @@ def search_traces(
 
                 # span name and field name contain a dot
                 extract_fields = ["`span.name`.inputs.`field.name`"]
+
         run_id: A run id to scope the search. When a trace is created under an active run,
             it will be associated with the run and you can filter on the run id to retrieve the
             trace. See the example below for how to filter traces by run id.
+
+        return_type: The type of the return value. The following return types are supported. Default
+            is ``"pandas"``.
+
+            - `"pandas"`: Returns a Pandas DataFrame containing information about traces
+                where each row represents a single trace and each column represents a field of the
+                trace e.g. request_id, spans, etc.
+            - `"list"`: Returns a list of :py:class:`Trace <mlflow.entities.Trace>` objects.
+
         model_id: If specified, search traces associated with the given model ID.
         sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
             searching traces in inference tables.
 
     Returns:
-        A Pandas DataFrame containing information about traces that satisfy the search expressions.
+        Traces that satisfy the search expressions. Either as a list of
+        :py:class:`Trace <mlflow.entities.Trace>` objects or as a Pandas DataFrame,
+        depending on the value of the `return_type` parameter.
 
     .. code-block:: python
         :test:
@@ -581,7 +585,8 @@ def search_traces(
             span.set_outputs({"c": 3, "d": 4})
 
         mlflow.search_traces(
-            extract_fields=["span1.inputs", "span1.outputs", "span1.outputs.c"]
+            extract_fields=["span1.inputs", "span1.outputs", "span1.outputs.c"],
+            return_type="pandas",
         )
 
 
@@ -601,7 +606,7 @@ def search_traces(
 
     .. code-block:: python
         :test:
-        :caption: Search traces by run ID
+        :caption: Search traces by run ID and return as a list of Trace objects
 
         import mlflow
 
@@ -614,17 +619,26 @@ def search_traces(
         with mlflow.start_run() as run:
             traced_func(1)
 
-        mlflow.search_traces(run_id=run.info.run_id)
+        mlflow.search_traces(run_id=run.info.run_id, return_type="list")
 
     """
-    # Check if pandas is installed early to avoid unnecessary computation
-    if importlib.util.find_spec("pandas") is None:
-        raise MlflowException(
-            message=(
-                "The `pandas` library is not installed. Please install `pandas` to use"
-                "`mlflow.search_traces` function."
-            ),
+    if return_type not in ["pandas", "list"]:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid return type: {return_type}. Return type must be either 'pandas' or 'list'."
         )
+    elif return_type == "list" and extract_fields:
+        raise MlflowException.invalid_parameter_value(
+            "The `extract_fields` parameter is only supported when return type is set to 'pandas'."
+        )
+    elif return_type == "pandas":
+        # Check if pandas is installed early to avoid unnecessary computation
+        if importlib.util.find_spec("pandas") is None:
+            raise MlflowException(
+                message=(
+                    "The `pandas` library is not installed. Please install `pandas` to use"
+                    " the `return_type='pandas'` option."
+                ),
+            )
 
     if not experiment_ids:
         if experiment_id := _get_experiment_id():
@@ -653,17 +667,16 @@ def search_traces(
         max_results=max_results,
     )
 
-    get_display_handler().display_traces(results)
+    if return_type == "pandas":
+        results = traces_to_df(results)
+        if extract_fields:
+            results = extract_span_inputs_outputs(
+                traces=results,
+                fields=extract_fields,
+                col_name=SPANS_COLUMN_NAME,
+            )
 
-    traces_df = traces_to_df(results)
-    if extract_fields:
-        traces_df = extract_span_inputs_outputs(
-            traces=traces_df,
-            fields=extract_fields,
-            col_name=SPANS_COLUMN_NAME,
-        )
-
-    return traces_df
+    return results
 
 
 def get_current_active_span() -> Optional[LiveSpan]:
@@ -705,7 +718,7 @@ def get_current_active_span() -> Optional[LiveSpan]:
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
 
 
-def get_last_active_trace() -> Optional[Trace]:
+def get_last_active_trace(thread_local=False) -> Optional[Trace]:
     """
     Get the last active trace in the same process if exists.
 
@@ -713,11 +726,11 @@ def get_last_active_trace() -> Optional[Trace]:
 
         This function DOES NOT work in the model deployed in Databricks model serving.
 
-    .. note::
+    .. warning::
 
-        The last active trace is only stored in-memory for the time defined by the TTL
-        (Time To Live) configuration. By default, the TTL is 1 hour and can be configured
-        using the environment variable ``MLFLOW_TRACE_BUFFER_TTL_SECONDS``.
+        This function is not thread-safe by default, returns the last active trace in
+        the same process. If you want to get the last active trace in the current thread,
+        set the `thread_local` parameter to True.
 
     .. note::
 
@@ -727,6 +740,11 @@ def get_last_active_trace() -> Optional[Trace]:
         immutable after the trace is ended, you can still edit some fields such as `tags`),
         please use the respective MlflowClient APIs with the request ID of the trace, as
         shown in the example below.
+
+    Args:
+
+        thread_local: If True, returns the last active trace in the current thread. Otherwise,
+            returns the last active trace in the same process. Default is False.
 
     .. code-block:: python
         :test:
@@ -750,18 +768,27 @@ def get_last_active_trace() -> Optional[Trace]:
     Returns:
         The last active trace if exists, otherwise None.
     """
-    if is_in_databricks_model_serving_environment():
-        raise MlflowException(
-            "The function `mlflow.get_last_active_trace` is not supported in "
-            "Databricks model serving.",
-            error_code=BAD_REQUEST,
-        )
-
-    if len(TRACE_BUFFER) > 0:
-        last_active_request_id = list(TRACE_BUFFER.keys())[-1]
-        return TRACE_BUFFER.get(last_active_request_id)
+    trace_id = (
+        _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get() if thread_local else _LAST_ACTIVE_TRACE_ID_GLOBAL
+    )
+    if trace_id is not None:
+        try:
+            return MlflowClient().get_trace(trace_id, display=False)
+        except:
+            _logger.debug(
+                f"Failed to get the last active trace with request ID {trace_id}.",
+                exc_info=True,
+            )
+            raise
     else:
         return None
+
+
+def _set_last_active_trace_id(trace_id: str):
+    """Internal function to set the last active trace ID."""
+    global _LAST_ACTIVE_TRACE_ID_GLOBAL
+    _LAST_ACTIVE_TRACE_ID_GLOBAL = trace_id
+    _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.set(trace_id)
 
 
 def update_current_trace(

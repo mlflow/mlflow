@@ -925,7 +925,7 @@ class MlflowClient:
                 else None
             )
 
-        traces = self._tracking_client.search_traces(
+        return self._tracking_client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
@@ -935,9 +935,6 @@ class MlflowClient:
             model_id=model_id,
             sql_warehouse_id=sql_warehouse_id,
         )
-
-        get_display_handler().display_traces(traces)
-        return traces
 
     def start_trace(
         self,
@@ -5344,7 +5341,10 @@ class MlflowClient:
             source_run_id: ID of the run that produced the model.
             tags: Tags to set on the model.
             params: Parameters to set on the model.
-            model_type: Type of the model.
+            model_type: The type of the model. This is a user-defined string that can be used to
+                        search and compare related models. For example, setting
+                        ``model_type="agent"`` enables you to easily search for this model and
+                        compare it to other models of type ``"agent"`` in the future.
 
         Returns:
             The created model.
