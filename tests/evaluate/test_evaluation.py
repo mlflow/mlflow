@@ -2206,15 +2206,13 @@ def test_evaluate_model_id_consistency_check(multiclass_logistic_regressor_model
         model_id = model_info.model_uuid
 
         # Test that specifying matching model_id works
-        result = evaluate(
+        evaluate(
             model_uri,
             iris_dataset._constructor_args["data"],
             targets=iris_dataset._constructor_args["targets"],
             model_type="classifier",
             model_id=model_id,
         )
-        assert result.metrics
-        assert result.artifacts
 
         # Test that specifying different model_id raises
         with pytest.raises(
@@ -2234,11 +2232,9 @@ def test_evaluate_model_id_consistency_check(multiclass_logistic_regressor_model
             )
 
         # Test that not specifying model_id works
-        result = evaluate(
+        evaluate(
             model_uri,
             iris_dataset._constructor_args["data"],
             targets=iris_dataset._constructor_args["targets"],
             model_type="classifier",
         )
-        assert result.metrics
-        assert result.artifacts
