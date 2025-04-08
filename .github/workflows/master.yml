@@ -29,6 +29,7 @@ env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: /home/runner/work/mlflow/mlflow/requirements/constraints.txt
   PYTHONUTF8: "1"
 
 jobs:
