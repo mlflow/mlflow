@@ -83,6 +83,8 @@ jobs:
           source ./dev/install-common-deps.sh --ml
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
           pip install tf-keras
+          # for testing databricks-connect inference in pip requirements
+          pip install databricks-agents
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check

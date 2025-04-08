@@ -238,7 +238,7 @@ def _prune_packages(packages):
     requires = {req for req in requires if not req.startswith("llama-index-")}
 
     # Do not exclude mlflow's dependencies
-    return packages - (requires - set(_get_requires("mlflow")))
+    return packages - (requires - set(_get_requires("mlflow")) - {"databricks-connect"})
 
 
 def _run_command(cmd, timeout_seconds, env=None):

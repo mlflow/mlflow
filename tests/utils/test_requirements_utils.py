@@ -734,3 +734,24 @@ def test_capture_imported_modules_extra_env_vars(monkeypatch):
     _capture_imported_modules(
         model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME, extra_env_vars={"TEST": "test"}
     )
+
+
+def test_infer_pip_requirements_on_databricks_agents():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            import databricks.agents  # noqa: F401
+
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            input_example="test",
+        )
+
+    requirements = infer_pip_requirements(model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME)
+    packages = [req.split("==")[0] for req in requirements]
+    assert "databricks-agents" in packages
+    # databricks-connect should not be pruned even it's a dependency of databricks-agents
+    assert "databricks-connect" in packages
