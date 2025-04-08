@@ -1205,9 +1205,7 @@ def log_input(
     datasets = [_create_dataset_input(dataset, context, tags)] if dataset else None
     models = [model] if model else None
 
-    MlflowClient().log_inputs(
-        run_id=run_id, datasets=datasets, models=models
-    )
+    MlflowClient().log_inputs(run_id=run_id, datasets=datasets, models=models)
 
 
 def log_inputs(
