@@ -747,10 +747,11 @@ def get_last_active_trace() -> Optional[Trace]:
     """
     if _LAST_ACTIVE_TRACE_ID_GLOBAL is not None:
         try:
-            return MlflowClient().get_trace(trace_id, display=False)
+            return MlflowClient().get_trace(_LAST_ACTIVE_TRACE_ID_GLOBAL, display=False)
         except:
             _logger.debug(
-                f"Failed to get the last active trace with request ID {trace_id}.",
+                "Failed to get the last active trace with "
+                f"request ID {_LAST_ACTIVE_TRACE_ID_GLOBAL}.",
                 exc_info=True,
             )
             raise
@@ -800,7 +801,6 @@ def get_last_active_trace_id(thread_local=False) -> Optional[Trace]:
     return (
         _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get() if thread_local else _LAST_ACTIVE_TRACE_ID_GLOBAL
     )
-
 
 
 def _set_last_active_trace_id(trace_id: str):
