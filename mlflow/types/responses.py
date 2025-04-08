@@ -11,16 +11,12 @@ from mlflow.types.responses_helpers import (
     Message,
     Response,
     ResponseCompletedEvent,
-    ResponseContentPartAddedEvent,
-    ResponseContentPartDoneEvent,
     ResponseErrorEvent,
     ResponseFunctionToolCall,
-    ResponseOutputItemAddedEvent,
     ResponseOutputItemDoneEvent,
     ResponseOutputMessage,
     ResponseTextAnnotationDeltaEvent,
     ResponseTextDeltaEvent,
-    ResponseTextDoneEvent,
     Tools,
 )
 from mlflow.types.schema import Schema
@@ -62,9 +58,7 @@ class ResponsesRequest(BaseRequestPayload, Tools):
                     "web_search_call",
                     "item_reference",
                 }:
-                    # if they are one of these types, we will not validate them
-                    # will allow the model to fail w/ bad_request w/ these message types
-                    raise ValueError(f"Invalid type: {input['type']}")
+                    warnings.warn(f"Invalid type: {input['type']}")
         return self
 
 
@@ -73,25 +67,16 @@ class ResponsesResponse(Response):
 
 
 class ResponsesStreamEvent(BaseModel):
-    # pydantic model that allows for all other streaming event types to pass type validation
     model_config = ConfigDict(extra="allow")
     type: str
     custom_outputs: Optional[dict[str, Any]] = None
 
     @model_validator(mode="after")
     def check_type(self) -> "ResponsesStreamEvent":
-        if self.type == "response.output_item.added":
-            ResponseOutputItemAddedEvent(**self.model_dump_compat())
-        elif self.type == "response.output_item.done":
+        if self.type == "response.output_item.done":
             ResponseOutputItemDoneEvent(**self.model_dump_compat())
-        elif self.type == "response.content_part.added":
-            ResponseContentPartAddedEvent(**self.model_dump_compat())
-        elif self.type == "response.content_part.done":
-            ResponseContentPartDoneEvent(**self.model_dump_compat())
         elif self.type == "response.output_text.delta":
             ResponseTextDeltaEvent(**self.model_dump_compat())
-        elif self.type == "response.output_text.done":
-            ResponseTextDoneEvent(**self.model_dump_compat())
         elif self.type == "response.output_text.annotation.added":
             ResponseTextAnnotationDeltaEvent(**self.model_dump_compat())
         elif self.type == "response.error":
@@ -106,6 +91,8 @@ class ResponsesStreamEvent(BaseModel):
             "response.incomplete",
             "response.content_part.added",
             "response.content_part.done",
+            "response.output_text.done",
+            "response.output_item.added",
             "response.refusal.delta",
             "response.refusal.done",
             "response.function_call_arguments.delta",
@@ -116,6 +103,7 @@ class ResponsesStreamEvent(BaseModel):
             "response.web_search_call.in_progress",
             "response.web_search_call.searching",
             "response.web_search_call.completed",
+            "response.error",
         }:
             warnings.warn(f"Invalid type: {self.type}.")
         return self
