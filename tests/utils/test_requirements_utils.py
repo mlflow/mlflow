@@ -740,6 +740,7 @@ def test_infer_pip_requirements_on_databricks_agents():
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             import databricks.agents  # noqa: F401
+            import pyspark  # noqa: F401
 
             return model_input
 
@@ -755,3 +756,5 @@ def test_infer_pip_requirements_on_databricks_agents():
     assert "databricks-agents" in packages
     # databricks-connect should not be pruned even it's a dependency of databricks-agents
     assert "databricks-connect" in packages
+    # pyspark should not exist because it conflicts with databricks-connect
+    assert "pyspark" not in packages
