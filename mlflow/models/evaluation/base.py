@@ -1592,11 +1592,9 @@ def evaluate(  # noqa: D417
             when making predictions, such as ``{"max_tokens": 100}``. This is only used when
             the ``model`` is an MLflow Deployments endpoint URI e.g. ``"endpoints:/my-chat"``
 
-        model_id: (Optional) A string ID to associate with the model being evaluated. If specified,
-            this ID takes precedence over any model ID derived from the model (e.g., from a model
-            URI or PyFuncModel). All metrics computed by the evaluator will be linked to this model
-            ID. If not specified and the model has an associated model ID (e.g., from a model URI or
-            PyFuncModel), that ID will be used.
+        model_id: (Optional) The ID of the MLflow LoggedModel or Model Version to which the
+                  evaluation results (e.g. metrics and traces) will be linked. If `model_id` is not
+                  specified but `model` is specified, the ID from `model` will be used.
 
     Returns:
         An :py:class:`mlflow.models.EvaluationResult` instance containing
