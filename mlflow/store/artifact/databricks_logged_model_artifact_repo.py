@@ -2,6 +2,7 @@ import logging
 import posixpath
 import re
 from concurrent.futures import Future, ThreadPoolExecutor
+from functools import cached_property
 from pathlib import Path
 from typing import Optional
 
@@ -51,7 +52,10 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
             f"{relative_path}"
         )
         self.wc = WorkspaceClient(config=Config(enable_experimental_files_api_client=True))
-        self.databricks_artifact_repo = DatabricksArtifactRepository(artifact_uri)
+
+    @cached_property
+    def databricks_artifact_repo(self) -> DatabricksArtifactRepository:
+        return DatabricksArtifactRepository(self.artifact_uri)
 
     @property
     def files_api(self) -> FilesAPI:
