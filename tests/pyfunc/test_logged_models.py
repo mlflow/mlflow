@@ -135,10 +135,10 @@ def test_log_model_permits_logging_model_artifacts_to_external_models(tmp_path):
     mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=dst_dir_1)
     mlflow_model: Model = Model.load(os.path.join(dst_dir_1, "MLmodel"))
 
-    mlflow.pyfunc.log_model(python_model=DummyModel(), model_id=model.model_id)
+    model_info = mlflow.pyfunc.log_model(python_model=DummyModel(), model_id=model.model_id)
 
     # Verify that the model can now be loaded and is no longer tagged as external
-    mlflow.pyfunc.load_model(f"models:/{model.model_id}")
+    mlflow.pyfunc.load_model(model_info.model_uri)
     assert MLFLOW_MODEL_IS_EXTERNAL not in mlflow.get_logged_model(model.model_id).tags
     dst_dir_2 = os.path.join(tmp_path, "dst_2")
     mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=dst_dir_2)
