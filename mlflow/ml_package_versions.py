@@ -407,7 +407,6 @@ FLAVOR_TO_MODULE_NAME = {
     "tensorflow": "tensorflow",
     "xgboost": "xgboost",
     "lightgbm": "lightgbm",
-    "fastai": "fastai",
     "statsmodels": "statsmodels",
     "spark": "pyspark",
     "paddle": "paddle",
