@@ -742,6 +742,13 @@ MLFLOW_MYSQL_SSL_CERT = _EnvironmentVariable("MLFLOW_MYSQL_SSL_CERT", str, None)
 MLFLOW_MYSQL_SSL_KEY = _EnvironmentVariable("MLFLOW_MYSQL_SSL_KEY", str, None)
 
 
+#: Specifies whether to enable async trace logging to Databricks Tracing Server.
+#: TODO: Update OSS MLflow Server to logging async by default
+#: Default: ``True``.
+MLFLOW_ENABLE_ASYNC_TRACE_LOGGING = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", True
+)
+
 #: Maximum number of worker threads to use for async trace logging.
 #: (default: ``10``)
 MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS = _EnvironmentVariable(

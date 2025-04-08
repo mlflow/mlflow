@@ -8,7 +8,7 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
-    MLFLOW_ENABLE_ASYNC_LOGGING,
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
 from mlflow.protos.databricks_trace_server_pb2 import CreateTrace, DatabricksTracingServerService
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
@@ -34,12 +34,7 @@ class DatabricksSpanExporter(SpanExporter):
     """
 
     def __init__(self):
-        # Default to async logging when MLFLOW_ENABLE_ASYNC_LOGGING is not explicitly
-        # set to False.
-        self._is_async = True
-        if MLFLOW_ENABLE_ASYNC_LOGGING.is_set():
-            self._is_async = MLFLOW_ENABLE_ASYNC_LOGGING.get()
-
+        self._is_async = MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
         if self._is_async:
             _logger.info("MLflow is configured to log traces asynchronously.")
             self._async_queue = AsyncTraceExportQueue()

@@ -33,7 +33,7 @@ def _flush_async_logging():
 def test_export(experiment_id, is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
-    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_LOGGING", str(is_async))
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", "3")
 
     mlflow.tracing.set_destination(Databricks(experiment_id=experiment_id))
@@ -138,7 +138,7 @@ def test_export(experiment_id, is_async, monkeypatch):
 def test_export_catch_failure(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
-    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_LOGGING", str(is_async))
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", "3")
 
     mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
@@ -165,7 +165,7 @@ def test_export_catch_failure(is_async, monkeypatch):
 def test_async_bulk_export(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
-    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_LOGGING", "True")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", "3")
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", "3")
 

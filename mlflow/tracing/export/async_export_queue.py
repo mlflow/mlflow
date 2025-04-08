@@ -137,8 +137,10 @@ class AsyncTraceExportQueue:
     def _at_exit_callback(self) -> None:
         """Callback function executed when the program is exiting."""
         try:
-            _logger.info("Flushing the async trace logging queue before program exit. "
-                         "This may take a while...")
+            _logger.info(
+                "Flushing the async trace logging queue before program exit. "
+                "This may take a while..."
+            )
             self.flush(terminate=True)
         except Exception as e:
             _logger.error(f"Error while finishing trace export requests: {e}")

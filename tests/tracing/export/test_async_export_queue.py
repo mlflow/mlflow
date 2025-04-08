@@ -1,6 +1,6 @@
-from concurrent.futures import ThreadPoolExecutor
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task

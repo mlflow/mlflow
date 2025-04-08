@@ -90,6 +90,8 @@ class MlflowSpanExporter(SpanExporter):
             error_msg="Failed to log trace to MLflow backend.",
         )
 
+        # TODO: Use MLFLOW_ENABLE_ASYNC_TRACE_LOGGING instead and default to async
+        # logging once the async logging implementation becomes stable.
         if MLFLOW_ENABLE_ASYNC_LOGGING.get():
             self._async_queue.put(upload_trace_data_task)
             self._async_queue.put(upload_ended_trace_info_task)
