@@ -116,6 +116,24 @@ def predict(
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
 
+    .. note::
+
+        To increase verbosity for debugging purposes, consider setting the following environment
+        variables:
+
+        .. code-block:: bash
+
+            # For virtualenv
+            export PIP_VERBOSE=1
+
+            # For uv
+            export RUST_LOG=uv=debug
+
+        See also:
+
+        - https://pip.pypa.io/en/stable/topics/configuration/#environment-variables
+        - https://docs.astral.sh/uv/configuration/environment
+
     Args:
         model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
         input_data: Input data for prediction. Must be valid input for the PyFunc model. Refer
