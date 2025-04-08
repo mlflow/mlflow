@@ -690,12 +690,15 @@ langchain:
       "< 0.2": ["langchain-openai<=0.1.22"]
       ">= 0.2": [
           "langchain-huggingface",
-          # Install langchain-databricks from the main branch
-          "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
           # Required for testing uc tools
           "unitycatalog-langchain",
         ]
+      ">=0.3": ["databricks-langchain"]
     run: |
+      # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
+      # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
+      # resulting in a weird module conflict issue.
+      pip install './skinny'
       # Run all langchain tests except autologging and evaluation
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py
       # test both pydantic v1 and v2
