@@ -112,7 +112,9 @@ export function getArtifactBytesContent(artifactLocation: any) {
 }
 
 export const getLoggedModelArtifactLocationUrl = (path: string, loggedModelId: string) => {
-  return `logged-models/${loggedModelId}/artifacts/files?artifact_file_path=${encodeURIComponent(path)}`;
+  return `ajax-api/2.0/mlflow/logged-models/${loggedModelId}/artifacts/files?artifact_file_path=${encodeURIComponent(
+    path,
+  )}`;
 };
 
 export const getArtifactLocationUrl = (path: string, runUuid: string) => {

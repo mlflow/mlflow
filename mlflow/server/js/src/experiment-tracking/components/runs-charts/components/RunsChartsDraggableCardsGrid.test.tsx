@@ -29,7 +29,9 @@ import userEvent from '@testing-library/user-event';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
+    '../../../../common/utils/FeatureUtils',
+  ),
   shouldEnableHidingChartsWithNoData: jest.fn(() => true),
 }));
 

@@ -1,6 +1,6 @@
 import * as Toast from '@radix-ui/react-toast';
 import React from 'react';
-import { type DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
 import type { AnalyticsEventProps } from '../types';
 export interface NotificationProps extends Toast.ToastProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     severity?: 'info' | 'success' | 'warning' | 'error';

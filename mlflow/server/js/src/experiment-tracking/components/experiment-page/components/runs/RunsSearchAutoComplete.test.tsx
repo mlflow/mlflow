@@ -6,7 +6,9 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { shouldUseRegexpBasedAutoRunsSearchFilter } from '../../../../../common/utils/FeatureUtils';
 
 jest.mock('../../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
+    '../../../../../common/utils/FeatureUtils',
+  ),
   shouldUseRegexpBasedAutoRunsSearchFilter: jest.fn(),
 }));
 

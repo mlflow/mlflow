@@ -177,7 +177,10 @@ class Assessment(_MlflowObject):
 @experimental
 @dataclass
 class Expectation(_MlflowObject):
-    """Represents an expectation value in an assessment."""
+    """
+    Represents an expectation about the output of an operation, such as the expected response
+    that a generative AI application should provide to a particular user query.
+    """
 
     value: AssessmentValueType
 
@@ -193,7 +196,11 @@ class Expectation(_MlflowObject):
 @experimental
 @dataclass
 class Feedback(_MlflowObject):
-    """Represents a feedback value in an assessment."""
+    """
+    Represents feedback about the output of an operation. For example, if the response from a
+    generative AI application to a particular user query is correct, then a human or LLM judge
+    may provide feedback with the value ``"correct"``.
+    """
 
     value: AssessmentValueType
 

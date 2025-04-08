@@ -15,13 +15,11 @@ export const ImageGridPlot = ({
   cardConfig,
   groupBy,
   setCardConfig,
-  containerWidth,
 }: {
   previewData: RunsChartsRunData[];
   cardConfig: RunsChartsImageCardConfig;
   groupBy: RunsGroupByConfig | null;
   setCardConfig?: (setter: (current: RunsChartsCardConfig) => RunsChartsImageCardConfig) => void;
-  containerWidth: number;
 }) => {
   const containsLoggedImages = previewData.some((run: RunsChartsRunData) => Boolean(run.tags[LOG_IMAGE_TAG_INDICATOR]));
 
@@ -53,11 +51,9 @@ export const ImageGridPlot = ({
   }
 
   if (cardConfig.imageKeys.length === 1) {
-    return <ImageGridSingleKeyPlot previewData={filteredPreviewData} cardConfig={cardConfig} width={containerWidth} />;
+    return <ImageGridSingleKeyPlot previewData={filteredPreviewData} cardConfig={cardConfig} />;
   } else if (cardConfig.imageKeys.length > 1) {
-    return (
-      <ImageGridMultipleKeyPlot previewData={filteredPreviewData} cardConfig={cardConfig} width={containerWidth} />
-    );
+    return <ImageGridMultipleKeyPlot previewData={filteredPreviewData} cardConfig={cardConfig} />;
   }
   return null;
 };

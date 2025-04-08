@@ -13,12 +13,14 @@ import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
+import { FeatureBadge } from '@mlflow/mlflow/src/shared/building_blocks/FeatureBadge';
 import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import {
   isExperimentEvalResultsMonitoringUIEnabled,
   isExperimentLoggedModelsUIEnabled,
   shouldEnableTracingUI,
 } from '../../../../../common/utils/FeatureUtils';
+import { MONITORING_BETA_EXPIRATION_DATE } from '../../../../constants';
 import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
 import { useExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
 
@@ -105,7 +107,7 @@ export const ExperimentViewRunsModeSwitch = ({
 }: ExperimentViewRunsModeSwitchProps) => {
   const [, experimentIds] = useExperimentPageSearchFacets();
   const [viewMode, setViewModeInURL] = useExperimentPageViewMode();
-  const { classNamePrefix } = useDesignSystemTheme();
+  const { classNamePrefix, theme } = useDesignSystemTheme();
   const currentViewMode = viewMode || getExperimentPageDefaultViewMode();
   const showCombinedRuns = useShouldShowCombinedRunsTab();
   const activeTab = showCombinedRuns && ['TABLE', 'CHART'].includes(currentViewMode) ? 'RUNS' : currentViewMode;
@@ -139,6 +141,21 @@ export const ExperimentViewRunsModeSwitch = ({
         setViewModeInURL(newValue, singleExperimentId);
       }}
     >
+      {/* Display the "Models" tab if we have only one experiment and the feature is enabled. */}
+      {singleExperimentId && isExperimentLoggedModelsUIEnabled() && (
+        <LegacyTabs.TabPane
+          key="MODELS"
+          tab={
+            <span data-testid="experiment-runs-mode-switch-models">
+              <FormattedMessage
+                defaultMessage="Models"
+                description="A button navigating to logged models table on the experiment page"
+              />
+              <PreviewBadge />
+            </span>
+          }
+        />
+      )}
       {showCombinedRuns ? (
         <LegacyTabs.TabPane
           tab={
@@ -216,7 +233,7 @@ export const ExperimentViewRunsModeSwitch = ({
                 defaultMessage="Monitoring"
                 description="A button enabling evaluation results monitoring mode on the experiment page"
               />
-              <PreviewBadge />
+              <FeatureBadge type="beta" expirationDate={MONITORING_BETA_EXPIRATION_DATE} />
             </span>
           }
           key="EVAL_RESULTS"

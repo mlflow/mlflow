@@ -8,7 +8,6 @@
       "node",
       "@testing-library/jest-dom"
     ],
-    "allowJs": true,
     "noPropertyAccessFromIndexSignature": true,
     "jsxImportSource": "@emotion/react",
     "paths": {

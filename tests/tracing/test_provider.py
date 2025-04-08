@@ -15,7 +15,6 @@ from mlflow.tracing.export.inference_table import (
     InferenceTableSpanExporter,
 )
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
-from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
@@ -26,6 +25,8 @@ from mlflow.tracing.provider import (
     start_span_in_context,
     trace_disabled,
 )
+
+from tests.tracing.helper import get_traces, purge_traces
 
 
 @pytest.fixture
@@ -143,20 +144,19 @@ def test_disable_enable_tracing():
         pass
 
     test_fn()
-    assert len(TRACE_BUFFER) == 1
+    assert len(get_traces()) == 1
     assert isinstance(_get_tracer(__name__), trace.Tracer)
-    TRACE_BUFFER.clear()
+    purge_traces()
 
     mlflow.tracing.disable()
     test_fn()
-    assert len(TRACE_BUFFER) == 0
+    assert len(get_traces()) == 0
     assert isinstance(_get_tracer(__name__), trace.NoOpTracer)
 
     mlflow.tracing.enable()
     test_fn()
-    assert len(TRACE_BUFFER) == 1
+    assert len(get_traces()) == 1
     assert isinstance(_get_tracer(__name__), trace.Tracer)
-    TRACE_BUFFER.clear()
 
     # enable() / disable() should only raise MlflowTracingException
     with mock.patch(
@@ -187,7 +187,7 @@ def test_trace_disabled_decorator(enabled_initially):
         return 0
 
     test_fn()
-    assert len(TRACE_BUFFER) == 0
+    assert len(get_traces()) == 0
     assert call_count == 1
 
     # Recover the initial state
@@ -204,7 +204,7 @@ def test_trace_disabled_decorator(enabled_initially):
         test_fn_raise()
     assert call_count == 2
 
-    assert len(TRACE_BUFFER) == 0
+    assert len(get_traces()) == 0
     assert is_tracing_enabled() == enabled_initially
 
     # @trace_disabled should not block the decorated function even

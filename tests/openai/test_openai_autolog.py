@@ -1,4 +1,3 @@
-import asyncio
 import json
 from unittest import mock
 
@@ -445,25 +444,25 @@ async def test_autolog_with_registered_model_name(client):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("log_models", [True, False])
-def test_autolog_use_active_run_id(client, log_models):
+async def test_autolog_use_active_run_id(client, log_models):
     mlflow.openai.autolog(log_models=log_models)
 
     messages = [{"role": "user", "content": "test"}]
 
-    def _call_create():
+    async def _call_create():
         response = client.chat.completions.create(messages=messages, model="gpt-4o-mini")
         if client._is_async:
-            return asyncio.run(response)
+            await response
         return response
 
     with mlflow.start_run() as run_1:
-        _call_create()
+        await _call_create()
 
     assert client.chat.completions._mlflow_run_id == run_1.info.run_id
 
     with mlflow.start_run() as run_2:
-        _call_create()
-        _call_create()
+        await _call_create()
+        await _call_create()
 
     assert client.chat.completions._mlflow_run_id == run_2.info.run_id
 
@@ -472,7 +471,7 @@ def test_autolog_use_active_run_id(client, log_models):
             log_models=log_models,
             extra_tags={"foo": "bar"},
         )
-        _call_create()
+        await _call_create()
 
     assert client.chat.completions._mlflow_run_id == run_3.info.run_id
 

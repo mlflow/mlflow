@@ -20,9 +20,13 @@ def _predict(x: str) -> str:
 
 
 @pytest.mark.parametrize("experiment_id", [None, _EXPERIMENT_ID])
-def test_export(experiment_id, monkeypatch):
+@pytest.mark.parametrize("timeout", [None, "100"])
+def test_export(experiment_id, timeout, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+
+    if timeout is not None:
+        monkeypatch.setenv("MLFLOW_HTTP_REQUEST_TIMEOUT", timeout)
 
     mlflow.tracing.set_destination(Databricks(experiment_id=experiment_id))
 
@@ -40,6 +44,7 @@ def test_export(experiment_id, monkeypatch):
     assert call_args.kwargs["host_creds"] is not None
     assert call_args.kwargs["endpoint"] == "/api/2.0/tracing/traces"
     assert call_args.kwargs["method"] == "POST"
+    assert call_args.kwargs["timeout"] == (int(timeout) if timeout is not None else 5)
 
     trace = call_args.kwargs["json"]
     trace_id = trace["info"]["trace_id"]

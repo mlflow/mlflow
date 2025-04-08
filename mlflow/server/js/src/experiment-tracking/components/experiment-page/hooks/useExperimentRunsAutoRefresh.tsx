@@ -56,7 +56,10 @@ export const useExperimentRunsAutoRefresh = ({
       if (searchFacets && hasBeenInitialized && timePassed >= RUNS_AUTO_REFRESH_INTERVAL) {
         // We want no less results than the current amount of runs displayed, round up to the next page
         const initialRunsCount = currentResults.current.length;
-        const requestedRunsCount = Math.ceil(initialRunsCount / RUNS_SEARCH_MAX_RESULTS) * RUNS_SEARCH_MAX_RESULTS;
+
+        // Use Math.max(1, ...) so at least one page is fetched
+        const requestedRunsCount =
+          Math.max(1, Math.ceil(initialRunsCount / RUNS_SEARCH_MAX_RESULTS)) * RUNS_SEARCH_MAX_RESULTS;
 
         const requestParams = {
           ...createSearchRunsParams(

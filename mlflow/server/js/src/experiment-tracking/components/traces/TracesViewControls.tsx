@@ -1,12 +1,5 @@
 import {
   Button,
-  ColumnsIcon,
-  DialogCombobox,
-  DialogComboboxContent,
-  DialogComboboxOptionList,
-  DialogComboboxOptionListCheckboxItem,
-  DialogComboboxOptionListSearch,
-  DialogComboboxTrigger,
   InfoIcon,
   Input,
   Popover,
@@ -15,10 +8,8 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { ExperimentViewTracesTableColumnLabels } from './TracesView.utils';
-import { entries } from 'lodash';
 import { TracesViewControlsActions } from './TracesViewControlsActions';
 import { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 
@@ -68,9 +59,6 @@ export const TracesViewControls = ({
   experimentIds,
   filter,
   onChangeFilter,
-  hiddenColumns = [],
-  disabledColumns = [],
-  toggleHiddenColumn,
   rowSelection,
   setRowSelection,
   refreshTraces,
@@ -81,9 +69,6 @@ export const TracesViewControls = ({
   experimentIds: string[];
   filter: string;
   onChangeFilter: (newFilter: string) => void;
-  hiddenColumns?: string[];
-  disabledColumns?: string[];
-  toggleHiddenColumn: (columnId: string) => void;
   rowSelection: { [id: string]: boolean };
   setRowSelection: (newSelection: { [id: string]: boolean }) => void;
   refreshTraces: () => void;
@@ -97,15 +82,6 @@ export const TracesViewControls = ({
   // Internal filter value state, used to control the input value
   const [filterValue, setFilterValue] = useState<string | undefined>(filter || undefined);
   const [isEvaluateTracesModalOpen, setEvaluateTracesModalOpen] = useState(false);
-
-  const allColumnsList = useMemo(() => {
-    return entries(ExperimentViewTracesTableColumnLabels)
-      .map(([key, label]) => ({
-        key,
-        label: intl.formatMessage(label),
-      }))
-      .filter(({ key }) => !disabledColumns.includes(key));
-  }, [intl, disabledColumns]);
 
   const displayedFilterValue = filterValue ?? filter;
 
@@ -148,41 +124,6 @@ export const TracesViewControls = ({
           }
         }}
       />
-      <DialogCombobox
-        componentId={`${baseComponentId}.traces_table.column_selector`}
-        label={
-          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-            <ColumnsIcon />
-            <FormattedMessage
-              defaultMessage="Columns"
-              description="Experiment page > traces table > column selector > title"
-            />
-          </div>
-        }
-      >
-        <DialogComboboxTrigger
-          aria-label={intl.formatMessage({
-            defaultMessage: 'Columns',
-            description: 'Experiment page > traces table > column selector > title',
-          })}
-        />
-        <DialogComboboxContent>
-          <DialogComboboxOptionList>
-            <DialogComboboxOptionListSearch>
-              {allColumnsList.map(({ key, label }) => (
-                <DialogComboboxOptionListCheckboxItem
-                  key={key}
-                  value={key}
-                  checked={!hiddenColumns.includes(key)}
-                  onChange={() => toggleHiddenColumn(key)}
-                >
-                  {label}
-                </DialogComboboxOptionListCheckboxItem>
-              ))}
-            </DialogComboboxOptionListSearch>
-          </DialogComboboxOptionList>
-        </DialogComboboxContent>
-      </DialogCombobox>
     </TableFilterLayout>
   );
 

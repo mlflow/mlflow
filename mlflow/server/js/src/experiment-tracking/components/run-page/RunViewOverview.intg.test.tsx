@@ -13,7 +13,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 import type { KeyValueEntity, RunInfoEntity } from '../../types';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 
 jest.mock('../../../common/components/Prompt', () => ({
@@ -268,7 +268,7 @@ describe('RunViewOverview integration', () => {
         {
           displayedName: 'another-test-registered-model',
           version: '2',
-          link: '/models/test-registered-model/versions/1',
+          link: '/models/another-test-registered-model/versions/2',
           source: 'file:/mlflow/tracking/12345/artifacts',
           status: 'READY',
         },

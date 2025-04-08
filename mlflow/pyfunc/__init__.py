@@ -1722,6 +1722,8 @@ def _convert_struct_values(
                     ]
                 )
             else:
+                if isinstance(field_type, pydantic.BaseModel):
+                    field_values = model_dump_compat(field_values)
                 field_values = _convert_struct_values(field_values, field_type)
         elif isinstance(field_type, MapType):
             if is_pandas_df:
@@ -1989,18 +1991,6 @@ def build_model_env(model_uri, save_path):
         shutil.rmtree(local_model_path, ignore_errors=True)
         if tmp_archive_path and os.path.exists(tmp_archive_path):
             os.remove(tmp_archive_path)
-
-
-def _convert_data_to_spark_compat(data):
-    if isinstance(data, list):
-        return [_convert_data_to_spark_compat(d) for d in data]
-    if isinstance(data, dict):
-        return {k: _convert_data_to_spark_compat(v) for k, v in data.items()}
-    if isinstance(data, np.ndarray):
-        return data.tolist()
-    if isinstance(data, pydantic.BaseModel):
-        return model_dump_compat(data)
-    return data
 
 
 def spark_udf(
@@ -2444,7 +2434,6 @@ e.g., struct<a:int, b:array<int>>.
             )
 
         result = predict_fn(pdf, params)
-        result = _convert_data_to_spark_compat(result)
 
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
@@ -2452,6 +2441,17 @@ e.g., struct<a:int, b:array<int>>.
         if isinstance(result_type, ArrayType) and isinstance(result_type.elementType, ArrayType):
             result_values = _convert_array_values(result, result_type)
             return pandas.Series(result_values)
+
+        if isinstance(result_type, SparkStructType):
+            if (
+                isinstance(result, list)
+                and len(result) > 0
+                and isinstance(result[0], pydantic.BaseModel)
+            ):
+                result = pandas.DataFrame([model_dump_compat(r) for r in result])
+            else:
+                result = pandas.DataFrame(result)
+            return _convert_struct_values(result, result_type)
 
         if not isinstance(result, pandas.DataFrame):
             if isinstance(result_type, MapType):
@@ -2462,11 +2462,7 @@ e.g., struct<a:int, b:array<int>>.
                     pandas.DataFrame([result]) if np.isscalar(result) else pandas.DataFrame(result)
                 )
 
-        if isinstance(result_type, SparkStructType):
-            return _convert_struct_values(result, result_type)
-
         elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
-
         if type(elem_type) == IntegerType:
             result = result.select_dtypes(
                 [np.byte, np.ubyte, np.short, np.ushort, np.int32]
@@ -3131,7 +3127,9 @@ def save_model(
             type_hints = python_model.predict_type_hints
             model_for_signature_inference = python_model
             predict_func = python_model.predict
-
+        # Load context before calling predict to ensure necessary artifacts are available
+        context = PythonModelContext(artifacts, model_config)
+        model_for_signature_inference.load_context(context)
         type_hint_from_example = _is_type_hint_from_example(type_hints.input)
         if type_hint_from_example:
             should_infer_signature_from_type_hints = False
@@ -3152,8 +3150,6 @@ def save_model(
             if saved_example is not None:
                 _logger.info("Inferring model signature from input example")
                 try:
-                    context = PythonModelContext(artifacts, model_config)
-                    model_for_signature_inference.load_context(context)
                     mlflow_model.signature = _infer_signature_from_input_example(
                         saved_example,
                         _PythonModelPyfuncWrapper(model_for_signature_inference, None, None),

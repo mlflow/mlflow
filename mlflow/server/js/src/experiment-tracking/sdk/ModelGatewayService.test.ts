@@ -4,7 +4,7 @@ import { fetchEndpoint } from '../../common/utils/FetchUtils';
 import { MlflowService } from './MlflowService';
 
 jest.mock('../../common/utils/FetchUtils', () => ({
-  ...jest.requireActual('../../common/utils/FetchUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/FetchUtils')>('../../common/utils/FetchUtils'),
   fetchEndpoint: jest.fn(),
 }));
 

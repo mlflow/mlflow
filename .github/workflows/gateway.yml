@@ -22,6 +22,7 @@ defaults:
 
 env:
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: /home/runner/work/mlflow/mlflow/requirements/constraints.txt
 
 jobs:
   gateway:

@@ -94,10 +94,16 @@ export const deleteRegisteredModelTagApi = (modelName, key, id = getUUID()) => (
 });
 
 const CREATE_MODEL_VERSION = 'CREATE_MODEL_VERSION';
-// @ts-expect-error TS(7006): Parameter 'name' implicitly has an 'any' type.
-export const createModelVersionApi = (name, source, runId, tags: any[] = [], id = getUUID()) => ({
+export const createModelVersionApi = (
+  name?: string,
+  source?: string,
+  runId?: string,
+  tags: any[] = [],
+  id = getUUID(),
+  loggedModelId?: string,
+) => ({
   type: CREATE_MODEL_VERSION,
-  payload: Services.createModelVersion({ name, source, run_id: runId, tags }),
+  payload: Services.createModelVersion({ name, source, run_id: runId, tags, model_id: loggedModelId }),
   meta: { id, name, runId },
 });
 

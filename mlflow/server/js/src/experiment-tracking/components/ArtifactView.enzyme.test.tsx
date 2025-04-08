@@ -27,7 +27,7 @@ const { Text } = Typography;
 
 // Mock these methods because js-dom doesn't implement window.Request
 jest.mock('../../common/utils/ArtifactUtils', () => ({
-  ...jest.requireActual('../../common/utils/ArtifactUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/ArtifactUtils')>('../../common/utils/ArtifactUtils'),
   // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
   getArtifactContent: jest.fn().mockResolvedValue(),
   // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.

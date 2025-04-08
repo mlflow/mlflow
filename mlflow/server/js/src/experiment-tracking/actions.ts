@@ -19,6 +19,7 @@ import type { EvaluationDataReduxState } from './reducers/EvaluationDataReducer'
 import { ArtifactListFilesResponse, EvaluationArtifactTable, KeyValueEntity } from './types';
 import { MLFLOW_PUBLISHED_VERSION } from '../common/mlflow-published-version';
 import { MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from './constants';
+import { ErrorWrapper } from '../common/utils/ErrorWrapper';
 export const RUNS_SEARCH_MAX_RESULTS = 100;
 
 export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';

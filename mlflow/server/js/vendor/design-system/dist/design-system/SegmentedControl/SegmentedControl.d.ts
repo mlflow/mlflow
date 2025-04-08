@@ -11,6 +11,7 @@ export interface SegmentedControlGroupProps extends Omit<RadioGroupProps, 'size'
     size?: ButtonSize;
     spaced?: boolean;
     name: string;
+    dontTruncate?: boolean;
 }
 export declare const SegmentedControlGroup: React.ForwardRefExoticComponent<SegmentedControlGroupProps & React.RefAttributes<HTMLDivElement>>;
 //# sourceMappingURL=SegmentedControl.d.ts.map

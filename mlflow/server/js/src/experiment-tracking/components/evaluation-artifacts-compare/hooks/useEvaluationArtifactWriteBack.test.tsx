@@ -1,4 +1,3 @@
-import '@testing-library/jest-dom';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
 import userEvent from '@testing-library/user-event';
@@ -28,7 +27,9 @@ const mockState: EvaluationDataReduxState = {
 };
 
 jest.mock('../../../actions/PromptEngineeringActions', () => ({
-  ...jest.requireActual('../../../actions/PromptEngineeringActions'),
+  ...jest.requireActual<typeof import('../../../actions/PromptEngineeringActions')>(
+    '../../../actions/PromptEngineeringActions',
+  ),
   discardPendingEvaluationData: jest.fn().mockReturnValue({
     type: 'discardPendingEvaluationData',
     payload: Promise.resolve({}),
@@ -90,7 +91,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
   });
 
   afterEach(() => {
-    (Utils.logErrorAndNotifyUser as jest.Mock).mockRestore();
+    jest.mocked(Utils.logErrorAndNotifyUser).mockRestore();
   });
 
   it('properly synchronizes new entries', async () => {

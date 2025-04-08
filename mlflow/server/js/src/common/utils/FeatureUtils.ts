@@ -57,6 +57,7 @@ export const isUnstableNestedComponentsMigrated = () => true;
  * Determines if logged models UI (part of model-centric IA shift) is enabled
  */
 export const isExperimentLoggedModelsUIEnabled = () => false;
+export const isRunPageLoggedModelsTableEnabled = () => isExperimentLoggedModelsUIEnabled();
 
 /**
  * Determines if evaluation results online monitoring UI is enabled

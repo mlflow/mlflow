@@ -1,6 +1,7 @@
+import { type Interpolation, type Theme as EmotionTheme } from '@emotion/react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import React from 'react';
-import type { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
 import type { AnalyticsEventProps } from '../types';
 export interface DrawerContentProps extends AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /** Contents displayed in the drawer */
@@ -60,12 +61,21 @@ export interface DrawerContentProps extends AnalyticsEventProps<DesignSystemEven
      */
     hideClose?: boolean;
     /**
+     * Event handler called when the close button is clicked.
+     * The default behavior of closing the drawer can be prevented by calling event.preventDefault.
+     */
+    onCloseClick?: React.MouseEventHandler<HTMLButtonElement>;
+    /**
      * Drawer size. When set to small will reduce the padding around the content, title and buttons.
      * @default "default"
      */
     size?: 'default' | 'small';
+    /**
+     * Applies emotion styles to the top-level element in the component.
+     */
+    css?: Interpolation<EmotionTheme>;
 }
-export declare const Content: ({ children, footer, title, width, position: positionOverride, useCustomScrollBehavior, expandContentToFullHeight, disableOpenAutoFocus, onInteractOutside, seeThrough, hideClose, componentId, analyticsEvents, size, ...props }: DrawerContentProps) => import("@emotion/react/jsx-runtime").JSX.Element;
+export declare const Content: ({ children, footer, title, width, position: positionOverride, useCustomScrollBehavior, expandContentToFullHeight, disableOpenAutoFocus, onInteractOutside, seeThrough, hideClose, onCloseClick, componentId, analyticsEvents, size, ...props }: DrawerContentProps) => import("@emotion/react/jsx-runtime").JSX.Element;
 export declare function Root(props: Pick<DialogPrimitive.DialogProps, 'onOpenChange' | 'children' | 'open' | 'modal'>): import("@emotion/react/jsx-runtime").JSX.Element;
 export declare function Trigger(props: Omit<DialogPrimitive.DialogTriggerProps, 'asChild'>): import("@emotion/react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=Drawer.d.ts.map

@@ -1,5 +1,4 @@
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
 from typing import Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -117,9 +116,9 @@ class TraceInfo(_MlflowObject):
         proto.response = response or ""
         proto.state = ProtoTraceInfoV3.State.Value(self.status.name)
 
-        proto.request_time.FromDatetime(datetime.fromtimestamp(self.timestamp_ms / 1000.0))
+        proto.request_time.FromMilliseconds(self.timestamp_ms)
         if self.execution_time_ms is not None:
-            proto.execution_duration.FromTimedelta(timedelta(milliseconds=self.execution_time_ms))
+            proto.execution_duration.FromMilliseconds(self.execution_time_ms)
 
         if self.request_metadata:
             proto.trace_metadata.update(self.request_metadata)

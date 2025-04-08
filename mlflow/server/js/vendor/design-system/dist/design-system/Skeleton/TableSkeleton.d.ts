@@ -13,6 +13,8 @@ export interface TableSkeletonProps extends HTMLDataAttributes {
     frameRate?: number;
     /** Style property */
     style?: CSSProperties;
+    /** Label for screen readers */
+    label?: React.ReactNode;
 }
 export declare const TableSkeleton: React.FC<TableSkeletonProps>;
 interface TableSkeletonRowsProps<TData> extends WithLoadingState {

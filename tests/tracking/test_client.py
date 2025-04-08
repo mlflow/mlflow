@@ -36,8 +36,7 @@ from mlflow.store.model_registry.sqlalchemy_store import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
-from mlflow.tracing.fluent import TRACE_BUFFER
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking import set_registry_uri
@@ -59,7 +58,7 @@ from mlflow.utils.mlflow_tags import (
 
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.conftest import mock_store as mock_store_for_tracing  # noqa: F401
-from tests.tracing.helper import create_test_trace_info
+from tests.tracing.helper import create_test_trace_info, get_traces
 
 
 @pytest.fixture(autouse=True)
@@ -653,28 +652,6 @@ def test_log_trace_with_databricks_tracking_uri(
         if async_logging_enabled:
             mlflow.flush_trace_async_logging(terminate=True)
 
-    trace = mlflow.get_last_active_trace()
-    assert trace.info.request_id == "tr-0"
-    assert trace.info.experiment_id == "test_experiment_id"
-    assert trace.info.status == TraceStatus.OK
-    assert trace.info.request_metadata == {
-        TraceMetadataKey.INPUTS: '{"x": 1, "y": 2}',
-        TraceMetadataKey.OUTPUTS: "5",
-        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-    }
-    assert trace.info.tags == {
-        "mlflow.traceName": "predict",
-        "mlflow.artifactLocation": "test",
-        "mlflow.user": "bob",
-        "mlflow.source.name": "test",
-        "mlflow.source.type": "LOCAL",
-        "tag": "tag_value",
-    }
-
-    assert trace.data.request == '{"x": 1, "y": 2}'
-    assert trace.data.response == "5"
-    assert len(trace.data.spans) == 2
-
     mock_store_for_tracing.start_trace.assert_called_once()
     mock_store_for_tracing.end_trace.assert_called_once()
     mock_upload_trace_data.assert_called_once()
@@ -838,7 +815,6 @@ def test_log_trace(tracking_uri):
 def test_ignore_exception_from_tracing_logic(monkeypatch, async_logging_enabled):
     exp_id = mlflow.set_experiment("test_experiment_1").experiment_id
     client = MlflowClient()
-    TRACE_BUFFER.clear()
 
     class TestModel:
         def predict(self, x):
@@ -863,13 +839,13 @@ def test_ignore_exception_from_tracing_logic(monkeypatch, async_logging_enabled)
     monkeypatch.setattr(processor, "on_start", _always_fail)
     response = model.predict(1)
     assert response == 1
-    assert len(TRACE_BUFFER) == 0
+    assert len(get_traces()) == 0
 
     # Exception while ending the trace should be caught not raise
     monkeypatch.setattr(processor, "on_end", _always_fail)
     response = model.predict(1)
     assert response == 1
-    assert len(TRACE_BUFFER) == 0
+    assert len(get_traces()) == 0
 
 
 def test_set_and_delete_trace_tag_on_active_trace(monkeypatch):

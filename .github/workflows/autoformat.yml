@@ -81,8 +81,8 @@ jobs:
       # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
       - name: Merge base branch
         run: |
-          git config user.name 'mlflow-automation'
-          git config user.email 'mlflow-automation@users.noreply.github.com'
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
           git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
           git fetch base ${{ needs.check-comment.outputs.base_ref }}
           git merge base/${{ needs.check-comment.outputs.base_ref }}
@@ -191,8 +191,8 @@ jobs:
           BASE_REPO: ${{ needs.check-comment.outputs.base_repo }}
           BASE_REF: ${{ needs.check-comment.outputs.base_ref }}
         run: |
-          git config user.name 'mlflow-automation'
-          git config user.email 'mlflow-automation@users.noreply.github.com'
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
           git remote add base https://github.com/${BASE_REPO}.git
           git fetch base $BASE_REF
           git merge base/${BASE_REF}

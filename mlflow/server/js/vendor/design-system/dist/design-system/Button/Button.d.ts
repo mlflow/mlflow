@@ -5,7 +5,7 @@ import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEve
 import type { WithLoadingState } from '../LoadingState/LoadingState';
 import type { AnalyticsEventPropsWithStartInteraction, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 export declare const getMemoizedButtonEmotionStyles: (props: Parameters<typeof getButtonEmotionStyles>[0]) => any;
-export declare const getButtonEmotionStyles: ({ theme, classNamePrefix, loading, withIcon, onlyIcon, isAnchor, enableAnimation, size, type, useFocusPseudoClass, forceIconStyles, danger, useNewShadows, }: {
+export declare const getButtonEmotionStyles: ({ theme, classNamePrefix, loading, withIcon, onlyIcon, isAnchor, enableAnimation, size, type, useFocusPseudoClass, forceIconStyles, danger, useNewShadows, useNewBorderRadii, }: {
     theme: ComponentTheme;
     classNamePrefix: string;
     loading?: boolean;
@@ -19,6 +19,7 @@ export declare const getButtonEmotionStyles: ({ theme, classNamePrefix, loading,
     useFocusPseudoClass?: boolean;
     forceIconStyles?: boolean;
     useNewShadows: boolean;
+    useNewBorderRadii: boolean;
 }) => SerializedStyles;
 export type ButtonSize = 'middle' | 'small';
 export interface ButtonProps extends Omit<AntDButtonProps, 'type' | 'ghost' | 'shape' | 'size'>, HTMLDataAttributes, DangerouslySetAntdProps<AntDButtonProps>, Omit<WithLoadingState, 'loading'>, AnalyticsEventPropsWithStartInteraction<DesignSystemEventProviderAnalyticsEventTypes.OnClick | DesignSystemEventProviderAnalyticsEventTypes.OnView> {

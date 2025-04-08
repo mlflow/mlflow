@@ -1,5 +1,5 @@
 import React from 'react';
-export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+export type AvatarSize = 'xxs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 export type AvatarBackgroundColor = 'indigo' | 'teal' | 'pink' | 'purple' | 'brown';
 export type AvatarType = 'user' | 'entity';
 interface AvatarBasicProps {

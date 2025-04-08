@@ -23,6 +23,10 @@ _METHOD_TO_INFO = extract_api_info_for_service(
     DatabricksTracingServerService, _REST_API_PATH_PREFIX
 )
 
+# NB: Setting lower default timeout for trace export to avoid blocking the application
+# We can increase this value when the trace export is updated to async.
+_DEFAULT_TRACE_EXPORT_TIMEOUT = 5
+
 
 class DatabricksSpanExporter(SpanExporter):
     """
@@ -54,15 +58,20 @@ class DatabricksSpanExporter(SpanExporter):
         request_body = MessageToDict(trace.to_proto(), preserving_proto_field_name=True)
         endpoint, method = _METHOD_TO_INFO[CreateTrace]
 
-        res = http_request(
+        # Use context manager to ensure the request is closed properly
+        with http_request(
             host_creds=get_databricks_host_creds(),
             endpoint=endpoint,
             method=method,
-            timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get(),
+            timeout=self._get_timeout(),
             # Not doing reties here because trace export is currently running synchronously
             # and we don't want to bottleneck the application by retrying.
             json=request_body,
-        )
+        ) as res:
+            if res.status_code != 200:
+                _logger.warning(f"Failed to log trace to the trace server. Response: {res.text}")
 
-        if res.status_code != 200:
-            _logger.warning(f"Failed to log trace to the trace server. Response: {res.text}")
+    def _get_timeout(self) -> int:
+        if MLFLOW_HTTP_REQUEST_TIMEOUT.get_raw() is not None:
+            return int(MLFLOW_HTTP_REQUEST_TIMEOUT.get_raw())
+        return _DEFAULT_TRACE_EXPORT_TIMEOUT

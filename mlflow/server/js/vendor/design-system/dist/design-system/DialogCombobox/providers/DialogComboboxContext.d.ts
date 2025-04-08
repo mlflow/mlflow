@@ -18,6 +18,8 @@ export interface DialogComboboxContextType extends AnalyticsEventValueChangeNoPi
     setTextOverflowMode: (mode: 'ellipsis' | 'multiline') => void;
     scrollToSelectedElement: boolean;
     rememberLastScrollPosition: boolean;
+    disableMouseOver: boolean;
+    setDisableMouseOver: (disableMouseOver: boolean) => void;
 }
 export declare const DialogComboboxContext: import("react").Context<DialogComboboxContextType>;
 export declare const DialogComboboxContextProvider: ({ children, value, }: {

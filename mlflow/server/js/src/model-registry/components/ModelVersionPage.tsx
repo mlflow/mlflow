@@ -123,7 +123,8 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
         isInitialLoading === true ? this.initGetModelVersionDetailsRequestId : this.getModelVersionDetailsRequestId,
       )
       .then(({ value }: any) => {
-        if (value && !value[getProtoField('model_version')].run_link) {
+        // Do not fetch run info if there is no run_id (e.g. model version created directly from a logged model)
+        if (value && !value[getProtoField('model_version')].run_link && value[getProtoField('model_version')]?.run_id) {
           this.props.getRunApi(value[getProtoField('model_version')].run_id, this.getRunRequestId);
         }
       });

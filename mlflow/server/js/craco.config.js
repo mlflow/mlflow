@@ -260,6 +260,7 @@ module.exports = function () {
         jestConfig.setupFiles = ['jest-canvas-mock'];
         jestConfig.setupFilesAfterEnv.push('<rootDir>/scripts/env-mocks.js');
         jestConfig.setupFilesAfterEnv.push('<rootDir>/scripts/setup-jest-dom-matchers.js');
+        jestConfig.setupFilesAfterEnv.push('<rootDir>/scripts/setup-testing-library.js');
         jestConfig.setupFilesAfterEnv.push('<rootDir>/src/setupTests.js');
         // Adjust config to work with dependencies using ".mjs" file extensions
         jestConfig.moduleFileExtensions.push('mjs');

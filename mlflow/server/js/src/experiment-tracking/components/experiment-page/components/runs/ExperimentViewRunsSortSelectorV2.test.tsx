@@ -10,11 +10,11 @@ const paramKeys = ['param_1', 'param_2', 'param_3'];
 
 jest.mock('../../../../../common/utils/RoutingUtils', () => {
   const params = new URLSearchParams();
-  const setSearchParamsMock = jest
-    .fn()
-    .mockImplementation((setter: (newParams: URLSearchParams) => URLSearchParams) => setter(params));
+  const setSearchParamsMock = jest.fn((setter: (newParams: URLSearchParams) => URLSearchParams) => setter(params));
   return {
-    ...jest.requireActual('../../../../../common/utils/RoutingUtils'),
+    ...jest.requireActual<typeof import('../../../../../common/utils/RoutingUtils')>(
+      '../../../../../common/utils/RoutingUtils',
+    ),
     useSearchParams: () => {
       return [params, setSearchParamsMock];
     },
