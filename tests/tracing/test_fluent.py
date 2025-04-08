@@ -935,10 +935,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         model.predict(2, 5)
         time.sleep(0.1)
 
-        # The in-memory trace returned from get_last_active_trace() is not guaranteed to be
-        # exactly same as the trace stored in the backend (e.g., tags created by the backend).
-        # Therefore, we fetch the trace from the backend to compare the results.
-        trace = client.get_trace(mlflow.get_trace(mlflow.get_last_active_trace_id()).info.request_id)
+        trace = client.get_trace(mlflow.get_last_active_trace_id())
         expected_traces.append(trace)
 
     df = mlflow.search_traces(max_results=10, order_by=["timestamp ASC"])
