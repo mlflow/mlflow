@@ -118,7 +118,8 @@ def predict(
 
     .. note::
 
-        To increase verbosity for debugging purposes, consider setting the following environment
+        To increase verbosity for debugging purposes (in order to inspect the full dependency resolver operations
+        when processing transient dependencies), consider setting the following environment
         variables:
 
         .. code-block:: bash
