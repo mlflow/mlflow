@@ -1,7 +1,0 @@
-build_dependencies:
-  - pip
-dependencies:
-  - h2o
-  - mlflow>=1.0
-  - numpy
-  - pandas

@@ -34,7 +34,6 @@ if _MLFLOW_RUN_SLOW_TESTS.get():
         grouped_prophet,
     )
     from tests.fastai.test_fastai_model_export import fastai_model as fastai_model_raw  # noqa: F401
-    from tests.h2o.test_h2o_model_export import h2o_iris_model  # noqa: F401
     from tests.helper_functions import get_safe_port
     from tests.langchain.test_langchain_model_export import fake_chat_model  # noqa: F401
     from tests.lightgbm.test_lightgbm_model_export import lgb_model  # noqa: F401
@@ -135,7 +134,6 @@ def start_container(port: int):
         "catboost",
         "diviner",
         "fastai",
-        "h2o",
         # "johnsnowlabs", # Couldn't test JohnSnowLab locally due to license issue
         "keras",
         "langchain",
@@ -218,17 +216,6 @@ def fastai_model(model_path, fastai_model_raw):
         fastai_learner=fastai_model_raw.model,
         path=model_path,
         input_example=fastai_model_raw.inference_dataframe[:1],
-    )
-    return model_path
-
-
-@pytest.fixture
-def h2o_model(model_path, h2o_iris_model):
-    save_model_with_latest_mlflow_version(
-        flavor="h2o",
-        h2o_model=h2o_iris_model.model,
-        path=model_path,
-        input_example=h2o_iris_model.inference_data.as_data_frame()[:1],
     )
     return model_path
 

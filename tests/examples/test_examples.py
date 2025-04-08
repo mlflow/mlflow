@@ -53,7 +53,6 @@ def mock_openai():
 @pytest.mark.parametrize(
     ("directory", "params"),
     [
-        ("h2o", []),
         # TODO: Fix the hyperparam example and re-enable it
         # ("hyperparam", ["-e", "train", "-P", "epochs=1"]),
         # ("hyperparam", ["-e", "random", "-P", "epochs=1"]),

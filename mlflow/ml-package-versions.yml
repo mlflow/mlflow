@@ -467,15 +467,6 @@ diviner:
     run: |
       pytest tests/diviner/test_diviner_model_export.py
 
-h2o:
-  package_info:
-    pip_release: "h2o"
-  models:
-    minimum: "3.40.0.1"
-    maximum: "3.46.0.6"
-    run: |
-      pytest tests/h2o
-
 shap:
   package_info:
     pip_release: "shap"
