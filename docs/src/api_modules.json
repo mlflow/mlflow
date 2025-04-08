@@ -38,7 +38,6 @@
   "mlflow.pyfunc": "api_reference/python_api/mlflow.pyfunc.html",
   "mlflow.pyspark.ml": "api_reference/python_api/mlflow.pyspark.ml.html",
   "mlflow.pytorch": "api_reference/python_api/mlflow.pytorch.html",
-  "mlflow.recipes": "api_reference/python_api/mlflow.recipes.html",
   "mlflow": "api_reference/python_api/mlflow.html",
   "mlflow.sagemaker": "api_reference/python_api/mlflow.sagemaker.html",
   "mlflow.sentence_transformers": "api_reference/python_api/mlflow.sentence_transformers.html",
