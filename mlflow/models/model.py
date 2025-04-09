@@ -25,7 +25,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.auth_policy import AuthPolicy
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
 from mlflow.protos.databricks_pb2 import (
-    BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -47,6 +46,7 @@ from mlflow.utils.environment import (
     _write_requirements_to_file,
 )
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.uri import (
     append_to_uri_path,
     get_uri_scheme,
@@ -977,13 +977,6 @@ class Model:
                     else None,
                 )
 
-            if LoggedModelStatus.is_finalized(model.status):
-                raise MlflowException(
-                    f"Model with id {model.model_id} has the status '{model.status}', "
-                    f"so its artifacts cannot be modified.",
-                    BAD_REQUEST,
-                )
-
             if run_id is not None:
                 client.log_outputs(
                     run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]
@@ -1076,6 +1069,10 @@ class Model:
                 )
             mlflow_model.env_vars = env_vars
             client.log_model_artifacts(model.model_id, local_path)
+            # If the model was previously identified as external, delete the tag because the model
+            # now has artifacts in MLflow Model format
+            if model.tags.get(MLFLOW_MODEL_IS_EXTERNAL, "false").lower() == "true":
+                client.delete_logged_model_tag(model.model_id, MLFLOW_MODEL_IS_EXTERNAL)
             client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
             # Associate prompts to the model Run
