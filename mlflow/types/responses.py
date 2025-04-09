@@ -4,6 +4,7 @@ from typing import Any, Optional, Union
 
 from pydantic import ConfigDict
 
+from mlflow.types.agent import ChatContext
 from mlflow.types.chat import BaseModel
 from mlflow.types.responses_helpers import (
     BaseRequestPayload,
@@ -35,6 +36,7 @@ class ResponsesRequest(BaseRequestPayload, Tools):
         ]
     ]
     custom_inputs: Optional[dict[str, Any]] = None
+    context: Optional[ChatContext] = None
 
     @model_validator(mode="after")
     def check_input(self) -> "ResponsesRequest":
