@@ -236,6 +236,7 @@ class MlflowCallback(BaseCallback):
                 # to handle nested optimization
                 step = self._evaluation_counter[key]
                 self._evaluation_counter[key] += 1
+            self._call_id_to_metric_key[call_id] = (key, step)
             mlflow.start_run(run_name=f"{key}_{step}", nested=True)
         else:
             mlflow.start_run(run_name=key, nested=True)

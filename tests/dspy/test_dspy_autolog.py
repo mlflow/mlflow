@@ -764,15 +764,11 @@ def test_autolog_nested_evals():
         evaluator(program, devset=examples[:1])
         evaluator(program, devset=examples[1:])
 
-    # root run
-    root_run = mlflow.last_active_run()
-    assert root_run is not None
-
     # children runs
     client = MlflowClient()
     child_runs = client.search_runs(
-        root_run.info.experiment_id,
-        filter_string=f"tags.mlflow.parentRunId = '{root_run.info.run_id}'",
+        run.info.experiment_id,
+        filter_string=f"tags.mlflow.parentRunId = '{run.info.run_id}'",
         order_by=["attributes.start_time ASC"],
     )
     assert len(child_runs) == 2
@@ -825,7 +821,6 @@ def test_autolog_log_compile_with_evals():
     callback = dspy.settings.callbacks[0]
     assert callback.optimizer_stack_level == 0
     assert callback._call_id_to_metric_key == {}
-    assert callback._call_id_to_run_id == {}
     assert callback._evaluation_counter == {}
 
     # root run
