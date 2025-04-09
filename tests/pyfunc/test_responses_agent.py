@@ -1,6 +1,10 @@
 from uuid import uuid4
 
+import pytest
+
 import mlflow
+from mlflow.exceptions import MlflowException
+from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
 from mlflow.pyfunc.model import _DEFAULT_RESPONSES_AGENT_METADATA_TASK, ResponsesAgent
 from mlflow.types.responses import (
@@ -10,9 +14,10 @@ from mlflow.types.responses import (
     ResponsesRequest,
     ResponsesResponse,
 )
+from mlflow.types.schema import ColSpec, DataType, Schema
 
 
-def get_mock_response(request: ResponsesRequest, message=None):
+def get_mock_response(request: ResponsesRequest):
     return {
         "output": [
             {
@@ -96,7 +101,7 @@ class SimpleResponsesAgent(ResponsesAgent):
         yield from get_stream_mock_response()
 
 
-def test_responses_agent_save_load(tmp_path):
+def test_responses_agent_save_load_signatures(tmp_path):
     model = SimpleResponsesAgent()
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
 
@@ -106,7 +111,19 @@ def test_responses_agent_save_load(tmp_path):
     output_schema = loaded_model.metadata.get_output_schema()
     assert input_schema == RESPONSES_AGENT_INPUT_SCHEMA
     assert output_schema == RESPONSES_AGENT_OUTPUT_SCHEMA
-    assert loaded_model.metadata["task"] == _DEFAULT_RESPONSES_AGENT_METADATA_TASK
+
+
+def test_responses_agent_log_default_task():
+    model = SimpleResponsesAgent()
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=model)
+    assert model_info.metadata["task"] == _DEFAULT_RESPONSES_AGENT_METADATA_TASK
+
+    with mlflow.start_run():
+        model_info_with_override = mlflow.pyfunc.log_model(
+            "model", python_model=model, metadata={"task": None}
+        )
+    assert model_info_with_override.metadata["task"] is None
 
 
 def test_responses_agent_predict(tmp_path):
@@ -154,3 +171,37 @@ def test_responses_agent_custom_inputs(tmp_path):
     )
     for r in responses:
         assert r["custom_outputs"] == {"asdf": "asdf"}
+
+
+def test_responses_agent_predict_with_params(tmp_path):
+    # needed because `load_model_and_predict` in `utils/_capture_modules.py` expects a params field
+    model = SimpleResponsesAgent()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    response = loaded_model.predict(RESPONSES_AGENT_INPUT_EXAMPLE, params=None)
+    assert response["output"][0]["type"] == "message"
+
+
+def test_responses_agent_save_throws_with_signature(tmp_path):
+    model = SimpleResponsesAgent()
+
+    with pytest.raises(MlflowException, match="Please remove the `signature` parameter"):
+        mlflow.pyfunc.save_model(
+            python_model=model,
+            path=tmp_path,
+            signature=ModelSignature(
+                inputs=Schema([ColSpec(name="test", type=DataType.string)]),
+            ),
+        )
+
+
+def test_responses_agent_throws_with_invalid_output(tmp_path):
+    class BadResponsesAgent(ResponsesAgent):
+        def predict(self, request: ResponsesRequest) -> ResponsesResponse:
+            return {"output": [{"type": "message", "content": [{"type": "output_text"}]}]}
+
+    model = BadResponsesAgent()
+    with pytest.raises(
+        MlflowException, match="Failed to save ResponsesAgent. Ensure your model's predict"
+    ):
+        mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
