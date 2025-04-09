@@ -16,6 +16,7 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
+      issues: write
       pull-requests: write
     timeout-minutes: 120
     steps:
