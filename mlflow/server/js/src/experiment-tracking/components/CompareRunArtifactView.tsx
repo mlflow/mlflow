@@ -39,7 +39,7 @@ export const CompareRunArtifactView = ({
       css={{
         display: 'flex',
         flexDirection: 'row',
-        height: "100vh",
+        height: '100vh',
         overflow: 'hidden',
       }}
     >
