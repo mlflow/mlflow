@@ -74,7 +74,6 @@ def mock_openai():
             ["-P", "learning_rate=0.3", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
         ("xgboost/xgboost_sklearn", []),
-        ("fastai", ["-P", "lr=0.02", "-P", "epochs=3"]),
         ("pytorch/MNIST", ["-P", "max_epochs=1"]),
         (
             "pytorch/BertNewsClassification",
@@ -160,7 +159,6 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("shap", [sys.executable, "explainer_logging.py"]),
         ("ray_serve", [sys.executable, "train_model.py"]),
         ("pip_requirements", [sys.executable, "pip_requirements.py"]),
-        ("fastai", [sys.executable, "train.py", "--lr", "0.02", "--epochs", "3"]),
         ("pmdarima", [sys.executable, "train.py"]),
         ("evaluation", [sys.executable, "evaluate_on_binary_classifier.py"]),
         ("evaluation", [sys.executable, "evaluate_on_multiclass_classifier.py"]),

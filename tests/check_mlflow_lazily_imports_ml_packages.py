@@ -14,7 +14,6 @@ logger = logging.getLogger()
 def main():
     ml_packages = {
         "catboost",
-        "fastai",
         "h2o",
         "lightgbm",
         "mleap",

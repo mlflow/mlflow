@@ -13,7 +13,6 @@
   "mlflow.dspy": "api_reference/python_api/mlflow.dspy.html",
   "mlflow.entities": "api_reference/python_api/mlflow.entities.html",
   "mlflow.environment_variables": "api_reference/python_api/mlflow.environment_variables.html",
-  "mlflow.fastai": "api_reference/python_api/mlflow.fastai.html",
   "mlflow.gateway": "api_reference/python_api/mlflow.gateway.html",
   "mlflow.gemini": "api_reference/python_api/mlflow.gemini.html",
   "mlflow.groq": "api_reference/python_api/mlflow.groq.html",

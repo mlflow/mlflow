@@ -202,31 +202,6 @@ catboost:
     run: |
       pytest tests/catboost/test_catboost_model_export.py
 
-fastai:
-  package_info:
-    pip_release: "fastai"
-
-  models:
-    minimum: "2.4.1"
-    maximum: "2.7.19"
-    requirements:
-      # TODO: fastai depends on spacy, but spacy>=3.8.2 requires python>=3.9
-      #  Once migrating fastai tests to python 3.9, we should remove spacy<3.8.2
-      #  To migrate fastai tests to python 3.9, we need to address error
-      #  when installing old version scipy: "No module named 'distutils.msvccompiler'"
-      #  similar issue link: https://github.com/numpy/numpy/issues/27405
-      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
-    run: |
-      pytest tests/fastai/test_fastai_model_export.py
-
-  autologging:
-    minimum: "2.4.1"
-    maximum: "2.7.19"
-    requirements:
-      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
-    run: |
-      pytest tests/fastai/test_fastai_autolog.py
-
 onnx:
   package_info:
     pip_release: "onnx"
