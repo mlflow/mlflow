@@ -63,10 +63,8 @@ catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
-fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
 groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
-h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
 keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
@@ -86,7 +84,6 @@ pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
 rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
-recipes = LazyLoader("mlflow.recipes", globals(), "mlflow.recipes")
 sentence_transformers = LazyLoader(
     "mlflow.sentence_transformers",
     globals(),
@@ -114,10 +111,8 @@ if TYPE_CHECKING:
         crewai,
         diviner,
         dspy,
-        fastai,
         gemini,
         groq,
-        h2o,
         johnsnowlabs,
         keras,
         langchain,
@@ -136,7 +131,6 @@ if TYPE_CHECKING:
         pyfunc,
         pyspark,
         pytorch,
-        recipes,
         rfunc,
         sentence_transformers,
         shap,

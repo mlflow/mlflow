@@ -2909,7 +2909,6 @@ def autolog(
         "lightgbm": "mlflow.lightgbm",
         "statsmodels": "mlflow.statsmodels",
         "sklearn": "mlflow.sklearn",
-        "fastai": "mlflow.fastai",
         "pyspark": "mlflow.spark",
         "pyspark.ml": "mlflow.pyspark.ml",
         # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more

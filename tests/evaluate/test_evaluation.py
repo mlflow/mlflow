@@ -2145,3 +2145,32 @@ def test_env_manager_set_on_served_pyfunc_model(multiclass_logistic_regressor_mo
     served_model_1 = _ServedPyFuncModel(model_meta=model.metadata, client=client, server_pid=1)
     served_model_1.env_manager = "virtualenv"
     assert served_model_1.env_manager == "virtualenv"
+
+
+def test_metrics_logged_to_model_on_evaluation(
+    multiclass_logistic_regressor_model_uri, iris_dataset
+):
+    with mlflow.start_run():
+        # Log the model and retrieve its model_id
+        model_info = mlflow.sklearn.log_model(
+            mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri), "model"
+        )
+        model_id = model_info.model_id
+
+        # Evaluate the model using its model_id
+        eval_result = mlflow.evaluate(
+            model=model_info.model_uri,
+            data=iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            evaluators=["default"],
+        )
+
+        # Retrieve metrics logged to the model
+        logged_model_metrics = mlflow.get_logged_model(model_id).metrics
+
+        # Ensure metrics are logged to the model
+        assert eval_result.metrics == {metric.key: metric.value for metric in logged_model_metrics}
+
+        # Validate that all metrics have the correct model_id in their metadata
+        assert all(metric.model_id == model_id for metric in logged_model_metrics)

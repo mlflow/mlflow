@@ -100,19 +100,6 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "1.2.7"
         }
     },
-    "fastai": {
-        "package_info": {
-            "pip_release": "fastai"
-        },
-        "models": {
-            "minimum": "2.4.1",
-            "maximum": "2.7.19"
-        },
-        "autologging": {
-            "minimum": "2.4.1",
-            "maximum": "2.7.19"
-        }
-    },
     "onnx": {
         "package_info": {
             "pip_release": "onnx"
@@ -183,15 +170,6 @@ _ML_PACKAGE_VERSIONS = {
         "models": {
             "minimum": "0.1.0",
             "maximum": "0.1.1"
-        }
-    },
-    "h2o": {
-        "package_info": {
-            "pip_release": "h2o"
-        },
-        "models": {
-            "minimum": "3.40.0.1",
-            "maximum": "3.46.0.6"
         }
     },
     "shap": {
@@ -411,7 +389,6 @@ FLAVOR_TO_MODULE_NAME = {
     "tensorflow": "tensorflow",
     "xgboost": "xgboost",
     "lightgbm": "lightgbm",
-    "fastai": "fastai",
     "statsmodels": "statsmodels",
     "spark": "pyspark",
     "paddle": "paddle",
