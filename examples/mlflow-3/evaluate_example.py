@@ -40,15 +40,3 @@ with mlflow.start_run() as run:
         evaluators=["default"],
     )
     print(mlflow.get_logged_model(model_info.model_id))
-
-metrics_run = mlflow.get_run(run.info.run_id).data.metrics
-metrics_model_list = mlflow.get_logged_model(model_info.model_id).metrics
-metrics_model = {metric.key: metric.value for metric in metrics_model_list}
-
-# Ensure metrics are the same
-assert metrics_run == metrics_model, "Metrics for the run and model do not match."
-
-# Validate that all metrics have model_id in their metadata
-assert all(model_info.model_id == metric.model_id for metric in metrics_model_list), (
-    "Some metrics are missing model_id in metadata."
-)
