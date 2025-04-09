@@ -10,7 +10,7 @@ from typing import Any, Tuple, List, Dict
 
 import mlflow
 
-from databricks.ml.optuna import MLFlowStorage
+from mlflow.pyspark.optuna.storage import MLFlowStorage
 
 from optuna.distributions import CategoricalDistribution, FloatDistribution
 from optuna.storages import BaseStorage
