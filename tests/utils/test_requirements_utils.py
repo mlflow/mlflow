@@ -736,6 +736,7 @@ def test_capture_imported_modules_extra_env_vars(monkeypatch):
     )
 
 
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
 def test_infer_pip_requirements_on_databricks_agents():
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
