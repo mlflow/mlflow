@@ -21,6 +21,7 @@ docker run \
   -v $(pwd):/mlflow/mlflow/R/mlflow \
   -v $(pwd)/../../../docs/api_reference/source:/mlflow/docs/api_reference/source \
   $image_name \
-  Rscript -e 'source(".build-doc.R", echo = TRUE)'
+  Rscript -e 'source(".build-doc.R", echo = TRUE)' || true
+  git diff ../../../docs/api_reference/source/R-api.rst DESCRIPTION man/mlflow_save_model.Rd
 
 popd
