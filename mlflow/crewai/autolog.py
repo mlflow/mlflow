@@ -2,13 +2,17 @@ import inspect
 import json
 import logging
 import warnings
+from typing import Any, Optional
 
 from packaging.version import Version
+from pydantic import BaseModel
 
 import mlflow
 from mlflow.crewai.chat import set_span_chat_attributes
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
+from mlflow.models.model import _MODEL_TRACKER
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
@@ -16,26 +20,56 @@ _logger = logging.getLogger(__name__)
 
 
 def patched_class_call(original, self, *args, **kwargs):
-    config = AutoLoggingConfig.init(flavor_name=mlflow.gemini.FLAVOR_NAME)
+    config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
 
     if config.log_traces:
         fullname = f"{self.__class__.__name__}.{original.__name__}"
         span_type = _get_span_type(self)
-        with mlflow.start_span(name=fullname, span_type=span_type) as span:
-            inputs = _construct_full_inputs(original, self, *args, **kwargs)
-            span.set_inputs(inputs)
-            _set_span_attributes(span=span, instance=self)
-            result = original(self, *args, **kwargs)
+        inputs = _construct_full_inputs(original, self, *args, **kwargs)
+        attributes = None
+        model_id = _MODEL_TRACKER.get(id(self))
+        if (
+            model_id is None
+            and not _MODEL_TRACKER._is_active_model_id_set
+            and config.log_models
+            # only log models in the supported list, since crewai might create
+            # objects internally while execution, e.g. CrewAgentExecutor
+            and isinstance(self, _get_supported_model_classes())
+        ):
+            params = _generate_model_params_dict(self)
+            logged_model = mlflow.create_external_model(
+                name=self.__class__.__name__,
+                params=params,
+            )
+            _MODEL_TRACKER.set(id(self), logged_model.model_id)
+            model_id = logged_model.model_id
+            _logger.debug(
+                f"Created LoggedModel with model_id {logged_model.model_id} "
+                f"for {self.__class__.__name__}"
+            )
+        if model_id:
+            attributes = {SpanAttributeKey.MODEL_ID: model_id}
+        # NB: to avoid creating new LoggedModels for internal components
+        _MODEL_TRACKER._is_active_model_id_set = True
+        try:
+            with mlflow.start_span(
+                name=fullname, span_type=span_type, attributes=attributes
+            ) as span:
+                span.set_inputs(inputs)
+                _set_span_attributes(span=span, instance=self)
+                result = original(self, *args, **kwargs)
 
-            if span_type == SpanType.LLM:
-                set_span_chat_attributes(
-                    span=span, messages=inputs.get("messages", []), output=result
-                )
-            # Need to convert the response of generate_content for better visualization
-            outputs = result.__dict__ if hasattr(result, "__dict__") else result
-            span.set_outputs(outputs)
+                if span_type == SpanType.LLM:
+                    set_span_chat_attributes(
+                        span=span, messages=inputs.get("messages", []), output=result
+                    )
+                # Need to convert the response of generate_content for better visualization
+                outputs = result.__dict__ if hasattr(result, "__dict__") else result
+                span.set_outputs(outputs)
 
-            return result
+                return result
+        finally:
+            _MODEL_TRACKER._is_active_model_id_set = False
 
 
 def _get_span_type(instance) -> str:
@@ -251,3 +285,28 @@ def _parse_tools(tools):
                 }
             )
     return result
+
+
+def _get_supported_model_classes():
+    """
+    Only include classes that are intended to be invoked directly by the user.
+    """
+    result = ()
+    try:
+        from crewai import Crew
+        from crewai.flow.flow import Flow
+
+        result = (Crew, Flow)
+    except ImportError:
+        pass
+    return result
+
+
+def _generate_model_params_dict(model: Any) -> Optional[dict[str, str]]:
+    if isinstance(model, BaseModel):
+        model_dict = model.model_dump()
+    else:
+        return None
+    return {
+        k: (v if isinstance(v, str) else json.dumps(v, default=str)) for k, v in model_dict.items()
+    }
