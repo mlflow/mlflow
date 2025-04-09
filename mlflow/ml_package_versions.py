@@ -100,19 +100,6 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "1.2.7"
         }
     },
-    "fastai": {
-        "package_info": {
-            "pip_release": "fastai"
-        },
-        "models": {
-            "minimum": "2.4.1",
-            "maximum": "2.7.19"
-        },
-        "autologging": {
-            "minimum": "2.4.1",
-            "maximum": "2.7.19"
-        }
-    },
     "onnx": {
         "package_info": {
             "pip_release": "onnx"
@@ -411,7 +398,6 @@ FLAVOR_TO_MODULE_NAME = {
     "tensorflow": "tensorflow",
     "xgboost": "xgboost",
     "lightgbm": "lightgbm",
-    "fastai": "fastai",
     "statsmodels": "statsmodels",
     "spark": "pyspark",
     "paddle": "paddle",

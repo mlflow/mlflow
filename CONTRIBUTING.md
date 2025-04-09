@@ -604,7 +604,7 @@ request by running:
 ```bash
 pre-commit run --all-files
 pytest tests --quiet --requires-ssh --ignore-flavors --serve-wheel \
-  --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate
+  --ignore=tests/examples --ignore=tests/evaluate
 ```
 
 We use [pytest](https://docs.pytest.org/en/latest/contents.html) to run

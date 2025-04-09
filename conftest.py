@@ -171,7 +171,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/crewai",
             "tests/diviner",
             "tests/dspy",
-            "tests/fastai",
             "tests/gemini",
             "tests/groq",
             "tests/johnsnowlabs",

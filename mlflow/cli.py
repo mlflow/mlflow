@@ -680,13 +680,6 @@ except ImportError:
     pass
 
 try:
-    import mlflow.recipes.cli
-
-    cli.add_command(mlflow.recipes.cli.commands)
-except ImportError:
-    pass
-
-try:
     import mlflow.sagemaker.cli
 
     cli.add_command(mlflow.sagemaker.cli.commands)
