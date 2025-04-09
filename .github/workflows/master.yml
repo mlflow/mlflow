@@ -384,7 +384,7 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/Scripts/activate
-          python -m pip install -U pip
+          python -m pip install -U pip setuptools wheel
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install '.[extras,genai]'
           pip install pyspark
