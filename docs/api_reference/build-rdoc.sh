@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -x
+set +e
 
 pushd ../../mlflow/R/mlflow
 
