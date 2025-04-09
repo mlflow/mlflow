@@ -30,7 +30,6 @@ WORKDIR /opt/mlflow
 COPY mlflow-project /opt/mlflow
 RUN pip install /opt/mlflow
 
-
 # Install minimal serving dependencies
 RUN python -c "from mlflow.models.container import _install_pyfunc_deps;_install_pyfunc_deps(None, False)"
 

@@ -29,8 +29,6 @@ WORKDIR /opt/mlflow
 # Install MLflow
 RUN pip install mlflow==${{ MLFLOW_VERSION }}
 
-
-
 # Copy model to image and install dependencies
 COPY model_dir/model /opt/ml/model
 RUN python -c "from mlflow.models import container as C; C._install_pyfunc_deps('/opt/ml/model', install_mlflow=False, enable_mlserver=False, env_manager='virtualenv');"
