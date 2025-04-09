@@ -114,8 +114,6 @@ def generate_dockerfile(
                 f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
             )
 
-            install_mlflow_steps += "\n\n"
-
     with open(os.path.join(output_dir, "Dockerfile"), "w") as f:
         f.write(
             _DOCKERFILE_TEMPLATE.format(
