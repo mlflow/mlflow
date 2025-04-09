@@ -17,7 +17,7 @@ from subprocess import Popen, check_call
 import mlflow
 import mlflow.version
 from mlflow import pyfunc
-from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME, MLFLOW_DISABLE_ENV_CREATION
+from mlflow.environment_variables import MLFLOW_DISABLE_ENV_CREATION
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.pyfunc import _extract_conda_env, mlserver, scoring_server
