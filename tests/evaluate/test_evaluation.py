@@ -2153,7 +2153,7 @@ def test_metrics_logged_to_model_on_evaluation(
     with mlflow.start_run():
         # Log the model and retrieve its model_id
         model_info = mlflow.sklearn.log_model(
-            mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri), artifact_path="model"
+            mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri), "model"
         )
         model_id = model_info.model_id
 
@@ -2170,11 +2170,7 @@ def test_metrics_logged_to_model_on_evaluation(
         logged_model_metrics = mlflow.get_logged_model(model_id).metrics
 
         # Ensure metrics are logged to the model
-        assert eval_result.metrics == {
-            metric.key: metric.value for metric in logged_model_metrics
-        }, "Metrics logged to the model do not match evaluation results."
+        assert eval_result.metrics == {metric.key: metric.value for metric in logged_model_metrics}
 
         # Validate that all metrics have the correct model_id in their metadata
-        assert all(metric.model_id == model_id for metric in logged_model_metrics), (
-            "Some metrics are missing model_id in metadata."
-        )
+        assert all(metric.model_id == model_id for metric in logged_model_metrics)
