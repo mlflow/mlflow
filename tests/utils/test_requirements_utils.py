@@ -11,7 +11,6 @@ import pytest
 import mlflow
 import mlflow.utils.requirements_utils
 from mlflow.exceptions import MlflowException
-from mlflow.pyfunc import _get_pip_requirements_from_model_path
 from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.os import is_windows
 from mlflow.utils.requirements_utils import (
@@ -739,6 +738,9 @@ def test_capture_imported_modules_extra_env_vars(monkeypatch):
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
 def test_infer_pip_requirements_on_databricks_agents(tmp_path):
+    # import here to avoid breaking this test suite on mlflow-skinny
+    from mlflow.pyfunc import _get_pip_requirements_from_model_path
+
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             import databricks.agents  # noqa: F401
