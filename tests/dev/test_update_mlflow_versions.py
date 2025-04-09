@@ -16,9 +16,7 @@ from dev.update_mlflow_versions import (
 )
 
 # { filename: expected lines changed }
-_JAVA_FILES = {
-
-}
+_JAVA_FILES = {}
 
 _JAVA_XML_FILES = {
     "mlflow/java/pom.xml": {

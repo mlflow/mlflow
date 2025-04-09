@@ -418,4 +418,3 @@ jobs:
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore tests/deployments/server \
             tests
-
