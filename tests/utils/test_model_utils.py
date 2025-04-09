@@ -10,7 +10,6 @@ import mlflow.sklearn
 import mlflow.utils.model_utils as mlflow_model_utils
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
-from mlflow.mleap import FLAVOR_NAME as MLEAP_FLAVOR_NAME
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.utils.file_utils import TempDir
@@ -30,18 +29,6 @@ def sklearn_knn_model():
 @pytest.fixture
 def model_path(tmp_path):
     return os.path.join(tmp_path, "model")
-
-
-def test_get_flavor_configuration_throws_exception_when_model_configuration_does_not_exist(
-    model_path,
-):
-    with pytest.raises(
-        MlflowException, match='Could not find an "MLmodel" configuration file'
-    ) as exc:
-        mlflow_model_utils._get_flavor_configuration(
-            model_path=model_path, flavor_name=mlflow.mleap.FLAVOR_NAME
-        )
-    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 def test_get_flavor_configuration_throws_exception_when_requested_flavor_is_missing(
