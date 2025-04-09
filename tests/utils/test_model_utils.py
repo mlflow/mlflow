@@ -11,7 +11,6 @@ import mlflow.utils.model_utils as mlflow_model_utils
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import env_var_tracker
 

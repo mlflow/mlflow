@@ -71,9 +71,6 @@ def _serve(env_manager):
     model_config_path = os.path.join(MODEL_PATH, MLMODEL_FILE_NAME)
     m = Model.load(model_config_path)
 
-    # Older versions of mlflow may not specify a deployment configuration
-    serving_flavor = MLFLOW_DEPLOYMENT_FLAVOR_NAME.get() or pyfunc.FLAVOR_NAME
-
     if pyfunc.FLAVOR_NAME in m.flavors:
         _serve_pyfunc(m, env_manager)
     else:
