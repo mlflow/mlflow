@@ -46,7 +46,7 @@ def build_docker(
     .. warning::
 
         If ``model_uri`` is unspecified, the resulting image doesn't support serving models with
-        the RFunc or Java MLeap model servers.
+        the RFunc server.
 
     NB: by default, the container will start nginx and gunicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),

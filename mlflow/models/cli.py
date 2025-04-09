@@ -290,11 +290,6 @@ def build_docker(**kwargs):
         "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
         that uses SparkML, please specify the ``--install-java`` flag to enforce Java installation.
 
-    .. warning::
-
-        The image built without ``--model-uri`` doesn't support serving models with RFunc / Java
-        MLeap model server.
-
     NB: by default, the container will start nginx and gunicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),
     you can disable it via the DISABLE_NGINX environment variable:
