@@ -12,12 +12,15 @@ from mlflow.bedrock.chat import convert_message_to_mlflow_chat, convert_tool_to_
 from mlflow.bedrock.stream import ConverseStreamWrapper, InvokeModelStreamWrapper
 from mlflow.bedrock.utils import skip_if_trace_disabled
 from mlflow.entities import SpanType
+from mlflow.models.model import _MODEL_TRACKER
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
     set_span_chat_messages,
     set_span_chat_tools,
     start_client_span_or_trace,
 )
 from mlflow.utils.autologging_utils import safe_patch
+from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _BEDROCK_RUNTIME_SERVICE_NAME = "bedrock-runtime"
 _BEDROCK_SPAN_PREFIX = "BedrockRuntime."
@@ -64,7 +67,10 @@ def patch_bedrock_runtime_client(client_class: type[BaseClient]):
 
 @skip_if_trace_disabled
 def _patched_invoke_model(original, self, *args, **kwargs):
-    with mlflow.start_span(name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}") as span:
+    attributes = _generate_attributes_span(kwargs)
+    with mlflow.start_span(
+        name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}", attributes=attributes
+    ) as span:
         # NB: Bedrock client doesn't accept any positional arguments
         span.set_inputs(kwargs)
 
@@ -86,7 +92,7 @@ def _patched_invoke_model(original, self, *args, **kwargs):
 @skip_if_trace_disabled
 def _patched_invoke_model_with_response_stream(original, self, *args, **kwargs):
     client = mlflow.MlflowClient()
-
+    attributes = _generate_attributes_span(kwargs)
     span = start_client_span_or_trace(
         client=client,
         name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}",
@@ -94,6 +100,7 @@ def _patched_invoke_model_with_response_stream(original, self, *args, **kwargs):
         # We assume it is LLM as using streaming for embedding is not common.
         span_type=SpanType.LLM,
         inputs=kwargs,
+        attributes=attributes,
     )
 
     result = original(self, *args, **kwargs)
@@ -137,9 +144,11 @@ def _parse_invoke_model_response_body(response_body: StreamingBody) -> Union[dic
 
 @skip_if_trace_disabled
 def _patched_converse(original, self, *args, **kwargs):
+    attributes = _generate_attributes_span(kwargs)
     with mlflow.start_span(
         name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}",
         span_type=SpanType.CHAT_MODEL,
+        attributes=attributes,
     ) as span:
         # NB: Bedrock client doesn't accept any positional arguments
         span.set_inputs(kwargs)
@@ -160,11 +169,13 @@ def _patched_converse_stream(original, self, *args, **kwargs):
     # the span context will remain active until the stream is fully exhausted, which
     # can lead to super hard-to-debug issues.
     client = mlflow.MlflowClient()
+    attributes = _generate_attributes_span(kwargs)
     span = start_client_span_or_trace(
         client=client,
         name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}",
         span_type=SpanType.CHAT_MODEL,
         inputs=kwargs,
+        attributes=attributes,
     )
     _set_tool_attributes(span, kwargs)
 
@@ -207,3 +218,46 @@ def _set_tool_attributes(span, kwargs):
             set_span_chat_tools(span, tools)
         except Exception as e:
             _logger.debug(f"Failed to set tools for {span}. Error: {e}")
+
+
+def _generate_model_params_dict(model_dict: dict[str, Any]) -> dict[str, str]:
+    # ref APIs:
+    # https://boto3.amazonaws.com/v1/documentation/api/1.37.30/reference/services/bedrock-runtime/client/invoke_model.html
+    # https://boto3.amazonaws.com/v1/documentation/api/1.37.30/reference/services/bedrock-runtime/client/invoke_model_with_response_stream.html
+    # https://boto3.amazonaws.com/v1/documentation/api/1.37.30/reference/services/bedrock-runtime/client/converse.html
+    # https://boto3.amazonaws.com/v1/documentation/api/1.37.30/reference/services/bedrock-runtime/client/converse_stream.html
+    exclude_fields = {
+        # input field for invoke_model and invoke_model_with_response_stream
+        "body",
+        # input filed for converse and converse_stream
+        "messages",
+    }
+    return {
+        k: (v if isinstance(v, str) else json.dumps(v, default=str))
+        for k, v in model_dict.items()
+        if k not in exclude_fields
+    }
+
+
+def _generate_attributes_span(kwargs: dict[str, Any]) -> Optional[dict[str, str]]:
+    """
+    For `invoke_model` and `invoke_model_with_response_stream` APIs, we try to link traces to
+    the logged model. If the model is not logged, we create an external model if `log_models`
+    config is True and link traces to it.
+
+    Returns:
+        A dictionary of attributes to be set for the span, or None if no logged model is found.
+    """
+    config = AutoLoggingConfig.init(flavor_name=mlflow.bedrock.FLAVOR_NAME)
+
+    # NB: use bedrock modelId as the identifier for distinguishing models
+    bedrock_model_id = kwargs.get("modelId")
+    bedrock_model_identity = hash(bedrock_model_id) if bedrock_model_id else None
+    mlflow_model_id = _MODEL_TRACKER.get(bedrock_model_identity)
+    if mlflow_model_id is None and config.log_models:
+        params = _generate_model_params_dict(kwargs)
+        logged_model = mlflow.create_external_model(name=mlflow.bedrock.FLAVOR_NAME, params=params)
+        _MODEL_TRACKER.set(bedrock_model_identity, logged_model.model_id)
+        mlflow_model_id = logged_model.model_id
+
+    return {SpanAttributeKey.MODEL_ID: mlflow_model_id} if mlflow_model_id else None

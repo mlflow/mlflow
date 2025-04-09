@@ -40,6 +40,48 @@ _ANTHROPIC_RESPONSE = {
     },
 }
 
+_ANTHROPIC_RESPONSE_CHUNKS = [
+    {
+        "type": "message_start",
+        "message": {
+            "id": "123",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-3-5-sonnet-20241022",
+            "content": [],
+            "stop_reason": None,
+            "usage": {"input_tokens": 8, "output_tokens": 1},
+        },
+    },
+    {
+        "type": "content_block_start",
+        "index": 0,
+        "content_block": {"type": "text", "text": ""},
+    },
+    {
+        "type": "content_block_delta",
+        "index": 0,
+        "content_block": {"type": "text", "text": "Hello"},
+    },
+    {
+        "type": "content_block_delta",
+        "index": 0,
+        "delta": {"type": "text_delta", "text": "! How can I "},
+    },
+    {
+        "type": "content_block_delta",
+        "index": 0,
+        "delta": {"type": "text_delta", "text": "help you today?"},
+    },
+    {"type": "content_block_stop", "index": 0},
+    {
+        "type": "message_delta",
+        "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+        "usage": {"output_tokens": 12},
+    },
+    {"type": "message_stop", "amazon-bedrock-invocationMetrics": {"invocationLatency": 909}},
+]
+
 # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-jamba.html
 _AI21_JAMBA_REQUEST = {
     "messages": [{"role": "user", "content": "Hi"}],
@@ -156,6 +198,12 @@ def _create_dummy_invoke_model_response(llm_response):
         },
         "contentType": "application/json",
     }
+
+
+# Mimic event stream
+def _dummy_invoke_model_stream_response():
+    for chunk in _ANTHROPIC_RESPONSE_CHUNKS:
+        yield {"chunk": {"bytes": json.dumps(chunk).encode("utf-8")}}
 
 
 @pytest.mark.parametrize(
@@ -300,57 +348,10 @@ def test_bedrock_autolog_invoke_model_stream():
     client = boto3.client("bedrock-runtime", region_name="us-west-2")
     request_body = json.dumps(_ANTHROPIC_REQUEST)
 
-    dummy_chunks = [
-        {
-            "type": "message_start",
-            "message": {
-                "id": "123",
-                "type": "message",
-                "role": "assistant",
-                "model": "claude-3-5-sonnet-20241022",
-                "content": [],
-                "stop_reason": None,
-                "usage": {"input_tokens": 8, "output_tokens": 1},
-            },
-        },
-        {
-            "type": "content_block_start",
-            "index": 0,
-            "content_block": {"type": "text", "text": ""},
-        },
-        {
-            "type": "content_block_delta",
-            "index": 0,
-            "content_block": {"type": "text", "text": "Hello"},
-        },
-        {
-            "type": "content_block_delta",
-            "index": 0,
-            "delta": {"type": "text_delta", "text": "! How can I "},
-        },
-        {
-            "type": "content_block_delta",
-            "index": 0,
-            "delta": {"type": "text_delta", "text": "help you today?"},
-        },
-        {"type": "content_block_stop", "index": 0},
-        {
-            "type": "message_delta",
-            "delta": {"stop_reason": "end_turn", "stop_sequence": None},
-            "usage": {"output_tokens": 12},
-        },
-        {"type": "message_stop", "amazon-bedrock-invocationMetrics": {"invocationLatency": 909}},
-    ]
-
-    # Mimic event stream
-    def dummy_stream():
-        for chunk in dummy_chunks:
-            yield {"chunk": {"bytes": json.dumps(chunk).encode("utf-8")}}
-
     # Ref: https://docs.getmoto.org/en/latest/docs/services/patching_other_services.html
     with mock.patch(
         "botocore.client.BaseClient._make_api_call",
-        return_value={"body": dummy_stream()},
+        return_value={"body": _dummy_invoke_model_stream_response()},
     ):
         response = client.invoke_model_with_response_stream(
             body=request_body, modelId=_ANTHROPIC_MODEL_ID
@@ -360,7 +361,7 @@ def test_bedrock_autolog_invoke_model_stream():
     assert get_traces() == []
 
     events = list(response["body"])
-    assert len(events) == len(dummy_chunks)
+    assert len(events) == len(_ANTHROPIC_RESPONSE_CHUNKS)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -373,10 +374,10 @@ def test_bedrock_autolog_invoke_model_stream():
     assert span.inputs == {"body": request_body, "modelId": _ANTHROPIC_MODEL_ID}
     assert span.outputs == {"body": "EventStream"}
     # Raw chunks must be recorded as span events
-    assert len(span.events) == len(dummy_chunks)
-    for i in range(len(dummy_chunks)):
-        assert span.events[i].name == dummy_chunks[i]["type"]
-        assert json.loads(span.events[i].attributes["json"]) == dummy_chunks[i]
+    assert len(span.events) == len(_ANTHROPIC_RESPONSE_CHUNKS)
+    for i in range(len(_ANTHROPIC_RESPONSE_CHUNKS)):
+        assert span.events[i].name == _ANTHROPIC_RESPONSE_CHUNKS[i]["type"]
+        assert json.loads(span.events[i].attributes["json"]) == _ANTHROPIC_RESPONSE_CHUNKS[i]
 
 
 @pytest.mark.parametrize("config", [{"disable": True}, {"log_traces": False}])
@@ -899,3 +900,155 @@ def _generate_tool_use_chunks_if_present(content, chunk_size=10):
                 }
             }
         yield {"contentBlockStop": {}}
+
+
+@pytest.mark.parametrize("log_models", [True, False])
+def test_autolog_log_models_and_link_traces_invoke_model(log_models):
+    mlflow.bedrock.autolog(log_models=log_models)
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    request_body = json.dumps(_ANTHROPIC_REQUEST)
+
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value=_create_dummy_invoke_model_response(_ANTHROPIC_RESPONSE),
+    ):
+        with mlflow.start_run() as run:
+            for _ in range(3):
+                client.invoke_model(body=request_body, modelId=_ANTHROPIC_MODEL_ID)
+
+    traces = get_traces()
+    assert len(traces) == 3
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    if log_models:
+        assert len(logged_models) == 1
+        logged_model = logged_models[0]
+        assert logged_model.params["modelId"] == _ANTHROPIC_MODEL_ID
+        assert "body" not in logged_model.params
+        logged_model_id = logged_models[0].model_id
+        for i in range(3):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        logged_model_id = None
+        for i in range(3):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
+
+
+@pytest.mark.parametrize("log_models", [True, False])
+def test_autolog_log_models_and_link_traces_invoke_model_stream(log_models):
+    mlflow.bedrock.autolog(log_models=log_models)
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    request_body = json.dumps(_ANTHROPIC_REQUEST)
+
+    with mlflow.start_run() as run:
+        for _ in range(3):
+            with mock.patch(
+                "botocore.client.BaseClient._make_api_call",
+                return_value={"body": _dummy_invoke_model_stream_response()},
+            ):
+                response = client.invoke_model_with_response_stream(
+                    body=request_body, modelId=_ANTHROPIC_MODEL_ID
+                )
+                # Consume the stream to trigger the trace creation
+                list(response["body"])
+
+    traces = get_traces()
+    assert len(traces) == 3
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    if log_models:
+        assert len(logged_models) == 1
+        logged_model = logged_models[0]
+        assert logged_model.params["modelId"] == _ANTHROPIC_MODEL_ID
+        assert "body" not in logged_model.params
+        logged_model_id = logged_models[0].model_id
+        for i in range(3):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        logged_model_id = None
+        for i in range(3):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
+
+
+@pytest.mark.parametrize("log_models", [True, False])
+def test_autolog_log_models_and_link_traces_converse(log_models):
+    mlflow.bedrock.autolog(log_models=log_models)
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    with mock.patch("botocore.client.BaseClient._make_api_call", return_value=_CONVERSE_RESPONSE):
+        with mlflow.start_run() as run:
+            for _ in range(3):
+                client.converse(**_CONVERSE_REQUEST)
+
+    traces = get_traces()
+    assert len(traces) == 3
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    if log_models:
+        assert len(logged_models) == 1
+        logged_model = logged_models[0]
+        for k, v in _CONVERSE_REQUEST.items():
+            if k == "messages":
+                assert k not in logged_model.params
+            else:
+                assert logged_model.params[k] == v if isinstance(v, str) else json.dumps(v)
+        logged_model_id = logged_models[0].model_id
+        for i in range(3):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        logged_model_id = None
+        for i in range(3):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
+
+
+@pytest.mark.parametrize("log_models", [True, False])
+def test_autolog_log_models_and_link_traces_converse_stream(log_models):
+    mlflow.bedrock.autolog(log_models=log_models)
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    with mlflow.start_run() as run:
+        for _ in range(3):
+            with mock.patch(
+                "botocore.client.BaseClient._make_api_call",
+                return_value={"stream": _event_stream(_CONVERSE_TOOL_CALLING_RESPONSE)},
+            ):
+                response = client.converse_stream(**_CONVERSE_TOOL_CALLING_REQUEST)
+                list(response["stream"])
+
+    traces = get_traces()
+    assert len(traces) == 3
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    if log_models:
+        assert len(logged_models) == 1
+        logged_model = logged_models[0]
+        for k, v in _CONVERSE_TOOL_CALLING_REQUEST.items():
+            if k == "messages":
+                assert k not in logged_model.params
+            else:
+                assert logged_model.params[k] == v if isinstance(v, str) else json.dumps(v)
+        logged_model_id = logged_models[0].model_id
+        for i in range(3):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        logged_model_id = None
+        for i in range(3):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
