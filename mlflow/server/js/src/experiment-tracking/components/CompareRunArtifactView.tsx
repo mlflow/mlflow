@@ -19,27 +19,9 @@ export const CompareRunArtifactView = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const [artifactPath, setArtifactPath] = useState<string | undefined>();
-  const [containerHeight, setContainerHeight] = useState('calc(100vh - 80px)');
 
   const { artifactsKeyedByRun } = useRunsArtifacts(runUuids);
   const commonArtifacts = getCommonArtifacts(artifactsKeyedByRun);
-
-  useEffect(() => {
-    const calculateDimensions = () => {
-      const windowHeight = window.innerHeight;
-      const headerHeight = 100;
-      const availableHeight = windowHeight - headerHeight;
-
-      setContainerHeight(`${availableHeight}px`);
-    };
-
-    calculateDimensions();
-    window.addEventListener('resize', calculateDimensions);
-
-    return () => {
-      window.removeEventListener('resize', calculateDimensions);
-    };
-  }, [runUuids.length, artifactPath]);
 
   if (commonArtifacts.length === 0) {
     return (
@@ -57,7 +39,7 @@ export const CompareRunArtifactView = ({
       css={{
         display: 'flex',
         flexDirection: 'row',
-        height: containerHeight,
+        height: "100vh",
         overflow: 'hidden',
       }}
     >
