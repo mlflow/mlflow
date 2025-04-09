@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-set -x
-set +e
+set -ex
 
 pushd ../../mlflow/R/mlflow
 
@@ -22,8 +21,6 @@ docker run \
   -v $(pwd):/mlflow/mlflow/R/mlflow \
   -v $(pwd)/../../../docs/api_reference/source:/mlflow/docs/api_reference/source \
   $image_name \
-  /bin/bash -c 'set -e; Rscript -e '"'"'source(".build-doc.R", echo = TRUE)'"'"' || true ';
-
-git diff ../../../docs/api_reference/source/R-api.rst DESCRIPTION man/mlflow_save_model.Rd
+  Rscript -e 'source(".build-doc.R", echo = TRUE)'
 
 popd
