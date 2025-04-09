@@ -165,7 +165,7 @@ class IncompleteDetails(BaseModel):
 
     @model_validator(mode="after")
     def check_reason(self) -> "IncompleteDetails":
-        if self.reason not in {"max_output_tokens", "content_filter"}:
+        if self.reason and self.reason not in {"max_output_tokens", "content_filter"}:
             warnings.warn(f"Invalid reason: {self.reason}")
         return self
 
@@ -181,7 +181,6 @@ class FunctionTool(BaseModel):
     name: str
     """The name of the function to call."""
 
-    # TODO bbqiu revisit if we should use FunctionParams from chat.py
     parameters: dict[str, Any]
     """A JSON schema object describing the parameters of the function."""
 
@@ -224,8 +223,12 @@ class ToolChoice(BaseModel):
 
     @model_validator(mode="after")
     def check_tool_choice(self) -> "ToolChoice":
-        if self.tool_choice and isinstance(self.tool_choice, str):
-            warnings.warn(f"Not validating tool choice: {self.tool_choice}")
+        if (
+            self.tool_choice
+            and isinstance(self.tool_choice, str)
+            and self.tool_choice not in {"none", "auto", "required"}
+        ):
+            warnings.warn(f"Invalid tool choice: {self.tool_choice}")
         return self
 
 
@@ -278,7 +281,7 @@ class Truncation(BaseModel):
 
     @model_validator(mode="after")
     def check_truncation(self) -> "Truncation":
-        if self.truncation is not None and self.truncation not in {"auto", "disabled"}:
+        if self.truncation and self.truncation not in {"auto", "disabled"}:
             warnings.warn(f"Invalid truncation: {self.truncation}. Must be 'auto' or 'disabled'.")
         return self
 
@@ -300,7 +303,6 @@ class Response(Tools, Truncation, ToolChoice):
     previous_response_id: Optional[str] = None
     reasoning: Optional[Reasoning] = None
     status: Optional[str] = None
-    # TODO bbqiu revisit this ResponseFormatTextConfig: TypeAlias
     text: Optional[Any] = None
     usage: Optional[ResponseUsage] = None
     user: Optional[str] = None
@@ -323,15 +325,13 @@ class Response(Tools, Truncation, ToolChoice):
 
     @model_validator(mode="after")
     def check_output(self) -> "Response":
-        if not self.output:
-            warnings.warn("output must be a non-empty list")
         for output in self.output:
             OutputItem.model_validate(output)
         return self
 
     @model_validator(mode="after")
     def check_status(self) -> "Response":
-        if self.status is not None and self.status not in {
+        if self.status and self.status not in {
             "completed",
             "failed",
             "in_progress",
