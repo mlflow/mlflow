@@ -6,8 +6,9 @@ import datetime
 import json
 import sys
 import time
-from typing import Any, Optional, List, Dict
+from typing import Any, Optional, List, Dict, Tuple
 import uuid
+import threading
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric, Param, RunTag
@@ -46,22 +47,147 @@ mlflow_optuna_status_map = {
 
 class MLFlowStorage(BaseStorage):
     """
-    MLFlow based storage class.
+    MLFlow based storage class with batch processing to avoid REST API throttling.
     """
 
-    def __init__(self, experiment_id: str, name: Optional[str] = None):
+    def __init__(self, experiment_id: str, name: Optional[str] = None,
+                 batch_flush_interval: float = 1.0, batch_size_threshold: int = 100):
+        """
+        Initialize MLFlowStorage with batching capabilities.
+
+        Parameters
+        ----------
+        experiment_id : str
+            MLflow experiment ID
+        name : Optional[str]
+            Optional name for the storage
+        batch_flush_interval : float
+            Time in seconds between automatic batch flushes (default: 1.0)
+        batch_size_threshold : int
+            Maximum number of items in batch before triggering a flush (default: 100)
+        """
         if not experiment_id:
             raise Exception(
-                "MLFlowStorage need import & save results from the experimens. No experiment_id is provided"
+                "MLFlowStorage need import & save results from the experiments. No experiment_id is provided"
             )
 
         self._experiment_id = experiment_id
         self._mlflow_client = MlflowClient()
         self._name = name
 
+        # Batching configuration
+        self._batch_flush_interval = batch_flush_interval
+        self._batch_size_threshold = batch_size_threshold
+
+        # Batching queues for metrics, parameters, and tags
+        self._batch_queue = {}  # Dictionary of run_id -> {'metrics': [], 'params': [], 'tags': []}
+        self._batch_lock = threading.RLock()
+        self._last_flush_time = time.time()
+
+        # Flag to indicate if the worker should stop - must be defined BEFORE starting the thread
+        self._stop_worker = False
+
+        # Start a background thread for periodic flushing
+        self._flush_thread = threading.Thread(target=self._periodic_flush_worker, daemon=True)
+        self._flush_thread.start()
+
+    def __del__(self):
+        """Ensure all queued data is flushed before destroying the object."""
+        # Set the stop flag
+        if hasattr(self, '_stop_worker'):
+            self._stop_worker = True
+
+        # Join the thread if it exists and is alive
+        if hasattr(self, '_flush_thread') and self._flush_thread.is_alive():
+            try:
+                self._flush_thread.join(timeout=5.0)
+            except Exception:
+                pass  # Ignore errors during cleanup
+
+        # Flush any remaining data
+        if hasattr(self, '_batch_queue'):
+            try:
+                self.flush_all_batches()
+            except Exception:
+                pass  # Ignore errors during cleanup
+
+    def _periodic_flush_worker(self):
+        """Background worker that periodically flushes batched data."""
+        while not self._stop_worker:
+            try:
+                time.sleep(min(0.1, self._batch_flush_interval / 10))  # Sleep in small increments
+
+                # Check if it's time to flush
+                current_time = time.time()
+                if current_time - self._last_flush_time >= self._batch_flush_interval:
+                    self.flush_all_batches()
+                    self._last_flush_time = current_time
+            except Exception:
+                # Catch any exceptions to prevent thread crashes
+                time.sleep(1.0)  # Sleep a bit longer if there was an error
+
+    def _queue_batch_operation(self, run_id: str,
+                               metrics: Optional[List[Metric]] = None,
+                               params: Optional[List[Param]] = None,
+                               tags: Optional[List[RunTag]] = None):
+        """Queue metrics, parameters, or tags for batched processing."""
+        with self._batch_lock:
+            if run_id not in self._batch_queue:
+                self._batch_queue[run_id] = {'metrics': [], 'params': [], 'tags': []}
+
+            batch = self._batch_queue[run_id]
+
+            if metrics:
+                batch['metrics'].extend(metrics)
+            if params:
+                batch['params'].extend(params)
+            if tags:
+                batch['tags'].extend(tags)
+
+            # Check if we've reached the batch size threshold for this run
+            batch_size = len(batch['metrics']) + len(batch['params']) + len(batch['tags'])
+            if batch_size >= self._batch_size_threshold:
+                self._flush_batch(run_id)
+
+    def _flush_batch(self, run_id: str):
+        """Flush the batch for a specific run_id to MLflow."""
+        with self._batch_lock:
+            if run_id not in self._batch_queue:
+                return
+
+            batch = self._batch_queue[run_id]
+
+            # Only make the API call if there's something to flush
+            if batch['metrics'] or batch['params'] or batch['tags']:
+                try:
+                    self._mlflow_client.log_batch(
+                        run_id,
+                        metrics=batch['metrics'],
+                        params=batch['params'],
+                        tags=batch['tags']
+                    )
+                except Exception as e:
+                    # If the run doesn't exist, propagate the error
+                    if "Run with id=" in str(e) and "not found" in str(e):
+                        raise
+                    # Otherwise, handle or log the error as needed
+
+                # Clear the batch
+                batch['metrics'] = []
+                batch['params'] = []
+                batch['tags'] = []
+
+    def flush_all_batches(self):
+        """Flush all pending batches to MLflow."""
+        with self._batch_lock:
+            run_ids = list(self._batch_queue.keys())
+
+        # Flush each run's batch
+        for run_id in run_ids:
+            self._flush_batch(run_id)
+
     def _search_run_by_name(self, run_name: str):
-        # print(f"Searching run by name: {run_name}")
-        filter_string = f"tags.`mlflow.runName` = '{run_name}'"
+        filter_string = f"tags.mlflow.runName = '{run_name}'"
         runs = self._mlflow_client.search_runs(
             experiment_ids=[self._experiment_id], filter_string=filter_string)
         return runs
@@ -69,19 +195,7 @@ class MLFlowStorage(BaseStorage):
     def create_new_study(self,
                          directions: Sequence[StudyDirection],
                          study_name: Optional[str] = None) -> int:
-        """Create a new study as a mlflow run.
-        Parameters
-        ----------
-        directions: A sequence of direction whose element is either
-                 :obj:`~optuna.study.StudyDirection.MAXIMIZE` or
-                 :obj:`~optuna.study.StudyDirection.MINIMIZE`.
-        study_name: str, optional
-                Name of the new study to create.
-        Returns
-        ------
-        str
-        run ID of the created study mlflow run.
-        """
+        """Create a new study as a mlflow run."""
         study_name = study_name or DEFAULT_STUDY_NAME_PREFIX + str(uuid.uuid4())
         tags = {
             "mlflow.runName": study_name,
@@ -93,43 +207,45 @@ class MLFlowStorage(BaseStorage):
         return study_id
 
     def delete_study(self, study_id) -> None:
-        """Delete a study.
-        Parameters
-        ----------
-        study_id: str
-            mlflow run ID of the study.
-        """
+        """Delete a study."""
+        # Ensure any pending changes are saved before deletion
+        self._flush_batch(study_id)
         self._mlflow_client.delete_run(study_id)
 
     def set_study_user_attr(self, study_id, key: str, value: JSONSerializable) -> None:
-        """Register a user-defined attribute as mlflow run tags to a study run.
-        This method overwrites any existing attribute.
-        Parameters
-        ----------
-        study_id: str
-            mlflow run ID of the study.
-        key: str
-            Attribute key.
-        value: JSONSerializable
-            Attribute value. It should be JSON serializable.
-        """
-        self._mlflow_client.set_tag(study_id, f"user_{key}", json.dumps(value))
+        """Register a user-defined attribute as mlflow run tags to a study run."""
+        try:
+            # Verify the run exists first to fail fast if it doesn't
+            self._mlflow_client.get_run(study_id)
+
+            # Queue the tag if the run exists
+            self._queue_batch_operation(
+                study_id,
+                tags=[RunTag(f"user_{key}", json.dumps(value))]
+            )
+        except Exception as e:
+            # Re-raise MLflow exceptions to maintain original behavior
+            raise e
 
     def set_study_system_attr(self, study_id, key: str, value: JSONSerializable) -> None:
-        """Register a optuna-internal attribute as mlflow run tags to a study run.
-        This method overwrites any existing attribute.
-        Parameters
-        ----------
-        study_id: str
-            mlflow run ID of the study.
-        key: str
-            Attribute key.
-        value: JSONSerializable
-            Attribute value. It should be JSON serializable.
-        """
-        self._mlflow_client.set_tag(study_id, f"sys_{key}", json.dumps(value))
+        """Register a optuna-internal attribute as mlflow run tags to a study run."""
+        try:
+            # Verify the run exists first to fail fast if it doesn't
+            self._mlflow_client.get_run(study_id)
+
+            # Queue the tag if the run exists
+            self._queue_batch_operation(
+                study_id,
+                tags=[RunTag(f"sys_{key}", json.dumps(value))]
+            )
+        except Exception as e:
+            # Re-raise MLflow exceptions to maintain original behavior
+            raise e
 
     def get_study_id_from_name(self, study_name: str) -> int:
+        # Flush all batches to ensure we have the latest data
+        self.flush_all_batches()
+
         runs = self._search_run_by_name(study_name)
         if len(runs):
             return runs[0].info.run_id
@@ -137,16 +253,25 @@ class MLFlowStorage(BaseStorage):
             raise Exception(f"Study {study_name} not found")
 
     def get_study_name_from_id(self, study_id) -> str:
+        # Flush the batch for this study to ensure we have the latest data
+        self._flush_batch(study_id)
+
         run = self._mlflow_client.get_run(study_id)
         return run.data.tags["mlflow.runName"]
 
     def get_study_directions(self, study_id) -> List[StudyDirection]:
+        # Flush the batch for this study to ensure we have the latest data
+        self._flush_batch(study_id)
+
         run = self._mlflow_client.get_run(study_id)
         directions_str = run.data.tags["optuna.study_direction"]
         directions = [StudyDirection[name] for name in directions_str.split(",")]
         return directions
 
     def get_study_user_attrs(self, study_id) -> Dict[str, Any]:
+        # Flush the batch for this study to ensure we have the latest data
+        self._flush_batch(study_id)
+
         run = self._mlflow_client.get_run(study_id)
         user_attrs = {}
         for key, value in run.data.tags.items():
@@ -155,6 +280,9 @@ class MLFlowStorage(BaseStorage):
         return user_attrs
 
     def get_study_system_attrs(self, study_id) -> Dict[str, Any]:
+        # Flush the batch for this study to ensure we have the latest data
+        self._flush_batch(study_id)
+
         run = self._mlflow_client.get_run(study_id)
         system_attrs = {}
         for key, value in run.data.tags.items():
@@ -163,7 +291,9 @@ class MLFlowStorage(BaseStorage):
         return system_attrs
 
     def get_all_studies(self) -> List[FrozenStudy]:
-        # print("Getting all studies")
+        # Flush all batches to ensure we have the latest data
+        self.flush_all_batches()
+
         runs = self._mlflow_client.search_runs(experiment_ids=[self._experiment_id])
         studies = []
         for run in runs:
@@ -183,7 +313,9 @@ class MLFlowStorage(BaseStorage):
         return studies
 
     def create_new_trial(self, study_id, template_trial: Optional[FrozenTrial] = None) -> int:
-        # print(f"Creating new trial for study ID: {study_id}")
+        # Ensure study batch is flushed before creating a new trial
+        self._flush_batch(study_id)
+
         if template_trial:
             frozen = copy.deepcopy(template_trial)
         else:
@@ -210,13 +342,32 @@ class MLFlowStorage(BaseStorage):
 
         trial_run = self._mlflow_client.create_run(experiment_id=self._experiment_id, tags=tags)
         trial_id = trial_run.info.run_id
-        self._mlflow_client.set_tag(trial_id, MLFLOW_PARENT_RUN_ID, study_id)
+
+        # Add parent run ID tag
+        self._queue_batch_operation(
+            trial_id,
+            tags=[RunTag(MLFLOW_PARENT_RUN_ID, study_id)]
+        )
+
+        # Log trial_id metric to study
         hash_id = float(hash(trial_id))
-        self._mlflow_client.log_metric(study_id, "trial_id", hash_id)
+        self._queue_batch_operation(
+            study_id,
+            metrics=[Metric("trial_id", hash_id, int(time.time() * 1000), 1)]
+        )
+
+        # Ensure study batch is flushed to get accurate metric history
+        self._flush_batch(study_id)
+
         trial_ids = self._mlflow_client.get_metric_history(study_id, "trial_id")
         index = next((i for i, obj in enumerate(trial_ids) if obj.value == hash_id), -1)
-        self._mlflow_client.set_tag(trial_id, "numbers", index)
 
+        self._queue_batch_operation(
+            trial_id,
+            tags=[RunTag("numbers", str(index))]
+        )
+
+        # Set trial state
         state = frozen.state
         if state.is_finished():
             self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
@@ -224,34 +375,45 @@ class MLFlowStorage(BaseStorage):
             self._mlflow_client.update_run(trial_id, status=optuna_mlflow_status_map[state])
 
         timestamp = int(time.time() * 1000)
+        metrics = []
+        params = []
+        tags = []
+
+        # Add metrics
         if frozen.values is not None:
             if len(frozen.values) > 1:
-                metrics = [
+                metrics.extend([
                     Metric(f"value_{idx}", val, timestamp, 1)
                     for idx, val in enumerate(frozen.values)
-                ]
+                ])
             else:
-                metrics = [Metric("value", frozen.values[0], timestamp, 1)]
+                metrics.append(Metric("value", frozen.values[0], timestamp, 1))
         elif frozen.value is not None:
-            metrics = [Metric("value", frozen.value, timestamp, 1)]
-        else:
-            metrics = []
+            metrics.append(Metric("value", frozen.value, timestamp, 1))
 
-        params = [Param(k, param) for k, param in frozen.params.items()]
-        tags = [
-                   RunTag(f"user_{key}", json.dumps(value)) for key, value in frozen.user_attrs.items()
-               ] + [RunTag(f"sys_{key}", json.dumps(value))
-                    for key, value in frozen.system_attrs.items()] + [
-                   RunTag(f"param_internal_val_{k}",
-                          json.dumps(frozen.distributions[k].to_internal_repr(param)))
-                   for k, param in frozen.params.items()
-               ]
-
-        metrics = metrics + [
+        # Add intermediate values
+        metrics.extend([
             Metric("intermediate_value", val, timestamp, int(k))
             for k, val in frozen.intermediate_values.items()
-        ]
-        self._mlflow_client.log_batch(trial_id, params=params, metrics=metrics, tags=tags)
+        ])
+
+        # Add params
+        params.extend([Param(k, param) for k, param in frozen.params.items()])
+
+        # Add tags
+        tags.extend([
+            RunTag(f"user_{key}", json.dumps(value)) for key, value in frozen.user_attrs.items()
+        ])
+        tags.extend([
+            RunTag(f"sys_{key}", json.dumps(value)) for key, value in frozen.system_attrs.items()
+        ])
+        tags.extend([
+            RunTag(f"param_internal_val_{k}", json.dumps(frozen.distributions[k].to_internal_repr(param)))
+            for k, param in frozen.params.items()
+        ])
+
+        # Queue all the data to be sent in batches
+        self._queue_batch_operation(trial_id, metrics=metrics, params=params, tags=tags)
 
         return trial_id
 
@@ -262,6 +424,9 @@ class MLFlowStorage(BaseStorage):
             param_value_internal: float,
             distribution: BaseDistribution,
     ) -> None:
+        # Flush the batch for this trial to ensure we have the latest data
+        self._flush_batch(trial_id)
+
         trial_run = self._mlflow_client.get_run(trial_id)
         distributions_dict = json.loads(trial_run.data.tags["param_directions"])
         self.check_trial_is_updatable(trial_id, mlflow_optuna_status_map[trial_run.info.status])
@@ -270,63 +435,90 @@ class MLFlowStorage(BaseStorage):
             param_distribution = json_to_distribution(distributions_dict[param_name])
             check_distribution_compatibility(param_distribution, distribution)
 
-        self._mlflow_client.log_param(trial_id, param_name,
-                                      distribution.to_external_repr(param_value_internal))
-        self._mlflow_client.set_tag(trial_id, f"param_internal_val_{param_name}",
-                                    param_value_internal)
+        # Queue parameter update
+        self._queue_batch_operation(
+            trial_id,
+            params=[Param(param_name, distribution.to_external_repr(param_value_internal))],
+            tags=[RunTag(f"param_internal_val_{param_name}", json.dumps(param_value_internal))]
+        )
 
         distributions_dict[param_name] = distribution_to_json(distribution)
-        self._mlflow_client.set_tag(trial_id, "param_directions", json.dumps(distributions_dict))
+        self._queue_batch_operation(
+            trial_id,
+            tags=[RunTag("param_directions", json.dumps(distributions_dict))]
+        )
 
     def get_trial_id_from_study_id_trial_number(self, study_id, trial_number: int) -> int:
         raise NotImplementedError("This method is not supported in MLflow backend.")
 
     def get_trial_number_from_id(self, trial_id) -> int:
+        # Flush the batch for this trial to ensure we have the latest data
+        self._flush_batch(trial_id)
+
         trial_run = self._mlflow_client.get_run(trial_id)
-        return int(trial_run.data.tags["numbers"])
+        return int(trial_run.data.tags.get("numbers", 0))
 
     def get_trial_param(self, trial_id, param_name: str) -> float:
+        # Flush the batch for this trial to ensure we have the latest data
+        self._flush_batch(trial_id)
+
         trial_run = self._mlflow_client.get_run(trial_id)
         param_value = trial_run.data.tags[f"param_internal_val_{param_name}"]
 
-        return float(param_value)
+        return float(json.loads(param_value))
 
     def set_trial_state_values(self,
-                               trial_id,
-                               state: TrialState,
-                               values: Optional[Sequence[float]] = None) -> bool:
+                              trial_id,
+                              state: TrialState,
+                              values: Optional[Sequence[float]] = None) -> bool:
+        # Update trial state
         if state.is_finished():
             self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
         else:
             self._mlflow_client.update_run(trial_id, status=optuna_mlflow_status_map[state])
 
+        # Queue value metrics if provided
         timestamp = int(time.time() * 1000)
         if values is not None:
+            metrics = []
             if len(values) > 1:
                 metrics = [
                     Metric(f"value_{idx}", val, timestamp, 1) for idx, val in enumerate(values)
                 ]
             else:
                 metrics = [Metric("value", values[0], timestamp, 1)]
-        else:
-            metrics = []
-        self._mlflow_client.log_batch(trial_id, metrics=metrics)
+
+            self._queue_batch_operation(trial_id, metrics=metrics)
 
         if state == TrialState.RUNNING and state != TrialState.WAITING:
             return False
         return True
 
     def set_trial_intermediate_value(self, trial_id, step: int, intermediate_value: float) -> None:
-        self._mlflow_client.log_metric(
-            trial_id, "intermediate_value", intermediate_value, step=step)
+        # Queue intermediate value metric
+        self._queue_batch_operation(
+            trial_id,
+            metrics=[Metric("intermediate_value", intermediate_value, int(time.time() * 1000), step)]
+        )
 
     def set_trial_user_attr(self, trial_id, key: str, value: Any) -> None:
-        self._mlflow_client.set_tag(trial_id, f"user_{key}", json.dumps(value))
+        # Queue user attribute tag
+        self._queue_batch_operation(
+            trial_id,
+            tags=[RunTag(f"user_{key}", json.dumps(value))]
+        )
 
     def set_trial_system_attr(self, trial_id, key: str, value: Any) -> None:
-        self._mlflow_client.set_tag(trial_id, f"sys_{key}", json.dumps(value))
+        # Queue system attribute tag
+        self._queue_batch_operation(
+            trial_id,
+            tags=[RunTag(f"sys_{key}", json.dumps(value))]
+        )
 
     def get_trial(self, trial_id) -> FrozenTrial:
+        # Flush the batch for this trial to ensure we have the latest data
+        self._flush_batch(trial_id)
+
         trial_run = self._mlflow_client.get_run(trial_id)
         distributions_dict = json.loads(trial_run.data.tags["param_directions"])
         distributions = {
@@ -337,7 +529,8 @@ class MLFlowStorage(BaseStorage):
         for key, value in trial_run.data.tags.items():
             if key.startswith("param_internal_val_"):
                 param_name = key[19:]
-                params[param_name] = distributions[param_name].to_external_repr(float(value))
+                param_value = json.loads(value)
+                params[param_name] = distributions[param_name].to_external_repr(float(param_value))
 
         metrics = trial_run.data.metrics
         values = None
@@ -373,6 +566,9 @@ class MLFlowStorage(BaseStorage):
         )
 
     def get_trial_user_attrs(self, trial_id) -> Dict[str, Any]:
+        # Flush the batch for this trial to ensure we have the latest data
+        self._flush_batch(trial_id)
+
         run = self._mlflow_client.get_run(trial_id)
         user_attrs = {}
         for key, value in run.data.tags.items():
@@ -381,6 +577,9 @@ class MLFlowStorage(BaseStorage):
         return user_attrs
 
     def get_trial_system_attrs(self, trial_id) -> Dict[str, Any]:
+        # Flush the batch for this trial to ensure we have the latest data
+        self._flush_batch(trial_id)
+
         run = self._mlflow_client.get_run(trial_id)
         system_attrs = {}
         for key, value in run.data.tags.items():
@@ -394,6 +593,9 @@ class MLFlowStorage(BaseStorage):
             deepcopy: bool = True,
             states: Optional[Container[TrialState]] = None,
     ) -> List[FrozenTrial]:
+        # Flush all batches to ensure we have the latest data
+        self.flush_all_batches()
+
         runs = self._mlflow_client.search_runs(
             experiment_ids=[self._experiment_id],
             filter_string=f"tags.mlflow.parentRunId='{study_id}'")
@@ -408,6 +610,9 @@ class MLFlowStorage(BaseStorage):
         return frozen_trials
 
     def get_n_trials(self, study_id, states=None) -> int:
+        # Flush all batches to ensure we have the latest data
+        self.flush_all_batches()
+
         runs = self._mlflow_client.search_runs(
             experiment_ids=[self._experiment_id],
             filter_string=f"tags.mlflow.parentRunId='{study_id}'")

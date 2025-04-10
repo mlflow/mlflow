@@ -3,7 +3,9 @@ import logging
 import os
 import random
 import tempfile
+import time
 import unittest
+from unittest.mock import patch, MagicMock, call
 from time import sleep
 import numpy as np
 import pytest
@@ -12,6 +14,7 @@ from typing import Any, Tuple, List, Dict
 import mlflow
 
 from mlflow.pyspark.optuna.storage import MLFlowStorage
+from mlflow.entities import Metric, Param, RunTag
 
 from optuna.distributions import CategoricalDistribution, FloatDistribution
 from optuna.storages import BaseStorage
@@ -126,9 +129,159 @@ def setup_storage():
     mlflow_uri = "file:" + os.path.join(tempdir, "mlflow")
     mlflow.set_tracking_uri(mlflow_uri)
     experiment_id = mlflow.create_experiment(name="optuna_mlflow_test")
-    yield MLFlowStorage(experiment_id=experiment_id)
+    storage = MLFlowStorage(experiment_id=experiment_id, batch_flush_interval=1.0, batch_size_threshold=5)
+    storage._flush_thread = MagicMock()
+    yield storage
     mlflow.delete_experiment(experiment_id)
 
+def test_queue_batch_operation_creates_new_queue_for_new_run(setup_storage):
+    storage = setup_storage
+    run_id = "test-run-id"
+    test_metric = Metric("test_metric", 1.0, int(time.time() * 1000), 0)
+
+    # Call the method with a new run_id
+    storage._queue_batch_operation(run_id, metrics=[test_metric])
+
+    # Check that a new queue was created for this run_id
+    assert run_id in storage._batch_queue
+    assert len(storage._batch_queue[run_id]['metrics']) == 1
+    assert storage._batch_queue[run_id]['metrics'][0] == test_metric
+    assert len(storage._batch_queue[run_id]['params']) == 0
+    assert len(storage._batch_queue[run_id]['tags']) == 0
+
+def test_queue_batch_operation_appends_to_existing_queue(setup_storage):
+    storage = setup_storage
+    run_id = "test-run-id"
+
+    # Setup existing queue
+    storage._batch_queue[run_id] = {'metrics': [], 'params': [], 'tags': []}
+
+    # Add metrics, params, and tags
+    test_metric = Metric("test_metric", 1.0, int(time.time() * 1000), 0)
+    test_param = Param("test_param", "value")
+    test_tag = RunTag("test_tag", "value")
+
+    # Queue each type separately
+    storage._queue_batch_operation(run_id, metrics=[test_metric])
+    storage._queue_batch_operation(run_id, params=[test_param])
+    storage._queue_batch_operation(run_id, tags=[test_tag])
+
+    # Check all were added correctly
+    assert len(storage._batch_queue[run_id]['metrics']) == 1
+    assert len(storage._batch_queue[run_id]['params']) == 1
+    assert len(storage._batch_queue[run_id]['tags']) == 1
+
+def test_flush_batch_sends_data_to_mlflow(setup_storage):
+    """Test that _flush_batch properly sends data to MLflow client."""
+    with patch('mlflow.pyspark.optuna.storage.MlflowClient') as mock_client:
+        storage = setup_storage
+        run_id = "test-run-id"
+        mock_client_instance = MagicMock()
+        mock_client.return_value = mock_client_instance
+
+        storage._mlflow_client = mock_client
+
+        # Setup batch data
+        metrics = [Metric("test_metric", 1.0, int(time.time() * 1000), 0)]
+        params = [Param("test_param", "value")]
+        tags = [RunTag("test_tag", "value")]
+
+        storage._batch_queue[run_id] = {
+            'metrics': metrics[:],
+            'params': params[:],
+            'tags': tags[:]
+        }
+
+        # Call _flush_batch
+        storage._flush_batch(run_id)
+
+        # Verify MLflow client was called with the correct data
+        storage._mlflow_client.log_batch.assert_called_once_with(
+            run_id, metrics=metrics, params=params, tags=tags
+        )
+
+        # Verify batch was cleared
+        assert len(storage._batch_queue[run_id]['metrics']) == 0
+        assert len(storage._batch_queue[run_id]['params']) == 0
+        assert len(storage._batch_queue[run_id]['tags']) == 0
+
+
+def test_flush_batch_does_nothing_for_empty_batch(setup_storage):
+    """Test that _flush_batch does nothing when batch is empty."""
+    with patch('mlflow.pyspark.optuna.storage.MlflowClient') as mock_client:
+        storage = setup_storage
+        run_id = "test-run-id"
+        # Create a mock instance that will be returned when MlflowClient is instantiated
+        mock_client_instance = MagicMock()
+        mock_client.return_value = mock_client_instance
+
+        storage._mlflow_client = mock_client
+
+        # Setup empty batch
+        storage._batch_queue[run_id] = {'metrics': [], 'params': [], 'tags': []}
+
+        # Call _flush_batch
+        storage._flush_batch(run_id)
+
+        # Verify MLflow client was not called
+        storage._mlflow_client.log_batch.assert_not_called()
+
+
+def test_flush_batch_handles_nonexistent_run(setup_storage):
+    """Test that _flush_batch handles nonexistent run gracefully."""
+    with patch('mlflow.pyspark.optuna.storage.MlflowClient') as mock_client:
+        storage = setup_storage
+        run_id = "nonexistent-run"
+        # Create a mock instance that will be returned when MlflowClient is instantiated
+        mock_client_instance = MagicMock()
+        mock_client.return_value = mock_client_instance
+
+        storage._mlflow_client = mock_client
+
+        # Call _flush_batch for a run that doesn't exist in the queue
+        storage._flush_batch(run_id)
+
+        # Verify MLflow client was not called
+        storage._mlflow_client.log_batch.assert_not_called()
+
+
+def test_flush_all_batches_flushes_all_runs(setup_storage):
+    """Test that flush_all_batches flushes all pending runs."""
+    storage = setup_storage
+    # Setup multiple runs with data
+    run_ids = ["run1", "run2", "run3"]
+
+    for run_id in run_ids:
+        storage._batch_queue[run_id] = {
+            'metrics': [Metric(f"m_{run_id}", 1.0, int(time.time() * 1000), 0)],
+            'params': [Param(f"p_{run_id}", "value")],
+            'tags': [RunTag(f"t_{run_id}", "value")]
+        }
+
+    # Create a spy on _flush_batch
+    with patch.object(storage, '_flush_batch') as mock_flush:
+        # Call flush_all_batches
+        storage.flush_all_batches()
+
+        # Check that _flush_batch was called for each run
+        expected_calls = [call(run_id) for run_id in run_ids]
+        mock_flush.assert_has_calls(expected_calls, any_order=True)
+        assert mock_flush.call_count == len(run_ids)
+
+
+def test_flush_all_batches_handles_empty_queue(setup_storage):
+    """Test that flush_all_batches works with empty queue."""
+    storage = setup_storage
+    # Ensure batch queue is empty
+    storage._batch_queue = {}
+
+    # Create a spy on _flush_batch
+    with patch.object(storage, '_flush_batch') as mock_flush:
+        # Call flush_all_batches
+        storage.flush_all_batches()
+
+        # Check that _flush_batch was not called
+        mock_flush.assert_not_called()
 
 def test_create_new_study(setup_storage):
     storage = setup_storage
