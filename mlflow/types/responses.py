@@ -8,14 +8,12 @@ from mlflow.types.agent import ChatContext
 from mlflow.types.chat import BaseModel
 from mlflow.types.responses_helpers import (
     BaseRequestPayload,
-    FunctionCallOutput,
     Message,
+    OutputItem,
     Response,
     ResponseCompletedEvent,
     ResponseErrorEvent,
-    ResponseFunctionToolCall,
     ResponseOutputItemDoneEvent,
-    ResponseOutputMessage,
     ResponseTextAnnotationDeltaEvent,
     ResponseTextDeltaEvent,
     Tools,
@@ -26,42 +24,9 @@ from mlflow.utils.pydantic_utils import model_validator
 
 
 class ResponsesRequest(BaseRequestPayload, Tools):
-    input: list[
-        Union[
-            Message,
-            ResponseOutputMessage,
-            ResponseFunctionToolCall,
-            FunctionCallOutput,
-            dict[str, Any],
-        ]
-    ]
+    input: list[Union[Message, OutputItem]]
     custom_inputs: Optional[dict[str, Any]] = None
     context: Optional[ChatContext] = None
-
-    @model_validator(mode="after")
-    def check_input(self) -> "ResponsesRequest":
-        for input in self.input:
-            if isinstance(
-                input,
-                (
-                    Message,
-                    ResponseOutputMessage,
-                    ResponseFunctionToolCall,
-                    FunctionCallOutput,
-                ),
-            ):
-                continue
-            if isinstance(input, dict):
-                if "type" not in input:
-                    raise ValueError("dict must have a type key")
-                if input["type"] not in {
-                    "file_search_call",
-                    "computer_call",
-                    "web_search_call",
-                    "item_reference",
-                }:
-                    warnings.warn(f"Invalid type: {input['type']}")
-        return self
 
 
 class ResponsesResponse(Response):
@@ -107,7 +72,7 @@ class ResponsesStreamEvent(BaseModel):
             "response.web_search_call.completed",
             "response.error",
         }:
-            warnings.warn(f"Invalid type: {self.type}.")
+            warnings.warn(f"Invalid type: {self.type} for ResponsesStreamEvent.")
         return self
 
 

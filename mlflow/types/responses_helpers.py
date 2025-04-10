@@ -21,44 +21,16 @@ class Status(BaseModel):
             "completed",
             "incomplete",
         }:
-            warnings.warn(
-                f"Invalid status: {self.status}. "
+            raise ValueError(
+                f"Invalid status: {self.status} for {self.__class__.__name__}. "
                 "Must be 'in_progress', 'completed', or 'incomplete'."
             )
         return self
 
 
 class ResponseError(BaseModel):
-    code: str
-    """The error code for the response."""
-
+    code: Optional[str] = None
     message: str
-    """A human-readable description of the error."""
-
-    @model_validator(mode="after")
-    def check_code(self) -> "ResponseError":
-        if self.code not in {
-            "server_error",
-            "rate_limit_exceeded",
-            "invalid_prompt",
-            "vector_store_timeout",
-            "invalid_image",
-            "invalid_image_format",
-            "invalid_base64_image",
-            "invalid_image_url",
-            "image_too_large",
-            "image_too_small",
-            "image_parse_error",
-            "image_content_policy_violation",
-            "invalid_image_mode",
-            "image_file_too_large",
-            "unsupported_image_media_type",
-            "empty_image_file",
-            "failed_to_download_image",
-            "image_file_not_found",
-        }:
-            warnings.warn(f"Invalid error code: {self.code}")
-        return self
 
 
 class AnnotationFileCitation(BaseModel):
@@ -68,8 +40,8 @@ class AnnotationFileCitation(BaseModel):
 
 
 class AnnotationURLCitation(BaseModel):
-    end_index: int
-    start_index: int
+    end_index: Optional[int] = None
+    start_index: Optional[int] = None
     title: str
     type: str = "url_citation"
     url: str
@@ -94,7 +66,7 @@ class Annotation(BaseModel):
         elif self.type == "file_path":
             AnnotationFilePath(**self.model_dump_compat())
         else:
-            warnings.warn(f"Invalid annotation type: {self.type}")
+            raise ValueError(f"Invalid annotation type: {self.type}")
         return self
 
 
@@ -120,7 +92,7 @@ class Content(BaseModel):
         elif self.type == "refusal":
             ResponseOutputRefusal(**self.model_dump_compat())
         else:
-            warnings.warn(f"Invalid content type: {self.type}")
+            raise ValueError(f"Invalid content type: {self.type} for {self.__class__.__name__}")
         return self
 
 
@@ -130,6 +102,12 @@ class ResponseOutputMessage(Status):
     role: str = "assistant"
     type: str = "message"
 
+    @model_validator(mode="after")
+    def check_content(self) -> "ResponseOutputMessage":
+        if not self.content:
+            raise ValueError(f"content must not be an empty list for {self.__class__.__name__}")
+        return self
+
 
 class ResponseFunctionToolCall(Status):
     arguments: str
@@ -137,6 +115,17 @@ class ResponseFunctionToolCall(Status):
     name: str
     type: str = "function_call"
     id: Optional[str] = None
+
+
+class Summary(BaseModel):
+    text: str
+    type: str = "summary_text"
+
+
+class ResponseReasoningItem(Status):
+    id: str
+    summary: list[Summary]
+    type: str = "reasoning"
 
 
 class OutputItem(BaseModel):
@@ -149,13 +138,14 @@ class OutputItem(BaseModel):
             ResponseOutputMessage(**self.model_dump_compat())
         elif self.type == "function_call":
             ResponseFunctionToolCall(**self.model_dump_compat())
+        elif self.type == "reasoning":
+            ResponseReasoningItem(**self.model_dump_compat())
         elif self.type not in {
             "file_search_call",
             "computer_call",
             "web_search_call",
-            "reasoning",
         }:
-            warnings.warn(f"Invalid type: {self.type}.")
+            raise ValueError(f"Invalid type: {self.type} for {self.__class__.__name__}")
         return self
 
 
@@ -179,21 +169,10 @@ class ToolChoiceFunction(BaseModel):
 
 class FunctionTool(BaseModel):
     name: str
-    """The name of the function to call."""
-
     parameters: dict[str, Any]
-    """A JSON schema object describing the parameters of the function."""
-
-    strict: bool
-    """Whether to enforce strict parameter validation. Default `true`."""
-
+    strict: Optional[bool] = None
     type: str = "function"
-
     description: Optional[str] = None
-    """A description of the function.
-
-    Used by the model to determine whether or not to call the function.
-    """
 
 
 class Tool(BaseModel):
@@ -232,19 +211,18 @@ class ToolChoice(BaseModel):
         return self
 
 
-class Reasoning(BaseModel):
+class ReasoningParams(BaseModel):
     effort: Optional[str] = None
-
     generate_summary: Optional[str] = None
 
     @model_validator(mode="after")
-    def check_generate_summary(self) -> "Reasoning":
+    def check_generate_summary(self) -> "ReasoningParams":
         if self.generate_summary and self.generate_summary not in {"concise", "detailed"}:
             warnings.warn(f"Invalid generate_summary: {self.generate_summary}")
         return self
 
     @model_validator(mode="after")
-    def check_effort(self) -> "Reasoning":
+    def check_effort(self) -> "ReasoningParams":
         if self.effort and self.effort not in {"low", "medium", "high"}:
             warnings.warn(f"Invalid effort: {self.effort}")
         return self
@@ -301,7 +279,7 @@ class Response(Tools, Truncation, ToolChoice):
     top_p: Optional[float] = None
     max_output_tokens: Optional[int] = None
     previous_response_id: Optional[str] = None
-    reasoning: Optional[Reasoning] = None
+    reasoning: Optional[ReasoningParams] = None
     status: Optional[str] = None
     text: Optional[Any] = None
     usage: Optional[ResponseUsage] = None
@@ -322,12 +300,6 @@ class Response(Tools, Truncation, ToolChoice):
                         texts.append(content.text)
 
         return "".join(texts)
-
-    @model_validator(mode="after")
-    def check_output(self) -> "Response":
-        for output in self.output:
-            OutputItem.model_validate(output)
-        return self
 
     @model_validator(mode="after")
     def check_status(self) -> "Response":
@@ -360,13 +332,17 @@ class Message(Status):
 
     @model_validator(mode="after")
     def check_content(self) -> "Message":
+        if not self.content:
+            raise ValueError("content must not be empty")
         if isinstance(self.content, list):
             for item in self.content:
                 if isinstance(item, dict):
                     if "type" not in item:
-                        raise ValueError("dict must have a type key")
-                    if item["type"] not in {"input_image", "input_file"}:
-                        warnings.warn(f"Invalid type: {item['type']}.")
+                        raise ValueError("dict type content must have a type key")
+                    if item["type"] == "input_text":
+                        ResponseInputTextParam(**item)
+                    elif item["type"] not in {"input_image", "input_file"}:
+                        raise ValueError(f"Invalid type: {item['type']}.")
         return self
 
     @model_validator(mode="after")
@@ -389,7 +365,7 @@ class BaseRequestPayload(Truncation, ToolChoice):
     max_output_tokens: Optional[int] = None
     metadata: Optional[dict[str, str]] = None
     parallel_tool_calls: Optional[bool] = None
-    reasoning: Optional[Reasoning] = None
+    reasoning: Optional[ReasoningParams] = None
     store: Optional[bool] = None
     stream: Optional[bool] = None
     temperature: Optional[float] = None
@@ -404,19 +380,19 @@ class BaseRequestPayload(Truncation, ToolChoice):
 
 
 class ResponseTextDeltaEvent(BaseModel):
-    content_index: int
+    content_index: Optional[int] = None
     delta: str
     item_id: str
-    output_index: int
+    output_index: Optional[int] = None
     type: str = "response.output_text.delta"
 
 
 class ResponseTextAnnotationDeltaEvent(BaseModel):
-    annotation: Union[AnnotationFileCitation, AnnotationURLCitation, AnnotationFilePath]
+    annotation: Annotation
     annotation_index: int
-    content_index: int
+    content_index: Optional[int] = None
     item_id: str
-    output_index: int
+    output_index: Optional[int] = None
     type: str = "response.output_text.annotation.added"
 
 
