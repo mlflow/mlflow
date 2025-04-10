@@ -91,6 +91,42 @@ class MLFlowStorage(BaseStorage):
         self._flush_thread = threading.Thread(target=self._periodic_flush_worker, daemon=True)
         self._flush_thread.start()
 
+    def __getstate__(self):
+        """
+        Prepare the object for serialization by removing non-picklable components.
+        This is called when the object is being pickled.
+        """
+        state = self.__dict__.copy()
+
+        # Remove thread-related attributes that can't be pickled
+        state.pop('_batch_lock', None)
+        state.pop('_flush_thread', None)
+
+        # Store the configuration but not the actual lock/thread
+        state['_thread_running'] = hasattr(self, '_flush_thread') and self._flush_thread.is_alive()
+
+        return state
+
+    def __setstate__(self, state):
+        """
+        Restore the object after deserialization by recreating non-picklable components.
+        This is called when the object is being unpickled.
+        """
+        # First, update the instance with the pickled state
+        self.__dict__.update(state)
+
+        # Recreate the lock
+        self._batch_lock = threading.RLock()
+
+        # Don't automatically restart the thread on workers - this would create too many threads
+        # Instead, we'll use a manual flush approach in distributed contexts
+        self._flush_thread = None
+
+        # If we're on a worker node, we should disable automatic background flushing
+        # because it could cause issues with multiple threads trying to write to MLflow
+        self._stop_worker = True
+
+
     def __del__(self):
         """Ensure all queued data is flushed before destroying the object."""
         # Set the stop flag
