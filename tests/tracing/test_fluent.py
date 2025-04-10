@@ -1710,3 +1710,14 @@ def test_log_trace_fail_within_span_context():
                 request="Does mlflow support tracing?",
                 response="Yes",
             )
+
+
+def test_is_traced_function():
+    def some_func():
+        pass
+
+    assert not mlflow.tracing.fluent.is_traced(some_func)
+
+    some_func = mlflow.trace(some_func)
+
+    assert mlflow.tracing.fluent.is_traced(some_func)
