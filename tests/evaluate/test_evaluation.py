@@ -2174,3 +2174,94 @@ def test_metrics_logged_to_model_on_evaluation(
 
         # Validate that all metrics have the correct model_id in their metadata
         assert all(metric.model_id == model_id for metric in logged_model_metrics)
+
+
+def test_evaluate_with_model_id(iris_dataset):
+    # Create and log a model
+    with mlflow.start_run():
+        model = sklearn.linear_model.LogisticRegression()
+        model.fit(iris_dataset._constructor_args["data"], iris_dataset._constructor_args["targets"])
+        model_info = mlflow.sklearn.log_model(model, "model")
+        model_id = model_info.model_id
+
+    # Evaluate the model with the specified model ID
+    with mlflow.start_run():
+        result = evaluate(
+            model_info.model_uri,
+            iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            model_id=model_id,
+        )
+
+        # Verify metrics were logged
+        assert result.metrics is not None
+        assert len(result.metrics) > 0
+
+        # Verify metrics are linked to the model ID
+        logged_model = mlflow.get_logged_model(model_id)
+        assert logged_model is not None
+        assert logged_model.model_id == model_id
+
+        # Convert metrics list to a dictionary for easier lookup
+        logged_metrics = {metric.key: metric.value for metric in logged_model.metrics}
+
+        # Verify each metric from the evaluation result matches the logged model metrics
+        for metric_name, metric_value in result.metrics.items():
+            assert metric_name in logged_metrics, (
+                f"Metric {metric_name} not found in logged model metrics"
+            )
+            assert logged_metrics[metric_name] == metric_value, (
+                f"Metric {metric_name} value mismatch: "
+                f"expected {metric_value}, got {logged_metrics[metric_name]}"
+            )
+
+
+def test_evaluate_model_id_consistency_check(multiclass_logistic_regressor_model_uri, iris_dataset):
+    """
+    Test that an error is thrown when the specified model_id contradicts the model's associated ID.
+    """
+    # Create a model with a known model ID
+    with mlflow.start_run():
+        model = sklearn.linear_model.LogisticRegression()
+        model.fit(iris_dataset._constructor_args["data"], iris_dataset._constructor_args["targets"])
+        model_info = mlflow.sklearn.log_model(
+            model,
+            "model",
+        )
+        model_uri = model_info.model_uri
+        model_id = model_info.model_uuid
+
+        # Test that specifying matching model_id works
+        evaluate(
+            model_uri,
+            iris_dataset._constructor_args["data"],
+            targets=iris_dataset._constructor_args["targets"],
+            model_type="classifier",
+            model_id=model_id,
+        )
+
+        # Test that specifying different model_id raises
+        with pytest.raises(
+            MlflowException,
+            match=(
+                r"The specified value of the 'model_id' parameter '.*' "
+                r"contradicts the model_id '.*' associated with the model\. Please ensure "
+                r"they match or omit the 'model_id' parameter\."
+            ),
+        ):
+            evaluate(
+                model_uri,
+                iris_dataset._constructor_args["data"],
+                targets=iris_dataset._constructor_args["targets"],
+                model_type="classifier",
+                model_id="different_model_id",
+            )
+
+        # Test that not specifying model_id works
+        evaluate(
+            model_uri,
+            iris_dataset._constructor_args["data"],
+            targets=iris_dataset._constructor_args["targets"],
+            model_type="classifier",
+        )

@@ -1116,6 +1116,7 @@ def evaluate(  # noqa: D417
     model_config=None,
     baseline_config=None,
     inference_params=None,
+    model_id=None,
 ):
     '''
     Evaluate the model performance on given data and selected metrics.
@@ -1441,7 +1442,7 @@ def evaluate(  # noqa: D417
                     # other arguments if needed
                 )
         dataset_path: (Optional) The path where the data is stored. Must not contain double
-            quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
+            quotes (``"``). If specified, the path is logged to the ``mlflow.datasets``
             tag for lineage tracking purposes.
 
         feature_names: (Optional) A list. If the ``data`` argument is a numpy array or list,
@@ -1591,6 +1592,10 @@ def evaluate(  # noqa: D417
             when making predictions, such as ``{"max_tokens": 100}``. This is only used when
             the ``model`` is an MLflow Deployments endpoint URI e.g. ``"endpoints:/my-chat"``
 
+        model_id: (Optional) The ID of the MLflow LoggedModel or Model Version to which the
+                  evaluation results (e.g. metrics and traces) will be linked. If `model_id` is not
+                  specified but `model` is specified, the ID from `model` will be used.
+
     Returns:
         An :py:class:`mlflow.models.EvaluationResult` instance containing
         metrics of evaluating the model with the given dataset.
@@ -1682,6 +1687,7 @@ def evaluate(  # noqa: D417
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    specified_model_id = model_id
     model_id = None
     if isinstance(model, str):
         model_id = _parse_model_id_if_present(model)
@@ -1715,6 +1721,20 @@ def evaluate(  # noqa: D417
             "a function, or None.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+    # If model_id is specified, verify it matches the derived model_id
+    if specified_model_id is not None and model_id is not None and specified_model_id != model_id:
+        raise MlflowException(
+            message=(
+                f"The specified value of the 'model_id' parameter '{specified_model_id}' "
+                f"contradicts the model_id '{model_id}' associated with the model. Please ensure "
+                f"they match or omit the 'model_id' parameter."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Use specified model_id if provided, otherwise use derived model_id
+    model_id = specified_model_id if specified_model_id is not None else model_id
 
     evaluators: list[EvaluatorBundle] = resolve_evaluators_and_configs(
         evaluators, evaluator_config, model_type
