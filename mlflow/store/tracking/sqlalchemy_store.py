@@ -2011,6 +2011,7 @@ class SqlAlchemyStore(AbstractStore):
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
+        datasets: Optional[list[DatasetInput]] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
