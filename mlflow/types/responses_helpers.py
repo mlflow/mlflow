@@ -398,7 +398,7 @@ class ResponseTextAnnotationDeltaEvent(BaseModel):
 
 class ResponseOutputItemDoneEvent(BaseModel):
     item: OutputItem
-    output_index: int
+    output_index: Optional[int] = None
     type: str = "response.output_item.done"
 
 
