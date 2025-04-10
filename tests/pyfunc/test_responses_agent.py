@@ -146,6 +146,12 @@ def test_responses_agent_predict_stream(tmp_path):
         assert "type" in r
 
 
+def test_responses_agent_with_pydantic_input():
+    model = SimpleResponsesAgent()
+    response = model.predict(ResponsesRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
+    assert response.output[0].content[0]["text"] == "Hello!"
+
+
 class CustomInputsResponsesAgent(ResponsesAgent):
     def predict(self, request: ResponsesRequest) -> ResponsesResponse:
         mock_response = get_mock_response(request)
