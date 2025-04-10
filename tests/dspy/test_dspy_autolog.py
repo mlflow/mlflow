@@ -744,6 +744,7 @@ def test_autolog_log_evals(
         assert run is None
 
 
+@skip_if_evaluate_callback_unavailable
 def test_autolog_nested_evals():
     lm = DummyLM(
         {
