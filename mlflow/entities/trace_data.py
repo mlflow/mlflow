@@ -18,8 +18,8 @@ class TraceData:
     """
 
     spans: list[Span] = field(default_factory=list)
-    request: Optional[str] = None
-    response: Optional[str] = None
+    # request: Optional[str] = None
+    # response: Optional[str] = None
 
     @classmethod
     def from_dict(cls, d):
