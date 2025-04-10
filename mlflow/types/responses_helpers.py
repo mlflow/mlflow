@@ -343,7 +343,6 @@ class FunctionCallOutput(Status):
     call_id: str
     output: str
     type: str = "function_call_output"
-    id: str
 
 
 class BaseRequestPayload(Truncation, ToolChoice):
