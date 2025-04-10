@@ -4,6 +4,7 @@ import os
 import time
 from typing import Optional
 
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
@@ -32,10 +33,13 @@ def get_latest_commit_for_repo(repo: str) -> str:
     from huggingface_hub.errors import HfHubHTTPError
 
     api = hub.HfApi()
-    for i in range(5):
+    for i in range(7):
         try:
             return api.model_info(repo).sha
         except HfHubHTTPError as e:
+            if not _MLFLOW_TESTING.get():
+                raise
+
             # Retry on rate limit error
             if e.response.status_code == 429:
                 _logger.warning(
