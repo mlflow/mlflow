@@ -3,6 +3,9 @@ import json
 from functools import lru_cache
 
 import requests
+import threading
+import boto3
+from requests_aws4auth import AWS4Auth
 
 from mlflow.environment_variables import (
     _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
@@ -40,6 +43,22 @@ _REST_API_PATH_PREFIX = "/api/2.0"
 _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
+
+_thread_local = threading.local()
+
+
+def _get_aws_auth():
+    if not hasattr(_thread_local, "auth"):
+        session = boto3.Session()
+        credentials = session.get_credentials()
+        _thread_local.auth = AWS4Auth(
+            credentials.access_key,
+            credentials.secret_key,
+            session.region_name,
+            "execute-api",
+            session_token=credentials.token,
+        )
+    return _thread_local.auth
 
 
 def http_request(
@@ -169,19 +188,7 @@ def http_request(
 
     if host_creds.aws_sigv4:
         # will overwrite the Authorization header
-        from requests_aws4auth import AWS4Auth
-        import boto3
-
-        session = boto3.Session()
-        credentials = session.get_credentials()
-
-        kwargs["auth"] = AWS4Auth(
-            credentials.access_key,
-            credentials.secret_key,
-            session.region_name,
-            "execute-api",
-            session_token=credentials.token
-        )
+        kwargs["auth"] = _get_aws_auth()
     elif host_creds.auth:
         from mlflow.tracking.request_auth.registry import fetch_auth
 
