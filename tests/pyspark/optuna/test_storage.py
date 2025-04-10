@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from time import sleep
 import numpy as np
+import pytest
 from typing import Any, Tuple, List, Dict
 
 import mlflow
@@ -119,395 +120,394 @@ def _generate_trial(generator: random.Random) -> FrozenTrial:
     )
 
 
-class OptunaMlfowTestSuite(unittest.TestCase):
-    @classmethod
-    def set_up_class_for_mlflow(cls, temp_dir="/tmp"):
-        cls.tempdir = tempfile.mkdtemp(prefix="optuna_tests_", dir=temp_dir)
-        cls.mlflow_uri = "file:" + os.path.join(cls.tempdir, "mlflow")
-        mlflow.set_tracking_uri(cls.mlflow_uri)
-        logging.info("{test} logging to MLflow URI: {uri}".format(
-            test=cls.__name__, uri=cls.mlflow_uri))
+@pytest.fixture(scope="function")
+def setup_storage():
+    tempdir = tempfile.mkdtemp(prefix="optuna_tests_", dir="/tmp")
+    mlflow_uri = "file:" + os.path.join(tempdir, "mlflow")
+    mlflow.set_tracking_uri(mlflow_uri)
+    experiment_id = mlflow.create_experiment(name="optuna_mlflow_test")
+    yield MLFlowStorage(experiment_id=experiment_id)
+    mlflow.delete_experiment(experiment_id)
 
-    def setUp(self):
-        self.set_up_class_for_mlflow()
-        self.experiment_id = mlflow.create_experiment(name="optuna_mlflow_test")
-        self.storage = MLFlowStorage(experiment_id=self.experiment_id)
 
-    def tearDown(self):
-        mlflow.delete_experiment(self.experiment_id)
+def test_create_new_study(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    frozen_studies = storage.get_all_studies()
+    assert len(frozen_studies) == 1
+    assert frozen_studies[0]._study_id == study_id
+    assert frozen_studies[0].study_name.startswith(DEFAULT_STUDY_NAME_PREFIX)
 
-    def test_create_new_study(self):
-        study_id = self.storage.create_new_study(directions=[StudyDirection.MINIMIZE])
-        frozen_studies = self.storage.get_all_studies()
-        assert len(frozen_studies) == 1
-        assert frozen_studies[0]._study_id == study_id
-        assert frozen_studies[0].study_name.startswith(DEFAULT_STUDY_NAME_PREFIX)
+    study_id2 = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    # Study id must be unique.
+    assert study_id != study_id2
+    frozen_studies = storage.get_all_studies()
+    assert len(frozen_studies) == 2
+    assert {s._study_id for s in frozen_studies} == {study_id, study_id2}
+    assert all(s.study_name.startswith(DEFAULT_STUDY_NAME_PREFIX) for s in frozen_studies)
 
-        study_id2 = self.storage.create_new_study(directions=[StudyDirection.MINIMIZE])
-        # Study id must be unique.
-        assert study_id != study_id2
-        frozen_studies = self.storage.get_all_studies()
-        assert len(frozen_studies) == 2
-        assert {s._study_id for s in frozen_studies} == {study_id, study_id2}
-        assert all(s.study_name.startswith(DEFAULT_STUDY_NAME_PREFIX) for s in frozen_studies)
+def test_delete_study(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    storage.create_new_trial(study_id)
+    trials = storage.get_all_trials(study_id)
+    assert len(trials) == 1
 
-    def test_delete_study(self):
-        study_id = self.storage.create_new_study(directions=[StudyDirection.MINIMIZE])
-        self.storage.create_new_trial(study_id)
-        trials = self.storage.get_all_trials(study_id)
-        assert len(trials) == 1
+    with pytest.raises(mlflow.exceptions.MlflowException):
+        # Deletion of non-existent study.
+        storage.delete_study(study_id + "1")
 
-        with self.assertRaises(mlflow.exceptions.MlflowException):
-            # Deletion of non-existent study.
-            self.storage.delete_study(study_id + "1")
+    storage.delete_study(study_id)
 
-        self.storage.delete_study(study_id)
+def test_get_study_id_from_name_and_get_study_name_from_id(setup_storage):
+    storage = setup_storage
+    study_name = "test_optuna_mlflow_study"
+    study_id = storage.create_new_study(
+        directions=[StudyDirection.MINIMIZE], study_name=study_name)
 
-    def test_get_study_id_from_name_and_get_study_name_from_id(self):
+    # Test existing study.
+    assert storage.get_study_name_from_id(study_id) == study_name
+    assert storage.get_study_id_from_name(study_name) == study_id
 
-        study_name = "test_optuna_mlflow_study"
-        study_id = self.storage.create_new_study(
-            directions=[StudyDirection.MINIMIZE], study_name=study_name)
+    # Test not existing study.
+    with pytest.raises(Exception):
+        storage.get_study_id_from_name("dummy-name")
 
-        # Test existing study.
-        assert self.storage.get_study_name_from_id(study_id) == study_name
-        assert self.storage.get_study_id_from_name(study_name) == study_id
+    with pytest.raises(mlflow.exceptions.MlflowException):
+        storage.get_study_name_from_id(study_id + "1")
 
-        # Test not existing study.
-        with self.assertRaises(Exception):
-            self.storage.get_study_id_from_name("dummy-name")
+def test_set_and_get_study_directions(setup_storage):
+    storage = setup_storage
+    for target in [
+        (StudyDirection.MINIMIZE, ),
+        (StudyDirection.MAXIMIZE, ),
+        (StudyDirection.MINIMIZE, StudyDirection.MAXIMIZE),
+        (StudyDirection.MAXIMIZE, StudyDirection.MINIMIZE),
+        [StudyDirection.MINIMIZE, StudyDirection.MAXIMIZE],
+        [StudyDirection.MAXIMIZE, StudyDirection.MINIMIZE],
+    ]:
+        study_id = storage.create_new_study(directions=target)
 
-        with self.assertRaises(mlflow.exceptions.MlflowException):
-            self.storage.get_study_name_from_id(study_id + "1")
+        def check_get() -> None:
+            got_directions = storage.get_study_directions(study_id)
 
-    def test_set_and_get_study_directions(self):
-        for target in [
-            (StudyDirection.MINIMIZE, ),
-            (StudyDirection.MAXIMIZE, ),
-            (StudyDirection.MINIMIZE, StudyDirection.MAXIMIZE),
-            (StudyDirection.MAXIMIZE, StudyDirection.MINIMIZE),
-            [StudyDirection.MINIMIZE, StudyDirection.MAXIMIZE],
-            [StudyDirection.MAXIMIZE, StudyDirection.MINIMIZE],
-        ]:
-            study_id = self.storage.create_new_study(directions=target)
-
-            def check_get() -> None:
-                got_directions = self.storage.get_study_directions(study_id)
-
-                assert got_directions == list(
-                    target), "Direction of a study should be a tuple of `StudyDirection` objects."
-
-            # Test setting value.
-            check_get()
-
-            # Test non-existent study.
-            non_existent_study_id = study_id + "1"
-
-            with self.assertRaises(mlflow.exceptions.MlflowException):
-                self.storage.get_study_directions(non_existent_study_id)
-
-    def test_set_and_get_study_user_attrs(self):
-        study_id = self.storage.create_new_study(directions=[StudyDirection.MINIMIZE])
-
-        def check_set_and_get(key: str, value: Any) -> None:
-            self.storage.set_study_user_attr(study_id, key, value)
-            assert self.storage.get_study_user_attrs(study_id)[key] == value
+            assert got_directions == list(
+                target), "Direction of a study should be a tuple of `StudyDirection` objects."
 
         # Test setting value.
-        for key, value in EXAMPLE_ATTRS.items():
-            check_set_and_get(key, value)
-        assert self.storage.get_study_user_attrs(study_id) == EXAMPLE_ATTRS
+        check_get()
 
-        # Test overwriting value.
-        check_set_and_get("dataset", "ImageNet")
-
-        # Non-existent study id.
+        # Test non-existent study.
         non_existent_study_id = study_id + "1"
-        with self.assertRaises(mlflow.exceptions.MlflowException):
-            self.storage.get_study_user_attrs(non_existent_study_id)
 
-        # Non-existent study id.
-        with self.assertRaises(mlflow.exceptions.MlflowException):
-            self.storage.set_study_user_attr(non_existent_study_id, "key", "value")
+        with pytest.raises(mlflow.exceptions.MlflowException):
+            storage.get_study_directions(non_existent_study_id)
 
-    def test_set_and_get_study_system_attrs(self):
-        study_id = self.storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+def test_set_and_get_study_user_attrs(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
 
-        def check_set_and_get(key: str, value: Any) -> None:
-            self.storage.set_study_system_attr(study_id, key, value)
-            assert self.storage.get_study_system_attrs(study_id)[key] == value
+    def check_set_and_get(key: str, value: Any) -> None:
+        storage.set_study_user_attr(study_id, key, value)
+        assert storage.get_study_user_attrs(study_id)[key] == value
 
-        # Test setting value.
-        for key, value in EXAMPLE_ATTRS.items():
-            check_set_and_get(key, value)
-        assert self.storage.get_study_system_attrs(study_id) == EXAMPLE_ATTRS
+    # Test setting value.
+    for key, value in EXAMPLE_ATTRS.items():
+        check_set_and_get(key, value)
+    assert storage.get_study_user_attrs(study_id) == EXAMPLE_ATTRS
 
-        # Test overwriting value.
-        check_set_and_get("dataset", "ImageNet")
+    # Test overwriting value.
+    check_set_and_get("dataset", "ImageNet")
 
-    def test_create_new_trial(self):
-        def _check_trials(
-                trials: List[FrozenTrial],
-                idx: int,
-                trial_id: int,
-                time_before_creation: datetime,
-                time_after_creation: datetime,
-        ) -> None:
-            assert len(trials) == idx + 1
-            assert len({t._trial_id for t in trials}) == idx + 1
-            assert trial_id in {t._trial_id for t in trials}
-            assert {t.number for t in trials} == set(range(idx + 1))
-            assert all(t.state == TrialState.RUNNING for t in trials)
-            assert all(t.params == {} for t in trials)
-            assert all(t.intermediate_values == {} for t in trials)
-            assert all(t.user_attrs == {} for t in trials)
-            assert all(t.system_attrs == {} for t in trials)
-            assert all(t.datetime_start < time_before_creation for t in trials
-                       if t._trial_id != trial_id and t.datetime_start is not None)
-            assert all(time_before_creation < t.datetime_start < time_after_creation for t in trials
-                       if t._trial_id == trial_id and t.datetime_start is not None)
-            assert all(t.value is None for t in trials)
+    # Non-existent study id.
+    non_existent_study_id = study_id + "1"
+    with pytest.raises(mlflow.exceptions.MlflowException):
+        storage.get_study_user_attrs(non_existent_study_id)
 
-        study_id = self.storage.create_new_study(directions=[StudyDirection.MINIMIZE])
-        n_trial_in_study = 3
-        for i in range(n_trial_in_study):
-            time_before_creation = datetime.now()
-            sleep(0.001)  # Sleep 1ms to avoid faulty assertion on Windows OS.
-            trial_id = self.storage.create_new_trial(study_id)
-            sleep(0.001)
-            time_after_creation = datetime.now()
+    # Non-existent study id.
+    with pytest.raises(mlflow.exceptions.MlflowException):
+        storage.set_study_user_attr(non_existent_study_id, "key", "value")
 
-            trials = self.storage.get_all_trials(study_id)
-            _check_trials(trials, i, trial_id, time_before_creation, time_after_creation)
+def test_set_and_get_study_system_attrs(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
 
-    def test_create_new_trial_with_template_trial(self):
-        start_time = datetime.now()
-        end_time = datetime.now()
-        template_trial = FrozenTrial(
-            state=TrialState.COMPLETE,
-            value=10000,
-            datetime_start=start_time,
-            datetime_complete=end_time,
-            params={"x": 0.5},
-            distributions={"x": FloatDistribution(0, 1)},
-            user_attrs={"foo": "bar"},
-            system_attrs={"baz": 123},
-            intermediate_values={
-                1: 10,
-                2: 100,
-                3: 1000
-            },
-            number=55,  # This entry is ignored.
-            trial_id=-1,  # dummy value (unused).
-        )
+    def check_set_and_get(key: str, value: Any) -> None:
+        storage.set_study_system_attr(study_id, key, value)
+        assert storage.get_study_system_attrs(study_id)[key] == value
 
-        def _check_trials(trials: list[FrozenTrial], idx: int, trial_id: int) -> None:
-            assert len(trials) == idx + 1
-            assert len({t._trial_id for t in trials}) == idx + 1
-            assert trial_id in {t._trial_id for t in trials}
-            assert {t.number for t in trials} == set(range(idx + 1))
-            assert all(t.state == template_trial.state for t in trials)
+    # Test setting value.
+    for key, value in EXAMPLE_ATTRS.items():
+        check_set_and_get(key, value)
+    assert storage.get_study_system_attrs(study_id) == EXAMPLE_ATTRS
 
-            assert all(t.params == template_trial.params for t in trials)
-            assert all(t.distributions == template_trial.distributions for t in trials)
-            assert all(t.intermediate_values == template_trial.intermediate_values for t in trials)
-            assert all(t.user_attrs == template_trial.user_attrs for t in trials)
-            assert all(t.system_attrs == template_trial.system_attrs for t in trials)
-            # assert all(t.datetime_start == template_trial.datetime_start for t in trials)
-            # assert all(t.datetime_complete == template_trial.datetime_complete for t in trials)
-            assert all(t.value == template_trial.value for t in trials)
+    # Test overwriting value.
+    check_set_and_get("dataset", "ImageNet")
 
-        study_id = self.storage.create_new_study(directions=[StudyDirection.MINIMIZE])
-        n_trial_in_study = 3
-        for i in range(n_trial_in_study):
-            trial_id = self.storage.create_new_trial(study_id, template_trial=template_trial)
-            trials = self.storage.get_all_trials(study_id)
-            _check_trials(trials, i, trial_id)
+def test_create_new_trial(setup_storage):
+    storage = setup_storage
+    def _check_trials(
+            trials: List[FrozenTrial],
+            idx: int,
+            trial_id: int,
+            time_before_creation: datetime,
+            time_after_creation: datetime,
+    ) -> None:
+        assert len(trials) == idx + 1
+        assert len({t._trial_id for t in trials}) == idx + 1
+        assert trial_id in {t._trial_id for t in trials}
+        assert {t.number for t in trials} == set(range(idx + 1))
+        assert all(t.state == TrialState.RUNNING for t in trials)
+        assert all(t.params == {} for t in trials)
+        assert all(t.intermediate_values == {} for t in trials)
+        assert all(t.user_attrs == {} for t in trials)
+        assert all(t.system_attrs == {} for t in trials)
+        assert all(t.datetime_start < time_before_creation for t in trials
+                   if t._trial_id != trial_id and t.datetime_start is not None)
+        assert all(time_before_creation < t.datetime_start < time_after_creation for t in trials
+                   if t._trial_id == trial_id and t.datetime_start is not None)
+        assert all(t.value is None for t in trials)
 
-    def test_get_trial_number_from_id(self):
-        study_id = self.storage.create_new_study(directions=[StudyDirection.MINIMIZE])
-        trial_id = self.storage.create_new_trial(study_id)
-        assert self.storage.get_trial_number_from_id(trial_id) == 0
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    n_trial_in_study = 3
+    for i in range(n_trial_in_study):
+        time_before_creation = datetime.now()
+        sleep(0.001)  # Sleep 1ms to avoid faulty assertion on Windows OS.
+        trial_id = storage.create_new_trial(study_id)
+        sleep(0.001)
+        time_after_creation = datetime.now()
 
-        trial_id = self.storage.create_new_trial(study_id)
-        assert self.storage.get_trial_number_from_id(trial_id) == 1
+        trials = storage.get_all_trials(study_id)
+        _check_trials(trials, i, trial_id, time_before_creation, time_after_creation)
 
-    def test_set_trial_state_values_for_state(self):
-        study_id = self.storage.create_new_study(directions=[StudyDirection.MINIMIZE])
-        trial_ids = [self.storage.create_new_trial(study_id) for _ in ALL_STATES]
+def test_create_new_trial_with_template_trial(setup_storage):
+    storage = setup_storage
+    start_time = datetime.now()
+    end_time = datetime.now()
+    template_trial = FrozenTrial(
+        state=TrialState.COMPLETE,
+        value=10000,
+        datetime_start=start_time,
+        datetime_complete=end_time,
+        params={"x": 0.5},
+        distributions={"x": FloatDistribution(0, 1)},
+        user_attrs={"foo": "bar"},
+        system_attrs={"baz": 123},
+        intermediate_values={
+            1: 10,
+            2: 100,
+            3: 1000
+        },
+        number=55,  # This entry is ignored.
+        trial_id=-1,  # dummy value (unused).
+    )
 
-        for trial_id, state in zip(trial_ids, ALL_STATES):
-            if state == TrialState.WAITING:
-                continue
-            assert self.storage.get_trial(trial_id).state == TrialState.RUNNING
-            datetime_start_prev = self.storage.get_trial(trial_id).datetime_start
-            self.storage.set_trial_state_values(
-                trial_id, state=state, values=(0.0, ) if state.is_finished() else None)
-            assert self.storage.get_trial(trial_id).state == state
-            # Repeated state changes to RUNNING should not trigger further datetime_start changes.
-            if state == TrialState.RUNNING:
-                assert self.storage.get_trial(trial_id).datetime_start == datetime_start_prev
-            if state.is_finished():
-                assert self.storage.get_trial(trial_id).datetime_complete is not None
-            else:
-                assert self.storage.get_trial(trial_id).datetime_complete is None
+    def _check_trials(trials: list[FrozenTrial], idx: int, trial_id: int) -> None:
+        assert len(trials) == idx + 1
+        assert len({t._trial_id for t in trials}) == idx + 1
+        assert trial_id in {t._trial_id for t in trials}
+        assert {t.number for t in trials} == set(range(idx + 1))
+        assert all(t.state == template_trial.state for t in trials)
 
-    def test_get_trial_param_and_get_trial_params(self):
-        _, study_to_trials = _setup_studies(self.storage, n_study=2, n_trial=5, seed=1)
+        assert all(t.params == template_trial.params for t in trials)
+        assert all(t.distributions == template_trial.distributions for t in trials)
+        assert all(t.intermediate_values == template_trial.intermediate_values for t in trials)
+        assert all(t.user_attrs == template_trial.user_attrs for t in trials)
+        assert all(t.system_attrs == template_trial.system_attrs for t in trials)
+        # assert all(t.datetime_start == template_trial.datetime_start for t in trials)
+        # assert all(t.datetime_complete == template_trial.datetime_complete for t in trials)
+        assert all(t.value == template_trial.value for t in trials)
 
-        for _, trial_id_to_trial in study_to_trials.items():
-            for trial_id, expected_trial in trial_id_to_trial.items():
-                assert self.storage.get_trial_params(trial_id) == expected_trial.params
-                for key in expected_trial.params.keys():
-                    assert self.storage.get_trial_param(
-                        trial_id, key) == expected_trial.distributions[key].to_internal_repr(
-                        expected_trial.params[key])
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    n_trial_in_study = 3
+    for i in range(n_trial_in_study):
+        trial_id = storage.create_new_trial(study_id, template_trial=template_trial)
+        trials = storage.get_all_trials(study_id)
+        _check_trials(trials, i, trial_id)
 
-    def test_set_trial_param(self):
-        study_id = self.storage.create_new_study(directions=[StudyDirection.MINIMIZE])
-        trial_id_1 = self.storage.create_new_trial(study_id)
-        trial_id_2 = self.storage.create_new_trial(study_id)
+def test_get_trial_number_from_id(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = storage.create_new_trial(study_id)
+    assert storage.get_trial_number_from_id(trial_id) == 0
 
-        # Setup distributions.
-        distribution_x = FloatDistribution(low=1.0, high=2.0)
-        distribution_y_1 = CategoricalDistribution(choices=("Shibuya", "Ebisu", "Meguro"))
-        distribution_z = FloatDistribution(low=1.0, high=100.0, log=True)
+    trial_id = storage.create_new_trial(study_id)
+    assert storage.get_trial_number_from_id(trial_id) == 1
 
-        # Set new params.
-        self.storage.set_trial_param(trial_id_1, "x", 0.5, distribution_x)
-        self.storage.set_trial_param(trial_id_1, "y", 2, distribution_y_1)
-        assert self.storage.get_trial_param(trial_id_1, "x") == 0.5
-        assert self.storage.get_trial_param(trial_id_1, "y") == 2
-        # Check set_param breaks neither get_trial nor get_trial_params.
-        assert self.storage.get_trial(trial_id_1).params == {"x": 0.5, "y": "Meguro"}
-        assert self.storage.get_trial_params(trial_id_1) == {"x": 0.5, "y": "Meguro"}
+def test_set_trial_state_values_for_state(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_ids = [storage.create_new_trial(study_id) for _ in ALL_STATES]
 
-        # Set params to another trial.
-        self.storage.set_trial_param(trial_id_2, "x", 0.3, distribution_x)
-        self.storage.set_trial_param(trial_id_2, "z", 0.1, distribution_z)
-        assert self.storage.get_trial_param(trial_id_2, "x") == 0.3
-        assert self.storage.get_trial_param(trial_id_2, "z") == 0.1
-        assert self.storage.get_trial(trial_id_2).params == {"x": 0.3, "z": 0.1}
-        assert self.storage.get_trial_params(trial_id_2) == {"x": 0.3, "z": 0.1}
+    for trial_id, state in zip(trial_ids, ALL_STATES):
+        if state == TrialState.WAITING:
+            continue
+        assert storage.get_trial(trial_id).state == TrialState.RUNNING
+        datetime_start_prev = storage.get_trial(trial_id).datetime_start
+        storage.set_trial_state_values(
+            trial_id, state=state, values=(0.0, ) if state.is_finished() else None)
+        assert storage.get_trial(trial_id).state == state
+        # Repeated state changes to RUNNING should not trigger further datetime_start changes.
+        if state == TrialState.RUNNING:
+            assert storage.get_trial(trial_id).datetime_start == datetime_start_prev
+        if state.is_finished():
+            assert storage.get_trial(trial_id).datetime_complete is not None
+        else:
+            assert storage.get_trial(trial_id).datetime_complete is None
 
-        self.storage.set_trial_state_values(trial_id_2, state=TrialState.COMPLETE)
-        # Cannot assign params to finished trial.
-        with self.assertRaises(RuntimeError):
-            self.storage.set_trial_param(trial_id_2, "y", 2, distribution_y_1)
-        # Check the previous call does not change the params.
-        with self.assertRaises(KeyError):
-            self.storage.get_trial_param(trial_id_2, "y")
-        # State should be checked prior to distribution compatibility.
-        with self.assertRaises(RuntimeError):
-            self.storage.set_trial_param(trial_id_2, "y", 0.4, distribution_z)
+def test_get_trial_param_and_get_trial_params(setup_storage):
+    storage = setup_storage
+    _, study_to_trials = _setup_studies(storage, n_study=2, n_trial=5, seed=1)
 
-    def test_set_trial_state_values_for_values(self):
-        study_id = self.storage.create_new_study(directions=[StudyDirection.MINIMIZE])
-        trial_id_1 = self.storage.create_new_trial(study_id)
-        trial_id_2 = self.storage.create_new_trial(study_id)
-        trial_id_3 = self.storage.create_new_trial(
-            self.storage.create_new_study(directions=[StudyDirection.MINIMIZE]))
-        trial_id_4 = self.storage.create_new_trial(study_id)
-        trial_id_5 = self.storage.create_new_trial(study_id)
+    for _, trial_id_to_trial in study_to_trials.items():
+        for trial_id, expected_trial in trial_id_to_trial.items():
+            assert storage.get_trial_params(trial_id) == expected_trial.params
+            for key in expected_trial.params.keys():
+                assert storage.get_trial_param(
+                    trial_id, key) == expected_trial.distributions[key].to_internal_repr(
+                    expected_trial.params[key])
 
-        # Test setting new value.
-        self.storage.set_trial_state_values(trial_id_1, state=TrialState.COMPLETE, values=(0.5, ))
-        self.storage.set_trial_state_values(
-            trial_id_3, state=TrialState.COMPLETE, values=(float("inf"), ))
-        self.storage.set_trial_state_values(
-            trial_id_4, state=TrialState.WAITING, values=(0.1, 0.2, 0.3))
-        self.storage.set_trial_state_values(
-            trial_id_5, state=TrialState.WAITING, values=[0.1, 0.2, 0.3])
+def test_set_trial_param(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id_1 = storage.create_new_trial(study_id)
+    trial_id_2 = storage.create_new_trial(study_id)
 
-        assert self.storage.get_trial(trial_id_1).value == 0.5
-        assert self.storage.get_trial(trial_id_2).value is None
-        assert self.storage.get_trial(trial_id_3).value == float("inf")
-        assert self.storage.get_trial(trial_id_4).values == [0.1, 0.2, 0.3]
-        assert self.storage.get_trial(trial_id_5).values == [0.1, 0.2, 0.3]
+    # Setup distributions.
+    distribution_x = FloatDistribution(low=1.0, high=2.0)
+    distribution_y_1 = CategoricalDistribution(choices=("Shibuya", "Ebisu", "Meguro"))
+    distribution_z = FloatDistribution(low=1.0, high=100.0, log=True)
 
-    def test_set_trial_intermediate_value(self):
-        study_id = self.storage.create_new_study(directions=[StudyDirection.MINIMIZE])
-        trial_id_1 = self.storage.create_new_trial(study_id)
-        trial_id_2 = self.storage.create_new_trial(study_id)
-        trial_id_3 = self.storage.create_new_trial(
-            self.storage.create_new_study(directions=[StudyDirection.MINIMIZE]))
-        trial_id_4 = self.storage.create_new_trial(study_id)
+    # Set new params.
+    storage.set_trial_param(trial_id_1, "x", 0.5, distribution_x)
+    storage.set_trial_param(trial_id_1, "y", 2, distribution_y_1)
+    assert storage.get_trial_param(trial_id_1, "x") == 0.5
+    assert storage.get_trial_param(trial_id_1, "y") == 2
+    # Check set_param breaks neither get_trial nor get_trial_params.
+    assert storage.get_trial(trial_id_1).params == {"x": 0.5, "y": "Meguro"}
+    assert storage.get_trial_params(trial_id_1) == {"x": 0.5, "y": "Meguro"}
 
-        # Test setting new values.
-        self.storage.set_trial_intermediate_value(trial_id_1, 0, 0.3)
-        self.storage.set_trial_intermediate_value(trial_id_1, 2, 0.4)
-        self.storage.set_trial_intermediate_value(trial_id_3, 0, 0.1)
-        self.storage.set_trial_intermediate_value(trial_id_3, 1, 0.4)
-        self.storage.set_trial_intermediate_value(trial_id_3, 2, 0.5)
-        self.storage.set_trial_intermediate_value(trial_id_3, 3, float("inf"))
-        self.storage.set_trial_intermediate_value(trial_id_4, 0, float("nan"))
+    # Set params to another trial.
+    storage.set_trial_param(trial_id_2, "x", 0.3, distribution_x)
+    storage.set_trial_param(trial_id_2, "z", 0.1, distribution_z)
+    assert storage.get_trial_param(trial_id_2, "x") == 0.3
+    assert storage.get_trial_param(trial_id_2, "z") == 0.1
+    assert storage.get_trial(trial_id_2).params == {"x": 0.3, "z": 0.1}
+    assert storage.get_trial_params(trial_id_2) == {"x": 0.3, "z": 0.1}
 
-        assert self.storage.get_trial(trial_id_1).intermediate_values == {0: 0.3, 2: 0.4}
-        assert self.storage.get_trial(trial_id_2).intermediate_values == {}
-        assert self.storage.get_trial(trial_id_3).intermediate_values == {
-            0: 0.1,
-            1: 0.4,
-            2: 0.5,
-            3: float("inf"),
-        }
-        assert np.isnan(self.storage.get_trial(trial_id_4).intermediate_values[0])
+    storage.set_trial_state_values(trial_id_2, state=TrialState.COMPLETE)
+    # Cannot assign params to finished trial.
+    with pytest.raises(RuntimeError):
+        storage.set_trial_param(trial_id_2, "y", 2, distribution_y_1)
+    # Check the previous call does not change the params.
+    with pytest.raises(KeyError):
+        storage.get_trial_param(trial_id_2, "y")
+    # State should be checked prior to distribution compatibility.
+    with pytest.raises(RuntimeError):
+        storage.set_trial_param(trial_id_2, "y", 0.4, distribution_z)
 
-        # Test setting existing step.
-        self.storage.set_trial_intermediate_value(trial_id_1, 0, 0.2)
-        assert self.storage.get_trial(trial_id_1).intermediate_values == {0: 0.2, 2: 0.4}
+def test_set_trial_state_values_for_values(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id_1 = storage.create_new_trial(study_id)
+    trial_id_2 = storage.create_new_trial(study_id)
+    trial_id_3 = storage.create_new_trial(
+        storage.create_new_study(directions=[StudyDirection.MINIMIZE]))
+    trial_id_4 = storage.create_new_trial(study_id)
+    trial_id_5 = storage.create_new_trial(study_id)
 
-    def test_get_trial_user_attrs(self):
-        _, study_to_trials = _setup_studies(self.storage, n_study=2, n_trial=5, seed=10)
-        assert all(
-            self.storage.get_trial_user_attrs(trial_id) == trial.user_attrs
-            for trials in study_to_trials.values() for trial_id, trial in trials.items())
+    # Test setting new value.
+    storage.set_trial_state_values(trial_id_1, state=TrialState.COMPLETE, values=(0.5, ))
+    storage.set_trial_state_values(
+        trial_id_3, state=TrialState.COMPLETE, values=(float("inf"), ))
+    storage.set_trial_state_values(
+        trial_id_4, state=TrialState.WAITING, values=(0.1, 0.2, 0.3))
+    storage.set_trial_state_values(
+        trial_id_5, state=TrialState.WAITING, values=[0.1, 0.2, 0.3])
 
-    def test_set_trial_user_attr(self):
-        trial_id_1 = self.storage.create_new_trial(
-            self.storage.create_new_study(directions=[StudyDirection.MINIMIZE]))
+    assert storage.get_trial(trial_id_1).value == 0.5
+    assert storage.get_trial(trial_id_2).value is None
+    assert storage.get_trial(trial_id_3).value == float("inf")
+    assert storage.get_trial(trial_id_4).values == [0.1, 0.2, 0.3]
+    assert storage.get_trial(trial_id_5).values == [0.1, 0.2, 0.3]
 
-        def check_set_and_get(trial_id: int, key: str, value: Any) -> None:
-            self.storage.set_trial_user_attr(trial_id, key, value)
-            assert self.storage.get_trial(trial_id).user_attrs[key] == value
+def test_set_trial_intermediate_value(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id_1 = storage.create_new_trial(study_id)
+    trial_id_2 = storage.create_new_trial(study_id)
+    trial_id_3 = storage.create_new_trial(
+        storage.create_new_study(directions=[StudyDirection.MINIMIZE]))
+    trial_id_4 = storage.create_new_trial(study_id)
 
-        # Test setting value.
-        for key, value in EXAMPLE_ATTRS.items():
-            check_set_and_get(trial_id_1, key, value)
-        assert self.storage.get_trial(trial_id_1).user_attrs == EXAMPLE_ATTRS
+    # Test setting new values.
+    storage.set_trial_intermediate_value(trial_id_1, 0, 0.3)
+    storage.set_trial_intermediate_value(trial_id_1, 2, 0.4)
+    storage.set_trial_intermediate_value(trial_id_3, 0, 0.1)
+    storage.set_trial_intermediate_value(trial_id_3, 1, 0.4)
+    storage.set_trial_intermediate_value(trial_id_3, 2, 0.5)
+    storage.set_trial_intermediate_value(trial_id_3, 3, float("inf"))
+    storage.set_trial_intermediate_value(trial_id_4, 0, float("nan"))
 
-        # Test overwriting value.
-        check_set_and_get(trial_id_1, "dataset", "ImageNet")
+    assert storage.get_trial(trial_id_1).intermediate_values == {0: 0.3, 2: 0.4}
+    assert storage.get_trial(trial_id_2).intermediate_values == {}
+    assert storage.get_trial(trial_id_3).intermediate_values == {
+        0: 0.1,
+        1: 0.4,
+        2: 0.5,
+        3: float("inf"),
+    }
+    assert np.isnan(storage.get_trial(trial_id_4).intermediate_values[0])
 
-    def test_set_trial_system_attr(self):
-        trial_id_1 = self.storage.create_new_trial(
-            self.storage.create_new_study(directions=[StudyDirection.MINIMIZE]))
+    # Test setting existing step.
+    storage.set_trial_intermediate_value(trial_id_1, 0, 0.2)
+    assert storage.get_trial(trial_id_1).intermediate_values == {0: 0.2, 2: 0.4}
 
-        def check_set_and_get(trial_id: int, key: str, value: Any) -> None:
-            self.storage.set_trial_system_attr(trial_id, key, value)
-            assert self.storage.get_trial_system_attrs(trial_id)[key] == value
+def test_get_trial_user_attrs(setup_storage):
+    storage = setup_storage
+    _, study_to_trials = _setup_studies(storage, n_study=2, n_trial=5, seed=10)
+    assert all(
+        storage.get_trial_user_attrs(trial_id) == trial.user_attrs
+        for trials in study_to_trials.values() for trial_id, trial in trials.items())
 
-        # Test setting value.
-        for key, value in EXAMPLE_ATTRS.items():
-            check_set_and_get(trial_id_1, key, value)
-        system_attrs = self.storage.get_trial(trial_id_1).system_attrs
-        assert system_attrs == EXAMPLE_ATTRS
+def test_set_trial_user_attr(setup_storage):
+    storage = setup_storage
+    trial_id_1 = storage.create_new_trial(
+        storage.create_new_study(directions=[StudyDirection.MINIMIZE]))
 
-        # Test overwriting value.
-        check_set_and_get(trial_id_1, "dataset", "ImageNet")
+    def check_set_and_get(trial_id: int, key: str, value: Any) -> None:
+        storage.set_trial_user_attr(trial_id, key, value)
+        assert storage.get_trial(trial_id).user_attrs[key] == value
 
-    def test_get_n_trials(self):
-        study_id_to_frozen_studies, _ = _setup_studies(self.storage, n_study=2, n_trial=7, seed=50)
-        for study_id in study_id_to_frozen_studies:
-            assert self.storage.get_n_trials(study_id) == 7
+    # Test setting value.
+    for key, value in EXAMPLE_ATTRS.items():
+        check_set_and_get(trial_id_1, key, value)
+    assert storage.get_trial(trial_id_1).user_attrs == EXAMPLE_ATTRS
 
+    # Test overwriting value.
+    check_set_and_get(trial_id_1, "dataset", "ImageNet")
 
-if __name__ == "__main__":
-    from databricks.ml.tests.test_mlflow_storage import *  # noqa: F401
+def test_set_trial_system_attr(setup_storage):
+    storage = setup_storage
+    trial_id_1 = storage.create_new_trial(
+        storage.create_new_study(directions=[StudyDirection.MINIMIZE]))
 
-    try:
-        import xmlrunner
+    def check_set_and_get(trial_id: int, key: str, value: Any) -> None:
+        storage.set_trial_system_attr(trial_id, key, value)
+        assert storage.get_trial_system_attrs(trial_id)[key] == value
 
-        testRunner = xmlrunner.XMLTestRunner(output="target/test-reports", verbosity=2)
-    except ImportError:
-        testRunner = None
-    unittest.main(testRunner=testRunner, verbosity=2)
+    # Test setting value.
+    for key, value in EXAMPLE_ATTRS.items():
+        check_set_and_get(trial_id_1, key, value)
+    system_attrs = storage.get_trial(trial_id_1).system_attrs
+    assert system_attrs == EXAMPLE_ATTRS
+
+    # Test overwriting value.
+    check_set_and_get(trial_id_1, "dataset", "ImageNet")
+
+def test_get_n_trials(setup_storage):
+    storage = setup_storage
+    study_id_to_frozen_studies, _ = _setup_studies(storage, n_study=2, n_trial=7, seed=50)
+    for study_id in study_id_to_frozen_studies:
+        assert storage.get_n_trials(study_id) == 7
+
