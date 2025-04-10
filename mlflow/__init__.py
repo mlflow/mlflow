@@ -63,10 +63,8 @@ catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
-fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
 groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
-h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
 keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
@@ -76,7 +74,6 @@ llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
 mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
-mleap = LazyLoader("mlflow.mleap", globals(), "mlflow.mleap")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
 paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
@@ -87,7 +84,6 @@ pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
 rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
-recipes = LazyLoader("mlflow.recipes", globals(), "mlflow.recipes")
 sentence_transformers = LazyLoader(
     "mlflow.sentence_transformers",
     globals(),
@@ -115,10 +111,8 @@ if TYPE_CHECKING:
         crewai,
         diviner,
         dspy,
-        fastai,
         gemini,
         groq,
-        h2o,
         johnsnowlabs,
         keras,
         langchain,
@@ -128,7 +122,6 @@ if TYPE_CHECKING:
         llm,
         metrics,
         mistral,
-        mleap,
         onnx,
         openai,
         paddle,
@@ -138,7 +131,6 @@ if TYPE_CHECKING:
         pyfunc,
         pyspark,
         pytorch,
-        recipes,
         rfunc,
         sentence_transformers,
         shap,
@@ -234,6 +226,7 @@ from mlflow.tracking.fluent import (
     log_figure,
     log_image,
     log_input,
+    log_inputs,
     log_metric,
     log_metrics,
     log_outputs,
@@ -297,6 +290,7 @@ __all__ = [
     "log_figure",
     "log_image",
     "log_input",
+    "log_inputs",
     "log_outputs",
     "log_metric",
     "log_metrics",

@@ -398,10 +398,6 @@ const sidebars: SidebarsConfig = {
               id: 'llms/prompt-engineering/index',
             }
           ]
-        },
-        {
-          type: 'doc',
-          id: 'recipes/index'
         }
       ]
     },

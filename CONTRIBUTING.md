@@ -535,10 +535,8 @@ If contributing to MLflow's Java APIs or modifying Java documentation,
 install [Java](https://www.java.com/) and [Apache
 Maven](https://maven.apache.org/download.cgi).
 
-Certain MLflow modules are implemented in Java, under the `mlflow/java/`
-directory. These are the Java Tracking API client (`mlflow/java/client`)
-and the Model Scoring Server for Java-based models like MLeap
-(`mlflow/java/scoring`).
+A certain MLflow module is implemented in Java, under the `mlflow/java/`
+directory. This is the Java Tracking API client (`mlflow/java/client`).
 
 Other Java functionality (like artifact storage) depends on the Python
 package, so first install the Python package in a conda environment as
@@ -604,7 +602,7 @@ request by running:
 ```bash
 pre-commit run --all-files
 pytest tests --quiet --requires-ssh --ignore-flavors --serve-wheel \
-  --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate
+  --ignore=tests/examples --ignore=tests/evaluate
 ```
 
 We use [pytest](https://docs.pytest.org/en/latest/contents.html) to run

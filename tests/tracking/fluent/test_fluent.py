@@ -1305,6 +1305,49 @@ def test_log_input(tmp_path):
     assert dataset_inputs[0].tags[0].value == "train"
 
 
+def test_log_inputs(tmp_path):
+    df1 = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    path1 = tmp_path / "temp1.csv"
+    df1.to_csv(path1)
+    dataset1 = from_pandas(df1, source=path1)
+
+    df2 = pd.DataFrame([[4, 5, 6], [4, 5, 6]], columns=["a", "b", "c"])
+    path2 = tmp_path / "temp2.csv"
+    df2.to_csv(path2)
+    dataset2 = from_pandas(df2, source=path2)
+
+    df3 = pd.DataFrame([[7, 8, 9], [7, 8, 9]], columns=["a", "b", "c"])
+    path3 = tmp_path / "temp3.csv"
+    df3.to_csv(path3)
+    dataset3 = from_pandas(df3, source=path3)
+
+    with start_run() as run:
+        mlflow.log_inputs(
+            [dataset1, dataset2, dataset3],
+            ["train1", "train2", "train3"],
+            [{"foo": "baz"}, None, None],
+            None,
+        )
+
+    logged_inputs = MlflowClient().get_run(run.info.run_id).inputs
+    dataset_inputs = logged_inputs.dataset_inputs
+
+    assert len(dataset_inputs) == 3
+    assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path1)}
+    assert dataset_inputs[0].tags[0].key == "foo"
+    assert dataset_inputs[0].tags[0].value == "baz"
+    assert dataset_inputs[0].tags[1].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
+    assert dataset_inputs[0].tags[1].value == "train1"
+
+    assert json.loads(dataset_inputs[1].dataset.source) == {"uri": str(path2)}
+    assert dataset_inputs[1].tags[0].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
+    assert dataset_inputs[1].tags[0].value == "train2"
+
+    assert json.loads(dataset_inputs[2].dataset.source) == {"uri": str(path3)}
+    assert dataset_inputs[2].tags[0].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
+    assert dataset_inputs[2].tags[0].value == "train3"
+
+
 def test_log_input_metadata_only():
     source_uri = "test:/my/test/uri"
     source = HTTPDatasetSource(url=source_uri)
