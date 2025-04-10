@@ -92,8 +92,7 @@ def _get_spark_session_with_retry(max_tries=3):
 
 # Specify `autouse=True` to ensure that a context is created
 # before any tests are executed. This ensures that the Hadoop filesystem
-# does not create its own SparkContext without the MLeap libraries required by
-# other tests.
+# does not create its own SparkContext.
 @pytest.fixture(scope="module")
 def spark():
     if Version(pyspark.__version__) < Version("3.1"):

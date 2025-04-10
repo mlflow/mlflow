@@ -145,15 +145,6 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "3.5.5"
         }
     },
-    "mleap": {
-        "package_info": {
-            "pip_release": "mleap"
-        },
-        "models": {
-            "minimum": "0.18.0",
-            "maximum": "0.23.3"
-        }
-    },
     "prophet": {
         "package_info": {
             "pip_release": "prophet"

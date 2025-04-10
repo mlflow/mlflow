@@ -74,7 +74,6 @@
   </properties>
 
   <modules>
-    <module>scoring</module>
     <module>client</module>
     <module>spark</module>
   </modules>
@@ -92,16 +91,6 @@
         <artifactId>mockito-core</artifactId>
         <version>2.28.2</version>
         <scope>test</scope>
-      </dependency>
-      <dependency>
-        <groupId>ml.combust.mleap</groupId>
-        <artifactId>mleap-spark_2.11</artifactId>
-        <version>0.10.3</version>
-      </dependency>
-      <dependency>
-        <groupId>ml.combust.mleap</groupId>
-        <artifactId>mleap-runtime_2.11</artifactId>
-        <version>0.10.3</version>
       </dependency>
       <dependency>
         <groupId>org.apache.maven.plugins</groupId>
