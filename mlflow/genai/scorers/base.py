@@ -10,6 +10,7 @@ from mlflow.evaluation import Assessment
 
 class Scorer(BaseModel):
     name: str
+    greater_is_better: Optional[bool] = True
 
     def __call__(
         self,
@@ -55,6 +56,7 @@ def scorer(
     aggregations: Optional[
         list[Union[Literal["min", "max", "mean", "median", "variance", "p90", "p99"], Callable]]
     ] = None,
+    greater_is_better: Optional[bool] = True,
 ):
     """
     Syntactic sugar that ensures the decorated function has the correct parameters (with inputs
@@ -97,7 +99,11 @@ def scorer(
             )
         return result
 
-    instance = Scorer(name=name or func.__name__)
+    instance = Scorer(
+        name=name or func.__name__,
+        greater_is_better=greater_is_better,
+        aggregations=aggregations,
+    )
     instance.__call__ = types.MethodType(wrapped_call, instance)
 
     return instance
