@@ -162,7 +162,7 @@ def trace(
     """
 
     def decorator(fn):
-        fn._is_traced = True
+        setattr(fn, "_is_traced", True)
         if inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
             return _wrap_generator(fn, name, span_type, attributes, output_reducer)
         else:
