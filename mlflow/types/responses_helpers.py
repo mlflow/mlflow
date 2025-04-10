@@ -139,6 +139,8 @@ class OutputItem(BaseModel):
             ResponseFunctionToolCall(**self.model_dump_compat())
         elif self.type == "reasoning":
             ResponseReasoningItem(**self.model_dump_compat())
+        elif self.type == "function_call_output":
+            FunctionCallOutput(**self.model_dump_compat())
         elif self.type not in {
             "file_search_call",
             "computer_call",
