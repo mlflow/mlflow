@@ -4,7 +4,7 @@ from typing import Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
-from mlflow.protos import service_pb2 as pb
+from mlflow.protos import databricks_trace_server_pb2 as pb
 
 
 @dataclass
@@ -40,9 +40,9 @@ class InferenceTableLocation(_MlflowObject):
 
 
 class TraceLocationType(Enum):
-    TRACE_LOCATION_TYPE_UNSPECIFIED = 0
-    MLFLOW_EXPERIMENT = 1
-    INFERENCE_TABLE = 2
+    TRACE_LOCATION_TYPE_UNSPECIFIED = "TRACE_LOCATION_TYPE_UNSPECIFIED"
+    MLFLOW_EXPERIMENT = "MLFLOW_EXPERIMENT"
+    INFERENCE_TABLE = "INFERENCE_TABLE"
 
     def to_proto(self) -> pb.TraceLocation.TraceLocationType:
         if self == TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED:
