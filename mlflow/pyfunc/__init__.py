@@ -2694,11 +2694,21 @@ e.g., struct<a:int, b:array<int>>.
 
     import functools
     import tempfile
-    tmp_folder = uuid.uuid4().hex
-    tmp_dir = f"/tmp/{tmp_folder}"
+    dbfs_root_path = "/dbfs/tmp/weichen"
+
     def _wrapped_udf(*args, **kwargs):
         import os
         import sys
+        import uuid
+        import threading
+        import shutil
+        import time
+
+        tmp_folder = uuid.uuid4().hex
+        tmp_dir = f"/tmp/{tmp_folder}"
+        os.makedirs(tmp_dir, exist_ok=True)
+        print(f"tmp dir: {tmp_dir}")
+
         stdout_dst = open(os.path.join(tmp_dir, "stdout.log"), "w")
         stdout_dst_fd = stdout_dst.fileno()
         stdout_fd = sys.stdout.fileno()
@@ -2710,16 +2720,18 @@ e.g., struct<a:int, b:array<int>>.
         os.close(stderr_fd)
         os.dup2(stderr_dst_fd, stderr_fd)
 
-        udf_is_running = False
+        udf_is_running = True
+
         def copy_logs():
             while udf_is_running:
                 import time
                 time.sleep(1)
-                shutil.copytree(tmp_dir, f"/dbfs/tmp/weichen/{tmp_folder}", dirs_exist_ok=True)
+                shutil.copytree(tmp_dir, f"{dbfs_root_path}/{tmp_folder}", dirs_exist_ok=True)
+
         threading.Thread(target=copy_logs).start()
 
         try:
-            return _udf(*args, **kwargs)
+            yield from _udf(*args, **kwargs)
         except Exception as e:
             import traceback
             stdout_dst.flush()
@@ -2735,6 +2747,10 @@ e.g., struct<a:int, b:array<int>>.
                 f"error: {repr(e)}\n"
                 f"error stack: {traceback.format_exc()}"
             )
+        finally:
+            udf_is_running = False
+            time.sleep(2)
+
     _wrapped_udf = functools.update_wrapper(_wrapped_udf, _udf)
 
     udf = pandas_udf(_wrapped_udf, result_type)
