@@ -38,7 +38,7 @@ jobs:
       matrix:
         type: ["full", "skinny"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ github.event.inputs.ref }}
           submodules: recursive
@@ -127,7 +127,7 @@ jobs:
           docker run --rm python:3.10 bash -c "pip install $URL && mlflow --version"
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Upload wheel
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: github.event_name == 'workflow_dispatch'
         id: upload-wheel
         with:
