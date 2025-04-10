@@ -2433,7 +2433,9 @@ e.g., struct<a:int, b:array<int>>.
                 columns=names,
             )
 
-        result = predict_fn(pdf, params)
+        from mlflow.utils import print_time
+        with print_time(local_model_path):
+            result = predict_fn(pdf, params)
 
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}

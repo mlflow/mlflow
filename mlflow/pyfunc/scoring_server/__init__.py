@@ -50,9 +50,22 @@ from mlflow.utils.proto_json_utils import (
 from mlflow.version import VERSION
 
 try:
-    from mlflow.pyfunc import PyFuncModel, load_model
+    from mlflow.pyfunc import PyFuncModel, load_model as raw_load_model
 except ImportError:
-    from mlflow.pyfunc import load_pyfunc as load_model
+    from mlflow.pyfunc import load_pyfunc as raw_load_model
+
+
+_loaded_model_uri = None
+
+
+def load_model(model_uri, *args, **kwargs):
+    from mlflow.utils import print_time
+    global _loaded_model_uri
+    with print_time(f"scoring server load model {model_uri}"):
+        _loaded_model_uri = model_uri
+        return raw_load_model(model_uri, *args, **kwargs)
+
+
 from io import StringIO
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
@@ -369,7 +382,11 @@ def invocations(data, content_type, model, input_schema):
             raw_predictions = model.predict(data, params=params)
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
-            raw_predictions = model.predict(data)
+
+            from mlflow.utils import print_time
+            global _loaded_model_uri
+            with print_time(f"scoring server predict invocation {_loaded_model_uri}"):
+                raw_predictions = model.predict(data)
     except MlflowException as e:
         if "Failed to enforce schema" in e.message:
             _logger.warning(
