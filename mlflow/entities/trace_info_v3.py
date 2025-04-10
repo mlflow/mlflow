@@ -42,7 +42,7 @@ class TraceInfoStatus(Enum):
 
 
 @dataclass
-class TraceInfoV3(_MlflowObject):
+class TraceInfo(_MlflowObject):
     trace_id: str
     client_request_id: str
     trace_location: TraceLocation
@@ -75,7 +75,7 @@ class TraceInfoV3(_MlflowObject):
         )
 
     @classmethod
-    def from_proto(cls, proto: pb.TraceInfo) -> "TraceInfoV3":
+    def from_proto(cls, proto: pb.TraceInfo) -> "TraceInfo":
         request_time = proto.request_time.ToMilliseconds()
         execution_duration = proto.execution_duration.ToMilliseconds()
         assessments = [Assessment.from_proto(assessment) for assessment in proto.assessments]
