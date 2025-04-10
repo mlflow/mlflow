@@ -39,10 +39,8 @@ def get_latest_commit_for_repo(repo: str) -> str:
             # Retry on rate limit error
             if e.response.status_code == 429:
                 _logger.warning(
-                    "Rate limit exceeded while fetching commit hash for repo %s. "
-                    "Retrying in %d seconds. Error: %s",
-                    repo,
-                    2**i,
+                    f"Rate limit exceeded while fetching commit hash for repo {repo}. "
+                    f"Retrying in {2**i} seconds. Error: {e}",
                 )
                 time.sleep(2**i)
                 continue
