@@ -1,1 +1,3 @@
-from mlflow.genai.scorers.base import Scorer, BuiltInScorer, scorer
+from mlflow.genai.scorers.base import BuiltInScorer, Scorer, scorer
+
+__all__ = ["BuiltInScorer", "Scorer", "scorer"]
