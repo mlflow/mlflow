@@ -136,7 +136,6 @@ def start_container(port: int):
         "keras",
         "langchain",
         "lightgbm",
-        # "mleap", # Mleap model logging is deprecated since 2.6.1
         "onnx",
         # "openai", # OPENAI API KEY is not necessarily available for everyone
         "paddle",

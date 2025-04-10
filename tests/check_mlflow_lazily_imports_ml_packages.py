@@ -15,7 +15,6 @@ def main():
     ml_packages = {
         "catboost",
         "lightgbm",
-        "mleap",
         "onnx",
         "pytorch_lightning",
         "pyspark.ml",

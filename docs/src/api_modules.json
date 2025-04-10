@@ -24,7 +24,6 @@
   "mlflow.llama_index": "api_reference/python_api/mlflow.llama_index.html",
   "mlflow.metrics": "api_reference/python_api/mlflow.metrics.html",
   "mlflow.mistral": "api_reference/python_api/mlflow.mistral.html",
-  "mlflow.mleap": "api_reference/python_api/mlflow.mleap.html",
   "mlflow.models": "api_reference/python_api/mlflow.models.html",
   "mlflow.onnx": "api_reference/python_api/mlflow.onnx.html",
   "mlflow.openai": "api_reference/python_api/mlflow.openai.html",
