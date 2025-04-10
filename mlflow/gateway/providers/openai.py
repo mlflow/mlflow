@@ -558,7 +558,7 @@ class OpenAIProvider(BaseProvider):
         stream = send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
-            path="chat/completions",
+            path="completions",
             payload=OpenAIAdapter.completion_to_model(payload, self.config),
         )
 
@@ -582,7 +582,7 @@ class OpenAIProvider(BaseProvider):
         resp = await send_request(
             headers=self.headers,
             base_url=self.base_url,
-            path="chat/completions",
+            path="completions",
             payload=OpenAIAdapter.completion_to_model(payload, self.config),
         )
         return OpenAIAdapter.model_to_completions(resp, self.config)
