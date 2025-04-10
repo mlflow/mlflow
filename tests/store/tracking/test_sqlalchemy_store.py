@@ -4693,8 +4693,10 @@ def test_get_run_inputs_run_order(store):
 
     runs = [run_with_one_input, run_with_no_inputs, run_with_two_inputs]
     run_uuids = [run.info.run_id for run in runs]
+
     with store.ManagedSessionMaker() as session:
         actual = store._get_run_inputs(session, run_uuids)
 
+    assert len(expected) == len(actual)
     for expected_i, actual_i in zip(expected, actual):
         assert_dataset_inputs_equal(expected_i, actual_i)
