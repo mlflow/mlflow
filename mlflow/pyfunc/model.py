@@ -804,13 +804,17 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
                     ),
                 )
 
+    @abstractmethod
     def predict(self, model_input: ResponsesRequest) -> ResponsesResponse:
         pass
 
     def predict_stream(
         self, model_input: ResponsesRequest
     ) -> Generator[ResponsesStreamEvent, None, None]:
-        pass
+        raise NotImplementedError(
+            "Streaming implementation not provided. Please override the "
+            "`predict_stream` method on your model to generate streaming predictions"
+        )
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417

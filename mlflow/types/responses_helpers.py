@@ -12,7 +12,6 @@ from mlflow.utils.pydantic_utils import model_validator
 #########################
 class Status(BaseModel):
     status: Optional[str] = None
-    """The status of the item."""
 
     @model_validator(mode="after")
     def check_status(self) -> "Status":
@@ -151,7 +150,6 @@ class OutputItem(BaseModel):
 
 class IncompleteDetails(BaseModel):
     reason: Optional[str] = None
-    """The reason why the response is incomplete."""
 
     @model_validator(mode="after")
     def check_reason(self) -> "IncompleteDetails":
@@ -162,8 +160,6 @@ class IncompleteDetails(BaseModel):
 
 class ToolChoiceFunction(BaseModel):
     name: str
-    """The name of the function to call."""
-
     type: str = "function"
 
 
@@ -194,11 +190,6 @@ class Tools(BaseModel):
 
 class ToolChoice(BaseModel):
     tool_choice: Optional[Union[str, ToolChoiceFunction]] = None
-    """
-    How the model should select which tool (or tools) to use when generating a
-    response. See the `tools` parameter to see how to specify which tools the model
-    can call.
-    """
 
     @model_validator(mode="after")
     def check_tool_choice(self) -> "ToolChoice":
@@ -234,24 +225,14 @@ class InputTokensDetails(BaseModel):
 
 class OutputTokensDetails(BaseModel):
     reasoning_tokens: int
-    """The number of reasoning tokens."""
 
 
 class ResponseUsage(BaseModel):
     input_tokens: int
-    """The number of input tokens."""
-
     input_tokens_details: InputTokensDetails
-    """A detailed breakdown of the input tokens."""
-
     output_tokens: int
-    """The number of output tokens."""
-
     output_tokens_details: OutputTokensDetails
-    """A detailed breakdown of the output tokens."""
-
     total_tokens: int
-    """The total number of tokens used."""
 
 
 class Truncation(BaseModel):
@@ -338,7 +319,9 @@ class Message(Status):
             for item in self.content:
                 if isinstance(item, dict):
                     if "type" not in item:
-                        raise ValueError("dict type content must have a type key")
+                        raise ValueError(
+                            "dictionary type content field values must have key 'type'"
+                        )
                     if item["type"] == "input_text":
                         ResponseInputTextParam(**item)
                     elif item["type"] not in {"input_image", "input_file"}:

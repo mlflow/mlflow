@@ -130,7 +130,7 @@ def test_responses_stream_event_validation():
                     "type": "url_citation",
                     "start_index": 359,
                     "end_index": 492,
-                    "title": "NBA roundup: Wolves overcome Nikola Jokic (61), Nuggets in 2OT",
+                    "title": "NBA roundup: Wolves overcome Nikola",
                 },
             },
         )
