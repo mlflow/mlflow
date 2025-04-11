@@ -13,7 +13,7 @@ from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import STREAM_CHUNK_EVENT_VALUE_KEY, SpanAttributeKey, TraceMetadataKey
 
-from tests.openai.mock_openai import EMPTY_CHOICES
+from tests.openai.mock_openai import ChatChunkVariant, CompletionsChunkVariant
 from tests.tracing.helper import get_traces
 
 MOCK_TOOLS = [
@@ -33,6 +33,24 @@ MOCK_TOOLS = [
         },
     }
 ]
+
+
+def _extract_property_from_chunks(variant: ChatChunkVariant | CompletionsChunkVariant):
+    """Utility function to extract values from a streaming response chunk for assertion purposes."""
+
+    def _fn(chunks):
+        if variant == ChatChunkVariant.EMPTY_CHOICES:
+            return chunks[0].choices
+        elif variant == ChatChunkVariant.CHOICE_DELTA_NONE:
+            return chunks[-1].choices[0].delta
+        elif variant == ChatChunkVariant.CHOICE_DELTA_CONTENT_NONE:
+            return chunks[-1].choices[0].delta.content
+        elif variant == CompletionsChunkVariant.EMPTY_CHOICES:
+            return chunks[0].choices
+        elif variant == CompletionsChunkVariant.CHOICE_EMPTY_TEXT:
+            return chunks[-1].choices[0].text
+
+    return _fn
 
 
 @pytest.fixture(params=[True, False], ids=["sync", "async"])
@@ -260,10 +278,25 @@ async def test_chat_completions_autolog_tracing_error_with_parent_span(client):
 
 
 @pytest.mark.asyncio
-async def test_chat_completions_streaming_empty_choices(client):
+@pytest.mark.parametrize(
+    ("variant", "expected"),
+    [
+        (ChatChunkVariant.EMPTY_CHOICES, []),
+        (ChatChunkVariant.CHOICE_DELTA_NONE, None),
+        (ChatChunkVariant.CHOICE_DELTA_CONTENT_NONE, None),
+    ],
+    ids=[
+        "Azure OpenAI input prompt content filtering",
+        "Azure OpenAI output content filtering (asynchronous filter)",
+        "Azure OpenAI output content filtering",
+    ],
+)
+async def test_chat_completions_streaming_with_openai_compatible_server_special_responses(
+    client, variant, expected
+):
     mlflow.openai.autolog()
     stream = client.chat.completions.create(
-        messages=[{"role": "user", "content": EMPTY_CHOICES}],
+        messages=[{"role": "user", "content": variant}],
         model="gpt-4o-mini",
         stream=True,
     )
@@ -275,8 +308,7 @@ async def test_chat_completions_streaming_empty_choices(client):
     else:
         chunks = list(stream)
 
-    # Ensure the stream has a chunk with empty choices
-    assert chunks[0].choices == []
+    assert _extract_property_from_chunks(variant)(chunks) == expected
 
     trace = mlflow.get_last_active_trace()
     assert trace.info.status == "OK"
@@ -321,10 +353,23 @@ async def test_completions_autolog(client, log_models):
 
 
 @pytest.mark.asyncio
-async def test_completions_autolog_streaming_empty_choices(client):
+@pytest.mark.parametrize(
+    ("variant", "expected"),
+    [
+        (CompletionsChunkVariant.EMPTY_CHOICES, []),
+        (CompletionsChunkVariant.CHOICE_EMPTY_TEXT, ""),
+    ],
+    ids=[
+        "Azure OpenAI input prompt content filtering",
+        "Azure OpenAI output content filtering (asynchronous filter)",
+    ],
+)
+async def test_completions_autolog_streaming_with_openai_compatible_server_special_responses(
+    client, variant, expected
+):
     mlflow.openai.autolog()
     stream = client.completions.create(
-        prompt=EMPTY_CHOICES,
+        prompt=variant,
         model="gpt-4o-mini",
         stream=True,
     )
@@ -336,8 +381,7 @@ async def test_completions_autolog_streaming_empty_choices(client):
     else:
         chunks = list(stream)
 
-    # Ensure the stream has a chunk with empty choices
-    assert chunks[0].choices == []
+    assert _extract_property_from_chunks(variant)(chunks) == expected
 
     trace = mlflow.get_last_active_trace()
     assert trace.info.status == "OK"
