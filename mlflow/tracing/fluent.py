@@ -162,6 +162,7 @@ def trace(
     """
 
     def decorator(fn):
+        setattr(fn, "_is_traced", True)
         if inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
             return _wrap_generator(fn, name, span_type, attributes, output_reducer)
         else:
@@ -172,6 +173,19 @@ def trace(
             return _wrap_function(fn, name, span_type, attributes, model_id)
 
     return decorator(func) if func else decorator
+
+
+def is_traced(fn: Callable) -> bool:
+    """
+    Check if the function is traced (i.e. decorated with @mlflow.trace).
+
+    Args:
+        fn: The function to check.
+
+    Returns:
+        True if the function is traced, False otherwise.
+    """
+    return getattr(fn, "_is_traced", False)
 
 
 def _wrap_function(
