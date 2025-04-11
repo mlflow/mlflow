@@ -441,19 +441,6 @@ def test_create_deployment_with_unsupported_flavor_raises_exception(
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_create_deployment_with_missing_flavor_raises_exception(
-    pretrained_model, sagemaker_deployment_client
-):
-    missing_flavor = "mleap"
-    match = "The specified model does not contain the specified deployment flavor"
-    with pytest.raises(MlflowException, match=match) as exc:
-        sagemaker_deployment_client.create_deployment(
-            name="missing-flavor", model_uri=pretrained_model.model_uri, flavor=missing_flavor
-        )
-
-    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-
-
 def test_create_deployment_of_model_with_no_supported_flavors_raises_exception(
     pretrained_model, sagemaker_deployment_client
 ):

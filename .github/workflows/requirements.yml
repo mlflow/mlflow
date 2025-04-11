@@ -86,5 +86,5 @@ jobs:
         run: |
           source dev/setup-ssh.sh
           pytest tests --quiet --requires-ssh --ignore-flavors \
-            --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+            --ignore=tests/examples --ignore=tests/evaluate \
             --ignore=tests/deployments

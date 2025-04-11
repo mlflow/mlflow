@@ -63,10 +63,8 @@ catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
-fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
 groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
-h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
 keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
@@ -76,7 +74,6 @@ llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
 mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
-mleap = LazyLoader("mlflow.mleap", globals(), "mlflow.mleap")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
 paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
@@ -87,7 +84,6 @@ pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
 rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
-recipes = LazyLoader("mlflow.recipes", globals(), "mlflow.recipes")
 sentence_transformers = LazyLoader(
     "mlflow.sentence_transformers",
     globals(),
@@ -115,10 +111,8 @@ if TYPE_CHECKING:
         crewai,
         diviner,
         dspy,
-        fastai,
         gemini,
         groq,
-        h2o,
         johnsnowlabs,
         keras,
         langchain,
@@ -128,7 +122,6 @@ if TYPE_CHECKING:
         llm,
         metrics,
         mistral,
-        mleap,
         onnx,
         openai,
         paddle,
@@ -138,7 +131,6 @@ if TYPE_CHECKING:
         pyfunc,
         pyspark,
         pytorch,
-        recipes,
         rfunc,
         sentence_transformers,
         shap,
@@ -208,19 +200,25 @@ from mlflow.tracking.fluent import (
     active_run,
     autolog,
     create_experiment,
+    create_external_model,
     delete_experiment,
+    delete_logged_model_tag,
     delete_run,
     delete_tag,
     end_run,
+    finalize_logged_model,
     flush_artifact_async_logging,
     flush_async_logging,
     flush_trace_async_logging,
     get_artifact_uri,
     get_experiment,
     get_experiment_by_name,
+    get_logged_model,
     get_parent_run,
     get_run,
+    initialize_logged_model,
     last_active_run,
+    last_logged_model,
     load_table,
     log_artifact,
     log_artifacts,
@@ -228,17 +226,21 @@ from mlflow.tracking.fluent import (
     log_figure,
     log_image,
     log_input,
+    log_inputs,
     log_metric,
     log_metrics,
+    log_outputs,
     log_param,
     log_params,
     log_table,
     log_text,
     search_experiments,
+    search_logged_models,
     search_runs,
     set_experiment,
     set_experiment_tag,
     set_experiment_tags,
+    set_logged_model_tags,
     set_tag,
     set_tags,
     start_run,
@@ -255,6 +257,7 @@ __all__ = [
     "active_run",
     "autolog",
     "create_experiment",
+    "create_external_model",
     "delete_experiment",
     "delete_run",
     "delete_tag",
@@ -263,6 +266,7 @@ __all__ = [
     "enable_system_metrics_logging",
     "end_run",
     "evaluate",
+    "finalize_logged_model",
     "flush_async_logging",
     "flush_artifact_async_logging",
     "flush_trace_async_logging",
@@ -270,12 +274,15 @@ __all__ = [
     "get_experiment",
     "get_experiment_by_name",
     "get_last_active_trace",
+    "get_logged_model",
     "get_parent_run",
     "get_registry_uri",
     "get_run",
     "get_tracking_uri",
+    "initialize_logged_model",
     "is_tracking_uri_set",
     "last_active_run",
+    "last_logged_model",
     "load_table",
     "log_artifact",
     "log_artifacts",
@@ -283,6 +290,8 @@ __all__ = [
     "log_figure",
     "log_image",
     "log_input",
+    "log_inputs",
+    "log_outputs",
     "log_metric",
     "log_metrics",
     "log_param",
@@ -294,6 +303,7 @@ __all__ = [
     "register_model",
     "run",
     "search_experiments",
+    "search_logged_models",
     "search_model_versions",
     "search_registered_models",
     "search_runs",
@@ -332,6 +342,8 @@ __all__ = [
     "register_prompt",
     "set_prompt_alias",
     "delete_prompt_alias",
+    "set_logged_model_tags",
+    "delete_logged_model_tag",
 ]
 
 

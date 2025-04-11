@@ -455,25 +455,9 @@ MLFLOW_CONDA_HOME = _EnvironmentVariable("MLFLOW_CONDA_HOME", str, None)
 #: (default: ``conda``)
 MLFLOW_CONDA_CREATE_ENV_CMD = _EnvironmentVariable("MLFLOW_CONDA_CREATE_ENV_CMD", str, "conda")
 
-#: Specifies the execution directory for recipes.
-#: (default: ``None``)
-MLFLOW_RECIPES_EXECUTION_DIRECTORY = _EnvironmentVariable(
-    "MLFLOW_RECIPES_EXECUTION_DIRECTORY", str, None
-)
-
-#: Specifies the target step to execute for recipes.
-#: (default: ``None``)
-MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME = _EnvironmentVariable(
-    "MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME", str, None
-)
-
 #: Specifies the flavor to serve in the scoring server.
 #: (default ``None``)
 MLFLOW_DEPLOYMENT_FLAVOR_NAME = _EnvironmentVariable("MLFLOW_DEPLOYMENT_FLAVOR_NAME", str, None)
-
-#: Specifies the profile to use for recipes.
-#: (default: ``None``)
-MLFLOW_RECIPES_PROFILE = _EnvironmentVariable("MLFLOW_RECIPES_PROFILE", str, None)
 
 #: Specifies the MLflow Run context
 #: (default: ``None``)

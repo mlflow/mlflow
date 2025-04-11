@@ -163,6 +163,7 @@ def format_docstring(param_docs):
 # `{{ ... }}` represents a placeholder.
 LOG_MODEL_PARAM_DOCS = ParamDocs(
     {
+        "name": "Model name.",
         "conda_env": (
             """Either a dictionary representation of a Conda environment or the path to a conda
 environment yaml file. If provided, this describes the environment this model should be run in.
@@ -372,6 +373,11 @@ usage.
         Experimental: This parameter may change or be removed in a future release without warning.
             """
         ),
+        "params": "A dictionary of parameters to log with the model.",
+        "tags": "A dictionary of tags to log with the model.",
+        "model_type": "The type of the model.",
+        "step": "The step at which to log the model outputs and metrics",
+        "model_id": "The ID of the model.",
         "prompts": """\
 A list of prompt URIs registered in the MLflow Prompt Registry, to be associated with the model.
 Each prompt URI should be in the form ``prompt:/<name>/<version>``. The prompts should be

@@ -2,6 +2,7 @@ import inspect
 import logging
 import socket
 import subprocess
+import uuid
 from contextlib import closing
 from itertools import islice
 from sys import version_info
@@ -269,3 +270,14 @@ class AttrDict(dict):
 
 def get_parent_module(module):
     return module[0 : module.rindex(".")]
+
+
+def is_uuid(s: str) -> bool:
+    """
+    Returns True if the specified string is a UUID, False otherwise.
+    """
+    try:
+        uuid.UUID(s)
+        return True
+    except ValueError:
+        return False
