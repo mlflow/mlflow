@@ -625,7 +625,7 @@ def _validate_username(username):
 
 def _validate_password(password):
     if password is None or len(password) < 8:
-        raise MlflowException("Password must be a string longer than 16 characters.")
+        raise MlflowException("Password must be a string longer than 8 characters.")
 
 
 def _validate_trace_tag(key, value):
