@@ -2002,6 +2002,8 @@ def spark_udf(
     extra_env: Optional[dict[str, str]] = None,
     prebuilt_env_uri: Optional[str] = None,
     model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
+    logs_exp_id = None,
+    logs_run_prefix = None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -2152,6 +2154,12 @@ def spark_udf(
         Spark UDF that applies the model's ``predict`` method to the data and returns a
         type specified by ``result_type``, which by default is a double.
     """
+
+    db_host = os.environ["DATABRICKS_HOST"]
+    db_token = os.environ["DATABRICKS_TOKEN"]
+
+    assert logs_exp_id is not None, "please set 'logs_exp_id'"
+    assert logs_run_prefix is not None, "please set 'logs_run_prefix'"
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
@@ -2433,7 +2441,9 @@ e.g., struct<a:int, b:array<int>>.
                 columns=names,
             )
 
-        result = predict_fn(pdf, params)
+        from mlflow.utils import print_time
+        with print_time("batch predict"):
+            result = predict_fn(pdf, params)
 
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
@@ -2507,8 +2517,7 @@ e.g., struct<a:int, b:array<int>>.
 
     tracking_uri = mlflow.get_tracking_uri()
 
-    @pandas_udf(result_type)
-    def udf(
+    def _udf(
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
@@ -2584,8 +2593,6 @@ e.g., struct<a:int, b:array<int>>.
                         timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
                         enable_mlserver=False,
                         synchronous=False,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
                         model_config=model_config,
                     )
 
@@ -2593,30 +2600,11 @@ e.g., struct<a:int, b:array<int>>.
                 else:
                     scoring_server_proc = pyfunc_backend.serve_stdin(
                         model_uri=local_model_path_on_executor or local_model_path,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
                         model_config=model_config,
                     )
                     client = StdinScoringServerClient(scoring_server_proc)
 
                 _logger.info("Using %s", client.__class__.__name__)
-
-                server_tail_logs = collections.deque(
-                    maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP
-                )
-
-                def server_redirect_log_thread_func(child_stdout):
-                    for line in child_stdout:
-                        decoded = line.decode() if isinstance(line, bytes) else line
-                        server_tail_logs.append(decoded)
-                        sys.stdout.write("[model server] " + decoded)
-
-                server_redirect_log_thread = threading.Thread(
-                    target=server_redirect_log_thread_func,
-                    args=(scoring_server_proc.stdout,),
-                    daemon=True,
-                )
-                server_redirect_log_thread.start()
 
                 try:
                     client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
@@ -2624,14 +2612,8 @@ e.g., struct<a:int, b:array<int>>.
                     err_msg = (
                         "During spark UDF task execution, mlflow model server failed to launch. "
                     )
-                    if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
-                        err_msg += (
-                            f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} "
-                            "lines of MLflow model server output:\n"
-                        )
-                    else:
-                        err_msg += "MLflow model server output:\n"
-                    err_msg += "".join(server_tail_logs)
+                    # TODO: append stdout / stderr here.
+                    # err_msg += "".join(server_tail_logs)
                     raise MlflowException(err_msg) from e
 
                 def batch_predict_fn(pdf, params=None):
@@ -2693,6 +2675,83 @@ e.g., struct<a:int, b:array<int>>.
                 if scoring_server_proc is not None:
                     os.kill(scoring_server_proc.pid, signal.SIGTERM)
 
+    import functools
+    import tempfile
+
+    def _wrapped_udf(*args, **kwargs):
+        import os
+        import sys
+        import uuid
+        import threading
+        import shutil
+        import time
+
+        tmp_folder = uuid.uuid4().hex
+        tmp_dir = f"/tmp/{tmp_folder}"
+        os.makedirs(tmp_dir, exist_ok=True)
+        print(f"tmp dir: {tmp_dir}")
+
+        #sys.stdout = open(os.path.join(tmp_dir, "stdout.log"), "w")
+        #sys.stderr = open(os.path.join(tmp_dir, "stderr.log"), "w")
+        stdout_dst = open(os.path.join(tmp_dir, "stdout.log"), "w")
+        stdout_dst_fd = stdout_dst.fileno()
+        stdout_fd = sys.stdout.fileno()
+        os.close(stdout_fd)
+        os.dup2(stdout_dst_fd, stdout_fd)
+
+        stderr_dst = open(os.path.join(tmp_dir, "stderr.log"), "w")
+        stderr_dst_fd = stderr_dst.fileno()
+        stderr_fd = sys.stderr.fileno()
+        os.close(stderr_fd)
+        os.dup2(stderr_dst_fd, stderr_fd)
+
+        udf_is_running = True
+
+        def copy_logs():
+            import time
+            os.environ["DATABRICKS_HOST"] = db_host
+            os.environ["DATABRICKS_TOKEN"] = db_token
+            with mlflow.start_run(
+                run_name=f"{logs_run_prefix}-{str(time.time()).replace('.', '-')}",
+                experiment_id=logs_exp_id,
+            ):
+                while True:
+                    import time
+                    time.sleep(2)
+                    # shutil.copytree(tmp_dir, f"{dbfs_root_path}/{tmp_folder}", dirs_exist_ok=True)
+                    sys.stdout.flush()
+                    sys.stderr.flush()
+                    mlflow.log_artifact(os.path.join(tmp_dir, "stdout.log"))
+                    mlflow.log_artifact(os.path.join(tmp_dir, "stderr.log"))
+                    if not udf_is_running:
+                        break
+
+        threading.Thread(target=copy_logs).start()
+
+        try:
+            yield from _udf(*args, **kwargs)
+        except Exception as e:
+            import traceback
+            stdout_dst.flush()
+            stderr_dst.flush()
+            with open(os.path.join(tmp_dir, "stdout.log"), "r") as fp:
+                stdout_data = fp.read()
+            with open(os.path.join(tmp_dir, "stderr.log"), "r") as fp:
+                stderr_data = fp.read()
+            raise RuntimeError(
+                f"spark_udf remote task failed.\n"
+                f"stdout logs:\n{stdout_data}\n"
+                f"stderr logs:\n{stderr_data}\n"
+                f"error: {repr(e)}\n"
+                f"error stack: {traceback.format_exc()}"
+            )
+        finally:
+            udf_is_running = False
+            time.sleep(2)
+
+    _wrapped_udf = functools.update_wrapper(_wrapped_udf, _udf)
+
+    udf = pandas_udf(_wrapped_udf, result_type)
     udf.metadata = model_metadata
 
     @functools.wraps(udf)
