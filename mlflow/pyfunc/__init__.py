@@ -2691,8 +2691,19 @@ e.g., struct<a:int, b:array<int>>.
         os.makedirs(tmp_dir, exist_ok=True)
         print(f"tmp dir: {tmp_dir}")
 
-        sys.stdout = open(os.path.join(tmp_dir, "stdout.log"), "w")
-        sys.stderr = open(os.path.join(tmp_dir, "stderr.log"), "w")
+        #sys.stdout = open(os.path.join(tmp_dir, "stdout.log"), "w")
+        #sys.stderr = open(os.path.join(tmp_dir, "stderr.log"), "w")
+        stdout_dst = open(os.path.join(tmp_dir, "stdout.log"), "w")
+        stdout_dst_fd = stdout_dst.fileno()
+        stdout_fd = sys.stdout.fileno()
+        os.close(stdout_fd)
+        os.dup2(stdout_dst_fd, stdout_fd)
+
+        stderr_dst = open(os.path.join(tmp_dir, "stderr.log"), "w")
+        stderr_dst_fd = stderr_dst.fileno()
+        stderr_fd = sys.stderr.fileno()
+        os.close(stderr_fd)
+        os.dup2(stderr_dst_fd, stderr_fd)
 
         udf_is_running = True
 
