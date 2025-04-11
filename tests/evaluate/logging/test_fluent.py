@@ -58,7 +58,6 @@ def test_log_evaluations_with_all_params():
                     "source": {
                         "source_type": "HUMAN",
                         "source_id": "user_1",
-                        "metadata": {"sourcekey1": "sourcevalue1"},
                     },
                 },
                 {
@@ -67,7 +66,6 @@ def test_log_evaluations_with_all_params():
                     "source": {
                         "source_type": "HUMAN",
                         "source_id": "user_1",
-                        "metadata": {"sourcekey2": "sourcevalue2"},
                     },
                 },
             ],
@@ -88,7 +86,6 @@ def test_log_evaluations_with_all_params():
                     source=AssessmentSource(
                         source_type=AssessmentSourceType.HUMAN,
                         source_id="user-1",
-                        metadata={"sourcekey3": "sourcevalue3"},
                     ),
                 )
             ],
@@ -171,7 +168,6 @@ def test_log_evaluations_with_all_params():
                 assert logged_assessment.boolean_value == assessment_entity.boolean_value
                 assert logged_assessment.numeric_value == assessment_entity.numeric_value
                 assert logged_assessment.string_value == assessment_entity.string_value
-                assert logged_assessment.metadata == assessment_entity.metadata
                 assert logged_assessment.source == assessment_entity.source
 
             retrieved_evaluation = get_evaluation(

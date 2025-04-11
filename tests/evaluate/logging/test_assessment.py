@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from mlflow.evaluation import Assessment
-from mlflow.evaluation.assessment import AssessmentSource
+from mlflow.evaluation.assessment import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 
 
@@ -92,6 +92,7 @@ def test_assessment_to_from_dictionary():
         "metadata": {"key1": "value1"},
         "error_code": None,
         "error_message": None,
+        "span_id": None,
     }
     assert assessment_dict == expected_dict
 
@@ -320,18 +321,4 @@ def test_assessment_without_source():
         value=0.9,
     )
 
-    assert assessment.source is None
-
-
-def test_assessment_to_entity_fail_without_source():
-    assessment = Assessment(
-        name="relevance",
-        value=0.9,
-    )
-
-    evaluation_id = "evaluation_1"
-    with pytest.raises(
-        MlflowException,
-        match="Assessment source must be specified.",
-    ):
-        assessment._to_entity(evaluation_id)
+    assert assessment.source.source_type == AssessmentSourceType.SOURCE_TYPE_UNSPECIFIED
