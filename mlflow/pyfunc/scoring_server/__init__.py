@@ -61,7 +61,7 @@ _loaded_model_uri = None
 def load_model(model_uri, *args, **kwargs):
     from mlflow.utils import print_time
     global _loaded_model_uri
-    with print_time(f"scoring server load model {model_uri}"):
+    with print_time(f"load model"):
         _loaded_model_uri = model_uri
         return raw_load_model(model_uri, *args, **kwargs)
 
@@ -385,7 +385,7 @@ def invocations(data, content_type, model, input_schema):
 
             from mlflow.utils import print_time
             global _loaded_model_uri
-            with print_time(f"scoring server predict invocation {_loaded_model_uri}"):
+            with print_time(f"predict invocation"):
                 raw_predictions = model.predict(data)
     except MlflowException as e:
         if "Failed to enforce schema" in e.message:

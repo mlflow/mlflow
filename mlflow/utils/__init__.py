@@ -275,7 +275,7 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def print_time(tag):
+def print_time(tag=None):
     from datetime import datetime
     import time
     beg_time = datetime.now().strftime("%H:%M:%S:%f")
@@ -284,5 +284,5 @@ def print_time(tag):
     try:
         yield
     finally:
-        dbg_str = f"DBG: tag:[{tag}] prediction  at {beg_time}, cost {time.time() - beg_time_s:.2f} seconds."
+        dbg_str = f"DBG: tag:{tag} prediction at {beg_time}, cost {time.time() - beg_time_s:.2f} seconds."
         print(dbg_str, flush=True)

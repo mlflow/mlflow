@@ -2158,6 +2158,9 @@ def spark_udf(
     db_host = os.environ["DATABRICKS_HOST"]
     db_token = os.environ["DATABRICKS_TOKEN"]
 
+    assert logs_exp_id is not None, "please set 'logs_exp_id'"
+    assert logs_run_prefix is not None, "please set 'logs_run_prefix'"
+
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
     from pyspark.sql.functions import pandas_udf
@@ -2439,7 +2442,7 @@ e.g., struct<a:int, b:array<int>>.
             )
 
         from mlflow.utils import print_time
-        with print_time(local_model_path):
+        with print_time("batch predict"):
             result = predict_fn(pdf, params)
 
         if isinstance(result, dict):
@@ -2590,8 +2593,6 @@ e.g., struct<a:int, b:array<int>>.
                         timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
                         enable_mlserver=False,
                         synchronous=False,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
                         model_config=model_config,
                     )
 
@@ -2599,30 +2600,11 @@ e.g., struct<a:int, b:array<int>>.
                 else:
                     scoring_server_proc = pyfunc_backend.serve_stdin(
                         model_uri=local_model_path_on_executor or local_model_path,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
                         model_config=model_config,
                     )
                     client = StdinScoringServerClient(scoring_server_proc)
 
                 _logger.info("Using %s", client.__class__.__name__)
-
-                server_tail_logs = collections.deque(
-                    maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP
-                )
-
-                def server_redirect_log_thread_func(child_stdout):
-                    for line in child_stdout:
-                        decoded = line.decode() if isinstance(line, bytes) else line
-                        server_tail_logs.append(decoded)
-                        sys.stdout.write("[model server] " + decoded)
-
-                server_redirect_log_thread = threading.Thread(
-                    target=server_redirect_log_thread_func,
-                    args=(scoring_server_proc.stdout,),
-                    daemon=True,
-                )
-                server_redirect_log_thread.start()
 
                 try:
                     client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
@@ -2630,14 +2612,8 @@ e.g., struct<a:int, b:array<int>>.
                     err_msg = (
                         "During spark UDF task execution, mlflow model server failed to launch. "
                     )
-                    if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
-                        err_msg += (
-                            f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} "
-                            "lines of MLflow model server output:\n"
-                        )
-                    else:
-                        err_msg += "MLflow model server output:\n"
-                    err_msg += "".join(server_tail_logs)
+                    # TODO: append stdout / stderr here.
+                    # err_msg += "".join(server_tail_logs)
                     raise MlflowException(err_msg) from e
 
                 def batch_predict_fn(pdf, params=None):
