@@ -2732,12 +2732,14 @@ e.g., struct<a:int, b:array<int>>.
             os.environ["DATABRICKS_TOKEN"] = db_token
             mlflow.set_experiment(experiment_id=logs_exp_id)
             with mlflow.start_run():
-                while udf_is_running:
+                while True:
                     import time
                     time.sleep(2)
                     # shutil.copytree(tmp_dir, f"{dbfs_root_path}/{tmp_folder}", dirs_exist_ok=True)
                     mlflow.log_artifact(os.path.join(tmp_dir, "stdout.log"))
                     mlflow.log_artifact(os.path.join(tmp_dir, "stderr.log"))
+                    if not udf_is_running:
+                        break
 
         threading.Thread(target=copy_logs).start()
 
