@@ -94,3 +94,21 @@ class Span(_MlflowObject):
     events: list[SpanEvent] = field(default_factory=list)
     dropped_events_count: int = 0
     status: Optional[SpanStatus] = None
+
+    def to_proto(self) -> pb.Span:
+        return pb.Span(
+            trace_id=self.trace_id,
+            span_id=self.span_id,
+            trace_state=self.trace_state,
+            parent_span_id=self.parent_span_id or "",
+            flags=self.flags,
+            name=self.name,
+            kind=self.kind.to_proto(),
+            start_time_unix_nano=self.start_time_unix_nano,
+            end_time_unix_nano=self.end_time_unix_nano,
+            attributes=self.attributes,
+            dropped_attributes_count=self.dropped_attributes_count,
+            events=[event.to_proto() for event in self.events],
+            dropped_events_count=self.dropped_events_count,
+            status=self.status.to_proto() if self.status else None,
+        )

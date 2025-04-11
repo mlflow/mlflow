@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Optional
 
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -42,24 +43,26 @@ class TraceInfoStatus(Enum):
 
 
 @dataclass
-class TraceInfo(_MlflowObject):
+class TraceInfoV3(_MlflowObject):
     trace_id: str
     client_request_id: str
     trace_location: TraceLocation
     request: str
     response: str
     request_time: int
-    execution_duration: int
-    state: TraceInfoStatus
+    execution_duration: Optional[int] = None
+    status: TraceInfoStatus
     trace_metadata: dict[str, str] = field(default_factory=dict)
     tags: dict[str, str] = field(default_factory=dict)
     assessments: list[Assessment] = field(default_factory=list)
 
-    def to_proto(self):
+    def to_proto(self) -> pb.TraceInfo:
         request_time = Timestamp()
         request_time.FromMilliseconds(self.request_time)
-        execution_duration = Duration()
-        execution_duration.FromMilliseconds(self.execution_duration)
+        execution_duration = None
+        if self.execution_duration is None:
+            execution_duration = Duration()
+            execution_duration.FromMilliseconds(self.execution_duration)
         return pb.TraceInfo(
             trace_id=self.trace_id,
             client_request_id=self.client_request_id,
@@ -75,7 +78,7 @@ class TraceInfo(_MlflowObject):
         )
 
     @classmethod
-    def from_proto(cls, proto: pb.TraceInfo) -> "TraceInfo":
+    def from_proto(cls, proto: pb.TraceInfo) -> "TraceInfoV3":
         request_time = proto.request_time.ToMilliseconds()
         execution_duration = proto.execution_duration.ToMilliseconds()
         assessments = [Assessment.from_proto(assessment) for assessment in proto.assessments]
@@ -92,3 +95,24 @@ class TraceInfo(_MlflowObject):
             tags=proto.tags,
             assessments=assessments,
         )
+
+    # Aliases for backward compatibility with V2 schema
+    @property
+    def request_id(self) -> str:
+        return self.trace_id
+
+    @property
+    def experiment_id(self) -> Optional[str]:
+        return self.trace_location.experiment_id if self.trace_location else None
+
+    @property
+    def request_metadata(self) -> dict[str, str]:
+        return self.trace_metadata
+
+    @property
+    def timestamp_ms(self) -> int:
+        return self.request_time
+
+    @property
+    def execution_time_ms(self) -> Optional[int]:
+        return self.execution_duration
