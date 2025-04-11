@@ -623,6 +623,11 @@ def _validate_username(username):
         raise MlflowException("Username cannot be empty.", INVALID_PARAMETER_VALUE)
 
 
+def _validate_password(password):
+    if password is None or len(password) < 8:
+        raise MlflowException("Password must be a string longer than 16 characters.")
+
+
 def _validate_trace_tag(key, value):
     _validate_tag_name(key)
     key = _validate_length_limit("key", MAX_TRACE_TAG_KEY_LENGTH, key)
