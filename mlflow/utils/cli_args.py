@@ -189,7 +189,15 @@ WORKERS = click.option(
     "-w",
     envvar="MLFLOW_WORKERS",
     default=None,
-    help="Number of gunicorn worker processes to handle requests (default: 1).",
+    help="Number of gunicorn worker processes to handle requests (default: 4).",
+)
+
+MODELS_WORKERS = click.option(
+    "--workers",
+    "-w",
+    envvar="MLFLOW_MODELS_WORKERS",
+    default=None,
+    help="Number of uvicorn workers to handle requests when serving mlflow models (default: 1).",
 )
 
 ENABLE_MLSERVER = click.option(
