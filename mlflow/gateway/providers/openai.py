@@ -46,7 +46,6 @@ class OpenAIAdapter(ProviderAdapter):
 
     @classmethod
     def completion_to_model(cls, payload, config):
-        payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
         return cls._add_model_to_payload_if_necessary(payload, config)
 
     @classmethod
