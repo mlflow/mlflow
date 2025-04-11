@@ -2715,16 +2715,8 @@ e.g., struct<a:int, b:array<int>>.
         os.makedirs(tmp_dir, exist_ok=True)
         print(f"tmp dir: {tmp_dir}")
 
-        stdout_dst = open(os.path.join(tmp_dir, "stdout.log"), "w")
-        stdout_dst_fd = stdout_dst.fileno()
-        stdout_fd = sys.stdout.fileno()
-        os.close(stdout_fd)
-        os.dup2(stdout_dst_fd, stdout_fd)
-        stderr_dst = open(os.path.join(tmp_dir, "stderr.log"), "w")
-        stderr_dst_fd = stderr_dst.fileno()
-        stderr_fd = sys.stderr.fileno()
-        os.close(stderr_fd)
-        os.dup2(stderr_dst_fd, stderr_fd)
+        sys.stdout = open(os.path.join(tmp_dir, "stdout.log"), "w")
+        sys.stderr = open(os.path.join(tmp_dir, "stderr.log"), "w")
 
         udf_is_running = True
 
@@ -2733,13 +2725,15 @@ e.g., struct<a:int, b:array<int>>.
             os.environ["DATABRICKS_HOST"] = db_host
             os.environ["DATABRICKS_TOKEN"] = db_token
             with mlflow.start_run(
-                run_id=f"{logs_run_prefix}-{time.time()}",
+                run_name=f"{logs_run_prefix}-{str(time.time()).replace('.', '-')}",
                 experiment_id=logs_exp_id,
             ):
                 while True:
                     import time
                     time.sleep(2)
                     # shutil.copytree(tmp_dir, f"{dbfs_root_path}/{tmp_folder}", dirs_exist_ok=True)
+                    sys.stdout.flush()
+                    sys.stderr.flush()
                     mlflow.log_artifact(os.path.join(tmp_dir, "stdout.log"))
                     mlflow.log_artifact(os.path.join(tmp_dir, "stderr.log"))
                     if not udf_is_running:
