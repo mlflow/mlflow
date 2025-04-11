@@ -2002,6 +2002,7 @@ def spark_udf(
     extra_env: Optional[dict[str, str]] = None,
     prebuilt_env_uri: Optional[str] = None,
     model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
+    logs_exp_id = None
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -2696,7 +2697,6 @@ e.g., struct<a:int, b:array<int>>.
 
     import functools
     import tempfile
-    dbfs_root_path = "/dbfs/tmp/weichen"
 
     def _wrapped_udf(*args, **kwargs):
         import os
@@ -2725,10 +2725,14 @@ e.g., struct<a:int, b:array<int>>.
         udf_is_running = True
 
         def copy_logs():
-            while udf_is_running:
-                import time
-                time.sleep(1)
-                shutil.copytree(tmp_dir, f"{dbfs_root_path}/{tmp_folder}", dirs_exist_ok=True)
+            mlflow.set_experiment(experiment_id=logs_exp_id)
+            with mlflow.start_run():
+                while udf_is_running:
+                    import time
+                    time.sleep(2)
+                    # shutil.copytree(tmp_dir, f"{dbfs_root_path}/{tmp_folder}", dirs_exist_ok=True)
+                    mlflow.log_artifact(os.path.join(tmp_dir, "stdout.log"))
+                    mlflow.log_artifact(os.path.join(tmp_dir, "stderr.log"))
 
         threading.Thread(target=copy_logs).start()
 
