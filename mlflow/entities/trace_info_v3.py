@@ -7,8 +7,13 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment
-from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import (
+    MlflowExperimentLocation,
+    TraceLocation,
+    TraceLocationType,
+)
 from mlflow.protos import databricks_trace_server_pb2 as pb
+from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfoV2
 
 
 @dataclass
@@ -29,12 +34,12 @@ class TraceInfoState(str, Enum):
 @dataclass
 class TraceInfoV3(_MlflowObject):
     trace_id: str
-    client_request_id: str
     trace_location: TraceLocation
-    request: str
-    response: str
     request_time: int
     state: TraceInfoState
+    request: Optional[str] = None
+    response: Optional[str] = None
+    client_request_id: Optional[str] = None
     execution_duration: Optional[int] = None
     trace_metadata: dict[str, str] = field(default_factory=dict)
     tags: dict[str, str] = field(default_factory=dict)
@@ -84,6 +89,22 @@ class TraceInfoV3(_MlflowObject):
             assessments=[Assessment.from_proto(a) for a in proto.assessments],
         )
 
+    @classmethod
+    def from_v2_proto(cls, proto: ProtoTraceInfoV2) -> "TraceInfoV3":
+        trace_location = TraceLocation(
+            type=TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflow_experiment=MlflowExperimentLocation(experiment_id=proto.experiment_id),
+        )
+        return cls(
+            trace_id=proto.request_id,
+            trace_location=trace_location,
+            request_time=proto.timestamp_ms,
+            execution_duration=proto.execution_time_ms,
+            state=TraceInfoState.from_proto(proto.status),
+            trace_metadata={m.key: m.value for m in proto.request_metadata},
+            tags={t.key: t.value for t in proto.tags},
+        )
+
     # Aliases for backward compatibility with V2 format
     @property
     def request_id(self) -> str:
@@ -104,10 +125,22 @@ class TraceInfoV3(_MlflowObject):
     def timestamp_ms(self) -> int:
         return self.request_time
 
+    @timestamp_ms.setter
+    def timestamp_ms(self, value: int) -> None:
+        self.request_time = value
+
     @property
     def execution_time_ms(self) -> Optional[int]:
         return self.execution_duration
 
+    @execution_time_ms.setter
+    def execution_time_ms(self, value: Optional[int]) -> None:
+        self.execution_duration = value
+
     @property
     def status(self) -> TraceInfoState:
         return self.state
+
+    @status.setter
+    def status(self, value: TraceInfoState) -> None:
+        self.state = value
