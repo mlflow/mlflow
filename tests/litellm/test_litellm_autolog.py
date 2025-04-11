@@ -75,7 +75,7 @@ def test_litellm_tracing_failure(is_in_databricks):
             messages=[{"role": "system", "content": "Hello"}],
         )
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "ERROR"
 
     spans = trace.data.spans
@@ -104,7 +104,7 @@ def test_litellm_tracing_streaming(is_in_databricks):
 
     _wait_if_not_in_databricks()
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
 
     spans = trace.data.spans
@@ -134,7 +134,7 @@ async def test_litellm_tracing_async(is_in_databricks):
     logger_task = next(t for t in asyncio.all_tasks() if "async_" in t.get_coro().__name__)
     await logger_task
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
 
     spans = trace.data.spans
@@ -176,7 +176,7 @@ async def test_litellm_tracing_async_streaming(is_in_databricks):
     )
     await logger_task
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
 
     spans = trace.data.spans
@@ -191,7 +191,7 @@ def test_litellm_tracing_disable(is_in_databricks):
 
     litellm.completion("gpt-4o-mini", [{"role": "system", "content": "Hello"}])
     _wait_if_not_in_databricks()
-    assert mlflow.get_last_active_trace() is not None
+    assert mlflow.get_trace(mlflow.get_last_active_trace_id()) is not None
     assert len(get_traces()) == 1
 
     mlflow.litellm.autolog(disable=True)

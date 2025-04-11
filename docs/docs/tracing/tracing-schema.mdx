@@ -695,7 +695,8 @@ def call_chat_model(messages, tools):
 
 call_chat_model(messages, tools)
 
-trace = mlflow.get_last_active_trace()
+trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id)
 span = trace.data.spans[0]
 
 print("Messages: ", span.get_attribute(SpanAttributeKey.CHAT_MESSAGES))

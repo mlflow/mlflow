@@ -8,6 +8,7 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.protos.databricks_trace_server_pb2 import CreateTrace, DatabricksTracingServerService
+from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import (
@@ -51,6 +52,7 @@ class DatabricksSpanExporter(SpanExporter):
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
 
+            _set_last_active_trace_id(trace.info.request_id)
             self._log_trace(trace)
 
     def _log_trace(self, trace: Trace):
