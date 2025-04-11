@@ -188,6 +188,12 @@ def _wrap_function(
         def _wrapping_logic(fn, args, kwargs):
             span_name = name or fn.__name__
 
+            nonlocal model_id
+            if model_id is None:
+                from mlflow.models.model import _MODEL_TRACKER
+
+                model_id = _MODEL_TRACKER.get_active_model_id()
+
             with start_span(
                 name=span_name, span_type=span_type, attributes=attributes, model_id=model_id
             ) as span:
