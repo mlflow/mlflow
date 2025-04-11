@@ -2154,6 +2154,9 @@ def spark_udf(
         type specified by ``result_type``, which by default is a double.
     """
 
+    db_host = os.environ["DATABRICKS_HOST"]
+    db_token = os.environ["DATABRICKS_TOKEN"]
+
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
     from pyspark.sql.functions import pandas_udf
@@ -2725,6 +2728,8 @@ e.g., struct<a:int, b:array<int>>.
         udf_is_running = True
 
         def copy_logs():
+            os.environ["DATABRICKS_HOST"] = db_host
+            os.environ["DATABRICKS_TOKEN"] = db_token
             mlflow.set_experiment(experiment_id=logs_exp_id)
             with mlflow.start_run():
                 while udf_is_running:
