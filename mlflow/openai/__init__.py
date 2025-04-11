@@ -999,6 +999,14 @@ def _autolog(
         safe_patch(FLAVOR_NAME, Completions, "parse", patched_call)
         safe_patch(FLAVOR_NAME, AsyncCompletions, "parse", async_patched_call)
 
+    try:
+        from openai.resources.responses import AsyncResponses, Responses
+    except ImportError:
+        pass
+    else:
+        safe_patch(FLAVOR_NAME, Responses, "create", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncResponses, "create", async_patched_call)
+
     # Patch Swarm agent to generate traces
     try:
         from swarm import Swarm
