@@ -39,7 +39,7 @@ class InferenceTableLocation(_MlflowObject):
         return cls(full_table_name=proto.full_table_name)
 
 
-class TraceLocationType(Enum):
+class TraceLocationType(str, Enum):
     TRACE_LOCATION_TYPE_UNSPECIFIED = "TRACE_LOCATION_TYPE_UNSPECIFIED"
     MLFLOW_EXPERIMENT = "MLFLOW_EXPERIMENT"
     INFERENCE_TABLE = "INFERENCE_TABLE"
