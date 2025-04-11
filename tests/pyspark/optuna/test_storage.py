@@ -18,7 +18,7 @@ from optuna.trial import FrozenTrial, TrialState
 
 import mlflow
 from mlflow.entities import Metric, Param, RunTag
-from mlflow.pyspark.optuna.storage import MLFlowStorage
+from mlflow.pyspark.optuna.storage import MlflowStorage
 
 ALL_STATES = list(TrialState)
 
@@ -119,7 +119,7 @@ def setup_storage():
     mlflow_uri = "file:" + os.path.join(tempdir, "mlflow")
     mlflow.set_tracking_uri(mlflow_uri)
     experiment_id = mlflow.create_experiment(name="optuna_mlflow_test")
-    storage = MLFlowStorage(
+    storage = MlflowStorage(
         experiment_id=experiment_id, batch_flush_interval=1.0, batch_size_threshold=5
     )
     storage._flush_thread = MagicMock()

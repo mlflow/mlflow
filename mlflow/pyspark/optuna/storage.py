@@ -45,7 +45,7 @@ mlflow_optuna_status_map = {
 }
 
 
-class MLFlowStorage(BaseStorage):
+class MlflowStorage(BaseStorage):
     """
     MLflow based storage class with batch processing to avoid REST API throttling.
     """
