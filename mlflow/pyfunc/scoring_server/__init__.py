@@ -614,7 +614,7 @@ def get_cmd(
     if nworkers:
         args.append(f"--workers {nworkers}")
 
-    args.extend(["--capture-output", "--error-logfile", "-"])
+    # args.extend(["--capture-output", "--error-logfile", "-"])
 
     command = f"uvicorn {' '.join(args)} mlflow.pyfunc.scoring_server.app:app"
 
