@@ -2,7 +2,7 @@ import { Header, Tabs, Typography, useDesignSystemTheme } from '@databricks/desi
 import { FormattedMessage } from 'react-intl';
 import { isNil, keys } from 'lodash';
 import { TraceTableGenericQuickstart } from './TraceTableGenericQuickstart';
-import { QUICKSTART_CONTENT, QUICKSTART_FLAVOR } from './TraceTableQuickstart.utils';
+import { QUICKSTART_CONTENT, QUICKSTART_FLAVOR, QUICKSTART_TAB_MESSAGES } from './TraceTableQuickstart.utils';
 
 export const TracesViewTableNoTracesQuickstart = ({
   baseComponentId,
@@ -59,72 +59,11 @@ export const TracesViewTableNoTracesQuickstart = ({
       </Typography.Text>
       <Tabs.Root componentId={`${baseComponentId}.traces_table.quickstart`} defaultValue="openai">
         <Tabs.List>
-          <Tabs.Trigger value="openai">
-            <FormattedMessage
-              defaultMessage="OpenAI"
-              description="Header for OpenAI tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="langchain">
-            <FormattedMessage
-              defaultMessage="LangChain / LangGraph"
-              description="Header for LangChain / LangGraph tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="llama_index">
-            <FormattedMessage
-              defaultMessage="LlamaIndex"
-              description="Header for LlamaIndex tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="dspy">
-            <FormattedMessage
-              defaultMessage="DSPy"
-              description="Header for DSPy tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="crewai">
-            <FormattedMessage
-              defaultMessage="CrewAI"
-              description="Header for CrewAI tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="autogen">
-            <FormattedMessage
-              defaultMessage="AutoGen"
-              description="Header for AutoGen tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="anthropic">
-            <FormattedMessage
-              defaultMessage="Anthropic"
-              description="Header for Anthropic tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="bedrock">
-            <FormattedMessage
-              defaultMessage="Bedrock"
-              description="Header for Bedrock tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="litellm">
-            <FormattedMessage
-              defaultMessage="LiteLLM"
-              description="Header for LiteLLM tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="gemini">
-            <FormattedMessage
-              defaultMessage="Gemini"
-              description="Header for Gemini tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="custom">
-            <FormattedMessage
-              defaultMessage="Custom"
-              description="Header for custom tracing tab in the MLflow Tracing quickstart guide"
-            />
-          </Tabs.Trigger>
+          {keys(QUICKSTART_CONTENT).map((flavorName) => (
+            <Tabs.Trigger key={flavorName} value={flavorName}>
+              {QUICKSTART_TAB_MESSAGES[flavorName as QUICKSTART_FLAVOR]}
+            </Tabs.Trigger>
+          ))}
         </Tabs.List>
         {keys(QUICKSTART_CONTENT).map((flavorName) => (
           <Tabs.Content value={flavorName as QUICKSTART_FLAVOR} key={flavorName + '_content'}>
