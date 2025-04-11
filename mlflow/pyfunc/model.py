@@ -942,7 +942,6 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     saved_code_subpath = _validate_infer_and_copy_code_paths(
         code_paths,
@@ -952,7 +951,6 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     )
     mlflow_model.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.CODE] = saved_code_subpath
 
-    # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
