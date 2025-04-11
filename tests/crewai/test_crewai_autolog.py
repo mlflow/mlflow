@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 import crewai
@@ -9,6 +10,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
 
@@ -1042,3 +1044,89 @@ def test_flow(simple_agent_1, task_1, autolog):
         }
     }
     assert span_5.outputs is None
+
+
+@pytest.mark.parametrize("log_models", [True, False])
+def test_autolog_log_models_and_link_traces_crew(simple_agent_1, task_1, log_models):
+    mlflow.crewai.autolog(log_models=log_models)
+
+    crew = Crew(
+        agents=[
+            simple_agent_1,
+        ],
+        tasks=[task_1],
+    )
+
+    with (
+        mlflow.start_run() as run,
+        patch("litellm.completion", return_value=_SIMPLE_CHAT_COMPLETION),
+    ):
+        for _ in range(3):
+            crew.kickoff()
+
+    traces = get_traces()
+    assert len(traces) == 3
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    if log_models:
+        assert len(logged_models) == 1
+        logged_model = logged_models[0]
+        assert json.loads(logged_model.params["tasks"])[0]["description"] == _TASK_1_DESCRIPTION
+        assert json.loads(logged_model.params["agents"])[0]["goal"] == _AGENT_1_GOAL
+        logged_model_id = logged_models[0].model_id
+        for i in range(3):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        logged_model_id = None
+        for i in range(3):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
+
+
+@pytest.mark.parametrize("log_models", [True, False])
+def test_autolog_log_models_and_link_traces_flow(simple_agent_1, task_1, log_models):
+    mlflow.crewai.autolog(log_models=log_models)
+
+    crew = Crew(
+        agents=[
+            simple_agent_1,
+        ],
+        tasks=[task_1],
+    )
+
+    class TestFlow(Flow):
+        @start()
+        def start(self):
+            return crew.kickoff()
+
+    flow = TestFlow()
+
+    with (
+        mlflow.start_run() as run,
+        patch("litellm.completion", return_value=_SIMPLE_CHAT_COMPLETION),
+    ):
+        for _ in range(3):
+            flow.kickoff()
+
+    traces = get_traces()
+    assert len(traces) == 3
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+    )
+    if log_models:
+        assert len(logged_models) == 1
+        logged_model = logged_models[0]
+        assert not logged_model.params
+        logged_model_id = logged_models[0].model_id
+        for i in range(3):
+            assert (
+                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
+            )
+    else:
+        assert len(logged_models) == 0
+        logged_model_id = None
+        for i in range(3):
+            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
