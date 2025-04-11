@@ -2349,12 +2349,22 @@ def search_logged_models(
         The search results in the specified output format.
     """
     experiment_ids = experiment_ids or [_get_experiment_id()]
-    models = MlflowClient().search_logged_models(
-        experiment_ids=experiment_ids,
-        filter_string=filter_string,
-        max_results=max_results,
-        order_by=order_by,
-    )
+    client = MlflowClient()
+    models = []
+    page_token = None
+    while True:
+        logged_models_page = client.search_logged_models(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            page_token=page_token,
+            max_results=max_results,
+            order_by=order_by,
+        )
+        models.extend(logged_models_page.to_list())
+        if not logged_models_page.token:
+            break
+        page_token = logged_models_page.token
+
     if output_format == "list":
         return models
     elif output_format == "pandas":

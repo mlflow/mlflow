@@ -1860,3 +1860,38 @@ def test_set_and_delete_model_tag():
 
     mlflow.delete_logged_model_tag(model.model_id, "tag")
     assert "tag" not in mlflow.last_logged_model().tags
+
+
+def test_search_logged_models_pagination():
+    def make_search_logged_model_page(models, token):
+        page = mock.Mock()
+        page.to_list.return_value = models
+        page.token = token
+        return page
+
+    with mock.patch("mlflow.tracking.fluent.MlflowClient") as MockClient:
+        mock_client = MockClient.return_value
+        page_1 = make_search_logged_model_page(["model_1", "model_2"], "token_1")
+        page_2 = make_search_logged_model_page(["model_3"], None)
+        mock_client.search_logged_models.side_effect = [page_1, page_2]
+
+        result = mlflow.search_logged_models(experiment_ids=["123"], output_format="list")
+        assert result == [f"model_{i + 1}" for i in range(3)]
+
+        expected_calls = [
+            mock.call(
+                experiment_ids=["123"],
+                filter_string=None,
+                page_token=None,
+                max_results=None,
+                order_by=None,
+            ),
+            mock.call(
+                experiment_ids=["123"],
+                filter_string=None,
+                page_token="token_1",
+                max_results=None,
+                order_by=None,
+            ),
+        ]
+        mock_client.search_logged_models.assert_has_calls(expected_calls)
