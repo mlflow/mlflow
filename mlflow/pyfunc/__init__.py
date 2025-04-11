@@ -2002,7 +2002,8 @@ def spark_udf(
     extra_env: Optional[dict[str, str]] = None,
     prebuilt_env_uri: Optional[str] = None,
     model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
-    logs_exp_id = None
+    logs_exp_id = None,
+    logs_run_prefix = None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -2728,10 +2729,13 @@ e.g., struct<a:int, b:array<int>>.
         udf_is_running = True
 
         def copy_logs():
+            import time
             os.environ["DATABRICKS_HOST"] = db_host
             os.environ["DATABRICKS_TOKEN"] = db_token
-            mlflow.set_experiment(experiment_id=logs_exp_id)
-            with mlflow.start_run():
+            with mlflow.start_run(
+                run_id=f"{logs_run_prefix}-{time.time()}",
+                experiment_id=logs_exp_id,
+            ):
                 while True:
                     import time
                     time.sleep(2)
