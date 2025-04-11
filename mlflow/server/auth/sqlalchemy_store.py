@@ -20,7 +20,7 @@ from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPer
 from mlflow.server.auth.permissions import _validate_permission
 from mlflow.store.db.utils import _get_managed_session_maker, create_sqlalchemy_engine_with_retry
 from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.utils.validation import _validate_username, _validate_password
+from mlflow.utils.validation import _validate_password, _validate_username
 
 
 class SqlAlchemyStore:
