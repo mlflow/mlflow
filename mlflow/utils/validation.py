@@ -623,7 +623,7 @@ def _validate_username(username):
         raise MlflowException("Username cannot be empty.", INVALID_PARAMETER_VALUE)
 
 
-def _validate_password(password):
+def _validate_password(password) -> None:
     if password is None or len(password) < 12:
         raise MlflowException.invalid_parameter_value(
             "Password must be a string longer than 12 characters."
