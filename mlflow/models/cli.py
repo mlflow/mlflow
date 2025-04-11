@@ -26,7 +26,7 @@ def commands():
 @cli_args.PORT
 @cli_args.HOST
 @cli_args.TIMEOUT
-@cli_args.WORKERS
+@cli_args.MODELS_WORKERS
 @cli_args.ENV_MANAGER
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW

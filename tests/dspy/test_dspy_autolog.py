@@ -746,6 +746,51 @@ def test_autolog_log_evals(
 
 
 @skip_if_evaluate_callback_unavailable
+def test_autolog_nested_evals():
+    lm = DummyLM(
+        {
+            "What is 1 + 1?": {"answer": "2"},
+            "What is 2 + 2?": {"answer": "4"},
+        }
+    )
+    dspy.settings.configure(lm=lm)
+    examples = [
+        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+        Example(question="What is 2 + 2?", answer="2").with_inputs("question"),
+    ]
+    program = Predict("question -> answer")
+    evaluator = Evaluate(devset=examples, metric=answer_exact_match)
+
+    mlflow.dspy.autolog(log_evals=True)
+    with mlflow.start_run() as run:
+        evaluator(program, devset=examples[:1])
+        evaluator(program, devset=examples[1:])
+
+    # children runs
+    client = MlflowClient()
+    child_runs = client.search_runs(
+        run.info.experiment_id,
+        filter_string=f"tags.mlflow.parentRunId = '{run.info.run_id}'",
+        order_by=["attributes.start_time ASC"],
+    )
+    assert len(child_runs) == 2
+    for i, run in enumerate(child_runs):
+        if i == 0:
+            assert run.data.metrics == {"eval": 100.0}
+        else:
+            assert run.data.metrics == {"eval": 0}
+        assert run.data.params == {
+            "Predict.signature.fields.0.description": "${question}",
+            "Predict.signature.fields.0.prefix": "Question:",
+            "Predict.signature.fields.1.description": "${answer}",
+            "Predict.signature.fields.1.prefix": "Answer:",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+        }
+        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+        assert "model.json" in artifacts
+
+
+@skip_if_evaluate_callback_unavailable
 def test_autolog_log_compile_with_evals():
     class EvalOptimizer(dspy.teleprompt.Teleprompter):
         def compile(self, program, eval, trainset, valset):
@@ -778,7 +823,6 @@ def test_autolog_log_compile_with_evals():
     callback = dspy.settings.callbacks[0]
     assert callback.optimizer_stack_level == 0
     assert callback._call_id_to_metric_key == {}
-    assert callback._call_id_to_run_id == {}
     assert callback._evaluation_counter == {}
 
     # root run
