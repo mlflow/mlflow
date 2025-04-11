@@ -22,6 +22,7 @@ import mlflow.models.cli as models_cli
 import mlflow.sklearn
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING
 from mlflow.exceptions import MlflowException
+from mlflow.models.docker_utils import UBUNTU_BASE_IMAGE
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import get_model_requirements_files, update_model_requirements
 from mlflow.models.utils import load_serving_example
@@ -43,6 +44,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.process import ShellCommandException
 
 from tests.helper_functions import (
+    CUSTOM_BASE_IMAGE,
     PROTOBUF_REQUIREMENT,
     RestEndpoint,
     get_safe_port,
@@ -596,7 +598,8 @@ def test_prepare_env_fails(sk_model):
 
 
 @pytest.mark.parametrize("enable_mlserver", [True, False])
-def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
+@pytest.mark.parametrize("base_image", [None, CUSTOM_BASE_IMAGE])
+def test_generate_dockerfile(sk_model, enable_mlserver, base_image, tmp_path):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
@@ -615,16 +618,25 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
         model_uri,
         extra_args=extra_args,
         env=env_with_tracking_uri(),
+        base_image=base_image,
     )
     assert output_directory.is_dir()
     assert output_directory.joinpath("Dockerfile").exists()
     assert output_directory.joinpath("model_dir").is_dir()
     # Assert file is not empty
     assert output_directory.joinpath("Dockerfile").stat().st_size != 0
+    with open(output_directory.joinpath("Dockerfile")) as dockerfile:
+        dockerfile_text = dockerfile.read()
+
+    if base_image is None:
+        assert UBUNTU_BASE_IMAGE in dockerfile_text
+    else:
+        assert CUSTOM_BASE_IMAGE in dockerfile_text
 
 
 @pytest.mark.parametrize("enable_mlserver", [True, False])
-def test_build_docker(iris_data, sk_model, enable_mlserver):
+@pytest.mark.parametrize("base_image", [None, CUSTOM_BASE_IMAGE])
+def test_build_docker(iris_data, sk_model, enable_mlserver, base_image):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
@@ -645,6 +657,7 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
         model_uri,
         extra_args=extra_args,
         env=env_with_tracking_uri(),
+        base_image=base_image,
     )
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
