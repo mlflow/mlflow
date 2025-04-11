@@ -16,35 +16,11 @@ class SpanKind(str, Enum):
     SPAN_KIND_CONSUMER = "SPAN_KIND_CONSUMER"
 
     def to_proto(self) -> pb.Span.SpanKind:
-        if self == SpanKind.SPAN_KIND_UNSPECIFIED:
-            return pb.Span.SPAN_KIND_UNSPECIFIED
-        elif self == SpanKind.SPAN_KIND_INTERNAL:
-            return pb.Span.SPAN_KIND_INTERNAL
-        elif self == SpanKind.SPAN_KIND_SERVER:
-            return pb.Span.SPAN_KIND_SERVER
-        elif self == SpanKind.SPAN_KIND_CLIENT:
-            return pb.Span.SPAN_KIND_CLIENT
-        elif self == SpanKind.SPAN_KIND_PRODUCER:
-            return pb.Span.SPAN_KIND_PRODUCER
-        elif self == SpanKind.SPAN_KIND_CONSUMER:
-            return pb.Span.SPAN_KIND_CONSUMER
-        raise ValueError(f"Unknown SpanKind: {self}")
+        return pb.Span.SpanKind.Value(self)
 
     @classmethod
-    def from_proto(cls, proto: pb.Span.SpanKind) -> "SpanKind":
-        if proto == pb.Span.SpanKind.SPAN_KIND_UNSPECIFIED:
-            return cls.SPAN_KIND_UNSPECIFIED
-        elif proto == pb.Span.SpanKind.SPAN_KIND_INTERNAL:
-            return cls.SPAN_KIND_INTERNAL
-        elif proto == pb.Span.SpanKind.SPAN_KIND_SERVER:
-            return cls.SPAN_KIND_SERVER
-        elif proto == pb.Span.SpanKind.SPAN_KIND_CLIENT:
-            return cls.SPAN_KIND_CLIENT
-        elif proto == pb.Span.SpanKind.SPAN_KIND_PRODUCER:
-            return cls.SPAN_KIND_PRODUCER
-        elif proto == pb.Span.SpanKind.SPAN_KIND_CONSUMER:
-            return cls.SPAN_KIND_CONSUMER
-        raise ValueError(f"Unknown SpanKind: {proto}")
+    def from_proto(cls, proto: int) -> "SpanKind":
+        return SpanKind(pb.Span.SpanKind.Name(proto))
 
 
 class SpanStatusCode(str, Enum):

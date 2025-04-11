@@ -12,34 +12,18 @@ from mlflow.protos import databricks_trace_server_pb2 as pb
 
 
 @dataclass
-class TraceInfoStatus(Enum):
+class TraceInfoState(str, Enum):
     STATE_UNSPECIFIED = "STATE_UNSPECIFIED"
     OK = "OK"
     ERROR = "ERROR"
     IN_PROGRESS = "IN_PROGRESS"
 
     def to_proto(self) -> pb.TraceInfo.State:
-        if self == TraceInfoStatus.STATE_UNSPECIFIED:
-            return pb.TraceInfo.State.STATE_UNSPECIFIED
-        elif self == TraceInfoStatus.OK:
-            return pb.TraceInfo.State.OK
-        elif self == TraceInfoStatus.ERROR:
-            return pb.TraceInfo.State.ERROR
-        elif self == TraceInfoStatus.IN_PROGRESS:
-            return pb.TraceInfo.State.IN_PROGRESS
-        raise ValueError(f"Unknown TraceInfoStatus: {self}")
+        return pb.TraceInfo.State.Value(self)
 
     @classmethod
-    def from_proto(cls, proto: pb.TraceInfo.State) -> "TraceInfoStatus":
-        if proto == pb.TraceInfo.State.STATE_UNSPECIFIED:
-            return cls.STATE_UNSPECIFIED
-        elif proto == pb.TraceInfo.State.OK:
-            return cls.OK
-        elif proto == pb.TraceInfo.State.ERROR:
-            return cls.ERROR
-        elif proto == pb.TraceInfo.State.IN_PROGRESS:
-            return cls.IN_PROGRESS
-        raise ValueError(f"Unknown TraceInfoStatus: {proto}")
+    def from_proto(cls, proto: int) -> "TraceInfoState":
+        return TraceInfoState(pb.TraceInfo.State.Name(proto))
 
 
 @dataclass
@@ -50,8 +34,8 @@ class TraceInfoV3(_MlflowObject):
     request: str
     response: str
     request_time: int
+    state: TraceInfoState
     execution_duration: Optional[int] = None
-    status: TraceInfoStatus
     trace_metadata: dict[str, str] = field(default_factory=dict)
     tags: dict[str, str] = field(default_factory=dict)
     assessments: list[Assessment] = field(default_factory=list)
@@ -60,7 +44,7 @@ class TraceInfoV3(_MlflowObject):
         request_time = Timestamp()
         request_time.FromMilliseconds(self.request_time)
         execution_duration = None
-        if self.execution_duration is None:
+        if self.execution_duration is not None:
             execution_duration = Duration()
             execution_duration.FromMilliseconds(self.execution_duration)
         return pb.TraceInfo(
@@ -74,14 +58,17 @@ class TraceInfoV3(_MlflowObject):
             state=self.state.to_proto(),
             trace_metadata=self.trace_metadata,
             tags=self.tags,
-            assessments=[assessment.to_proto() for assessment in self.assessments],
+            assessments=[a.to_proto() for a in self.assessments],
         )
 
     @classmethod
     def from_proto(cls, proto: pb.TraceInfo) -> "TraceInfoV3":
         request_time = proto.request_time.ToMilliseconds()
-        execution_duration = proto.execution_duration.ToMilliseconds()
-        assessments = [Assessment.from_proto(assessment) for assessment in proto.assessments]
+        execution_duration = (
+            proto.execution_duration.ToMilliseconds()
+            if proto.HasField("execution_duration")
+            else None
+        )
         return cls(
             trace_id=proto.trace_id,
             client_request_id=proto.client_request_id,
@@ -90,20 +77,24 @@ class TraceInfoV3(_MlflowObject):
             response=proto.response,
             request_time=request_time,
             execution_duration=execution_duration,
-            state=TraceInfoStatus.from_proto(proto.state),
-            trace_metadata=proto.trace_metadata,
-            tags=proto.tags,
-            assessments=assessments,
+            state=TraceInfoState.from_proto(proto.state),
+            # ScalarMapContainer -> native dict
+            trace_metadata=dict(proto.trace_metadata),
+            tags=dict(proto.tags),
+            assessments=[Assessment.from_proto(a) for a in proto.assessments],
         )
 
-    # Aliases for backward compatibility with V2 schema
+    # Aliases for backward compatibility with V2 format
     @property
     def request_id(self) -> str:
         return self.trace_id
 
     @property
     def experiment_id(self) -> Optional[str]:
-        return self.trace_location.experiment_id if self.trace_location else None
+        return (
+            self.trace_location.mlflow_experiment
+            and self.trace_location.mlflow_experiment.experiment_id
+        )
 
     @property
     def request_metadata(self) -> dict[str, str]:
@@ -116,3 +107,7 @@ class TraceInfoV3(_MlflowObject):
     @property
     def execution_time_ms(self) -> Optional[int]:
         return self.execution_duration
+
+    @property
+    def status(self) -> TraceInfoState:
+        return self.state
