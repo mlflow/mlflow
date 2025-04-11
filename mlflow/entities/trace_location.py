@@ -45,21 +45,11 @@ class TraceLocationType(str, Enum):
     INFERENCE_TABLE = "INFERENCE_TABLE"
 
     def to_proto(self) -> pb.TraceLocation.TraceLocationType:
-        if self == TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED:
-            return pb.TraceLocation.TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED
-        elif self == TraceLocationType.MLFLOW_EXPERIMENT:
-            return pb.TraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
-        elif self == TraceLocationType.INFERENCE_TABLE:
-            return pb.TraceLocation.TraceLocationType.INFERENCE_TABLE
+        return pb.TraceLocation.TraceLocationType.Value(self)
 
     @classmethod
-    def from_proto(cls, proto: pb.TraceLocation.TraceLocationType) -> "TraceLocationType":
-        if proto == pb.TraceLocation.TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED:
-            return cls.TRACE_LOCATION_TYPE_UNSPECIFIED
-        elif proto == pb.TraceLocation.TraceLocationType.MLFLOW_EXPERIMENT:
-            return cls.MLFLOW_EXPERIMENT
-        elif proto == pb.TraceLocation.TraceLocationType.INFERENCE_TABLE:
-            return cls.INFERENCE_TABLE
+    def from_proto(cls, proto: int) -> "TraceLocationType":
+        return TraceLocationType(pb.TraceLocation.TraceLocationType.Name(proto))
 
 
 @dataclass
