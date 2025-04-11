@@ -551,9 +551,6 @@ message CreateModelVersion {
   // Optional `model_id` for model version that is used to link the registered model to the source logged model
   optional string model_id = 7;
 
-  // Optional parameters for the model.
-  repeated ModelParam model_params = 8;
-
   message Response {
     // Return new version number generated for this model in registry.
     optional ModelVersion model_version = 1;
