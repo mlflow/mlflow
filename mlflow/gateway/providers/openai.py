@@ -46,7 +46,6 @@ class OpenAIAdapter(ProviderAdapter):
 
     @classmethod
     def completion_to_model(cls, payload, config):
-        payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
         return cls._add_model_to_payload_if_necessary(payload, config)
 
     @classmethod
@@ -558,7 +557,7 @@ class OpenAIProvider(BaseProvider):
         stream = send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
-            path="chat/completions",
+            path="completions",
             payload=OpenAIAdapter.completion_to_model(payload, self.config),
         )
 
@@ -582,7 +581,7 @@ class OpenAIProvider(BaseProvider):
         resp = await send_request(
             headers=self.headers,
             base_url=self.base_url,
-            path="chat/completions",
+            path="completions",
             payload=OpenAIAdapter.completion_to_model(payload, self.config),
         )
         return OpenAIAdapter.model_to_completions(resp, self.config)
