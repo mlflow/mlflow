@@ -1239,6 +1239,7 @@ class TrackingServiceClient:
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
+        datasets: Optional[list[dict[str, Any]]] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
@@ -1250,5 +1251,5 @@ class TrackingServiceClient:
                 f"experiment_ids must be a list of strings, got {type(experiment_ids)}",
             )
         return self.store.search_logged_models(
-            experiment_ids, filter_string, max_results, order_by, page_token
+            experiment_ids, filter_string, datasets, max_results, order_by, page_token
         )

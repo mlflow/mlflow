@@ -2616,6 +2616,15 @@ def test_search_logged_models(mlflow_client: MlflowClient):
     )
     assert [m.name for m in models] == [model_1.name]
 
+    # datasets
+    mlflow_client.log_metric(
+        model_1.model_id, "metric", 1, dataset_name="dataset", dataset_digest="123"
+    )
+    models = mlflow_client.search_logged_models(
+        experiment_ids=[exp_id], datasets=[{"dataset_name": "dataset", "dataset_digest": "123"}]
+    )
+    assert [m.name for m in models] == [model_1.name]
+
     # order_by
     models = mlflow_client.search_logged_models(
         experiment_ids=[exp_id], order_by=[{"field_name": "creation_timestamp", "ascending": False}]
