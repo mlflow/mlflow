@@ -3,9 +3,12 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities.assessment import AssessmentError, Expectation, Feedback
+from mlflow.entities.assessment import Assessment, AssessmentError, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.fluent import TRACE_BUFFER
 
 
 # TODO: This test mocks out the tracking client and only test if the fluent API implementation
@@ -271,3 +274,243 @@ def test_assessment_apis_only_available_in_databricks():
 
     with pytest.raises(MlflowException, match=r"This API is currently only available"):
         mlflow.delete_feedback(trace_id="1234", assessment_id="1234")
+
+
+## Test that the fluent API functions correctly update the trace buffer
+
+
+@pytest.fixture
+def trace_obj():
+    return Trace.from_dict(
+        {
+            "info": {
+                "request_id": "1234567812345678abcdabcdabcdabcd",
+                "experiment_id": "0",
+                "timestamp_ms": 123456789,
+                "execution_time_ms": 123,
+                "status": "OK",
+                "request_metadata": {
+                    "mlflow.traceInputs": "Hello world!",
+                    "mlflow.traceOutputs": "Hello!",
+                    TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+                },
+                "tags": {},
+                "assessments": [],
+            },
+            "data": {
+                "request": "Hello world!",
+                "response": "Hello!",
+                "spans": [
+                    {
+                        "name": "predict",
+                        "context": {
+                            "trace_id": "1234567812345678abcdabcdabcdabcd",
+                            "span_id": "0xabcdabcdabcdabcd",
+                        },
+                        "parent_id": None,
+                        "start_time": 0,
+                        "end_time": 123456789,
+                        "status_code": "OK",
+                        "status_message": "",
+                        "attributes": {
+                            "mlflow.traceRequestId": "1234567812345678abcdabcdabcdabcd",
+                            "mlflow.spanType": '"UNKNOWN"',
+                            "mlflow.spanFunctionName": '"predict"',
+                            "mlflow.spanInputs": "Hello world!",
+                            "mlflow.spanOutputs": "Hello!",
+                        },
+                        "events": [],
+                    },
+                ],
+            },
+        }
+    )
+
+
+@pytest.fixture
+def buffered_trace_id(trace_obj):
+    TRACE_BUFFER[trace_obj.info.request_id] = trace_obj
+    yield trace_obj.info.request_id
+    del TRACE_BUFFER[trace_obj.info.request_id]
+
+
+def test_log_expectation_updates_buffer(store, buffered_trace_id):
+    mlflow.set_tracking_uri("databricks")
+    store.create_assessment.return_value = Assessment(
+        trace_id=buffered_trace_id,
+        _assessment_id="1234",
+        name="expected_answer",
+        expectation=Expectation("answer"),
+        source=AssessmentSourceType.HUMAN,
+        create_time_ms=0,
+        last_update_time_ms=0,
+    )
+
+    mlflow.log_expectation(
+        trace_id=buffered_trace_id,
+        name="expected_answer",
+        value="answer",
+        source=AssessmentSourceType.HUMAN,
+    )
+
+    retrieved_trace = mlflow.get_trace(buffered_trace_id)
+    assert retrieved_trace.info.assessments[0].name == "expected_answer"
+
+
+def test_update_expectation_updates_buffer(store, buffered_trace_id):
+    mlflow.set_tracking_uri("databricks")
+    store.create_assessment.return_value = Assessment(
+        trace_id=buffered_trace_id,
+        _assessment_id="1234",
+        name="expected_answer",
+        expectation=Expectation("answer"),
+        source=AssessmentSourceType.HUMAN,
+        create_time_ms=0,
+        last_update_time_ms=0,
+    )
+
+    mlflow.log_expectation(
+        trace_id=buffered_trace_id,
+        name="expected_answer",
+        value="answer",
+        source=AssessmentSourceType.HUMAN,
+    )
+
+    store.update_assessment.return_value = Assessment(
+        trace_id=buffered_trace_id,
+        _assessment_id="1234",
+        name="expected_answer",
+        expectation=Expectation("Updated answer"),
+        source=AssessmentSourceType.HUMAN,
+        create_time_ms=0,
+        last_update_time_ms=0,
+    )
+
+    mlflow.update_expectation(
+        trace_id=buffered_trace_id,
+        assessment_id="1234",
+        name="expected_answer",
+        value="answer",
+    )
+
+    retrieved_trace = mlflow.get_trace(buffered_trace_id)
+    assert retrieved_trace.info.assessments[0].expectation.value == "Updated answer"
+
+
+def test_delete_expectation_updates_buffer(store, buffered_trace_id):
+    mlflow.set_tracking_uri("databricks")
+    store.create_assessment.return_value = Assessment(
+        trace_id=buffered_trace_id,
+        _assessment_id="1234",
+        name="expected_answer",
+        expectation=Expectation("answer"),
+        source=AssessmentSourceType.HUMAN,
+        create_time_ms=0,
+        last_update_time_ms=0,
+    )
+
+    mlflow.log_expectation(
+        trace_id=buffered_trace_id,
+        name="expected_answer",
+        value="answer",
+        source=AssessmentSourceType.HUMAN,
+    )
+
+    mlflow.delete_expectation(
+        trace_id=buffered_trace_id,
+        assessment_id="1234",
+    )
+
+    retrieved_trace = mlflow.get_trace(buffered_trace_id)
+    assert len(retrieved_trace.info.assessments) == 0
+
+
+def test_log_feedback_updates_buffer(store, buffered_trace_id):
+    mlflow.set_tracking_uri("databricks")
+    store.create_assessment.return_value = Assessment(
+        trace_id=buffered_trace_id,
+        _assessment_id="1234",
+        name="expected_answer",
+        feedback=Feedback("answer"),
+        source=AssessmentSourceType.HUMAN,
+        create_time_ms=0,
+        last_update_time_ms=0,
+    )
+
+    mlflow.log_feedback(
+        trace_id=buffered_trace_id,
+        name="expected_answer",
+        value="answer",
+        source=AssessmentSourceType.HUMAN,
+    )
+
+    retrieved_trace = mlflow.get_trace(buffered_trace_id)
+    assert retrieved_trace.info.assessments[0].name == "expected_answer"
+
+
+def test_update_feedback_updates_buffer(store, buffered_trace_id):
+    mlflow.set_tracking_uri("databricks")
+    store.create_assessment.return_value = Assessment(
+        trace_id=buffered_trace_id,
+        _assessment_id="1234",
+        name="expected_answer",
+        feedback=Feedback("answer"),
+        source=AssessmentSourceType.HUMAN,
+        create_time_ms=0,
+        last_update_time_ms=0,
+    )
+
+    mlflow.log_feedback(
+        trace_id=buffered_trace_id,
+        name="expected_answer",
+        value="answer",
+        source=AssessmentSourceType.HUMAN,
+    )
+
+    store.update_assessment.return_value = Assessment(
+        trace_id=buffered_trace_id,
+        _assessment_id="1234",
+        name="expected_answer",
+        feedback=Feedback("Updated answer"),
+        source=AssessmentSourceType.HUMAN,
+        create_time_ms=0,
+        last_update_time_ms=0,
+    )
+
+    mlflow.update_feedback(
+        trace_id=buffered_trace_id,
+        assessment_id="1234",
+        name="expected_answer",
+        value="answer",
+    )
+
+    retrieved_trace = mlflow.get_trace(buffered_trace_id)
+    assert retrieved_trace.info.assessments[0].feedback.value == "Updated answer"
+
+
+def test_delete_feedback_updates_buffer(store, buffered_trace_id):
+    mlflow.set_tracking_uri("databricks")
+    store.create_assessment.return_value = Assessment(
+        trace_id=buffered_trace_id,
+        _assessment_id="1234",
+        name="expected_answer",
+        feedback=Feedback("answer"),
+        source=AssessmentSourceType.HUMAN,
+        create_time_ms=0,
+        last_update_time_ms=0,
+    )
+
+    mlflow.log_feedback(
+        trace_id=buffered_trace_id,
+        name="expected_answer",
+        value="answer",
+        source=AssessmentSourceType.HUMAN,
+    )
+
+    mlflow.delete_feedback(
+        trace_id=buffered_trace_id,
+        assessment_id="1234",
+    )
+
+    retrieved_trace = mlflow.get_trace(buffered_trace_id)
+    assert len(retrieved_trace.info.assessments) == 0
