@@ -1,5 +1,5 @@
 import json
-from enum import StrEnum
+from enum import Enum
 from typing import Union
 
 import fastapi
@@ -10,13 +10,13 @@ from mlflow.types.chat import ChatCompletionRequest
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 
-class ChatChunkVariant(StrEnum):
+class ChatChunkVariant(str, Enum):
     EMPTY_CHOICES = "EMPTY_CHOICES"
     CHOICE_DELTA_NONE = "CHOICE_DELTA_NONE"
     CHOICE_DELTA_CONTENT_NONE = "CHOICE_DELTA_CONTENT_NONE"
 
 
-class CompletionsChunkVariant(StrEnum):
+class CompletionsChunkVariant(str, Enum):
     EMPTY_CHOICES = "EMPTY_CHOICES"
     CHOICE_EMPTY_TEXT = "CHOICE_EMPTY_TEXT"
 
