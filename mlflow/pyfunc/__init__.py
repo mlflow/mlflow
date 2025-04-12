@@ -2155,8 +2155,8 @@ def spark_udf(
         type specified by ``result_type``, which by default is a double.
     """
 
-    db_host = os.environ["DATABRICKS_HOST"]
-    db_token = os.environ["DATABRICKS_TOKEN"]
+    db_host = os.environ["UDF_DATABRICKS_HOST"]
+    db_token = os.environ["UDF_DATABRICKS_TOKEN"]
 
     assert logs_exp_id is not None, "please set 'logs_exp_id'"
     assert logs_run_prefix is not None, "please set 'logs_run_prefix'"
