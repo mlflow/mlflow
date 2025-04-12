@@ -2714,7 +2714,9 @@ e.g., struct<a:int, b:array<int>>.
             with mlflow.start_run(
                 run_name=f"{logs_run_prefix}-{str(time.time()).replace('.', '-')}",
                 experiment_id=logs_exp_id,
-            ):
+            ) as run:
+                os.environ["MLFLOW_UDF_RUN_ID"] = run.info.run_id
+                os.environ["MLFLOW_UDF_EXP_ID"] = logs_exp_id
                 while True:
                     import time
                     time.sleep(2)
@@ -2727,6 +2729,7 @@ e.g., struct<a:int, b:array<int>>.
                         break
 
         threading.Thread(target=copy_logs).start()
+        time.sleep(0.3)
 
         try:
             yield from _udf(*args, **kwargs)

@@ -59,9 +59,9 @@ _loaded_model_uri = None
 
 
 def load_model(model_uri, *args, **kwargs):
-    from mlflow.utils import print_time
+    from mlflow.utils import print_time, gen_flamegraph
     global _loaded_model_uri
-    with print_time(f"load model"):
+    with print_time(f"load model"), gen_flamegraph("load_model_prof"):
         _loaded_model_uri = model_uri
         return raw_load_model(model_uri, *args, **kwargs)
 
@@ -318,6 +318,9 @@ class InvocationsResponse(NamedTuple):
     mimetype: str
 
 
+invoke_batch_count = 0
+
+
 def invocations(data, content_type, model, input_schema):
     type_parts = list(map(str.strip, content_type.split(";")))
     mime_type = type_parts[0]
@@ -378,15 +381,15 @@ def invocations(data, content_type, model, input_schema):
     # NB: utils._validate_serving_input mimic the scoring process here to validate input_example
     # work for serving, so any changes here should be reflected there as well
     try:
-        if "params" in inspect.signature(model.predict).parameters:
-            from mlflow.utils import print_time
-            with print_time(f"predict invocation"):
-                raw_predictions = model.predict(data, params=params)
-        else:
-            _log_warning_if_params_not_in_predict_signature(_logger, params)
+        from mlflow.utils import print_time, gen_flamegraph
+        global invoke_batch_count
 
-            from mlflow.utils import print_time
-            with print_time(f"predict invocation"):
+        invoke_batch_count += 1
+        with print_time(f"predict invocation"), gen_flamegraph(f"predict_batch_{invoke_batch_count}_prof"):
+            if "params" in inspect.signature(model.predict).parameters:
+                raw_predictions = model.predict(data, params=params)
+            else:
+                _log_warning_if_params_not_in_predict_signature(_logger, params)
                 raw_predictions = model.predict(data)
     except MlflowException as e:
         if "Failed to enforce schema" in e.message:

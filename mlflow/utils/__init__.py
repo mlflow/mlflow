@@ -5,7 +5,10 @@ import subprocess
 from contextlib import closing
 from itertools import islice
 from sys import version_info
+import cProfile
+import os
 
+import mlflow
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER  # noqa: F401
 
 PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
@@ -286,3 +289,19 @@ def print_time(tag=None):
     finally:
         dbg_str = f"DBG: tag:{tag} at {beg_time}, cost {time.time() - beg_time_s:.2f} seconds."
         print(dbg_str, flush=True)
+
+
+@contextmanager
+def gen_flamegraph(name):
+    with cProfile.Profile() as pr:
+        import tempfile
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            yield
+        finally:
+            stats_file = os.path.join(tmp_dir, f"{name}.prof")
+            svg_file = os.path.join(tmp_dir, f"{name}.svg")
+            pr.dump_stats(stats_file)
+            subprocess.run(["flameprof", "-o", svg_file, stats_file])
+            client = mlflow.MlflowClient()
+            client.log_artifact(run_id=os.environ["MLFLOW_UDF_RUN_ID"], local_path=svg_file)
