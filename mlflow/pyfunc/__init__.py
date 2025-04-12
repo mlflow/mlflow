@@ -2729,7 +2729,10 @@ e.g., struct<a:int, b:array<int>>.
                         break
 
         threading.Thread(target=copy_logs).start()
-        time.sleep(0.3)
+        while True:
+            time.sleep(0.1)
+            if "MLFLOW_UDF_RUN_ID" in os.environ:
+                break
 
         try:
             yield from _udf(*args, **kwargs)
