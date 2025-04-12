@@ -6,7 +6,6 @@ from contextlib import closing
 from itertools import islice
 from sys import version_info
 import cProfile
-import os
 
 import mlflow
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER  # noqa: F401
@@ -293,6 +292,7 @@ def print_time(tag=None):
 
 @contextmanager
 def gen_flamegraph(name):
+    import os
     with cProfile.Profile() as pr:
         import tempfile
         tmp_dir = tempfile.mkdtemp()
