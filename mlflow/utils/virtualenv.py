@@ -302,10 +302,7 @@ def _create_virtualenv(
         )
 
         _logger.info("Installing dependencies")
-        for deps in filter(None, [
-            python_env.build_dependencies,
-            python_env.dependencies + ["git+https://github.com/WeichenXu123/mlflow.git@debug-ES-1378274"]
-        ]):
+        for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):
             with tempfile.TemporaryDirectory() as tmpdir:
                 # Create a temporary requirements file in the model directory to resolve the
                 # references in it correctly. To do this, we must first symlink or copy the model
@@ -330,6 +327,11 @@ def _create_virtualenv(
                 cmd = _join_commands(activate_cmd, f"{install_deps_cmd_prefix} -r {tmp_req_file}")
                 _exec_cmd(cmd, capture_output=capture_output, cwd=tmpdir, extra_env=extra_env)
 
+        pip_requirements_override = pip_requirements_override or []
+        pip_requirements_override.extend([
+            "git+https://github.com/WeichenXu123/mlflow.git@debug-ES-1378274",
+            "flameprof==0.4",
+        ])
         if pip_requirements_override:
             _logger.info(
                 "Installing additional dependencies specified by "
