@@ -2689,21 +2689,24 @@ e.g., struct<a:int, b:array<int>>.
         tmp_folder = uuid.uuid4().hex
         tmp_dir = f"/tmp/{tmp_folder}"
         os.makedirs(tmp_dir, exist_ok=True)
-        print(f"tmp dir: {tmp_dir}")
+        os.environ["MLFLOW_UDF_LOG_DIR"] = tmp_dir
 
-        #sys.stdout = open(os.path.join(tmp_dir, "stdout.log"), "w")
-        #sys.stderr = open(os.path.join(tmp_dir, "stderr.log"), "w")
         stdout_dst = open(os.path.join(tmp_dir, "stdout.log"), "w")
         stdout_dst_fd = stdout_dst.fileno()
         stdout_fd = sys.stdout.fileno()
         os.close(stdout_fd)
         os.dup2(stdout_dst_fd, stdout_fd)
 
+        """
         stderr_dst = open(os.path.join(tmp_dir, "stderr.log"), "w")
         stderr_dst_fd = stderr_dst.fileno()
         stderr_fd = sys.stderr.fileno()
         os.close(stderr_fd)
         os.dup2(stderr_dst_fd, stderr_fd)
+        """
+        # sys.stdout = open(os.path.join(tmp_dir, "std.log"), "w")
+        sys.stderr = sys.stdout
+        print(f"UDF tmp dir: {tmp_dir}")
 
         udf_is_running = True
 
@@ -2720,9 +2723,8 @@ e.g., struct<a:int, b:array<int>>.
                     time.sleep(2)
                     # shutil.copytree(tmp_dir, f"{dbfs_root_path}/{tmp_folder}", dirs_exist_ok=True)
                     sys.stdout.flush()
-                    sys.stderr.flush()
-                    mlflow.log_artifact(os.path.join(tmp_dir, "stdout.log"))
-                    mlflow.log_artifact(os.path.join(tmp_dir, "stderr.log"))
+                    mlflow.log_artifact(os.path.join(tmp_dir, "std.log"))
+                    mlflow.log_artifact(os.path.join(tmp_dir, "uvicorn_worker.log"))
                     if not udf_is_running:
                         break
 
@@ -2732,16 +2734,12 @@ e.g., struct<a:int, b:array<int>>.
             yield from _udf(*args, **kwargs)
         except Exception as e:
             import traceback
-            stdout_dst.flush()
-            stderr_dst.flush()
-            with open(os.path.join(tmp_dir, "stdout.log"), "r") as fp:
-                stdout_data = fp.read()
-            with open(os.path.join(tmp_dir, "stderr.log"), "r") as fp:
-                stderr_data = fp.read()
+            sys.stdout.flush()
+            with open(os.path.join(tmp_dir, "std.log"), "r") as fp:
+                std_logs = fp.read()
             raise RuntimeError(
                 f"spark_udf remote task failed.\n"
-                f"stdout logs:\n{stdout_data}\n"
-                f"stderr logs:\n{stderr_data}\n"
+                f"stdout / stderr logs:\n{std_logs}\n"
                 f"error: {repr(e)}\n"
                 f"error stack: {traceback.format_exc()}"
             )

@@ -55,6 +55,12 @@ except ImportError:
     from mlflow.pyfunc import load_pyfunc as raw_load_model
 
 
+if "MLFLOW_UDF_LOG_DIR" in os.environ:
+    log_dir = os.environ["MLFLOW_UDF_LOG_DIR"]
+    sys.stdout = open(os.path.join(log_dir, "uvicorn_worker.log"), "w")
+    sys.stderr = sys.stdout
+
+
 _loaded_model_uri = None
 
 

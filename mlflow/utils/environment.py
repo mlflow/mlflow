@@ -871,13 +871,9 @@ class Environment:
         if not isinstance(command, list):
             command = [command]
 
-        if self._activate_cmd[0].startswith("source ") and command[0].startswith("exec uvicorn "):
-            # Workaround to make uvicorn logging working.
-            python_bin_dir = os.path.dirname(self._activate_cmd[0].split(" ")[1])
-            command = f"{python_bin_dir}/{command[0][5:]}"
-        else:
-            separator = " && " if not is_windows() else " & "
-            command = separator.join(map(str, self._activate_cmd + command))
+        separator = " && " if not is_windows() else " & "
+
+        command = separator.join(map(str, self._activate_cmd + command))
         command = ["bash", "-c", command] if not is_windows() else ["cmd", "/c", command]
         _logger.info("=== Running command '%s'", command)
         return _exec_cmd(
