@@ -2728,6 +2728,7 @@ e.g., struct<a:int, b:array<int>>.
                     if not udf_is_running:
                         break
 
+        os.environ.pop("MLFLOW_UDF_RUN_ID", None)
         threading.Thread(target=copy_logs).start()
         while True:
             time.sleep(0.1)
