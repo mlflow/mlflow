@@ -291,8 +291,15 @@ def print_time(tag=None):
 
 
 @contextmanager
-def gen_flamegraph(name):
+def gen_flamegraph(name, disable=False):
     import os
+    if disable:
+        try:
+            yield
+            return
+        finally:
+            pass
+
     with cProfile.Profile() as pr:
         import tempfile
         tmp_dir = tempfile.mkdtemp()

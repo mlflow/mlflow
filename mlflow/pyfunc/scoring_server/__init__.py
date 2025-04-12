@@ -385,7 +385,9 @@ def invocations(data, content_type, model, input_schema):
         global invoke_batch_count
 
         invoke_batch_count += 1
-        with print_time(f"predict invocation"), gen_flamegraph(f"predict_batch_{invoke_batch_count}_prof"):
+        with print_time(f"predict invocation"), gen_flamegraph(
+                f"predict_batch_{invoke_batch_count}_prof", disable=invoke_batch_count <= 3
+        ):
             if "params" in inspect.signature(model.predict).parameters:
                 raw_predictions = model.predict(data, params=params)
             else:
