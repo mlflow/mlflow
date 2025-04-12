@@ -379,12 +379,13 @@ def invocations(data, content_type, model, input_schema):
     # work for serving, so any changes here should be reflected there as well
     try:
         if "params" in inspect.signature(model.predict).parameters:
-            raw_predictions = model.predict(data, params=params)
+            from mlflow.utils import print_time
+            with print_time(f"predict invocation"):
+                raw_predictions = model.predict(data, params=params)
         else:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
 
             from mlflow.utils import print_time
-            global _loaded_model_uri
             with print_time(f"predict invocation"):
                 raw_predictions = model.predict(data)
     except MlflowException as e:
