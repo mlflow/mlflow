@@ -2004,6 +2004,7 @@ def spark_udf(
     model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
     logs_exp_id = None,
     logs_run_prefix = None,
+    enable_debug_ratio = 0.02,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -2442,8 +2443,7 @@ e.g., struct<a:int, b:array<int>>.
             )
 
         from mlflow.utils import print_time
-        with print_time("batch predict"):
-            result = predict_fn(pdf, params)
+        result = predict_fn(pdf, params)
 
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
@@ -2719,7 +2719,7 @@ e.g., struct<a:int, b:array<int>>.
                 os.environ["MLFLOW_UDF_EXP_ID"] = logs_exp_id
                 while True:
                     import time
-                    time.sleep(2)
+                    time.sleep(10)
                     # shutil.copytree(tmp_dir, f"{dbfs_root_path}/{tmp_folder}", dirs_exist_ok=True)
                     sys.stdout.flush()
                     sys.stderr.flush()
@@ -2728,12 +2728,17 @@ e.g., struct<a:int, b:array<int>>.
                     if not udf_is_running:
                         break
 
+        import random
+        enable_debug = random.random() < enable_debug_ratio
         os.environ.pop("MLFLOW_UDF_RUN_ID", None)
-        threading.Thread(target=copy_logs).start()
-        while True:
-            time.sleep(0.1)
-            if "MLFLOW_UDF_RUN_ID" in os.environ:
-                break
+        os.environ["UDF_ENABLE_DEBUG"] = str(enable_debug)
+
+        if enable_debug:
+            threading.Thread(target=copy_logs).start()
+            while True:
+                time.sleep(0.1)
+                if "MLFLOW_UDF_RUN_ID" in os.environ:
+                    break
 
         try:
             yield from _udf(*args, **kwargs)
@@ -2754,7 +2759,7 @@ e.g., struct<a:int, b:array<int>>.
             )
         finally:
             udf_is_running = False
-            time.sleep(2)
+            time.sleep(10)
 
     _wrapped_udf = functools.update_wrapper(_wrapped_udf, _udf)
 

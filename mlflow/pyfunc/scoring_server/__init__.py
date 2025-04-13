@@ -61,9 +61,10 @@ _loaded_model_uri = None
 def load_model(model_uri, *args, **kwargs):
     from mlflow.utils import print_time, gen_flamegraph
     global _loaded_model_uri
-    with print_time(f"load model"), gen_flamegraph("load_model_prof"):
-        _loaded_model_uri = model_uri
-        return raw_load_model(model_uri, *args, **kwargs)
+    with gen_flamegraph("load_model_prof"):
+        with print_time(f"load model"):
+            _loaded_model_uri = model_uri
+            return raw_load_model(model_uri, *args, **kwargs)
 
 
 from io import StringIO
@@ -385,14 +386,15 @@ def invocations(data, content_type, model, input_schema):
         global invoke_batch_count
 
         invoke_batch_count += 1
-        with print_time(f"predict invocation"), gen_flamegraph(
-                f"predict_batch_{invoke_batch_count}_prof", disable=invoke_batch_count <= 3
+        with gen_flamegraph(
+            f"predict_batch_{invoke_batch_count}_prof"
         ):
-            if "params" in inspect.signature(model.predict).parameters:
-                raw_predictions = model.predict(data, params=params)
-            else:
-                _log_warning_if_params_not_in_predict_signature(_logger, params)
-                raw_predictions = model.predict(data)
+            with print_time(f"predict batch"):
+                if "params" in inspect.signature(model.predict).parameters:
+                    raw_predictions = model.predict(data, params=params)
+                else:
+                    _log_warning_if_params_not_in_predict_signature(_logger, params)
+                    raw_predictions = model.predict(data)
     except MlflowException as e:
         if "Failed to enforce schema" in e.message:
             _logger.warning(

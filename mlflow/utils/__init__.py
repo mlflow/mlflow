@@ -293,6 +293,11 @@ def print_time(tag=None):
 @contextmanager
 def gen_flamegraph(name, disable=False):
     import os
+    udf_enable_debug = os.environ.get("UDF_ENABLE_DEBUG", "False").lower() == "true"
+
+    if not udf_enable_debug:
+        disable = True
+
     if disable:
         try:
             yield
