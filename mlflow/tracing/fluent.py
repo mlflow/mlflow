@@ -814,9 +814,9 @@ def update_current_trace(
         if non_string_items:
             _logger.warning(
                 "Found non-string values in tags. Please note that non-string tag values will "
-                "be automatically stringified when the trace is logged. Consider dropping None "
+                "automatically be stringified when the trace is logged. Consider dropping None "
                 "values from the tag dict prior to updating the trace.\n\n"
-                f"Non-string keys and values: {non_string_items}"
+                f"Non-string items: {non_string_items}"
             )
 
     # Update tags for the trace stored in-memory rather than directly updating the
