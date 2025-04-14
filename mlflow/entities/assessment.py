@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType  # noqa: F401
 from mlflow.exceptions import MlflowException
-from mlflow.protos.service_pb2 import Assessment as ProtoAssessment
-from mlflow.protos.service_pb2 import Expectation as ProtoExpectation
-from mlflow.protos.service_pb2 import Feedback as ProtoFeedback
+from mlflow.protos.databricks_trace_server_pb2 import Assessment as ProtoAssessment
+from mlflow.protos.databricks_trace_server_pb2 import Expectation as ProtoExpectation
+from mlflow.protos.databricks_trace_server_pb2 import Feedback as ProtoFeedback
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import parse_pb_value, set_pb_value
 
@@ -173,6 +173,16 @@ class Assessment(_MlflowObject):
             "span_id": self.span_id,
         }
 
+    @classmethod
+    def from_dictionary(cls, d: dict[str, Any]) -> "Assessment":
+        d = d.copy()
+        d.pop("assessment_id", None)  # Remove assessment_id from the dictionary
+        d["source"] = AssessmentSource.from_dictionary(d["source"])
+        d["expectation"] = Expectation.from_dictionary(v) if (v := d.get("expectation")) else None
+        d["feedback"] = Feedback.from_dictionary(v) if (v := d.get("feedback")) else None
+        d["error"] = AssessmentError.from_dictionary(v) if (v := d.get("error")) else None
+        return cls(**d)
+
 
 @experimental
 @dataclass
@@ -191,6 +201,10 @@ class Expectation(_MlflowObject):
 
     def to_dictionary(self):
         return {"value": self.value}
+
+    @classmethod
+    def from_dictionary(self, d):
+        return Expectation(d["value"])
 
 
 @experimental
@@ -211,3 +225,7 @@ class Feedback(_MlflowObject):
 
     def to_dictionary(self):
         return {"value": self.value}
+
+    @classmethod
+    def from_dictionary(self, d):
+        return Feedback(d["value"])

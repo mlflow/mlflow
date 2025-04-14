@@ -41,6 +41,7 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.view_type import ViewType
 
 __all__ = [
@@ -72,6 +73,7 @@ __all__ = [
     "Trace",
     "TraceData",
     "TraceInfo",
+    "TraceInfoV3",
     "SpanStatusCode",
     "_DatasetSummary",
     "LoggedModel",

@@ -28,6 +28,7 @@ from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
+from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
@@ -755,7 +756,7 @@ def test_end_trace_works_for_trace_in_pending_status(status):
     client = mlflow.tracking.MlflowClient()
     mock_tracking_client = mock.MagicMock()
     mock_tracking_client.get_trace.return_value = Trace(
-        info=create_test_trace_info("test", status=status), data=None
+        info=create_test_trace_info("test", status=status), data=TraceData()
     )
     client._tracking_client = mock_tracking_client
     client.end_span = lambda *args: None
@@ -768,7 +769,7 @@ def test_end_trace_raise_error_for_trace_in_end_status(status):
     client = mlflow.tracking.MlflowClient()
     mock_tracking_client = mock.MagicMock()
     mock_tracking_client.get_trace.return_value = Trace(
-        info=create_test_trace_info("test", status=status), data=None
+        info=create_test_trace_info("test", status=status), data=TraceData()
     )
     client._tracking_client = mock_tracking_client
 
