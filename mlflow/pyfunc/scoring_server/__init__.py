@@ -389,12 +389,11 @@ def invocations(data, content_type, model, input_schema):
         with gen_flamegraph(
             f"predict_batch_{invoke_batch_count}_prof"
         ):
-            with print_time(f"predict batch"):
-                if "params" in inspect.signature(model.predict).parameters:
-                    raw_predictions = model.predict(data, params=params)
-                else:
-                    _log_warning_if_params_not_in_predict_signature(_logger, params)
-                    raw_predictions = model.predict(data)
+            if "params" in inspect.signature(model.predict).parameters:
+                raw_predictions = model.predict(data, params=params)
+            else:
+                _log_warning_if_params_not_in_predict_signature(_logger, params)
+                raw_predictions = model.predict(data)
     except MlflowException as e:
         if "Failed to enforce schema" in e.message:
             _logger.warning(
