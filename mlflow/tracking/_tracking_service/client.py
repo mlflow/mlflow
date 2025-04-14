@@ -320,6 +320,7 @@ class TrackingServiceClient:
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
+        include_spans: bool = True,
     ) -> PagedList[Trace]:
         def download_trace_extra_fields(trace_info: TraceInfo) -> Optional[Trace]:
             """
@@ -333,6 +334,10 @@ class TrackingServiceClient:
                     trace_info.request_id, should_query_v3=True
                 )
                 trace_info.assessments = trace_info_with_assessments.assessments
+
+            if not include_spans:
+                return Trace(trace_info, TraceData(spans=[]))
+
             try:
                 trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataException as e:

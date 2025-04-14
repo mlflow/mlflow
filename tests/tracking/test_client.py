@@ -248,7 +248,8 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
         MlflowClient().get_trace("1234567")
 
 
-def test_client_search_traces(mock_store, mock_artifact_repo):
+@pytest.mark.parametrize("include_spans", [True, False])
+def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
     mock_traces = [
         TraceInfo(
             request_id="1234567",
@@ -269,7 +270,9 @@ def test_client_search_traces(mock_store, mock_artifact_repo):
     ]
     mock_store.search_traces.return_value = (mock_traces, None)
     mock_artifact_repo.download_trace_data.return_value = {}
-    MlflowClient().search_traces(experiment_ids=["1", "2", "3"])
+    results = MlflowClient().search_traces(
+        experiment_ids=["1", "2", "3"], include_spans=include_spans
+    )
 
     mock_store.search_traces.assert_called_once_with(
         experiment_ids=["1", "2", "3"],
@@ -278,13 +281,19 @@ def test_client_search_traces(mock_store, mock_artifact_repo):
         order_by=None,
         page_token=None,
     )
-    mock_artifact_repo.download_trace_data.assert_called()
+    assert len(results) == 2
+    if include_spans:
+        mock_artifact_repo.download_trace_data.assert_called()
+    else:
+        mock_artifact_repo.download_trace_data.assert_not_called()
+
     # The TraceInfo is already fetched prior to the upload_trace_data call,
     # so we should not call _get_trace_info again
     mock_store.get_trace_info.assert_not_called()
 
 
-def test_client_search_traces_trace_data_download_error(mock_store):
+@pytest.mark.parametrize("include_spans", [True, False])
+def test_client_search_traces_trace_data_download_error(mock_store, include_spans):
     class CustomArtifactRepository(ArtifactRepository):
         def log_artifact(self, local_file, artifact_path=None):
             raise NotImplementedError("Should not be called")
@@ -313,8 +322,15 @@ def test_client_search_traces_trace_data_download_error(mock_store):
             ),
         ]
         mock_store.search_traces.return_value = (mock_traces, None)
-        assert MlflowClient().search_traces(experiment_ids=["1"]) == []
-        mock_get_artifact_repository.assert_called()
+        traces = MlflowClient().search_traces(experiment_ids=["1"], include_spans=include_spans)
+
+        if include_spans:
+            assert traces == []
+            mock_get_artifact_repository.assert_called()
+        else:
+            assert len(traces) == 1
+            assert traces[0].info.request_id == "1234567"
+            mock_get_artifact_repository.assert_not_called()
 
 
 def test_client_delete_traces(mock_store):
