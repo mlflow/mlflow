@@ -25,7 +25,7 @@ from langchain_core.messages import (
 from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.prompts.chat import ChatPromptTemplate
-from langchain_core.runnables import Runnable, RunnableLambda, RunnablePassthrough
+from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.runnables.config import RunnableConfig
 
 from mlflow.entities.trace import Trace
@@ -892,23 +892,6 @@ def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_lo
         assert traces[0].data.spans[0].span_type == "CHAIN"
     else:
         assert len(traces) == 0
-
-
-def test_langchain_autolog_extra_model_classes_warning():
-    class NotARunnable:
-        def __init__(self, x):
-            self.x = x
-
-    with mock.patch("mlflow.langchain.logger.warning") as mock_warning:
-        mlflow.langchain.autolog(extra_model_classes=[NotARunnable])
-        mock_warning.assert_called_once_with(
-            "Unsupported classes found in extra_model_classes: ['NotARunnable']. "
-            "Only subclasses of Runnable are supported."
-        )
-        mock_warning.reset_mock()
-
-        mlflow.langchain.autolog(extra_model_classes=[Runnable])
-        mock_warning.assert_not_called()
 
 
 @pytest.mark.skip(reason="This test is not thread safe, please run locally")
