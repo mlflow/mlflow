@@ -71,7 +71,6 @@ class DatabricksSpanExporter(SpanExporter):
             else:
                 self._log_trace(trace)
 
-
     def _log_trace(self, trace: Trace):
         """Create a new Trace record in the Databricks Tracing Server."""
         request_body = MessageToDict(trace.to_proto(), preserving_proto_field_name=True)

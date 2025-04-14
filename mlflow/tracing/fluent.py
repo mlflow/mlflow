@@ -759,7 +759,7 @@ def get_last_active_trace() -> Optional[Trace]:
         return None
 
 
-def get_last_active_trace_id(thread_local=False) -> Optional[str]:
+def get_last_active_trace_id(thread_local: bool = False) -> Optional[str]:
     """
     Get the last active trace in the same process if exists.
 
@@ -773,6 +773,9 @@ def get_last_active_trace_id(thread_local=False) -> Optional[str]:
 
         thread_local: If True, returns the last active trace in the current thread. Otherwise,
             returns the last active trace in the same process. Default is False.
+
+    Returns:
+        The ID of the last active trace if exists, otherwise None.
 
     .. code-block:: python
         :test:
@@ -794,9 +797,6 @@ def get_last_active_trace_id(thread_local=False) -> Optional[str]:
 
         # Get the full trace object
         trace = mlflow.get_trace(trace_id)
-
-    Returns:
-        The ID of the last active trace if exists, otherwise None.
     """
     return (
         _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get() if thread_local else _LAST_ACTIVE_TRACE_ID_GLOBAL
