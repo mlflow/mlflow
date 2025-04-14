@@ -175,3 +175,11 @@ def test_intermediate_outputs_no_value():
     trace = mlflow.get_last_active_trace()
 
     assert trace.data.intermediate_outputs is None
+
+
+def test_proto():
+    with mlflow.start_span():
+        pass
+    trace = mlflow.get_last_active_trace()
+    proto = trace.data.to_proto()
+    assert len(proto.spans) == 1
