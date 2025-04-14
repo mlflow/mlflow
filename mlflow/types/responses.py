@@ -22,7 +22,7 @@ from mlflow.types.type_hints import _infer_schema_from_type_hint
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     MlflowEventsAndWarningsBehaviorGlobally,
 )
-from mlflow.utils.pydantic_utils import model_validator
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
 
 
 class ResponsesRequest(BaseRequestPayload):
@@ -41,18 +41,19 @@ class ResponsesStreamEvent(BaseModel):
     custom_outputs: Optional[dict[str, Any]] = None
 
     @model_validator(mode="after")
-    def check_type(self) -> "ResponsesStreamEvent":
-        if self.type == "response.output_item.done":
-            ResponseOutputItemDoneEvent(**self.model_dump_compat())
-        elif self.type == "response.output_text.delta":
-            ResponseTextDeltaEvent(**self.model_dump_compat())
-        elif self.type == "response.output_text.annotation.added":
-            ResponseTextAnnotationDeltaEvent(**self.model_dump_compat())
-        elif self.type == "response.error":
-            ResponseErrorEvent(**self.model_dump_compat())
-        elif self.type == "response.completed":
-            ResponseCompletedEvent(**self.model_dump_compat())
-        elif self.type not in {
+    def check_type(cls, values) -> "ResponsesStreamEvent":
+        type = values.type if IS_PYDANTIC_V2_OR_NEWER else values.get("type")
+        if type == "response.output_item.done":
+            ResponseOutputItemDoneEvent(**values.model_dump_compat())
+        elif type == "response.output_text.delta":
+            ResponseTextDeltaEvent(**values.model_dump_compat())
+        elif type == "response.output_text.annotation.added":
+            ResponseTextAnnotationDeltaEvent(**values.model_dump_compat())
+        elif type == "response.error":
+            ResponseErrorEvent(**values.model_dump_compat())
+        elif type == "response.completed":
+            ResponseCompletedEvent(**values.model_dump_compat())
+        elif type not in {
             "response.created",
             "response.in_progress",
             "response.completed",
@@ -74,8 +75,8 @@ class ResponsesStreamEvent(BaseModel):
             "response.web_search_call.completed",
             "response.error",
         }:
-            warnings.warn(f"Invalid type: {self.type} for ResponsesStreamEvent.")
-        return self
+            warnings.warn(f"Invalid type: {type} for ResponsesStreamEvent.")
+        return values
 
 
 with MlflowEventsAndWarningsBehaviorGlobally(
