@@ -35,20 +35,18 @@ class _ResponsesAgentPyfuncWrapper:
     def _convert_input(self, model_input) -> ResponsesRequest:
         import pandas
 
-        if isinstance(model_input, dict):
-            dict_input = model_input
-        elif isinstance(model_input, pandas.DataFrame):
-            dict_input = {
+        if isinstance(model_input, pandas.DataFrame):
+            model_input = {
                 k: _convert_llm_ndarray_to_list(v[0])
                 for k, v in model_input.to_dict(orient="list").items()
             }
-        else:
+        elif not isinstance(model_input, dict):
             raise MlflowException(
                 "Unsupported model input type. Expected a dict or pandas.DataFrame, but got "
                 f"{type(model_input)} instead.",
                 error_code=INTERNAL_ERROR,
             )
-        return ResponsesRequest(**dict_input)
+        return ResponsesRequest(**model_input)
 
     def _response_to_dict(self, response, pydantic_class) -> dict[str, Any]:
         if isinstance(response, pydantic_class):

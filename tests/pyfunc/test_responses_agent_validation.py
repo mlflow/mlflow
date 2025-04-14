@@ -118,9 +118,9 @@ def test_responses_stream_event_validation():
             },
         )
 
-    with pytest.raises(ValueError, match="item.content.0.annotations.0.url"):
-        (
-            {
+    with pytest.raises(ValueError, match="annotation.url"):
+        ResponsesStreamEvent(
+            **{
                 "type": "response.output_text.annotation.added",
                 "item_id": "msg_67ed73ed2c288191b0f0f445e21c66540fbd8030171e9b0c",
                 "output_index": 1,

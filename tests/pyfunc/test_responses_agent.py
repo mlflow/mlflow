@@ -92,7 +92,6 @@ def get_stream_mock_response():
 
 
 class SimpleResponsesAgent(ResponsesAgent):
-    @mlflow.trace
     def predict(self, request: ResponsesRequest) -> ResponsesResponse:
         mock_response = get_mock_response(request)
         return ResponsesResponse(**mock_response)

@@ -16,14 +16,13 @@ from mlflow.types.responses_helpers import (
     ResponseOutputItemDoneEvent,
     ResponseTextAnnotationDeltaEvent,
     ResponseTextDeltaEvent,
-    Tools,
 )
 from mlflow.types.schema import Schema
 from mlflow.types.type_hints import _infer_schema_from_type_hint
 from mlflow.utils.pydantic_utils import model_validator
 
 
-class ResponsesRequest(BaseRequestPayload, Tools):
+class ResponsesRequest(BaseRequestPayload):
     input: list[Union[Message, OutputItem]]
     custom_inputs: Optional[dict[str, Any]] = None
     context: Optional[ChatContext] = None

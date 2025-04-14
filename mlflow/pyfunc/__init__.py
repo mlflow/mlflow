@@ -3721,7 +3721,7 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
 def _save_model_responses_agent_helper(python_model, mlflow_model, signature, input_example):
     """Helper method for save_model for ResponsesAgent models
 
-    Returns: a dict input_example
+    Returns: a dictionary input example
     """
     if signature is not None:
         raise MlflowException(

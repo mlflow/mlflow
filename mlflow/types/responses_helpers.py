@@ -186,10 +186,6 @@ class Tool(BaseModel):
         return self
 
 
-class Tools(BaseModel):
-    tools: Optional[list[Tool]] = None
-
-
 class ToolChoice(BaseModel):
     tool_choice: Optional[Union[str, ToolChoiceFunction]] = None
 
@@ -247,7 +243,7 @@ class Truncation(BaseModel):
         return self
 
 
-class Response(Tools, Truncation, ToolChoice):
+class Response(Truncation, ToolChoice):
     id: Optional[str] = None
     created_at: Optional[float] = None
     error: Optional[ResponseError] = None
@@ -259,6 +255,7 @@ class Response(Tools, Truncation, ToolChoice):
     output: list[OutputItem]
     parallel_tool_calls: Optional[bool] = None
     temperature: Optional[float] = None
+    tools: Optional[list[Tool]] = None
     top_p: Optional[float] = None
     max_output_tokens: Optional[int] = None
     previous_response_id: Optional[str] = None
@@ -349,6 +346,7 @@ class BaseRequestPayload(Truncation, ToolChoice):
     max_output_tokens: Optional[int] = None
     metadata: Optional[dict[str, str]] = None
     parallel_tool_calls: Optional[bool] = None
+    tools: Optional[list[Tool]] = None
     reasoning: Optional[ReasoningParams] = None
     store: Optional[bool] = None
     stream: Optional[bool] = None
