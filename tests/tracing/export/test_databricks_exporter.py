@@ -1,4 +1,5 @@
 import base64
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
@@ -162,7 +163,7 @@ def test_export_catch_failure(is_async, monkeypatch):
     mock_logger.warning.assert_called_once()
 
 
-@pytest.mark.repeat(50)
+@pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
 def test_async_bulk_export(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
@@ -190,7 +191,7 @@ def test_async_bulk_export(monkeypatch):
                 executor.submit(_predict, "hello")
 
         # Trace logging should not block the main thread
-        assert time.time() - start_time < 3  # 5
+        assert time.time() - start_time < 5
 
         _flush_async_logging()
 

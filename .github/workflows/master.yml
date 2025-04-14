@@ -92,11 +92,10 @@ jobs:
       - name: Run tests
         run: |
           source .venv/bin/activate
-          pytest tests/tracing/export/test_databricks_exporter.py::test_async_bulk_export
-          # source dev/setup-ssh.sh
-          # pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
-          #   --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
-          #   --ignore tests/deployments/server tests
+          source dev/setup-ssh.sh
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+            --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+            --ignore tests/deployments/server tests
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
