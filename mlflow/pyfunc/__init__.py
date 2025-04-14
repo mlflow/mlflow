@@ -1268,7 +1268,7 @@ def _load_model_or_server(
 
     _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
     try:
-        client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+        client.wait_server_ready(timeout=300, scoring_server_proc=scoring_server_proc)
     except Exception as e:
         if scoring_server_proc.poll() is None:
             # the scoring server is still running but client can't connect to it.

@@ -298,6 +298,7 @@ def gen_flamegraph(name, disable=False):
     if not udf_enable_debug:
         disable = True
 
+    disable = True
     if disable:
         try:
             yield
