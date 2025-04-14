@@ -759,7 +759,7 @@ def get_last_active_trace() -> Optional[Trace]:
         return None
 
 
-def get_last_active_trace_id(thread_local=False) -> Optional[Trace]:
+def get_last_active_trace_id(thread_local=False) -> Optional[str]:
     """
     Get the last active trace in the same process if exists.
 
