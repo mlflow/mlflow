@@ -19,6 +19,9 @@ from mlflow.types.responses_helpers import (
 )
 from mlflow.types.schema import Schema
 from mlflow.types.type_hints import _infer_schema_from_type_hint
+from mlflow.utils.autologging_utils.logging_and_warnings import (
+    MlflowEventsAndWarningsBehaviorGlobally,
+)
 from mlflow.utils.pydantic_utils import model_validator
 
 
@@ -75,8 +78,13 @@ class ResponsesStreamEvent(BaseModel):
         return self
 
 
-properties = _infer_schema_from_type_hint(ResponsesRequest).to_dict()[0]["properties"]
-formatted_properties = [{**prop, "name": name} for name, prop in properties.items()]
-RESPONSES_AGENT_INPUT_SCHEMA = Schema.from_json(json.dumps(formatted_properties))
-RESPONSES_AGENT_OUTPUT_SCHEMA = _infer_schema_from_type_hint(ResponsesResponse)
+with MlflowEventsAndWarningsBehaviorGlobally(
+    reroute_warnings=False,
+    disable_event_logs=True,
+    disable_warnings=True,
+):
+    properties = _infer_schema_from_type_hint(ResponsesRequest).to_dict()[0]["properties"]
+    formatted_properties = [{**prop, "name": name} for name, prop in properties.items()]
+    RESPONSES_AGENT_INPUT_SCHEMA = Schema.from_json(json.dumps(formatted_properties))
+    RESPONSES_AGENT_OUTPUT_SCHEMA = _infer_schema_from_type_hint(ResponsesResponse)
 RESPONSES_AGENT_INPUT_EXAMPLE = {"input": [{"role": "user", "content": "Hello!"}]}
