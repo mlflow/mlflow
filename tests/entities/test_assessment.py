@@ -26,7 +26,7 @@ def test_assessment_creation():
         "metadata": {"key1": "value1"},
         "error": None,
         "span_id": "span_id",
-        "_assessment_id": "assessment_id",
+        "assessment_id": "assessment_id",
     }
 
     assessment = Assessment(**default_params)
@@ -204,7 +204,7 @@ def test_assessment_conversion(expectation, feedback, error, source, metadata):
     assert result == assessment
 
     dict = assessment.to_dictionary()
-    assert dict["assessment_id"] == assessment._assessment_id
+    assert dict["assessment_id"] == assessment.assessment_id
     assert dict["trace_id"] == assessment.trace_id
     assert dict["name"] == assessment.name
     assert dict["source"] == {
