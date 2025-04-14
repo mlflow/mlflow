@@ -58,7 +58,6 @@ def test_log_evaluations_with_all_params():
                     "source": {
                         "source_type": "HUMAN",
                         "source_id": "user_1",
-                        "metadata": {"sourcekey1": "sourcevalue1"},
                     },
                 },
                 {
@@ -67,7 +66,6 @@ def test_log_evaluations_with_all_params():
                     "source": {
                         "source_type": "HUMAN",
                         "source_id": "user_1",
-                        "metadata": {"sourcekey2": "sourcevalue2"},
                     },
                 },
             ],
@@ -88,7 +86,6 @@ def test_log_evaluations_with_all_params():
                     source=AssessmentSource(
                         source_type=AssessmentSourceType.HUMAN,
                         source_id="user-1",
-                        metadata={"sourcekey3": "sourcevalue3"},
                     ),
                 )
             ],
