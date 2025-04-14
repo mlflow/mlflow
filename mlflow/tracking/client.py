@@ -870,6 +870,7 @@ class MlflowClient:
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
+        download_spans: bool = True,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -884,6 +885,9 @@ class MlflowClient:
             run_id: A run id to scope the search. When a trace is created under an active run,
                 it will be associated with the run and you can filter on the run id to retrieve
                 the trace.
+            download_spans: If ``True``, include spans in the returned traces. Otherwise, only
+                the trace metadata is returned, e.g., trace ID, start time, end time, etc,
+                without any spans.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -900,6 +904,7 @@ class MlflowClient:
             order_by=order_by,
             page_token=page_token,
             run_id=run_id,
+            download_spans=download_spans,
         )
 
     def start_trace(
