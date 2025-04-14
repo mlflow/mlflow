@@ -18,8 +18,10 @@ mlflow_load_flavor.mlflow_flavor_trivial <- function(flavor, model_path) {
 
 library(testthat)
 library(mlflow)
+library(reticulate)
 
 if (identical(Sys.getenv("NOT_CRAN"), "true")) {
   message("Current working directory: ", getwd())
   test_check("mlflow", reporter = ProgressReporter)
+  use_python(Sys.getenv("RETICULATE_PYTHON_BIN", "python"))
 }
