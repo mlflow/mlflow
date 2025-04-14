@@ -68,28 +68,19 @@ class TraceLocation(_MlflowObject):
     mlflow_experiment: Optional[MlflowExperimentLocation] = None
     inference_table: Optional[InferenceTableLocation] = None
 
-    def __init__(
-        self,
-        type: TraceLocationType,
-        mlflow_experiment: Optional[MlflowExperimentLocation] = None,
-        inference_table: Optional[InferenceTableLocation] = None,
-    ) -> None:
-        if mlflow_experiment is not None and inference_table is not None:
+    def __post_init__(self) -> None:
+        if self.mlflow_experiment is not None and self.inference_table is not None:
             raise MlflowException.invalid_parameter_value(
                 "Only one of mlflow_experiment or inference_table can be provided."
             )
 
-        if (mlflow_experiment and type != TraceLocationType.MLFLOW_EXPERIMENT) or (
-            inference_table and type != TraceLocationType.INFERENCE_TABLE
+        if (self.mlflow_experiment and self.type != TraceLocationType.MLFLOW_EXPERIMENT) or (
+            self.inference_table and self.type != TraceLocationType.INFERENCE_TABLE
         ):
             raise MlflowException.invalid_parameter_value(
                 f"Trace location type {type} does not match the provided location "
-                f"{mlflow_experiment or inference_table}."
+                f"{self.mlflow_experiment or self.inference_table}."
             )
-
-        self.type = type
-        self.mlflow_experiment = mlflow_experiment
-        self.inference_table = inference_table
 
     def to_dict(self) -> dict[str, Any]:
         d = {"type": self.type.value}
