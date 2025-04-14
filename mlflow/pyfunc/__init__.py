@@ -2410,6 +2410,7 @@ e.g., struct<a:int, b:array<int>>.
             )
     params = _validate_params(params, model_metadata)
 
+    _predict_batch_count = 0
     def _predict_row_batch(predict_fn, args):
         input_schema = model_metadata.get_input_schema()
         args = list(args)
@@ -2443,7 +2444,10 @@ e.g., struct<a:int, b:array<int>>.
             )
 
         from mlflow.utils import print_time
-        result = predict_fn(pdf, params)
+        nonlocal _predict_batch_count
+        _predict_batch_count += 1
+        with print_time(f"udf_predict {_predict_batch_count}"):
+            result = predict_fn(pdf, params)
 
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
@@ -2520,6 +2524,13 @@ e.g., struct<a:int, b:array<int>>.
     def _udf(
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006
     ) -> Iterator[result_type_hint]:
+        from datetime import datetime
+        import time
+
+        udf_beg_time = datetime.now().strftime("%H:%M:%S:%f")
+        udf_beg_time_s = time.time()
+        print(f"DBG: udf_beg_time: {udf_beg_time}", flush=True)
+
         # importing here to prevent circular import
         from mlflow.pyfunc.scoring_server.client import (
             ScoringServerClient,
@@ -2674,6 +2685,8 @@ e.g., struct<a:int, b:array<int>>.
             finally:
                 if scoring_server_proc is not None:
                     os.kill(scoring_server_proc.pid, signal.SIGTERM)
+
+                print(f"DBG: udf costs time: {time.time() - udf_beg_time_s}s.")
 
     import functools
     import tempfile
