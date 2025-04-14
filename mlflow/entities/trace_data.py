@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from mlflow.entities import Span
+from mlflow.protos import databricks_trace_server_pb2 as pb
 from mlflow.tracing.constant import SpanAttributeKey
 
 
@@ -18,6 +19,7 @@ class TraceData:
     """
 
     spans: list[Span] = field(default_factory=list)
+    # The following fields are preserved for backward compatibility with v2
     request: Optional[str] = None
     response: Optional[str] = None
 
@@ -63,3 +65,6 @@ class TraceData:
         for span in self.spans:
             if span.parent_id is None:
                 return span
+
+    def to_proto(self) -> pb.TraceData:
+        return pb.TraceData(spans=[span.to_proto() for span in self.spans])
