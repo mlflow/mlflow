@@ -105,6 +105,13 @@ class ResponseOutputMessage(Status):
     type: str = "message"
 
     @model_validator(mode="after")
+    def check_role(cls, values) -> "ResponseOutputMessage":
+        role = values.role if IS_PYDANTIC_V2_OR_NEWER else values.get("role")
+        if role != "assistant":
+            raise ValueError(f"Invalid role: {role}. Must be 'assistant'.")
+        return values
+
+    @model_validator(mode="after")
     def check_content(cls, values) -> "ResponseOutputMessage":
         content = values.content if IS_PYDANTIC_V2_OR_NEWER else values.get("content")
         if not content:
@@ -346,7 +353,7 @@ class Message(Status):
     def check_role(cls, values) -> "Message":
         role = values.role if IS_PYDANTIC_V2_OR_NEWER else values.get("role")
         if role not in {"user", "assistant", "system", "developer"}:
-            warnings.warn(
+            raise ValueError(
                 f"Invalid role: {role}. Must be 'user', 'assistant', 'system', or 'developer'."
             )
         return values

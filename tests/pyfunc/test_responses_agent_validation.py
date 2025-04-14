@@ -23,6 +23,26 @@ def test_responses_request_validation():
             }
         )
 
+    with pytest.raises(ValueError, match="role"):
+        ResponsesRequest(
+            **{
+                "input": [
+                    {
+                        "type": "message",
+                        "id": "1",
+                        "status": "completed",
+                        "role": "asdf",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": "asdf",
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+
 
 def test_responses_response_validation():
     with pytest.raises(ValueError, match="output.0.content.0.text"):

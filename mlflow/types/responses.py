@@ -1,5 +1,4 @@
 import json
-import warnings
 from typing import Any, Optional, Union
 
 from pydantic import ConfigDict
@@ -7,16 +6,85 @@ from pydantic import ConfigDict
 from mlflow.types.agent import ChatContext
 from mlflow.types.chat import BaseModel
 from mlflow.types.responses_helpers import (
+    # Re-export all other classes
+    Annotation,
+    AnnotationFileCitation,
+    AnnotationFilePath,
+    AnnotationURLCitation,
     BaseRequestPayload,
+    Content,
+    FunctionCallOutput,
+    FunctionTool,
+    IncompleteDetails,
+    InputTokensDetails,
     Message,
     OutputItem,
+    OutputTokensDetails,
+    ReasoningParams,
     Response,
     ResponseCompletedEvent,
+    ResponseError,
     ResponseErrorEvent,
+    ResponseFunctionToolCall,
+    ResponseInputTextParam,
     ResponseOutputItemDoneEvent,
+    ResponseOutputMessage,
+    ResponseOutputRefusal,
+    ResponseOutputText,
+    ResponseReasoningItem,
     ResponseTextAnnotationDeltaEvent,
     ResponseTextDeltaEvent,
+    ResponseUsage,
+    Status,
+    Summary,
+    Tool,
+    ToolChoice,
+    ToolChoiceFunction,
+    Truncation,
 )
+
+__all__ = [
+    # Classes defined in this file
+    "ResponsesRequest",
+    "ResponsesResponse",
+    "ResponsesStreamEvent",
+    # Re-exported classes from responses_helpers
+    "Annotation",
+    "AnnotationFileCitation",
+    "AnnotationFilePath",
+    "AnnotationURLCitation",
+    "BaseRequestPayload",
+    "Content",
+    "FunctionCallOutput",
+    "FunctionTool",
+    "IncompleteDetails",
+    "InputTokensDetails",
+    "Message",
+    "OutputItem",
+    "OutputTokensDetails",
+    "ReasoningParams",
+    "Response",
+    "ResponseCompletedEvent",
+    "ResponseError",
+    "ResponseErrorEvent",
+    "ResponseFunctionToolCall",
+    "ResponseInputTextParam",
+    "ResponseOutputItemDoneEvent",
+    "ResponseOutputMessage",
+    "ResponseOutputRefusal",
+    "ResponseOutputText",
+    "ResponseReasoningItem",
+    "ResponseTextAnnotationDeltaEvent",
+    "ResponseTextDeltaEvent",
+    "ResponseUsage",
+    "Status",
+    "Summary",
+    "Tool",
+    "ToolChoice",
+    "ToolChoiceFunction",
+    "Truncation",
+]
+
 from mlflow.types.schema import Schema
 from mlflow.types.type_hints import _infer_schema_from_type_hint
 from mlflow.utils.autologging_utils.logging_and_warnings import (
@@ -53,7 +121,8 @@ class ResponsesStreamEvent(BaseModel):
             ResponseErrorEvent(**values.model_dump_compat())
         elif type == "response.completed":
             ResponseCompletedEvent(**values.model_dump_compat())
-        elif type not in {
+        """
+        unvalidated types: {
             "response.created",
             "response.in_progress",
             "response.completed",
@@ -74,8 +143,8 @@ class ResponsesStreamEvent(BaseModel):
             "response.web_search_call.searching",
             "response.web_search_call.completed",
             "response.error",
-        }:
-            warnings.warn(f"Invalid type: {type} for ResponsesStreamEvent.")
+        }
+        """
         return values
 
 
