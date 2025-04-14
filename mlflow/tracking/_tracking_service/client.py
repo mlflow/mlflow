@@ -320,7 +320,7 @@ class TrackingServiceClient:
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
-        download_spans: bool = True,
+        include_spans: bool = True,
     ) -> PagedList[Trace]:
         def download_trace_extra_fields(trace_info: TraceInfo) -> Optional[Trace]:
             """
@@ -335,7 +335,7 @@ class TrackingServiceClient:
                 )
                 trace_info.assessments = trace_info_with_assessments.assessments
 
-            if not download_spans:
+            if not include_spans:
                 return Trace(trace_info, TraceData(spans=[]))
 
             try:

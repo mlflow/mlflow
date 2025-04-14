@@ -248,8 +248,8 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
         MlflowClient().get_trace("1234567")
 
 
-@pytest.mark.parametrize("download_spans", [True, False])
-def test_client_search_traces(mock_store, mock_artifact_repo, download_spans):
+@pytest.mark.parametrize("include_spans", [True, False])
+def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
     mock_traces = [
         TraceInfo(
             request_id="1234567",
@@ -271,7 +271,7 @@ def test_client_search_traces(mock_store, mock_artifact_repo, download_spans):
     mock_store.search_traces.return_value = (mock_traces, None)
     mock_artifact_repo.download_trace_data.return_value = {}
     results = MlflowClient().search_traces(
-        experiment_ids=["1", "2", "3"], download_spans=download_spans
+        experiment_ids=["1", "2", "3"], include_spans=include_spans
     )
 
     mock_store.search_traces.assert_called_once_with(
@@ -282,7 +282,7 @@ def test_client_search_traces(mock_store, mock_artifact_repo, download_spans):
         page_token=None,
     )
     assert len(results) == 2
-    if download_spans:
+    if include_spans:
         mock_artifact_repo.download_trace_data.assert_called()
     else:
         mock_artifact_repo.download_trace_data.assert_not_called()
@@ -292,8 +292,8 @@ def test_client_search_traces(mock_store, mock_artifact_repo, download_spans):
     mock_store.get_trace_info.assert_not_called()
 
 
-@pytest.mark.parametrize("download_spans", [True, False])
-def test_client_search_traces_trace_data_download_error(mock_store, download_spans):
+@pytest.mark.parametrize("include_spans", [True, False])
+def test_client_search_traces_trace_data_download_error(mock_store, include_spans):
     class CustomArtifactRepository(ArtifactRepository):
         def log_artifact(self, local_file, artifact_path=None):
             raise NotImplementedError("Should not be called")
@@ -322,9 +322,9 @@ def test_client_search_traces_trace_data_download_error(mock_store, download_spa
             ),
         ]
         mock_store.search_traces.return_value = (mock_traces, None)
-        traces = MlflowClient().search_traces(experiment_ids=["1"], download_spans=download_spans)
+        traces = MlflowClient().search_traces(experiment_ids=["1"], include_spans=include_spans)
 
-        if download_spans:
+        if include_spans:
             assert traces == []
             mock_get_artifact_repository.assert_called()
         else:
