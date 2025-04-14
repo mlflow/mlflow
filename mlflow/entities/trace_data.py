@@ -66,8 +66,5 @@ class TraceData:
             if span.parent_id is None:
                 return span
 
-    def to_proto(self) -> pb.TraceData:
-        """
-        :meta private:
-        """
+    def to_proto(self):
         return pb.TraceData(spans=[span.to_proto() for span in self.spans])
