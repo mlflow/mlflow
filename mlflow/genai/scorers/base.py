@@ -10,6 +10,7 @@ from mlflow.evaluation import Assessment
 
 class Scorer(BaseModel):
     name: str
+    aggregations: Optional[list] = None
     greater_is_better: Optional[bool] = True
 
     def __call__(
@@ -34,7 +35,7 @@ class Scorer(BaseModel):
                 any of scorers requires a trace in order to compute
                 assessments/metrics.
         """
-        raise NotImplementedError("Please use an instance of BuiltInScorer")
+        raise NotImplementedError("Please use an instance of Scorer")
 
 
 # TODO: ML-52304: Inherit the following class for every builtin scorer made available
@@ -70,40 +71,26 @@ def scorer(
     sig = inspect.signature(func)
     params = sig.parameters
 
-    # Verify required param presence
-    if "inputs" not in params:
-        raise TypeError(
-            f"{func.__name__} must accept 'inputs' as a required keyword-only argument."
-        )
-
-    # Check param details
-    required_param = params["inputs"]
-    # Inputs must be required (no default)
-    if required_param.default is not inspect.Parameter.empty:
-        raise TypeError(f"'inputs' must not have a default value in {func.__name__}.")
-
-    for optional_arg in ("outputs", "expectations", "trace"):
+    for optional_arg in ("inputs", "outputs", "expectations", "trace"):
         if optional_arg not in params:
             raise TypeError(
                 f"'{optional_arg}' must be present as an optional argument in {func.__name__}."
             )
 
-    def wrapped_call(self, *, inputs, outputs=None, expectations=None, trace=None):
-        result = func(inputs=inputs, outputs=outputs, expectations=expectations, trace=trace)
-        if not isinstance(result, (float, bool, str, Assessment)):
-            raise ValueError(
-                (
-                    f"{func.__name__} must return one of float, bool, str, ",
-                    "or Assessment. Got {type(result).__name__}",
+    class CustomScorer(Scorer):
+        def __call__(self, *, inputs, outputs=None, expectations=None, trace=None):
+            result = func(inputs=inputs, outputs=outputs, expectations=expectations, trace=trace)
+            if not isinstance(result, (float, bool, str, Assessment)):
+                raise ValueError(
+                    (
+                        f"{func.__name__} must return one of float, bool, str, ",
+                        f"or Assessment. Got {type(result).__name__}",
+                    )
                 )
-            )
-        return result
+            return result
 
-    instance = Scorer(
+    return CustomScorer(
         name=name or func.__name__,
         greater_is_better=greater_is_better,
         aggregations=aggregations,
     )
-    instance.__call__ = types.MethodType(wrapped_call, instance)
-
-    return instance

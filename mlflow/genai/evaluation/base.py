@@ -27,11 +27,12 @@ class EvaluationResult:
 
 
 def evaluate(
-    data: pd.DataFrame | spark.DataFrame | list[dict] | EvaluationDataset,
+    # See the "Input Data" section for the required format
+    data: Union[pd.DataFrame, spark.DataFrame, list[dict], EvaluationDataset],
     predict_fn: Optional[Callable[..., Any]] = None,
     scorers: Optional[list[Scorer]] = None,
     model_id: Optional[str] = None,
-) -> mlflow.genai.EvaluationResult:
+) -> EvaluationResult:
     """
     TODO: updating docstring with real examples and API links
     Args:
