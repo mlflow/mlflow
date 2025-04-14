@@ -18,6 +18,7 @@ from mlflow.types.schema import ColSpec, DataType, Schema
 
 
 def get_mock_response(request: ResponsesRequest):
+    print(request.input)
     return {
         "output": [
             {
@@ -127,6 +128,8 @@ def test_responses_agent_log_default_task():
 
 def test_responses_agent_predict(tmp_path):
     model = SimpleResponsesAgent()
+    response = model.predict(RESPONSES_AGENT_INPUT_EXAMPLE)
+    assert response.output[0].content[0]["type"] == "output_text"
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     response = loaded_model.predict(RESPONSES_AGENT_INPUT_EXAMPLE)
