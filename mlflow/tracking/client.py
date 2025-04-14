@@ -881,6 +881,7 @@ class MlflowClient:
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
+        include_spans: bool = True,
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
@@ -897,9 +898,13 @@ class MlflowClient:
             run_id: A run id to scope the search. When a trace is created under an active run,
                 it will be associated with the run and you can filter on the run id to retrieve
                 the trace.
+            include_spans: If ``True``, include spans in the returned traces. Otherwise, only
+                the trace metadata is returned, e.g., trace ID, start time, end time, etc,
+                without any spans.
             model_id: If specified, return traces associated with the model ID.
             sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
                 searching traces in inference tables.
+
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -932,6 +937,7 @@ class MlflowClient:
             order_by=order_by,
             page_token=page_token,
             run_id=run_id,
+            include_spans=include_spans,
             model_id=model_id,
             sql_warehouse_id=sql_warehouse_id,
         )
@@ -1442,6 +1448,12 @@ class MlflowClient:
                 f"Tags starting with 'mlflow.' are reserved and cannot be set. "
                 f"Attempted to set tag with key '{key}' on trace with ID '{request_id}'.",
                 error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if not isinstance(value, str):
+            _logger.warning(
+                "Received non-string value for trace tag. Please note that non-string tag values"
+                "will automatically be stringified when the trace is logged."
             )
 
         # Trying to set the tag on the active trace first
