@@ -827,6 +827,21 @@ def update_current_trace(
             error_code=BAD_REQUEST,
         )
 
+    if isinstance(tags, dict):
+        non_string_items = {k: v for k, v in tags.items() if not isinstance(v, str)}
+        if non_string_items:
+            none_values_present = any(v is None for v in non_string_items.values())
+            null_tag_advice = (
+                "Consider dropping None values from the tag dict prior to updating the trace."
+                if none_values_present
+                else ""
+            )
+            _logger.warning(
+                "Found non-string values in tags. Please note that non-string tag values will "
+                f"automatically be stringified when the trace is logged. {null_tag_advice}\n\n"
+                f"Non-string items: {non_string_items}"
+            )
+
     # Update tags for the trace stored in-memory rather than directly updating the
     # backend store. The in-memory trace will be exported when it is ended. By doing
     # this, we can avoid unnecessary server requests for each tag update.
