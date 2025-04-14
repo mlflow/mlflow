@@ -67,4 +67,7 @@ class TraceData:
                 return span
 
     def to_proto(self) -> pb.TraceData:
+        """
+        :meta private:
+        """
         return pb.TraceData(spans=[span.to_proto() for span in self.spans])
