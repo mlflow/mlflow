@@ -94,4 +94,5 @@ jobs:
           LINTR_COMMENT_BOT: false
         run: |
           cd tests
+          export RETICULATE_PYTHON_BIN=$(which python)
           Rscript -e 'source("../.run-tests.R", echo=TRUE)'
