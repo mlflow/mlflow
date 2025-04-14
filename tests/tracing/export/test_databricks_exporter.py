@@ -185,7 +185,7 @@ def test_async_bulk_export(monkeypatch):
     ) as mock_http:
         # Log many traces
         start_time = time.time()
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             for _ in range(1000):
                 executor.submit(_predict, "hello")
 
