@@ -281,11 +281,10 @@ def test_client_search_traces(mock_store, mock_artifact_repo, download_spans):
         order_by=None,
         page_token=None,
     )
+    assert len(results) == 2
     if download_spans:
-        assert len(results) == 2
         mock_artifact_repo.download_trace_data.assert_called()
     else:
-        assert len(results) == 2
         mock_artifact_repo.download_trace_data.assert_not_called()
 
     # The TraceInfo is already fetched prior to the upload_trace_data call,
