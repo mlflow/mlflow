@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from google.protobuf.duration_pb2 import Duration
+from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -27,19 +28,7 @@ class TraceInfoV3(_MlflowObject):
     assessments: list[Assessment] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "trace_id": self.trace_id,
-            "client_request_id": self.client_request_id,
-            "trace_location": self.trace_location.to_dict(),
-            "request": self.request,
-            "response": self.response,
-            "request_time": self.request_time,
-            "execution_duration": self.execution_duration,
-            "state": self.state.value,
-            "trace_metadata": self.trace_metadata,
-            "tags": self.tags,
-            "assessments": [a.to_dictionary() for a in self.assessments],
-        }
+        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "TraceInfoV3":
