@@ -53,8 +53,6 @@ class TraceInfo(_MlflowObject):
         return False
 
     def to_proto(self):
-        from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
-
         proto = ProtoTraceInfo()
         proto.request_id = self.request_id
         proto.experiment_id = self.experiment_id
@@ -66,18 +64,18 @@ class TraceInfo(_MlflowObject):
         proto.status = self.status.to_proto()
 
         request_metadata = []
-        for key, value in self.request_metadata.items():
+        for key, value in _truncate_dict_keys_and_values(self.request_metadata).items():
             attr = ProtoTraceRequestMetadata()
-            attr.key = key[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
-            attr.value = str(value)[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
+            attr.key = key
+            attr.value = value
             request_metadata.append(attr)
         proto.request_metadata.extend(request_metadata)
 
         tags = []
-        for key, value in self.tags.items():
+        for key, value in _truncate_dict_keys_and_values(self.tags).items():
             tag = ProtoTraceTag()
-            tag.key = key[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
-            tag.value = str(value)[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
+            tag.key = key
+            tag.value = str(value)
             tags.append(tag)
 
         proto.tags.extend(tags)
