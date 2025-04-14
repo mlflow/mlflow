@@ -1,5 +1,5 @@
 from dataclasses import asdict, dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment
@@ -9,6 +9,17 @@ from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceLocation as ProtoTraceLocation
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+
+
+def _truncate_dict_keys_and_values(d: dict[str, Any]) -> dict[str, str]:
+    from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
+
+    return {
+        k[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]: str(v)[
+            :MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
+        ]
+        for k, v in d.items()
+    }
 
 
 @dataclass
@@ -121,9 +132,9 @@ class TraceInfo(_MlflowObject):
             proto.execution_duration.FromMilliseconds(self.execution_time_ms)
 
         if self.request_metadata:
-            proto.trace_metadata.update(self.request_metadata)
+            proto.trace_metadata.update(_truncate_dict_keys_and_values(self.request_metadata))
 
         if self.tags:
-            proto.tags.update(self.tags)
+            proto.tags.update(_truncate_dict_keys_and_values(self.tags))
 
         return proto
