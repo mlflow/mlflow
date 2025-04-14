@@ -55,7 +55,7 @@ class TraceInfoV3(_MlflowObject):
 
         return cls(**d)
 
-    def to_proto(self) -> pb.TraceInfo:
+    def to_proto(self):
         from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
 
         request_time = Timestamp()
@@ -91,7 +91,7 @@ class TraceInfoV3(_MlflowObject):
         )
 
     @classmethod
-    def from_proto(cls, proto: pb.TraceInfo) -> "TraceInfoV3":
+    def from_proto(cls, proto) -> "TraceInfoV3":
         return cls(
             trace_id=proto.trace_id,
             client_request_id=proto.client_request_id,

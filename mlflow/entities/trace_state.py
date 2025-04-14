@@ -11,7 +11,7 @@ class TraceState(str, Enum):
     ERROR = "ERROR"
     IN_PROGRESS = "IN_PROGRESS"
 
-    def to_proto(self) -> pb.TraceInfo.State:
+    def to_proto(self):
         return pb.TraceInfo.State.Value(self)
 
     @classmethod

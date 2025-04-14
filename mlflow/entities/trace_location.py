@@ -11,13 +11,11 @@ from mlflow.protos import databricks_trace_server_pb2 as pb
 class MlflowExperimentLocation(_MlflowObject):
     experiment_id: str
 
-    def to_proto(self) -> pb.TraceLocation.MlflowExperimentLocation:
+    def to_proto(self):
         return pb.TraceLocation.MlflowExperimentLocation(experiment_id=self.experiment_id)
 
     @classmethod
-    def from_proto(
-        cls, proto: pb.TraceLocation.MlflowExperimentLocation
-    ) -> "MlflowExperimentLocation":
+    def from_proto(cls, proto) -> "MlflowExperimentLocation":
         return cls(experiment_id=proto.experiment_id)
 
     def to_dict(self) -> dict[str, Any]:
@@ -32,11 +30,11 @@ class MlflowExperimentLocation(_MlflowObject):
 class InferenceTableLocation(_MlflowObject):
     full_table_name: str
 
-    def to_proto(self) -> pb.TraceLocation.InferenceTableLocation:
+    def to_proto(self):
         return pb.TraceLocation.InferenceTableLocation(full_table_name=self.full_table_name)
 
     @classmethod
-    def from_proto(cls, proto: pb.TraceLocation.InferenceTableLocation) -> "InferenceTableLocation":
+    def from_proto(cls, proto) -> "InferenceTableLocation":
         return cls(full_table_name=proto.full_table_name)
 
     def to_dict(self) -> dict[str, Any]:
@@ -52,7 +50,7 @@ class TraceLocationType(str, Enum):
     MLFLOW_EXPERIMENT = "MLFLOW_EXPERIMENT"
     INFERENCE_TABLE = "INFERENCE_TABLE"
 
-    def to_proto(self) -> pb.TraceLocation.TraceLocationType:
+    def to_proto(self):
         return pb.TraceLocation.TraceLocationType.Value(self)
 
     @classmethod
@@ -113,7 +111,7 @@ class TraceLocation(_MlflowObject):
             ),
         )
 
-    def to_proto(self) -> pb.TraceLocation:
+    def to_proto(self):
         if self.mlflow_experiment:
             return pb.TraceLocation(
                 type=self.type.to_proto(),
@@ -129,7 +127,7 @@ class TraceLocation(_MlflowObject):
             return pb.TraceLocation(type=self.type.to_proto())
 
     @classmethod
-    def from_proto(cls, proto: pb.TraceLocation) -> "TraceLocation":
+    def from_proto(cls, proto) -> "TraceLocation":
         type_ = TraceLocationType.from_proto(proto.type)
         if proto.WhichOneof("identifier") == "mlflow_experiment":
             return cls(
