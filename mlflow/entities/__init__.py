@@ -42,6 +42,13 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_location import (
+    InferenceTableLocation,
+    MlflowExperimentLocation,
+    TraceLocation,
+    TraceLocationType,
+)
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.view_type import ViewType
 
 __all__ = [
@@ -73,7 +80,12 @@ __all__ = [
     "Trace",
     "TraceData",
     "TraceInfo",
+    "TraceLocation",
+    "TraceLocationType",
+    "MlflowExperimentLocation",
+    "InferenceTableLocation",
     "TraceInfoV3",
+    "TraceState",
     "SpanStatusCode",
     "_DatasetSummary",
     "LoggedModel",
