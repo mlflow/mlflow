@@ -162,7 +162,7 @@ def test_export_catch_failure(is_async, monkeypatch):
     mock_logger.warning.assert_called_once()
 
 
-@pytest.mark.repeat(10)
+@pytest.mark.repeat(50)
 def test_async_bulk_export(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
