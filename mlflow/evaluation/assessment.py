@@ -11,7 +11,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import experimental
 
 
 @experimental
@@ -195,11 +195,6 @@ class AssessmentEntity(_MlflowObject):
         )
 
 
-@deprecated(
-    alternative="mlflow.entities.Assessment",
-    since="2.22.0",
-    impact="This class will be removed in MLflow 3.0.",
-)
 @experimental
 class Assessment(_MlflowObject):
     """
