@@ -1410,6 +1410,12 @@ class MlflowClient:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+        if not isinstance(value, str):
+            _logger.warning(
+                "Received non-string value for trace tag. Please note that non-string tag values"
+                "will automatically be stringified when the trace is logged."
+            )
+
         # Trying to set the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
             if trace:
