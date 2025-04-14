@@ -190,7 +190,7 @@ def test_async_bulk_export(monkeypatch):
                 executor.submit(_predict, "hello")
 
         # Trace logging should not block the main thread
-        assert time.time() - start_time < 3
+        assert time.time() - start_time < 3  # 5
 
         _flush_async_logging()
 
