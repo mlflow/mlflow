@@ -19,7 +19,7 @@ class TraceData:
     """
 
     spans: list[Span] = field(default_factory=list)
-    # The following fields are preserved for backward compatibility with v2
+    # `request` and `response` are preserved for backward compatibility with v2
     request: Optional[str] = None
     response: Optional[str] = None
 
