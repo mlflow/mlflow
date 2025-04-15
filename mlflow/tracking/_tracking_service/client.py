@@ -367,7 +367,7 @@ class TrackingServiceClient:
                 trace_info.assessments = trace_info_with_assessments.assessments
 
             if not include_spans:
-                return Trace(trace_info, TraceData(spans=[]))
+                return Trace(trace_info, TraceData(spans=[]), _sql_warehouse_id=sql_warehouse_id)
 
             try:
                 if is_databricks and is_online_trace:
