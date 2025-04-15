@@ -313,7 +313,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install 'pyspark>=3.5' '.[databricks]'
+          pip install 'pyspark>=3.5' 'optuna>=4' .
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
