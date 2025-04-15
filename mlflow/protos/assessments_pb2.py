@@ -21,7 +21,7 @@ if Version(google.protobuf.__version__).major >= 5:
   from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11\x61ssessments.proto\x12\x12mlflow.assessments\x1a\x10\x64\x61tabricks.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc6\x01\n\x10\x41ssessmentSource\x12J\n\x0bsource_type\x18\x01 \x01(\x0e\x32/.mlflow.assessments.AssessmentSource.SourceTypeB\x04\xf8\x86\x19\x01\x12\x17\n\tsource_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\"M\n\nSourceType\x12\x1b\n\x17SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05HUMAN\x10\x01\x12\r\n\tLLM_JUDGE\x10\x02\x12\x08\n\x04\x43ODE\x10\x03\"<\n\x0f\x41ssessmentError\x12\x12\n\nerror_code\x18\x01 \x01(\t\x12\x15\n\rerror_message\x18\x02 \x01(\t\"4\n\x0b\x45xpectation\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value\"1\n\x08\x46\x65\x65\x64\x62\x61\x63k\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value\"\xad\x04\n\nAssessment\x12\x15\n\rassessment_id\x18\x01 \x01(\t\x12\x1d\n\x0f\x61ssessment_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08trace_id\x18\x03 \x01(\t\x12\x0f\n\x07span_id\x18\x04 \x01(\t\x12\x34\n\x06source\x18\x05 \x01(\x0b\x32$.mlflow.assessments.AssessmentSource\x12/\n\x0b\x63reate_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\x08\x66\x65\x65\x64\x62\x61\x63k\x18\t \x01(\x0b\x32\x1c.mlflow.assessments.FeedbackH\x00\x12\x36\n\x0b\x65xpectation\x18\n \x01(\x0b\x32\x1f.mlflow.assessments.ExpectationH\x00\x12\x11\n\trationale\x18\x0b \x01(\t\x12\x32\n\x05\x65rror\x18\x0c \x01(\x0b\x32#.mlflow.assessments.AssessmentError\x12>\n\x08metadata\x18\r \x03(\x0b\x32,.mlflow.assessments.Assessment.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x07\n\x05valueB\x1e\n\x1corg.mlflow.assessments.proto')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11\x61ssessments.proto\x12\x12mlflow.assessments\x1a\x10\x64\x61tabricks.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc6\x01\n\x10\x41ssessmentSource\x12J\n\x0bsource_type\x18\x01 \x01(\x0e\x32/.mlflow.assessments.AssessmentSource.SourceTypeB\x04\xf8\x86\x19\x01\x12\x17\n\tsource_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\"M\n\nSourceType\x12\x1b\n\x17SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05HUMAN\x10\x01\x12\r\n\tLLM_JUDGE\x10\x02\x12\x08\n\x04\x43ODE\x10\x03\"<\n\x0f\x41ssessmentError\x12\x12\n\nerror_code\x18\x01 \x01(\t\x12\x15\n\rerror_message\x18\x02 \x01(\t\"4\n\x0b\x45xpectation\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value\"e\n\x08\x46\x65\x65\x64\x62\x61\x63k\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value\x12\x32\n\x05\x65rror\x18\x03 \x01(\x0b\x32#.mlflow.assessments.AssessmentError\"\xb1\x04\n\nAssessment\x12\x15\n\rassessment_id\x18\x01 \x01(\t\x12\x1d\n\x0f\x61ssessment_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08trace_id\x18\x03 \x01(\t\x12\x0f\n\x07span_id\x18\x04 \x01(\t\x12\x34\n\x06source\x18\x05 \x01(\x0b\x32$.mlflow.assessments.AssessmentSource\x12/\n\x0b\x63reate_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\x08\x66\x65\x65\x64\x62\x61\x63k\x18\t \x01(\x0b\x32\x1c.mlflow.assessments.FeedbackH\x00\x12\x36\n\x0b\x65xpectation\x18\n \x01(\x0b\x32\x1f.mlflow.assessments.ExpectationH\x00\x12\x11\n\trationale\x18\x0b \x01(\t\x12\x36\n\x05\x65rror\x18\x0c \x01(\x0b\x32#.mlflow.assessments.AssessmentErrorB\x02\x18\x01\x12>\n\x08metadata\x18\r \x03(\x0b\x32,.mlflow.assessments.Assessment.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x07\n\x05valueB\x1e\n\x1corg.mlflow.assessments.proto')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,6 +37,8 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_ASSESSMENT_METADATAENTRY']._serialized_options = b'8\001'
     _globals['_ASSESSMENT'].fields_by_name['assessment_name']._loaded_options = None
     _globals['_ASSESSMENT'].fields_by_name['assessment_name']._serialized_options = b'\370\206\031\001'
+    _globals['_ASSESSMENT'].fields_by_name['error']._loaded_options = None
+    _globals['_ASSESSMENT'].fields_by_name['error']._serialized_options = b'\030\001'
     _globals['_ASSESSMENTSOURCE']._serialized_start=123
     _globals['_ASSESSMENTSOURCE']._serialized_end=321
     _globals['_ASSESSMENTSOURCE_SOURCETYPE']._serialized_start=244
@@ -46,11 +48,11 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_EXPECTATION']._serialized_start=385
     _globals['_EXPECTATION']._serialized_end=437
     _globals['_FEEDBACK']._serialized_start=439
-    _globals['_FEEDBACK']._serialized_end=488
-    _globals['_ASSESSMENT']._serialized_start=491
-    _globals['_ASSESSMENT']._serialized_end=1048
-    _globals['_ASSESSMENT_METADATAENTRY']._serialized_start=992
-    _globals['_ASSESSMENT_METADATAENTRY']._serialized_end=1039
+    _globals['_FEEDBACK']._serialized_end=540
+    _globals['_ASSESSMENT']._serialized_start=543
+    _globals['_ASSESSMENT']._serialized_end=1104
+    _globals['_ASSESSMENT_METADATAENTRY']._serialized_start=1048
+    _globals['_ASSESSMENT_METADATAENTRY']._serialized_end=1095
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -73,7 +75,7 @@ else:
   from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11\x61ssessments.proto\x12\x12mlflow.assessments\x1a\x10\x64\x61tabricks.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc6\x01\n\x10\x41ssessmentSource\x12J\n\x0bsource_type\x18\x01 \x01(\x0e\x32/.mlflow.assessments.AssessmentSource.SourceTypeB\x04\xf8\x86\x19\x01\x12\x17\n\tsource_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\"M\n\nSourceType\x12\x1b\n\x17SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05HUMAN\x10\x01\x12\r\n\tLLM_JUDGE\x10\x02\x12\x08\n\x04\x43ODE\x10\x03\"<\n\x0f\x41ssessmentError\x12\x12\n\nerror_code\x18\x01 \x01(\t\x12\x15\n\rerror_message\x18\x02 \x01(\t\"4\n\x0b\x45xpectation\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value\"1\n\x08\x46\x65\x65\x64\x62\x61\x63k\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value\"\xad\x04\n\nAssessment\x12\x15\n\rassessment_id\x18\x01 \x01(\t\x12\x1d\n\x0f\x61ssessment_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08trace_id\x18\x03 \x01(\t\x12\x0f\n\x07span_id\x18\x04 \x01(\t\x12\x34\n\x06source\x18\x05 \x01(\x0b\x32$.mlflow.assessments.AssessmentSource\x12/\n\x0b\x63reate_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\x08\x66\x65\x65\x64\x62\x61\x63k\x18\t \x01(\x0b\x32\x1c.mlflow.assessments.FeedbackH\x00\x12\x36\n\x0b\x65xpectation\x18\n \x01(\x0b\x32\x1f.mlflow.assessments.ExpectationH\x00\x12\x11\n\trationale\x18\x0b \x01(\t\x12\x32\n\x05\x65rror\x18\x0c \x01(\x0b\x32#.mlflow.assessments.AssessmentError\x12>\n\x08metadata\x18\r \x03(\x0b\x32,.mlflow.assessments.Assessment.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x07\n\x05valueB\x1e\n\x1corg.mlflow.assessments.proto')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11\x61ssessments.proto\x12\x12mlflow.assessments\x1a\x10\x64\x61tabricks.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc6\x01\n\x10\x41ssessmentSource\x12J\n\x0bsource_type\x18\x01 \x01(\x0e\x32/.mlflow.assessments.AssessmentSource.SourceTypeB\x04\xf8\x86\x19\x01\x12\x17\n\tsource_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\"M\n\nSourceType\x12\x1b\n\x17SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05HUMAN\x10\x01\x12\r\n\tLLM_JUDGE\x10\x02\x12\x08\n\x04\x43ODE\x10\x03\"<\n\x0f\x41ssessmentError\x12\x12\n\nerror_code\x18\x01 \x01(\t\x12\x15\n\rerror_message\x18\x02 \x01(\t\"4\n\x0b\x45xpectation\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value\"e\n\x08\x46\x65\x65\x64\x62\x61\x63k\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value\x12\x32\n\x05\x65rror\x18\x03 \x01(\x0b\x32#.mlflow.assessments.AssessmentError\"\xb1\x04\n\nAssessment\x12\x15\n\rassessment_id\x18\x01 \x01(\t\x12\x1d\n\x0f\x61ssessment_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08trace_id\x18\x03 \x01(\t\x12\x0f\n\x07span_id\x18\x04 \x01(\t\x12\x34\n\x06source\x18\x05 \x01(\x0b\x32$.mlflow.assessments.AssessmentSource\x12/\n\x0b\x63reate_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\x08\x66\x65\x65\x64\x62\x61\x63k\x18\t \x01(\x0b\x32\x1c.mlflow.assessments.FeedbackH\x00\x12\x36\n\x0b\x65xpectation\x18\n \x01(\x0b\x32\x1f.mlflow.assessments.ExpectationH\x00\x12\x11\n\trationale\x18\x0b \x01(\t\x12\x36\n\x05\x65rror\x18\x0c \x01(\x0b\x32#.mlflow.assessments.AssessmentErrorB\x02\x18\x01\x12>\n\x08metadata\x18\r \x03(\x0b\x32,.mlflow.assessments.Assessment.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x07\n\x05valueB\x1e\n\x1corg.mlflow.assessments.proto')
 
 
 
@@ -139,6 +141,8 @@ else:
     _ASSESSMENT_METADATAENTRY._serialized_options = b'8\001'
     _ASSESSMENT.fields_by_name['assessment_name']._options = None
     _ASSESSMENT.fields_by_name['assessment_name']._serialized_options = b'\370\206\031\001'
+    _ASSESSMENT.fields_by_name['error']._options = None
+    _ASSESSMENT.fields_by_name['error']._serialized_options = b'\030\001'
     _ASSESSMENTSOURCE._serialized_start=123
     _ASSESSMENTSOURCE._serialized_end=321
     _ASSESSMENTSOURCE_SOURCETYPE._serialized_start=244
@@ -148,10 +152,10 @@ else:
     _EXPECTATION._serialized_start=385
     _EXPECTATION._serialized_end=437
     _FEEDBACK._serialized_start=439
-    _FEEDBACK._serialized_end=488
-    _ASSESSMENT._serialized_start=491
-    _ASSESSMENT._serialized_end=1048
-    _ASSESSMENT_METADATAENTRY._serialized_start=992
-    _ASSESSMENT_METADATAENTRY._serialized_end=1039
+    _FEEDBACK._serialized_end=540
+    _ASSESSMENT._serialized_start=543
+    _ASSESSMENT._serialized_end=1104
+    _ASSESSMENT_METADATAENTRY._serialized_start=1048
+    _ASSESSMENT_METADATAENTRY._serialized_end=1095
   # @@protoc_insertion_point(module_scope)
 

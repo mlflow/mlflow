@@ -2568,6 +2568,33 @@ public final class Assessments {
      * <code>optional .google.protobuf.Value value = 2;</code>
      */
     com.google.protobuf.ValueOrBuilder getValueOrBuilder();
+
+    /**
+     * <pre>
+     * An error encountered while generating the feedback. Required if value is set to null.
+     * </pre>
+     *
+     * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+     * @return Whether the error field is set.
+     */
+    boolean hasError();
+    /**
+     * <pre>
+     * An error encountered while generating the feedback. Required if value is set to null.
+     * </pre>
+     *
+     * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+     * @return The error.
+     */
+    org.mlflow.assessments.proto.Assessments.AssessmentError getError();
+    /**
+     * <pre>
+     * An error encountered while generating the feedback. Required if value is set to null.
+     * </pre>
+     *
+     * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+     */
+    org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder getErrorOrBuilder();
   }
   /**
    * <pre>
@@ -2630,6 +2657,19 @@ public final class Assessments {
                 value_ = subBuilder.buildPartial();
               }
               bitField0_ |= 0x00000001;
+              break;
+            }
+            case 26: {
+              org.mlflow.assessments.proto.Assessments.AssessmentError.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000002) != 0)) {
+                subBuilder = error_.toBuilder();
+              }
+              error_ = input.readMessage(org.mlflow.assessments.proto.Assessments.AssessmentError.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(error_);
+                error_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000002;
               break;
             }
             default: {
@@ -2724,6 +2764,44 @@ public final class Assessments {
       return value_ == null ? com.google.protobuf.Value.getDefaultInstance() : value_;
     }
 
+    public static final int ERROR_FIELD_NUMBER = 3;
+    private org.mlflow.assessments.proto.Assessments.AssessmentError error_;
+    /**
+     * <pre>
+     * An error encountered while generating the feedback. Required if value is set to null.
+     * </pre>
+     *
+     * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+     * @return Whether the error field is set.
+     */
+    @java.lang.Override
+    public boolean hasError() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * An error encountered while generating the feedback. Required if value is set to null.
+     * </pre>
+     *
+     * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+     * @return The error.
+     */
+    @java.lang.Override
+    public org.mlflow.assessments.proto.Assessments.AssessmentError getError() {
+      return error_ == null ? org.mlflow.assessments.proto.Assessments.AssessmentError.getDefaultInstance() : error_;
+    }
+    /**
+     * <pre>
+     * An error encountered while generating the feedback. Required if value is set to null.
+     * </pre>
+     *
+     * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder getErrorOrBuilder() {
+      return error_ == null ? org.mlflow.assessments.proto.Assessments.AssessmentError.getDefaultInstance() : error_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -2741,6 +2819,9 @@ public final class Assessments {
       if (((bitField0_ & 0x00000001) != 0)) {
         output.writeMessage(2, getValue());
       }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        output.writeMessage(3, getError());
+      }
       unknownFields.writeTo(output);
     }
 
@@ -2753,6 +2834,10 @@ public final class Assessments {
       if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(2, getValue());
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(3, getError());
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -2774,6 +2859,11 @@ public final class Assessments {
         if (!getValue()
             .equals(other.getValue())) return false;
       }
+      if (hasError() != other.hasError()) return false;
+      if (hasError()) {
+        if (!getError()
+            .equals(other.getError())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -2788,6 +2878,10 @@ public final class Assessments {
       if (hasValue()) {
         hash = (37 * hash) + VALUE_FIELD_NUMBER;
         hash = (53 * hash) + getValue().hashCode();
+      }
+      if (hasError()) {
+        hash = (37 * hash) + ERROR_FIELD_NUMBER;
+        hash = (53 * hash) + getError().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -2922,6 +3016,7 @@ public final class Assessments {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
           getValueFieldBuilder();
+          getErrorFieldBuilder();
         }
       }
       @java.lang.Override
@@ -2933,6 +3028,12 @@ public final class Assessments {
           valueBuilder_.clear();
         }
         bitField0_ = (bitField0_ & ~0x00000001);
+        if (errorBuilder_ == null) {
+          error_ = null;
+        } else {
+          errorBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -2968,6 +3069,14 @@ public final class Assessments {
             result.value_ = valueBuilder_.build();
           }
           to_bitField0_ |= 0x00000001;
+        }
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          if (errorBuilder_ == null) {
+            result.error_ = error_;
+          } else {
+            result.error_ = errorBuilder_.build();
+          }
+          to_bitField0_ |= 0x00000002;
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -3020,6 +3129,9 @@ public final class Assessments {
         if (other == org.mlflow.assessments.proto.Assessments.Feedback.getDefaultInstance()) return this;
         if (other.hasValue()) {
           mergeValue(other.getValue());
+        }
+        if (other.hasError()) {
+          mergeError(other.getError());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -3268,6 +3380,162 @@ public final class Assessments {
           value_ = null;
         }
         return valueBuilder_;
+      }
+
+      private org.mlflow.assessments.proto.Assessments.AssessmentError error_;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.assessments.proto.Assessments.AssessmentError, org.mlflow.assessments.proto.Assessments.AssessmentError.Builder, org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder> errorBuilder_;
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+       * @return Whether the error field is set.
+       */
+      public boolean hasError() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+       * @return The error.
+       */
+      public org.mlflow.assessments.proto.Assessments.AssessmentError getError() {
+        if (errorBuilder_ == null) {
+          return error_ == null ? org.mlflow.assessments.proto.Assessments.AssessmentError.getDefaultInstance() : error_;
+        } else {
+          return errorBuilder_.getMessage();
+        }
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+       */
+      public Builder setError(org.mlflow.assessments.proto.Assessments.AssessmentError value) {
+        if (errorBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          error_ = value;
+          onChanged();
+        } else {
+          errorBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+       */
+      public Builder setError(
+          org.mlflow.assessments.proto.Assessments.AssessmentError.Builder builderForValue) {
+        if (errorBuilder_ == null) {
+          error_ = builderForValue.build();
+          onChanged();
+        } else {
+          errorBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+       */
+      public Builder mergeError(org.mlflow.assessments.proto.Assessments.AssessmentError value) {
+        if (errorBuilder_ == null) {
+          if (((bitField0_ & 0x00000002) != 0) &&
+              error_ != null &&
+              error_ != org.mlflow.assessments.proto.Assessments.AssessmentError.getDefaultInstance()) {
+            error_ =
+              org.mlflow.assessments.proto.Assessments.AssessmentError.newBuilder(error_).mergeFrom(value).buildPartial();
+          } else {
+            error_ = value;
+          }
+          onChanged();
+        } else {
+          errorBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+       */
+      public Builder clearError() {
+        if (errorBuilder_ == null) {
+          error_ = null;
+          onChanged();
+        } else {
+          errorBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000002);
+        return this;
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+       */
+      public org.mlflow.assessments.proto.Assessments.AssessmentError.Builder getErrorBuilder() {
+        bitField0_ |= 0x00000002;
+        onChanged();
+        return getErrorFieldBuilder().getBuilder();
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+       */
+      public org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder getErrorOrBuilder() {
+        if (errorBuilder_ != null) {
+          return errorBuilder_.getMessageOrBuilder();
+        } else {
+          return error_ == null ?
+              org.mlflow.assessments.proto.Assessments.AssessmentError.getDefaultInstance() : error_;
+        }
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.AssessmentError error = 3;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.assessments.proto.Assessments.AssessmentError, org.mlflow.assessments.proto.Assessments.AssessmentError.Builder, org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder> 
+          getErrorFieldBuilder() {
+        if (errorBuilder_ == null) {
+          errorBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.assessments.proto.Assessments.AssessmentError, org.mlflow.assessments.proto.Assessments.AssessmentError.Builder, org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder>(
+                  getError(),
+                  getParentForChildren(),
+                  isClean());
+          error_ = null;
+        }
+        return errorBuilder_;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -3614,30 +3882,35 @@ public final class Assessments {
 
     /**
      * <pre>
+     * [Deprecated, use the ``error`` field in ``feedback`` instead]
      * An error encountered while computing the assessment.
      * </pre>
      *
-     * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+     * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
+     * @deprecated
      * @return Whether the error field is set.
      */
-    boolean hasError();
+    @java.lang.Deprecated boolean hasError();
     /**
      * <pre>
+     * [Deprecated, use the ``error`` field in ``feedback`` instead]
      * An error encountered while computing the assessment.
      * </pre>
      *
-     * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+     * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
+     * @deprecated
      * @return The error.
      */
-    org.mlflow.assessments.proto.Assessments.AssessmentError getError();
+    @java.lang.Deprecated org.mlflow.assessments.proto.Assessments.AssessmentError getError();
     /**
      * <pre>
+     * [Deprecated, use the ``error`` field in ``feedback`` instead]
      * An error encountered while computing the assessment.
      * </pre>
      *
-     * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+     * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
      */
-    org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder getErrorOrBuilder();
+    @java.lang.Deprecated org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder getErrorOrBuilder();
 
     /**
      * <pre>
@@ -4474,37 +4747,42 @@ public final class Assessments {
     private org.mlflow.assessments.proto.Assessments.AssessmentError error_;
     /**
      * <pre>
+     * [Deprecated, use the ``error`` field in ``feedback`` instead]
      * An error encountered while computing the assessment.
      * </pre>
      *
-     * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+     * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
+     * @deprecated
      * @return Whether the error field is set.
      */
     @java.lang.Override
-    public boolean hasError() {
+    @java.lang.Deprecated public boolean hasError() {
       return ((bitField0_ & 0x00000400) != 0);
     }
     /**
      * <pre>
+     * [Deprecated, use the ``error`` field in ``feedback`` instead]
      * An error encountered while computing the assessment.
      * </pre>
      *
-     * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+     * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
+     * @deprecated
      * @return The error.
      */
     @java.lang.Override
-    public org.mlflow.assessments.proto.Assessments.AssessmentError getError() {
+    @java.lang.Deprecated public org.mlflow.assessments.proto.Assessments.AssessmentError getError() {
       return error_ == null ? org.mlflow.assessments.proto.Assessments.AssessmentError.getDefaultInstance() : error_;
     }
     /**
      * <pre>
+     * [Deprecated, use the ``error`` field in ``feedback`` instead]
      * An error encountered while computing the assessment.
      * </pre>
      *
-     * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+     * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
      */
     @java.lang.Override
-    public org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder getErrorOrBuilder() {
+    @java.lang.Deprecated public org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder getErrorOrBuilder() {
       return error_ == null ? org.mlflow.assessments.proto.Assessments.AssessmentError.getDefaultInstance() : error_;
     }
 
@@ -6680,24 +6958,28 @@ public final class Assessments {
           org.mlflow.assessments.proto.Assessments.AssessmentError, org.mlflow.assessments.proto.Assessments.AssessmentError.Builder, org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder> errorBuilder_;
       /**
        * <pre>
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
        * An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
+       * @deprecated
        * @return Whether the error field is set.
        */
-      public boolean hasError() {
+      @java.lang.Deprecated public boolean hasError() {
         return ((bitField0_ & 0x00000400) != 0);
       }
       /**
        * <pre>
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
        * An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
+       * @deprecated
        * @return The error.
        */
-      public org.mlflow.assessments.proto.Assessments.AssessmentError getError() {
+      @java.lang.Deprecated public org.mlflow.assessments.proto.Assessments.AssessmentError getError() {
         if (errorBuilder_ == null) {
           return error_ == null ? org.mlflow.assessments.proto.Assessments.AssessmentError.getDefaultInstance() : error_;
         } else {
@@ -6706,12 +6988,13 @@ public final class Assessments {
       }
       /**
        * <pre>
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
        * An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
        */
-      public Builder setError(org.mlflow.assessments.proto.Assessments.AssessmentError value) {
+      @java.lang.Deprecated public Builder setError(org.mlflow.assessments.proto.Assessments.AssessmentError value) {
         if (errorBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -6726,12 +7009,13 @@ public final class Assessments {
       }
       /**
        * <pre>
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
        * An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
        */
-      public Builder setError(
+      @java.lang.Deprecated public Builder setError(
           org.mlflow.assessments.proto.Assessments.AssessmentError.Builder builderForValue) {
         if (errorBuilder_ == null) {
           error_ = builderForValue.build();
@@ -6744,12 +7028,13 @@ public final class Assessments {
       }
       /**
        * <pre>
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
        * An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
        */
-      public Builder mergeError(org.mlflow.assessments.proto.Assessments.AssessmentError value) {
+      @java.lang.Deprecated public Builder mergeError(org.mlflow.assessments.proto.Assessments.AssessmentError value) {
         if (errorBuilder_ == null) {
           if (((bitField0_ & 0x00000400) != 0) &&
               error_ != null &&
@@ -6768,12 +7053,13 @@ public final class Assessments {
       }
       /**
        * <pre>
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
        * An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
        */
-      public Builder clearError() {
+      @java.lang.Deprecated public Builder clearError() {
         if (errorBuilder_ == null) {
           error_ = null;
           onChanged();
@@ -6785,24 +7071,26 @@ public final class Assessments {
       }
       /**
        * <pre>
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
        * An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
        */
-      public org.mlflow.assessments.proto.Assessments.AssessmentError.Builder getErrorBuilder() {
+      @java.lang.Deprecated public org.mlflow.assessments.proto.Assessments.AssessmentError.Builder getErrorBuilder() {
         bitField0_ |= 0x00000400;
         onChanged();
         return getErrorFieldBuilder().getBuilder();
       }
       /**
        * <pre>
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
        * An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
        */
-      public org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder getErrorOrBuilder() {
+      @java.lang.Deprecated public org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder getErrorOrBuilder() {
         if (errorBuilder_ != null) {
           return errorBuilder_.getMessageOrBuilder();
         } else {
@@ -6812,10 +7100,11 @@ public final class Assessments {
       }
       /**
        * <pre>
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
        * An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.assessments.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
           org.mlflow.assessments.proto.Assessments.AssessmentError, org.mlflow.assessments.proto.Assessments.AssessmentError.Builder, org.mlflow.assessments.proto.Assessments.AssessmentErrorOrBuilder> 
@@ -7098,23 +7387,25 @@ public final class Assessments {
       "IED\020\000\022\t\n\005HUMAN\020\001\022\r\n\tLLM_JUDGE\020\002\022\010\n\004CODE\020" +
       "\003\"<\n\017AssessmentError\022\022\n\nerror_code\030\001 \001(\t" +
       "\022\025\n\rerror_message\030\002 \001(\t\"4\n\013Expectation\022%" +
-      "\n\005value\030\002 \001(\0132\026.google.protobuf.Value\"1\n" +
+      "\n\005value\030\002 \001(\0132\026.google.protobuf.Value\"e\n" +
       "\010Feedback\022%\n\005value\030\002 \001(\0132\026.google.protob" +
-      "uf.Value\"\255\004\n\nAssessment\022\025\n\rassessment_id" +
-      "\030\001 \001(\t\022\035\n\017assessment_name\030\002 \001(\tB\004\370\206\031\001\022\020\n" +
-      "\010trace_id\030\003 \001(\t\022\017\n\007span_id\030\004 \001(\t\0224\n\006sour" +
-      "ce\030\005 \001(\0132$.mlflow.assessments.Assessment" +
-      "Source\022/\n\013create_time\030\006 \001(\0132\032.google.pro" +
-      "tobuf.Timestamp\0224\n\020last_update_time\030\007 \001(" +
-      "\0132\032.google.protobuf.Timestamp\0220\n\010feedbac" +
-      "k\030\t \001(\0132\034.mlflow.assessments.FeedbackH\000\022" +
-      "6\n\013expectation\030\n \001(\0132\037.mlflow.assessment" +
-      "s.ExpectationH\000\022\021\n\trationale\030\013 \001(\t\0222\n\005er" +
-      "ror\030\014 \001(\0132#.mlflow.assessments.Assessmen" +
-      "tError\022>\n\010metadata\030\r \003(\0132,.mlflow.assess" +
-      "ments.Assessment.MetadataEntry\032/\n\rMetada" +
-      "taEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001B" +
-      "\007\n\005valueB\036\n\034org.mlflow.assessments.proto"
+      "uf.Value\0222\n\005error\030\003 \001(\0132#.mlflow.assessm" +
+      "ents.AssessmentError\"\261\004\n\nAssessment\022\025\n\ra" +
+      "ssessment_id\030\001 \001(\t\022\035\n\017assessment_name\030\002 " +
+      "\001(\tB\004\370\206\031\001\022\020\n\010trace_id\030\003 \001(\t\022\017\n\007span_id\030\004" +
+      " \001(\t\0224\n\006source\030\005 \001(\0132$.mlflow.assessment" +
+      "s.AssessmentSource\022/\n\013create_time\030\006 \001(\0132" +
+      "\032.google.protobuf.Timestamp\0224\n\020last_upda" +
+      "te_time\030\007 \001(\0132\032.google.protobuf.Timestam" +
+      "p\0220\n\010feedback\030\t \001(\0132\034.mlflow.assessments" +
+      ".FeedbackH\000\0226\n\013expectation\030\n \001(\0132\037.mlflo" +
+      "w.assessments.ExpectationH\000\022\021\n\trationale" +
+      "\030\013 \001(\t\0226\n\005error\030\014 \001(\0132#.mlflow.assessmen" +
+      "ts.AssessmentErrorB\002\030\001\022>\n\010metadata\030\r \003(\013" +
+      "2,.mlflow.assessments.Assessment.Metadat" +
+      "aEntry\032/\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005" +
+      "value\030\002 \001(\t:\0028\001B\007\n\005valueB\036\n\034org.mlflow.a" +
+      "ssessments.proto"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -7146,7 +7437,7 @@ public final class Assessments {
     internal_static_mlflow_assessments_Feedback_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_assessments_Feedback_descriptor,
-        new java.lang.String[] { "Value", });
+        new java.lang.String[] { "Value", "Error", });
     internal_static_mlflow_assessments_Assessment_descriptor =
       getDescriptor().getMessageTypes().get(4);
     internal_static_mlflow_assessments_Assessment_fieldAccessorTable = new
