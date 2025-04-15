@@ -394,7 +394,7 @@ class TrackingServiceClient:
                 )
                 return None
             else:
-                return Trace(trace_info, trace_data)
+                return Trace(trace_info, trace_data, _sql_warehouse_id=sql_warehouse_id)
 
         # If run_id is provided, add it to the filter string
         if run_id:

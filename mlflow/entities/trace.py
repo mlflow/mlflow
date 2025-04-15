@@ -29,6 +29,8 @@ class Trace(_MlflowObject):
 
     info: TraceInfo
     data: TraceData
+    # Private attribute required to render online traces on the notebook.
+    _sql_warehouse_id: Optional[str] = None
 
     def __repr__(self) -> str:
         return f"Trace(request_id={self.info.request_id})"
