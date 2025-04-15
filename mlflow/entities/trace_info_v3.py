@@ -32,6 +32,11 @@ class TraceInfoV3(_MlflowObject):
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "TraceInfoV3":
+        if "request_id" in d:
+            from mlflow.entities.trace_info import TraceInfo as TraceInfoV2
+
+            return TraceInfoV2.from_dict(d).to_v3()
+
         d = d.copy()
         if assessments := d.get("assessments"):
             d["assessments"] = [Assessment.from_dictionary(a) for a in assessments]
