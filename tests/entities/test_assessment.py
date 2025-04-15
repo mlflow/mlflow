@@ -10,7 +10,7 @@ from mlflow.entities.assessment import (
     Feedback,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.service_pb2 import Assessment as ProtoAssessment
+from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 
 
 def test_assessment_creation():
