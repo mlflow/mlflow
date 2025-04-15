@@ -20,7 +20,6 @@ import mlflow
 import mlflow.pyfunc
 import mlflow.sagemaker as mfs
 import mlflow.sklearn
-from mlflow.deployments.cli import commands as cli_commands
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
@@ -62,33 +61,6 @@ def sagemaker_deployment_client():
     return mfs.SageMakerDeploymentClient(
         "sagemaker:/us-west-2/arn:aws:iam::123456789012:role/assumed_role"
     )
-
-
-def create_sagemaker_deployment_through_cli(
-    app_name, model_uri, region_name, env=None, config=None
-):
-    if env is None:
-        env = {"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}
-    if config is not None:
-        _config = []
-        for c in config:
-            _config += ["-C", c]
-    else:
-        _config = []
-    result = CliRunner(env=env).invoke(
-        cli_commands,
-        [
-            "create",
-            "--target",
-            f"sagemaker:/{region_name}",
-            "--name",
-            app_name,
-            "--model-uri",
-            model_uri,
-        ]
-        + _config,
-    )
-    assert result.exit_code == 0
 
 
 def get_sagemaker_backend(region_name):
@@ -1329,94 +1301,6 @@ def test_update_deployment_in_replace_mode_with_archiving_does_not_delete_resour
     assert all(model in models_after_replacement for model in models_before_replacement)
 
 
-@mock_sagemaker_aws_services
-def test_deploy_cli_updates_sagemaker_and_s3_resources_in_replace_mode(
-    pretrained_model, sagemaker_client
-):
-    app_name = "test-app"
-    region_name = sagemaker_client.meta.region_name
-    create_sagemaker_deployment_through_cli(app_name, pretrained_model.model_uri, region_name)
-
-    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-        cli_commands,
-        [
-            "update",
-            "--target",
-            f"sagemaker:/{region_name}",
-            "--name",
-            app_name,
-            "--model-uri",
-            pretrained_model.model_uri,
-        ],
-    )
-    assert result.exit_code == 0
-
-    s3_client = boto3.client("s3", region_name=region_name)
-    default_bucket = mfs._get_default_s3_bucket(region_name)
-    endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
-    endpoint_production_variants = endpoint_description["ProductionVariants"]
-    assert len(endpoint_production_variants) == 1
-    model_name = endpoint_production_variants[0]["VariantName"]
-    assert model_name in [model["ModelName"] for model in sagemaker_client.list_models()["Models"]]
-    object_names = [
-        entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
-    ]
-    assert any(model_name in object_name for object_name in object_names)
-    assert any(
-        app_name in config["EndpointConfigName"]
-        for config in sagemaker_client.list_endpoint_configs()["EndpointConfigs"]
-    )
-    assert app_name in [
-        endpoint["EndpointName"] for endpoint in sagemaker_client.list_endpoints()["Endpoints"]
-    ]
-    model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
-        "Environment"
-    ]
-    expected_model_environment = {
-        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
-        "SERVING_ENVIRONMENT": "SageMaker",
-    }
-    if os.getenv("http_proxy") is not None:
-        expected_model_environment.update({"http_proxy": os.environ["http_proxy"]})
-
-    if os.getenv("https_proxy") is not None:
-        expected_model_environment.update({"https_proxy": os.environ["https_proxy"]})
-
-    if os.getenv("no_proxy") is not None:
-        expected_model_environment.update({"no_proxy": os.environ["no_proxy"]})
-
-    assert model_environment == expected_model_environment
-
-
-@mock_sagemaker_aws_services
-def test_deploy_cli_updates_sagemaker_and_s3_resources_in_add_mode(
-    pretrained_model, sagemaker_client
-):
-    app_name = "test-app"
-    region_name = sagemaker_client.meta.region_name
-    create_sagemaker_deployment_through_cli(app_name, pretrained_model.model_uri, region_name)
-
-    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-        cli_commands,
-        [
-            "update",
-            "--target",
-            f"sagemaker:/{region_name}",
-            "--name",
-            app_name,
-            "--model-uri",
-            pretrained_model.model_uri,
-            "--config",
-            f"mode={mfs.DEPLOYMENT_MODE_ADD}",
-        ],
-    )
-    assert result.exit_code == 0
-
-    endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
-    endpoint_production_variants = endpoint_description["ProductionVariants"]
-    assert len(endpoint_production_variants) == 2
-
-
 def test_delete_deployment_in_asynchronous_mode_without_archiving_raises_exception(
     sagemaker_deployment_client,
 ):
@@ -1485,30 +1369,6 @@ def test_delete_deployment_synchronous_with_archiving_only_deletes_endpoint(
 
 
 @mock_sagemaker_aws_services
-def test_deploy_cli_deletes_sagemaker_deployment(pretrained_model, sagemaker_client):
-    app_name = "test-app"
-    region_name = sagemaker_client.meta.region_name
-    create_sagemaker_deployment_through_cli(app_name, pretrained_model.model_uri, region_name)
-
-    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-        cli_commands,
-        [
-            "delete",
-            "--target",
-            "sagemaker",
-            "--name",
-            app_name,
-            "--config",
-            f"region_name={region_name}",
-        ],
-    )
-    assert result.exit_code == 0
-
-    response = sagemaker_client.list_endpoints()
-    assert len(response["Endpoints"]) == 0
-
-
-@mock_sagemaker_aws_services
 def test_get_deployment_successful(pretrained_model, sagemaker_client):
     name = "test-app"
     region_name = sagemaker_client.meta.region_name
@@ -1551,26 +1411,6 @@ def test_get_deployment_non_existent_deployment():
 
 
 @mock_sagemaker_aws_services
-def test_deploy_cli_gets_sagemaker_deployment(pretrained_model, sagemaker_client):
-    app_name = "test-app"
-    region_name = sagemaker_client.meta.region_name
-    create_sagemaker_deployment_through_cli(app_name, pretrained_model.model_uri, region_name)
-
-    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-        cli_commands,
-        [
-            "get",
-            "--target",
-            f"sagemaker:/{region_name}",
-            "--name",
-            app_name,
-        ],
-    )
-
-    assert result.exit_code == 0
-
-
-@mock_sagemaker_aws_services
 def test_list_deployments_returns_all_endpoints(pretrained_model, sagemaker_client):
     region_name = sagemaker_client.meta.region_name
     sagemaker_deployment_client = mfs.SageMakerDeploymentClient(f"sagemaker:/{region_name}")
@@ -1608,24 +1448,6 @@ def test_list_deployments_with_assumed_role_arn(pretrained_model, sagemaker_depl
     assert len(endpoints) == 2
     assert endpoints[0]["EndpointName"] == "test-app-1"
     assert endpoints[1]["EndpointName"] == "test-app-2"
-
-
-@mock_sagemaker_aws_services
-def test_deploy_cli_list_sagemaker_deployments(pretrained_model, sagemaker_client):
-    region_name = sagemaker_client.meta.region_name
-    create_sagemaker_deployment_through_cli("test-app-1", pretrained_model.model_uri, region_name)
-    create_sagemaker_deployment_through_cli("test-app-2", pretrained_model.model_uri, region_name)
-
-    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-        cli_commands,
-        [
-            "list",
-            "--target",
-            f"sagemaker:/{region_name}",
-        ],
-    )
-
-    assert result.exit_code == 0
 
 
 @mock_sagemaker_aws_services

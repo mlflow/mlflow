@@ -663,7 +663,6 @@ def doctor(mask_envs):
     mlflow.doctor(mask_envs)
 
 
-cli.add_command(mlflow.deployments.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.runs.commands)
