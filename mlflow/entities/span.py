@@ -4,6 +4,8 @@ from dataclasses import asdict
 from functools import lru_cache
 from typing import Any, Optional, Union
 
+from google.protobuf.json_format import ParseDict
+from google.protobuf.struct_pb2 import Value
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
@@ -23,7 +25,6 @@ from mlflow.tracing.utils import (
     encode_span_id,
     encode_trace_id,
 )
-from mlflow.utils.proto_json_utils import set_pb_value
 
 _logger = logging.getLogger(__name__)
 
@@ -275,7 +276,7 @@ class Span:
         )
         parent = _encode_span_id_to_byte(self._span.parent.span_id) if self._span.parent else b""
 
-        proto = ProtoSpan(
+        return ProtoSpan(
             trace_id=_encode_trace_id_to_byte(self._span.context.trace_id),
             span_id=_encode_span_id_to_byte(self._span.context.span_id),
             trace_state=self._span.context.trace_state or "",
@@ -285,13 +286,8 @@ class Span:
             end_time_unix_nano=self._span.end_time,
             events=[event.to_proto() for event in self.events],
             status=status,
+            attributes={k: ParseDict(v, Value()) for k, v in self._span.attributes.items()},
         )
-
-        # Trace server's proto uses map<string, google.protobuf.Value> for attributes
-        for key, value in self._span.attributes.items():
-            set_pb_value(proto.attributes[key], value)
-
-        return proto
 
 
 def _encode_span_id_to_byte(span_id: Optional[int]) -> bytes:
