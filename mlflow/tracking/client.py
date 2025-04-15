@@ -12,7 +12,6 @@ import posixpath
 import re
 import sys
 import tempfile
-import time
 import urllib
 import uuid
 import warnings
@@ -43,7 +42,6 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import (
     Assessment,
-    AssessmentError,
     Expectation,
     Feedback,
 )
@@ -1511,23 +1509,17 @@ class MlflowClient:
         source: AssessmentSource,
         expectation: Optional[Expectation] = None,
         feedback: Optional[Feedback] = None,
-        error: Optional[AssessmentError] = None,
         rationale: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         span_id: Optional[str] = None,
     ) -> Assessment:
-        timestamp = int(time.time() * 1000)  # milliseconds
-
         assessment = Assessment(
             # assessment_id must be None when creating a new assessment
             trace_id=trace_id,
             name=name,
             source=source,
-            create_time_ms=timestamp,
-            last_update_time_ms=timestamp,
             expectation=expectation,
             feedback=feedback,
-            error=error,
             rationale=rationale,
             metadata=metadata,
             span_id=span_id,
