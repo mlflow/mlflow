@@ -12,10 +12,9 @@ from mlflow.store.artifact.databricks_logged_model_artifact_repo import (
 def test_log_artifact(tmp_path: Path):
     local_file = tmp_path / "local_file.txt"
     local_file.write_text("test content")
-
     with (
         mock.patch(
-            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksLoggedModelArtifactRepository.files_api"
+            "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository.files_api"
         ) as mock_files_api,
         mock.patch(
             "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksLoggedModelArtifactRepository.databricks_artifact_repo"
@@ -43,7 +42,7 @@ def test_log_artifacts(tmp_path: Path):
 
     with (
         mock.patch(
-            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksLoggedModelArtifactRepository.files_api"
+            "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository.files_api"
         ) as mock_files_api,
         mock.patch(
             "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksLoggedModelArtifactRepository.databricks_artifact_repo"
@@ -69,7 +68,7 @@ def test_download_file(tmp_path: Path):
 
     with (
         mock.patch(
-            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksLoggedModelArtifactRepository.files_api"
+            "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository.files_api"
         ) as mock_files_api,
         mock.patch(
             "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksLoggedModelArtifactRepository.databricks_artifact_repo"
@@ -94,7 +93,7 @@ def test_download_file(tmp_path: Path):
 def test_list_artifacts():
     with (
         mock.patch(
-            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksLoggedModelArtifactRepository.files_api"
+            "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository.files_api"
         ) as mock_files_api,
         mock.patch(
             "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksLoggedModelArtifactRepository.databricks_artifact_repo"

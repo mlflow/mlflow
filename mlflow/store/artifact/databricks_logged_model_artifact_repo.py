@@ -78,7 +78,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
 
     def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         try:
-            return self.databricks_sdk_repo._list_artifacts(path)
+            return self.databricks_sdk_repo.list_artifacts(path)
         except Exception:
             _logger.debug(
                 (

@@ -32,7 +32,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         return True
 
     def full_path(self, artifact_path: str) -> str:
-        return f"{self.root_path}/{artifact_path}" if artifact_path else self.root_path
+        return f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
 
     def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
         with open(local_file, "rb") as f:
@@ -56,7 +56,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
 
         file_infos: list[FileInfo] = []
         for directory_entry in self.files_api.list_directory_contents(dest_path):
-            relative_path = posixpath.relpath(directory_entry.path, self.root_path)
+            relative_path = posixpath.relpath(directory_entry.path, self.artifact_uri)
             file_infos.append(
                 FileInfo(
                     path=relative_path,
