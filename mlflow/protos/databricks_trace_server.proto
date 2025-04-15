@@ -348,7 +348,8 @@ message Assessment {
   // Justification for the assessment.
   optional string rationale = 11;
 
-  // [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+  // [Deprecated, use the ``error`` field in ``feedback`` instead]
+  // An error encountered while computing the assessment.
   optional AssessmentError error = 12 [deprecated = true];
 
   // Additional metadata describing the assessment and store additional information,
