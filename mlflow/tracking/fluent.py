@@ -2294,6 +2294,7 @@ def last_logged_model() -> Optional[LoggedModel]:
 def search_logged_models(
     experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,
+    datasets: Optional[list[dict[str, str]]] = None,
     max_results: Optional[int] = None,
     order_by: Optional[list[dict[str, Any]]] = None,
     output_format: str = "pandas",
@@ -2323,6 +2324,17 @@ def search_logged_models(
                 - `tags.release LIKE 'v1.%'`
                 - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
 
+        datasets: List of dictionaries to specify datasets on which to apply metrics filters
+            For example, a filter string with `metrics.accuracy > 0.9` and dataset with name
+            "test_dataset" means we will return all logged models with accuracy > 0.9 on the
+            test_dataset. Metric values from ANY dataset matching the criteria are considered.
+            If no datasets are specified, then metrics across all datasets are considered in
+            the filter. The following fields are supported:
+
+            dataset_name (str):
+                Required. Name of the dataset.
+            dataset_digest (str):
+                Optional. Digest of the dataset.
         max_results: The maximum number of logged models to return.
         order_by: List of dictionaries to specify the ordering of the search results. The following
             fields are supported:
@@ -2356,9 +2368,10 @@ def search_logged_models(
         logged_models_page = client.search_logged_models(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
-            page_token=page_token,
+            datasets=datasets,
             max_results=max_results,
             order_by=order_by,
+            page_token=page_token,
         )
         models.extend(logged_models_page.to_list())
         if not logged_models_page.token:

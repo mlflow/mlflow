@@ -550,7 +550,7 @@ class RestStore(AbstractStore):
             set_pb_value(assessment.expectation.value, expectation.value)
             mask.paths.append("expectation")
         if feedback is not None:
-            set_pb_value(assessment.feedback.value, feedback.value)
+            assessment.feedback.CopyFrom(feedback.to_proto())
             mask.paths.append("feedback")
         if rationale is not None:
             assessment.rationale = rationale
@@ -804,6 +804,7 @@ class RestStore(AbstractStore):
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
+        datasets: Optional[list[dict[str, Any]]] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
@@ -814,6 +815,11 @@ class RestStore(AbstractStore):
         Args:
             experiment_ids: List of experiment ids to scope the search.
             filter_string: A search filter string.
+            datasets: List of dictionaries to specify datasets on which to apply metrics filters.
+                The following fields are supported:
+
+                name (str): Required. Name of the dataset.
+                digest (str): Optional. Digest of the dataset.
             max_results: Maximum number of logged models desired.
             order_by: List of dictionaries to specify the ordering of the search results.
                 The following fields are supported:
@@ -838,6 +844,13 @@ class RestStore(AbstractStore):
             SearchLoggedModels(
                 experiment_ids=experiment_ids,
                 filter=filter_string,
+                datasets=[
+                    SearchLoggedModels.Dataset(
+                        dataset_name=d["dataset_name"],
+                        dataset_digest=d.get("dataset_digest"),
+                    )
+                    for d in datasets or []
+                ],
                 max_results=max_results,
                 order_by=[
                     SearchLoggedModels.OrderBy(

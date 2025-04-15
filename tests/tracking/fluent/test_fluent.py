@@ -1862,6 +1862,36 @@ def test_set_and_delete_model_tag():
     assert "tag" not in mlflow.last_logged_model().tags
 
 
+def test_search_logged_models():
+    with mock.patch("mlflow.tracking.fluent.MlflowClient") as MockClient:
+        mock_client = MockClient.return_value
+        mock_client.search_logged_models.return_value = PagedList([], None)
+
+        experiment_ids = ["123"]
+        filter_string = "name = 'model'"
+        datasets = [{"dataset_name": "dataset"}]
+        max_results = 50
+        order_by = [{"field_name": "metrics.accuracy", "ascending": False}]
+
+        mlflow.search_logged_models(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            datasets=datasets,
+            max_results=max_results,
+            order_by=order_by,
+            output_format="list",
+        )
+
+        mock_client.search_logged_models.assert_called_once_with(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            datasets=datasets,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=None,
+        )
+
+
 def test_search_logged_models_pagination():
     def make_search_logged_model_page(models, token):
         page = mock.Mock()
@@ -1882,16 +1912,18 @@ def test_search_logged_models_pagination():
             mock.call(
                 experiment_ids=["123"],
                 filter_string=None,
-                page_token=None,
+                datasets=None,
                 max_results=None,
                 order_by=None,
+                page_token=None,
             ),
             mock.call(
                 experiment_ids=["123"],
                 filter_string=None,
-                page_token="token_1",
+                datasets=None,
                 max_results=None,
                 order_by=None,
+                page_token="token_1",
             ),
         ]
         mock_client.search_logged_models.assert_has_calls(expected_calls)

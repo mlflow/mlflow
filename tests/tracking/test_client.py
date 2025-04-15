@@ -448,7 +448,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
-    request_id = mlflow.get_last_active_trace().info.request_id
+    request_id = mlflow.get_trace(mlflow.get_last_active_trace_id()).info.request_id
 
     # Validate that trace is logged to the backend
     trace = client.get_trace(request_id)
@@ -804,7 +804,7 @@ def test_log_trace(tracking_uri):
     )
     client.end_trace(span.request_id, status="OK")
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
     # Purge all traces in the backend once
     client.delete_traces(experiment_id=experiment_id, request_ids=[trace.info.request_id])
@@ -879,7 +879,7 @@ def test_set_and_delete_trace_tag_on_active_trace(monkeypatch):
     client.set_trace_tag(request_id, "foo", "bar")
     client.end_trace(request_id)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.tags["foo"] == "bar"
 
 
@@ -898,7 +898,7 @@ def test_delete_trace_tag_on_active_trace(monkeypatch):
     client.delete_trace_tag(request_id, "foo")
     client.end_trace(request_id)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert "baz" in trace.info.tags
     assert "foo" not in trace.info.tags
 

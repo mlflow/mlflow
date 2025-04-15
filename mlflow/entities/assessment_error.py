@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.protos.databricks_trace_server_pb2 import AssessmentError as ProtoAssessmentError
+from mlflow.protos.assessments_pb2 import AssessmentError as ProtoAssessmentError
 from mlflow.utils.annotations import experimental
 
 
