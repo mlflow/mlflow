@@ -106,11 +106,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.4.1",
-            "maximum": "2.8.0"
+            "maximum": "2.7.19"
         },
         "autologging": {
             "minimum": "2.4.1",
-            "maximum": "2.8.0"
+            "maximum": "2.7.19"
         }
     },
     "onnx": {

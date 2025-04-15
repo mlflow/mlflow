@@ -208,7 +208,7 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.8.0"
+    maximum: "2.7.19"
     requirements:
       # TODO: fastai depends on spacy, but spacy>=3.8.2 requires python>=3.9
       #  Once migrating fastai tests to python 3.9, we should remove spacy<3.8.2
@@ -221,7 +221,7 @@ fastai:
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.8.0"
+    maximum: "2.7.19"
     requirements:
       "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
     run: |
