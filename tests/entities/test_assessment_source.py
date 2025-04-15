@@ -42,7 +42,8 @@ def test_assessment_source_type_validation():
     AssessmentSource(source_type="LLM_JUDGE", source_id="judge_1")
 
     # Deprecated source type for backward compatibility
-    AssessmentSource(source_type="AI_JUDGE", source_id="ai_1")
+    source = AssessmentSource(source_type="AI_JUDGE", source_id="ai_1")
+    assert source.source_type == "LLM_JUDGE"
 
     # Invalid source type
     with pytest.raises(MlflowException, match="Invalid assessment source type"):

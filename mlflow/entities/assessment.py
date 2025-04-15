@@ -176,9 +176,6 @@ class Assessment(_MlflowObject):
             "span_id": self.span_id,
         }
 
-    def _get_current_time_ms(self):
-        return int(time.time() * 1000)
-
 
 @experimental
 @dataclass
