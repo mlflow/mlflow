@@ -37,7 +37,7 @@ def test_autolog_lm():
     result = lm("test input")
     assert result == ["[[ ## output ## ]]\ntest output"]
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "OK"
     # Latency of LM is too small to get > 0 milliseconds difference
@@ -146,7 +146,7 @@ def test_mlflow_callback_exception():
         with pytest.raises(ContextWindowExceededError, match="Error"):
             cot(question="How are you?")
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "ERROR"
     assert trace.info.execution_time_ms > 0
@@ -208,7 +208,7 @@ def test_autolog_react():
     result = react(question="What is the highest mountain in the world?")
     assert result["answer"] == "Mount Everest"
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "OK"
     assert trace.info.execution_time_ms > 0
@@ -251,7 +251,7 @@ def test_autolog_retriever():
     result = retriever(query="test query", n=3)
     assert result == ["test output"] * 3
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "OK"
     assert trace.info.execution_time_ms > 0
@@ -478,7 +478,7 @@ def test_autolog_set_retriever_schema():
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     loaded_model.predict({"question": "What is 2 + 2?"})
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "OK"
     assert json.loads(trace.info.tags[DependenciesSchemasType.RETRIEVERS.value]) == [

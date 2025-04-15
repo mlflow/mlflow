@@ -12,6 +12,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.protos.databricks_trace_server_pb2 import CreateTrace, DatabricksTracingServerService
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
+from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import (
@@ -56,6 +57,8 @@ class DatabricksSpanExporter(SpanExporter):
             if trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
+
+            _set_last_active_trace_id(trace.info.request_id)
 
             if self._is_async:
                 self._async_queue.put(
