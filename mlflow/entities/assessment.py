@@ -37,7 +37,7 @@ class Assessment(_MlflowObject):
         Feedback can come from different sources, such as human judges, heuristic scorers,
         or LLM-as-a-Judge.
 
-    You can log an assessment to a trace using the :py:func:`mlflow.log_expectation`or
+    You can log an assessment to a trace using the :py:func:`mlflow.log_expectation` or
     :py:func:`mlflow.log_feedback` functions.
 
     Args:
