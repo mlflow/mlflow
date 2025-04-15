@@ -66747,7 +66747,8 @@ public final class Service {
 
     /**
      * <pre>
-     * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+     * [Deprecated, use the ``error`` field in ``feedback`` instead]
+     * An error encountered while computing the assessment.
      * </pre>
      *
      * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -66757,7 +66758,8 @@ public final class Service {
     @java.lang.Deprecated boolean hasError();
     /**
      * <pre>
-     * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+     * [Deprecated, use the ``error`` field in ``feedback`` instead]
+     * An error encountered while computing the assessment.
      * </pre>
      *
      * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -66767,7 +66769,8 @@ public final class Service {
     @java.lang.Deprecated org.mlflow.api.proto.Service.AssessmentError getError();
     /**
      * <pre>
-     * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+     * [Deprecated, use the ``error`` field in ``feedback`` instead]
+     * An error encountered while computing the assessment.
      * </pre>
      *
      * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -67609,7 +67612,8 @@ public final class Service {
     private org.mlflow.api.proto.Service.AssessmentError error_;
     /**
      * <pre>
-     * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+     * [Deprecated, use the ``error`` field in ``feedback`` instead]
+     * An error encountered while computing the assessment.
      * </pre>
      *
      * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -67622,7 +67626,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+     * [Deprecated, use the ``error`` field in ``feedback`` instead]
+     * An error encountered while computing the assessment.
      * </pre>
      *
      * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -67635,7 +67640,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+     * [Deprecated, use the ``error`` field in ``feedback`` instead]
+     * An error encountered while computing the assessment.
      * </pre>
      *
      * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -69817,7 +69823,8 @@ public final class Service {
           org.mlflow.api.proto.Service.AssessmentError, org.mlflow.api.proto.Service.AssessmentError.Builder, org.mlflow.api.proto.Service.AssessmentErrorOrBuilder> errorBuilder_;
       /**
        * <pre>
-       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
+       * An error encountered while computing the assessment.
        * </pre>
        *
        * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -69829,7 +69836,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
+       * An error encountered while computing the assessment.
        * </pre>
        *
        * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -69845,7 +69853,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
+       * An error encountered while computing the assessment.
        * </pre>
        *
        * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -69865,7 +69874,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
+       * An error encountered while computing the assessment.
        * </pre>
        *
        * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -69883,7 +69893,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
+       * An error encountered while computing the assessment.
        * </pre>
        *
        * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -69907,7 +69918,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
+       * An error encountered while computing the assessment.
        * </pre>
        *
        * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -69924,7 +69936,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
+       * An error encountered while computing the assessment.
        * </pre>
        *
        * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -69936,7 +69949,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
+       * An error encountered while computing the assessment.
        * </pre>
        *
        * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
@@ -69951,7 +69965,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead]
+       * An error encountered while computing the assessment.
        * </pre>
        *
        * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
