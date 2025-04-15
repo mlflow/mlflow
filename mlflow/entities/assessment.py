@@ -6,6 +6,7 @@ from typing import Any, Optional, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
@@ -169,13 +170,24 @@ class Assessment(_MlflowObject):
 
     @classmethod
     def from_dictionary(cls, d: dict[str, Any]) -> "Assessment":
-        d = d.copy()
-        d.pop("assessment_id", None)  # Remove assessment_id from the dictionary
-        d["source"] = AssessmentSource.from_dictionary(d["source"])
-        d["expectation"] = Expectation.from_dictionary(v) if (v := d.get("expectation")) else None
-        d["feedback"] = Feedback.from_dictionary(v) if (v := d.get("feedback")) else None
-        d["error"] = AssessmentError.from_dictionary(v) if (v := d.get("error")) else None
-        return cls(**d)
+        t = Timestamp()
+        t.FromJsonString(d["create_time"])
+        create_time_ms = t.ToMilliseconds()
+        t.FromJsonString(d["last_update_time"])
+        last_update_time_ms = t.ToMilliseconds()
+        return cls(
+            assessment_id=d.get("assessment_id"),
+            trace_id=d.get("trace_id"),
+            name=d["assessment_name"],
+            source=AssessmentSource.from_dictionary(d["source"]),
+            create_time_ms=create_time_ms,
+            last_update_time_ms=last_update_time_ms,
+            expectation=Expectation.from_dictionary(e) if (e := d.get("expectation")) else None,
+            feedback=Feedback.from_dictionary(f) if (f := d.get("feedback")) else None,
+            rationale=d.get("rationale"),
+            metadata=d.get("metadata"),
+            span_id=d.get("span_id"),
+        )
 
 
 @experimental
