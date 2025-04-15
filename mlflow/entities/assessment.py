@@ -201,7 +201,4 @@ class Feedback(_MlflowObject):
         )
 
     def to_dictionary(self):
-        d = {"value": self.value}
-        if self.error:
-            d["error"] = self.error.to_dictionary()
-        return d
+        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
