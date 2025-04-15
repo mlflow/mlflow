@@ -12,7 +12,6 @@ import posixpath
 import re
 import sys
 import tempfile
-import time
 import urllib
 import uuid
 import warnings
@@ -1481,15 +1480,11 @@ class MlflowClient:
         metadata: Optional[dict[str, Any]] = None,
         span_id: Optional[str] = None,
     ) -> Assessment:
-        timestamp = int(time.time() * 1000)  # milliseconds
-
         assessment = Assessment(
             # assessment_id must be None when creating a new assessment
             trace_id=trace_id,
             name=name,
             source=source,
-            create_time_ms=timestamp,
-            last_update_time_ms=timestamp,
             expectation=expectation,
             feedback=feedback,
             error=error,
