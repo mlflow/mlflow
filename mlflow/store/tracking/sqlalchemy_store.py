@@ -1998,10 +1998,16 @@ class SqlAlchemyStore(AbstractStore):
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
+        datasets: Optional[list[DatasetInput]] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[LoggedModel]:
+        if datasets:
+            raise MlflowException(
+                "Filtering by datasets is not currently supported by SqlAlchemyStore",
+                INVALID_PARAMETER_VALUE,
+            )
         if page_token:
             token = SearchLoggedModelsPaginationToken.decode(page_token)
             token.validate(experiment_ids, filter_string, order_by)
