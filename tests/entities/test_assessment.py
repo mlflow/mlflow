@@ -40,8 +40,8 @@ def test_assessment_creation():
             ),
         }
     )
-    assert assessment_with_error.error.error_code == "E001"
-    assert assessment_with_error.error.error_message == "An error occurred."
+    assert assessment_with_error.feedback.error.error_code == "E001"
+    assert assessment_with_error.feedback.error.error_message == "An error occurred."
 
 
 def test_assessment_equality():
