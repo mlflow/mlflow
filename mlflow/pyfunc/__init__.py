@@ -2804,7 +2804,6 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
-    example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
     auth_policy: Optional[AuthPolicy] = None,
@@ -2977,7 +2976,6 @@ def save_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
-        example_no_conversion: {{ example_no_conversion }}
         streamable: A boolean value indicating if the model supports streaming prediction,
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
@@ -3119,7 +3117,7 @@ def save_model(
             messages = [ChatMessage.from_dict(m) for m in input_example["messages"]]
         # extra params introduced by ChatParams will not be included in the
         # logged input example file to avoid confusion
-        _save_example(mlflow_model, input_example, path, example_no_conversion)
+        _save_example(mlflow_model, input_example, path)
         params = ChatParams.from_dict(input_example)
 
         # call load_context() first, as predict may depend on it
@@ -3184,7 +3182,7 @@ def save_model(
         # only infer signature based on input example when signature
         # and type hints are not provided
         if signature is None and signature_from_type_hints is None:
-            saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+            saved_example = _save_example(mlflow_model, input_example, path)
             if saved_example is not None:
                 _logger.info("Inferring model signature from input example")
                 try:
@@ -3219,7 +3217,7 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
     if saved_example is None:
-        saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+        saved_example = _save_example(mlflow_model, input_example, path)
 
     if signature_from_type_hints:
         if signature and signature_from_type_hints != signature:
@@ -3352,7 +3350,6 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
-    example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
     auth_policy: Optional[AuthPolicy] = None,
@@ -3547,7 +3544,6 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
-        example_no_conversion: {{ example_no_conversion }}
         streamable: A boolean value indicating if the model supports streaming prediction,
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
@@ -3589,7 +3585,6 @@ def log_model(
         metadata=metadata,
         prompts=prompts,
         model_config=model_config,
-        example_no_conversion=example_no_conversion,
         streamable=streamable,
         resources=resources,
         infer_code_paths=infer_code_paths,

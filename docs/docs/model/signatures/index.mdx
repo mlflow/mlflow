@@ -1140,8 +1140,7 @@ Example files logged by MLflow:
 :::note
 Prior to MLflow 2.16.0, dictionary input example was converted to Pandas DataFrame format when saving. In later versions, the input
 example is simply saved in its JSON serialized format. For pandas DataFrame, it is converted to dictionary format
-with `to_dict(orient='split')` and saved into json format. `example_no_conversion` parameter for langchain, openai, pyfunc and
-transformers flavors is no longer used and safe to be removed, it will be dropped in a future release.
+with `to_dict(orient='split')` and saved into json format.
 :::
 
 Similar to model signatures, model inputs can be column-based (i.e DataFrames), tensor-based
