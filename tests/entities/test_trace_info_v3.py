@@ -11,6 +11,33 @@ from mlflow.entities.trace_state import TraceState
 
 
 def test_trace_info_v3():
+    assessments = [
+        Assessment(
+            trace_id="trace_id",
+            name="relevance",
+            source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
+            create_time_ms=123456789,
+            last_update_time_ms=123456789,
+            expectation=expectation,
+            feedback=feedback,
+            rationale="Rationale text",
+            metadata={"key1": "value1"},
+            span_id="span_id",
+        )
+        for expectation, feedback in [
+            (
+                None,
+                Feedback(
+                    0.9,
+                    error=AssessmentError(error_code="error_code", error_message="Error message"),
+                ),
+            ),
+            (
+                Expectation(0.8),
+                None,
+            ),
+        ]
+    ]
     trace_info = TraceInfoV3(
         trace_id="trace_id",
         client_request_id="client_request_id",
@@ -22,33 +49,7 @@ def test_trace_info_v3():
         state=TraceState.OK,
         trace_metadata={"foo": "bar"},
         tags={"baz": "qux"},
-        assessments=[
-            Assessment(
-                trace_id="trace_id",
-                name="relevance",
-                source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
-                create_time_ms=123456789,
-                last_update_time_ms=123456789,
-                expectation=expectation,
-                feedback=feedback,
-                rationale="Rationale text",
-                metadata={"key1": "value1"},
-                error=error,
-                span_id="span_id",
-            )
-            for expectation, feedback, error in [
-                (
-                    None,
-                    Feedback(0.9),
-                    AssessmentError(error_code="error_code", error_message="Error message"),
-                ),
-                (
-                    Expectation(0.8),
-                    None,
-                    None,
-                ),
-            ]
-        ],
+        assessments=assessments,
     )
 
     from_proto = TraceInfoV3.from_proto(trace_info.to_proto())
@@ -77,9 +78,11 @@ def test_trace_info_v3():
                 "source": {"source_type": "HUMAN", "source_id": "user_1"},
                 "create_time": "1970-01-02T10:17:36.789Z",
                 "last_update_time": "1970-01-02T10:17:36.789Z",
-                "feedback": {"value": 0.9},
+                "feedback": {
+                    "value": 0.9,
+                    "error": {"error_code": "error_code", "error_message": "Error message"},
+                },
                 "rationale": "Rationale text",
-                "error": {"error_code": "error_code", "error_message": "Error message"},
                 "metadata": {"key1": "value1"},
             },
             {
