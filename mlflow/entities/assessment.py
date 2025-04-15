@@ -168,13 +168,6 @@ class Assessment(_MlflowObject):
             "span_id": self.span_id,
         }
 
-    @property
-    def error(self) -> Optional[AssessmentError]:
-        """
-        Deprecated. Use the `error` property of the feedback object instead.
-        """
-        return self.feedback and self.feedback.error
-
 
 @experimental
 @dataclass
