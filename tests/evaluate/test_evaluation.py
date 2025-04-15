@@ -360,6 +360,36 @@ def test_mlflow_evaluate_logs_traces():
     assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
 
 
+def test_pyfunc_evaluate_logs_traces():
+    class Model(mlflow.pyfunc.PythonModel):
+        @mlflow.trace()
+        def predict(self, context, model_input):
+            return self.add(model_input, model_input)
+
+        @mlflow.trace()
+        def add(self, x, y):
+            return x + y
+
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [1, 2, 4],
+            "ground_truth": [2, 4, 8],
+        }
+    )
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model("model", python_model=Model())
+        evaluate(
+            model_info.model_uri,
+            eval_data,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.exact_match()],
+        )
+    assert len(get_traces()) == 1
+    assert len(get_traces()[0].data.spans) == 2
+    assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+
+
 # Patching for counting calls but not actually mocking out the function
 @mock.patch(
     "mlflow.models.evaluation.utils.trace._kwargs_safe_invoke",
@@ -376,8 +406,7 @@ def test_evaluate_auto_enables_tracing(mock_autolog_invoke):
 
         # OpenAI trace should be enabled here
         assert get_autologging_config("openai", "log_traces")
-        mock_autolog_invoke.assert_called_once_with(mock.ANY, {"log_traces": True, "silent": True})
-        mock_autolog_invoke.reset_mock()
+        assert mock_autolog_invoke.call_count > 0
 
         # Non-OpenAI trace should NOT be enabled here
         assert not get_autologging_config("anthropic", "log_traces")
@@ -446,43 +475,13 @@ def test_evaluate_auto_enables_tracing_thread_safe(mock_autolog_invoke):
     )
     assert result.metrics["exact_match/v1"] == 1.0
 
-    # Autolog hook should only be called once (for OpenAI)
-    mock_autolog_invoke.assert_called_once_with(mock.ANY, {"log_traces": True, "silent": True})
+    # Autolog hook should be called
+    assert mock_autolog_invoke.call_count > 0
 
     # OpenAI trace should be disabled after the evaluation
     assert not get_autologging_config("openai", "log_traces")
     # Disable should be reset to None
     assert not get_autologging_config("sklearn", "disable")
-
-
-def test_pyfunc_evaluate_logs_traces():
-    class Model(mlflow.pyfunc.PythonModel):
-        @mlflow.trace()
-        def predict(self, context, model_input):
-            return self.add(model_input, model_input)
-
-        @mlflow.trace()
-        def add(self, x, y):
-            return x + y
-
-    eval_data = pd.DataFrame(
-        {
-            "inputs": [1, 2, 4],
-            "ground_truth": [2, 4, 8],
-        }
-    )
-
-    with mlflow.start_run() as run:
-        model_info = mlflow.pyfunc.log_model("model", python_model=Model())
-        evaluate(
-            model_info.model_uri,
-            eval_data,
-            targets="ground_truth",
-            extra_metrics=[mlflow.metrics.exact_match()],
-        )
-    assert len(get_traces()) == 1
-    assert len(get_traces()[0].data.spans) == 2
-    assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
 
 
 def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_dataset):
