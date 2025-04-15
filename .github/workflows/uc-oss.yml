@@ -33,7 +33,7 @@ jobs:
     permissions: {}
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
@@ -45,7 +45,7 @@ jobs:
           source ./dev/install-common-deps.sh --ml
 
       - name: Set up Java 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@0ab4596768b603586c0de567f2430c30f5b0d2b0 # v3.13.0
         with:
           java-version: "17"
           distribution: "temurin" # Use Temurin distribution of OpenJDK

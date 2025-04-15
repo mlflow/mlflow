@@ -101,8 +101,8 @@ const ExpandableParamValueCell = ({
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           display: '-webkit-box',
-          '-webkit-box-orient': 'vertical',
-          '-webkit-line-clamp': isExpanded ? undefined : '3',
+          WebkitBoxOrient: 'vertical',
+          WebkitLineClamp: isExpanded ? undefined : '3',
         }}
         ref={cellRef}
       >
@@ -288,8 +288,9 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
               <TableHeader
                 componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewparamstable.tsx_244"
                 key={header.id}
-                resizable={header.column.getCanResize()}
-                resizeHandler={header.getResizeHandler()}
+                header={header}
+                column={header.column}
+                setColumnSizing={table.setColumnSizing}
                 isResizing={header.column.getIsResizing()}
                 css={{
                   flexGrow: header.column.getCanResize() ? 0 : 1,

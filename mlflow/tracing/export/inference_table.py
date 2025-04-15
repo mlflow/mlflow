@@ -9,6 +9,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
+from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 _logger = logging.getLogger(__name__)
@@ -66,6 +67,8 @@ class InferenceTableSpanExporter(SpanExporter):
             if trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
+
+            _set_last_active_trace_id(trace.info.request_id)
 
             # Add the trace to the in-memory buffer so it can be retrieved by upstream
             _TRACE_BUFFER[trace.info.request_id] = trace.to_dict()

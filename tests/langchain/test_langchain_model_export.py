@@ -3627,3 +3627,43 @@ def test_pyfunc_converts_chat_request_correctly(
         assert list(response)[0]["choices"][0]["delta"]["content"] == "Databricks"
     else:
         assert list(response) == ["Databricks"], list(response)
+
+
+def test_log_langchain_model_with_prompt():
+    mlflow.register_prompt(
+        name="qa_prompt",
+        template="What is a good name for a company that makes {{product}}?",
+        commit_message="Prompt for generating company names",
+    )
+    mlflow.set_prompt_alias("qa_prompt", alias="production", version=1)
+
+    mlflow.register_prompt(name="another_prompt", template="Hi")
+
+    # If the model code involves `mlflow.load_prompt()` call, the prompt version
+    # should be automatically logged to the Run
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            os.path.abspath("tests/langchain/sample_code/chain_with_mlflow_prompt.py"),
+            "model",
+            # Manually associate another prompt
+            prompts=["prompts:/another_prompt/1"],
+        )
+
+    logged_prompts = mlflow.MlflowClient().list_logged_prompts(model_info.run_id)
+    assert len(logged_prompts) == 2
+    assert {p.name for p in logged_prompts} == {"qa_prompt", "another_prompt"}
+
+    prompt = mlflow.load_prompt("qa_prompt", 1)
+    assert prompt.run_ids == [model_info.run_id]
+    assert prompt.aliases == ["production"]
+
+    prompt = mlflow.load_prompt("another_prompt", 1)
+    assert prompt.run_ids == [model_info.run_id]
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    response = pyfunc_model.predict({"product": "shoe"})
+    # Fake OpenAI server echo the input
+    assert (
+        response
+        == '[{"role": "user", "content": "What is a good name for a company that makes shoe?"}]'
+    )

@@ -25,6 +25,7 @@ import Utils from '../../common/utils/Utils';
 import _, { first } from 'lodash';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import {
+  Alert,
   DesignSystemHocProps,
   Empty,
   LayerIcon,
@@ -45,11 +46,13 @@ import { Button } from '@databricks/design-system';
 import { CopyIcon } from '@databricks/design-system';
 import { DownloadIcon } from '@databricks/design-system';
 import { Checkbox } from '@databricks/design-system';
+import { ToggleButton } from '@databricks/design-system';
 import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
 import { MlflowService } from '../sdk/MlflowService';
+import { getExtension, TEXT_EXTENSIONS } from '../../common/utils/FileUtils';
 
 const { Text } = Typography;
 
@@ -81,6 +84,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     toggledNodeIds: {},
     requestedNodeIds: new Set(),
     viewAsTable: true,
+    autoRefreshEnabled: false, // Added autoRefreshEnabled state
   };
 
   getExistingModelVersions() {
@@ -215,12 +219,30 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
   }
 
+  // Toggle auto-refresh state
+  toggleAutoRefresh = () => {
+    this.setState((prevState: any) => ({
+      autoRefreshEnabled: !prevState.autoRefreshEnabled,
+    }));
+  };
+
+  // Check if the active node is a text file
+  isActiveNodeTextFile() {
+    if (this.state.activeNodeId) {
+      const normalizedExtension = getExtension(this.state.activeNodeId);
+      return normalizedExtension && TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase());
+    }
+    return false;
+  }
+
   renderControls() {
     const { runUuid } = this.props;
-    const { activeNodeId } = this.state;
+    const { activeNodeId, autoRefreshEnabled } = this.state;
+    const { theme } = this.props.designSystemThemeApi;
+
     return (
-      <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
           {this.shouldShowViewAsTableCheckbox && (
             <Checkbox
               componentId="codegen_mlflow_app_src_experiment-tracking_components_artifactview.tsx_288"
@@ -237,6 +259,21 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
               />
             </Checkbox>
           )}
+
+          {/* Only show auto-refresh toggle for text files */}
+          {this.isActiveNodeTextFile() && (
+            <ToggleButton
+              componentId="artifact-auto-refresh-toggle"
+              pressed={autoRefreshEnabled}
+              onPressedChange={this.toggleAutoRefresh}
+            >
+              <FormattedMessage
+                defaultMessage="Auto-refresh"
+                description="Experiment tracking > Artifact view > Auto-refresh toggle button"
+              />
+            </ToggleButton>
+          )}
+
           <LegacyTooltip
             arrowPointAtCenter
             placement="topLeft"
@@ -463,7 +500,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
   }
 
   render() {
-    if (ArtifactUtils.isEmpty(this.props.artifactNode)) {
+    if (!this.props.artifactNode || ArtifactUtils.isEmpty(this.props.artifactNode)) {
       return <NoArtifactView useAutoHeight={this.props.useAutoHeight} />;
     }
     const { theme } = this.props.designSystemThemeApi;
@@ -508,6 +545,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             showArtifactLoggedTableView={this.state.viewAsTable && this.shouldShowViewAsTableCheckbox}
             loggedModelId={loggedModelId}
             isLoggedModelsMode={isLoggedModelsMode}
+            autoRefreshEnabled={this.state.autoRefreshEnabled}
           />
         </div>
       </div>

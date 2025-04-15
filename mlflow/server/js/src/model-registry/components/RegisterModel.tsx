@@ -76,7 +76,7 @@ type RegisterModelImplState = any; // used in drop-down list so not many are vis
  * Component with a set of controls used to register a logged model.
  * Includes register modal and optional "Register" button.
  */
-export class RegisterModelImpl extends React.Component<RegisterModelImplProps, RegisterModelImplState> {
+class RegisterModelImpl extends React.Component<RegisterModelImplProps, RegisterModelImplState> {
   form: any;
 
   state = {
@@ -143,6 +143,7 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
               runUuid,
               [],
               this.createModelVersionRequestId,
+              this.props.loggedModelId,
             ),
           )
           .then(this.props.onRegisterSuccess ?? identity)
@@ -152,7 +153,14 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
           .catch(Utils.logErrorAndNotifyUser);
       } else {
         return this.props
-          .createModelVersionApi(selectedModelName, modelPath, runUuid, [], this.createModelVersionRequestId)
+          .createModelVersionApi(
+            selectedModelName,
+            modelPath,
+            runUuid,
+            [],
+            this.createModelVersionRequestId,
+            this.props.loggedModelId,
+          )
           .then(this.props.onRegisterSuccess ?? identity)
           .then(this.resetAndClearModalForm)
           .catch(this.props.onRegisterFailure ?? this.handleRegistrationFailure)

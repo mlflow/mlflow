@@ -12,15 +12,12 @@ import {
   OverflowIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
-  Space,
   Spacer,
   TableIcon,
   TableSkeleton,
-  Typography,
   useDesignSystemTheme,
   ZoomMarqueeSelection,
 } from '@databricks/design-system';
-import { PromptDetailsMetadata } from './components/PromptDetailsMetadata';
 import { FormattedMessage } from 'react-intl';
 import { PromptVersionsTableMode } from './utils';
 import { useMemo } from 'react';
@@ -36,6 +33,9 @@ import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { PromptPageErrorHandler } from './components/PromptPageErrorHandler';
 import { first, isEmpty } from 'lodash';
+import { PromptsListTableTagsBox } from './components/PromptDetailsTagsBox';
+import { PromptNotFoundView } from './components/PromptNotFoundView';
+import { useUpdatePromptVersionMetadataModal } from './hooks/useUpdatePromptVersionMetadataModal';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -69,6 +69,10 @@ const PromptsDetailsPage = () => {
   const { DeletePromptModal, openModal: openDeleteModal } = useDeletePromptModal({
     registeredPrompt: promptDetailsData?.prompt,
     onSuccess: () => navigate(Routes.promptsPageRoute),
+  });
+
+  const { EditPromptVersionMetadataModal, showEditPromptVersionMetadataModal } = useUpdatePromptVersionMetadataModal({
+    onSuccess: refetch,
   });
 
   const {
@@ -120,9 +124,9 @@ const PromptsDetailsPage = () => {
     ),
   });
 
-  // If the load error occurs, throw the error into the error boundary
+  // If the load error occurs, show not found page
   if (promptLoadError) {
-    throw promptLoadError;
+    return <PromptNotFoundView promptName={promptName} />;
   }
 
   const breadcrumbs = (
@@ -175,11 +179,10 @@ const PromptsDetailsPage = () => {
           </>
         }
       />
+      <PromptsListTableTagsBox onTagsUpdated={refetch} promptEntity={promptDetailsData?.prompt} />
       <Spacer shrinks={false} />
-      <PromptDetailsMetadata promptEntity={promptDetailsData?.prompt} onTagsUpdated={refetch} />
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div css={{ flex: showPreviewPane ? '0 0 320px' : 1, display: 'flex', flexDirection: 'column' }}>
-          <Typography.Title level={3}>Prompt versions</Typography.Title>
           <div css={{ display: 'flex', gap: theme.spacing.sm }}>
             <SegmentedControlGroup
               name="mlflow.prompts.details.mode"
@@ -253,6 +256,7 @@ const PromptsDetailsPage = () => {
                   aliasesByVersion={aliasesByVersion}
                   showEditAliasesModal={showEditAliasesModal}
                   registeredPrompt={promptDetailsData?.prompt}
+                  showEditPromptVersionMetadataModal={showEditPromptVersionMetadataModal}
                 />
               )}
               {mode === PromptVersionsTableMode.COMPARE && (
@@ -274,6 +278,7 @@ const PromptsDetailsPage = () => {
       {EditAliasesModal}
       {CreatePromptModal}
       {DeletePromptModal}
+      {EditPromptVersionMetadataModal}
     </ScrollablePageWrapper>
   );
 };

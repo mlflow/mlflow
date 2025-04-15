@@ -52,9 +52,10 @@ module.exports = async ({ context, github, core }) => {
   const releases = await github.rest.repos.listReleases({
     owner,
     repo,
-    per_page: 1,
   });
-  const version = releases.data[0].tag_name.replace("v", "");
+  // TODO: Remove this line once MLflow 3.0.0 is released
+  const latest = releases.data.find(({ tag_name }) => !tag_name.startsWith("v3"));
+  const version = latest.tag_name.replace("v", "");
   const [major, minor, micro] = version.replace(/rc\d+$/, "").split(".");
   const nextMicro = version.includes("rc") ? micro : (parseInt(micro) + 1).toString();
   const label = `v${major}.${minor}.${nextMicro}`;

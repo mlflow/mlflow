@@ -4,15 +4,19 @@ https://github.com/googleapis/python-genai
 """
 
 import base64
+import importlib.metadata
 from unittest.mock import patch
 
 import pytest
 from google import genai
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
 
 from tests.tracing.helper import get_traces
+
+is_gemini_1_7_or_newer = Version(importlib.metadata.version("google.genai")) >= Version("1.7.0")
 
 _CONTENT = {"parts": [{"text": "test answer"}], "role": "model"}
 
@@ -90,7 +94,7 @@ TOOL_ATTRIBUTE = [
                     "a": {"type": "number", "description": None, "enum": None},
                     "b": {"type": "number", "description": None, "enum": None},
                 },
-                "required": None,
+                "required": ["a", "b"] if is_gemini_1_7_or_newer else None,
             },
         },
     },

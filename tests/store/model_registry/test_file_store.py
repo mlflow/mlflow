@@ -1783,3 +1783,31 @@ def test_search_prompts_versions(store):
     )
     assert len(mvs) == 1
     assert mvs[0].name == "prompt_2"
+
+
+def test_create_registered_model_handle_prompt_properly(store):
+    prompt_tags = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+
+    store.create_registered_model("model")
+
+    store.create_registered_model("prompt", tags=prompt_tags)
+
+    with pytest.raises(MlflowException, match=r"Registered Model \(name=model\) already exists"):
+        store.create_registered_model("model")
+
+    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt\) already exists"):
+        store.create_registered_model("prompt", tags=prompt_tags)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Tried to create a prompt with name 'model', "
+        r"but the name is already taken by a registered model.",
+    ):
+        store.create_registered_model("model", tags=prompt_tags)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Tried to create a registered model with name 'prompt', "
+        r"but the name is already taken by a prompt.",
+    ):
+        store.create_registered_model("prompt")

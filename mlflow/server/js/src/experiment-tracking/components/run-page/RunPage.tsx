@@ -69,6 +69,8 @@ export const RunPage = () => {
     runFetchError,
     apiError,
     datasets,
+    runInputs,
+    runOutputs,
     registeredModelVersionSummaries,
   } = useRunDetailsPageData({
     experimentId,
@@ -129,6 +131,7 @@ export const RunPage = () => {
           <RunViewArtifactTab
             runUuid={runUuid}
             runTags={tags}
+            runOutputs={runOutputs}
             experimentId={experimentId}
             artifactUri={runInfo.artifactUri ?? undefined}
           />
@@ -147,6 +150,8 @@ export const RunPage = () => {
         latestMetrics={latestMetrics}
         runUuid={runUuid}
         onRunDataUpdated={refetchRun}
+        runInputs={runInputs}
+        runOutputs={runOutputs}
         datasets={datasets}
         registeredModelVersionSummaries={registeredModelVersionSummaries}
         isLoadingLoggedModels={isLoadingLoggedModels}

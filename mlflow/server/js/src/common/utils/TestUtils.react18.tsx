@@ -47,17 +47,6 @@ export const selectAntdOption = async (container: HTMLElement, optionText: strin
   });
 };
 
-export const selectAntdOptionByText = async (container: HTMLElement, optionText: string) => {
-  // open the select component
-  await userEvent.click(within(container).getByRole('combobox'));
-  // select option
-  await userEvent.click(await findAntdOptionContaining(optionText));
-  // wait for the option selected to be reflected in the UI
-  await waitFor(async () => {
-    expect(await findAntdSelectElement(optionText, '-select-selection-item')).toBeInTheDocument();
-  });
-};
-
 export const findAntdOption = (optionText: string) => {
   return screen.getByText((content, element) => {
     return (

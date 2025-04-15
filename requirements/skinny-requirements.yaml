@@ -26,7 +26,7 @@ pyyaml:
 protobuf:
   pip_release: protobuf
   minimum: "3.12.0"
-  max_major_version: 5
+  max_major_version: 6
 
 requests:
   pip_release: requests

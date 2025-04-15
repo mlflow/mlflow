@@ -11,6 +11,7 @@ def test_prompt_initialization():
     assert prompt.name == "my_prompt"
     assert prompt.version == 1
     assert prompt.template == "Hello, {{name}}!"
+    assert prompt.uri == "prompts:/my_prompt/1"
     # Public property should not return the reserved tag
     assert prompt.tags == {}
     assert prompt._tags[IS_PROMPT_TAG_KEY] == "true"
@@ -32,6 +33,21 @@ def test_prompt_initialization():
 def test_prompt_variables_extraction(template, expected):
     prompt = Prompt(name="test", version=1, template=template)
     assert prompt.variables == expected
+
+
+@pytest.mark.parametrize(
+    ("template", "expected"),
+    [
+        ("Hello, {{name}}!", "Hello, {name}!"),
+        ("Hello, {{ title }} {{ name }}!", "Hello, {title} {name}!"),
+        ("Hello, {{ person.name.first }}", "Hello, {person.name.first}"),
+        ("Hello, {{name1}}", "Hello, {name1}"),
+        ("Hello, {name}", "Hello, {name}"),
+    ],
+)
+def test_prompt_to_single_brace_format(template, expected):
+    prompt = Prompt(name="test", version=1, template=template)
+    assert prompt.to_single_brace_format() == expected
 
 
 def test_prompt_format():

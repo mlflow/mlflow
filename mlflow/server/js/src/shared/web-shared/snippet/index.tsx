@@ -24,7 +24,7 @@ const themesStyles: Record<CodeSnippetTheme, any> = {
   duotoneDark: duotoneDarkStyle,
 };
 
-export type CodeSnippetLanguage = 'python' | 'json';
+export type CodeSnippetLanguage = 'python' | 'json' | 'text';
 
 export interface CodeSnippetProps {
   /**

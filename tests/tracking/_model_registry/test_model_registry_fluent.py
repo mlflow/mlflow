@@ -172,3 +172,19 @@ def test_prompt_alias(tmp_path):
     mlflow.delete_prompt_alias("p1", alias="production")
     with pytest.raises(MlflowException, match=r"Prompt (.*) does not exist."):
         mlflow.load_prompt("prompts:/p1@production")
+
+
+def test_prompt_associate_with_run(tmp_path):
+    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_registry_uri(registry_uri)
+
+    mlflow.register_prompt(name="prompt_1", template="Hi, {title} {name}! How are you today?")
+
+    # mlflow.load_prompt() call during the run should associate the prompt with the run
+    with mlflow.start_run() as run:
+        mlflow.load_prompt("prompt_1", version=1)
+
+    prompts = MlflowClient().list_logged_prompts(run.info.run_id)
+    assert len(prompts) == 1
+    assert prompts[0].name == "prompt_1"
+    assert prompts[0].version == 1

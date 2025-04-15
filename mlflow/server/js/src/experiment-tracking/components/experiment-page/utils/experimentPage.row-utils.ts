@@ -32,6 +32,7 @@ import { shouldEnableToggleIndividualRunsInGroups } from '../../../../common/uti
 import { getGroupedRowRenderMetadata, type RunsGroupByConfig } from './experimentPage.group-row-utils';
 import { type ExperimentPageUIState, RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { determineIfRowIsHidden } from './experimentPage.common-row-utils';
+import { type ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 
 /**
  * A simple tree-like interface used in nested rows calculations.
@@ -225,6 +226,7 @@ export const prepareRunsGridData = ({
   groupBy = null,
   groupsExpanded = {},
   useGroupedValuesInCharts,
+  searchFacetsState,
 }: PrepareRunsGridDataParams) => {
   const experimentNameMap = Utils.getExperimentNameMap(Utils.sortExperimentsById(experiments)) as Record<
     string,
@@ -243,6 +245,7 @@ export const prepareRunsGridData = ({
         runData,
         groupBy,
         groupsExpanded,
+        searchFacetsState,
         runsHidden,
         runsVisibilityMap,
         runsHiddenMode,
@@ -432,6 +435,7 @@ export const useExperimentRunRows = ({
   runsHiddenMode,
   groupsExpanded = {},
   useGroupedValuesInCharts,
+  searchFacetsState,
 }: PrepareRunsGridDataParams) =>
   useMemo(
     () =>
@@ -453,6 +457,7 @@ export const useExperimentRunRows = ({
         groupsExpanded,
         runsHiddenMode,
         useGroupedValuesInCharts,
+        searchFacetsState,
       }),
     [
       // Explicitly include each dependency here to avoid unnecessary recalculations
@@ -473,6 +478,7 @@ export const useExperimentRunRows = ({
       groupsExpanded,
       runsHiddenMode,
       useGroupedValuesInCharts,
+      searchFacetsState,
     ],
   );
 
@@ -571,6 +577,8 @@ type PrepareRunsGridDataParams = Pick<
     runUuidsMatchingFilter: string[];
 
     groupBy: string | RunsGroupByConfig | null;
+
+    searchFacetsState?: Readonly<ExperimentPageSearchFacetsState>;
   };
 
 export const extractRunRowParamFloat = (run: RunRowType, paramName: string, fallback = undefined) => {

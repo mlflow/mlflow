@@ -9,8 +9,10 @@ import { RunGroupingAggregateFunction, RunGroupingMode, RunRowVisibilityControl 
 import { SingleRunData, prepareRunsGridData } from './experimentPage.row-utils';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
-  shouldUseRunRowsVisibilityMap: jest.fn().mockImplementation(() => false),
+  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
+    '../../../../common/utils/FeatureUtils',
+  ),
+  shouldUseRunRowsVisibilityMap: jest.fn(() => false),
   shouldEnableToggleIndividualRunsInGroups: jest.fn(),
 }));
 

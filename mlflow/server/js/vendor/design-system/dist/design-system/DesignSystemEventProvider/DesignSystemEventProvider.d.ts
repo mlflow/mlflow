@@ -27,6 +27,7 @@ export declare enum DesignSystemEventProviderComponentTypes {
     PillControl = "pill_control",
     Popover = "popover",
     PreviewCard = "preview_card",
+    Radio = "radio",
     RadioGroup = "radio_group",
     SegmentedControlGroup = "segmented_control_group",
     SimpleSelect = "simple_select",
@@ -50,9 +51,18 @@ export declare enum DesignSystemEventProviderComponentSubTypes {
     Success = "success",
     Error = "error",
     Warning = "warning",
-    Info = "info"
+    Info = "info",
+    InfoLightPurple = "info_light_purple",
+    InfoDarkPurple = "info_dark_purple"
 }
-export declare const DesignSystemEventProviderComponentSubTypeMap: Record<string, DesignSystemEventProviderComponentSubTypes>;
+export declare const DesignSystemEventProviderComponentSubTypeMap: {
+    success: DesignSystemEventProviderComponentSubTypes.Success;
+    error: DesignSystemEventProviderComponentSubTypes.Error;
+    warning: DesignSystemEventProviderComponentSubTypes.Warning;
+    info: DesignSystemEventProviderComponentSubTypes.Info;
+    info_light_purple: DesignSystemEventProviderComponentSubTypes.InfoLightPurple;
+    info_dark_purple: DesignSystemEventProviderComponentSubTypes.InfoDarkPurple;
+};
 export type DesignSystemEventProviderContextType = {
     callback: DesignSystemEventProviderCallback;
 };
@@ -68,9 +78,13 @@ export type DesignSystemEventProviderCallbackParams = {
     value: unknown;
     shouldStartInteraction?: boolean;
     event?: UIEvent | FormEvent;
-    skip?: boolean;
+    mode?: 'default' | 'skip' | 'associate_event_only';
     referrerComponent?: ReferrerComponentType;
     isInteractionSubject?: boolean;
+    formPropertyValues?: {
+        initial: Record<string, unknown> | undefined;
+        final: Record<string, unknown> | undefined;
+    };
 };
 export type DesignSystemEventProviderCallback = (params: DesignSystemEventProviderCallbackParams) => void;
 export type DataComponentProps = {
@@ -92,6 +106,12 @@ export declare const useComponentFinderContext: (targetComponentType: DesignSyst
  * @returns a react node with injected data-component-* props, if possible
  */
 export declare function augmentWithDataComponentProps(node: React.ReactNode, dataComponentProps: DataComponentProps): React.ReactNode;
+interface OnSubmitParams {
+    event: FormEvent;
+    initialState: Record<string, unknown> | undefined;
+    finalState: Record<string, unknown> | undefined;
+    referrerComponent?: ReferrerComponentType;
+}
 /**
  * NOTE: This is not suggested for direct usage from engineers, and should emit your own events.
  * See https://databricks.atlassian.net/wiki/spaces/UN/pages/2533556277/Usage+Logging+in+UI#Send-usage-logging-from-UI for more details.
@@ -112,7 +132,7 @@ export declare const useDesignSystemEventComponentCallbacks: ({ componentType, c
     isInteractionSubject?: boolean;
 }) => {
     onClick: (event: React.UIEvent | undefined) => void;
-    onSubmit: (event: FormEvent, referrerComponent?: ReferrerComponentType) => void;
+    onSubmit: (payload: OnSubmitParams) => void;
     onValueChange: (value?: any) => void;
     onView: () => void;
     dataComponentProps: DataComponentProps;

@@ -27,7 +27,7 @@ jest.mock('../actions', () => ({
 }));
 
 jest.mock('../../common/utils/RoutingUtils', () => ({
-  ...jest.requireActual('../../common/utils/RoutingUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/RoutingUtils')>('../../common/utils/RoutingUtils'),
   Navigate: jest.fn(() => <div />),
 }));
 

@@ -22,6 +22,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -109,6 +110,7 @@ def log_model(
     metadata=None,
     model_config: Optional[dict[str, Any]] = None,
     example_no_conversion=None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
 ):
     """
     Log a Promptflow model as an MLflow artifact for the current run.
@@ -171,6 +173,7 @@ def log_model(
                         flow, artifact_path="promptflow_model", model_config=model_config
                     )
         example_no_conversion: {{ example_no_conversion }}
+        prompts: {{ prompts }}
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -192,6 +195,7 @@ def log_model(
         metadata=metadata,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
+        prompts=prompts,
     )
 
 

@@ -30,6 +30,7 @@ export const ModelVersionTableAliasesCell = ({
         rowGap: theme.spacing.xs / 2,
         columnGap: theme.spacing.xs,
       }}
+      className={className}
     >
       {aliases.length < 1 ? (
         <Button

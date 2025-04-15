@@ -17,6 +17,10 @@ export const SupportsDuBoisThemes: React.FC<SupportsDuBoisThemesProps> = ({ disa
   return <DesignSystemThemeProvider isDarkMode={false}>{children}</DesignSystemThemeProvider>;
 };
 
+export const getIsDarkMode = (prefersDarkMode: DarkModePref): boolean => {
+  return prefersDarkMode === 'dark';
+};
+
 export function getUserDarkModePref(): DarkModePref {
   return 'system';
 }

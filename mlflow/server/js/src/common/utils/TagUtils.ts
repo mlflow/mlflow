@@ -13,6 +13,28 @@ export const MLFLOW_INTERNAL_PREFIX = 'mlflow.';
 
 export const isUserFacingTag = (tagKey: string) => !tagKey.startsWith(MLFLOW_INTERNAL_PREFIX);
 
+export const diffCurrentAndNewTags = (
+  currentTags: KeyValueEntity[],
+  newTags: KeyValueEntity[],
+): {
+  addedOrModifiedTags: KeyValueEntity[];
+  deletedTags: KeyValueEntity[];
+} => {
+  const addedOrModifiedTags = newTags.filter(
+    ({ key: newTagKey, value: newTagValue }) =>
+      !currentTags.some(
+        ({ key: existingTagKey, value: existingTagValue }) =>
+          existingTagKey === newTagKey && newTagValue === existingTagValue,
+      ),
+  );
+
+  const deletedTags = currentTags.filter(
+    ({ key: existingTagKey }) => !newTags.some(({ key: newTagKey }) => existingTagKey === newTagKey),
+  );
+
+  return { addedOrModifiedTags, deletedTags };
+};
+
 export const getLoggedModelPathsFromTags = (runTags: Record<string, KeyValueEntity>) => {
   const models = Utils.getLoggedModelsFromTags(runTags);
   return models ? models.map((model) => (model as any).artifactPath) : [];

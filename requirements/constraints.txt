@@ -1,0 +1,3 @@
+# transformers 4.51.0 has this issue:
+# https://github.com/huggingface/transformers/issues/37326
+transformers!=4.51.0

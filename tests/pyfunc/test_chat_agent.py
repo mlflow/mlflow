@@ -1,5 +1,6 @@
 import json
 from typing import Any
+from uuid import uuid4
 
 import pydantic
 import pytest
@@ -39,7 +40,7 @@ def get_mock_response(messages: list[ChatAgentMessage], message=None):
                 "role": "assistant",
                 "content": message or msg.content,
                 "name": "llm",
-                "id": "call_4a7173b9-5058-4236-adf0-d3fdde69076c",
+                "id": str(uuid4()),
             }
             for msg in messages
         ],
@@ -60,6 +61,7 @@ class SimpleChatAgent(ChatAgent):
         for i in range(5):
             mock_response = get_mock_response(messages, f"message {i}")
             mock_response["delta"] = mock_response["messages"][0]
+            mock_response["delta"]["id"] = str(i)
             yield ChatAgentChunk(**mock_response)
 
 
@@ -369,19 +371,35 @@ def test_chat_agent_predict_wrapper():
         chat_agent_request.context,
         chat_agent_request.custom_inputs,
     )
-    assert model.predict(dict_input_example) == model.predict(*pydantic_input_example)
+    dict_input_response = model.predict(dict_input_example)
+    pydantic_input_response = model.predict(*pydantic_input_example)
+    assert dict_input_response.messages[0].id is not None
+    del dict_input_response.messages[0].id
+    assert pydantic_input_response.messages[0].id is not None
+    del pydantic_input_response.messages[0].id
+    assert dict_input_response == pydantic_input_response
     no_context_dict_input_example = {**dict_input_example, "context": None}
     no_context_pydantic_input_example = (
         chat_agent_request.messages,
         None,
         chat_agent_request.custom_inputs,
     )
-    assert model.predict(no_context_dict_input_example) == model.predict(
-        *no_context_pydantic_input_example
-    )
+    dict_input_response = model.predict(no_context_dict_input_example)
+    pydantic_input_response = model.predict(*no_context_pydantic_input_example)
+    assert dict_input_response.messages[0].id is not None
+    del dict_input_response.messages[0].id
+    assert pydantic_input_response.messages[0].id is not None
+    del pydantic_input_response.messages[0].id
+    assert dict_input_response == pydantic_input_response
 
     model = SimpleChatAgent()
-    assert model.predict(dict_input_example) == model.predict(*pydantic_input_example)
+    dict_input_response = model.predict(dict_input_example)
+    pydantic_input_response = model.predict(*pydantic_input_example)
+    assert dict_input_response.messages[0].id is not None
+    del dict_input_response.messages[0].id
+    assert pydantic_input_response.messages[0].id is not None
+    del pydantic_input_response.messages[0].id
+    assert dict_input_response == pydantic_input_response
     assert list(model.predict_stream(dict_input_example)) == list(
         model.predict_stream(*pydantic_input_example)
     )

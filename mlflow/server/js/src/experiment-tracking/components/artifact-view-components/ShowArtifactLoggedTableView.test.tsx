@@ -19,7 +19,7 @@ const testArtifactData = {
 };
 
 jest.mock('../../../common/utils/ArtifactUtils', () => ({
-  ...jest.requireActual('../../../common/utils/ArtifactUtils'),
+  ...jest.requireActual<typeof import('../../../common/utils/ArtifactUtils')>('../../../common/utils/ArtifactUtils'),
   getArtifactContent: jest.fn(),
 }));
 

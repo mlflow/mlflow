@@ -133,6 +133,7 @@ def test_evaluations_to_dataframes_empty():
         "metadata",
         "error_code",
         "error_message",
+        "span_id",
     ]
     expected_tags_columns = ["evaluation_id", "key", "value"]
 

@@ -5,6 +5,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { useCreateRegisteredPromptMutation } from './useCreateRegisteredPromptMutation';
 import { getPromptContentTagValue } from '../utils';
+import { CollapsibleSection } from '@mlflow/mlflow/src/common/components/CollapsibleSection';
+import { EditableTagsTableView } from '@mlflow/mlflow/src/common/components/EditableTagsTableView';
 
 export enum CreatePromptModalMode {
   CreatePrompt = 'CreatePrompt',
@@ -30,6 +32,7 @@ export const useCreatePromptModal = ({
       draftName: '',
       draftValue: '',
       commitMessage: '',
+      tags: [] as { key: string; value: string }[],
     },
   });
 
@@ -72,6 +75,7 @@ export const useCreatePromptModal = ({
             content: values.draftValue,
             commitMessage: values.commitMessage,
             promptName,
+            tags: values.tags,
           },
           {
             onSuccess: (data) => {
@@ -98,7 +102,7 @@ export const useCreatePromptModal = ({
       )}
       {isCreatingNewPrompt && (
         <>
-          <FormUI.Label htmlFor="mlflow.prompts.create.name">Name (required):</FormUI.Label>
+          <FormUI.Label htmlFor="mlflow.prompts.create.name">Name:</FormUI.Label>
           <RHFControlledComponents.Input
             control={form.control}
             id="mlflow.prompts.create.name"
@@ -110,6 +114,13 @@ export const useCreatePromptModal = ({
                 message: intl.formatMessage({
                   defaultMessage: 'Name is required',
                   description: 'A validation state for the prompt name in the prompt creation modal',
+                }),
+              },
+              pattern: {
+                value: /^[a-zA-Z0-9_\-.]+$/,
+                message: intl.formatMessage({
+                  defaultMessage: 'Only alphanumeric characters, underscores, hyphens, and dots are allowed',
+                  description: 'A validation state for the prompt name format in the prompt creation modal',
                 }),
               },
             }}
@@ -125,7 +136,7 @@ export const useCreatePromptModal = ({
           <Spacer />
         </>
       )}
-      <FormUI.Label htmlFor="mlflow.prompts.create.content">Prompt (required):</FormUI.Label>
+      <FormUI.Label htmlFor="mlflow.prompts.create.content">Prompt:</FormUI.Label>
       <RHFControlledComponents.TextArea
         control={form.control}
         id="mlflow.prompts.create.content"
@@ -145,7 +156,7 @@ export const useCreatePromptModal = ({
           defaultMessage: "Type prompt content here. Wrap variables with double curly brace e.g. '{{' name '}}'.",
           description: 'A placeholder for the prompt content in the prompt creation modal',
         })}
-        validationState={form.formState.errors.draftName ? 'error' : undefined}
+        validationState={form.formState.errors.draftValue ? 'error' : undefined}
       />
       {form.formState.errors.draftValue && (
         <FormUI.Message type="error" message={form.formState.errors.draftValue.message} />
@@ -168,6 +179,7 @@ export const useCreatePromptModal = ({
         commitMessage: '',
         draftName: '',
         draftValue: getPromptContentTagValue(latestVersion) ?? '',
+        tags: [],
       });
     }
     setOpen(true);

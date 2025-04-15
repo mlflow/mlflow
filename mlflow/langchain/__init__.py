@@ -28,6 +28,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
@@ -99,6 +100,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.warnings_utils import color_warning
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -442,6 +444,7 @@ def log_model(
     model_config=None,
     streamable=None,
     resources: Optional[Union[list[Resource], str]] = None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -566,6 +569,7 @@ def log_model(
             (e.g. on LLM model serving endpoints), we encourage explicitly passing dependencies
             via this parameter. Otherwise, ``log_model`` will attempt to infer dependencies,
             but dependency auto-inference is best-effort and may miss some dependencies.
+        prompts: {{ prompts }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -591,6 +595,7 @@ def log_model(
         model_config=model_config,
         streamable=streamable,
         resources=resources,
+        prompts=prompts,
     )
 
 
@@ -1016,6 +1021,39 @@ def autolog(
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
+    if log_models:
+        color_warning(
+            "The `log_models` parameter's behavior will be changed in a future release. "
+            "MLflow no longer logs model artifacts automatically, use `mlflow.langchain.log_model` "
+            "to log model artifacts manually if needed.",
+            stacklevel=2,
+            color="red",
+            category=FutureWarning,
+        )
+    else:
+        user_specified_args = {
+            key
+            for key, value in {
+                "log_input_examples": log_input_examples,
+                "log_model_signatures": log_model_signatures,
+                "log_datasets": log_datasets,
+                "registered_model_name": registered_model_name,
+                "extra_tags": extra_tags,
+            }.items()
+            if value not in [False, None]
+        }
+        if user_specified_args:
+            color_warning(
+                "The following parameters are deprecated in langchain autologging and will be "
+                f"removed in a future release: `{', '.join(user_specified_args)}`. Langchain "
+                "autologging will not support automatic model artifacts logging and any "
+                "related parameters. Please log your model manually with "
+                "`mlflow.langchain.log_model` if needed.",
+                stacklevel=2,
+                color="yellow",
+                category=FutureWarning,
+            )
+
     from mlflow.langchain.langchain_tracer import (
         patched_callback_manager_init,
         patched_callback_manager_merge,

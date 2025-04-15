@@ -843,7 +843,7 @@ def test_tracing_source_run_in_batch():
     with mlflow.start_run() as run:
         model.batch([input] * 2)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
@@ -860,7 +860,7 @@ def test_tracing_source_run_in_pyfunc_model_predict():
     with mlflow.start_run() as run:
         pyfunc_model.predict([input] * 2)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 

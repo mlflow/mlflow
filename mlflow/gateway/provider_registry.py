@@ -31,6 +31,7 @@ def _register_default_providers(registry: ProviderRegistry):
     from mlflow.gateway.providers.anthropic import AnthropicProvider
     from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
     from mlflow.gateway.providers.cohere import CohereProvider
+    from mlflow.gateway.providers.gemini import GeminiProvider
     from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
     from mlflow.gateway.providers.mistral import MistralProvider
     from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
@@ -45,6 +46,7 @@ def _register_default_providers(registry: ProviderRegistry):
     registry.register(Provider.AI21LABS, AI21LabsProvider)
     registry.register(Provider.MOSAICML, MosaicMLProvider)
     registry.register(Provider.PALM, PaLMProvider)
+    registry.register(Provider.GEMINI, GeminiProvider)
     registry.register(Provider.MLFLOW_MODEL_SERVING, MlflowModelServingProvider)
     registry.register(Provider.BEDROCK, AmazonBedrockProvider)
     registry.register(Provider.AMAZON_BEDROCK, AmazonBedrockProvider)

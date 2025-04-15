@@ -50,6 +50,7 @@ basic_proto_files = [
     "mlflow_artifacts.proto",
     "internal.proto",
     "scalapb/scalapb.proto",
+    "assessments.proto",
 ]
 uc_proto_files = [
     "databricks_managed_catalog_messages.proto",
@@ -91,6 +92,10 @@ python_gencode_replacements = [
     (
         "import service_pb2 as service__pb2",
         "from . import service_pb2 as service__pb2",
+    ),
+    (
+        "import assessments_pb2 as assessments__pb2",
+        "from . import assessments_pb2 as assessments__pb2",
     ),
 ]
 

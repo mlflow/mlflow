@@ -8,10 +8,14 @@ import {
   TableSkeletonRows,
   Typography,
   useDesignSystemTheme,
+  Button,
+  DropdownMenu,
+  TableRowAction,
+  ColumnsIcon,
 } from '@databricks/design-system';
 import { SortingState, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import React, { useMemo } from 'react';
-import { isNil } from 'lodash';
+import { isNil, entries } from 'lodash';
 import Utils from '../../../common/utils/Utils';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
@@ -62,6 +66,8 @@ export interface TracesViewTableProps {
   hiddenColumns?: string[];
   disableTokenColumn?: boolean;
   baseComponentId: string;
+  toggleHiddenColumn: (columnId: string) => void;
+  disabledColumns?: string[];
 }
 
 type TracesViewTableMeta = {
@@ -149,6 +155,11 @@ const TraceTagsCell: TracesColumnDef['cell'] = ({
   );
 };
 
+type ColumnListItem = {
+  key: string;
+  label: string;
+};
+
 export const TracesViewTable = React.memo(
   ({
     experimentIds,
@@ -171,10 +182,22 @@ export const TracesViewTable = React.memo(
     hiddenColumns = [],
     disableTokenColumn,
     baseComponentId,
+    toggleHiddenColumn,
+    disabledColumns = [],
   }: TracesViewTableProps) => {
     const intl = useIntl();
+    const { theme } = useDesignSystemTheme();
 
     const useStaticColumnsCells = isUnstableNestedComponentsMigrated();
+
+    const allColumnsList = useMemo<ColumnListItem[]>(() => {
+      return entries(ExperimentViewTracesTableColumnLabels)
+        .map(([key, label]) => ({
+          key,
+          label: intl.formatMessage(label),
+        }))
+        .filter(({ key }) => !disabledColumns.includes(key));
+    }, [intl, disabledColumns]);
 
     const columns = useMemo<TracesColumnDef[]>(() => {
       const columns: TracesColumnDef[] = [
@@ -471,8 +494,9 @@ export const TracesViewTable = React.memo(
                 sortable={header.column.getCanSort()}
                 sortDirection={header.column.getIsSorted() || 'none'}
                 onToggleSort={header.column.getToggleSortingHandler()}
-                resizable={header.column.getCanResize()}
-                resizeHandler={header.getResizeHandler()}
+                header={header}
+                column={header.column}
+                setColumnSizing={table.setColumnSizing}
                 isResizing={header.column.getIsResizing()}
                 style={{
                   flex: `calc(var(${getHeaderSizeClassName(header.id)}) / 100)`,
@@ -482,6 +506,34 @@ export const TracesViewTable = React.memo(
               </TableHeader>
             );
           })}
+          <TableRowAction>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <Button
+                  componentId={`${baseComponentId}.traces_table.column_selector_dropdown`}
+                  icon={<ColumnsIcon />}
+                  size="small"
+                  aria-label={intl.formatMessage({
+                    defaultMessage: 'Select columns',
+                    description: 'Experiment page > traces table > column selector dropdown aria label',
+                  })}
+                />
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="end">
+                {allColumnsList.map(({ key, label }) => (
+                  <DropdownMenu.CheckboxItem
+                    key={key}
+                    componentId={`${baseComponentId}.traces_table.column_toggle_button`}
+                    checked={!hiddenColumns.includes(key)}
+                    onClick={() => toggleHiddenColumn(key)}
+                  >
+                    <DropdownMenu.ItemIndicator />
+                    {label}
+                  </DropdownMenu.CheckboxItem>
+                ))}
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          </TableRowAction>
         </TableRow>
         {loading && <TableSkeletonRows table={table} />}
         {!loading &&

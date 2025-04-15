@@ -44,11 +44,6 @@ export const shouldEnableToggleIndividualRunsInGroups = () => false;
  * Update relative time axis to use date
  */
 export const shouldEnableRelativeTimeDateAxis = () => false;
-/**
- * Should enable new difference view charts
- */
-export const shouldEnableNewDifferenceViewCharts = () => false;
-export const shouldEnableDifferenceViewChartsV3 = () => false;
 
 export const shouldEnableTracingUI = () => true;
 export const shouldEnableRunDetailsPageTracesTab = () => true;
@@ -62,6 +57,7 @@ export const isUnstableNestedComponentsMigrated = () => true;
  * Determines if logged models UI (part of model-centric IA shift) is enabled
  */
 export const isExperimentLoggedModelsUIEnabled = () => false;
+export const isRunPageLoggedModelsTableEnabled = () => isExperimentLoggedModelsUIEnabled();
 
 /**
  * Determines if evaluation results online monitoring UI is enabled

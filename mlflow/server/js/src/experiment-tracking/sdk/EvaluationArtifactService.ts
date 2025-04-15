@@ -7,6 +7,8 @@ export interface RawEvaluationArtifact {
   data: (string | number | null | boolean | Record<string, any>)[][];
 }
 
+export class EvaluationTableParseError extends Error {}
+
 /**
  * Service function that fetches and parses evaluation artifact table.
  */
@@ -21,7 +23,7 @@ export const fetchEvaluationTableArtifact = async (
       try {
         return JSON.parse(artifactContent);
       } catch {
-        throw new Error(`Artifact ${artifactPath} is malformed and/or not valid JSON`);
+        throw new EvaluationTableParseError(`Artifact ${artifactPath} is malformed and/or not valid JSON`);
       }
     })
     .then((data) => parseEvaluationTableArtifact(artifactPath, data));

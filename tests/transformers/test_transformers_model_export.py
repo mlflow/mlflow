@@ -2888,7 +2888,7 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot():
             This method initializes the tokenizer and language model
             using the specified snapshot location.
             """
-            snapshot_location = context.artifacts["bert-tiny-model"]
+            snapshot_location = context.artifacts["bert-tiny-model"].removeprefix("hf:/")
             # Initialize tokenizer and language model
             tokenizer = transformers.AutoTokenizer.from_pretrained(snapshot_location)
             model = transformers.BertForQuestionAnswering.from_pretrained(snapshot_location)

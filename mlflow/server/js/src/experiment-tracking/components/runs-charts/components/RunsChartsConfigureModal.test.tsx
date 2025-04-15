@@ -15,7 +15,7 @@ jest.setTimeout(15000);
 
 // Mock <RunsMetricsLinePlot> component, it's exact implementation is not important for this test
 jest.mock('./RunsMetricsLinePlot', () => ({
-  RunsMetricsLinePlot: jest.fn().mockImplementation(() => <div>RunsMetricsLinePlot</div>),
+  RunsMetricsLinePlot: jest.fn(() => <div>RunsMetricsLinePlot</div>),
 }));
 
 const sampleChartData = [

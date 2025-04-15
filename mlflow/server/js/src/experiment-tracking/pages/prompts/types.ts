@@ -21,3 +21,7 @@ export type RegisteredPromptDetailsResponse = {
   prompt?: RegisteredPrompt;
   versions: RegisteredPromptVersion[];
 };
+
+export type PromptVersionsForRunResponse = {
+  model_versions?: RegisteredPromptVersion[];
+};

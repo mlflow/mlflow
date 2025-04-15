@@ -4,11 +4,12 @@ import type { Theme } from '../../theme';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
 import type { AnalyticsEventProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 export type CheckboxValueType = AntDCheckboxValueType;
-export declare const getWrapperStyle: ({ clsPrefix, theme, wrapperStyle, }: {
+export declare const getWrapperStyle: ({ clsPrefix, theme, wrapperStyle, useNewFormUISpacing, }: {
     clsPrefix: string;
     theme: Theme;
     wrapperStyle?: React.CSSProperties;
     useNewStyles?: boolean;
+    useNewFormUISpacing?: boolean;
 }) => import("@emotion/utils").SerializedStyles;
 export interface CheckboxProps extends DangerouslySetAntdProps<AntDCheckboxProps>, Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'checked'>, HTMLDataAttributes, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     isChecked?: boolean | null;

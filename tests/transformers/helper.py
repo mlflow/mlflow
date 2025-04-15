@@ -222,6 +222,10 @@ def load_whisper_pipeline():
     feature_extractor = transformers.WhisperFeatureExtractor.from_pretrained(architecture)
     if Version(transformers.__version__) > Version("4.30.2"):
         model.generation_config.alignment_heads = [[2, 2], [3, 0], [3, 2], [3, 3], [3, 4], [3, 5]]
+    if Version(transformers.__version__) > Version("4.49.0"):
+        # forced_decoder_ids is not allowed
+        # ref: https://github.com/huggingface/transformers/blob/6a2627918d84f25422b931507a8fb9146106ca20/src/transformers/generation/utils.py#L1083
+        model.generation_config.forced_decoder_ids = None
     return transformers.pipeline(
         task=task, model=model, tokenizer=tokenizer, feature_extractor=feature_extractor
     )

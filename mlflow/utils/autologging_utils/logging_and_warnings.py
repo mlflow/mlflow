@@ -7,6 +7,8 @@ from threading import get_ident as get_current_thread_id
 import mlflow
 from mlflow.utils import logging_utils
 
+ORIGINAL_SHOWWARNING = warnings.showwarning
+
 
 class _WarningsController:
     """
@@ -24,7 +26,6 @@ class _WarningsController:
         self._state_lock = RLock()
 
         self._did_patch_showwarning = False
-        self._original_showwarning = None
 
         self._disabled_threads = set()
         self._rerouted_threads = set()
@@ -69,7 +70,7 @@ class _WarningsController:
                 message,
             )
         else:
-            self._original_showwarning(message, category, filename, lineno, *args, **kwargs)
+            ORIGINAL_SHOWWARNING(message, category, filename, lineno, *args, **kwargs)
 
     def _should_patch_showwarning(self):
         return (
@@ -93,11 +94,14 @@ class _WarningsController:
         """
         with self._state_lock:
             if self._should_patch_showwarning() and not self._did_patch_showwarning:
-                self._original_showwarning = warnings.showwarning
-                warnings.showwarning = self._patched_showwarning
+                # NB: guard to prevent patching an instance of a patch
+                if warnings.showwarning != self._patched_showwarning:
+                    warnings.showwarning = self._patched_showwarning
                 self._did_patch_showwarning = True
             elif not self._should_patch_showwarning() and self._did_patch_showwarning:
-                warnings.showwarning = self._original_showwarning
+                # NB: only unpatch iff the patched function is active
+                if warnings.showwarning == self._patched_showwarning:
+                    warnings.showwarning = ORIGINAL_SHOWWARNING
                 self._did_patch_showwarning = False
 
     def set_mlflow_warnings_disablement_state_globally(self, disabled=True):

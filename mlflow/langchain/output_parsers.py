@@ -1,5 +1,6 @@
 from dataclasses import asdict
 from typing import Any, Iterator
+from uuid import uuid4
 
 from langchain_core.messages.base import BaseMessage
 from langchain_core.output_parsers.transform import BaseTransformOutputParser
@@ -126,7 +127,7 @@ class ChatAgentOutputParser(BaseTransformOutputParser[str]):
         :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>`.
         """
         return ChatAgentResponse(
-            messages=[ChatAgentMessage(content=text, role="assistant")]
+            messages=[ChatAgentMessage(content=text, role="assistant", id=str(uuid4()))]
         ).model_dump_compat(exclude_none=True)
 
     def transform(self, input: Iterator[BaseMessage], config, **kwargs) -> Iterator[dict[str, Any]]:

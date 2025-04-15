@@ -627,9 +627,9 @@ def test_model_resources():
 
 
 def test_save_model_with_prompts():
-    mlflow.register_prompt("prompt-1", "Hello, {{title}} {{name}}!")
+    prompt_1 = mlflow.register_prompt("prompt-1", "Hello, {{title}} {{name}}!")
     time.sleep(0.001)  # To avoid timestamp precision issue in Windows
-    mlflow.register_prompt("prompt-2", "Hello, {{title}} {{name}}!")
+    prompt_2 = mlflow.register_prompt("prompt-2", "Hello, {{title}} {{name}}!")
 
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, model_input: list[str]):
@@ -639,20 +639,18 @@ def test_save_model_with_prompts():
         model_info = mlflow.pyfunc.log_model(
             "test_model",
             python_model=MyModel(),
-            prompts=[
-                "prompts:/prompt-1/1",
-                "prompts:/prompt-2/1",
-            ],
+            # The 'prompts' parameter should accept both prompt object and URI
+            prompts=[prompt_1, prompt_2.uri],
         )
 
-    assert model_info.prompts == ["prompts:/prompt-1/1", "prompts:/prompt-2/1"]
+    assert model_info.prompts == [prompt_1.uri, prompt_2.uri]
 
     # Prompts should be recorded in the yaml file
     model = Model.load(model_info.model_uri)
-    assert model.prompts == ["prompts:/prompt-1/1", "prompts:/prompt-2/1"]
+    assert model.prompts == [prompt_1.uri, prompt_2.uri]
 
     # Run ID should be recorded in the prompt registry
     associated_prompts = mlflow.MlflowClient().list_logged_prompts(model_info.run_id)
     assert len(associated_prompts) == 2
-    assert associated_prompts[0].name == "prompt-2"
-    assert associated_prompts[1].name == "prompt-1"
+    assert associated_prompts[0].name == prompt_2.name
+    assert associated_prompts[1].name == prompt_1.name

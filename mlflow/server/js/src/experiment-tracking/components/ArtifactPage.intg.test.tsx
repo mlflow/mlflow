@@ -12,18 +12,24 @@ import { MLFLOW_LOGGED_ARTIFACTS_TAG } from '../constants';
 import Utils from '../../common/utils/Utils';
 import { Services } from '../../model-registry/services';
 import type { ReduxState } from '../../redux-types';
-import type { DeepPartial } from 'redux';
+import { applyMiddleware, combineReducers, createStore, type DeepPartial } from 'redux';
 import type { KeyValueEntity } from '../types';
 // eslint-disable-next-line import/no-nodejs-modules
 import { readFileSync } from 'fs';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
 
 jest.setTimeout(30000); // Larger timeout for integration testing
 
 jest.mock('../../common/utils/ArtifactUtils', () => ({
-  ...jest.requireActual('../../common/utils/ArtifactUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/ArtifactUtils')>('../../common/utils/ArtifactUtils'),
   getArtifactContent: jest.fn(),
   getArtifactBytesContent: jest.fn(),
+}));
+
+jest.mock('../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../common/utils/FeatureUtils')>('../../common/utils/FeatureUtils'),
+  isExperimentLoggedModelsUIEnabled: jest.fn(() => false),
 }));
 
 // List of various artifacts to be downloaded and rendered
@@ -115,6 +121,7 @@ describe('Artifact page, artifact files rendering integration test', () => {
   beforeEach(() => {
     jest.spyOn(MlflowService, 'listArtifacts').mockResolvedValue({});
     jest.spyOn(Services, 'searchRegisteredModels').mockResolvedValue({ registered_models: [] });
+    jest.mocked(isExperimentLoggedModelsUIEnabled).mockReturnValue(false);
   });
   it.each(artifactTestCases)('renders artifact file: %s', async (fileName) => {
     const fileContents = loadLocalArtifactFixtureFile(fileName);

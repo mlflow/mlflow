@@ -12,7 +12,7 @@ import userEvent from '@testing-library/user-event';
 import { shouldShowModelsNextUI } from '../../../common/utils/FeatureUtils';
 import { I18nUtils } from '../../../i18n/I18nUtils';
 jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldShowModelsNextUI: jest.fn(),
 }));
 

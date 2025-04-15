@@ -1,8 +1,13 @@
 context("Model")
 
 library("keras")
+library("reticulate")
 
 testthat_model_dir <- tempfile("model_")
+
+setup({
+    use_python(Sys.getenv("RETICULATE_PYTHON_BIN", "python"))
+})
 
 teardown({
   mlflow_clear_test_dir(testthat_model_dir)

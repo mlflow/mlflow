@@ -1,16 +1,19 @@
 export interface TypeaheadComboboxFooterProps extends React.HTMLAttributes<HTMLDivElement> {
-    _TYPE?: string;
+    /**
+     * DO NOT USE, INTERNAL USE ONLY
+     */
+    _type?: string;
 }
 export declare const DuboisTypeaheadComboboxFooter: {
     ({ children, ...restProps }: TypeaheadComboboxFooterProps): import("@emotion/react/jsx-runtime").JSX.Element;
     defaultProps: {
-        _TYPE: string;
+        _type: string;
     };
 };
 export declare const TypeaheadComboboxFooter: {
     ({ children, ...restProps }: TypeaheadComboboxFooterProps): import("@emotion/react/jsx-runtime").JSX.Element;
     defaultProps: {
-        _TYPE: string;
+        _type: string;
     };
 };
 //# sourceMappingURL=TypeaheadComboboxFooter.d.ts.map

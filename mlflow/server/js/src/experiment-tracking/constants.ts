@@ -70,7 +70,7 @@ export const DEFAULT_MODEL_VERSION_FILTER = MODEL_VERSION_FILTER.ALL_RUNS;
 export const MAX_DETECT_NEW_RUNS_RESULTS = 26; // so the refresh button badge can be 25+
 export const POLL_INTERVAL = 15000;
 
-export const AUTOML_TAG_PREFIX = '_databricks_automl';
+const AUTOML_TAG_PREFIX = '_databricks_automl';
 export const AUTOML_EVALUATION_METRIC_TAG = `${AUTOML_TAG_PREFIX}.evaluation_metric`;
 
 export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = 'mlflow.experiment.primaryMetric.name';
@@ -84,6 +84,8 @@ export const MLFLOW_RUN_SOURCE_TYPE_TAG = 'mlflow.runSourceType';
 export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
+
+export const MONITORING_BETA_EXPIRATION_DATE = new Date('2025-06-24T00:00:00');
 
 export enum MLflowRunSourceType {
   PROMPT_ENGINEERING = 'PROMPT_ENGINEERING',

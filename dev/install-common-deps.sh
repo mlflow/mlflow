@@ -44,7 +44,7 @@ sudo apt clean
 df -h
 
 python --version
-pip install --upgrade pip wheel
+pip install --upgrade pip setuptools wheel
 pip --version
 
 if [[ "$SKINNY" == "true" ]]; then

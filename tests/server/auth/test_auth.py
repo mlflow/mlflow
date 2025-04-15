@@ -345,7 +345,8 @@ def test_create_and_delete_registered_model(client, monkeypatch):
         response = requests.get(
             url=client.tracking_uri + GET_REGISTERED_MODEL_PERMISSION,
             params={"name": rm.name, "username": username1},
-            auth=("admin", "password"),  # Check with admin because the user permission is deleted
+            # Check with admin because the user permission is deleted
+            auth=("admin", "password1234"),
         )
 
     assert response.status_code == 404

@@ -4,3 +4,5 @@ export async function recordEvent(
   eventData?: string,
   // eslint-disable-next-line @typescript-eslint/no-empty-function
 ) {}
+
+export * from './UserActionErrorHandler';

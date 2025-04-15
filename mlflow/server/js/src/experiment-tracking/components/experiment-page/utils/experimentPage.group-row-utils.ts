@@ -1,4 +1,4 @@
-import { compact, entries, isObject, isNil, isUndefined, reject, values, Dictionary, isEqual, sortBy } from 'lodash';
+import { compact, entries, isObject, isNil, isUndefined, reject, values, Dictionary } from 'lodash';
 import {
   type RowGroupRenderMetadata,
   type RowRenderMetadata,
@@ -18,6 +18,7 @@ import {
 } from '../../../../common/utils/FeatureUtils';
 import { determineIfRowIsHidden } from './experimentPage.common-row-utils';
 import { removeOutliersFromMetricHistory } from '../../runs-charts/components/RunsCharts.common';
+import { type ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 
 type AggregableParamEntity = { key: string; value: string };
 type AggregableMetricEntity = { key: string; value: number; step: number; min?: number; max?: number };
@@ -534,6 +535,7 @@ export const getGroupedRowRenderMetadata = ({
   groupsExpanded,
   runData,
   groupBy,
+  searchFacetsState,
   runsHidden = [],
   runsVisibilityMap = {},
   runsHiddenMode = RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
@@ -542,6 +544,7 @@ export const getGroupedRowRenderMetadata = ({
   groupsExpanded: Record<string, boolean>;
   runData: SingleRunData[];
   groupBy: null | RunsGroupByConfig | string;
+  searchFacetsState?: Readonly<ExperimentPageSearchFacetsState>;
   runsHidden?: string[];
   runsVisibilityMap?: Record<string, boolean>;
   runsHiddenMode?: RUNS_VISIBILITY_MODE;
@@ -726,7 +729,82 @@ export const getGroupedRowRenderMetadata = ({
     }
   }
 
+  const [entity, sortKey] = extractSortKey(searchFacetsState);
+  if (entity && sortKey && searchFacetsState) {
+    const parentList: RowGroupRenderMetadata[] = [];
+    // key: parent groupId, value: list of parent group's children
+    const childrenMap: Map<string, RowRenderMetadata[]> = new Map();
+
+    for (const res of result) {
+      if ('groupId' in res) {
+        parentList.push(res);
+      } else {
+        const parentGroupId = res.rowUuid.replace(`.${res.runInfo.runUuid}`, ''); // dont forget .
+        const groupList = childrenMap.get(parentGroupId) ?? [];
+        groupList.push(res);
+        childrenMap.set(parentGroupId, groupList);
+      }
+    }
+
+    const orderByAscVal = searchFacetsState.orderByAsc ? 1 : -1;
+    parentList.sort((a, b) => {
+      switch (entity) {
+        case 'metrics':
+          const aMetricSoryKeyValue = a.aggregatedMetricEntities.find((agg) => agg.key === sortKey)?.value;
+          const bMetricSoryKeyValue = b.aggregatedMetricEntities.find((agg) => agg.key === sortKey)?.value;
+          if (
+            aMetricSoryKeyValue !== undefined &&
+            bMetricSoryKeyValue !== undefined &&
+            aMetricSoryKeyValue !== bMetricSoryKeyValue
+          ) {
+            return aMetricSoryKeyValue > bMetricSoryKeyValue ? orderByAscVal : -orderByAscVal;
+          }
+          return 0;
+        case 'params':
+          const aParamSortKeyValue = a.aggregatedParamEntities.find((agg) => agg.key === sortKey)?.value;
+          const bParamSortKeyValue = b.aggregatedParamEntities.find((agg) => agg.key === sortKey)?.value;
+          if (
+            aParamSortKeyValue !== undefined &&
+            bParamSortKeyValue !== undefined &&
+            aParamSortKeyValue !== bParamSortKeyValue
+          ) {
+            return aParamSortKeyValue > bParamSortKeyValue ? orderByAscVal : -orderByAscVal;
+          }
+          return 0;
+        default:
+          return 0;
+      }
+    });
+
+    const sortedResultList: (RowGroupRenderMetadata | RowRenderMetadata)[] = [];
+    for (const parent of parentList) {
+      sortedResultList.push(parent);
+      if (childrenMap.has(parent.groupId)) {
+        // no need to sort childenList because `result` is already sorted
+        const childenList = childrenMap.get(parent.groupId) ?? [];
+        sortedResultList.push(...childenList);
+      }
+    }
+    return sortedResultList;
+  }
   return result;
+};
+
+const extractSortKey = (
+  searchFacetsState?: ExperimentPageSearchFacetsState,
+): ['metrics' | 'params' | undefined, string | undefined] => {
+  if (!searchFacetsState) {
+    return [undefined, undefined];
+  }
+  const { orderByKey } = searchFacetsState;
+  const regex = /^(metrics|params)\.`(.*?)`$/;
+  const match = orderByKey.match(regex);
+  if (match && match.length === 3) {
+    const entity = match[1] === 'metrics' || match[1] === 'params' ? match[1] : undefined;
+    const sortKey = match[2];
+    return [entity, sortKey];
+  }
+  return [undefined, undefined];
 };
 
 export const createSearchFilterFromRunGroupInfo = (groupInfo: RunGroupParentInfo) =>

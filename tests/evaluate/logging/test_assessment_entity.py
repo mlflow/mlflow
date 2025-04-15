@@ -111,6 +111,7 @@ def test_assessment_to_from_dictionary():
         "metadata": {"key1": "value1"},
         "error_code": None,
         "error_message": None,
+        "span_id": None,
     }
     assert assessment_dict == expected_dict
 

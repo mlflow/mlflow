@@ -15,7 +15,9 @@ import { IntlProvider } from 'react-intl';
 import { setupTestRouter, testRoute, TestRouter } from '../../../../../common/utils/RoutingTestUtils';
 
 jest.mock('../../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
+    '../../../../../common/utils/FeatureUtils',
+  ),
   shouldUseCompressedExperimentViewSharedState: jest.fn(),
 }));
 
@@ -24,16 +26,20 @@ jest.mock('../../../../../common/utils/StringUtils', () => {
   // If window.crypto is not supported, provide a simple hex hashing function instead of SHA256
   if (!windowCryptoSupported) {
     return {
-      ...jest.requireActual('../../../../../common/utils/StringUtils'),
+      ...jest.requireActual<typeof import('../../../../../common/utils/StringUtils')>(
+        '../../../../../common/utils/StringUtils',
+      ),
       getStringSHA256: (val: string) =>
         val.split('').reduce((hex, c) => hex + c.charCodeAt(0).toString(16).padStart(2, '0'), ''),
     };
   }
-  return jest.requireActual('../../../../../common/utils/StringUtils');
+  return jest.requireActual<typeof import('../../../../../common/utils/StringUtils')>(
+    '../../../../../common/utils/StringUtils',
+  );
 });
 
 jest.mock('../../../../actions', () => ({
-  ...jest.requireActual('../../../../actions'),
+  ...jest.requireActual<typeof import('../../../../actions')>('../../../../actions'),
   setExperimentTagApi: jest.fn(() => ({ type: 'SET_EXPERIMENT_TAG_API', payload: Promise.resolve() })),
 }));
 

@@ -43,6 +43,7 @@ class Provider(str, Enum):
     MOSAICML = "mosaicml"
     HUGGINGFACE_TEXT_GENERATION_INFERENCE = "huggingface-text-generation-inference"
     PALM = "palm"
+    GEMINI = "gemini"
     BEDROCK = "bedrock"
     AMAZON_BEDROCK = "amazon-bedrock"  # an alias for bedrock
     # Note: The following providers are only supported on Databricks
@@ -177,6 +178,14 @@ class PaLMConfig(ConfigModel):
 
     @field_validator("palm_api_key", mode="before")
     def validate_palm_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
+class GeminiConfig(ConfigModel):
+    gemini_api_key: str
+
+    @field_validator("gemini_api_key", mode="before")
+    def validate_gemini_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
 

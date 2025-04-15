@@ -62,7 +62,8 @@ with ThreadPoolExecutor(max_workers=2) as executor:
 client.end_trace(request_id=request_id)
 
 # Retrieve the just created trace.
-trace = mlflow.get_last_active_trace()
+trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id)
 
 # Print the trace in JSON format
 print(trace.to_json(pretty=True))

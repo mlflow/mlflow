@@ -14,6 +14,7 @@ import type {
 } from '../runs-charts/components/RunsMetricsLinePlot';
 import type { RunsMetricsBarPlotHoverData } from '../runs-charts/components/RunsMetricsBarPlot';
 import { RunsMultipleTracesTooltipBody } from '../runs-charts/components/RunsMultipleTracesTooltipBody';
+import { Spacer, Typography } from '@databricks/design-system';
 
 /**
  * Tooltip body displayed when hovering over run view metric charts
@@ -74,8 +75,10 @@ export const RunViewChartTooltipBody = ({
         </div>
       )}
       {value && (
-        <div css={styles.valueField}>
-          <strong>{metricKey}:</strong> {value}
+        <div>
+          <Typography.Text bold>{metricKey}</Typography.Text>
+          <Spacer size="xs" />
+          <Typography.Text>{value}</Typography.Text>
         </div>
       )}
     </div>
@@ -84,7 +87,6 @@ export const RunViewChartTooltipBody = ({
 
 const styles = {
   valueField: {
-    maxWidth: 300,
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
     textOverflow: 'ellipsis',

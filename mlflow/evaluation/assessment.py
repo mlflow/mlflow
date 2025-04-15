@@ -8,104 +8,10 @@ import time
 from typing import Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
-
-
-@experimental
-class AssessmentSourceType:
-    AI_JUDGE = "AI_JUDGE"
-    HUMAN = "HUMAN"
-    CODE = "CODE"
-    _SOURCE_TYPES = [AI_JUDGE, HUMAN, CODE]
-
-    def __init__(self, source_type: str):
-        self._source_type = AssessmentSourceType._parse(source_type)
-
-    @staticmethod
-    def _parse(source_type: str) -> str:
-        source_type = source_type.upper()
-        if source_type not in AssessmentSourceType._SOURCE_TYPES:
-            raise MlflowException(
-                message=(
-                    f"Invalid assessment source type: {source_type}. "
-                    f"Valid source types: {AssessmentSourceType._SOURCE_TYPES}"
-                ),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        return source_type
-
-    def __str__(self):
-        return self._source_type
-
-    @staticmethod
-    def _standardize(source_type: str) -> str:
-        return str(AssessmentSourceType(source_type))
-
-
-@experimental
-class AssessmentSource(_MlflowObject):
-    """
-    Source of an assessment (human, LLM as a judge with GPT-4, etc).
-    """
-
-    def __init__(self, source_type: str, source_id: str, metadata: Optional[dict[str, Any]] = None):
-        """Construct a new mlflow.evaluation.AssessmentSource instance.
-
-        Args:
-            source_type: The type of the assessment source (AssessmentSourceType).
-            source_id: An identifier for the source, e.g. user ID or LLM judge ID.
-            metadata: Additional metadata about the source, e.g. human-readable name, inlined LLM
-                judge parameters, etc.
-        """
-        self._source_type = AssessmentSourceType._standardize(source_type)
-        self._source_id = source_id
-        self._metadata = metadata or {}
-
-    @property
-    def source_type(self) -> str:
-        """The type of the assessment source."""
-        return self._source_type
-
-    @property
-    def source_id(self) -> str:
-        """The identifier for the source."""
-        return self._source_id
-
-    @property
-    def metadata(self) -> dict[str, Any]:
-        """The additional metadata about the source."""
-        return self._metadata
-
-    def __eq__(self, __o):
-        if isinstance(__o, self.__class__):
-            return self.to_dictionary() == __o.to_dictionary()
-
-        return False
-
-    def to_dictionary(self) -> dict[str, Any]:
-        return {
-            "source_type": self.source_type,
-            "source_id": self.source_id,
-            "metadata": self.metadata,
-        }
-
-    @classmethod
-    def from_dictionary(cls, source_dict: dict[str, Any]) -> "AssessmentSource":
-        """
-        Create a AssessmentSource object from a dictionary.
-
-        Args:
-            source_dict (dict): Dictionary containing assessment source information.
-
-        Returns:
-            AssessmentSource: The AssessmentSource object created from the dictionary.
-        """
-        source_type = source_dict["source_type"]
-        source_id = source_dict["source_id"]
-        metadata = source_dict.get("metadata")
-        return cls(source_type=source_type, source_id=source_id, metadata=metadata)
 
 
 @experimental
@@ -124,9 +30,10 @@ class AssessmentEntity(_MlflowObject):
         numeric_value: Optional[float] = None,
         string_value: Optional[str] = None,
         rationale: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: Optional[dict[str, str]] = None,
         error_code: Optional[str] = None,
         error_message: Optional[str] = None,
+        span_id: Optional[str] = None,
     ):
         """Construct a new mlflow.evaluation.AssessmentEntity instance.
 
@@ -144,6 +51,10 @@ class AssessmentEntity(_MlflowObject):
             error_code: An error code representing any issues encountered during the assessment.
             error_message: A descriptive error message representing any issues encountered during
                 the assessment.
+            span_id: The span ID of the span within the Trace, that the assessment is evaluating,
+                     e.g. if you are evaluating a retrieval span for document recall, you can
+                     specify the span ID of the retrieval span here. This field is only supported
+                     by mlflow.log_feedback.
         """
         self._evaluation_id = evaluation_id
         self._name = name
@@ -156,6 +67,7 @@ class AssessmentEntity(_MlflowObject):
         self._metadata = metadata or {}
         self._error_code = error_code
         self._error_message = error_message
+        self._span_id = span_id
 
         if error_message is not None and (
             boolean_value is not None or numeric_value is not None or string_value is not None
@@ -230,6 +142,11 @@ class AssessmentEntity(_MlflowObject):
         """The error message."""
         return self._error_message
 
+    @property
+    def span_id(self) -> Optional[str]:
+        """The span ID of the span within the Trace, that the assessment is evaluating."""
+        return self._span_id
+
     def __eq__(self, __o):
         if isinstance(__o, self.__class__):
             return self.to_dictionary() == __o.to_dictionary()
@@ -248,6 +165,7 @@ class AssessmentEntity(_MlflowObject):
             "metadata": self.metadata,
             "error_code": self.error_code,
             "error_message": self.error_message,
+            "span_id": self.span_id,
         }
 
     @classmethod
@@ -273,6 +191,7 @@ class AssessmentEntity(_MlflowObject):
             metadata=assessment_dict.get("metadata"),
             error_code=assessment_dict.get("error_code"),
             error_message=assessment_dict.get("error_message"),
+            span_id=assessment_dict.get("span_id"),
         )
 
 
@@ -333,7 +252,10 @@ class Assessment(_MlflowObject):
             )
 
         self._name = name
-        self._source = source
+        self._source = source or AssessmentSource(
+            source_type=AssessmentSourceType.SOURCE_TYPE_UNSPECIFIED,
+            source_id="unknown",
+        )
         self._value = value
         self._rationale = rationale
         self._metadata = metadata or {}
@@ -366,7 +288,7 @@ class Assessment(_MlflowObject):
         return self._rationale
 
     @property
-    def source(self) -> Optional[AssessmentSource]:
+    def source(self) -> AssessmentSource:
         """The source of the assessment."""
         return self._source
 
