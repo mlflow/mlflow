@@ -82,12 +82,27 @@ class Assessment(_MlflowObject):
     #   backend API asks for an incomplete Assessment object without an ID and returns a
     #   complete one with assessment_id, so the ID is Optional in the constructor here.
     assessment_id: Optional[str] = None
+    # Deprecated, use `error` in Feedback instead. Just kept for backward compatibility
+    # and will be removed in the 3.0.0 release.
+    error: Optional[AssessmentError] = None
 
     def __post_init__(self):
         if (self.expectation is not None) + (self.feedback is not None) != 1:
             raise MlflowException.invalid_parameter_value(
                 "Exactly one of `expectation` or `feedback` should be specified.",
             )
+
+        # Populate the error field to the feedback object
+        if self.error is not None:
+            if self.expectation is not None:
+                raise MlflowException.invalid_parameter_value(
+                    "Cannot set `error` when `expectation` is specified.",
+                )
+            if self.feedback is None:
+                raise MlflowException.invalid_parameter_value(
+                    "Cannot set `error` when `feedback` is not specified.",
+                )
+            self.feedback.error = self.error
 
         # Set timestamp if not provided
         current_time = int(time.time() * 1000)  # milliseconds
