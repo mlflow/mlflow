@@ -65433,6 +65433,33 @@ public final class Service {
      * <code>optional .google.protobuf.Value value = 2;</code>
      */
     com.google.protobuf.ValueOrBuilder getValueOrBuilder();
+
+    /**
+     * <pre>
+     * An error encountered while generating the feedback. Required if value is set to null.
+     * </pre>
+     *
+     * <code>optional .mlflow.AssessmentError error = 3;</code>
+     * @return Whether the error field is set.
+     */
+    boolean hasError();
+    /**
+     * <pre>
+     * An error encountered while generating the feedback. Required if value is set to null.
+     * </pre>
+     *
+     * <code>optional .mlflow.AssessmentError error = 3;</code>
+     * @return The error.
+     */
+    org.mlflow.api.proto.Service.AssessmentError getError();
+    /**
+     * <pre>
+     * An error encountered while generating the feedback. Required if value is set to null.
+     * </pre>
+     *
+     * <code>optional .mlflow.AssessmentError error = 3;</code>
+     */
+    org.mlflow.api.proto.Service.AssessmentErrorOrBuilder getErrorOrBuilder();
   }
   /**
    * <pre>
@@ -65495,6 +65522,19 @@ public final class Service {
                 value_ = subBuilder.buildPartial();
               }
               bitField0_ |= 0x00000001;
+              break;
+            }
+            case 26: {
+              org.mlflow.api.proto.Service.AssessmentError.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000002) != 0)) {
+                subBuilder = error_.toBuilder();
+              }
+              error_ = input.readMessage(org.mlflow.api.proto.Service.AssessmentError.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(error_);
+                error_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000002;
               break;
             }
             default: {
@@ -65589,6 +65629,44 @@ public final class Service {
       return value_ == null ? com.google.protobuf.Value.getDefaultInstance() : value_;
     }
 
+    public static final int ERROR_FIELD_NUMBER = 3;
+    private org.mlflow.api.proto.Service.AssessmentError error_;
+    /**
+     * <pre>
+     * An error encountered while generating the feedback. Required if value is set to null.
+     * </pre>
+     *
+     * <code>optional .mlflow.AssessmentError error = 3;</code>
+     * @return Whether the error field is set.
+     */
+    @java.lang.Override
+    public boolean hasError() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * An error encountered while generating the feedback. Required if value is set to null.
+     * </pre>
+     *
+     * <code>optional .mlflow.AssessmentError error = 3;</code>
+     * @return The error.
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.AssessmentError getError() {
+      return error_ == null ? org.mlflow.api.proto.Service.AssessmentError.getDefaultInstance() : error_;
+    }
+    /**
+     * <pre>
+     * An error encountered while generating the feedback. Required if value is set to null.
+     * </pre>
+     *
+     * <code>optional .mlflow.AssessmentError error = 3;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.AssessmentErrorOrBuilder getErrorOrBuilder() {
+      return error_ == null ? org.mlflow.api.proto.Service.AssessmentError.getDefaultInstance() : error_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -65606,6 +65684,9 @@ public final class Service {
       if (((bitField0_ & 0x00000001) != 0)) {
         output.writeMessage(2, getValue());
       }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        output.writeMessage(3, getError());
+      }
       unknownFields.writeTo(output);
     }
 
@@ -65618,6 +65699,10 @@ public final class Service {
       if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(2, getValue());
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(3, getError());
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -65639,6 +65724,11 @@ public final class Service {
         if (!getValue()
             .equals(other.getValue())) return false;
       }
+      if (hasError() != other.hasError()) return false;
+      if (hasError()) {
+        if (!getError()
+            .equals(other.getError())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -65653,6 +65743,10 @@ public final class Service {
       if (hasValue()) {
         hash = (37 * hash) + VALUE_FIELD_NUMBER;
         hash = (53 * hash) + getValue().hashCode();
+      }
+      if (hasError()) {
+        hash = (37 * hash) + ERROR_FIELD_NUMBER;
+        hash = (53 * hash) + getError().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -65787,6 +65881,7 @@ public final class Service {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
           getValueFieldBuilder();
+          getErrorFieldBuilder();
         }
       }
       @java.lang.Override
@@ -65798,6 +65893,12 @@ public final class Service {
           valueBuilder_.clear();
         }
         bitField0_ = (bitField0_ & ~0x00000001);
+        if (errorBuilder_ == null) {
+          error_ = null;
+        } else {
+          errorBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -65833,6 +65934,14 @@ public final class Service {
             result.value_ = valueBuilder_.build();
           }
           to_bitField0_ |= 0x00000001;
+        }
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          if (errorBuilder_ == null) {
+            result.error_ = error_;
+          } else {
+            result.error_ = errorBuilder_.build();
+          }
+          to_bitField0_ |= 0x00000002;
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -65885,6 +65994,9 @@ public final class Service {
         if (other == org.mlflow.api.proto.Service.Feedback.getDefaultInstance()) return this;
         if (other.hasValue()) {
           mergeValue(other.getValue());
+        }
+        if (other.hasError()) {
+          mergeError(other.getError());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -66133,6 +66245,162 @@ public final class Service {
           value_ = null;
         }
         return valueBuilder_;
+      }
+
+      private org.mlflow.api.proto.Service.AssessmentError error_;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Service.AssessmentError, org.mlflow.api.proto.Service.AssessmentError.Builder, org.mlflow.api.proto.Service.AssessmentErrorOrBuilder> errorBuilder_;
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.AssessmentError error = 3;</code>
+       * @return Whether the error field is set.
+       */
+      public boolean hasError() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.AssessmentError error = 3;</code>
+       * @return The error.
+       */
+      public org.mlflow.api.proto.Service.AssessmentError getError() {
+        if (errorBuilder_ == null) {
+          return error_ == null ? org.mlflow.api.proto.Service.AssessmentError.getDefaultInstance() : error_;
+        } else {
+          return errorBuilder_.getMessage();
+        }
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.AssessmentError error = 3;</code>
+       */
+      public Builder setError(org.mlflow.api.proto.Service.AssessmentError value) {
+        if (errorBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          error_ = value;
+          onChanged();
+        } else {
+          errorBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.AssessmentError error = 3;</code>
+       */
+      public Builder setError(
+          org.mlflow.api.proto.Service.AssessmentError.Builder builderForValue) {
+        if (errorBuilder_ == null) {
+          error_ = builderForValue.build();
+          onChanged();
+        } else {
+          errorBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.AssessmentError error = 3;</code>
+       */
+      public Builder mergeError(org.mlflow.api.proto.Service.AssessmentError value) {
+        if (errorBuilder_ == null) {
+          if (((bitField0_ & 0x00000002) != 0) &&
+              error_ != null &&
+              error_ != org.mlflow.api.proto.Service.AssessmentError.getDefaultInstance()) {
+            error_ =
+              org.mlflow.api.proto.Service.AssessmentError.newBuilder(error_).mergeFrom(value).buildPartial();
+          } else {
+            error_ = value;
+          }
+          onChanged();
+        } else {
+          errorBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.AssessmentError error = 3;</code>
+       */
+      public Builder clearError() {
+        if (errorBuilder_ == null) {
+          error_ = null;
+          onChanged();
+        } else {
+          errorBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000002);
+        return this;
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.AssessmentError error = 3;</code>
+       */
+      public org.mlflow.api.proto.Service.AssessmentError.Builder getErrorBuilder() {
+        bitField0_ |= 0x00000002;
+        onChanged();
+        return getErrorFieldBuilder().getBuilder();
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.AssessmentError error = 3;</code>
+       */
+      public org.mlflow.api.proto.Service.AssessmentErrorOrBuilder getErrorOrBuilder() {
+        if (errorBuilder_ != null) {
+          return errorBuilder_.getMessageOrBuilder();
+        } else {
+          return error_ == null ?
+              org.mlflow.api.proto.Service.AssessmentError.getDefaultInstance() : error_;
+        }
+      }
+      /**
+       * <pre>
+       * An error encountered while generating the feedback. Required if value is set to null.
+       * </pre>
+       *
+       * <code>optional .mlflow.AssessmentError error = 3;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Service.AssessmentError, org.mlflow.api.proto.Service.AssessmentError.Builder, org.mlflow.api.proto.Service.AssessmentErrorOrBuilder> 
+          getErrorFieldBuilder() {
+        if (errorBuilder_ == null) {
+          errorBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.Service.AssessmentError, org.mlflow.api.proto.Service.AssessmentError.Builder, org.mlflow.api.proto.Service.AssessmentErrorOrBuilder>(
+                  getError(),
+                  getParentForChildren(),
+                  isClean());
+          error_ = null;
+        }
+        return errorBuilder_;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -66479,30 +66747,32 @@ public final class Service {
 
     /**
      * <pre>
-     * An error encountered while computing the assessment.
+     * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
      * </pre>
      *
-     * <code>optional .mlflow.AssessmentError error = 12;</code>
+     * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
+     * @deprecated
      * @return Whether the error field is set.
      */
-    boolean hasError();
+    @java.lang.Deprecated boolean hasError();
     /**
      * <pre>
-     * An error encountered while computing the assessment.
+     * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
      * </pre>
      *
-     * <code>optional .mlflow.AssessmentError error = 12;</code>
+     * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
+     * @deprecated
      * @return The error.
      */
-    org.mlflow.api.proto.Service.AssessmentError getError();
+    @java.lang.Deprecated org.mlflow.api.proto.Service.AssessmentError getError();
     /**
      * <pre>
-     * An error encountered while computing the assessment.
+     * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
      * </pre>
      *
-     * <code>optional .mlflow.AssessmentError error = 12;</code>
+     * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
      */
-    org.mlflow.api.proto.Service.AssessmentErrorOrBuilder getErrorOrBuilder();
+    @java.lang.Deprecated org.mlflow.api.proto.Service.AssessmentErrorOrBuilder getErrorOrBuilder();
 
     /**
      * <pre>
@@ -67339,37 +67609,39 @@ public final class Service {
     private org.mlflow.api.proto.Service.AssessmentError error_;
     /**
      * <pre>
-     * An error encountered while computing the assessment.
+     * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
      * </pre>
      *
-     * <code>optional .mlflow.AssessmentError error = 12;</code>
+     * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
+     * @deprecated
      * @return Whether the error field is set.
      */
     @java.lang.Override
-    public boolean hasError() {
+    @java.lang.Deprecated public boolean hasError() {
       return ((bitField0_ & 0x00000400) != 0);
     }
     /**
      * <pre>
-     * An error encountered while computing the assessment.
+     * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
      * </pre>
      *
-     * <code>optional .mlflow.AssessmentError error = 12;</code>
+     * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
+     * @deprecated
      * @return The error.
      */
     @java.lang.Override
-    public org.mlflow.api.proto.Service.AssessmentError getError() {
+    @java.lang.Deprecated public org.mlflow.api.proto.Service.AssessmentError getError() {
       return error_ == null ? org.mlflow.api.proto.Service.AssessmentError.getDefaultInstance() : error_;
     }
     /**
      * <pre>
-     * An error encountered while computing the assessment.
+     * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
      * </pre>
      *
-     * <code>optional .mlflow.AssessmentError error = 12;</code>
+     * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
      */
     @java.lang.Override
-    public org.mlflow.api.proto.Service.AssessmentErrorOrBuilder getErrorOrBuilder() {
+    @java.lang.Deprecated public org.mlflow.api.proto.Service.AssessmentErrorOrBuilder getErrorOrBuilder() {
       return error_ == null ? org.mlflow.api.proto.Service.AssessmentError.getDefaultInstance() : error_;
     }
 
@@ -69545,24 +69817,26 @@ public final class Service {
           org.mlflow.api.proto.Service.AssessmentError, org.mlflow.api.proto.Service.AssessmentError.Builder, org.mlflow.api.proto.Service.AssessmentErrorOrBuilder> errorBuilder_;
       /**
        * <pre>
-       * An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
+       * @deprecated
        * @return Whether the error field is set.
        */
-      public boolean hasError() {
+      @java.lang.Deprecated public boolean hasError() {
         return ((bitField0_ & 0x00000400) != 0);
       }
       /**
        * <pre>
-       * An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
+       * @deprecated
        * @return The error.
        */
-      public org.mlflow.api.proto.Service.AssessmentError getError() {
+      @java.lang.Deprecated public org.mlflow.api.proto.Service.AssessmentError getError() {
         if (errorBuilder_ == null) {
           return error_ == null ? org.mlflow.api.proto.Service.AssessmentError.getDefaultInstance() : error_;
         } else {
@@ -69571,12 +69845,12 @@ public final class Service {
       }
       /**
        * <pre>
-       * An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
        */
-      public Builder setError(org.mlflow.api.proto.Service.AssessmentError value) {
+      @java.lang.Deprecated public Builder setError(org.mlflow.api.proto.Service.AssessmentError value) {
         if (errorBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -69591,12 +69865,12 @@ public final class Service {
       }
       /**
        * <pre>
-       * An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
        */
-      public Builder setError(
+      @java.lang.Deprecated public Builder setError(
           org.mlflow.api.proto.Service.AssessmentError.Builder builderForValue) {
         if (errorBuilder_ == null) {
           error_ = builderForValue.build();
@@ -69609,12 +69883,12 @@ public final class Service {
       }
       /**
        * <pre>
-       * An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
        */
-      public Builder mergeError(org.mlflow.api.proto.Service.AssessmentError value) {
+      @java.lang.Deprecated public Builder mergeError(org.mlflow.api.proto.Service.AssessmentError value) {
         if (errorBuilder_ == null) {
           if (((bitField0_ & 0x00000400) != 0) &&
               error_ != null &&
@@ -69633,12 +69907,12 @@ public final class Service {
       }
       /**
        * <pre>
-       * An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
        */
-      public Builder clearError() {
+      @java.lang.Deprecated public Builder clearError() {
         if (errorBuilder_ == null) {
           error_ = null;
           onChanged();
@@ -69650,24 +69924,24 @@ public final class Service {
       }
       /**
        * <pre>
-       * An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
        */
-      public org.mlflow.api.proto.Service.AssessmentError.Builder getErrorBuilder() {
+      @java.lang.Deprecated public org.mlflow.api.proto.Service.AssessmentError.Builder getErrorBuilder() {
         bitField0_ |= 0x00000400;
         onChanged();
         return getErrorFieldBuilder().getBuilder();
       }
       /**
        * <pre>
-       * An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
        */
-      public org.mlflow.api.proto.Service.AssessmentErrorOrBuilder getErrorOrBuilder() {
+      @java.lang.Deprecated public org.mlflow.api.proto.Service.AssessmentErrorOrBuilder getErrorOrBuilder() {
         if (errorBuilder_ != null) {
           return errorBuilder_.getMessageOrBuilder();
         } else {
@@ -69677,10 +69951,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * An error encountered while computing the assessment.
+       * [Deprecated, use the ``error`` field in ``feedback`` instead] An error encountered while computing the assessment.
        * </pre>
        *
-       * <code>optional .mlflow.AssessmentError error = 12;</code>
+       * <code>optional .mlflow.AssessmentError error = 12 [deprecated = true];</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
           org.mlflow.api.proto.Service.AssessmentError, org.mlflow.api.proto.Service.AssessmentError.Builder, org.mlflow.api.proto.Service.AssessmentErrorOrBuilder> 
@@ -103658,8 +103932,9 @@ public final class Service {
       "M_JUDGE\020\002\022\010\n\004CODE\020\003\"<\n\017AssessmentError\022\022" +
       "\n\nerror_code\030\001 \001(\t\022\025\n\rerror_message\030\002 \001(" +
       "\t\"4\n\013Expectation\022%\n\005value\030\002 \001(\0132\026.google" +
-      ".protobuf.Value\"1\n\010Feedback\022%\n\005value\030\002 \001" +
-      "(\0132\026.google.protobuf.Value\"\361\003\n\nAssessmen" +
+      ".protobuf.Value\"Y\n\010Feedback\022%\n\005value\030\002 \001" +
+      "(\0132\026.google.protobuf.Value\022&\n\005error\030\003 \001(" +
+      "\0132\027.mlflow.AssessmentError\"\365\003\n\nAssessmen" +
       "t\022\025\n\rassessment_id\030\001 \001(\t\022\035\n\017assessment_n" +
       "ame\030\002 \001(\tB\004\370\206\031\001\022\020\n\010trace_id\030\003 \001(\t\022\017\n\007spa" +
       "n_id\030\004 \001(\t\022(\n\006source\030\005 \001(\0132\030.mlflow.Asse" +
@@ -103668,237 +103943,237 @@ public final class Service {
       "e\030\007 \001(\0132\032.google.protobuf.Timestamp\022$\n\010f" +
       "eedback\030\t \001(\0132\020.mlflow.FeedbackH\000\022*\n\013exp" +
       "ectation\030\n \001(\0132\023.mlflow.ExpectationH\000\022\021\n" +
-      "\trationale\030\013 \001(\t\022&\n\005error\030\014 \001(\0132\027.mlflow" +
-      ".AssessmentError\0222\n\010metadata\030\r \003(\0132 .mlf" +
-      "low.Assessment.MetadataEntry\032/\n\rMetadata" +
-      "Entry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001B\007\n" +
-      "\005value\"\241\001\n\020CreateAssessment\022,\n\nassessmen" +
-      "t\030\001 \001(\0132\022.mlflow.AssessmentB\004\370\206\031\001\0322\n\010Res" +
-      "ponse\022&\n\nassessment\030\001 \001(\0132\022.mlflow.Asses" +
-      "sment:+\342?(\n&com.databricks.rpc.RPC[$this" +
-      ".Response]\"\330\001\n\020UpdateAssessment\022,\n\nasses" +
-      "sment\030\001 \001(\0132\022.mlflow.AssessmentB\004\370\206\031\001\0225\n" +
-      "\013update_mask\030\002 \001(\0132\032.google.protobuf.Fie" +
-      "ldMaskB\004\370\206\031\001\0322\n\010Response\022&\n\nassessment\030\001" +
-      " \001(\0132\022.mlflow.Assessment:+\342?(\n&com.datab" +
-      "ricks.rpc.RPC[$this.Response]\"\200\001\n\020Delete" +
-      "Assessment\022\026\n\010trace_id\030\001 \001(\tB\004\370\206\031\001\022\033\n\ras" +
-      "sessment_id\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(" +
-      "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\"\344\001\n\tTraceInfo\022\022\n\nrequest_id\030\001 \001(\t\022\025\n\rex" +
-      "periment_id\030\002 \001(\t\022\024\n\014timestamp_ms\030\003 \001(\003\022" +
-      "\031\n\021execution_time_ms\030\004 \001(\003\022#\n\006status\030\005 \001" +
+      "\trationale\030\013 \001(\t\022*\n\005error\030\014 \001(\0132\027.mlflow" +
+      ".AssessmentErrorB\002\030\001\0222\n\010metadata\030\r \003(\0132 " +
+      ".mlflow.Assessment.MetadataEntry\032/\n\rMeta" +
+      "dataEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028" +
+      "\001B\007\n\005value\"\241\001\n\020CreateAssessment\022,\n\nasses" +
+      "sment\030\001 \001(\0132\022.mlflow.AssessmentB\004\370\206\031\001\0322\n" +
+      "\010Response\022&\n\nassessment\030\001 \001(\0132\022.mlflow.A" +
+      "ssessment:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\330\001\n\020UpdateAssessment\022,\n\na" +
+      "ssessment\030\001 \001(\0132\022.mlflow.AssessmentB\004\370\206\031" +
+      "\001\0225\n\013update_mask\030\002 \001(\0132\032.google.protobuf" +
+      ".FieldMaskB\004\370\206\031\001\0322\n\010Response\022&\n\nassessme" +
+      "nt\030\001 \001(\0132\022.mlflow.Assessment:+\342?(\n&com.d" +
+      "atabricks.rpc.RPC[$this.Response]\"\200\001\n\020De" +
+      "leteAssessment\022\026\n\010trace_id\030\001 \001(\tB\004\370\206\031\001\022\033" +
+      "\n\rassessment_id\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:" +
+      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
+      "nse]\"\344\001\n\tTraceInfo\022\022\n\nrequest_id\030\001 \001(\t\022\025" +
+      "\n\rexperiment_id\030\002 \001(\t\022\024\n\014timestamp_ms\030\003 " +
+      "\001(\003\022\031\n\021execution_time_ms\030\004 \001(\003\022#\n\006status" +
+      "\030\005 \001(\0162\023.mlflow.TraceStatus\0226\n\020request_m" +
+      "etadata\030\006 \003(\0132\034.mlflow.TraceRequestMetad" +
+      "ata\022\036\n\004tags\030\007 \003(\0132\020.mlflow.TraceTag\"2\n\024T" +
+      "raceRequestMetadata\022\013\n\003key\030\001 \001(\t\022\r\n\005valu" +
+      "e\030\002 \001(\t\"&\n\010TraceTag\022\013\n\003key\030\001 \001(\t\022\r\n\005valu" +
+      "e\030\002 \001(\t\"\361\001\n\nStartTrace\022\025\n\rexperiment_id\030" +
+      "\001 \001(\t\022\024\n\014timestamp_ms\030\002 \001(\003\0226\n\020request_m" +
+      "etadata\030\003 \003(\0132\034.mlflow.TraceRequestMetad" +
+      "ata\022\036\n\004tags\030\004 \003(\0132\020.mlflow.TraceTag\0321\n\010R" +
+      "esponse\022%\n\ntrace_info\030\001 \001(\0132\021.mlflow.Tra" +
+      "ceInfo:+\342?(\n&com.databricks.rpc.RPC[$thi" +
+      "s.Response]\"\221\002\n\010EndTrace\022\022\n\nrequest_id\030\001" +
+      " \001(\t\022\024\n\014timestamp_ms\030\002 \001(\003\022#\n\006status\030\003 \001" +
       "(\0162\023.mlflow.TraceStatus\0226\n\020request_metad" +
-      "ata\030\006 \003(\0132\034.mlflow.TraceRequestMetadata\022" +
-      "\036\n\004tags\030\007 \003(\0132\020.mlflow.TraceTag\"2\n\024Trace" +
-      "RequestMetadata\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 " +
-      "\001(\t\"&\n\010TraceTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 " +
-      "\001(\t\"\361\001\n\nStartTrace\022\025\n\rexperiment_id\030\001 \001(" +
-      "\t\022\024\n\014timestamp_ms\030\002 \001(\003\0226\n\020request_metad" +
-      "ata\030\003 \003(\0132\034.mlflow.TraceRequestMetadata\022" +
-      "\036\n\004tags\030\004 \003(\0132\020.mlflow.TraceTag\0321\n\010Respo" +
+      "ata\030\004 \003(\0132\034.mlflow.TraceRequestMetadata\022" +
+      "\036\n\004tags\030\005 \003(\0132\020.mlflow.TraceTag\0321\n\010Respo" +
       "nse\022%\n\ntrace_info\030\001 \001(\0132\021.mlflow.TraceIn" +
       "fo:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\221\002\n\010EndTrace\022\022\n\nrequest_id\030\001 \001(\t" +
-      "\022\024\n\014timestamp_ms\030\002 \001(\003\022#\n\006status\030\003 \001(\0162\023" +
-      ".mlflow.TraceStatus\0226\n\020request_metadata\030" +
-      "\004 \003(\0132\034.mlflow.TraceRequestMetadata\022\036\n\004t" +
-      "ags\030\005 \003(\0132\020.mlflow.TraceTag\0321\n\010Response\022" +
-      "%\n\ntrace_info\030\001 \001(\0132\021.mlflow.TraceInfo:+" +
-      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
-      "se]\"\202\001\n\014GetTraceInfo\022\022\n\nrequest_id\030\001 \001(\t" +
-      "\0321\n\010Response\022%\n\ntrace_info\030\001 \001(\0132\021.mlflo" +
-      "w.TraceInfo:+\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]\"y\n\016GetTraceInfoV3\022\020\n\010tr" +
-      "ace_id\030\001 \001(\t\032(\n\010Response\022\034\n\005trace\030\001 \001(\0132" +
-      "\r.mlflow.Trace:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"\353\001\n\014SearchTraces\022\026\n\016" +
-      "experiment_ids\030\001 \003(\t\022\016\n\006filter\030\002 \001(\t\022\030\n\013" +
-      "max_results\030\003 \001(\005:\003100\022\020\n\010order_by\030\004 \003(\t" +
-      "\022\022\n\npage_token\030\005 \001(\t\032F\n\010Response\022!\n\006trac" +
-      "es\030\001 \003(\0132\021.mlflow.TraceInfo\022\027\n\017next_page" +
-      "_token\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RP" +
-      "C[$this.Response]\"\303\001\n\014DeleteTraces\022\033\n\rex" +
-      "periment_id\030\001 \001(\tB\004\370\206\031\001\022\034\n\024max_timestamp" +
-      "_millis\030\002 \001(\003\022\022\n\nmax_traces\030\003 \001(\005\022\023\n\013req" +
-      "uest_ids\030\004 \003(\t\032\"\n\010Response\022\026\n\016traces_del" +
-      "eted\030\001 \001(\005:+\342?(\n&com.databricks.rpc.RPC[" +
-      "$this.Response]\"v\n\013SetTraceTag\022\022\n\nreques" +
-      "t_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\022\r\n\005value\030\003 \001(\t\032\n" +
-      "\n\010Response:+\342?(\n&com.databricks.rpc.RPC[" +
-      "$this.Response]\"j\n\016DeleteTraceTag\022\022\n\nreq" +
-      "uest_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\032\n\n\010Response:+" +
-      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
-      "se]\"0\n\005Trace\022\'\n\ntrace_info\030\001 \001(\0132\023.mlflo" +
-      "w.TraceInfoV3\"\266\003\n\rTraceLocation\0225\n\004type\030" +
-      "\001 \001(\0162\'.mlflow.TraceLocation.TraceLocati" +
-      "onType\022K\n\021mlflow_experiment\030\002 \001(\0132..mlfl" +
-      "ow.TraceLocation.MlflowExperimentLocatio" +
-      "nH\000\022G\n\017inference_table\030\003 \001(\0132,.mlflow.Tr" +
-      "aceLocation.InferenceTableLocationH\000\0321\n\030" +
-      "MlflowExperimentLocation\022\025\n\rexperiment_i" +
-      "d\030\001 \001(\t\0321\n\026InferenceTableLocation\022\027\n\017ful" +
-      "l_table_name\030\001 \001(\t\"d\n\021TraceLocationType\022" +
-      "#\n\037TRACE_LOCATION_TYPE_UNSPECIFIED\020\000\022\025\n\021" +
-      "MLFLOW_EXPERIMENT\020\001\022\023\n\017INFERENCE_TABLE\020\002" +
-      "B\014\n\nidentifier\"\334\004\n\013TraceInfoV3\022\020\n\010trace_" +
-      "id\030\001 \001(\t\022\031\n\021client_request_id\030\002 \001(\t\022-\n\016t" +
-      "race_location\030\003 \001(\0132\025.mlflow.TraceLocati" +
-      "on\022\017\n\007request\030\004 \001(\t\022\020\n\010response\030\005 \001(\t\0220\n" +
-      "\014request_time\030\006 \001(\0132\032.google.protobuf.Ti" +
-      "mestamp\0225\n\022execution_duration\030\007 \001(\0132\031.go" +
-      "ogle.protobuf.Duration\022(\n\005state\030\010 \001(\0162\031." +
-      "mlflow.TraceInfoV3.State\022>\n\016trace_metada" +
-      "ta\030\t \003(\0132&.mlflow.TraceInfoV3.TraceMetad" +
-      "ataEntry\022\'\n\013assessments\030\n \003(\0132\022.mlflow.A" +
-      "ssessment\022+\n\004tags\030\013 \003(\0132\035.mlflow.TraceIn" +
-      "foV3.TagsEntry\0324\n\022TraceMetadataEntry\022\013\n\003" +
-      "key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\032+\n\tTagsEntr" +
-      "y\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"B\n\005Sta" +
-      "te\022\025\n\021STATE_UNSPECIFIED\020\000\022\006\n\002OK\020\001\022\t\n\005ERR" +
-      "OR\020\002\022\017\n\013IN_PROGRESS\020\003\"h\n\016DatasetSummary\022" +
-      "\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001" +
-      "(\tB\004\370\206\031\001\022\024\n\006digest\030\003 \001(\tB\004\370\206\031\001\022\017\n\007contex" +
-      "t\030\004 \001(\t\"\224\001\n\016SearchDatasets\022\026\n\016experiment" +
-      "_ids\030\001 \003(\t\032=\n\010Response\0221\n\021dataset_summar" +
-      "ies\030\001 \003(\0132\026.mlflow.DatasetSummary:+\342?(\n&" +
-      "com.databricks.rpc.RPC[$this.Response]*6" +
-      "\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_O" +
-      "NLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEBOOK" +
-      "\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007U" +
-      "NKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tS" +
-      "CHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006" +
-      "KILLED\020\005*O\n\013TraceStatus\022\034\n\030TRACE_STATUS_" +
-      "UNSPECIFIED\020\000\022\006\n\002OK\020\001\022\t\n\005ERROR\020\002\022\017\n\013IN_P" +
-      "ROGRESS\020\0032\336\'\n\rMlflowService\022\246\001\n\023getExper" +
-      "imentByName\022\033.mlflow.GetExperimentByName" +
-      "\032$.mlflow.GetExperimentByName.Response\"L" +
-      "\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/get-by-" +
-      "name\032\004\010\002\020\000\020\001*\026Get Experiment By Name\022\224\001\n" +
-      "\020createExperiment\022\030.mlflow.CreateExperim" +
-      "ent\032!.mlflow.CreateExperiment.Response\"C" +
-      "\362\206\031?\n(\n\004POST\022\032/mlflow/experiments/create" +
-      "\032\004\010\002\020\000\020\001*\021Create Experiment\022\301\001\n\021searchEx" +
-      "periments\022\031.mlflow.SearchExperiments\032\".m" +
-      "lflow.SearchExperiments.Response\"m\362\206\031i\n(" +
-      "\n\004POST\022\032/mlflow/experiments/search\032\004\010\002\020\000" +
-      "\n\'\n\003GET\022\032/mlflow/experiments/search\032\004\010\002\020" +
-      "\000\020\001*\022Search Experiments\022\210\001\n\rgetExperimen" +
-      "t\022\025.mlflow.GetExperiment\032\036.mlflow.GetExp" +
-      "eriment.Response\"@\362\206\0318\n$\n\003GET\022\027/mlflow/e" +
-      "xperiments/get\032\004\010\002\020\000\020\001*\016Get Experiment\272\214" +
-      "\031\000\022\224\001\n\020deleteExperiment\022\030.mlflow.DeleteE" +
-      "xperiment\032!.mlflow.DeleteExperiment.Resp" +
-      "onse\"C\362\206\031?\n(\n\004POST\022\032/mlflow/experiments/" +
-      "delete\032\004\010\002\020\000\020\001*\021Delete Experiment\022\231\001\n\021re" +
-      "storeExperiment\022\031.mlflow.RestoreExperime" +
-      "nt\032\".mlflow.RestoreExperiment.Response\"E" +
-      "\362\206\031A\n)\n\004POST\022\033/mlflow/experiments/restor" +
-      "e\032\004\010\002\020\000\020\001*\022Restore Experiment\022\224\001\n\020update" +
-      "Experiment\022\030.mlflow.UpdateExperiment\032!.m" +
-      "lflow.UpdateExperiment.Response\"C\362\206\031?\n(\n" +
-      "\004POST\022\032/mlflow/experiments/update\032\004\010\002\020\000\020" +
-      "\001*\021Update Experiment\022q\n\tcreateRun\022\021.mlfl" +
-      "ow.CreateRun\032\032.mlflow.CreateRun.Response" +
-      "\"5\362\206\0311\n!\n\004POST\022\023/mlflow/runs/create\032\004\010\002\020" +
-      "\000\020\001*\nCreate Run\022q\n\tupdateRun\022\021.mlflow.Up" +
-      "dateRun\032\032.mlflow.UpdateRun.Response\"5\362\206\031" +
-      "1\n!\n\004POST\022\023/mlflow/runs/update\032\004\010\002\020\000\020\001*\n" +
-      "Update Run\022q\n\tdeleteRun\022\021.mlflow.DeleteR" +
-      "un\032\032.mlflow.DeleteRun.Response\"5\362\206\0311\n!\n\004" +
-      "POST\022\023/mlflow/runs/delete\032\004\010\002\020\000\020\001*\nDelet" +
-      "e Run\022v\n\nrestoreRun\022\022.mlflow.RestoreRun\032" +
-      "\033.mlflow.RestoreRun.Response\"7\362\206\0313\n\"\n\004PO" +
-      "ST\022\024/mlflow/runs/restore\032\004\010\002\020\000\020\001*\013Restor" +
-      "e Run\022u\n\tlogMetric\022\021.mlflow.LogMetric\032\032." +
-      "mlflow.LogMetric.Response\"9\362\206\0315\n%\n\004POST\022" +
-      "\027/mlflow/runs/log-metric\032\004\010\002\020\000\020\001*\nLog Me" +
-      "tric\022t\n\010logParam\022\020.mlflow.LogParam\032\031.mlf" +
-      "low.LogParam.Response\";\362\206\0317\n(\n\004POST\022\032/ml" +
-      "flow/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Par" +
-      "am\022\241\001\n\020setExperimentTag\022\030.mlflow.SetExpe" +
-      "rimentTag\032!.mlflow.SetExperimentTag.Resp" +
-      "onse\"P\362\206\031L\n4\n\004POST\022&/mlflow/experiments/" +
-      "set-experiment-tag\032\004\010\002\020\000\020\001*\022Set Experime" +
-      "nt Tag\022f\n\006setTag\022\016.mlflow.SetTag\032\027.mlflo" +
-      "w.SetTag.Response\"3\362\206\031/\n\"\n\004POST\022\024/mlflow" +
-      "/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\210\001\n\013setTr" +
-      "aceTag\022\023.mlflow.SetTraceTag\032\034.mlflow.Set" +
-      "TraceTag.Response\"F\362\206\031B\n/\n\005PATCH\022 /mlflo" +
-      "w/traces/{request_id}/tags\032\004\010\002\020\000\020\003*\rSet " +
-      "Trace Tag\022\225\001\n\016deleteTraceTag\022\026.mlflow.De" +
-      "leteTraceTag\032\037.mlflow.DeleteTraceTag.Res" +
-      "ponse\"J\362\206\031F\n0\n\006DELETE\022 /mlflow/traces/{r" +
-      "equest_id}/tags\032\004\010\002\020\000\020\003*\020Delete Trace Ta" +
-      "g\022u\n\tdeleteTag\022\021.mlflow.DeleteTag\032\032.mlfl" +
-      "ow.DeleteTag.Response\"9\362\206\0315\n%\n\004POST\022\027/ml" +
-      "flow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDelete Tag" +
-      "\022e\n\006getRun\022\016.mlflow.GetRun\032\027.mlflow.GetR" +
-      "un.Response\"2\362\206\031*\n\035\n\003GET\022\020/mlflow/runs/g" +
-      "et\032\004\010\002\020\000\020\001*\007Get Run\272\214\031\000\022y\n\nsearchRuns\022\022." +
-      "mlflow.SearchRuns\032\033.mlflow.SearchRuns.Re" +
-      "sponse\":\362\206\0312\n!\n\004POST\022\023/mlflow/runs/searc" +
-      "h\032\004\010\002\020\000\020\001*\013Search Runs\272\214\031\000\022\207\001\n\rlistArtif" +
-      "acts\022\025.mlflow.ListArtifacts\032\036.mlflow.Lis" +
-      "tArtifacts.Response\"?\362\206\0317\n#\n\003GET\022\026/mlflo" +
-      "w/artifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts" +
-      "\272\214\031\000\022\225\001\n\020getMetricHistory\022\030.mlflow.GetMe" +
-      "tricHistory\032!.mlflow.GetMetricHistory.Re" +
-      "sponse\"D\362\206\031@\n(\n\003GET\022\033/mlflow/metrics/get" +
-      "-history\032\004\010\002\020\000\020\001*\022Get Metric History\022\267\001\n" +
-      "\034getMetricHistoryBulkInterval\022$.mlflow.G" +
-      "etMetricHistoryBulkInterval\032-.mlflow.Get" +
-      "MetricHistoryBulkInterval.Response\"B\362\206\031:" +
-      "\n6\n\003GET\022)/mlflow/metrics/get-history-bul" +
-      "k-interval\032\004\010\002\020\013\020\003\272\214\031\000\022p\n\010logBatch\022\020.mlf" +
-      "low.LogBatch\032\031.mlflow.LogBatch.Response\"" +
-      "7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-batch\032\004\010" +
-      "\002\020\000\020\001*\tLog Batch\022p\n\010logModel\022\020.mlflow.Lo" +
-      "gModel\032\031.mlflow.LogModel.Response\"7\362\206\0313\n" +
-      "$\n\004POST\022\026/mlflow/runs/log-model\032\004\010\002\020\000\020\001*" +
-      "\tLog Model\022u\n\tlogInputs\022\021.mlflow.LogInpu" +
-      "ts\032\032.mlflow.LogInputs.Response\"9\362\206\0315\n%\n\004" +
-      "POST\022\027/mlflow/runs/log-inputs\032\004\010\002\020\000\020\001*\nL" +
-      "og Inputs\022\207\001\n\016searchDatasets\022\026.mlflow.Se" +
-      "archDatasets\032\037.mlflow.SearchDatasets.Res" +
-      "ponse\"<\362\206\0314\n0\n\004POST\022\"mlflow/experiments/" +
-      "search-datasets\032\004\010\002\020\000\020\003\272\214\031\000\022p\n\nstartTrac" +
-      "e\022\022.mlflow.StartTrace\032\033.mlflow.StartTrac" +
-      "e.Response\"1\362\206\031-\n\034\n\004POST\022\016/mlflow/traces" +
-      "\032\004\010\002\020\000\020\003*\013Start Trace\022v\n\010endTrace\022\020.mlfl" +
-      "ow.EndTrace\032\031.mlflow.EndTrace.Response\"=" +
-      "\362\206\0319\n*\n\005PATCH\022\033/mlflow/traces/{request_i" +
-      "d}\032\004\010\002\020\000\020\003*\tEnd Trace\022\211\001\n\014getTraceInfo\022\024" +
-      ".mlflow.GetTraceInfo\032\035.mlflow.GetTraceIn" +
-      "fo.Response\"D\362\206\031@\n-\n\003GET\022 /mlflow/traces" +
-      "/{request_id}/info\032\004\010\002\020\000\020\003*\rGet TraceInf" +
-      "o\022\213\001\n\016getTraceInfoV3\022\026.mlflow.GetTraceIn" +
-      "foV3\032\037.mlflow.GetTraceInfoV3.Response\"@\362" +
-      "\206\031<\n&\n\003GET\022\031/mlflow/traces/{trace_id}\032\004\010" +
-      "\002\020\000\020\003*\020Get TraceInfo v3\022w\n\014searchTraces\022" +
-      "\024.mlflow.SearchTraces\032\035.mlflow.SearchTra" +
-      "ces.Response\"2\362\206\031.\n\033\n\003GET\022\016/mlflow/trace" +
-      "s\032\004\010\002\020\000\020\003*\rSearch Traces\022\206\001\n\014deleteTrace" +
-      "s\022\024.mlflow.DeleteTraces\032\035.mlflow.DeleteT" +
-      "races.Response\"A\362\206\031=\n*\n\004POST\022\034/mlflow/tr" +
-      "aces/delete-traces\032\004\010\002\020\000\020\003*\rDelete Trace" +
-      "s\022\337\001\n\020createAssessment\022\030.mlflow.CreateAs" +
-      "sessment\032!.mlflow.CreateAssessment.Respo" +
-      "nse\"\215\001\362\206\031\210\001\n>\n\004POST\0220/mlflow/traces/{ass" +
-      "essment.trace_id}/assessments\032\004\010\002\020\000\020\003\030\350\007" +
-      "\030\356\007\030\014\030\001*:Create an assessment of a trace" +
-      " or a span within the trace\022\320\001\n\020updateAs" +
-      "sessment\022\030.mlflow.UpdateAssessment\032!.mlf" +
-      "low.UpdateAssessment.Response\"\177\362\206\031{\nD\n\005P" +
-      "ATCH\0225/mlflow/traces/{trace_id}/assessme" +
-      "nts/{assessment_id}\032\004\010\002\020\000\020\003\030\350\007\030\356\007\030\001*)Upd" +
-      "ate an existing assessment on a trace.\022\261" +
-      "\001\n\020deleteAssessment\022\030.mlflow.DeleteAsses" +
-      "sment\032!.mlflow.DeleteAssessment.Response" +
-      "\"`\362\206\031\\\nE\n\006DELETE\0225/mlflow/traces/{trace_" +
-      "id}/assessments/{assessment_id}\032\004\010\002\020\000\020\003*" +
-      "\021Delete AssessmentB\036\n\024org.mlflow.api.pro" +
-      "to\220\001\001\342?\002\020\001"
+      "sponse]\"\202\001\n\014GetTraceInfo\022\022\n\nrequest_id\030\001" +
+      " \001(\t\0321\n\010Response\022%\n\ntrace_info\030\001 \001(\0132\021.m" +
+      "lflow.TraceInfo:+\342?(\n&com.databricks.rpc" +
+      ".RPC[$this.Response]\"y\n\016GetTraceInfoV3\022\020" +
+      "\n\010trace_id\030\001 \001(\t\032(\n\010Response\022\034\n\005trace\030\001 " +
+      "\001(\0132\r.mlflow.Trace:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\"\353\001\n\014SearchTraces" +
+      "\022\026\n\016experiment_ids\030\001 \003(\t\022\016\n\006filter\030\002 \001(\t" +
+      "\022\030\n\013max_results\030\003 \001(\005:\003100\022\020\n\010order_by\030\004" +
+      " \003(\t\022\022\n\npage_token\030\005 \001(\t\032F\n\010Response\022!\n\006" +
+      "traces\030\001 \003(\0132\021.mlflow.TraceInfo\022\027\n\017next_" +
+      "page_token\030\002 \001(\t:+\342?(\n&com.databricks.rp" +
+      "c.RPC[$this.Response]\"\303\001\n\014DeleteTraces\022\033" +
+      "\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\034\n\024max_times" +
+      "tamp_millis\030\002 \001(\003\022\022\n\nmax_traces\030\003 \001(\005\022\023\n" +
+      "\013request_ids\030\004 \003(\t\032\"\n\010Response\022\026\n\016traces" +
+      "_deleted\030\001 \001(\005:+\342?(\n&com.databricks.rpc." +
+      "RPC[$this.Response]\"v\n\013SetTraceTag\022\022\n\nre" +
+      "quest_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\022\r\n\005value\030\003 \001" +
+      "(\t\032\n\n\010Response:+\342?(\n&com.databricks.rpc." +
+      "RPC[$this.Response]\"j\n\016DeleteTraceTag\022\022\n" +
+      "\nrequest_id\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\032\n\n\010Respon" +
+      "se:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
+      "sponse]\"0\n\005Trace\022\'\n\ntrace_info\030\001 \001(\0132\023.m" +
+      "lflow.TraceInfoV3\"\266\003\n\rTraceLocation\0225\n\004t" +
+      "ype\030\001 \001(\0162\'.mlflow.TraceLocation.TraceLo" +
+      "cationType\022K\n\021mlflow_experiment\030\002 \001(\0132.." +
+      "mlflow.TraceLocation.MlflowExperimentLoc" +
+      "ationH\000\022G\n\017inference_table\030\003 \001(\0132,.mlflo" +
+      "w.TraceLocation.InferenceTableLocationH\000" +
+      "\0321\n\030MlflowExperimentLocation\022\025\n\rexperime" +
+      "nt_id\030\001 \001(\t\0321\n\026InferenceTableLocation\022\027\n" +
+      "\017full_table_name\030\001 \001(\t\"d\n\021TraceLocationT" +
+      "ype\022#\n\037TRACE_LOCATION_TYPE_UNSPECIFIED\020\000" +
+      "\022\025\n\021MLFLOW_EXPERIMENT\020\001\022\023\n\017INFERENCE_TAB" +
+      "LE\020\002B\014\n\nidentifier\"\334\004\n\013TraceInfoV3\022\020\n\010tr" +
+      "ace_id\030\001 \001(\t\022\031\n\021client_request_id\030\002 \001(\t\022" +
+      "-\n\016trace_location\030\003 \001(\0132\025.mlflow.TraceLo" +
+      "cation\022\017\n\007request\030\004 \001(\t\022\020\n\010response\030\005 \001(" +
+      "\t\0220\n\014request_time\030\006 \001(\0132\032.google.protobu" +
+      "f.Timestamp\0225\n\022execution_duration\030\007 \001(\0132" +
+      "\031.google.protobuf.Duration\022(\n\005state\030\010 \001(" +
+      "\0162\031.mlflow.TraceInfoV3.State\022>\n\016trace_me" +
+      "tadata\030\t \003(\0132&.mlflow.TraceInfoV3.TraceM" +
+      "etadataEntry\022\'\n\013assessments\030\n \003(\0132\022.mlfl" +
+      "ow.Assessment\022+\n\004tags\030\013 \003(\0132\035.mlflow.Tra" +
+      "ceInfoV3.TagsEntry\0324\n\022TraceMetadataEntry" +
+      "\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\032+\n\tTags" +
+      "Entry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"B\n" +
+      "\005State\022\025\n\021STATE_UNSPECIFIED\020\000\022\006\n\002OK\020\001\022\t\n" +
+      "\005ERROR\020\002\022\017\n\013IN_PROGRESS\020\003\"h\n\016DatasetSumm" +
+      "ary\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name" +
+      "\030\002 \001(\tB\004\370\206\031\001\022\024\n\006digest\030\003 \001(\tB\004\370\206\031\001\022\017\n\007co" +
+      "ntext\030\004 \001(\t\"\224\001\n\016SearchDatasets\022\026\n\016experi" +
+      "ment_ids\030\001 \003(\t\032=\n\010Response\0221\n\021dataset_su" +
+      "mmaries\030\001 \003(\0132\026.mlflow.DatasetSummary:+\342" +
+      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
+      "e]*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELET" +
+      "ED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTE" +
+      "BOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022" +
+      "\014\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022" +
+      "\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004" +
+      "\022\n\n\006KILLED\020\005*O\n\013TraceStatus\022\034\n\030TRACE_STA" +
+      "TUS_UNSPECIFIED\020\000\022\006\n\002OK\020\001\022\t\n\005ERROR\020\002\022\017\n\013" +
+      "IN_PROGRESS\020\0032\336\'\n\rMlflowService\022\246\001\n\023getE" +
+      "xperimentByName\022\033.mlflow.GetExperimentBy" +
+      "Name\032$.mlflow.GetExperimentByName.Respon" +
+      "se\"L\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/get" +
+      "-by-name\032\004\010\002\020\000\020\001*\026Get Experiment By Name" +
+      "\022\224\001\n\020createExperiment\022\030.mlflow.CreateExp" +
+      "eriment\032!.mlflow.CreateExperiment.Respon" +
+      "se\"C\362\206\031?\n(\n\004POST\022\032/mlflow/experiments/cr" +
+      "eate\032\004\010\002\020\000\020\001*\021Create Experiment\022\301\001\n\021sear" +
+      "chExperiments\022\031.mlflow.SearchExperiments" +
+      "\032\".mlflow.SearchExperiments.Response\"m\362\206" +
+      "\031i\n(\n\004POST\022\032/mlflow/experiments/search\032\004" +
+      "\010\002\020\000\n\'\n\003GET\022\032/mlflow/experiments/search\032" +
+      "\004\010\002\020\000\020\001*\022Search Experiments\022\210\001\n\rgetExper" +
+      "iment\022\025.mlflow.GetExperiment\032\036.mlflow.Ge" +
+      "tExperiment.Response\"@\362\206\0318\n$\n\003GET\022\027/mlfl" +
+      "ow/experiments/get\032\004\010\002\020\000\020\001*\016Get Experime" +
+      "nt\272\214\031\000\022\224\001\n\020deleteExperiment\022\030.mlflow.Del" +
+      "eteExperiment\032!.mlflow.DeleteExperiment." +
+      "Response\"C\362\206\031?\n(\n\004POST\022\032/mlflow/experime" +
+      "nts/delete\032\004\010\002\020\000\020\001*\021Delete Experiment\022\231\001" +
+      "\n\021restoreExperiment\022\031.mlflow.RestoreExpe" +
+      "riment\032\".mlflow.RestoreExperiment.Respon" +
+      "se\"E\362\206\031A\n)\n\004POST\022\033/mlflow/experiments/re" +
+      "store\032\004\010\002\020\000\020\001*\022Restore Experiment\022\224\001\n\020up" +
+      "dateExperiment\022\030.mlflow.UpdateExperiment" +
+      "\032!.mlflow.UpdateExperiment.Response\"C\362\206\031" +
+      "?\n(\n\004POST\022\032/mlflow/experiments/update\032\004\010" +
+      "\002\020\000\020\001*\021Update Experiment\022q\n\tcreateRun\022\021." +
+      "mlflow.CreateRun\032\032.mlflow.CreateRun.Resp" +
+      "onse\"5\362\206\0311\n!\n\004POST\022\023/mlflow/runs/create\032" +
+      "\004\010\002\020\000\020\001*\nCreate Run\022q\n\tupdateRun\022\021.mlflo" +
+      "w.UpdateRun\032\032.mlflow.UpdateRun.Response\"" +
+      "5\362\206\0311\n!\n\004POST\022\023/mlflow/runs/update\032\004\010\002\020\000" +
+      "\020\001*\nUpdate Run\022q\n\tdeleteRun\022\021.mlflow.Del" +
+      "eteRun\032\032.mlflow.DeleteRun.Response\"5\362\206\0311" +
+      "\n!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002\020\000\020\001*\nD" +
+      "elete Run\022v\n\nrestoreRun\022\022.mlflow.Restore" +
+      "Run\032\033.mlflow.RestoreRun.Response\"7\362\206\0313\n\"" +
+      "\n\004POST\022\024/mlflow/runs/restore\032\004\010\002\020\000\020\001*\013Re" +
+      "store Run\022u\n\tlogMetric\022\021.mlflow.LogMetri" +
+      "c\032\032.mlflow.LogMetric.Response\"9\362\206\0315\n%\n\004P" +
+      "OST\022\027/mlflow/runs/log-metric\032\004\010\002\020\000\020\001*\nLo" +
+      "g Metric\022t\n\010logParam\022\020.mlflow.LogParam\032\031" +
+      ".mlflow.LogParam.Response\";\362\206\0317\n(\n\004POST\022" +
+      "\032/mlflow/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog" +
+      " Param\022\241\001\n\020setExperimentTag\022\030.mlflow.Set" +
+      "ExperimentTag\032!.mlflow.SetExperimentTag." +
+      "Response\"P\362\206\031L\n4\n\004POST\022&/mlflow/experime" +
+      "nts/set-experiment-tag\032\004\010\002\020\000\020\001*\022Set Expe" +
+      "riment Tag\022f\n\006setTag\022\016.mlflow.SetTag\032\027.m" +
+      "lflow.SetTag.Response\"3\362\206\031/\n\"\n\004POST\022\024/ml" +
+      "flow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\210\001\n\013s" +
+      "etTraceTag\022\023.mlflow.SetTraceTag\032\034.mlflow" +
+      ".SetTraceTag.Response\"F\362\206\031B\n/\n\005PATCH\022 /m" +
+      "lflow/traces/{request_id}/tags\032\004\010\002\020\000\020\003*\r" +
+      "Set Trace Tag\022\225\001\n\016deleteTraceTag\022\026.mlflo" +
+      "w.DeleteTraceTag\032\037.mlflow.DeleteTraceTag" +
+      ".Response\"J\362\206\031F\n0\n\006DELETE\022 /mlflow/trace" +
+      "s/{request_id}/tags\032\004\010\002\020\000\020\003*\020Delete Trac" +
+      "e Tag\022u\n\tdeleteTag\022\021.mlflow.DeleteTag\032\032." +
+      "mlflow.DeleteTag.Response\"9\362\206\0315\n%\n\004POST\022" +
+      "\027/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDelete" +
+      " Tag\022e\n\006getRun\022\016.mlflow.GetRun\032\027.mlflow." +
+      "GetRun.Response\"2\362\206\031*\n\035\n\003GET\022\020/mlflow/ru" +
+      "ns/get\032\004\010\002\020\000\020\001*\007Get Run\272\214\031\000\022y\n\nsearchRun" +
+      "s\022\022.mlflow.SearchRuns\032\033.mlflow.SearchRun" +
+      "s.Response\":\362\206\0312\n!\n\004POST\022\023/mlflow/runs/s" +
+      "earch\032\004\010\002\020\000\020\001*\013Search Runs\272\214\031\000\022\207\001\n\rlistA" +
+      "rtifacts\022\025.mlflow.ListArtifacts\032\036.mlflow" +
+      ".ListArtifacts.Response\"?\362\206\0317\n#\n\003GET\022\026/m" +
+      "lflow/artifacts/list\032\004\010\002\020\000\020\001*\016List Artif" +
+      "acts\272\214\031\000\022\225\001\n\020getMetricHistory\022\030.mlflow.G" +
+      "etMetricHistory\032!.mlflow.GetMetricHistor" +
+      "y.Response\"D\362\206\031@\n(\n\003GET\022\033/mlflow/metrics" +
+      "/get-history\032\004\010\002\020\000\020\001*\022Get Metric History" +
+      "\022\267\001\n\034getMetricHistoryBulkInterval\022$.mlfl" +
+      "ow.GetMetricHistoryBulkInterval\032-.mlflow" +
+      ".GetMetricHistoryBulkInterval.Response\"B" +
+      "\362\206\031:\n6\n\003GET\022)/mlflow/metrics/get-history" +
+      "-bulk-interval\032\004\010\002\020\013\020\003\272\214\031\000\022p\n\010logBatch\022\020" +
+      ".mlflow.LogBatch\032\031.mlflow.LogBatch.Respo" +
+      "nse\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-batc" +
+      "h\032\004\010\002\020\000\020\001*\tLog Batch\022p\n\010logModel\022\020.mlflo" +
+      "w.LogModel\032\031.mlflow.LogModel.Response\"7\362" +
+      "\206\0313\n$\n\004POST\022\026/mlflow/runs/log-model\032\004\010\002\020" +
+      "\000\020\001*\tLog Model\022u\n\tlogInputs\022\021.mlflow.Log" +
+      "Inputs\032\032.mlflow.LogInputs.Response\"9\362\206\0315" +
+      "\n%\n\004POST\022\027/mlflow/runs/log-inputs\032\004\010\002\020\000\020" +
+      "\001*\nLog Inputs\022\207\001\n\016searchDatasets\022\026.mlflo" +
+      "w.SearchDatasets\032\037.mlflow.SearchDatasets" +
+      ".Response\"<\362\206\0314\n0\n\004POST\022\"mlflow/experime" +
+      "nts/search-datasets\032\004\010\002\020\000\020\003\272\214\031\000\022p\n\nstart" +
+      "Trace\022\022.mlflow.StartTrace\032\033.mlflow.Start" +
+      "Trace.Response\"1\362\206\031-\n\034\n\004POST\022\016/mlflow/tr" +
+      "aces\032\004\010\002\020\000\020\003*\013Start Trace\022v\n\010endTrace\022\020." +
+      "mlflow.EndTrace\032\031.mlflow.EndTrace.Respon" +
+      "se\"=\362\206\0319\n*\n\005PATCH\022\033/mlflow/traces/{reque" +
+      "st_id}\032\004\010\002\020\000\020\003*\tEnd Trace\022\211\001\n\014getTraceIn" +
+      "fo\022\024.mlflow.GetTraceInfo\032\035.mlflow.GetTra" +
+      "ceInfo.Response\"D\362\206\031@\n-\n\003GET\022 /mlflow/tr" +
+      "aces/{request_id}/info\032\004\010\002\020\000\020\003*\rGet Trac" +
+      "eInfo\022\213\001\n\016getTraceInfoV3\022\026.mlflow.GetTra" +
+      "ceInfoV3\032\037.mlflow.GetTraceInfoV3.Respons" +
+      "e\"@\362\206\031<\n&\n\003GET\022\031/mlflow/traces/{trace_id" +
+      "}\032\004\010\002\020\000\020\003*\020Get TraceInfo v3\022w\n\014searchTra" +
+      "ces\022\024.mlflow.SearchTraces\032\035.mlflow.Searc" +
+      "hTraces.Response\"2\362\206\031.\n\033\n\003GET\022\016/mlflow/t" +
+      "races\032\004\010\002\020\000\020\003*\rSearch Traces\022\206\001\n\014deleteT" +
+      "races\022\024.mlflow.DeleteTraces\032\035.mlflow.Del" +
+      "eteTraces.Response\"A\362\206\031=\n*\n\004POST\022\034/mlflo" +
+      "w/traces/delete-traces\032\004\010\002\020\000\020\003*\rDelete T" +
+      "races\022\337\001\n\020createAssessment\022\030.mlflow.Crea" +
+      "teAssessment\032!.mlflow.CreateAssessment.R" +
+      "esponse\"\215\001\362\206\031\210\001\n>\n\004POST\0220/mlflow/traces/" +
+      "{assessment.trace_id}/assessments\032\004\010\002\020\000\020" +
+      "\003\030\350\007\030\356\007\030\014\030\001*:Create an assessment of a t" +
+      "race or a span within the trace\022\320\001\n\020upda" +
+      "teAssessment\022\030.mlflow.UpdateAssessment\032!" +
+      ".mlflow.UpdateAssessment.Response\"\177\362\206\031{\n" +
+      "D\n\005PATCH\0225/mlflow/traces/{trace_id}/asse" +
+      "ssments/{assessment_id}\032\004\010\002\020\000\020\003\030\350\007\030\356\007\030\001*" +
+      ")Update an existing assessment on a trac" +
+      "e.\022\261\001\n\020deleteAssessment\022\030.mlflow.DeleteA" +
+      "ssessment\032!.mlflow.DeleteAssessment.Resp" +
+      "onse\"`\362\206\031\\\nE\n\006DELETE\0225/mlflow/traces/{tr" +
+      "ace_id}/assessments/{assessment_id}\032\004\010\002\020" +
+      "\000\020\003*\021Delete AssessmentB\036\n\024org.mlflow.api" +
+      ".proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -104305,7 +104580,7 @@ public final class Service {
     internal_static_mlflow_Feedback_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_Feedback_descriptor,
-        new java.lang.String[] { "Value", });
+        new java.lang.String[] { "Value", "Error", });
     internal_static_mlflow_Assessment_descriptor =
       getDescriptor().getMessageTypes().get(42);
     internal_static_mlflow_Assessment_fieldAccessorTable = new

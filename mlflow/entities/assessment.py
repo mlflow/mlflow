@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Union
 
+from google.protobuf.json_format import MessageToDict, ParseDict
+from google.protobuf.struct_pb2 import Value
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType  # noqa: F401
@@ -116,7 +119,7 @@ class Assessment(_MlflowObject):
         if self.expectation is not None:
             set_pb_value(assessment.expectation.value, self.expectation.value)
         elif self.feedback is not None:
-            set_pb_value(assessment.feedback.value, self.feedback.value)
+            assessment.feedback.CopyFrom(self.feedback.to_proto())
 
         if self.metadata:
             assessment.metadata.update(self.metadata)
@@ -130,12 +133,11 @@ class Assessment(_MlflowObject):
             feedback = None
         elif proto.WhichOneof("value") == "feedback":
             expectation = None
-            feedback = Feedback(parse_pb_value(proto.feedback.value))
+            feedback = Feedback.from_proto(proto.feedback)
         else:
             expectation = None
             feedback = None
 
-        error = AssessmentError.from_proto(proto.error) if proto.error.error_code else None
         # Convert ScalarMapContainer to a normal Python dict
         metadata = dict(proto.metadata) if proto.metadata else None
 
@@ -150,7 +152,6 @@ class Assessment(_MlflowObject):
             feedback=feedback,
             rationale=proto.rationale or None,
             metadata=metadata,
-            error=error,
             span_id=proto.span_id or None,
         )
 
@@ -169,6 +170,7 @@ class Assessment(_MlflowObject):
             "span_id": self.span_id,
         }
 
+    @property
     def error(self) -> Optional[AssessmentError]:
         """
         Deprecated. Use the `error` property of the feedback object instead.
@@ -205,13 +207,23 @@ class Feedback(_MlflowObject):
     """
 
     value: AssessmentValueType
-    error: Optional[AssessmentError]
+    error: Optional[AssessmentError] = None
 
     def to_proto(self):
         return ProtoFeedback(
-            value=self.value,
+            value=ParseDict(self.value, Value(), ignore_unknown_fields=True),
             error=self.error.to_proto() if self.error else None,
         )
 
+    @classmethod
+    def from_proto(self, proto):
+        return Feedback(
+            value=MessageToDict(proto.value),
+            error=AssessmentError.from_proto(proto.error) if proto.HasField("error") else None,
+        )
+
     def to_dictionary(self):
-        return {"value": self.value, "error": self.error.to_dictionary() if self.error else None}
+        d = {"value": self.value}
+        if self.error:
+            d["error"] = self.error.to_dictionary()
+        return d
