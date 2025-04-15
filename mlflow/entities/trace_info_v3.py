@@ -42,6 +42,16 @@ class TraceInfoV3(_MlflowObject):
         if state := d.get("state"):
             d["state"] = TraceState(state)
 
+        if request_time := d.get("request_time"):
+            timestamp = Timestamp()
+            timestamp.FromJsonString(request_time)
+            d["request_time"] = timestamp.ToMilliseconds()
+
+        if execution_duration := d.get("execution_duration"):
+            duration = Duration()
+            duration.FromJsonString(execution_duration)
+            d["execution_duration"] = duration.ToMilliseconds()
+
         return cls(**d)
 
     def to_proto(self):
