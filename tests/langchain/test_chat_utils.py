@@ -34,6 +34,26 @@ from mlflow.types.chat import ToolCall as _ToolCall
             ChatMessage(role="assistant", content="foo", id="123"),
         ),
         (
+            AIMessage(
+                content=[
+                    {"type": "text", "text": "Response text"},
+                    {"type": "tool_use", "id": "123", "name": "tool"},
+                ],
+                tool_calls=[{"id": "123", "name": "tool", "args": {}, "type": "tool_call"}],
+            ),
+            ChatMessage(
+                role="assistant",
+                content=[{"type": "text", "text": "Response text"}],
+                tool_calls=[
+                    _ToolCall(
+                        id="123",
+                        type="function",
+                        function=Function(name="tool", arguments="{}"),
+                    )
+                ],
+            ),
+        ),
+        (
             ToolMessage(content="foo", tool_call_id="123"),
             ChatMessage(role="tool", content="foo", tool_call_id="123"),
         ),

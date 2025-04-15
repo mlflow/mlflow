@@ -55,7 +55,7 @@ def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> ChatMe
             content = lc_message.content
             # For Anthropic model tool calls are returned twice so we need to filter them out from content
             if isinstance(content, list):
-                content = filter(lambda c: c['type'] != 'tool_use', content)
+                content = [c for c in content if c["type"] != "tool_use"]
             return ChatMessage(
                 role="assistant",
                 # If tool calls present, content null value should be None not empty string
