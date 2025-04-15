@@ -133,7 +133,7 @@ async def test_chat_completions_autolog_streaming(client):
         for _ in stream:
             pass
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 1
@@ -172,7 +172,7 @@ async def test_chat_completions_autolog_tracing_error(client):
         if client._is_async:
             await response
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "ERROR"
 
     assert len(trace.data.spans) == 1
@@ -223,7 +223,7 @@ async def test_chat_completions_autolog_tracing_error_with_parent_span(client):
         with pytest.raises(MlflowException, match="Failed to create completions"):
             create_completions("test")
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "ERROR"
 
     assert len(trace.data.spans) == 2
@@ -264,7 +264,7 @@ async def test_chat_completions_streaming_empty_choices(client):
     # Ensure the stream has a chunk with empty choices
     assert chunks[0].choices == []
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
 
 
@@ -281,7 +281,7 @@ async def test_completions_autolog(client):
     if client._is_async:
         await response
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 1
@@ -312,7 +312,7 @@ async def test_completions_autolog_streaming_empty_choices(client):
     # Ensure the stream has a chunk with empty choices
     assert chunks[0].choices == []
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
 
 
@@ -333,7 +333,7 @@ async def test_completions_autolog_streaming(client):
         for _ in stream:
             pass
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 1
@@ -371,7 +371,7 @@ async def test_embeddings_autolog(client):
     if client._is_async:
         await response
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 1
@@ -434,7 +434,7 @@ async def test_autolog_raw_response(client):
         resp = resp.parse()  # ensure the raw response is returned
 
     assert resp.choices[0].message.content == '[{"role": "user", "content": "test"}]'
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
@@ -472,7 +472,7 @@ async def test_autolog_raw_response_stream(client):
     else:
         chunks = [c.choices[0].delta.content for c in resp]
     assert chunks == ["Hello", " world"]
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
@@ -561,7 +561,7 @@ async def test_response_format(client):
             response = await response
 
     assert response.choices[0].message.parsed == Person(name="Angelo", age=42)
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.outputs["choices"][0]["message"]["content"] == '{"name":"Angelo","age":42}'
