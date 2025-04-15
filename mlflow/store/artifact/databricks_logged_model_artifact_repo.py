@@ -61,7 +61,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
                 ),
                 exc_info=True,
             )
-            return self.databricks_artifact_repo.log_artifact(local_file, artifact_path)
+            self.databricks_artifact_repo.log_artifact(local_file, artifact_path)
 
     def log_artifacts(self, local_dir: str, artifact_path: Optional[str] = None) -> None:
         try:
