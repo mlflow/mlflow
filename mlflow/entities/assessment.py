@@ -69,7 +69,6 @@ class Assessment(_MlflowObject):
     feedback: Optional[Feedback] = None
     rationale: Optional[str] = None
     metadata: Optional[dict[str, str]] = None
-    error: Optional[AssessmentError] = None
     span_id: Optional[str] = None
     # NB: The assessment ID should always be generated in the backend. The CreateAssessment
     #   backend API asks for an incomplete Assessment object without an ID and returns a
@@ -113,8 +112,6 @@ class Assessment(_MlflowObject):
             assessment.rationale = self.rationale
         if self._assessment_id is not None:
             assessment.assessment_id = self.assessment_id
-        if self.error is not None:
-            assessment.error.CopyFrom(self.error.to_proto())
 
         if self.expectation is not None:
             set_pb_value(assessment.expectation.value, self.expectation.value)
@@ -169,9 +166,14 @@ class Assessment(_MlflowObject):
             "feedback": self.feedback.to_dictionary() if self.feedback else None,
             "rationale": self.rationale,
             "metadata": self.metadata,
-            "error": self.error.to_dictionary() if self.error else None,
             "span_id": self.span_id,
         }
+
+    def error(self) -> Optional[AssessmentError]:
+        """
+        Deprecated. Use the `error` property of the feedback object instead.
+        """
+        return self.feedback and self.feedback.error
 
 
 @experimental
@@ -203,11 +205,13 @@ class Feedback(_MlflowObject):
     """
 
     value: AssessmentValueType
+    error: Optional[AssessmentError]
 
     def to_proto(self):
-        feedback = ProtoFeedback()
-        feedback.value = self.value
-        return feedback
+        return ProtoFeedback(
+            value=self.value,
+            error=self.error.to_proto() if self.error else None,
+        )
 
     def to_dictionary(self):
-        return {"value": self.value}
+        return {"value": self.value, "error": self.error.to_dictionary() if self.error else None}
