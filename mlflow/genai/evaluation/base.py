@@ -9,6 +9,7 @@ from mlflow.genai.evaluation.utils import (
     _convert_to_legacy_eval_set,
 )
 from mlflow.genai.scorers import BuiltInScorer, Scorer
+from mlflow.models.evaluation.base import _get_model_from_function
 from mlflow.pyfunc import PyFuncModel
 from mlflow.tracing.fluent import is_traced
 
@@ -25,16 +26,13 @@ class EvaluationResult:
 
 
 def evaluate(
-    # See the "Input Data" section for the required format
     data: pd.DataFrame | spark.DataFrame | list[dict] | EvaluationDataset,
     predict_fn: Optional[Callable[..., Any]] = None,
-    # A list of scorers to compute metrics/assessments
     scorers: Optional[list[Scorer]] = None,
-    # Optional argument to specify model ID to associate the Evaluation result with.
     model_id: Optional[str] = None,
 ) -> mlflow.genai.EvaluationResult:
     """
-
+    TODO: updating docstring with real examples and API links
     Args:
         data: Dataset for the evaluation. It must be one of the following format:
             * A EvaluationDataset entity
@@ -43,7 +41,7 @@ def evaluate(
             * List of dictionary
 
             If a dataframe is specified, it must contain the following schema:
-              - inputs (required): A colume that contains a single input.
+              - inputs (required): A column that contains a single input.
               - outputs (optional): A column that contains a single output from the
                    target model/app. If the predict_fn is provided, this is generated
                    by MLflow so not required.
@@ -104,25 +102,25 @@ def evaluate(
                 )
             )
 
-    if not is_traced(predict_fn):
-        predict_fn = mlflow.trace(predict_fn)
-
-    pyfunc_model = PyFuncModel(
-        model_id=model_id,
-        model_impl=predict_fn,
-    )
-
     evaluation_config = {
         "databricks-agents": {
             "metrics": [],
         }
     }
     for _scorer in builtin_scorers:
-        _scorer(evaluation_config)
+        evaluation_config = _scorer.update_evaluation_config(evaluation_config)
 
     extra_metrics = []
     for _scorer in custom_scorers:
         extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
+
+    if not is_traced(predict_fn):
+        predict_fn = mlflow.trace(predict_fn)
+
+    pyfunc_model = PyFuncModel(
+        model_id=model_id,
+        model_impl=_get_model_from_function(predict_fn),
+    )
 
     mlflow.evaluate(
         model=pyfunc_model,

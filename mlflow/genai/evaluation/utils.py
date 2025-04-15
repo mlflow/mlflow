@@ -1,7 +1,7 @@
+from databricks.agents.evals import metric
 from pyspark import sql as spark
 
 from mlflow.genai.scorers import Scorer
-from mlflow.models import make_metric
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -27,9 +27,7 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer):
     Takes in a Scorer object and converts it into a legacy MLflow 2.x
     Metric object.
     """
-    # TODO: pass in more arguments such as aggregations, etc
-    return make_metric(
+    # TODO: complete implementation
+    return metric(
         eval_fn=scorer,
-        # TODO: what should this default to?
-        greater_is_better=True,
     )

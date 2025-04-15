@@ -1,11 +1,10 @@
 import functools
 import inspect
 import types
-from typing import Any, Callable, Literal, Optional, Union
+from typing import Callable, Literal, Optional, Union
 
 from pydantic import BaseModel
 
-from mlflow.entities import Trace
 from mlflow.evaluation import Assessment
 
 
@@ -15,23 +14,34 @@ class Scorer(BaseModel):
     def __call__(
         self,
         *,
-        inputs: dict[str, Any],
-        outputs: Optional[dict[str, Any]] = None,
-        expectations: Optional[dict[str, Any]] = None,
-        trace: Optional[Trace] = None,
+        inputs,
+        outputs=None,
+        expectations=None,
+        trace=None,
     ) -> Union[float, bool, str, Assessment]:
         """
-        Implement your custom scoring logic here.
+
+        Args:
+            inputs (required): A column that contains a single input.
+            outputs (optional): A column that contains a single output from the
+                target model/app. If the predict_fn is provided, this is generated
+                by MLflow so not required.
+            expectations (optional): A column that contains a ground truth, or a
+                dictionary of ground truths for individual output fields.
+            trace (optional): A column that contains a single trace object
+                corresponding to the prediction for the row. Only required when
+                any of scorers requires a trace in order to compute
+                assessments/metrics.
         """
         raise NotImplementedError("Please use an instance of BuiltInScorer")
 
 
 # TODO: ML-52304: Inherit the following class for every builtin scorer made available
 class BuiltInScorer(Scorer):
-    def __call__(evaluation_config) -> dict:
+    def update_evaluation_config(evaluation_config) -> dict:
         """
-        The builtin scorer will take in an evaluation_config and update it as necessary
-        to comply with the expected format for mlflow.evaluate().
+        The builtin scorer will take in an evaluation_config and return an updated version
+        of it as necessary to comply with the expected format for mlflow.evaluate().
         More details about built-in judges can be found at
         https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/llm-judge-reference
         """
