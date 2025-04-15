@@ -878,6 +878,8 @@ crewai:
   autologging:
     minimum: "0.80.0"
     maximum: "0.105.0"
+    # https://github.com/crewAIInc/crewAI/issues/2575
+    unsupported: ["0.114.0"]
     python:
       ">= 0.80.0": "3.10"
     requirements:
