@@ -829,6 +829,7 @@ autogen:
   autologging:
     minimum: "0.2.36"
     maximum: "0.2.40"
+    unsupported: ["0.4.*", "0.5.*"]
     python:
       "== dev": "3.10"
     requirements:
@@ -968,6 +969,7 @@ litellm:
   autologging:
     minimum: "1.52.9"
     maximum: "1.63.7"
+    unsupported: ["1.59.*", "1.6*.*"]
     requirements:
       ">= 0.0.0": [
           "openai",

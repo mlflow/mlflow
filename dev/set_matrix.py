@@ -37,7 +37,7 @@ import warnings
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterator, Optional, TypeVar
+from typing import Any, Iterator, Optional, TypeVar, Union
 
 import requests
 import yaml
@@ -76,7 +76,7 @@ class PackageInfo(BaseModel, extra="forbid"):
 class TestConfig(BaseModel, extra="forbid"):
     minimum: Version
     maximum: Version
-    unsupported: Optional[list[Version]] = None
+    unsupported: Optional[list[Union[Version, str]]] = None
     requirements: Optional[dict[str, list[str]]] = None
     python: Optional[dict[str, str]] = None
     runs_on: Optional[dict[str, str]] = None
@@ -99,7 +99,16 @@ class TestConfig(BaseModel, extra="forbid"):
 
     @validator("unsupported", pre=True)
     def validate_unsupported(cls, v):
-        return [Version(v) for v in v] if v else None
+        if not v:
+            return None
+        result = []
+        for version in v:
+            # If it's a wildcard pattern, keep it as a string
+            if isinstance(version, str) and "*" in version:
+                result.append(version)
+            else:
+                result.append(Version(version))
+        return result
 
 
 class FlavorConfig(BaseModel, extra="forbid"):
@@ -204,6 +213,30 @@ def get_latest_micro_versions(versions):
     return latest_micro_versions
 
 
+def is_version_unsupported(version: Version, unsupported: list[Union[Version, str]]) -> bool:
+    """
+    Check if a version is in the unsupported list, handling both exact versions and patterns.
+    """
+    for item in unsupported:
+        if (
+            isinstance(item, Version)
+            and version == item
+            or isinstance(item, str)
+            and match_version_pattern(version, item)
+        ):
+            return True
+    return False
+
+
+def match_version_pattern(version: Version, pattern: str) -> bool:
+    """
+    Check if a version matches a pattern with * wildcards.
+    E.g. "0.4.*" matches any 0.4.x version
+    """
+    regex_pattern = pattern.replace(".", "\\.").replace("*", ".*")
+    return bool(re.match(f"^{regex_pattern}$", str(version)))
+
+
 def filter_versions(
     flavor, versions, min_ver, max_ver, unsupported=None, allow_unreleased_max_version=False
 ):
@@ -221,12 +254,12 @@ def filter_versions(
     assert max_ver in versions or allow_unreleased_max_version, (
         f"Minimum version {max_ver} is not in the list of versions for {flavor}"
     )
-    assert all(v in versions for v in unsupported), (
+    assert all(v in versions for v in unsupported if isinstance(v, Version)), (
         f"Unsupported versions {unsupported} are not in the list of versions for {flavor}"
     )
 
     def _is_not_unsupported(v):
-        return v not in unsupported
+        return not is_version_unsupported(v, unsupported)
 
     def _is_older_than_or_equal_to_max_major_version(v):
         return v.major <= max_ver.major
