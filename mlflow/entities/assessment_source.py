@@ -4,8 +4,8 @@ from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
+from mlflow.protos.assessments_pb2 import AssessmentSource as ProtoAssessmentSource
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.protos.service_pb2 import AssessmentSource as ProtoAssessmentSource
 from mlflow.utils.annotations import experimental
 
 
