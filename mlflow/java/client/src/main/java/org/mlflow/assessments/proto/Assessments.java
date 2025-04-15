@@ -7404,8 +7404,8 @@ public final class Assessments {
       "ts.AssessmentErrorB\002\030\001\022>\n\010metadata\030\r \003(\013" +
       "2,.mlflow.assessments.Assessment.Metadat" +
       "aEntry\032/\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005" +
-      "value\030\002 \001(\t:\0028\001B\007\n\005valueB\036\n\034org.mlflow.a" +
-      "ssessments.proto"
+      "value\030\002 \001(\t:\0028\001B\007\n\005valueB!\n\034org.mlflow.a" +
+      "ssessments.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
