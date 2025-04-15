@@ -64686,7 +64686,7 @@ public final class Service {
      * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
      * @return The assessment.
      */
-    mlflow.assessments.Assessments.Assessment getAssessment();
+    org.mlflow.assessments.proto.Assessments.Assessment getAssessment();
     /**
      * <pre>
      * The assessment to create.
@@ -64694,7 +64694,7 @@ public final class Service {
      *
      * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
      */
-    mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentOrBuilder();
+    org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentOrBuilder();
   }
   /**
    * Protobuf type {@code mlflow.CreateAssessment}
@@ -64743,11 +64743,11 @@ public final class Service {
               done = true;
               break;
             case 10: {
-              mlflow.assessments.Assessments.Assessment.Builder subBuilder = null;
+              org.mlflow.assessments.proto.Assessments.Assessment.Builder subBuilder = null;
               if (((bitField0_ & 0x00000001) != 0)) {
                 subBuilder = assessment_.toBuilder();
               }
-              assessment_ = input.readMessage(mlflow.assessments.Assessments.Assessment.PARSER, extensionRegistry);
+              assessment_ = input.readMessage(org.mlflow.assessments.proto.Assessments.Assessment.PARSER, extensionRegistry);
               if (subBuilder != null) {
                 subBuilder.mergeFrom(assessment_);
                 assessment_ = subBuilder.buildPartial();
@@ -64808,7 +64808,7 @@ public final class Service {
        * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
        * @return The assessment.
        */
-      mlflow.assessments.Assessments.Assessment getAssessment();
+      org.mlflow.assessments.proto.Assessments.Assessment getAssessment();
       /**
        * <pre>
        * The created assessment.
@@ -64816,7 +64816,7 @@ public final class Service {
        *
        * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
        */
-      mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentOrBuilder();
+      org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentOrBuilder();
     }
     /**
      * Protobuf type {@code mlflow.CreateAssessment.Response}
@@ -64865,11 +64865,11 @@ public final class Service {
                 done = true;
                 break;
               case 10: {
-                mlflow.assessments.Assessments.Assessment.Builder subBuilder = null;
+                org.mlflow.assessments.proto.Assessments.Assessment.Builder subBuilder = null;
                 if (((bitField0_ & 0x00000001) != 0)) {
                   subBuilder = assessment_.toBuilder();
                 }
-                assessment_ = input.readMessage(mlflow.assessments.Assessments.Assessment.PARSER, extensionRegistry);
+                assessment_ = input.readMessage(org.mlflow.assessments.proto.Assessments.Assessment.PARSER, extensionRegistry);
                 if (subBuilder != null) {
                   subBuilder.mergeFrom(assessment_);
                   assessment_ = subBuilder.buildPartial();
@@ -64911,7 +64911,7 @@ public final class Service {
 
       private int bitField0_;
       public static final int ASSESSMENT_FIELD_NUMBER = 1;
-      private mlflow.assessments.Assessments.Assessment assessment_;
+      private org.mlflow.assessments.proto.Assessments.Assessment assessment_;
       /**
        * <pre>
        * The created assessment.
@@ -64933,8 +64933,8 @@ public final class Service {
        * @return The assessment.
        */
       @java.lang.Override
-      public mlflow.assessments.Assessments.Assessment getAssessment() {
-        return assessment_ == null ? mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+      public org.mlflow.assessments.proto.Assessments.Assessment getAssessment() {
+        return assessment_ == null ? org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
       }
       /**
        * <pre>
@@ -64944,8 +64944,8 @@ public final class Service {
        * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
        */
       @java.lang.Override
-      public mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
-        return assessment_ == null ? mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+      public org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
+        return assessment_ == null ? org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
       }
 
       private byte memoizedIsInitialized = -1;
@@ -65271,9 +65271,9 @@ public final class Service {
         }
         private int bitField0_;
 
-        private mlflow.assessments.Assessments.Assessment assessment_;
+        private org.mlflow.assessments.proto.Assessments.Assessment assessment_;
         private com.google.protobuf.SingleFieldBuilderV3<
-            mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder> assessmentBuilder_;
+            org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> assessmentBuilder_;
         /**
          * <pre>
          * The created assessment.
@@ -65293,9 +65293,9 @@ public final class Service {
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          * @return The assessment.
          */
-        public mlflow.assessments.Assessments.Assessment getAssessment() {
+        public org.mlflow.assessments.proto.Assessments.Assessment getAssessment() {
           if (assessmentBuilder_ == null) {
-            return assessment_ == null ? mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+            return assessment_ == null ? org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
           } else {
             return assessmentBuilder_.getMessage();
           }
@@ -65307,7 +65307,7 @@ public final class Service {
          *
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          */
-        public Builder setAssessment(mlflow.assessments.Assessments.Assessment value) {
+        public Builder setAssessment(org.mlflow.assessments.proto.Assessments.Assessment value) {
           if (assessmentBuilder_ == null) {
             if (value == null) {
               throw new NullPointerException();
@@ -65328,7 +65328,7 @@ public final class Service {
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          */
         public Builder setAssessment(
-            mlflow.assessments.Assessments.Assessment.Builder builderForValue) {
+            org.mlflow.assessments.proto.Assessments.Assessment.Builder builderForValue) {
           if (assessmentBuilder_ == null) {
             assessment_ = builderForValue.build();
             onChanged();
@@ -65345,13 +65345,13 @@ public final class Service {
          *
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          */
-        public Builder mergeAssessment(mlflow.assessments.Assessments.Assessment value) {
+        public Builder mergeAssessment(org.mlflow.assessments.proto.Assessments.Assessment value) {
           if (assessmentBuilder_ == null) {
             if (((bitField0_ & 0x00000001) != 0) &&
                 assessment_ != null &&
-                assessment_ != mlflow.assessments.Assessments.Assessment.getDefaultInstance()) {
+                assessment_ != org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance()) {
               assessment_ =
-                mlflow.assessments.Assessments.Assessment.newBuilder(assessment_).mergeFrom(value).buildPartial();
+                org.mlflow.assessments.proto.Assessments.Assessment.newBuilder(assessment_).mergeFrom(value).buildPartial();
             } else {
               assessment_ = value;
             }
@@ -65386,7 +65386,7 @@ public final class Service {
          *
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          */
-        public mlflow.assessments.Assessments.Assessment.Builder getAssessmentBuilder() {
+        public org.mlflow.assessments.proto.Assessments.Assessment.Builder getAssessmentBuilder() {
           bitField0_ |= 0x00000001;
           onChanged();
           return getAssessmentFieldBuilder().getBuilder();
@@ -65398,12 +65398,12 @@ public final class Service {
          *
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          */
-        public mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
+        public org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
           if (assessmentBuilder_ != null) {
             return assessmentBuilder_.getMessageOrBuilder();
           } else {
             return assessment_ == null ?
-                mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+                org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
           }
         }
         /**
@@ -65414,11 +65414,11 @@ public final class Service {
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          */
         private com.google.protobuf.SingleFieldBuilderV3<
-            mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder> 
+            org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> 
             getAssessmentFieldBuilder() {
           if (assessmentBuilder_ == null) {
             assessmentBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-                mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder>(
+                org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder>(
                     getAssessment(),
                     getParentForChildren(),
                     isClean());
@@ -65481,7 +65481,7 @@ public final class Service {
 
     private int bitField0_;
     public static final int ASSESSMENT_FIELD_NUMBER = 1;
-    private mlflow.assessments.Assessments.Assessment assessment_;
+    private org.mlflow.assessments.proto.Assessments.Assessment assessment_;
     /**
      * <pre>
      * The assessment to create.
@@ -65503,8 +65503,8 @@ public final class Service {
      * @return The assessment.
      */
     @java.lang.Override
-    public mlflow.assessments.Assessments.Assessment getAssessment() {
-      return assessment_ == null ? mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+    public org.mlflow.assessments.proto.Assessments.Assessment getAssessment() {
+      return assessment_ == null ? org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
     }
     /**
      * <pre>
@@ -65514,8 +65514,8 @@ public final class Service {
      * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
      */
     @java.lang.Override
-    public mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
-      return assessment_ == null ? mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+    public org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
+      return assessment_ == null ? org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
     }
 
     private byte memoizedIsInitialized = -1;
@@ -65841,9 +65841,9 @@ public final class Service {
       }
       private int bitField0_;
 
-      private mlflow.assessments.Assessments.Assessment assessment_;
+      private org.mlflow.assessments.proto.Assessments.Assessment assessment_;
       private com.google.protobuf.SingleFieldBuilderV3<
-          mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder> assessmentBuilder_;
+          org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> assessmentBuilder_;
       /**
        * <pre>
        * The assessment to create.
@@ -65863,9 +65863,9 @@ public final class Service {
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        * @return The assessment.
        */
-      public mlflow.assessments.Assessments.Assessment getAssessment() {
+      public org.mlflow.assessments.proto.Assessments.Assessment getAssessment() {
         if (assessmentBuilder_ == null) {
-          return assessment_ == null ? mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+          return assessment_ == null ? org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
         } else {
           return assessmentBuilder_.getMessage();
         }
@@ -65877,7 +65877,7 @@ public final class Service {
        *
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
-      public Builder setAssessment(mlflow.assessments.Assessments.Assessment value) {
+      public Builder setAssessment(org.mlflow.assessments.proto.Assessments.Assessment value) {
         if (assessmentBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -65898,7 +65898,7 @@ public final class Service {
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setAssessment(
-          mlflow.assessments.Assessments.Assessment.Builder builderForValue) {
+          org.mlflow.assessments.proto.Assessments.Assessment.Builder builderForValue) {
         if (assessmentBuilder_ == null) {
           assessment_ = builderForValue.build();
           onChanged();
@@ -65915,13 +65915,13 @@ public final class Service {
        *
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
-      public Builder mergeAssessment(mlflow.assessments.Assessments.Assessment value) {
+      public Builder mergeAssessment(org.mlflow.assessments.proto.Assessments.Assessment value) {
         if (assessmentBuilder_ == null) {
           if (((bitField0_ & 0x00000001) != 0) &&
               assessment_ != null &&
-              assessment_ != mlflow.assessments.Assessments.Assessment.getDefaultInstance()) {
+              assessment_ != org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance()) {
             assessment_ =
-              mlflow.assessments.Assessments.Assessment.newBuilder(assessment_).mergeFrom(value).buildPartial();
+              org.mlflow.assessments.proto.Assessments.Assessment.newBuilder(assessment_).mergeFrom(value).buildPartial();
           } else {
             assessment_ = value;
           }
@@ -65956,7 +65956,7 @@ public final class Service {
        *
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
-      public mlflow.assessments.Assessments.Assessment.Builder getAssessmentBuilder() {
+      public org.mlflow.assessments.proto.Assessments.Assessment.Builder getAssessmentBuilder() {
         bitField0_ |= 0x00000001;
         onChanged();
         return getAssessmentFieldBuilder().getBuilder();
@@ -65968,12 +65968,12 @@ public final class Service {
        *
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
-      public mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
+      public org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
         if (assessmentBuilder_ != null) {
           return assessmentBuilder_.getMessageOrBuilder();
         } else {
           return assessment_ == null ?
-              mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+              org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
         }
       }
       /**
@@ -65984,11 +65984,11 @@ public final class Service {
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
-          mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder> 
+          org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> 
           getAssessmentFieldBuilder() {
         if (assessmentBuilder_ == null) {
           assessmentBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-              mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder>(
+              org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder>(
                   getAssessment(),
                   getParentForChildren(),
                   isClean());
@@ -66070,7 +66070,7 @@ public final class Service {
      * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
      * @return The assessment.
      */
-    mlflow.assessments.Assessments.Assessment getAssessment();
+    org.mlflow.assessments.proto.Assessments.Assessment getAssessment();
     /**
      * <pre>
      * The Assessment containing the fields which should be updated.
@@ -66078,7 +66078,7 @@ public final class Service {
      *
      * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
      */
-    mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentOrBuilder();
+    org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentOrBuilder();
 
     /**
      * <pre>
@@ -66158,11 +66158,11 @@ public final class Service {
               done = true;
               break;
             case 10: {
-              mlflow.assessments.Assessments.Assessment.Builder subBuilder = null;
+              org.mlflow.assessments.proto.Assessments.Assessment.Builder subBuilder = null;
               if (((bitField0_ & 0x00000001) != 0)) {
                 subBuilder = assessment_.toBuilder();
               }
-              assessment_ = input.readMessage(mlflow.assessments.Assessments.Assessment.PARSER, extensionRegistry);
+              assessment_ = input.readMessage(org.mlflow.assessments.proto.Assessments.Assessment.PARSER, extensionRegistry);
               if (subBuilder != null) {
                 subBuilder.mergeFrom(assessment_);
                 assessment_ = subBuilder.buildPartial();
@@ -66236,7 +66236,7 @@ public final class Service {
        * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
        * @return The assessment.
        */
-      mlflow.assessments.Assessments.Assessment getAssessment();
+      org.mlflow.assessments.proto.Assessments.Assessment getAssessment();
       /**
        * <pre>
        * The Assessment after the update.
@@ -66244,7 +66244,7 @@ public final class Service {
        *
        * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
        */
-      mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentOrBuilder();
+      org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentOrBuilder();
     }
     /**
      * Protobuf type {@code mlflow.UpdateAssessment.Response}
@@ -66293,11 +66293,11 @@ public final class Service {
                 done = true;
                 break;
               case 10: {
-                mlflow.assessments.Assessments.Assessment.Builder subBuilder = null;
+                org.mlflow.assessments.proto.Assessments.Assessment.Builder subBuilder = null;
                 if (((bitField0_ & 0x00000001) != 0)) {
                   subBuilder = assessment_.toBuilder();
                 }
-                assessment_ = input.readMessage(mlflow.assessments.Assessments.Assessment.PARSER, extensionRegistry);
+                assessment_ = input.readMessage(org.mlflow.assessments.proto.Assessments.Assessment.PARSER, extensionRegistry);
                 if (subBuilder != null) {
                   subBuilder.mergeFrom(assessment_);
                   assessment_ = subBuilder.buildPartial();
@@ -66339,7 +66339,7 @@ public final class Service {
 
       private int bitField0_;
       public static final int ASSESSMENT_FIELD_NUMBER = 1;
-      private mlflow.assessments.Assessments.Assessment assessment_;
+      private org.mlflow.assessments.proto.Assessments.Assessment assessment_;
       /**
        * <pre>
        * The Assessment after the update.
@@ -66361,8 +66361,8 @@ public final class Service {
        * @return The assessment.
        */
       @java.lang.Override
-      public mlflow.assessments.Assessments.Assessment getAssessment() {
-        return assessment_ == null ? mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+      public org.mlflow.assessments.proto.Assessments.Assessment getAssessment() {
+        return assessment_ == null ? org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
       }
       /**
        * <pre>
@@ -66372,8 +66372,8 @@ public final class Service {
        * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
        */
       @java.lang.Override
-      public mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
-        return assessment_ == null ? mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+      public org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
+        return assessment_ == null ? org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
       }
 
       private byte memoizedIsInitialized = -1;
@@ -66699,9 +66699,9 @@ public final class Service {
         }
         private int bitField0_;
 
-        private mlflow.assessments.Assessments.Assessment assessment_;
+        private org.mlflow.assessments.proto.Assessments.Assessment assessment_;
         private com.google.protobuf.SingleFieldBuilderV3<
-            mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder> assessmentBuilder_;
+            org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> assessmentBuilder_;
         /**
          * <pre>
          * The Assessment after the update.
@@ -66721,9 +66721,9 @@ public final class Service {
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          * @return The assessment.
          */
-        public mlflow.assessments.Assessments.Assessment getAssessment() {
+        public org.mlflow.assessments.proto.Assessments.Assessment getAssessment() {
           if (assessmentBuilder_ == null) {
-            return assessment_ == null ? mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+            return assessment_ == null ? org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
           } else {
             return assessmentBuilder_.getMessage();
           }
@@ -66735,7 +66735,7 @@ public final class Service {
          *
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          */
-        public Builder setAssessment(mlflow.assessments.Assessments.Assessment value) {
+        public Builder setAssessment(org.mlflow.assessments.proto.Assessments.Assessment value) {
           if (assessmentBuilder_ == null) {
             if (value == null) {
               throw new NullPointerException();
@@ -66756,7 +66756,7 @@ public final class Service {
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          */
         public Builder setAssessment(
-            mlflow.assessments.Assessments.Assessment.Builder builderForValue) {
+            org.mlflow.assessments.proto.Assessments.Assessment.Builder builderForValue) {
           if (assessmentBuilder_ == null) {
             assessment_ = builderForValue.build();
             onChanged();
@@ -66773,13 +66773,13 @@ public final class Service {
          *
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          */
-        public Builder mergeAssessment(mlflow.assessments.Assessments.Assessment value) {
+        public Builder mergeAssessment(org.mlflow.assessments.proto.Assessments.Assessment value) {
           if (assessmentBuilder_ == null) {
             if (((bitField0_ & 0x00000001) != 0) &&
                 assessment_ != null &&
-                assessment_ != mlflow.assessments.Assessments.Assessment.getDefaultInstance()) {
+                assessment_ != org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance()) {
               assessment_ =
-                mlflow.assessments.Assessments.Assessment.newBuilder(assessment_).mergeFrom(value).buildPartial();
+                org.mlflow.assessments.proto.Assessments.Assessment.newBuilder(assessment_).mergeFrom(value).buildPartial();
             } else {
               assessment_ = value;
             }
@@ -66814,7 +66814,7 @@ public final class Service {
          *
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          */
-        public mlflow.assessments.Assessments.Assessment.Builder getAssessmentBuilder() {
+        public org.mlflow.assessments.proto.Assessments.Assessment.Builder getAssessmentBuilder() {
           bitField0_ |= 0x00000001;
           onChanged();
           return getAssessmentFieldBuilder().getBuilder();
@@ -66826,12 +66826,12 @@ public final class Service {
          *
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          */
-        public mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
+        public org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
           if (assessmentBuilder_ != null) {
             return assessmentBuilder_.getMessageOrBuilder();
           } else {
             return assessment_ == null ?
-                mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+                org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
           }
         }
         /**
@@ -66842,11 +66842,11 @@ public final class Service {
          * <code>optional .mlflow.assessments.Assessment assessment = 1;</code>
          */
         private com.google.protobuf.SingleFieldBuilderV3<
-            mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder> 
+            org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> 
             getAssessmentFieldBuilder() {
           if (assessmentBuilder_ == null) {
             assessmentBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-                mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder>(
+                org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder>(
                     getAssessment(),
                     getParentForChildren(),
                     isClean());
@@ -66909,7 +66909,7 @@ public final class Service {
 
     private int bitField0_;
     public static final int ASSESSMENT_FIELD_NUMBER = 1;
-    private mlflow.assessments.Assessments.Assessment assessment_;
+    private org.mlflow.assessments.proto.Assessments.Assessment assessment_;
     /**
      * <pre>
      * The Assessment containing the fields which should be updated.
@@ -66931,8 +66931,8 @@ public final class Service {
      * @return The assessment.
      */
     @java.lang.Override
-    public mlflow.assessments.Assessments.Assessment getAssessment() {
-      return assessment_ == null ? mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+    public org.mlflow.assessments.proto.Assessments.Assessment getAssessment() {
+      return assessment_ == null ? org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
     }
     /**
      * <pre>
@@ -66942,8 +66942,8 @@ public final class Service {
      * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
      */
     @java.lang.Override
-    public mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
-      return assessment_ == null ? mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+    public org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
+      return assessment_ == null ? org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
     }
 
     public static final int UPDATE_MASK_FIELD_NUMBER = 2;
@@ -67345,9 +67345,9 @@ public final class Service {
       }
       private int bitField0_;
 
-      private mlflow.assessments.Assessments.Assessment assessment_;
+      private org.mlflow.assessments.proto.Assessments.Assessment assessment_;
       private com.google.protobuf.SingleFieldBuilderV3<
-          mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder> assessmentBuilder_;
+          org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> assessmentBuilder_;
       /**
        * <pre>
        * The Assessment containing the fields which should be updated.
@@ -67367,9 +67367,9 @@ public final class Service {
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        * @return The assessment.
        */
-      public mlflow.assessments.Assessments.Assessment getAssessment() {
+      public org.mlflow.assessments.proto.Assessments.Assessment getAssessment() {
         if (assessmentBuilder_ == null) {
-          return assessment_ == null ? mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+          return assessment_ == null ? org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
         } else {
           return assessmentBuilder_.getMessage();
         }
@@ -67381,7 +67381,7 @@ public final class Service {
        *
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
-      public Builder setAssessment(mlflow.assessments.Assessments.Assessment value) {
+      public Builder setAssessment(org.mlflow.assessments.proto.Assessments.Assessment value) {
         if (assessmentBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -67402,7 +67402,7 @@ public final class Service {
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setAssessment(
-          mlflow.assessments.Assessments.Assessment.Builder builderForValue) {
+          org.mlflow.assessments.proto.Assessments.Assessment.Builder builderForValue) {
         if (assessmentBuilder_ == null) {
           assessment_ = builderForValue.build();
           onChanged();
@@ -67419,13 +67419,13 @@ public final class Service {
        *
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
-      public Builder mergeAssessment(mlflow.assessments.Assessments.Assessment value) {
+      public Builder mergeAssessment(org.mlflow.assessments.proto.Assessments.Assessment value) {
         if (assessmentBuilder_ == null) {
           if (((bitField0_ & 0x00000001) != 0) &&
               assessment_ != null &&
-              assessment_ != mlflow.assessments.Assessments.Assessment.getDefaultInstance()) {
+              assessment_ != org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance()) {
             assessment_ =
-              mlflow.assessments.Assessments.Assessment.newBuilder(assessment_).mergeFrom(value).buildPartial();
+              org.mlflow.assessments.proto.Assessments.Assessment.newBuilder(assessment_).mergeFrom(value).buildPartial();
           } else {
             assessment_ = value;
           }
@@ -67460,7 +67460,7 @@ public final class Service {
        *
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
-      public mlflow.assessments.Assessments.Assessment.Builder getAssessmentBuilder() {
+      public org.mlflow.assessments.proto.Assessments.Assessment.Builder getAssessmentBuilder() {
         bitField0_ |= 0x00000001;
         onChanged();
         return getAssessmentFieldBuilder().getBuilder();
@@ -67472,12 +67472,12 @@ public final class Service {
        *
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
-      public mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
+      public org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentOrBuilder() {
         if (assessmentBuilder_ != null) {
           return assessmentBuilder_.getMessageOrBuilder();
         } else {
           return assessment_ == null ?
-              mlflow.assessments.Assessments.Assessment.getDefaultInstance() : assessment_;
+              org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance() : assessment_;
         }
       }
       /**
@@ -67488,11 +67488,11 @@ public final class Service {
        * <code>optional .mlflow.assessments.Assessment assessment = 1 [(.mlflow.validate_required) = true];</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
-          mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder> 
+          org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> 
           getAssessmentFieldBuilder() {
         if (assessmentBuilder_ == null) {
           assessmentBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-              mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder>(
+              org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder>(
                   getAssessment(),
                   getParentForChildren(),
                   isClean());
@@ -91449,12 +91449,12 @@ public final class Service {
     /**
      * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
      */
-    java.util.List<mlflow.assessments.Assessments.Assessment> 
+    java.util.List<org.mlflow.assessments.proto.Assessments.Assessment> 
         getAssessmentsList();
     /**
      * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
      */
-    mlflow.assessments.Assessments.Assessment getAssessments(int index);
+    org.mlflow.assessments.proto.Assessments.Assessment getAssessments(int index);
     /**
      * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
      */
@@ -91462,12 +91462,12 @@ public final class Service {
     /**
      * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
      */
-    java.util.List<? extends mlflow.assessments.Assessments.AssessmentOrBuilder> 
+    java.util.List<? extends org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> 
         getAssessmentsOrBuilderList();
     /**
      * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
      */
-    mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentsOrBuilder(
+    org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentsOrBuilder(
         int index);
 
     /**
@@ -91666,11 +91666,11 @@ public final class Service {
             }
             case 82: {
               if (!((mutable_bitField0_ & 0x00000200) != 0)) {
-                assessments_ = new java.util.ArrayList<mlflow.assessments.Assessments.Assessment>();
+                assessments_ = new java.util.ArrayList<org.mlflow.assessments.proto.Assessments.Assessment>();
                 mutable_bitField0_ |= 0x00000200;
               }
               assessments_.add(
-                  input.readMessage(mlflow.assessments.Assessments.Assessment.PARSER, extensionRegistry));
+                  input.readMessage(org.mlflow.assessments.proto.Assessments.Assessment.PARSER, extensionRegistry));
               break;
             }
             case 90: {
@@ -92382,19 +92382,19 @@ public final class Service {
     }
 
     public static final int ASSESSMENTS_FIELD_NUMBER = 10;
-    private java.util.List<mlflow.assessments.Assessments.Assessment> assessments_;
+    private java.util.List<org.mlflow.assessments.proto.Assessments.Assessment> assessments_;
     /**
      * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
      */
     @java.lang.Override
-    public java.util.List<mlflow.assessments.Assessments.Assessment> getAssessmentsList() {
+    public java.util.List<org.mlflow.assessments.proto.Assessments.Assessment> getAssessmentsList() {
       return assessments_;
     }
     /**
      * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
      */
     @java.lang.Override
-    public java.util.List<? extends mlflow.assessments.Assessments.AssessmentOrBuilder> 
+    public java.util.List<? extends org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> 
         getAssessmentsOrBuilderList() {
       return assessments_;
     }
@@ -92409,14 +92409,14 @@ public final class Service {
      * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
      */
     @java.lang.Override
-    public mlflow.assessments.Assessments.Assessment getAssessments(int index) {
+    public org.mlflow.assessments.proto.Assessments.Assessment getAssessments(int index) {
       return assessments_.get(index);
     }
     /**
      * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
      */
     @java.lang.Override
-    public mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentsOrBuilder(
+    public org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentsOrBuilder(
         int index) {
       return assessments_.get(index);
     }
@@ -94317,22 +94317,22 @@ public final class Service {
         return this;
       }
 
-      private java.util.List<mlflow.assessments.Assessments.Assessment> assessments_ =
+      private java.util.List<org.mlflow.assessments.proto.Assessments.Assessment> assessments_ =
         java.util.Collections.emptyList();
       private void ensureAssessmentsIsMutable() {
         if (!((bitField0_ & 0x00000200) != 0)) {
-          assessments_ = new java.util.ArrayList<mlflow.assessments.Assessments.Assessment>(assessments_);
+          assessments_ = new java.util.ArrayList<org.mlflow.assessments.proto.Assessments.Assessment>(assessments_);
           bitField0_ |= 0x00000200;
          }
       }
 
       private com.google.protobuf.RepeatedFieldBuilderV3<
-          mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder> assessmentsBuilder_;
+          org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> assessmentsBuilder_;
 
       /**
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
-      public java.util.List<mlflow.assessments.Assessments.Assessment> getAssessmentsList() {
+      public java.util.List<org.mlflow.assessments.proto.Assessments.Assessment> getAssessmentsList() {
         if (assessmentsBuilder_ == null) {
           return java.util.Collections.unmodifiableList(assessments_);
         } else {
@@ -94352,7 +94352,7 @@ public final class Service {
       /**
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
-      public mlflow.assessments.Assessments.Assessment getAssessments(int index) {
+      public org.mlflow.assessments.proto.Assessments.Assessment getAssessments(int index) {
         if (assessmentsBuilder_ == null) {
           return assessments_.get(index);
         } else {
@@ -94363,7 +94363,7 @@ public final class Service {
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
       public Builder setAssessments(
-          int index, mlflow.assessments.Assessments.Assessment value) {
+          int index, org.mlflow.assessments.proto.Assessments.Assessment value) {
         if (assessmentsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -94380,7 +94380,7 @@ public final class Service {
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
       public Builder setAssessments(
-          int index, mlflow.assessments.Assessments.Assessment.Builder builderForValue) {
+          int index, org.mlflow.assessments.proto.Assessments.Assessment.Builder builderForValue) {
         if (assessmentsBuilder_ == null) {
           ensureAssessmentsIsMutable();
           assessments_.set(index, builderForValue.build());
@@ -94393,7 +94393,7 @@ public final class Service {
       /**
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
-      public Builder addAssessments(mlflow.assessments.Assessments.Assessment value) {
+      public Builder addAssessments(org.mlflow.assessments.proto.Assessments.Assessment value) {
         if (assessmentsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -94410,7 +94410,7 @@ public final class Service {
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
       public Builder addAssessments(
-          int index, mlflow.assessments.Assessments.Assessment value) {
+          int index, org.mlflow.assessments.proto.Assessments.Assessment value) {
         if (assessmentsBuilder_ == null) {
           if (value == null) {
             throw new NullPointerException();
@@ -94427,7 +94427,7 @@ public final class Service {
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
       public Builder addAssessments(
-          mlflow.assessments.Assessments.Assessment.Builder builderForValue) {
+          org.mlflow.assessments.proto.Assessments.Assessment.Builder builderForValue) {
         if (assessmentsBuilder_ == null) {
           ensureAssessmentsIsMutable();
           assessments_.add(builderForValue.build());
@@ -94441,7 +94441,7 @@ public final class Service {
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
       public Builder addAssessments(
-          int index, mlflow.assessments.Assessments.Assessment.Builder builderForValue) {
+          int index, org.mlflow.assessments.proto.Assessments.Assessment.Builder builderForValue) {
         if (assessmentsBuilder_ == null) {
           ensureAssessmentsIsMutable();
           assessments_.add(index, builderForValue.build());
@@ -94455,7 +94455,7 @@ public final class Service {
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
       public Builder addAllAssessments(
-          java.lang.Iterable<? extends mlflow.assessments.Assessments.Assessment> values) {
+          java.lang.Iterable<? extends org.mlflow.assessments.proto.Assessments.Assessment> values) {
         if (assessmentsBuilder_ == null) {
           ensureAssessmentsIsMutable();
           com.google.protobuf.AbstractMessageLite.Builder.addAll(
@@ -94495,14 +94495,14 @@ public final class Service {
       /**
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
-      public mlflow.assessments.Assessments.Assessment.Builder getAssessmentsBuilder(
+      public org.mlflow.assessments.proto.Assessments.Assessment.Builder getAssessmentsBuilder(
           int index) {
         return getAssessmentsFieldBuilder().getBuilder(index);
       }
       /**
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
-      public mlflow.assessments.Assessments.AssessmentOrBuilder getAssessmentsOrBuilder(
+      public org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder getAssessmentsOrBuilder(
           int index) {
         if (assessmentsBuilder_ == null) {
           return assessments_.get(index);  } else {
@@ -94512,7 +94512,7 @@ public final class Service {
       /**
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
-      public java.util.List<? extends mlflow.assessments.Assessments.AssessmentOrBuilder> 
+      public java.util.List<? extends org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> 
            getAssessmentsOrBuilderList() {
         if (assessmentsBuilder_ != null) {
           return assessmentsBuilder_.getMessageOrBuilderList();
@@ -94523,31 +94523,31 @@ public final class Service {
       /**
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
-      public mlflow.assessments.Assessments.Assessment.Builder addAssessmentsBuilder() {
+      public org.mlflow.assessments.proto.Assessments.Assessment.Builder addAssessmentsBuilder() {
         return getAssessmentsFieldBuilder().addBuilder(
-            mlflow.assessments.Assessments.Assessment.getDefaultInstance());
+            org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance());
       }
       /**
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
-      public mlflow.assessments.Assessments.Assessment.Builder addAssessmentsBuilder(
+      public org.mlflow.assessments.proto.Assessments.Assessment.Builder addAssessmentsBuilder(
           int index) {
         return getAssessmentsFieldBuilder().addBuilder(
-            index, mlflow.assessments.Assessments.Assessment.getDefaultInstance());
+            index, org.mlflow.assessments.proto.Assessments.Assessment.getDefaultInstance());
       }
       /**
        * <code>repeated .mlflow.assessments.Assessment assessments = 10;</code>
        */
-      public java.util.List<mlflow.assessments.Assessments.Assessment.Builder> 
+      public java.util.List<org.mlflow.assessments.proto.Assessments.Assessment.Builder> 
            getAssessmentsBuilderList() {
         return getAssessmentsFieldBuilder().getBuilderList();
       }
       private com.google.protobuf.RepeatedFieldBuilderV3<
-          mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder> 
+          org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder> 
           getAssessmentsFieldBuilder() {
         if (assessmentsBuilder_ == null) {
           assessmentsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-              mlflow.assessments.Assessments.Assessment, mlflow.assessments.Assessments.Assessment.Builder, mlflow.assessments.Assessments.AssessmentOrBuilder>(
+              org.mlflow.assessments.proto.Assessments.Assessment, org.mlflow.assessments.proto.Assessments.Assessment.Builder, org.mlflow.assessments.proto.Assessments.AssessmentOrBuilder>(
                   assessments_,
                   ((bitField0_ & 0x00000200) != 0),
                   getParentForChildren(),
@@ -98625,7 +98625,7 @@ public final class Service {
           com.google.protobuf.DurationProto.getDescriptor(),
           com.google.protobuf.FieldMaskProto.getDescriptor(),
           com.google.protobuf.TimestampProto.getDescriptor(),
-          mlflow.assessments.Assessments.getDescriptor(),
+          org.mlflow.assessments.proto.Assessments.getDescriptor(),
         });
     internal_static_mlflow_Metric_descriptor =
       getDescriptor().getMessageTypes().get(0);
@@ -99235,7 +99235,7 @@ public final class Service {
     com.google.protobuf.DurationProto.getDescriptor();
     com.google.protobuf.FieldMaskProto.getDescriptor();
     com.google.protobuf.TimestampProto.getDescriptor();
-    mlflow.assessments.Assessments.getDescriptor();
+    org.mlflow.assessments.proto.Assessments.getDescriptor();
   }
 
   // @@protoc_insertion_point(outer_class_scope)
