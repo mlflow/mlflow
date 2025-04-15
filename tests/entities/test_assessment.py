@@ -24,7 +24,6 @@ def test_assessment_creation():
         "feedback": Feedback(0.9),
         "rationale": "Rationale text",
         "metadata": {"key1": "value1"},
-        "error": None,
         "span_id": "span_id",
         "assessment_id": "assessment_id",
     }
@@ -36,12 +35,13 @@ def test_assessment_creation():
     assessment_with_error = Assessment(
         **{
             **default_params,
-            "feedback": Feedback(None),
-            "error": AssessmentError(error_code="E001", error_message="An error occurred."),
+            "feedback": Feedback(
+                None, AssessmentError(error_code="E001", error_message="An error occurred.")
+            ),
         }
     )
-    assert assessment_with_error.error.error_code == "E001"
-    assert assessment_with_error.error.error_message == "An error occurred."
+    assert assessment_with_error.feedback.error.error_code == "E001"
+    assert assessment_with_error.feedback.error.error_message == "An error occurred."
 
 
 def test_assessment_equality():
@@ -79,19 +79,23 @@ def test_assessment_equality():
     )
     assessment_5 = Assessment(
         source=source_1,
-        feedback=Feedback(None),
-        error=AssessmentError(
-            error_code="E002",
-            error_message="A different error occurred.",
+        feedback=Feedback(
+            None,
+            AssessmentError(
+                error_code="E002",
+                error_message="A different error occurred.",
+            ),
         ),
         **common_args,
     )
     assessment_6 = Assessment(
         source=source_1,
-        feedback=Feedback(None),
-        error=AssessmentError(
-            error_code="E001",
-            error_message="Another error message.",
+        feedback=Feedback(
+            None,
+            AssessmentError(
+                error_code="E001",
+                error_message="Another error message.",
+            ),
         ),
         **common_args,
     )
@@ -116,10 +120,9 @@ def test_assessment_value_validation():
     # Valid cases
     Assessment(expectation=Expectation("MLflow"), **common_args)
     Assessment(feedback=Feedback("This is correct."), **common_args)
-    Assessment(feedback=Feedback(None), error=AssessmentError(error_code="E001"), **common_args)
+    Assessment(feedback=Feedback(None, error=AssessmentError(error_code="E001")), **common_args)
     Assessment(
-        feedback=Feedback("This is correct."),
-        error=AssessmentError(error_code="E001"),
+        feedback=Feedback("This is correct.", AssessmentError(error_code="E001")),
         **common_args,
     )
 
@@ -135,34 +138,24 @@ def test_assessment_value_validation():
             **common_args,
         )
 
-    # Invalid case: Expectation with an error
-    with pytest.raises(MlflowException, match=r"Expectations cannot have"):
-        Assessment(
-            expectation=Expectation("MLflow"),
-            error=AssessmentError(error_code="E001"),
-            **common_args,
-        )
-
     # Invalid case: All three are set
     with pytest.raises(MlflowException, match=r"Exactly one of"):
         Assessment(
             expectation=Expectation("MLflow"),
-            feedback=Feedback("This is correct."),
-            error=AssessmentError(error_code="E001"),
+            feedback=Feedback("This is correct.", AssessmentError(error_code="E001")),
             **common_args,
         )
 
 
 @pytest.mark.parametrize(
-    ("expectation", "feedback", "error"),
+    ("expectation", "feedback"),
     [
-        (Expectation("MLflow"), None, None),
-        (None, Feedback("This is correct."), None),
-        (None, Feedback(None), AssessmentError(error_code="E001")),
+        (Expectation("MLflow"), None),
+        (None, Feedback("This is correct.")),
+        (None, Feedback(None, AssessmentError(error_code="E001"))),
         (
             None,
-            Feedback(None),
-            AssessmentError(error_code="E001", error_message="An error occurred."),
+            Feedback(None, AssessmentError(error_code="E001", error_message="An error occurred.")),
         ),
     ],
 )
@@ -180,7 +173,7 @@ def test_assessment_value_validation():
         None,
     ],
 )
-def test_assessment_conversion(expectation, feedback, error, source, metadata):
+def test_assessment_conversion(expectation, feedback, source, metadata):
     timestamp_ms = int(time.time() * 1000)
     assessment = Assessment(
         trace_id="trace_id",
@@ -192,7 +185,6 @@ def test_assessment_conversion(expectation, feedback, error, source, metadata):
         feedback=feedback,
         rationale="Rationale text",
         metadata=metadata,
-        error=error,
         span_id="span_id",
     )
 
@@ -221,9 +213,3 @@ def test_assessment_conversion(expectation, feedback, error, source, metadata):
 
     if feedback:
         assert dict["feedback"] == feedback.to_dictionary()
-
-    if error:
-        assert dict["error"] == {
-            "error_code": error.error_code,
-            "error_message": error.error_message,
-        }

@@ -4,6 +4,9 @@ import time
 from dataclasses import dataclass
 from typing import Optional, Union
 
+from google.protobuf.json_format import MessageToDict, ParseDict
+from google.protobuf.struct_pb2 import Value
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType  # noqa: F401
@@ -46,12 +49,10 @@ class Assessment(_MlflowObject):
         trace_id: The ID of the trace associated with the assessment. If unset, the assessment
             is not associated with any trace yet.
         expectation: The expectation value of the assessment.
-        feedback: The feedback value of the assessment. Only one of `expectation`, `feedback`
-            or `error` should be specified.
+        feedback: The feedback value of the assessment.  Only one of `expectation` or `feedback`
+            should be specified.
         rationale: The rationale / justification for the assessment.
         metadata: The metadata associated with the assessment.
-        error: An error object representing any issues during generating the assessment.
-            If this is set, the assessment should not contain `expectation` or `feedback`.
         span_id: The ID of the span associated with the assessment, if the assessment should
             be associated with a particular span in the trace.
         create_time_ms: The creation time of the assessment in milliseconds. If unset, the
@@ -73,7 +74,6 @@ class Assessment(_MlflowObject):
     feedback: Optional[Feedback] = None
     rationale: Optional[str] = None
     metadata: Optional[dict[str, str]] = None
-    error: Optional[AssessmentError] = None
     span_id: Optional[str] = None
     create_time_ms: Optional[int] = None
     last_update_time_ms: Optional[int] = None
@@ -86,10 +86,6 @@ class Assessment(_MlflowObject):
         if (self.expectation is not None) + (self.feedback is not None) != 1:
             raise MlflowException.invalid_parameter_value(
                 "Exactly one of `expectation` or `feedback` should be specified.",
-            )
-        if (self.expectation is not None) and self.error is not None:
-            raise MlflowException.invalid_parameter_value(
-                "Expectations cannot have `error` specified.",
             )
 
         # Set timestamp if not provided
@@ -116,13 +112,11 @@ class Assessment(_MlflowObject):
             assessment.rationale = self.rationale
         if self.assessment_id is not None:
             assessment.assessment_id = self.assessment_id
-        if self.error is not None:
-            assessment.error.CopyFrom(self.error.to_proto())
 
         if self.expectation is not None:
             set_pb_value(assessment.expectation.value, self.expectation.value)
         elif self.feedback is not None:
-            set_pb_value(assessment.feedback.value, self.feedback.value)
+            assessment.feedback.CopyFrom(self.feedback.to_proto())
 
         if self.metadata:
             assessment.metadata.update(self.metadata)
@@ -136,12 +130,11 @@ class Assessment(_MlflowObject):
             feedback = None
         elif proto.WhichOneof("value") == "feedback":
             expectation = None
-            feedback = Feedback(parse_pb_value(proto.feedback.value))
+            feedback = Feedback.from_proto(proto.feedback)
         else:
             expectation = None
             feedback = None
 
-        error = AssessmentError.from_proto(proto.error) if proto.error.error_code else None
         # Convert ScalarMapContainer to a normal Python dict
         metadata = dict(proto.metadata) if proto.metadata else None
 
@@ -156,7 +149,6 @@ class Assessment(_MlflowObject):
             feedback=feedback,
             rationale=proto.rationale or None,
             metadata=metadata,
-            error=error,
             span_id=proto.span_id or None,
         )
 
@@ -172,7 +164,6 @@ class Assessment(_MlflowObject):
             "feedback": self.feedback.to_dictionary() if self.feedback else None,
             "rationale": self.rationale,
             "metadata": self.metadata,
-            "error": self.error.to_dictionary() if self.error else None,
             "span_id": self.span_id,
         }
 
@@ -206,11 +197,23 @@ class Feedback(_MlflowObject):
     """
 
     value: AssessmentValueType
+    error: Optional[AssessmentError] = None
 
     def to_proto(self):
-        feedback = ProtoFeedback()
-        feedback.value = self.value
-        return feedback
+        return ProtoFeedback(
+            value=ParseDict(self.value, Value(), ignore_unknown_fields=True),
+            error=self.error.to_proto() if self.error else None,
+        )
+
+    @classmethod
+    def from_proto(self, proto):
+        return Feedback(
+            value=MessageToDict(proto.value),
+            error=AssessmentError.from_proto(proto.error) if proto.HasField("error") else None,
+        )
 
     def to_dictionary(self):
-        return {"value": self.value}
+        d = {"value": self.value}
+        if self.error:
+            d["error"] = self.error.to_dictionary()
+        return d

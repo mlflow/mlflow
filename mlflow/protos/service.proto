@@ -1396,6 +1396,9 @@ message Feedback {
   // - Non-empty list values containing only strings
   // - Other values like structs, non-string lists etc. will be rejected for now
   optional google.protobuf.Value value = 2;
+
+  // An error encountered while generating the feedback. Required if value is set to null.
+  optional AssessmentError error = 3;
 }
 
 // Data and metadata for an assessment of a trace.
@@ -1434,9 +1437,10 @@ message Assessment {
   // Justification for the assessment.
   optional string rationale = 11;
 
+  // [Deprecated, use the ``error`` field in ``feedback`` instead]
   // An error encountered while computing the assessment.
-  optional AssessmentError error = 12;
-  
+  optional AssessmentError error = 12 [deprecated = true];
+
   // Additional metadata describing the assessment and store additional information,
   // such as the chunk relevance chunk_index. This metadata is required to be JSON-serializable.
   map<string, string> metadata = 13;
