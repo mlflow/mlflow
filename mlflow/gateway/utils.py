@@ -30,7 +30,7 @@ def is_valid_endpoint_name(name: str) -> bool:
 
 
 def check_configuration_route_name_collisions(config):
-    routes = config.get("routes") or config.get("endpoints") or []
+    routes = config.get("endpoints") or []
     if len(routes) < 2:
         return
     names = [route["name"] for route in routes]
@@ -42,15 +42,7 @@ def check_configuration_route_name_collisions(config):
 
 
 def check_configuration_deprecated_fields(config):
-    if "routes" in config:
-        warnings.warn(
-            "The 'routes' configuration key has been deprecated and will be removed in an"
-            " upcoming release. Use 'endpoints' instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-
-    routes = config.get("routes", []) or config.get("endpoints", [])
+    routes = config.get("endpoints", [])
     for route in routes:
         if "route_type" in route:
             warnings.warn(

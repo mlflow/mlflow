@@ -212,7 +212,7 @@ class SearchRoutesResponse(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "routes": [
+                "endpoints": [
                     {
                         "name": "openai-chat",
                         "route_type": "llm/v1/chat",

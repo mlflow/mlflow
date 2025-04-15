@@ -477,7 +477,7 @@ class Route(ConfigModel):
 
 
 class GatewayConfig(AliasedConfigModel):
-    routes: list[RouteConfig] = Field(alias="endpoints")
+    endpoints: list[RouteConfig]
 
 
 def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
