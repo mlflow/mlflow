@@ -11,7 +11,6 @@ import click
 from click import UsageError
 
 import mlflow.db
-import mlflow.deployments.cli
 import mlflow.experiments
 import mlflow.runs
 import mlflow.store.artifact.cli
