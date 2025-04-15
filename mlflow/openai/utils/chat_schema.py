@@ -86,15 +86,12 @@ def _parse_inputs_output(inputs: dict[str, Any], output: Any) -> list[ChatMessag
 
 
 def _parse_response_item(
-    item: Union[str, dict[str, Any], BaseModel],
+    item: Union[dict[str, Any], BaseModel],
     past_messages: list[ChatMessage],
 ) -> list[ChatMessage]:
     """Parse Response API output into MLflow standard chat messages"""
     if isinstance(item, BaseModel):
         item = item.model_dump()
-
-    if isinstance(item, str):
-        return [ChatMessage(role="assistant", content=item)]
 
     item_type = item.get("type", "message")
     if item_type == "message":
