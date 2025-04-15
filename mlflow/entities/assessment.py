@@ -11,9 +11,9 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType  # noqa: F401
 from mlflow.exceptions import MlflowException
-from mlflow.protos.service_pb2 import Assessment as ProtoAssessment
-from mlflow.protos.service_pb2 import Expectation as ProtoExpectation
-from mlflow.protos.service_pb2 import Feedback as ProtoFeedback
+from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
+from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
+from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import parse_pb_value, set_pb_value
 
