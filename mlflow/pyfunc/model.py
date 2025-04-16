@@ -1087,6 +1087,9 @@ class _PythonModelPyfuncWrapper:
         hints = self.python_model.predict_type_hints
         # we still need this for backwards compatibility
         if isinstance(model_input, pd.DataFrame):
+            # this avoids error when sending empty data
+            if model_input.empty:
+                return model_input
             if _is_list_str(hints.input):
                 first_string_column = _get_first_string_column(model_input)
                 if first_string_column is None:
