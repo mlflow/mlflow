@@ -168,19 +168,9 @@ class Assessment(_MlflowObject):
         )
 
     def to_dictionary(self):
-        return {
-            "assessment_id": self.assessment_id,
-            "trace_id": self.trace_id,
-            "name": self.name,
-            "source": self.source.to_dictionary(),
-            "create_time_ms": self.create_time_ms,
-            "last_update_time_ms": self.last_update_time_ms,
-            "expectation": self.expectation.to_dictionary() if self.expectation else None,
-            "feedback": self.feedback.to_dictionary() if self.feedback else None,
-            "rationale": self.rationale,
-            "metadata": self.metadata,
-            "span_id": self.span_id,
-        }
+        # Note that MessageToDict excludes None fields. For example, if assessment_id is None,
+        # it won't be included in the resulting dictionary.
+        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
 
 
 @experimental
@@ -228,7 +218,4 @@ class Feedback(_MlflowObject):
         )
 
     def to_dictionary(self):
-        d = {"value": self.value}
-        if self.error:
-            d["error"] = self.error.to_dictionary()
-        return d
+        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
