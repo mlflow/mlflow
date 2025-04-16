@@ -17,7 +17,7 @@ from tests.gateway.tools import Gateway, save_yaml
 @pytest.fixture
 def basic_config_dict():
     return {
-        "routes": [
+        "endpoints": [
             {
                 "name": "completions",
                 "route_type": "llm/v1/completions",
@@ -60,7 +60,7 @@ def basic_config_dict():
 @pytest.fixture
 def mixed_config_dict():
     return {
-        "routes": [
+        "endpoints": [
             {
                 "name": "chat",
                 "route_type": "llm/v1/chat",
@@ -88,7 +88,7 @@ def mixed_config_dict():
 @pytest.fixture
 def mlflow_mixed_config_dict():
     return {
-        "routes": [
+        "endpoints": [
             {
                 "name": "chat-oss",
                 "route_type": "llm/v1/chat",
@@ -314,7 +314,7 @@ def test_search_routes_returns_expected_pages(tmp_path):
     num_routes = MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE + 5
     gateway_route_names = [f"route_{i}" for i in range(num_routes)]
     gateway_config_dict = {
-        "routes": [{"name": route_name, **base_route_config} for route_name in gateway_route_names]
+        "endpoints": [{"name": route_name, **base_route_config} for route_name in gateway_route_names]
     }
     save_yaml(conf, gateway_config_dict)
     with Gateway(conf) as gateway:
