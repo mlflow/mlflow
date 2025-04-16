@@ -3074,6 +3074,41 @@ class ActiveModel(LoggedModel):
 
 
 def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
+    """
+    Set the active model with the specified name or model ID, and it will be used for linking
+    traces that are generated during the lifecycle of the model. The return value can be used as
+    a context manager within a ``with`` block; otherwise, you must call ``set_active_model()``
+    to update active model.
+
+    Args:
+        name: The name of the :py:class:`mlflow.entities.LoggedModel` to set as active.
+            If a LoggedModel with the name does not exist, it will be created under the current
+            experiment. If multiple LoggedModels with the name exist, the latest one will be
+            set as active.
+        model_id: The ID of the :py:class:`mlflow.entities.LoggedModel` to set as active.
+            If no LoggedModel with the ID exists, Exception will be raised.
+
+    Returns:
+        :py:class:`mlflow.ActiveModel` object that acts as a context manager wrapping the
+        LoggedModel's state.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        # Set the active model by name
+        mlflow.set_active_model(name="my_model")
+
+        # Set the active model by model ID
+        model = mlflow.create_external_model(name="test_model")
+        mlflow.set_active_model(model_id=model.model_id)
+
+        # Use the active model in a context manager
+        with mlflow.set_active_model(name="new_model"):
+            print(mlflow.get_active_model_id())
+    """
     if name is None and model_id is None:
         raise MlflowException.invalid_parameter_value(
             message="Either name or model_id must be provided",
@@ -3091,7 +3126,7 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
             )
     elif name is not None:
         logged_models = mlflow.search_logged_models(
-            filter_string=f"name='{name}'", output_format="list"
+            filter_string=f"name='{name}'", max_results=2, output_format="list"
         )
         if len(logged_models) > 1:
             _logger.warning(
