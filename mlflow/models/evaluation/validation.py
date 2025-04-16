@@ -128,7 +128,7 @@ class MetricThreshold:
             threshold_strs.append(f"Minimum Relative Change: {self._min_relative_change}.")
         if self._greater_is_better is not None:
             if self._greater_is_better:
-                threshold_strs.append("Higher value is better.")
+                threshold_strs.append("Greater value is better.")
             else:
                 threshold_strs.append("Lower value is better.")
         return " ".join(threshold_strs)
