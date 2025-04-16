@@ -3115,6 +3115,19 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
         # Use the active model in a context manager
         with mlflow.set_active_model(name="new_model"):
             print(mlflow.get_active_model_id())
+
+        # Traces are automatically linked to the active model
+        mlflow.set_active_model(name="my_model")
+
+
+        @mlflow.trace
+        def predict(model_input):
+            return model_input
+
+
+        predict("abc")
+        traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
+        assert len(traces) == 1
     """
     if name is None and model_id is None:
         raise MlflowException.invalid_parameter_value(

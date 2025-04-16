@@ -48,6 +48,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking.fluent import (
     _get_experiment_id,
     _get_experiment_id_from_env,
@@ -65,6 +66,7 @@ from mlflow.utils.async_logging.async_logging_queue import (
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import multi_context
+from tests.tracing.helper import get_traces
 
 
 def create_run(
@@ -1960,6 +1962,11 @@ def test_set_active_model():
         assert active_model.model_id == model.model_id
         assert mlflow.get_active_model_id() == model.model_id
         assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+        with mlflow.set_active_model(name="new_model"):
+            assert mlflow.get_active_model_id() == logged_model.model_id
+            assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
+        assert mlflow.get_active_model_id() == model.model_id
+        assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
     assert mlflow.get_active_model_id() == logged_model.model_id
     assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
 
@@ -1986,3 +1993,43 @@ def test_set_active_model_env_var(monkeypatch):
         assert MLFLOW_ACTIVE_MODEL_ID.get() == model_id
     assert mlflow.get_active_model_id() is None
     assert MLFLOW_ACTIVE_MODEL_ID.get() is None
+
+
+def test_set_active_model_link_traces():
+    mlflow.set_active_model(name="test_model")
+    model_id = mlflow.get_active_model_id()
+    assert model_id is not None
+
+    @mlflow.trace
+    def predict(model_input):
+        return model_input
+
+    for i in range(3):
+        predict(model_input=i)
+
+    traces = get_traces()
+    assert len(traces) == 3
+    for trace in traces:
+        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
+
+    # manual start span without model_id
+    with mlflow.start_span():
+        predict(model_input=1)
+    traces = get_traces()
+    assert len(traces) == 4
+    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
+
+    # manual start span with model_id
+    with mlflow.start_span(model_id="1234"):
+        predict(model_input=1)
+
+    traces = get_traces()
+    assert len(traces) == 5
+    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == "1234"
+
+    with mlflow.set_active_model(name="new_model") as new_model:
+        predict(model_input=1)
+    traces = get_traces()
+    assert len(traces) == 6
+    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == new_model.model_id
+    assert new_model.model_id != model_id
