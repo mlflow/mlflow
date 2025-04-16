@@ -609,10 +609,10 @@ class FileStore(AbstractStore):
         )
         deleted_run_ids = []
         for deleted_run in deleted_runs:
-            _, run_dir = self._find_run_root(deleted_run.info.run_uuid)
+            _, run_dir = self._find_run_root(deleted_run.info.run_id)
             meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
             if "deleted_time" not in meta or current_time - int(meta["deleted_time"]) >= older_than:
-                deleted_run_ids.append(deleted_run.info.run_uuid)
+                deleted_run_ids.append(deleted_run.info.run_id)
 
         return deleted_run_ids
 

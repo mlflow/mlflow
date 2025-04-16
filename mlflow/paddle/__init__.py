@@ -181,7 +181,7 @@ def save_model(
         mlflow.paddle.log_model(model, "model")
         sk_path_dir = "./test-out"
         mlflow.paddle.save_model(model, sk_path_dir)
-        print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
+        print("Model saved in run %s" % mlflow.active_run().info.run_id)
     """
     import paddle
 

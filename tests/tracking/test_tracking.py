@@ -205,7 +205,7 @@ def test_metric_timestamp():
     with mlflow.start_run() as active_run:
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_1", 30)
-        run_id = active_run.info.run_uuid
+        run_id = active_run.info.run_id
     # Check that metric timestamps are between run start and finish
     client = MlflowClient()
     history = client.get_metric_history(run_id, "name_1")
