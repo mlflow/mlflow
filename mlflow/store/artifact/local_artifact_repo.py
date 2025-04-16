@@ -7,7 +7,7 @@ from mlflow.store.artifact.artifact_repo import (
     try_read_trace_data,
     verify_artifact_path,
 )
-from mlflow.tracing.artifact_utils import TRACE_DATA_FILE_NAME
+from mlflow.tracing.utils.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.file_utils import (
     get_file_info,
     list_all,

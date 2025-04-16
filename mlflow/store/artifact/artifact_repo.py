@@ -24,7 +24,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.tracing.artifact_utils import TRACE_DATA_FILE_NAME
+from mlflow.tracing.utils.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_artifacts_logging_queue import (
     AsyncArtifactsLoggingQueue,

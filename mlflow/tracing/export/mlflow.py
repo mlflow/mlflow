@@ -1,6 +1,7 @@
 import logging
 from typing import Optional, Sequence
 
+from mlflow.tracing.client import TracingClient
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
@@ -36,10 +37,10 @@ class MlflowSpanExporter(SpanExporter):
 
     def __init__(
         self,
-        client: Optional[MlflowClient] = None,
+        tracking_uri: Optional[str] = None,
         display_handler: Optional[IPythonTraceDisplayHandler] = None,
     ):
-        self._client = client or MlflowClient()
+        self._client = TracingClient(tracking_uri)
         self._display_handler = display_handler or get_display_handler()
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._async_queue = AsyncTraceExportQueue()

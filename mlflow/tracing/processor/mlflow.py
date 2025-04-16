@@ -3,6 +3,7 @@ import logging
 import time
 from typing import Optional
 
+from mlflow.tracing.client import TracingClient
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -48,11 +49,11 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
     def __init__(
         self,
         span_exporter: SpanExporter,
-        client: Optional[MlflowClient] = None,
+        tracking_uri: Optional[str] = None,
         experiment_id: Optional[str] = None,
     ):
         self.span_exporter = span_exporter
-        self._client = client or MlflowClient()
+        self._client = TracingClient(tracking_uri)
         self._experiment_id = experiment_id
         self._trace_manager = InMemoryTraceManager.get_instance()
 
@@ -148,7 +149,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             tags.update(dependencies_schema)
         tags.update({TraceTagKey.TRACE_NAME: span.name})
 
-        return self._client._start_tracked_trace(
+        return self._client.start_trace(
             experiment_id=experiment_id,
             # TODO: This timestamp is not accurate because it is not adjusted to exclude the
             #   latency of the backend API call. We do this adjustment for span start time

@@ -131,7 +131,7 @@ from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.tracing.artifact_utils import (
+from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
 )
