@@ -754,15 +754,16 @@ def _fetch_pr_files() -> list[str]:
 
     with open(os.environ["GITHUB_EVENT_PATH"]) as f:
         pr_data = json.load(f)
-        pull_number = pr_data["pull_request"]["number"]
-        repo = pr_data["repository"]["full_name"]
-        resp = requests.get(
-            f"https://api.github.com/repos/{repo}/pulls/{pull_number}/files",
-            params={"per_page": 100},
-            headers={"Authorization": token} if (token := os.environ.get("GITHUB_TOKEN")) else {},
-        )
-        resp.raise_for_status()
-        return [f["filename"] for f in resp.json()]
+
+    pull_number = pr_data["pull_request"]["number"]
+    repo = pr_data["repository"]["full_name"]
+    resp = requests.get(
+        f"https://api.github.com/repos/{repo}/pulls/{pull_number}/files",
+        params={"per_page": 100},
+        headers={"Authorization": token} if (token := os.environ.get("GITHUB_TOKEN")) else {},
+    )
+    resp.raise_for_status()
+    return [f["filename"] for f in resp.json()]
 
 
 @functools.lru_cache(maxsize=1)
