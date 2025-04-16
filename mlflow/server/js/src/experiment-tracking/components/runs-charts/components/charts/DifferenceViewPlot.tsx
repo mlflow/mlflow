@@ -272,8 +272,9 @@ export const DifferenceViewPlot = ({
 
             return (
               <TableHeader
-                resizable={header.column.getCanResize()}
-                resizeHandler={header.getResizeHandler()}
+                header={header}
+                column={header.column}
+                setColumnSizing={table.setColumnSizing}
                 componentId="mlflow.charts.difference_plot.header"
                 key={header.id}
                 multiline={false}

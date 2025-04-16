@@ -95,6 +95,7 @@ from mlflow.utils.openai_utils import (
     _validate_model_params,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.warnings_utils import color_warning
 
 FLAVOR_NAME = "openai"
 MODEL_FILENAME = "model.yaml"
@@ -835,7 +836,6 @@ def load_model(model_uri, dst_path=None):
 
 
 @experimental
-@autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
     log_model_signatures=False,
@@ -891,9 +891,94 @@ def autolog(
         log_traces: If ``True``, traces are logged for OpenAI models. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
-
     if Version(_get_openai_package_version()).major < 1:
         raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
+
+    # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
+    # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
+    _autolog(
+        log_input_examples=log_input_examples,
+        log_model_signatures=log_model_signatures,
+        log_models=log_models,
+        log_datasets=log_datasets,
+        disable=disable,
+        exclusive=exclusive,
+        disable_for_unsupported_versions=disable_for_unsupported_versions,
+        silent=silent,
+        registered_model_name=registered_model_name,
+        extra_tags=extra_tags,
+        log_traces=log_traces,
+    )
+
+    # Tracing OpenAI Agent SDK. This has to be done outside the function annotated with
+    # `@autologging_integration` because the function is not executed when `disable=True`.
+    try:
+        from mlflow.openai._agent_tracer import (
+            add_mlflow_trace_processor,
+            remove_mlflow_trace_processor,
+        )
+
+        if log_traces and not disable:
+            add_mlflow_trace_processor()
+        else:
+            remove_mlflow_trace_processor()
+    except ImportError:
+        pass
+
+
+# This is required by mlflow.autolog()
+autolog.integration_name = FLAVOR_NAME
+
+
+# NB: The @autologging_integration annotation must be applied here, and the callback injection
+# needs to happen outside the annotated function. This is because the annotated function is NOT
+# executed when disable=True is passed. This prevents us from removing our callback and patching
+# when autologging is turned off.
+@autologging_integration(FLAVOR_NAME)
+def _autolog(
+    log_input_examples=False,
+    log_model_signatures=False,
+    log_models=False,
+    log_datasets=False,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
+    registered_model_name=None,
+    extra_tags=None,
+    log_traces=True,
+):
+    if log_models:
+        color_warning(
+            "The `log_models` parameter's behavior will be changed in a future release. "
+            "MLflow no longer logs model artifacts automatically, use `mlflow.openai.log_model` "
+            "to log model artifacts manually if needed.",
+            stacklevel=2,
+            color="red",
+            category=FutureWarning,
+        )
+    else:
+        user_specified_args = {
+            key
+            for key, value in {
+                "log_input_examples": log_input_examples,
+                "log_model_signatures": log_model_signatures,
+                "log_datasets": log_datasets,
+                "registered_model_name": registered_model_name,
+                "extra_tags": extra_tags,
+            }.items()
+            if value not in [False, None]
+        }
+        if user_specified_args:
+            color_warning(
+                "The following parameters are deprecated in OpenAI autologging and will be removed "
+                f"in a future release: `{', '.join(user_specified_args)}`. OpenAI autologging will "
+                "not support automatic model artifacts logging and any related parameters. Please "
+                "log your model manually with `mlflow.openai.log_model` if needed.",
+                stacklevel=2,
+                color="yellow",
+                category=FutureWarning,
+            )
 
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
@@ -914,9 +999,26 @@ def autolog(
         safe_patch(FLAVOR_NAME, Completions, "parse", patched_call)
         safe_patch(FLAVOR_NAME, AsyncCompletions, "parse", async_patched_call)
 
+    try:
+        from openai.resources.responses import AsyncResponses, Responses
+    except ImportError:
+        pass
+    else:
+        safe_patch(FLAVOR_NAME, Responses, "create", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncResponses, "create", async_patched_call)
+
     # Patch Swarm agent to generate traces
     try:
         from swarm import Swarm
+
+        warnings.warn(
+            "Autologging for OpenAI Swarm is deprecated and will be removed in a future release. "
+            "OpenAI Agent SDK is drop-in replacement for agent building and is supported by "
+            "MLflow autologging. Please refer to the OpenAI Agent SDK documentation "
+            "(https://github.com/openai/openai-agents-python) for more details.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
 
         safe_patch(
             FLAVOR_NAME,
