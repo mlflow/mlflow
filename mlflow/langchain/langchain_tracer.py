@@ -32,14 +32,13 @@ from mlflow.tracing.provider import detach_span_from_context, set_span_in_contex
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatMessage, ChatTool, FunctionToolDefinition
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
 
 _should_attach_span_to_context = ContextVar("should_attach_span_to_context", default=True)
-
-PYDANTIC_V2 = pydantic.VERSION.startswith("2.")
 
 
 def patched_callback_manager_init(original, self, *args, **kwargs):
@@ -161,7 +160,9 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         if isinstance(response_format, type) and issubclass(response_format, pydantic.BaseModel):
             try:
                 invocation_params["response_format"] = (
-                    response_format.model_json_schema() if PYDANTIC_V2 else response_format.schema()
+                    response_format.model_json_schema()
+                    if IS_PYDANTIC_V2_OR_NEWER
+                    else response_format.schema()
                 )
             except Exception as e:
                 _logger.error(

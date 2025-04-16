@@ -34,6 +34,7 @@ from mlflow.langchain import _LangChainModelWrapper
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import trace_disabled
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 from tests.tracing.helper import get_traces
 
@@ -697,15 +698,15 @@ def test_tracer_with_manual_traces():
 
 
 def test_serialize_invocation_params_success():
-    PYDANTIC_V2 = pydantic.VERSION.startswith("2.")
-
     class DummyModel(pydantic.BaseModel):
         field: str
 
     callback = MlflowLangchainTracer()
     attributes = {"invocation_params": {"response_format": DummyModel, "other_param": "preserved"}}
     result = callback._serialize_invocation_params(attributes)
-    expected_schema = DummyModel.model_json_schema() if PYDANTIC_V2 else DummyModel.schema()
+    expected_schema = (
+        DummyModel.model_json_schema() if IS_PYDANTIC_V2_OR_NEWER else DummyModel.schema()
+    )
     assert "invocation_params" in result
     assert "response_format" in result["invocation_params"]
     assert result["invocation_params"]["response_format"] == expected_schema
