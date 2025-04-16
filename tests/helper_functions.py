@@ -775,6 +775,7 @@ def _should_skip_hf_test() -> bool:
         # This PR modifies huggingface-related files. Do not skip tests.
         return False
 
+    # Skip tests if the Hugging Face Hub is unhealthy.
     return not _is_hf_hub_healthy()
 
 
