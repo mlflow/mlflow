@@ -1,15 +1,25 @@
-from concurrent.futures import ThreadPoolExecutor
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
+
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataException, MlflowTraceDataNotFound
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowTraceDataCorrupted,
+    MlflowTraceDataException,
+    MlflowTraceDataNotFound,
+)
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -21,7 +31,6 @@ from mlflow.tracking._tracking_service.utils import _get_store, _resolve_trackin
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
-
 
 _logger = logging.getLogger(__name__)
 
@@ -56,11 +65,13 @@ class TracingClient:
     ):
         """
         Start an initial TraceInfo object in the backend store.
+
         Args:
             experiment_id: String id of the experiment for this run.
             timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
             request_metadata: Metadata of the trace.
             tags: Tags of the trace.
+
         Returns:
             The created TraceInfo object.
         """
@@ -82,6 +93,7 @@ class TracingClient:
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
+
         Args:
             request_id: Unique string identifier of the trace.
             timestamp_ms: End time of the trace, in milliseconds. The execution time field
@@ -91,6 +103,7 @@ class TracingClient:
                 metadata logged during the start_trace call.
             tags: Tags of the trace. This will be merged with the existing tags logged
                 during the start_trace or set_trace_tag calls.
+
         Returns:
             The updated TraceInfo object.
         """
@@ -120,10 +133,12 @@ class TracingClient:
     def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
         """
         Get the trace info matching the ``request_id``.
+
         Args:
             request_id: String id of the trace to fetch.
             should_query_v3: If True, the backend store will query the V3 API for the trace info.
                 TODO: Remove this flag once the V3 API is the default in OSS.
+
         Returns:
             TraceInfo object, of type ``mlflow.entities.trace_info.TraceInfo``.
         """
@@ -132,8 +147,10 @@ class TracingClient:
     def get_trace(self, request_id) -> Trace:
         """
         Get the trace matching the ``request_id``.
+
         Args:
             request_id: String id of the trace to fetch.
+
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
@@ -159,8 +176,6 @@ class TracingClient:
                 error_code=BAD_REQUEST,
             ) from None  # Ensure the original spammy exception is not included in the traceback
         return Trace(trace_info, trace_data)
-
-
 
     def get_online_trace_details(
         self,
@@ -341,6 +356,7 @@ class TracingClient:
     def set_trace_tags(self, request_id, tags):
         """
         Set tags on the trace with the given request_id.
+
         Args:
             request_id: The ID of the trace.
             tags: A dictionary of key-value pairs.
@@ -440,7 +456,6 @@ class TracingClient:
         )
         return self.store.create_assessment(assessment)
 
-
     def update_assessment(
         self,
         trace_id: str,
@@ -453,6 +468,7 @@ class TracingClient:
     ):
         """
         Update an existing assessment entity in the backend store.
+
         Args:
             trace_id: The ID of the trace.
             assessment_id: The ID of the feedback assessment to update.
@@ -481,6 +497,7 @@ class TracingClient:
     def delete_assessment(self, trace_id: str, assessment_id: str):
         """
         Delete an assessment associated with a trace.
+
         Args:
             trace_id: The ID of the trace.
             assessment_id: The ID of the assessment to delete.
@@ -513,8 +530,10 @@ class TracingClient:
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
+
         Args:
             trace_info: Updated TraceInfo object to be stored in the backend store.
+
         Returns:
             The updated TraceInfo object.
         """

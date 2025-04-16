@@ -9,7 +9,6 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, Optional, Union
 
 from cachetools import TTLCache
-from mlflow.tracing.client import TracingClient
 from opentelemetry import trace as trace_api
 
 from mlflow.entities import NoOpSpan, SpanType, Trace
@@ -19,6 +18,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
     SpanAttributeKey,
 )
@@ -308,12 +308,10 @@ def start_span_no_context(
         return mlflow_span
     except Exception as e:
         _logger.warning(
-            f"Failed to start span {name}: {e}. "
-            "For full traceback, set logging level to debug.",
+            f"Failed to start span {name}: {e}. For full traceback, set logging level to debug.",
             exc_info=_logger.isEnabledFor(logging.DEBUG),
         )
     return NoOpSpan()
-
 
 
 def get_trace(request_id: str) -> Optional[Trace]:
@@ -861,7 +859,6 @@ def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = 
             target_parent_span_id=span.span_id,
         )
         span.end(
-            request_id=span.request_id,
             status=trace.info.status,
             outputs=remote_root_span.outputs,
             end_time_ns=remote_root_span.end_time_ns,
@@ -936,7 +933,6 @@ def log_trace(
         start_time_ns=start_time_ms * 1000000 if start_time_ms else None,
     )
     span.end(
-        request_id=span.request_id,
         outputs=response,
         end_time_ns=(start_time_ms + execution_time_ms) * 1000000
         if start_time_ms and execution_time_ms

@@ -1,12 +1,12 @@
 import logging
 from typing import Optional, Sequence
 
-from mlflow.tracing.client import TracingClient
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
@@ -14,7 +14,6 @@ from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import maybe_get_request_id
-from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
 

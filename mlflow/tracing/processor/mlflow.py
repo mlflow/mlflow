@@ -3,7 +3,6 @@ import logging
 import time
 from typing import Optional
 
-from mlflow.tracing.client import TracingClient
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -11,6 +10,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
     TRACE_SCHEMA_VERSION,
@@ -28,7 +28,6 @@ from mlflow.tracing.utils import (
     maybe_get_logged_model_id,
     maybe_get_request_id,
 )
-from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
 from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.registry import resolve_tags

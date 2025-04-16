@@ -404,11 +404,12 @@ class LiveSpan(Span):
         """
         self._span.add_event(event.name, event.attributes, event.timestamp)
 
-    def end(self,
+    def end(
+        self,
         outputs: Optional[Any] = None,
         attributes: Optional[dict[str, Any]] = None,
         status: Optional[Union[SpanStatus, str]] = None,
-        end_time_ns: Optional[int] = None
+        end_time_ns: Optional[int] = None,
     ):
         """
         End the span.
@@ -500,7 +501,7 @@ class LiveSpan(Span):
         parent_span = trace_manager.get_span_from_id(request_id, parent_span_id)
 
         # Create a new span with the same name, parent, and start time
-        otel_span = mlflow.tracing.provider._start_detached_otel_span(
+        otel_span = mlflow.tracing.provider.start_detached_span(
             name=span.name,
             parent=parent_span._span if parent_span else None,
             start_time_ns=span.start_time_ns,
@@ -530,7 +531,7 @@ class LiveSpan(Span):
         )
 
         # Mark the span completed with the original end time
-        clone_span.end(end_time=span.end_time_ns)
+        clone_span.end(end_time_ns=span.end_time_ns)
         return clone_span
 
 
@@ -617,11 +618,12 @@ class NoOpSpan(Span):
     def add_event(self, event: SpanEvent):
         pass
 
-    def end(self,
+    def end(
+        self,
         outputs: Optional[Any] = None,
         attributes: Optional[dict[str, Any]] = None,
         status: Optional[Union[SpanStatus, str]] = None,
-        end_time_ns: Optional[int] = None
+        end_time_ns: Optional[int] = None,
     ):
         pass
 

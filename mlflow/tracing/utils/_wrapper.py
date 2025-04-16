@@ -2,8 +2,7 @@ import functools
 import inspect
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional
-
+from typing import Any, Callable, Optional
 
 from mlflow.entities import NoOpSpan, SpanType
 from mlflow.entities.span import LiveSpan
@@ -81,7 +80,6 @@ def wrap_function(
     return functools.wraps(fn)(wrapper)
 
 
-
 def wrap_generator(
     fn: Callable,
     name: Optional[str] = None,
@@ -101,6 +99,8 @@ def wrap_generator(
             # C
             yield i * 2
         # E
+
+
     stream = generate_stream()
     # A
     for chunk in stream:
