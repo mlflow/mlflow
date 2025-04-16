@@ -817,8 +817,8 @@ except ImportError:
 
         def __init__(self, *args, **kwargs):
             raise ImportError(
-                "ResponsesAgent requires Pydantic v2 or newer. Please upgrade your Pydantic version "
-                "to use this class."
+                "ResponsesAgent and its pydantic classes are not supported in pydantic v1. "
+                "Please upgrade to pydantic v2 or newer to use ResponsesAgent.",
             )
 
 
