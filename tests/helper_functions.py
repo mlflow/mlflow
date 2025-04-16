@@ -13,6 +13,7 @@ import time
 import uuid
 from contextlib import ExitStack, contextmanager
 from functools import wraps
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -734,18 +735,20 @@ def start_mock_openai_server():
 
 def _is_hf_hub_healthy() -> bool:
     """
-    Is the Hugging Face Hub healthy?
+    Check if the Hugging Face Hub is healthy by attempting to load a small dataset.
     """
-    from datasets import load_dataset
+    import datasets
+    from huggingface_hub import HfApi
 
     try:
-        load_dataset("lhoestq/demo1")
+        dataset = next(HfApi().list_datasets(filter="size_categories:n<1K", limit=1))
+        datasets.load_dataset(dataset.id)
         return True
     except requests.exceptions.RequestException:
         return False
 
 
-def _fetch_pr_files() -> list[str]:
+def _iter_pr_files() -> Iterator[str]:
     if "GITHUB_ACTIONS" not in os.environ:
         return []
 
@@ -757,13 +760,21 @@ def _fetch_pr_files() -> list[str]:
 
     pull_number = pr_data["pull_request"]["number"]
     repo = pr_data["repository"]["full_name"]
-    resp = requests.get(
-        f"https://api.github.com/repos/{repo}/pulls/{pull_number}/files",
-        params={"per_page": 100},
-        headers={"Authorization": token} if (token := os.environ.get("GITHUB_TOKEN")) else {},
-    )
-    resp.raise_for_status()
-    return [f["filename"] for f in resp.json()]
+    page = 1
+    per_page = 100
+    headers = {"Authorization": token} if (token := os.environ.get("GITHUB_TOKEN")) else None
+    while True:
+        resp = requests.get(
+            f"https://api.github.com/repos/{repo}/pulls/{pull_number}/files",
+            params={"per_page": per_page, "page": page},
+            headers=headers,
+        )
+        resp.raise_for_status()
+        files = [f["filename"] for f in resp.json()]
+        yield from files
+        if len(files) < per_page:
+            break
+        page += 1
 
 
 @functools.lru_cache(maxsize=1)
@@ -772,7 +783,7 @@ def _should_skip_hf_test() -> bool:
         # This is not a CI run. Do not skip tests.
         return False
 
-    if any(("huggingface" in f or "transformers" in f) for f in _fetch_pr_files()):
+    if any(("huggingface" in f or "transformers" in f) for f in _iter_pr_files()):
         # This PR modifies huggingface-related files. Do not skip tests.
         return False
 
