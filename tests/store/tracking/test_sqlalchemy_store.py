@@ -809,7 +809,7 @@ def test_run_info(store: SqlAlchemyStore):
         "experiment_id": experiment_id,
         "name": "test run",
         "user_id": "Anderson",
-        "run_uuid": "test",
+        "run_id": "test",
         "status": RunStatus.to_string(RunStatus.SCHEDULED),
         "source_type": SourceType.to_string(SourceType.LOCAL),
         "source_name": "Python application",
