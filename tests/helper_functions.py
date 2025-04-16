@@ -772,7 +772,7 @@ def _should_skip_hf_test() -> bool:
         # This is not a CI run. Do not skip tests.
         return False
 
-    if any(("huggingface" in f) for f in _fetch_pr_files()):
+    if any(("huggingface" in f or "transformers" in f) for f in _fetch_pr_files()):
         # This PR modifies huggingface-related files. Do not skip tests.
         return False
 
