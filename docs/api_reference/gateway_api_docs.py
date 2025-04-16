@@ -50,7 +50,7 @@ API_HTML = """
 
 def main():
     config = """
-routes:
+endpoints:
   - name: chat
     route_type: llm/v1/chat
     model:
