@@ -57,6 +57,7 @@ as shown below
 ```
 @pytest.mark.parametrize(("directory", "command"), [
     ('sklearn_logistic_regression', ['python', 'train.py']),
+    ('h2o', ['python', 'random_forest.py']),
     ('quickstart', ['python', 'mlflow_tracking.py']),
     ("new_example_dir", ["python", "train.py"]),
 ])

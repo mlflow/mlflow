@@ -16,6 +16,7 @@
   "mlflow.gateway": "api_reference/python_api/mlflow.gateway.html",
   "mlflow.gemini": "api_reference/python_api/mlflow.gemini.html",
   "mlflow.groq": "api_reference/python_api/mlflow.groq.html",
+  "mlflow.h2o": "api_reference/python_api/mlflow.h2o.html",
   "mlflow.johnsnowlabs": "api_reference/python_api/mlflow.johnsnowlabs.html",
   "mlflow.keras": "api_reference/python_api/mlflow.keras.html",
   "mlflow.langchain": "api_reference/python_api/mlflow.langchain.html",

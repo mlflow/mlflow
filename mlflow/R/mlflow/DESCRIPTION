@@ -50,6 +50,7 @@ Imports:
 Suggests:
     carrier,
     covr,
+    h2o,
     keras,
     lintr,
     sparklyr,
@@ -67,13 +68,14 @@ Collate:
     'logging.R'
     'mlflow-package.R'
     'model-crate.R'
-    'model-keras.R'
     'model-python.R'
+    'model.R'
+    'model-utils.R'
+    'model-h2o.R'
+    'model-keras.R'
     'model-registry.R'
     'model-serve.R'
     'model-swagger.R'
-    'model.R'
-    'model-utils.R'
     'model-xgboost.R'
     'project-param.R'
     'project-run.R'
