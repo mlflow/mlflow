@@ -224,7 +224,6 @@ class SqlRun(Base):
             mlflow.entities.Run: Description of the return value.
         """
         run_info = RunInfo(
-            run_uuid=self.run_uuid,
             run_id=self.run_uuid,
             run_name=self.name,
             experiment_id=str(self.experiment_id),

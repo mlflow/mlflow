@@ -108,7 +108,6 @@ def test_creation_and_hydration(run_data, run_info, run_inputs):
 
 def test_string_repr():
     run_info = RunInfo(
-        run_uuid="hi",
         run_id="hi",
         run_name="name",
         experiment_id=0,
