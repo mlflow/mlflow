@@ -750,10 +750,10 @@ def _is_hf_hub_healthy() -> bool:
 
 def _iter_pr_files() -> Iterator[str]:
     if "GITHUB_ACTIONS" not in os.environ:
-        return []
+        return
 
     if os.environ.get("GITHUB_EVENT_NAME") != "pull_request":
-        return []
+        return
 
     with open(os.environ["GITHUB_EVENT_PATH"]) as f:
         pr_data = json.load(f)
