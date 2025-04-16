@@ -15,7 +15,7 @@ from tests.gateway.tools import MockAsyncResponse
 def client() -> TestClient:
     config = GatewayConfig(
         **{
-            "routes": [
+            "endpoints": [
                 {
                     "name": "completions-gpt4",
                     "route_type": "llm/v1/completions",
@@ -115,7 +115,7 @@ def test_get_route(client: TestClient):
 def test_dynamic_route():
     config = GatewayConfig(
         **{
-            "routes": [
+            "endpoints": [
                 {
                     "name": "chat",
                     "route_type": "llm/v1/chat",

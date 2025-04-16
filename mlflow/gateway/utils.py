@@ -32,7 +32,8 @@ def is_valid_endpoint_name(name: str) -> bool:
 def check_configuration_route_name_collisions(config):
     if 'routes' in config:
         raise MlflowException.invalid_parameter_value(
-            "The 'routes' field is not supported in the configuration file, use 'endpoints' instead."
+            "The 'routes' field is not supported in the configuration file, "
+            "use 'endpoints' instead."
         )
     routes = config.get("endpoints") or []
     if len(routes) < 2:
