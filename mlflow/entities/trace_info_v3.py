@@ -11,7 +11,6 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos import databricks_trace_server_pb2 as pb
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 
 
 @dataclass
@@ -27,9 +26,6 @@ class TraceInfoV3(_MlflowObject):
     trace_metadata: dict[str, str] = field(default_factory=dict)
     tags: dict[str, str] = field(default_factory=dict)
     assessments: list[Assessment] = field(default_factory=list)
-
-    def __post_init__(self):
-        self.trace_metadata.update({TRACE_SCHEMA_VERSION_KEY: "3"})
 
     def to_dict(self) -> dict[str, Any]:
         return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
