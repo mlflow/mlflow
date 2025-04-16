@@ -730,3 +730,58 @@ def start_mock_openai_server():
             yield base_url
         finally:
             proc.kill()
+
+
+def is_hf_hub_healthy() -> bool:
+    """
+    Is the Hugging Face Hub healthy?
+    """
+    from datasets import load_dataset
+
+    try:
+        load_dataset("lhoestq/demo1")
+        return True
+    except requests.exceptions.RequestException:
+        return False
+
+
+def fetch_changed_files() -> list[str]:
+    if "GITHUB_ACTIONS" not in os.environ:
+        return []
+
+    if os.environ.get("GITHUB_EVENT_NAME") != "pull_request":
+        return []
+
+    with open(os.environ["GITHUB_EVENT_PATH"]) as f:
+        pr_data = json.load(f)
+        pull_number = pr_data["pull_request"]["number"]
+        repo = pr_data["repository"]["full_name"]
+        resp = requests.get(
+            f"https://api.github.com/repos/{repo}/pulls/{pull_number}/files",
+            params={"per_page": 100},
+            headers={"Authorization": token} if (token := os.environ.get("GITHUB_TOKEN")) else {},
+        )
+        resp.raise_for_status()
+        return [f["filename"] for f in resp.json()]
+
+
+@functools.lru_cache
+def _should_skip() -> bool:
+    # Do not skip if not in CI
+    if "CI" not in os.environ:
+        return False
+
+    if any(("huggingface" in f) for f in fetch_changed_files):
+        return False
+
+    return not is_hf_hub_healthy()
+
+
+def skip_if_hf_hub_unhealthy():
+    return pytest.mark.skipif(
+        _should_skip(),
+        reason=(
+            "Skipping test because Hugging Face Hub is unhealthy. "
+            "See https://status.huggingface.co/ for more information."
+        ),
+    )
