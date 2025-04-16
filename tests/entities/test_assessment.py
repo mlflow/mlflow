@@ -43,6 +43,28 @@ def test_assessment_creation():
     assert assessment_with_error.feedback.error.error_code == "E001"
     assert assessment_with_error.feedback.error.error_message == "An error occurred."
 
+    # Both feedback value and error can be set. For example, a default fallback value can
+    # be set when LLM judge fails to provide a value.
+    assessment_with_value_and_error = Assessment(
+        **{
+            **default_params,
+            "feedback": Feedback(value=1, error=AssessmentError(error_code="E001")),
+        }
+    )
+    assert assessment_with_value_and_error.feedback.value == 1
+    assert assessment_with_value_and_error.feedback.error.error_code == "E001"
+
+    # Backward compatibility. "error" was previously in the Assessment class.
+    assessment_legacy_error = Assessment(
+        **{
+            **default_params,
+            "error": AssessmentError(error_code="E001", error_message="An error occurred."),
+            "feedback": Feedback(None),
+        }
+    )
+    assert assessment_legacy_error.feedback.error.error_code == "E001"
+    assert assessment_legacy_error.feedback.error.error_message == "An error occurred."
+
 
 def test_assessment_equality():
     source_1 = AssessmentSource(source_type="HUMAN", source_id="user_1")
