@@ -732,7 +732,7 @@ def start_mock_openai_server():
             proc.kill()
 
 
-def is_hf_hub_healthy() -> bool:
+def _is_hf_hub_healthy() -> bool:
     """
     Is the Hugging Face Hub healthy?
     """
@@ -745,7 +745,7 @@ def is_hf_hub_healthy() -> bool:
         return False
 
 
-def fetch_changed_files() -> list[str]:
+def _fetch_pr_files() -> list[str]:
     if "GITHUB_ACTIONS" not in os.environ:
         return []
 
@@ -765,21 +765,22 @@ def fetch_changed_files() -> list[str]:
         return [f["filename"] for f in resp.json()]
 
 
-@functools.lru_cache
-def _should_skip() -> bool:
-    # Do not skip if not in CI
+@functools.lru_cache(maxsize=1)
+def _should_skip_hf_test() -> bool:
     if "CI" not in os.environ:
+        # This is not a CI run. Do not skip tests.
         return False
 
-    if any(("huggingface" in f) for f in fetch_changed_files):
+    if any(("huggingface" in f) for f in _fetch_pr_files()):
+        # This PR modifies huggingface-related files. Do not skip tests.
         return False
 
-    return not is_hf_hub_healthy()
+    return not _is_hf_hub_healthy()
 
 
 def skip_if_hf_hub_unhealthy():
     return pytest.mark.skipif(
-        _should_skip(),
+        _should_skip_hf_test(),
         reason=(
             "Skipping test because Hugging Face Hub is unhealthy. "
             "See https://status.huggingface.co/ for more information."
