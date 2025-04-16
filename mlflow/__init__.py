@@ -197,6 +197,7 @@ from mlflow.tracking._model_registry.fluent import (
     set_prompt_alias,
 )
 from mlflow.tracking.fluent import (
+    ActiveModel,
     ActiveRun,
     active_run,
     autolog,
@@ -255,6 +256,7 @@ from mlflow.utils.doctor import doctor
 
 __all__ = [
     "ActiveRun",
+    "ActiveModel",
     "MlflowClient",
     "MlflowException",
     "active_run",
