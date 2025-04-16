@@ -33,6 +33,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
+    MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
@@ -3064,6 +3065,7 @@ class ActiveModel(LoggedModel):
         super().__init__(**logged_model.to_dictionary())
         self.last_active_model_id = _ACTIVE_MODEL_ID.get()
         _ACTIVE_MODEL_ID.set(self.model_id)
+        MLFLOW_ACTIVE_MODEL_ID.set(self.model_id)
         _logger.info(f"Active model set to model with ID: {self.model_id}")
 
     def __enter__(self):
@@ -3071,6 +3073,10 @@ class ActiveModel(LoggedModel):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         _ACTIVE_MODEL_ID.set(self.last_active_model_id)
+        if self.last_active_model_id is not None:
+            MLFLOW_ACTIVE_MODEL_ID.set(self.last_active_model_id)
+        else:
+            MLFLOW_ACTIVE_MODEL_ID.unset()
 
 
 def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
@@ -3078,7 +3084,8 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
     Set the active model with the specified name or model ID, and it will be used for linking
     traces that are generated during the lifecycle of the model. The return value can be used as
     a context manager within a ``with`` block; otherwise, you must call ``set_active_model()``
-    to update active model.
+    to update active model. Note that this function also sets the environment variable
+    ``MLFLOW_ACTIVE_MODEL_ID`` to the model ID of the active model.
 
     Args:
         name: The name of the :py:class:`mlflow.entities.LoggedModel` to set as active.
@@ -3115,14 +3122,11 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
         )
 
     if model_id is not None:
-        try:
-            logged_model = mlflow.get_logged_model(model_id)
-        except Exception as e:
-            raise MlflowException(f"Failed to find LoggedModel with model_id {model_id}") from e
+        logged_model = mlflow.get_logged_model(model_id)
         if name is not None and logged_model.name != name:
             raise MlflowException.invalid_parameter_value(
-                f"LoggedModel with model_id {model_id} has name {logged_model.name}, which does "
-                f"not match the provided name {name}."
+                f"LoggedModel with model_id {model_id!r} has name {logged_model.name!r}, which does"
+                f" not match the provided name {name!r}."
             )
     elif name is not None:
         logged_models = mlflow.search_logged_models(
@@ -3130,11 +3134,11 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
         )
         if len(logged_models) > 1:
             _logger.warning(
-                f"Multiple LoggedModels found with name {name}, setting the latest one as active "
+                f"Multiple LoggedModels found with name {name!r}, setting the latest one as active "
                 "model."
             )
         if len(logged_models) == 0:
-            _logger.info(f"LoggedModel with name {name} does not exist, creating one...")
+            _logger.info(f"LoggedModel with name {name!r} does not exist, creating one...")
             logged_model = mlflow.create_external_model(name=name)
         else:
             logged_model = logged_models[0]
@@ -3143,12 +3147,14 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
 
 def get_active_model_id() -> Optional[str]:
     """
-    Get the active model ID.
+    Get the active model ID. If no active model is set with ``set_active_model()``, this will
+    try to get the model ID from the environment variable ``MLFLOW_ACTIVE_MODEL_ID``.
+    If neither is set, return None.
 
     Returns:
         The active model ID if set, otherwise None.
     """
-    return _ACTIVE_MODEL_ID.get()
+    return _ACTIVE_MODEL_ID.get() or MLFLOW_ACTIVE_MODEL_ID.get()
 
 
 def _reset_active_model_id() -> None:
@@ -3156,3 +3162,4 @@ def _reset_active_model_id() -> None:
     Should be called only for testing purposes.
     """
     _ACTIVE_MODEL_ID.set(None)
+    MLFLOW_ACTIVE_MODEL_ID.unset()

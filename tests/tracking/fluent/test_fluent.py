@@ -35,6 +35,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
+    MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_REGISTRY_URI,
@@ -1936,13 +1937,16 @@ def test_set_active_model():
 
     mlflow.set_active_model(name="test_model")
     assert mlflow.get_active_model_id() == model.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
 
     mlflow.set_active_model(model_id=model.model_id)
     assert mlflow.get_active_model_id() == model.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
 
     model2 = mlflow.create_external_model(name="test_model")
     mlflow.set_active_model(name="test_model")
     assert mlflow.get_active_model_id() == model2.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == model2.model_id
 
     mlflow.set_active_model(name="new_model")
     logged_model = mlflow.search_logged_models(
@@ -1950,11 +1954,14 @@ def test_set_active_model():
     )[0]
     assert logged_model.name == "new_model"
     assert mlflow.get_active_model_id() == logged_model.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
 
     with mlflow.set_active_model(model_id=model.model_id) as active_model:
         assert active_model.model_id == model.model_id
         assert mlflow.get_active_model_id() == model.model_id
+        assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
     assert mlflow.get_active_model_id() == logged_model.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
 
 
 def test_set_active_model_error():
@@ -1965,5 +1972,17 @@ def test_set_active_model_error():
     with pytest.raises(MlflowException, match=r"does not match the provided name"):
         mlflow.set_active_model(name="abc", model_id=model.model_id)
 
-    with pytest.raises(MlflowException, match=r"Failed to find LoggedModel with model_id"):
+    with pytest.raises(MlflowException, match=r"Logged model with ID '1234' not found"):
         mlflow.set_active_model(model_id="1234")
+
+
+def test_set_active_model_env_var(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "1234")
+    assert mlflow.get_active_model_id() == "1234"
+
+    with mlflow.set_active_model(name="abc"):
+        model_id = mlflow.get_active_model_id()
+        assert model_id is not None
+        assert MLFLOW_ACTIVE_MODEL_ID.get() == model_id
+    assert mlflow.get_active_model_id() is None
+    assert MLFLOW_ACTIVE_MODEL_ID.get() is None
