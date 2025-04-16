@@ -9,6 +9,7 @@ from mlflow.genai.evaluation.utils import (
     _convert_to_legacy_eval_set,
 )
 from mlflow.genai.scorers import BuiltInScorer, Scorer
+from mlflow.models import Model
 from mlflow.models.evaluation.base import _get_model_from_function
 from mlflow.pyfunc import PyFuncModel
 from mlflow.tracing.fluent import is_traced
@@ -119,6 +120,7 @@ def evaluate(
 
     pyfunc_model = PyFuncModel(
         model_id=model_id,
+        model_meta=Model(),
         model_impl=_get_model_from_function(predict_fn),
     )
 

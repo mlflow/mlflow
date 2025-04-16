@@ -8,6 +8,7 @@ import json
 import logging
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, Optional, Union
+from unittest.mock import MagicMock, patch
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
@@ -20,6 +21,7 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
+from mlflow.pyfunc import PyFuncModel
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.constant import (
@@ -162,7 +164,6 @@ def trace(
     """
 
     def decorator(fn):
-        setattr(fn, "_is_traced", True)
         if inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
             return _wrap_generator(fn, name, span_type, attributes, output_reducer)
         else:
@@ -175,17 +176,18 @@ def trace(
     return decorator(func) if func else decorator
 
 
-def is_traced(fn: Callable) -> bool:
+def is_traced(model: PyFuncModel):
     """
-    Check if the function is traced (i.e. decorated with @mlflow.trace).
-
-    Args:
-        fn: The function to check.
-
-    Returns:
-        True if the function is traced, False otherwise.
+    Check if a PyFuncModel is being traced without logging to the database.
     """
-    return getattr(fn, "_is_traced", False)
+
+    with patch("mlflow.tracing.provider._get_tracer", return_value=None) as mock_get_tracer:
+        try:
+            model.predict(MagicMock())
+        except Exception:
+            pass
+
+        return 0 < mock_get_tracer.call_count
 
 
 def _wrap_function(

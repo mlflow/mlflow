@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
+import openai
 import pandas as pd
 import pytest
 
@@ -22,6 +23,9 @@ from mlflow.entities import (
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
+from mlflow.models import Model
+from mlflow.models.evaluation.base import _get_model_from_function
+from mlflow.pyfunc import PyFuncModel
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -33,6 +37,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.export.inference_table import pop_trace
+from mlflow.tracing.fluent import is_traced
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.utils.file_utils import local_file_uri_to_path
@@ -1712,12 +1717,58 @@ def test_log_trace_fail_within_span_context():
             )
 
 
-def test_is_traced_function():
-    def some_func():
-        pass
+def get_openai_predict_fn(with_tracing=False):
+    client = openai.OpenAI()
 
-    assert not mlflow.tracing.fluent.is_traced(some_func)
+    if with_tracing:
+        mlflow.autolog()
+        mlflow.openai.autolog()
 
-    some_func = mlflow.trace(some_func)
+    def predict_fn(request):
+        response = client.chat.completions.create(
+            message=request["messages"],
+            model="gpt-4o-mini",
+        )
+        return response.choices[0].message.content
 
-    assert mlflow.tracing.fluent.is_traced(some_func)
+    return predict_fn
+
+
+def get_dummy_predict_fn(with_tracing=False):
+    def predict_fn(inp):
+        return inp * 2
+
+    if with_tracing:
+        return mlflow.trace(predict_fn)
+
+    return predict_fn
+
+
+def get_pyfunc_model(predict_fn):
+    return PyFuncModel(
+        model_id=None,
+        model_meta=Model(),
+        model_impl=_get_model_from_function(predict_fn),
+    )
+
+
+@pytest.fixture
+def mock_openai_env(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "fake_api_key")
+
+
+@pytest.mark.usefixtures("mock_openai_env")
+@pytest.mark.parametrize(
+    ("test_case", "predict_fn_generator", "with_tracing", "expected_traced"),
+    [
+        ("dummy predict_fn without tracing", get_dummy_predict_fn, False, False),
+        ("dummy predict_fn with tracing", get_dummy_predict_fn, True, True),
+        ("openai predict_fn without tracing", get_openai_predict_fn, False, False),
+        ("openai predict_fn with tracing", get_openai_predict_fn, True, True),
+    ],
+)
+def test_is_traced(test_case, predict_fn_generator, with_tracing, expected_traced):
+    predict_fn = predict_fn_generator(with_tracing=with_tracing)
+    model = get_pyfunc_model(predict_fn)
+    is_actually_traced = is_traced(model)
+    assert is_actually_traced == expected_traced, f"Failed for {test_case}"

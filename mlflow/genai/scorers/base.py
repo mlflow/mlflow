@@ -18,7 +18,7 @@ class Scorer(BaseModel):
         outputs=None,
         expectations=None,
         trace=None,
-    ) -> Union[float, bool, str, Assessment]:
+    ) -> Union[float, bool, str, Assessment, list[Assessment]]:
         """
 
         Args:
