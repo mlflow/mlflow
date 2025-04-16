@@ -1927,3 +1927,43 @@ def test_search_logged_models_pagination():
             ),
         ]
         mock_client.search_logged_models.assert_has_calls(expected_calls)
+
+
+def test_set_active_model():
+    assert mlflow.get_active_model_id() is None
+
+    model = mlflow.create_external_model(name="test_model")
+
+    mlflow.set_active_model(name="test_model")
+    assert mlflow.get_active_model_id() == model.model_id
+
+    mlflow.set_active_model(model_id=model.model_id)
+    assert mlflow.get_active_model_id() == model.model_id
+
+    model2 = mlflow.create_external_model(name="test_model")
+    mlflow.set_active_model(name="test_model")
+    assert mlflow.get_active_model_id() == model2.model_id
+
+    mlflow.set_active_model(name="new_model")
+    logged_model = mlflow.search_logged_models(
+        filter_string="name='new_model'", output_format="list"
+    )[0]
+    assert logged_model.name == "new_model"
+    assert mlflow.get_active_model_id() == logged_model.model_id
+
+    with mlflow.set_active_model(model_id=model.model_id) as active_model:
+        assert active_model.model_id == model.model_id
+        assert mlflow.get_active_model_id() == model.model_id
+    assert mlflow.get_active_model_id() == logged_model.model_id
+
+
+def test_set_active_model_error():
+    with pytest.raises(MlflowException, match=r"Either name or model_id must be provided"):
+        mlflow.set_active_model()
+
+    model = mlflow.create_external_model(name="test_model")
+    with pytest.raises(MlflowException, match=r"does not match the provided name"):
+        mlflow.set_active_model(name="abc", model_id=model.model_id)
+
+    with pytest.raises(MlflowException, match=r"Failed to find LoggedModel with model_id"):
+        mlflow.set_active_model(model_id="1234")
