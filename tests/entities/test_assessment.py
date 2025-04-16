@@ -199,7 +199,7 @@ def test_assessment_conversion(expectation, feedback, source, metadata):
     dict = assessment.to_dictionary()
     assert dict.get("assessment_id") == assessment.assessment_id
     assert dict["trace_id"] == assessment.trace_id
-    assert dict.get("assessment_name") == assessment.name
+    assert dict["assessment_name"] == assessment.name
     assert dict["source"].get("source_type") == source.source_type
     assert dict["source"].get("source_id") == source.source_id
     assert proto_timestamp_to_milliseconds(dict["create_time"]) == assessment.create_time_ms

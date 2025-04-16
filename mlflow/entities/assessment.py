@@ -153,6 +153,8 @@ class Assessment(_MlflowObject):
         )
 
     def to_dictionary(self):
+        # Note that MessageToDict excludes None fields. For example, if assessment_id is None,
+        # it won't be included in the resulting dictionary.
         return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
 
 
