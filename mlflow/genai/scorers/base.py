@@ -1,6 +1,5 @@
 import functools
 import inspect
-import types
 from typing import Callable, Literal, Optional, Union
 
 from pydantic import BaseModel

@@ -1,14 +1,16 @@
-from databricks.agents.evals import metric
-from typing import Union
+from typing import Any, Optional, Union
 
+from databricks.agents.evals import metric
 from pyspark import sql as spark
 
 from mlflow.data.evaluation_dataset import EvaluationDataset
+from mlflow.entities import Trace
 from mlflow.evaluation import Assessment
 from mlflow.genai.scorers import Scorer
 from mlflow.metrics.base import MetricValue
 from mlflow.metrics.genai.genai_metric import _get_aggregate_results
-from mlflow.models import EvaluationMetric, make_metric
+from mlflow.models import EvaluationMetric
+from mlflow.types.llm import ChatCompletionRequest
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -33,29 +35,21 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
     Takes in a Scorer object and converts it into a legacy MLflow 2.x
     Metric object.
     """
-    # TODO: complete implementation
-    metric_metadata = {"assessment_type": "ANSWER"}
-    genai_metric_args = {
-        "name": scorer.name,
-        "aggregations": scorer.aggregations,
-        "greater_is_better": scorer.greater_is_better,
-        "metric_metadata": metric_metadata,
-    }
 
     def eval_fn(
-        inputs,
-        predictions,
-        targets,
-        *args,
+        request_id: str,
+        request: Union[ChatCompletionRequest, str],
+        response: Optional[Any],
+        expected_response: Optional[Any],
+        trace: Optional[Trace],
         **kwargs,
     ) -> MetricValue:
-        # TODO: how do we get the trace?
         # TODO: predictions and targets are out of order
         scores = scorer(
-            inputs=inputs,
-            outputs=predictions,
-            expectations=targets,
-            trace=None,
+            inputs=request,
+            outputs=response,
+            expectations=expected_response,
+            trace=trace,
         )
 
         scores = scores if isinstance(scores, list) else [scores]
@@ -81,10 +75,7 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
             aggregate_results=aggregated_results,
         )
 
-    return make_metric(
+    return metric(
         eval_fn=eval_fn,
         name=scorer.name,
-        greater_is_better=scorer.greater_is_better,
-        metric_metadata=metric_metadata,
-        genai_metric_args=genai_metric_args,
     )
