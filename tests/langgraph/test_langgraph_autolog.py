@@ -69,7 +69,7 @@ def test_langgraph_tracing_prebuilt():
     loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
 
     # No trace should be created for the first call
-    assert mlflow.get_last_active_trace() is None
+    assert mlflow.get_trace(mlflow.get_last_active_trace_id()) is None
 
     loaded_graph.invoke(input_example)
 
@@ -141,7 +141,7 @@ def test_langgraph_tracing_with_custom_span():
     loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
 
     # No trace should be created for the first call
-    assert mlflow.get_last_active_trace() is None
+    assert mlflow.get_trace(mlflow.get_last_active_trace_id()) is None
 
     loaded_graph.invoke(input_example)
 
@@ -185,15 +185,13 @@ def test_langgraph_chat_agent_trace():
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     # No trace should be created for loading it in
-    assert mlflow.get_last_active_trace() is None
+    assert mlflow.get_trace(mlflow.get_last_active_trace_id()) is None
 
     loaded_model.predict(input_example)
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "LangGraph"
-    # delete the generated uuid
-    del traces[0].data.spans[0].inputs["messages"][0]["id"]
     assert traces[0].data.spans[0].inputs == input_example
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -202,6 +200,4 @@ def test_langgraph_chat_agent_trace():
     assert len(traces) == 2
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "LangGraph"
-    # delete the generated uuid
-    del traces[0].data.spans[0].inputs["messages"][0]["id"]
     assert traces[0].data.spans[0].inputs == input_example

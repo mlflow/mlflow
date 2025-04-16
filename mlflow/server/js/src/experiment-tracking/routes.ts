@@ -12,6 +12,15 @@ export class RoutePaths {
   static get experimentPage() {
     return createMLflowRoutePath('/experiments/:experimentId');
   }
+  static get experimentLoggedModelDetailsPageTab() {
+    return createMLflowRoutePath('/experiments/:experimentId/models/:loggedModelId/:tabName');
+  }
+  static get experimentLoggedModelDetailsPage() {
+    return createMLflowRoutePath('/experiments/:experimentId/models/:loggedModelId');
+  }
+  static get experimentPageTabbed() {
+    return createMLflowRoutePath('/experiments/:experimentId/:tabName');
+  }
   static get experimentPageSearch() {
     return createMLflowRoutePath('/experiments/:experimentId/s');
   }
@@ -82,9 +91,24 @@ class Routes {
     return path;
   }
 
+  static getExperimentPageTabRoute(experimentId: string, tabName: ExperimentPageTabName) {
+    return generatePath(RoutePaths.experimentPageTabbed, { experimentId, tabName });
+  }
+
+  static getExperimentLoggedModelDetailsPage(experimentId: string, loggedModelId: string) {
+    return generatePath(RoutePaths.experimentLoggedModelDetailsPage, { experimentId, loggedModelId });
+  }
+
+  static getExperimentLoggedModelDetailsPageRoute(experimentId: string, loggedModelId: string, tabName?: string) {
+    if (tabName) {
+      return generatePath(RoutePaths.experimentLoggedModelDetailsPageTab, { experimentId, loggedModelId, tabName });
+    }
+    return generatePath(RoutePaths.experimentLoggedModelDetailsPage, { experimentId, loggedModelId });
+  }
+
   static searchRunsByUser(experimentId: string, userId: string) {
     const path = generatePath(RoutePaths.experimentPage, { experimentId });
-    const filterString = `user_id = '${userId}'`;
+    const filterString = `attributes.user_id = '${userId}'`;
     return `${path}?searchFilter=${encodeURIComponent(filterString)}`;
   }
 

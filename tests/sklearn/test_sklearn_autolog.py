@@ -7,6 +7,7 @@ import pickle
 import re
 from unittest import mock
 
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -778,7 +779,7 @@ def test_parameter_search_estimators_produce_expected_outputs(
         if backend is None:
             cv_model.fit(X, y)
         else:
-            with sklearn.utils.parallel_backend(backend=backend):
+            with joblib.parallel_backend(backend=backend):
                 cv_model.fit(X, y)
 
     with mlflow.start_run() as run:

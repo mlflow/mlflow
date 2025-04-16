@@ -174,6 +174,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     runsHiddenMode: uiState.runsHiddenMode,
     runsVisibilityMap: uiState.runsVisibilityMap,
     useGroupedValuesInCharts: uiState.useGroupedValuesInCharts,
+    searchFacetsState,
   });
 
   const [notificationsFn, notificationContainer] = useLegacyNotification();
