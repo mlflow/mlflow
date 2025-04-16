@@ -50,7 +50,6 @@ from mlflow.types.llm import (
     ChatMessage,
     ChatParams,
 )
-from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import (
@@ -69,6 +68,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
@@ -568,7 +568,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
           :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` and
           :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` schemas
     - Metadata
-        - ``{“task”: “agent/v2/chat”}`` will be automatically appended to any metadata that you may
+        - ``{"task": "agent/v2/chat"}`` will be automatically appended to any metadata that you may
           pass in when logging the model
     - Input Example
         - Providng an input example is optional, ``mlflow.types.agent.CHAT_AGENT_INPUT_EXAMPLE``
@@ -785,36 +785,41 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         )
 
 
-class ResponsesAgent(PythonModel, metaclass=ABCMeta):
-    _skip_type_hint_validation = True
+try:
+    if not IS_PYDANTIC_V2_OR_NEWER:
+        raise ImportError("ResponsesAgent requires Pydantic v2 or newer")
 
-    def __init_subclass__(cls, **kwargs) -> None:
-        super().__init_subclass__(**kwargs)
-        for attr_name in ("predict", "predict_stream"):
-            attr = cls.__dict__.get(attr_name)
-            if callable(attr):
-                setattr(
-                    cls,
-                    attr_name,
-                    wrap_non_list_predict_pydantic(
-                        attr,
-                        ResponsesRequest,
-                        "Invalid dictionary input for a ResponsesAgent. "
-                        "Expected a dictionary with the ResponsesRequest schema.",
-                    ),
-                )
+    from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
 
-    @abstractmethod
-    def predict(self, model_input: ResponsesRequest) -> ResponsesResponse:
-        pass
+    class ResponsesAgent(PythonModel, metaclass=ABCMeta):
+        _skip_type_hint_validation = True
 
-    def predict_stream(
-        self, model_input: ResponsesRequest
-    ) -> Generator[ResponsesStreamEvent, None, None]:
-        raise NotImplementedError(
-            "Streaming implementation not provided. Please override the "
-            "`predict_stream` method on your model to generate streaming predictions"
-        )
+        @model_validator(mode="before")
+        def validate_request(cls, values):
+            if "input" not in values:
+                raise ValueError("input field is required")
+            return values
+
+        @abstractmethod
+        def predict(self, request: ResponsesRequest) -> ResponsesResponse:
+            pass
+
+        @abstractmethod
+        def predict_stream(
+            self, request: ResponsesRequest
+        ) -> Generator[ResponsesStreamEvent, None, None]:
+            pass
+
+except ImportError:
+    # Define a dummy class that will raise an informative error when instantiated
+    class ResponsesAgent(PythonModel, metaclass=ABCMeta):
+        _skip_type_hint_validation = True
+
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "ResponsesAgent requires Pydantic v2 or newer. Please upgrade your Pydantic version "
+                "to use this class."
+            )
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417

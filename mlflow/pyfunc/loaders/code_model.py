@@ -2,7 +2,6 @@ from typing import Any, Optional
 
 from mlflow.pyfunc.loaders.chat_agent import _ChatAgentPyfuncWrapper
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
-from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
 from mlflow.pyfunc.model import (
     ChatAgent,
     ChatModel,
@@ -19,6 +18,8 @@ def _load_pyfunc(local_path: str, model_config: Optional[dict[str, Any]] = None)
     elif isinstance(model, ChatAgent):
         return _ChatAgentPyfuncWrapper(model)
     elif isinstance(model, ResponsesAgent):
+        from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
+
         return _ResponsesAgentPyfuncWrapper(model)
     else:
         return _PythonModelPyfuncWrapper(model, context, signature)

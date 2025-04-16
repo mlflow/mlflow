@@ -1,3 +1,11 @@
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
+
+if not IS_PYDANTIC_V2_OR_NEWER:
+    raise ImportError(
+        "mlflow.types.responses is not supported in Pydantic v1. "
+        "Please upgrade to Pydantic v2 or newer."
+    )
+
 import json
 from typing import Any, Optional, Union
 
@@ -90,7 +98,6 @@ from mlflow.types.type_hints import _infer_schema_from_type_hint
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     MlflowEventsAndWarningsBehaviorGlobally,
 )
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
 
 
 class ResponsesRequest(BaseRequestPayload):
@@ -109,18 +116,18 @@ class ResponsesStreamEvent(BaseModel):
     custom_outputs: Optional[dict[str, Any]] = None
 
     @model_validator(mode="after")
-    def check_type(cls, values) -> "ResponsesStreamEvent":
-        type = values.type if IS_PYDANTIC_V2_OR_NEWER else values.get("type")
+    def check_type(self) -> "ResponsesStreamEvent":
+        type = self.type
         if type == "response.output_item.done":
-            ResponseOutputItemDoneEvent(**values.model_dump_compat())
+            ResponseOutputItemDoneEvent(**self.model_dump_compat())
         elif type == "response.output_text.delta":
-            ResponseTextDeltaEvent(**values.model_dump_compat())
+            ResponseTextDeltaEvent(**self.model_dump_compat())
         elif type == "response.output_text.annotation.added":
-            ResponseTextAnnotationDeltaEvent(**values.model_dump_compat())
+            ResponseTextAnnotationDeltaEvent(**self.model_dump_compat())
         elif type == "response.error":
-            ResponseErrorEvent(**values.model_dump_compat())
+            ResponseErrorEvent(**self.model_dump_compat())
         elif type == "response.completed":
-            ResponseCompletedEvent(**values.model_dump_compat())
+            ResponseCompletedEvent(**self.model_dump_compat())
         """
         unvalidated types: {
             "response.created",
@@ -145,7 +152,7 @@ class ResponsesStreamEvent(BaseModel):
             "response.error",
         }
         """
-        return values
+        return self
 
 
 with MlflowEventsAndWarningsBehaviorGlobally(

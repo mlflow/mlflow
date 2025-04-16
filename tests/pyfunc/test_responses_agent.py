@@ -1,6 +1,14 @@
-from uuid import uuid4
-
 import pytest
+
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
+
+if not IS_PYDANTIC_V2_OR_NEWER:
+    pytest.skip(
+        reason="ResponsesAgent and its pydantic classes are not supported in pydantic v1. Skipping test.",
+        allow_module_level=True,
+    )
+
+from uuid import uuid4
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -18,7 +26,6 @@ from mlflow.types.schema import ColSpec, DataType, Schema
 
 
 def get_mock_response(request: ResponsesRequest):
-    print(request.input)
     return {
         "output": [
             {

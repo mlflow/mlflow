@@ -1,10 +1,17 @@
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
+
+if not IS_PYDANTIC_V2_OR_NEWER:
+    raise ImportError(
+        "mlflow.types.responses is not supported in Pydantic v1. "
+        "Please upgrade to Pydantic v2 or newer."
+    )
+
 import warnings
 from typing import Any, Optional, Union
 
 from pydantic import ConfigDict
 
 from mlflow.types.chat import BaseModel
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
 
 
 #########################
@@ -14,18 +21,17 @@ class Status(BaseModel):
     status: Optional[str] = None
 
     @model_validator(mode="after")
-    def check_status(cls, values) -> "Status":
-        status = values.status if IS_PYDANTIC_V2_OR_NEWER else values.get("status")
-        if status is not None and status not in {
+    def check_status(self) -> "Status":
+        if self.status is not None and self.status not in {
             "in_progress",
             "completed",
             "incomplete",
         }:
             raise ValueError(
-                f"Invalid status: {status} for {cls.__name__}. "
+                f"Invalid status: {self.status} for {self.__class__.__name__}. "
                 "Must be 'in_progress', 'completed', or 'incomplete'."
             )
-        return values
+        return self
 
 
 class ResponseError(BaseModel):
@@ -58,17 +64,16 @@ class Annotation(BaseModel):
     type: str
 
     @model_validator(mode="after")
-    def check_type(cls, values) -> "Annotation":
-        type = values.type if IS_PYDANTIC_V2_OR_NEWER else values.get("type")
-        if type == "file_citation":
-            AnnotationFileCitation(**values.model_dump_compat())
-        elif type == "url_citation":
-            AnnotationURLCitation(**values.model_dump_compat())
-        elif type == "file_path":
-            AnnotationFilePath(**values.model_dump_compat())
+    def check_type(self) -> "Annotation":
+        if self.type == "file_citation":
+            AnnotationFileCitation(**self.model_dump_compat())
+        elif self.type == "url_citation":
+            AnnotationURLCitation(**self.model_dump_compat())
+        elif self.type == "file_path":
+            AnnotationFilePath(**self.model_dump_compat())
         else:
-            raise ValueError(f"Invalid annotation type: {type}")
-        return values
+            raise ValueError(f"Invalid annotation type: {self.type}")
+        return self
 
 
 class ResponseOutputText(BaseModel):
@@ -87,15 +92,14 @@ class Content(BaseModel):
     type: str
 
     @model_validator(mode="after")
-    def check_type(cls, values) -> "Content":
-        type = values.type if IS_PYDANTIC_V2_OR_NEWER else values.get("type")
-        if type == "output_text":
-            ResponseOutputText(**values.model_dump_compat())
-        elif type == "refusal":
-            ResponseOutputRefusal(**values.model_dump_compat())
+    def check_type(self) -> "Content":
+        if self.type == "output_text":
+            ResponseOutputText(**self.model_dump_compat())
+        elif self.type == "refusal":
+            ResponseOutputRefusal(**self.model_dump_compat())
         else:
-            raise ValueError(f"Invalid content type: {type} for {cls.__class__.__name__}")
-        return values
+            raise ValueError(f"Invalid content type: {self.type} for {self.__class__.__name__}")
+        return self
 
 
 class ResponseOutputMessage(Status):
@@ -105,18 +109,16 @@ class ResponseOutputMessage(Status):
     type: str = "message"
 
     @model_validator(mode="after")
-    def check_role(cls, values) -> "ResponseOutputMessage":
-        role = values.role if IS_PYDANTIC_V2_OR_NEWER else values.get("role")
-        if role != "assistant":
-            raise ValueError(f"Invalid role: {role}. Must be 'assistant'.")
-        return values
+    def check_role(self) -> "ResponseOutputMessage":
+        if self.role != "assistant":
+            raise ValueError(f"Invalid role: {self.role}. Must be 'assistant'.")
+        return self
 
     @model_validator(mode="after")
-    def check_content(cls, values) -> "ResponseOutputMessage":
-        content = values.content if IS_PYDANTIC_V2_OR_NEWER else values.get("content")
-        if not content:
-            raise ValueError(f"content must not be an empty list for {cls.__class__.__name__}")
-        return values
+    def check_content(self) -> "ResponseOutputMessage":
+        if not self.content:
+            raise ValueError(f"content must not be an empty list for {self.__class__.__name__}")
+        return self
 
 
 class ResponseFunctionToolCall(Status):
@@ -143,34 +145,32 @@ class OutputItem(BaseModel):
     type: str
 
     @model_validator(mode="after")
-    def check_type(cls, values) -> "OutputItem":
-        type = values.type if IS_PYDANTIC_V2_OR_NEWER else values.get("type")
-        if type == "message":
-            ResponseOutputMessage(**values.model_dump_compat())
-        elif type == "function_call":
-            ResponseFunctionToolCall(**values.model_dump_compat())
-        elif type == "reasoning":
-            ResponseReasoningItem(**values.model_dump_compat())
-        elif type == "function_call_output":
-            FunctionCallOutput(**values.model_dump_compat())
-        elif type not in {
+    def check_type(self) -> "OutputItem":
+        if self.type == "message":
+            ResponseOutputMessage(**self.model_dump_compat())
+        elif self.type == "function_call":
+            ResponseFunctionToolCall(**self.model_dump_compat())
+        elif self.type == "reasoning":
+            ResponseReasoningItem(**self.model_dump_compat())
+        elif self.type == "function_call_output":
+            FunctionCallOutput(**self.model_dump_compat())
+        elif self.type not in {
             "file_search_call",
             "computer_call",
             "web_search_call",
         }:
-            raise ValueError(f"Invalid type: {type} for {cls.__class__.__name__}")
-        return values
+            raise ValueError(f"Invalid type: {self.type} for {self.__class__.__name__}")
+        return self
 
 
 class IncompleteDetails(BaseModel):
     reason: Optional[str] = None
 
     @model_validator(mode="after")
-    def check_reason(cls, values) -> "IncompleteDetails":
-        reason = values.reason if IS_PYDANTIC_V2_OR_NEWER else values.get("reason")
-        if reason and reason not in {"max_output_tokens", "content_filter"}:
-            warnings.warn(f"Invalid reason: {reason}")
-        return values
+    def check_reason(self) -> "IncompleteDetails":
+        if self.reason and self.reason not in {"max_output_tokens", "content_filter"}:
+            warnings.warn(f"Invalid reason: {self.reason}")
+        return self
 
 
 class ToolChoiceFunction(BaseModel):
@@ -191,28 +191,26 @@ class Tool(BaseModel):
     type: str
 
     @model_validator(mode="after")
-    def check_type(cls, values) -> "Tool":
-        type = values.type if IS_PYDANTIC_V2_OR_NEWER else values.get("type")
-        if type == "function":
-            FunctionTool(**values.model_dump_compat())
-        elif type not in {"file_search", "computer_use", "web_search"}:
-            warnings.warn(f"Invalid tool type: {type}")
-        return values
+    def check_type(self) -> "Tool":
+        if self.type == "function":
+            FunctionTool(**self.model_dump_compat())
+        elif self.type not in {"file_search", "computer_use", "web_search"}:
+            warnings.warn(f"Invalid tool type: {self.type}")
+        return self
 
 
 class ToolChoice(BaseModel):
     tool_choice: Optional[Union[str, ToolChoiceFunction]] = None
 
     @model_validator(mode="after")
-    def check_tool_choice(cls, values) -> "ToolChoice":
-        tool_choice = values.tool_choice if IS_PYDANTIC_V2_OR_NEWER else values.get("tool_choice")
+    def check_tool_choice(self) -> "ToolChoice":
         if (
-            tool_choice
-            and isinstance(tool_choice, str)
-            and tool_choice not in {"none", "auto", "required"}
+            self.tool_choice
+            and isinstance(self.tool_choice, str)
+            and self.tool_choice not in {"none", "auto", "required"}
         ):
-            warnings.warn(f"Invalid tool choice: {tool_choice}")
-        return values
+            warnings.warn(f"Invalid tool choice: {self.tool_choice}")
+        return self
 
 
 class ReasoningParams(BaseModel):
@@ -220,20 +218,16 @@ class ReasoningParams(BaseModel):
     generate_summary: Optional[str] = None
 
     @model_validator(mode="after")
-    def check_generate_summary(cls, values) -> "ReasoningParams":
-        generate_summary = (
-            values.generate_summary if IS_PYDANTIC_V2_OR_NEWER else values.get("generate_summary")
-        )
-        if generate_summary and generate_summary not in {"concise", "detailed"}:
-            warnings.warn(f"Invalid generate_summary: {generate_summary}")
-        return values
+    def check_generate_summary(self) -> "ReasoningParams":
+        if self.generate_summary and self.generate_summary not in {"concise", "detailed"}:
+            warnings.warn(f"Invalid generate_summary: {self.generate_summary}")
+        return self
 
     @model_validator(mode="after")
-    def check_effort(cls, values) -> "ReasoningParams":
-        effort = values.effort if IS_PYDANTIC_V2_OR_NEWER else values.get("effort")
-        if effort and effort not in {"low", "medium", "high"}:
-            warnings.warn(f"Invalid effort: {effort}")
-        return values
+    def check_effort(self) -> "ReasoningParams":
+        if self.effort and self.effort not in {"low", "medium", "high"}:
+            warnings.warn(f"Invalid effort: {self.effort}")
+        return self
 
 
 class InputTokensDetails(BaseModel):
@@ -256,11 +250,10 @@ class Truncation(BaseModel):
     truncation: Optional[str] = None
 
     @model_validator(mode="after")
-    def check_truncation(cls, values) -> "Truncation":
-        truncation = values.truncation if IS_PYDANTIC_V2_OR_NEWER else values.get("truncation")
-        if truncation and truncation not in {"auto", "disabled"}:
-            warnings.warn(f"Invalid truncation: {truncation}. Must be 'auto' or 'disabled'.")
-        return values
+    def check_truncation(self) -> "Truncation":
+        if self.truncation and self.truncation not in {"auto", "disabled"}:
+            warnings.warn(f"Invalid truncation: {self.truncation}. Must be 'auto' or 'disabled'.")
+        return self
 
 
 class Response(Truncation, ToolChoice):
@@ -302,19 +295,18 @@ class Response(Truncation, ToolChoice):
         return "".join(texts)
 
     @model_validator(mode="after")
-    def check_status(cls, values) -> "Response":
-        status = values.status if IS_PYDANTIC_V2_OR_NEWER else values.get("status")
-        if status and status not in {
+    def check_status(self) -> "Response":
+        if self.status and self.status not in {
             "completed",
             "failed",
             "in_progress",
             "incomplete",
         }:
             warnings.warn(
-                f"Invalid status: {status}. Must be 'completed', 'failed', "
+                f"Invalid status: {self.status}. Must be 'completed', 'failed', "
                 "'in_progress', or 'incomplete'."
             )
-        return values
+        return self
 
 
 #################################
@@ -332,12 +324,11 @@ class Message(Status):
     type: str = "message"
 
     @model_validator(mode="after")
-    def check_content(cls, values) -> "Message":
-        content = values.content if IS_PYDANTIC_V2_OR_NEWER else values.get("content")
-        if not content:
+    def check_content(self) -> "Message":
+        if not self.content:
             raise ValueError("content must not be empty")
-        if isinstance(content, list):
-            for item in content:
+        if isinstance(self.content, list):
+            for item in self.content:
                 if isinstance(item, dict):
                     if "type" not in item:
                         raise ValueError(
@@ -347,16 +338,15 @@ class Message(Status):
                         ResponseInputTextParam(**item)
                     elif item["type"] not in {"input_image", "input_file"}:
                         raise ValueError(f"Invalid type: {item['type']}.")
-        return values
+        return self
 
     @model_validator(mode="after")
-    def check_role(cls, values) -> "Message":
-        role = values.role if IS_PYDANTIC_V2_OR_NEWER else values.get("role")
-        if role not in {"user", "assistant", "system", "developer"}:
+    def check_role(self) -> "Message":
+        if self.role not in {"user", "assistant", "system", "developer"}:
             raise ValueError(
-                f"Invalid role: {role}. Must be 'user', 'assistant', 'system', or 'developer'."
+                f"Invalid role: {self.role}. Must be 'user', 'assistant', 'system', or 'developer'."
             )
-        return values
+        return self
 
 
 class FunctionCallOutput(Status):

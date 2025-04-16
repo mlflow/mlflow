@@ -519,13 +519,6 @@ from mlflow.types.llm import (
     ChatMessage,
     ChatParams,
 )
-from mlflow.types.responses import (
-    RESPONSES_AGENT_INPUT_EXAMPLE,
-    RESPONSES_AGENT_INPUT_SCHEMA,
-    RESPONSES_AGENT_OUTPUT_SCHEMA,
-    ResponsesRequest,
-    ResponsesResponse,
-)
 from mlflow.types.type_hints import (
     _convert_dataframe_to_example_format,
     _is_example_valid_for_type_from_example,
@@ -582,7 +575,7 @@ from mlflow.utils.model_utils import (
     _validate_pyfunc_model_config,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-from mlflow.utils.pydantic_utils import model_dump_compat
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_dump_compat
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
@@ -3723,6 +3716,20 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
 
     Returns: a dictionary input example
     """
+    if not IS_PYDANTIC_V2_OR_NEWER:
+        raise MlflowException(
+            "ResponsesAgent and its pydantic classes are not supported in pydantic v1. Please "
+            "upgrade to pydantic v2 or newer to use ResponsesAgent.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    from mlflow.types.responses import (
+        RESPONSES_AGENT_INPUT_EXAMPLE,
+        RESPONSES_AGENT_INPUT_SCHEMA,
+        RESPONSES_AGENT_OUTPUT_SCHEMA,
+        ResponsesRequest,
+        ResponsesResponse,
+    )
+
     if signature is not None:
         raise MlflowException(
             "ResponsesAgent subclasses have a standard signature that is set "
