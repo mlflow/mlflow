@@ -1,7 +1,7 @@
 import functools
 import json
 import logging
-from typing import Any, AsyncIterator, Iterator, Optional
+from typing import Any, AsyncIterator, Iterator
 
 from packaging.version import Version
 
@@ -11,13 +11,11 @@ from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
-from mlflow.models.model import _MODEL_TRACKER
 from mlflow.openai.utils.chat_schema import set_span_chat_attributes
 from mlflow.tracing.assessment import MlflowClient
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
-    SpanAttributeKey,
     TraceMetadataKey,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -101,19 +99,8 @@ def patched_call(original, self, *args, **kwargs):
     run_id = active_run.info.run_id if active_run else None
     mlflow_client = mlflow.MlflowClient()
 
-    model_id = None
-    task = mlflow.openai._get_task_name(self.__class__)
-    model_dict = {"task": task, **kwargs}
-    model_identity = _generate_model_identity(model_dict)
-    model_id = _MODEL_TRACKER.get(model_identity)
     if config.log_traces:
-        if model_id is None and config.log_models:
-            params = _generate_model_params_dict(model_dict)
-            logged_model = mlflow.create_external_model(name="openai", params=params)
-            _MODEL_TRACKER.set(model_identity, logged_model.model_id)
-            model_id = logged_model.model_id
-
-        span = _start_span(mlflow_client, self, kwargs, run_id, model_id)
+        span = _start_span(mlflow_client, self, kwargs, run_id)
 
     # Execute the original function
     try:
@@ -135,17 +122,8 @@ async def async_patched_call(original, self, *args, **kwargs):
     run_id = active_run.info.run_id if active_run else None
     mlflow_client = mlflow.MlflowClient()
 
-    task = mlflow.openai._get_task_name(self.__class__)
-    model_dict = {"task": task, **kwargs}
-    model_identity = _generate_model_identity(model_dict)
-    model_id = _MODEL_TRACKER.get(model_identity)
     if config.log_traces:
-        if model_id is None and config.log_models:
-            params = _generate_model_params_dict(model_dict)
-            logged_model = mlflow.create_external_model(name="openai", params=params)
-            _MODEL_TRACKER.set(model_identity, logged_model.model_id)
-            model_id = logged_model.model_id
-        span = _start_span(mlflow_client, self, kwargs, run_id, model_id)
+        span = _start_span(mlflow_client, self, kwargs, run_id)
 
     # Execute the original function
     try:
@@ -166,7 +144,6 @@ def _start_span(
     instance: Any,
     inputs: dict[str, Any],
     run_id: str,
-    model_id: Optional[str] = None,
 ):
     # Record input parameters to attributes
     attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
@@ -177,7 +154,7 @@ def _start_span(
         name=instance.__class__.__name__,
         span_type=_get_span_type(instance.__class__),
         inputs=inputs,
-        attributes={**attributes, SpanAttributeKey.MODEL_ID: model_id} if model_id else attributes,
+        attributes=attributes,
     )
 
     # Associate run ID to the trace manually, because if a new run is created by
@@ -328,50 +305,3 @@ def patched_swarm_run(original, self, *args, **kwargs):
     """
     traced_fn = mlflow.trace(original, span_type=SpanType.AGENT)
     return traced_fn(self, *args, **kwargs)
-
-
-def _generate_model_params_dict(model_dict: dict[str, Any]) -> dict[str, str]:
-    # drop input fields
-    exclude_fields = {
-        "messages",
-        "prompt",
-        "input",
-    }
-    return {
-        k: (
-            model_dict[k]
-            if isinstance(model_dict[k], str)
-            else json.dumps(model_dict[k], default=str)
-        )
-        for k in sorted(model_dict.keys() - exclude_fields)
-    }
-
-
-def _generate_model_identity(model_dict) -> int:
-    if not {"model", "task"} <= set(model_dict.keys()):
-        raise ValueError("The model dictionary must contain 'model' and 'task' keys.")
-    model = model_dict["model"]
-    # drop input and non-model config fields to ensure consistent hashing
-    exclude_fields = {
-        # inputs
-        "messages",
-        "prompt",
-        "input",
-        # extra API configs
-        "extra_headers",
-        "extra_query",
-        "extra_body",
-        "timeout",
-        # model
-        "model",
-    }
-    model_dict = {
-        k: (
-            model_dict[k]
-            if isinstance(model_dict[k], str)
-            else json.dumps(model_dict[k], default=str)
-        )
-        for k in sorted(model_dict.keys() - exclude_fields)
-    }
-    model_str = model if isinstance(model, str) else str(id(model))
-    return hash(f"{model_str}-{model_dict}")
