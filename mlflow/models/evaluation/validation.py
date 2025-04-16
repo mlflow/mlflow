@@ -77,6 +77,8 @@ class MetricThreshold:
                 raise MetricThresholdClassException(
                     "`min_relative_change` parameter must be between 0 and 1."
                 )
+        if greater_is_better is None:
+            raise MetricThresholdClassException("`greater_is_better` parameter must be defined.")
         if not isinstance(greater_is_better, bool):
             raise MetricThresholdClassException("`greater_is_better` parameter must be a boolean.")
         if threshold is None and min_absolute_change is None and min_relative_change is None:
