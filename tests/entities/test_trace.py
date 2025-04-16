@@ -56,12 +56,20 @@ def test_json_deserialization(monkeypatch):
     trace_json_as_dict = json.loads(trace_json)
     assert trace_json_as_dict == {
         "info": {
-            "request_id": trace.info.request_id,
-            "experiment_id": "0",
-            "timestamp_ms": trace.info.timestamp_ms,
-            "execution_time_ms": trace.info.execution_time_ms,
-            "status": "OK",
-            "request_metadata": {
+            "trace_id": trace.info.request_id,
+            "client_request_id": None,
+            "trace_location": {
+                "mlflow_experiment": {
+                    "experiment_id": "0",
+                },
+                "type": "MLFLOW_EXPERIMENT",
+            },
+            "request_time": trace.info.timestamp_ms,
+            "execution_duration": trace.info.execution_time_ms,
+            "state": "OK",
+            "request": '{"x": 2, "y": 5}',
+            "response": "8",
+            "trace_metadata": {
                 "mlflow.traceInputs": '{"x": 2, "y": 5}',
                 "mlflow.traceOutputs": "8",
                 TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),

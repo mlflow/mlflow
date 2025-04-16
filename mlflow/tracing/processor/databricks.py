@@ -25,16 +25,18 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
 
-    This process implements simple responsibilities to generate MLflow-style trace
-    object from OpenTelemetry spans and store them in memory.
+    This processor persists traces to the MLflow Tracking Service, matching the offline processor.
     """
 
     def __init__(
         self,
         span_exporter: SpanExporter,
+        client: Optional["MlflowClient"] = None,
         experiment_id: Optional[str] = None,
     ):
+        from mlflow.tracking.client import MlflowClient
         self.span_exporter = span_exporter
+        self._client = client or MlflowClient()
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._experiment_id = experiment_id
 
@@ -61,7 +63,7 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
             trace_info = TraceInfo(
                 request_id=request_id,
                 experiment_id=self._experiment_id or _get_experiment_id(),
-                timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
+                timestamp_ms=span.start_time // 1_000_000,
                 execution_time_ms=None,
                 status=TraceStatus.IN_PROGRESS,
                 request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
@@ -93,5 +95,12 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
                 trace.info.execution_time_ms = (span.end_time - span.start_time) // 1_000_000
                 trace.info.status = TraceStatus.from_otel_status(span.status)
                 deduplicate_span_names_in_place(list(trace.span_dict.values()))
-
-        super().on_end(span)
+                # Persist finalized trace info to MLflow Tracking Service (create trace at end)
+                self._client._start_tracked_trace(
+                    experiment_id=trace.info.experiment_id,
+                    timestamp_ms=trace.info.timestamp_ms,
+                    execution_time_ms=trace.info.execution_time_ms,
+                    status=trace.info.status,
+                    request_metadata=trace.info.request_metadata,
+                    tags=trace.info.tags,
+                )

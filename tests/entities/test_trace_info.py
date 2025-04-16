@@ -138,7 +138,7 @@ def test_trace_info_serialization_deserialization(trace_info_proto):
 
 
 def test_trace_info_v3(trace_info):
-    v3_proto = trace_info.to_v3_proto("request", "response")
+    v3_proto = trace_info.to_v3("request", "response").to_proto()
     assert v3_proto.request == "request"
     assert v3_proto.response == "response"
     assert v3_proto.trace_id == "request_id"
