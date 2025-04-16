@@ -43,6 +43,13 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
         """
         Handle the start of a span. This method is called when an OpenTelemetry span is started.
+
+        Args:
+            span: An OpenTelemetry Span object that is started.
+            parent_context: The context of the span. Note that this is only passed when the context
+                object is explicitly specified to OpenTelemetry start_span call. If the parent
+                span is obtained from the global context, it won't be passed here so we should not
+                rely on it.
         """
         request_id = self._create_or_get_request_id(span)
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
@@ -73,7 +80,11 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
     def on_end(self, span: OTelReadableSpan) -> None:
         """
         Handle the end of a span. This method is called when an OpenTelemetry span is ended.
+
+        Args:
+            span: An OpenTelemetry ReadableSpan object that is ended.
         """
+        # Processing the trace only when it is a root span.
         if span._parent is None:
             request_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
             with self._trace_manager.get_trace(request_id) as trace:
