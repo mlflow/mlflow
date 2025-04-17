@@ -720,9 +720,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         run_id,
         evaluator_config,
         model=None,
-        custom_metrics=None,
         extra_metrics=None,
-        custom_artifacts=None,
         predictions=None,
         **kwargs,
     ):
@@ -739,7 +737,6 @@ class ModelEvaluator(metaclass=ABCMeta):
                 the evaluator.
             model: A pyfunc model instance. If None, the model output is supposed to be found in
                 ``dataset.predictions_data``.
-            custom_metrics: Deprecated. Use ``extra_metrics`` instead.
             extra_metrics: A list of :py:class:`EvaluationMetric` objects.
             custom_artifacts: A list of callable custom artifact functions.
             predictions: The column name of the model output column that is used for evaluation.
@@ -997,7 +994,6 @@ def _evaluate(
     # but we need to keep these for backward compatibility.
     evaluator_name_list,
     evaluator_name_to_conf_map,
-    custom_metrics,
     extra_metrics,
     custom_artifacts,
     predictions,
@@ -1032,7 +1028,6 @@ def _evaluate(
                     dataset=dataset,
                     run_id=run_id,
                     evaluator_config=eval_.config,
-                    custom_metrics=custom_metrics,
                     extra_metrics=extra_metrics,
                     custom_artifacts=custom_artifacts,
                     predictions=predictions,
@@ -1107,7 +1102,6 @@ def evaluate(  # noqa: D417
     feature_names=None,
     evaluators=None,
     evaluator_config=None,
-    custom_metrics=None,
     extra_metrics=None,
     custom_artifacts=None,
     validation_thresholds=None,
@@ -1464,7 +1458,6 @@ def evaluate(  # noqa: D417
             If multiple evaluators are specified, each configuration should be
             supplied as a nested dictionary whose key is the evaluator name.
 
-        custom_metrics: Deprecated. Use ``extra_metrics`` instead.
         extra_metrics:
             (Optional) A list of :py:class:`EvaluationMetric <mlflow.models.EvaluationMetric>`
             objects.  These metrics are computed in addition to the default metrics associated with
@@ -1792,7 +1785,6 @@ def evaluate(  # noqa: D417
                 run_id=run_id,
                 evaluator_name_list=evaluator_name_list,
                 evaluator_name_to_conf_map=evaluator_name_to_conf_map,
-                custom_metrics=custom_metrics,
                 extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
                 predictions=predictions_expected_in_model_output,
@@ -1832,7 +1824,6 @@ def evaluate(  # noqa: D417
             run_id=run_id,
             evaluator_name_list=evaluator_name_list,
             evaluator_name_to_conf_map=evaluator_name_to_conf_map,
-            custom_metrics=custom_metrics,
             extra_metrics=extra_metrics,
             custom_artifacts=custom_artifacts,
             predictions=predictions_expected_in_model_output,

@@ -872,7 +872,6 @@ class BuiltInEvaluator(ModelEvaluator):
         run_id,
         evaluator_config,
         model: "mlflow.pyfunc.PyFuncModel" = None,
-        custom_metrics=None,
         extra_metrics=None,
         custom_artifacts=None,
         predictions=None,
@@ -923,20 +922,6 @@ class BuiltInEvaluator(ModelEvaluator):
                     message="eval_results_mode can only be 'overwrite' or 'append'. ",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-
-        if extra_metrics and custom_metrics:
-            raise MlflowException(
-                "The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update "
-                "your code to only use the 'extra_metrics' parameter instead."
-            )
-        if custom_metrics:
-            warnings.warn(
-                "The 'custom_metrics' parameter in mlflow.evaluate is deprecated. "
-                "Please update your code to use the 'extra_metrics' parameter instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-            extra_metrics = custom_metrics
 
         if extra_metrics is None:
             extra_metrics = []
