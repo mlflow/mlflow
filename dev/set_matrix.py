@@ -99,7 +99,7 @@ class TestConfig(BaseModel, extra="forbid"):
 
     @validator("unsupported", pre=True)
     def validate_unsupported(cls, v):
-        return [SpecifierSet(x) for x in v if isinstance(x, str)] if v else None
+        return [SpecifierSet(x) for x in v] if v else None
 
 
 class FlavorConfig(BaseModel, extra="forbid"):
