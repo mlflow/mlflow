@@ -14,6 +14,7 @@ import logging
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Optional
 
+from mlflow.utils.uri import is_databricks_uri
 from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -27,7 +28,6 @@ from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
-    is_databricks_tracking_uri,
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
@@ -302,7 +302,7 @@ def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] =
     """
     Get the MLflow span processor instance that is used by the current tracer provider.
     """
-    if is_databricks_tracking_uri(tracking_uri):
+    if is_databricks_uri(tracking_uri):
         from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
         from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
