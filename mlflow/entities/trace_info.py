@@ -117,8 +117,8 @@ class TraceInfo(_MlflowObject):
         return TraceInfoV3(
             trace_id=self.request_id,
             trace_location=TraceLocation.from_experiment_id(self.experiment_id),
-            request=request,
-            response=response,
+            request_preview=request,
+            response_preview=response,
             request_time=self.timestamp_ms,
             execution_duration=self.execution_time_ms,
             state=self.status.to_state(),
