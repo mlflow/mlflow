@@ -5,10 +5,16 @@ from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
 from mlflow.pyfunc.model import (
     ChatAgent,
     ChatModel,
-    ResponsesAgent,
     _load_context_model_and_signature,
     _PythonModelPyfuncWrapper,
 )
+
+try:
+    from mlflow.pyfunc.model import ResponsesAgent
+
+    IS_RESPONSES_AGENT_AVAILABLE = True
+except ImportError:
+    IS_RESPONSES_AGENT_AVAILABLE = False
 
 
 def _load_pyfunc(local_path: str, model_config: Optional[dict[str, Any]] = None):
@@ -17,7 +23,7 @@ def _load_pyfunc(local_path: str, model_config: Optional[dict[str, Any]] = None)
         return _ChatModelPyfuncWrapper(model, context, signature)
     elif isinstance(model, ChatAgent):
         return _ChatAgentPyfuncWrapper(model)
-    elif isinstance(model, ResponsesAgent):
+    elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(model, ResponsesAgent):
         from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
 
         return _ResponsesAgentPyfuncWrapper(model)

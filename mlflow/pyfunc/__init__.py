@@ -493,13 +493,19 @@ from mlflow.pyfunc.model import (
     ChatModel,
     PythonModel,
     PythonModelContext,
-    ResponsesAgent,
     _FunctionPythonModel,
     _log_warning_if_params_not_in_predict_signature,
     _PythonModelPyfuncWrapper,
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
+
+try:
+    from mlflow.pyfunc.model import ResponsesAgent
+
+    IS_RESPONSES_AGENT_AVAILABLE = True
+except ImportError:
+    IS_RESPONSES_AGENT_AVAILABLE = False
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -3105,7 +3111,7 @@ def save_model(
         input_example = _save_model_chat_agent_helper(
             python_model, mlflow_model, signature, input_example
         )
-    elif isinstance(python_model, ResponsesAgent):
+    elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
         input_example = _save_model_responses_agent_helper(
             python_model, mlflow_model, signature, input_example
         )
@@ -3716,12 +3722,6 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
 
     Returns: a dictionary input example
     """
-    if not IS_PYDANTIC_V2_OR_NEWER:
-        raise MlflowException(
-            "ResponsesAgent and its pydantic classes are not supported in pydantic v1. Please "
-            "upgrade to pydantic v2 or newer to use ResponsesAgent.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
     from mlflow.types.responses import (
         RESPONSES_AGENT_INPUT_EXAMPLE,
         RESPONSES_AGENT_INPUT_SCHEMA,

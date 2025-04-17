@@ -68,7 +68,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
@@ -785,20 +785,11 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         )
 
 
-try:
-    if not IS_PYDANTIC_V2_OR_NEWER:
-        raise ImportError("ResponsesAgent requires Pydantic v2 or newer")
-
+if IS_PYDANTIC_V2_OR_NEWER:
     from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
 
     class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         _skip_type_hint_validation = True
-
-        @model_validator(mode="before")
-        def validate_request(cls, values):
-            if "input" not in values:
-                raise ValueError("input field is required")
-            return values
 
         @abstractmethod
         def predict(self, request: ResponsesRequest) -> ResponsesResponse:
@@ -809,17 +800,6 @@ try:
             self, request: ResponsesRequest
         ) -> Generator[ResponsesStreamEvent, None, None]:
             pass
-
-except ImportError:
-    # Define a dummy class that will raise an informative error when instantiated
-    class ResponsesAgent(PythonModel, metaclass=ABCMeta):
-        _skip_type_hint_validation = True
-
-        def __init__(self, *args, **kwargs):
-            raise ImportError(
-                "ResponsesAgent and its pydantic classes are not supported in pydantic v1. "
-                "Please upgrade to pydantic v2 or newer to use ResponsesAgent.",
-            )
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
@@ -1210,7 +1190,7 @@ def _get_pyfunc_loader_module(python_model):
         return mlflow.pyfunc.loaders.chat_model.__name__
     elif isinstance(python_model, ChatAgent):
         return mlflow.pyfunc.loaders.chat_agent.__name__
-    elif isinstance(python_model, ResponsesAgent):
+    elif IS_PYDANTIC_V2_OR_NEWER and isinstance(python_model, ResponsesAgent):
         return mlflow.pyfunc.loaders.responses_agent.__name__
     return __name__
 
