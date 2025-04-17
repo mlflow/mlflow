@@ -1,0 +1,81 @@
+---
+sidebar_position: 8
+sidebar_label: Swarm
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing OpenAI Swarm🐝
+
+:::warning
+
+    OpenAI Swarm integration has been deprecated because the library is being replaced by the
+    new [OpenAI Agents SDK](./openai-agent). Please consider migrating to the new SDK for the latest features and support.
+
+:::
+
+![OpenAI Tracing via autolog](/images/llms/tracing/openai-swarm-tracing.png)
+
+
+[MLflow Tracing](../) provides automatic tracing capability for [OpenAI Swarm](https://github.com/openai/swarm), a multi-agent framework developed by OpenAI. By enabling auto tracing
+for OpenAI by calling the <APILink fn="mlflow.openai.autolog" /> function, MLflow will capture nested traces and log them to the active MLflow Experiment upon invocation of OpenAI SDK.
+
+```python
+import mlflow
+
+mlflow.openai.autolog()
+```
+
+In addition to the basic LLM call tracing for OpenAI, MLflow captures the intermediate steps that the Swarm agent operates and all tool-calling by the agent.
+
+:::tip
+
+MLflow OpenAI integration is not only about tracing. MLflow offers full tracking experience for OpenAI, including model tracking, prompt management, and evaluation. Please checkout the **[MLflow OpenAI Flavor](/llms/openai)** to learn more!
+
+:::
+
+### Basic Example
+
+```python
+import mlflow
+from swarm import Swarm, Agent
+
+# Calling the autolog API will enable trace logging by default.
+mlflow.openai.autolog()
+
+# Optional: Set a tracking URI and an experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("OpenAI Swarm")
+
+# Define a simple multi-agent workflow using OpenAI Swarm
+client = Swarm()
+
+
+def transfer_to_agent_b():
+    return agent_b
+
+
+agent_a = Agent(
+    name="Agent A",
+    instructions="You are a helpful agent.",
+    functions=[transfer_to_agent_b],
+)
+
+agent_b = Agent(
+    name="Agent B",
+    instructions="Only speak in Haikus.",
+)
+
+response = client.run(
+    agent=agent_a,
+    messages=[{"role": "user", "content": "I want to talk to agent B."}],
+)
+```
+
+### Disable auto-tracing
+
+Auto tracing for OpenAI Swarm can be disabled globally by calling `mlflow.openai.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

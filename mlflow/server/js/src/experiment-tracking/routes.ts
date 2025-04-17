@@ -1,4 +1,5 @@
 import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtils';
+import { ExperimentPageTabName } from './constants';
 
 // Route path definitions (used in defining route elements)
 export class RoutePaths {
@@ -11,8 +12,17 @@ export class RoutePaths {
   static get experimentPage() {
     return createMLflowRoutePath('/experiments/:experimentId');
   }
+  static get experimentLoggedModelDetailsPageTab() {
+    return createMLflowRoutePath('/experiments/:experimentId/models/:loggedModelId/:tabName');
+  }
+  static get experimentLoggedModelDetailsPage() {
+    return createMLflowRoutePath('/experiments/:experimentId/models/:loggedModelId');
+  }
+  static get experimentPageTabbed() {
+    return createMLflowRoutePath('/experiments/:experimentId/:tabName');
+  }
   static get experimentPageSearch() {
-    return createMLflowRoutePath('/experiments/:experimentId/:searchString');
+    return createMLflowRoutePath('/experiments/:experimentId/s');
   }
   static get runPage() {
     return createMLflowRoutePath('/experiments/:experimentId/runs/:runUuid');
@@ -39,6 +49,16 @@ export class RoutePaths {
   }
   static get compareExperimentsSearch() {
     return createMLflowRoutePath('/compare-experiments/:searchString');
+  }
+  /**
+   * Route paths for prompts management.
+   * Featured exclusively in open source MLflow.
+   */
+  static get promptsPage() {
+    return createMLflowRoutePath('/prompts');
+  }
+  static get promptDetailsPage() {
+    return createMLflowRoutePath('/prompts/:promptName');
   }
 }
 
@@ -71,9 +91,24 @@ class Routes {
     return path;
   }
 
+  static getExperimentPageTabRoute(experimentId: string, tabName: ExperimentPageTabName) {
+    return generatePath(RoutePaths.experimentPageTabbed, { experimentId, tabName });
+  }
+
+  static getExperimentLoggedModelDetailsPage(experimentId: string, loggedModelId: string) {
+    return generatePath(RoutePaths.experimentLoggedModelDetailsPage, { experimentId, loggedModelId });
+  }
+
+  static getExperimentLoggedModelDetailsPageRoute(experimentId: string, loggedModelId: string, tabName?: string) {
+    if (tabName) {
+      return generatePath(RoutePaths.experimentLoggedModelDetailsPageTab, { experimentId, loggedModelId, tabName });
+    }
+    return generatePath(RoutePaths.experimentLoggedModelDetailsPage, { experimentId, loggedModelId });
+  }
+
   static searchRunsByUser(experimentId: string, userId: string) {
     const path = generatePath(RoutePaths.experimentPage, { experimentId });
-    const filterString = `user_id = '${userId}'`;
+    const filterString = `attributes.user_id = '${userId}'`;
     return `${path}?searchFilter=${encodeURIComponent(filterString)}`;
   }
 
@@ -87,6 +122,10 @@ class Routes {
       return this.getRunPageTabRoute(experimentId, runUuid, ['artifacts', artifactPath].join('/'));
     }
     return generatePath(RoutePaths.runPage, { experimentId, runUuid });
+  }
+
+  static getDirectRunPageRoute(runUuid: string) {
+    return generatePath(RoutePaths.runPageDirect, { runUuid });
   }
 
   static getRunPageTabRoute(experimentId: string, runUuid: string, tabPath?: string) {
@@ -172,6 +211,18 @@ class Routes {
     const queryString = `?experiments=${JSON.stringify(experimentIds.slice().sort())}`;
     const path = generatePath(RoutePaths.compareExperimentsSearch, { searchString: 's' });
     return `${path}${queryString}`;
+  }
+
+  /**
+   * Routes for prompts management.
+   * Featured exclusively in open source MLflow.
+   */
+  static get promptsPageRoute() {
+    return RoutePaths.promptsPage;
+  }
+
+  static getPromptDetailsPageRoute(promptName: string) {
+    return generatePath(RoutePaths.promptDetailsPage, { promptName });
   }
 }
 

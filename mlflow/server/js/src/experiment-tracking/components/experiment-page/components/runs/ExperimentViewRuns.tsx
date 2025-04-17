@@ -50,7 +50,7 @@ export interface ExperimentViewRunsProps extends ExperimentViewRunsOwnProps {
   isLoadingRuns: boolean;
   loadMoreRuns: () => Promise<any>;
   moreRunsAvailable: boolean;
-  requestError: ErrorWrapper | null;
+  requestError: ErrorWrapper | Error | null;
   refreshRuns: () => void;
 }
 
@@ -64,7 +64,7 @@ const createCurrentTime = () => {
   return mountTime;
 };
 
-export const INITIAL_RUN_COLUMN_SIZE = 295;
+const INITIAL_RUN_COLUMN_SIZE = 295;
 
 export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) => {
   const [compareRunsMode] = useExperimentPageViewMode();
@@ -152,6 +152,8 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [selectedDatasetWithRun, setSelectedDatasetWithRun] = useState<DatasetWithRunType>();
 
+  const experimentIds = useMemo(() => experiments.map(({ experimentId }) => experimentId), [experiments]);
+
   // Use new, memoized version of the row creation function.
   // Internally disabled if the flag is not set.
   const visibleRuns = useExperimentRunRows({
@@ -172,6 +174,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     runsHiddenMode: uiState.runsHiddenMode,
     runsVisibilityMap: uiState.runsVisibilityMap,
     useGroupedValuesInCharts: uiState.useGroupedValuesInCharts,
+    searchFacetsState,
   });
 
   const [notificationsFn, notificationContainer] = useLegacyNotification();
@@ -217,6 +220,16 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
       uiState={uiState}
       compareRunsMode={compareRunsMode}
     />
+  );
+
+  // Generate a unique storage key based on the experiment IDs
+  const configStorageKey = useMemo(
+    () =>
+      experiments
+        .map((e) => e.experimentId)
+        .sort()
+        .join(','),
+    [experiments],
   );
 
   return (
@@ -268,6 +281,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
               hideEmptyCharts={uiState.hideEmptyCharts}
               globalLineChartConfig={uiState.globalLineChartConfig}
               chartsSearchFilter={uiState.chartsSearchFilter}
+              storageKey={configStorageKey}
             />
           )}
           {compareRunsMode === 'ARTIFACT' && (

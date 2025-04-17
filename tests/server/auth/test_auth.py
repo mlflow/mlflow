@@ -3,6 +3,7 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures authentication is working.
 """
 
+import re
 import subprocess
 import sys
 import time
@@ -15,7 +16,11 @@ import requests
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import (
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_USERNAME,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
@@ -26,7 +31,7 @@ from mlflow.server.auth.routes import GET_REGISTERED_MODEL_PERMISSION
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import random_str
-from tests.server.auth.auth_test_utils import ADMIN_USERNAME, User, create_user
+from tests.server.auth.auth_test_utils import ADMIN_PASSWORD, ADMIN_USERNAME, User, create_user
 from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
@@ -38,11 +43,13 @@ from tests.tracking.integration_test_utils import (
 def client(request, tmp_path):
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+    extra_env = getattr(request, "param", {})
+    extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "my-secret-key"
 
     with _init_server(
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
-        extra_env=getattr(request, "param", {}),
+        extra_env=extra_env,
         app="mlflow.server.auth:create_app",
     ) as url:
         yield MlflowClient(url)
@@ -127,7 +134,7 @@ def test_authenticate_jwt(client):
 
     # authenticate with the newly created user
     headers = {
-        "Authorization": f'Bearer {jwt.encode({"username": username}, "secret", algorithm="HS256")}'
+        "Authorization": f"Bearer {jwt.encode({'username': username}, 'secret', algorithm='HS256')}"
     }
     _mlflow_search_experiments_rest(client.tracking_uri, headers)
 
@@ -338,7 +345,8 @@ def test_create_and_delete_registered_model(client, monkeypatch):
         response = requests.get(
             url=client.tracking_uri + GET_REGISTERED_MODEL_PERMISSION,
             params={"name": rm.name, "username": username1},
-            auth=("admin", "password"),  # Check with admin because the user permission is deleted
+            # Check with admin because the user permission is deleted
+            auth=("admin", "password1234"),
         )
 
     assert response.status_code == 404
@@ -395,7 +403,8 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
             "--workers",
             "1",
             "--dev",
-        ]
+        ],
+        env={MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key"},
     ) as prc:
         try:
             url = f"http://{host}:{port}"
@@ -428,3 +437,38 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
             # Kill the server process to prevent `prc.wait()` (called when exiting the context
             # manager) from waiting forever.
             _kill_all(prc.pid)
+
+
+def test_create_user_from_ui_fails_without_csrf_token(client):
+    response = requests.post(
+        client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
+        json={"username": "test", "password": "test"},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+    assert "The CSRF token is missing" in response.text
+
+
+def test_create_user_ui(client):
+    # needs to be a session as the CSRF protection will set some
+    # cookies that need to be present for server side validation
+    with requests.Session() as session:
+        page = session.get(client.tracking_uri + "/signup", auth=(ADMIN_USERNAME, ADMIN_PASSWORD))
+
+        csrf_regex = re.compile(r"name=\"csrf_token\" value=\"([\S]+)\"")
+        match = csrf_regex.search(page.text)
+
+        # assert that the CSRF token is sent in the form
+        assert match is not None
+
+        csrf_token = match.group(1)
+
+        response = session.post(
+            client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
+            data={"username": random_str(), "password": random_str(), "csrf_token": csrf_token},
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        assert "Successfully signed up user" in response.text

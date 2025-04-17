@@ -5,13 +5,16 @@ import { RunViewOverview } from './RunViewOverview';
 import { ReduxState } from '../../../redux-types';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { cloneDeep, merge } from 'lodash';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { getRunApi, setTagApi } from '../../actions';
+import { usePromptVersionsForRunQuery } from '../../pages/prompts/hooks/usePromptVersionsForRunQuery';
 import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 import type { KeyValueEntity, RunInfoEntity } from '../../types';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 
 jest.mock('../../../common/components/Prompt', () => ({
   Prompt: jest.fn(() => <div />),
@@ -20,6 +23,22 @@ jest.mock('../../../common/components/Prompt', () => ({
 jest.mock('../../actions', () => ({
   setTagApi: jest.fn(() => ({ type: 'setTagApi', payload: Promise.resolve() })),
   getRunApi: jest.fn(() => ({ type: 'getRunApi', payload: Promise.resolve() })),
+}));
+
+const testPromptName = 'test-prompt';
+const testPromptVersion = 1;
+
+jest.mock('../../pages/prompts/hooks/usePromptVersionsForRunQuery', () => ({
+  usePromptVersionsForRunQuery: jest.fn(() => ({
+    data: {
+      model_versions: [
+        {
+          name: testPromptName,
+          version: testPromptVersion,
+        },
+      ],
+    },
+  })),
 }));
 
 jest.setTimeout(30000); // Larget timeout for integration testing
@@ -70,15 +89,17 @@ const testEntitiesState: Partial<ReduxState['entities']> = {
 
 describe('RunViewOverview integration', () => {
   const onRunDataUpdated = jest.fn();
-  // entities?: DeepPartial<ReduxState['entities']>
+
   const renderComponent = ({
     tags = {},
     runInfo,
     reduxStoreEntities = {},
+    registeredModelVersionSummaries = [],
   }: {
     tags?: Record<string, KeyValueEntity>;
     reduxStoreEntities?: DeepPartial<ReduxState['entities']>;
     runInfo?: Partial<RunInfoEntity>;
+    registeredModelVersionSummaries?: RunPageModelVersionSummary[];
   } = {}) => {
     const state: DeepPartial<ReduxState> = {
       entities: merge(
@@ -92,33 +113,38 @@ describe('RunViewOverview integration', () => {
       ),
     };
 
+    const queryClient = new QueryClient();
+
     return renderWithIntl(
       <DesignSystemProvider>
-        <MockedReduxStoreProvider state={state}>
-          <TestApolloProvider>
-            <MemoryRouter>
-              <RunViewOverview
-                onRunDataUpdated={onRunDataUpdated}
-                runUuid={testRunUuid}
-                latestMetrics={testEntitiesState.latestMetricsByRunUuid?.[testRunUuid] || {}}
-                params={testEntitiesState.paramsByRunUuid?.[testRunUuid] || {}}
-                runInfo={{ ...testRunInfo, ...runInfo }}
-                tags={merge({}, testEntitiesState.tagsByRunUuid?.[testRunUuid], tags) || {}}
-              />
-            </MemoryRouter>
-          </TestApolloProvider>
-        </MockedReduxStoreProvider>
+        <QueryClientProvider client={queryClient}>
+          <MockedReduxStoreProvider state={state}>
+            <TestApolloProvider>
+              <MemoryRouter>
+                <RunViewOverview
+                  onRunDataUpdated={onRunDataUpdated}
+                  runUuid={testRunUuid}
+                  latestMetrics={testEntitiesState.latestMetricsByRunUuid?.[testRunUuid] || {}}
+                  params={testEntitiesState.paramsByRunUuid?.[testRunUuid] || {}}
+                  runInfo={{ ...testRunInfo, ...runInfo }}
+                  tags={merge({}, testEntitiesState.tagsByRunUuid?.[testRunUuid], tags) || {}}
+                  registeredModelVersionSummaries={registeredModelVersionSummaries}
+                />
+              </MemoryRouter>
+            </TestApolloProvider>
+          </MockedReduxStoreProvider>
+        </QueryClientProvider>
       </DesignSystemProvider>,
     );
   };
-  test('Render component in the simplest form and assert minimal set of values', () => {
+  test('Render component in the simplest form and assert minimal set of values', async () => {
     renderComponent();
 
     // Empty description
     expect(screen.getByText('No description')).toBeInTheDocument();
 
     // Start time
-    expect(screen.getByRole('row', { name: /Created at\s+2023-01-01 13:00:00/ })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Created at\s+01\/01\/2023, 01:00:00 PM/ })).toBeInTheDocument();
 
     // Status
     expect(screen.getByRole('row', { name: /Status\s+Finished/ })).toBeInTheDocument();
@@ -132,8 +158,10 @@ describe('RunViewOverview integration', () => {
     // Datasets
     expect(screen.getByRole('row', { name: /Datasets used\s+—/ })).toBeInTheDocument();
 
-    // Logged models
-    expect(screen.getByRole('row', { name: /Logged models\s+—/ })).toBeInTheDocument();
+    await waitFor(() => {
+      // Logged models
+      expect(screen.getByRole('row', { name: /Logged models\s+—/ })).toBeInTheDocument();
+    });
 
     // Registered models
     expect(screen.getByRole('row', { name: /Registered models\s+—/ })).toBeInTheDocument();
@@ -206,6 +234,10 @@ describe('RunViewOverview integration', () => {
       },
     });
 
+    await waitFor(() => {
+      expect(screen.getByRole('cell', { name: /sklearn/ })).toBeInTheDocument();
+    });
+
     const modelsCell = screen.getByRole('cell', { name: /sklearn/ });
 
     expect(modelsCell).toBeInTheDocument();
@@ -218,6 +250,49 @@ describe('RunViewOverview integration', () => {
     await userEvent.click(within(modelsCell).getByRole('button', { name: '+1' }));
 
     expect(screen.getByText('xgboost')).toBeInTheDocument();
+  });
+
+  test('Render cell with registered models and display dropdown menu', async () => {
+    renderComponent({
+      runInfo: {
+        artifactUri: 'file:/mlflow/tracking/12345/artifacts',
+      },
+      registeredModelVersionSummaries: [
+        {
+          displayedName: 'test-registered-model',
+          version: '1',
+          link: '/models/test-registered-model/versions/1',
+          source: 'file:/mlflow/tracking/12345/artifacts',
+          status: 'READY',
+        },
+        {
+          displayedName: 'another-test-registered-model',
+          version: '2',
+          link: '/models/another-test-registered-model/versions/2',
+          source: 'file:/mlflow/tracking/12345/artifacts',
+          status: 'READY',
+        },
+      ],
+      tags: {},
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('cell', { name: /test-registered-model/ })).toBeInTheDocument();
+    });
+
+    const modelsCell = screen.getByRole('cell', { name: /test-registered-model/ });
+
+    expect(modelsCell).toBeInTheDocument();
+    expect(within(modelsCell).getByRole('link')).toHaveAttribute(
+      'href',
+      expect.stringMatching(/test-registered-model\/versions\/1$/),
+    );
+
+    expect(within(modelsCell).getByRole('button', { name: '+1' })).toBeInTheDocument();
+
+    await userEvent.click(within(modelsCell).getByRole('button', { name: '+1' }));
+
+    expect(screen.getByText('another-test-registered-model')).toBeInTheDocument();
   });
 
   test('Render child run and check for the existing parent run link', () => {
@@ -262,6 +337,15 @@ describe('RunViewOverview integration', () => {
     await waitFor(() => {
       expect(screen.getByText('Parent run name loading')).toBeInTheDocument();
       expect(getRunApi).toBeCalledWith(testParentRunUuid);
+    });
+  });
+
+  test('Run overview contains prompts', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText(`${testPromptName} (v${testPromptVersion})`)).toBeInTheDocument();
+      expect(usePromptVersionsForRunQuery).toBeCalledWith({ runUuid: testRunUuid });
     });
   });
 

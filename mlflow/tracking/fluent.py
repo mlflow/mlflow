@@ -253,7 +253,7 @@ def start_run(
     If resuming an existing run, the run status is set to ``RunStatus.RUNNING``.
 
     MLflow sets a variety of default tags on the run, as defined in
-    :ref:`MLflow system tags <system_tags>`.
+    `MLflow system tags <../../tracking/tracking-api.html#system_tags>`_.
 
     Args:
         run_id: If specified, get the run with the specified UUID and log parameters
@@ -1936,23 +1936,26 @@ def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
         :test:
         :caption: Example
 
+        import tempfile
+
         import mlflow
 
         features = "rooms, zipcode, median_price, school_rating, transport"
-        with open("features.txt", "w") as f:
-            f.write(features)
+        with tempfile.NamedTemporaryFile("w") as tmp_file:
+            tmp_file.write(features)
+            tmp_file.flush()
 
-        # Log the artifact in a directory "features" under the root artifact_uri/features
-        with mlflow.start_run():
-            mlflow.log_artifact("features.txt", artifact_path="features")
+            # Log the artifact in a directory "features" under the root artifact_uri/features
+            with mlflow.start_run():
+                mlflow.log_artifact(tmp_file.name, artifact_path="features")
 
-            # Fetch the artifact uri root directory
-            artifact_uri = mlflow.get_artifact_uri()
-            print(f"Artifact uri: {artifact_uri}")
+                # Fetch the artifact uri root directory
+                artifact_uri = mlflow.get_artifact_uri()
+                print(f"Artifact uri: {artifact_uri}")
 
-            # Fetch a specific artifact uri
-            artifact_uri = mlflow.get_artifact_uri(artifact_path="features/features.txt")
-            print(f"Artifact uri: {artifact_uri}")
+                # Fetch a specific artifact uri
+                artifact_uri = mlflow.get_artifact_uri(artifact_path="features/features.txt")
+                print(f"Artifact uri: {artifact_uri}")
 
     .. code-block:: text
         :caption: Output
@@ -2240,7 +2243,7 @@ def autolog(
 
     The parameters are passed to any autologging integrations that support them.
 
-    See the :ref:`tracking docs <automatic-logging>` for a list of supported autologging
+    See the `tracking docs <../../tracking/autolog.html>`_ for a list of supported autologging
     integrations.
 
     Note that framework-specific configurations set at any point will take precedence over
@@ -2387,6 +2390,7 @@ def autolog(
         "anthropic": "mlflow.anthropic",
         "autogen": "mlflow.autogen",
         "openai": "mlflow.openai",
+        "google.genai": "mlflow.gemini",
         "google.generativeai": "mlflow.gemini",
         "litellm": "mlflow.litellm",
         "llama_index.core": "mlflow.llama_index",
@@ -2395,6 +2399,7 @@ def autolog(
         "crewai": "mlflow.crewai",
         "groq": "mlflow.groq",
         "boto3": "mlflow.bedrock",
+        "mistralai": "mlflow.mistral",
     }
 
     # Currently, GenAI libraries are not enabled by `mlflow.autolog` in Databricks,

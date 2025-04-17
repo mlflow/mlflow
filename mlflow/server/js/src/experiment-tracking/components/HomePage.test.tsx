@@ -1,4 +1,4 @@
-import { render, screen } from '../../common/utils/TestUtils.react17';
+import { render, screen } from '../../common/utils/TestUtils.react18';
 import HomePage from './HomePage';
 
 import configureStore from 'redux-mock-store';
@@ -27,7 +27,7 @@ jest.mock('../actions', () => ({
 }));
 
 jest.mock('../../common/utils/RoutingUtils', () => ({
-  ...jest.requireActual('../../common/utils/RoutingUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/RoutingUtils')>('../../common/utils/RoutingUtils'),
   Navigate: jest.fn(() => <div />),
 }));
 

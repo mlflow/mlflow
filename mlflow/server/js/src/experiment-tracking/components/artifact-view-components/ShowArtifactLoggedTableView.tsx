@@ -14,7 +14,7 @@ import {
   LegacyTooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { isUndefined } from 'lodash';
+import { isArray, isObject, isUndefined } from 'lodash';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
   getArtifactContent,
@@ -45,6 +45,15 @@ const MIN_COLUMN_WIDTH = 100;
 const getDuboisTableHeight = (isCompact?: boolean) => 1 + (isCompact ? 24 : 32);
 const DEFAULT_PAGINATION_COMPONENT_HEIGHT = 48;
 
+/**
+ * This function ensures we have a valid ID for every column in the table.
+ * If the column name is a number, null or undefined we will convert it to a string.
+ * If the column name is an empty string, we will use a fallback name with numbered suffix.
+ * Refer to the corresponding unit test for more context.
+ */
+const sanitizeColumnId = (columnName: string, columnIndex: number) =>
+  columnName === '' ? `column-${columnIndex + 1}` : String(columnName);
+
 const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[][] }; runUuid: string }) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [isCompactView, setIsCompactView] = useState(false);
@@ -66,7 +75,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
     }
   }, []);
 
-  const columns = useMemo(() => data['columns'], [data]);
+  const columns = useMemo(() => data['columns']?.map(sanitizeColumnId) ?? [], [data]);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<string | undefined>(undefined);
   const rows = useMemo(() => data['data'], [data]);
@@ -230,8 +239,9 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
                         sortable
                         sortDirection={header.column.getIsSorted() || 'none'}
                         onToggleSort={header.column.getToggleSortingHandler()}
-                        resizable={header.column.getCanResize()}
-                        resizeHandler={header.getResizeHandler()}
+                        header={header}
+                        column={header.column}
+                        setColumnSizing={table.setColumnSizing}
                         isResizing={header.column.getIsResizing()}
                         style={{ maxWidth: header.column.getSize() }}
                       >
@@ -412,7 +422,16 @@ export const ShowArtifactLoggedTableView = React.memo(
       setCurPath(path);
     }, [path, runUuid, isLoggedModelsMode, loggedModelId]);
 
-    const data = useMemo(() => parseJSONSafe(text), [text]);
+    const data = useMemo<{
+      columns: string[];
+      data: any[][];
+    }>(() => {
+      const parsedJSON = parseJSONSafe(text);
+      if (!parsedJSON || !isArray(parsedJSON?.columns) || !isArray(parsedJSON?.data)) {
+        return undefined;
+      }
+      return parsedJSON;
+    }, [text]);
 
     const { theme } = useDesignSystemTheme();
 
@@ -450,8 +469,8 @@ export const ShowArtifactLoggedTableView = React.memo(
       if (!data) {
         return renderErrorState(
           <FormattedMessage
-            defaultMessage="Unable to parse JSON file"
-            description="Run page > artifact view > logged table view > unable to parse JSON file error"
+            defaultMessage="Unable to parse JSON file. The file should contain an object with 'columns' and 'data' keys."
+            description="An error message displayed when the logged table JSON file is malformed or does not contain 'columns' and 'data' keys"
           />,
         );
       }

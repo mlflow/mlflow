@@ -8,6 +8,7 @@ from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
+    construct_full_inputs,
     deduplicate_span_names_in_place,
     encode_span_id,
     maybe_get_request_id,
@@ -102,10 +103,36 @@ def test_set_span_chat_messages_and_tools():
 
     dummy_call(messages, tools)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     span = trace.data.spans[0]
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == messages
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == tools
+
+
+def test_set_span_chat_messages_append():
+    messages = [
+        {"role": "system", "content": "you are a confident bot"},
+        {"role": "user", "content": "what is 1 + 1?"},
+    ]
+    additional_messages = [{"role": "assistant", "content": "it is definitely 5"}]
+
+    # Append messages
+    with mlflow.start_span(name="foo") as span:
+        set_span_chat_messages(span, messages)
+        set_span_chat_messages(span, additional_messages, append=True)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = trace.data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == messages + additional_messages
+
+    # Overwrite messages
+    with mlflow.start_span(name="bar") as span:
+        set_span_chat_messages(span, messages)
+        set_span_chat_messages(span, additional_messages, append=False)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = trace.data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == additional_messages
 
 
 def test_set_chat_messages_validation():
@@ -139,3 +166,30 @@ def test_set_chat_tools_validation():
 
     with pytest.raises(ValidationError, match="validation error for ChatTool"):
         dummy_call(tools)
+
+
+def test_construct_full_inputs_simple_function():
+    def func(a, b, c=3, d=4, **kwargs):
+        pass
+
+    result = construct_full_inputs(func, 1, 2)
+    assert result == {"a": 1, "b": 2}
+
+    result = construct_full_inputs(func, 1, 2, c=30)
+    assert result == {"a": 1, "b": 2, "c": 30}
+
+    result = construct_full_inputs(func, 1, 2, c=30, d=40, e=50)
+    assert result == {"a": 1, "b": 2, "c": 30, "d": 40, "kwargs": {"e": 50}}
+
+    def no_args_func():
+        pass
+
+    result = construct_full_inputs(no_args_func)
+    assert result == {}
+
+    class TestClass:
+        def func(self, a, b, c=3, d=4, **kwargs):
+            pass
+
+    result = construct_full_inputs(TestClass().func, 1, 2)
+    assert result == {"a": 1, "b": 2}

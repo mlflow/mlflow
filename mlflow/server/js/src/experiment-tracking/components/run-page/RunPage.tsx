@@ -10,7 +10,6 @@ import { RunPageTabName } from '../../constants';
 import { RenameRunModal } from '../modals/RenameRunModal';
 import { RunViewArtifactTab } from './RunViewArtifactTab';
 import { RunViewHeader } from './RunViewHeader';
-import { RunViewMetricCharts } from './RunViewMetricCharts';
 import { RunViewOverview } from './RunViewOverview';
 import { useRunDetailsPageData } from './hooks/useRunDetailsPageData';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
@@ -23,10 +22,9 @@ import { FormattedMessage } from 'react-intl';
 import { isSystemMetricKey } from '../../utils/MetricsUtils';
 import DeleteRunModal from '../modals/DeleteRunModal';
 import Routes from '../../routes';
-import { RunViewMetricChartsV2 } from './RunViewMetricChartsV2';
+import { RunViewMetricCharts } from './RunViewMetricCharts';
 import {
   shouldEnableRunDetailsPageTracesTab,
-  shouldUseUnifiedRunCharts,
   shouldEnableGraphQLRunDetailsPage,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
@@ -71,6 +69,9 @@ export const RunPage = () => {
     runFetchError,
     apiError,
     datasets,
+    runInputs,
+    runOutputs,
+    registeredModelVersionSummaries,
   } = useRunDetailsPageData({
     experimentId,
     runUuid,
@@ -93,48 +94,44 @@ export const RunPage = () => {
 
   const activeTab = useRunViewActiveTab();
 
+  const isLoadingLoggedModels = false;
+
   const renderActiveTab = () => {
     if (!runInfo) {
       return null;
     }
     switch (activeTab) {
       case RunPageTabName.MODEL_METRIC_CHARTS:
-        if (shouldUseUnifiedRunCharts()) {
-          return (
-            <RunViewMetricChartsV2
-              key="model"
-              mode="model"
-              metricKeys={modelMetricKeys}
-              runInfo={runInfo}
-              latestMetrics={latestMetrics}
-              tags={tags}
-              params={params}
-            />
-          );
-        } else {
-          return <RunViewMetricCharts mode="model" metricKeys={modelMetricKeys} runInfo={runInfo} />;
-        }
+        return (
+          <RunViewMetricCharts
+            key="model"
+            mode="model"
+            metricKeys={modelMetricKeys}
+            runInfo={runInfo}
+            latestMetrics={latestMetrics}
+            tags={tags}
+            params={params}
+          />
+        );
+
       case RunPageTabName.SYSTEM_METRIC_CHARTS:
-        if (shouldUseUnifiedRunCharts()) {
-          return (
-            <RunViewMetricChartsV2
-              key="system"
-              mode="system"
-              metricKeys={systemMetricKeys}
-              runInfo={runInfo}
-              latestMetrics={latestMetrics}
-              tags={tags}
-              params={params}
-            />
-          );
-        } else {
-          return <RunViewMetricCharts mode="system" metricKeys={systemMetricKeys} runInfo={runInfo} />;
-        }
+        return (
+          <RunViewMetricCharts
+            key="system"
+            mode="system"
+            metricKeys={systemMetricKeys}
+            runInfo={runInfo}
+            latestMetrics={latestMetrics}
+            tags={tags}
+            params={params}
+          />
+        );
       case RunPageTabName.ARTIFACTS:
         return (
           <RunViewArtifactTab
             runUuid={runUuid}
             runTags={tags}
+            runOutputs={runOutputs}
             experimentId={experimentId}
             artifactUri={runInfo.artifactUri ?? undefined}
           />
@@ -153,7 +150,11 @@ export const RunPage = () => {
         latestMetrics={latestMetrics}
         runUuid={runUuid}
         onRunDataUpdated={refetchRun}
+        runInputs={runInputs}
+        runOutputs={runOutputs}
         datasets={datasets}
+        registeredModelVersionSummaries={registeredModelVersionSummaries}
+        isLoadingLoggedModels={isLoadingLoggedModels}
       />
     );
   };
@@ -225,6 +226,8 @@ export const RunPage = () => {
           runParams={params}
           runUuid={runUuid}
           artifactRootUri={runInfo?.artifactUri ?? undefined}
+          registeredModelVersionSummaries={registeredModelVersionSummaries}
+          isLoading={loading || isLoadingLoggedModels}
         />
         {/* Scroll tab contents independently within own container */}
         <div css={{ flex: 1, overflow: 'auto', marginBottom: theme.spacing.sm, display: 'flex' }}>

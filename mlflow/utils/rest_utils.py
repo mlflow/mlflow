@@ -54,6 +54,7 @@ def http_request(
     timeout=None,
     raise_on_status=True,
     respect_retry_after_header=None,
+    retry_timeout_seconds=None,
     **kwargs,
 ):
     """Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
@@ -79,6 +80,7 @@ def http_request(
             in retry_codes range and retries have been exhausted.
         respect_retry_after_header: Whether to respect Retry-After header on status codes defined
             as Retry.RETRY_AFTER_STATUS_CODES or not.
+        retry_timeout_seconds: Timeout for retires. Only effective when using Databricks SDK.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
@@ -95,6 +97,7 @@ def http_request(
             host_creds.host,
             host_creds.token,
             host_creds.databricks_auth_profile,
+            retry_timeout_seconds=retry_timeout_seconds,
         )
         try:
             # Databricks SDK `APIClient.do` API is for making request using
@@ -205,7 +208,13 @@ def http_request(
 
 
 @lru_cache(maxsize=1)
-def get_workspace_client(use_secret_scope_token, host, token, databricks_auth_profile):
+def get_workspace_client(
+    use_secret_scope_token,
+    host,
+    token,
+    databricks_auth_profile,
+    retry_timeout_seconds=None,
+):
     from databricks.sdk import WorkspaceClient
     from databricks.sdk.config import Config
 
@@ -215,7 +224,8 @@ def get_workspace_client(use_secret_scope_token, host, token, databricks_auth_pr
         kwargs = {"profile": databricks_auth_profile}
     config = Config(
         **kwargs,
-        retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+        retry_timeout_seconds=retry_timeout_seconds
+        or MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
     )
     # Note: If we use `config` param, all SDK configurations must be set in `config` object.
     return WorkspaceClient(config=config)
@@ -354,8 +364,21 @@ def get_trace_info_endpoint(request_id):
     return f"{get_single_trace_endpoint(request_id)}/info"
 
 
+def get_trace_assessment_endpoint(request_id):
+    # TEMPORARY ENDPOINT: this is currently hosted at /api/2.0/... but will be moved to /api/3.0/...
+    return f"{get_single_trace_endpoint(request_id)}"
+
+
 def get_set_trace_tag_endpoint(request_id):
     return f"{get_single_trace_endpoint(request_id)}/tags"
+
+
+def get_create_assessment_endpoint(trace_id: str):
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
+
+
+def get_single_assessment_endpoint(trace_id: str, assessment_id: str):
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
 
 
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
@@ -379,6 +402,7 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     response = verify_rest_response(response, endpoint)
     response_to_parse = response.text
     js_dict = json.loads(response_to_parse)
+
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 

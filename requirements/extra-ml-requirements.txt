@@ -76,10 +76,14 @@ anthropic
 # Required by mlflow.autogen
 autogen
 # Required by mlflow.dspy
-dspy
+# In dspy 2.6.9, `dspy.__name__` is not 'dspy', but 'dspy.__metadata__',
+# which causes auto-logging tests to fail.
+dspy!=2.6.9
 # Required by mlflow.litellm
 litellm
 # Required by mlflow.gemini
-google-generativeai
+google-genai
 # Required by mlflow.groq
 groq
+# Required by mlflow.mistral
+mistralai

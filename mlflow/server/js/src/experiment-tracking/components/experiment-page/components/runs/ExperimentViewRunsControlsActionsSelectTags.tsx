@@ -9,8 +9,7 @@ import {
   PlusIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useEffect, useState } from 'react';
-import { shouldEnableTaggingMultipleRuns } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { useState } from 'react';
 import { isUserFacingTag } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { setRunTagsBulkApi } from '@mlflow/mlflow/src/experiment-tracking/actions';
 import { KeyValueEntity, RunInfoEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
@@ -19,13 +18,16 @@ import { ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
 import { ExperimentViewRunsControlsActionsAddNewTagModal } from './ExperimentViewRunsControlsActionsAddNewTagModal';
 import { uniq } from 'lodash';
 import { FormattedMessage } from 'react-intl';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
+import { ErrorWrapper } from '@mlflow/mlflow/src/common/utils/ErrorWrapper';
 
 const convertTagToString = (tag: KeyValueEntity) => {
   return `${tag.key}: ${tag.value}`;
 };
 const convertStringToTag = (tagString: string) => {
-  const [key, value] = tagString.split(': ');
-  return { key, value };
+  const sep = ': ';
+  const [key, ...splits] = tagString.split(sep);
+  return { key, value: splits.join(sep) };
 };
 
 const getRunsTagsSelection = (
@@ -140,11 +142,18 @@ export const ExperimentViewRunsControlsActionsSelectTags = ({
           }
         })
         .map((tagString) => convertStringToTag(tagString));
-      dispatch(setRunTagsBulkApi(runUuid, existingKeys, newKeys)).then(() => {
-        refreshRuns();
-        setIsSavingTagsLoading(false);
-        setIsMultiSelectOpen(false);
-      });
+      dispatch(setRunTagsBulkApi(runUuid, existingKeys, newKeys))
+        .then(() => {
+          refreshRuns();
+        })
+        .catch((e) => {
+          const message = e instanceof ErrorWrapper ? e.getMessageField() : e.message;
+          Utils.displayGlobalErrorNotification(message);
+        })
+        .finally(() => {
+          setIsSavingTagsLoading(false);
+          setIsMultiSelectOpen(false);
+        });
     });
   };
 

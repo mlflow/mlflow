@@ -1,5 +1,5 @@
 import { waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 
 import { DeepPartial } from 'redux';
 import { MemoryRouter, useNavigate } from '../../common/utils/RoutingUtils';
@@ -10,7 +10,7 @@ import {
   within,
   fastFillInput,
   renderWithIntl,
-} from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
+} from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { PromoteModelButton } from './PromoteModelButton';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { Services as ModelRegistryService } from '../services';
@@ -21,7 +21,7 @@ import { merge } from 'lodash';
 
 jest.mock('../../model-registry/services');
 jest.mock('../../common/utils/RoutingUtils', () => ({
-  ...jest.requireActual('../../common/utils/RoutingUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/RoutingUtils')>('../../common/utils/RoutingUtils'),
   useNavigate: jest.fn(),
 }));
 
@@ -106,7 +106,7 @@ describe('PromoteModelButton', () => {
 
     // Mock the useNavigate hook
     const mockNavigate = jest.fn();
-    (useNavigate as jest.Mock).mockReturnValue(mockNavigate);
+    jest.mocked(useNavigate).mockReturnValue(mockNavigate);
 
     // Render the component with pre-populated redux state that already has a registered model entity
     renderComponent({
@@ -161,7 +161,7 @@ describe('PromoteModelButton', () => {
 
     // Mock the useNavigate hook
     const mockNavigate = jest.fn();
-    (useNavigate as jest.Mock).mockReturnValue(mockNavigate);
+    jest.mocked(useNavigate).mockReturnValue(mockNavigate);
 
     renderComponent({
       entities: {

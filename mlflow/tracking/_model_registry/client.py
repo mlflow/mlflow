@@ -8,6 +8,10 @@ import logging
 
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import (
+    add_prompt_filter_string,
+    is_prompt_supported_registry,
+)
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -125,6 +129,10 @@ class ModelRegistryClient:
             obtained via the ``token`` attribute of the object.
 
         """
+        if is_prompt_supported_registry(self.registry_uri):
+            # Adjust filter string to include or exclude prompts
+            filter_string = add_prompt_filter_string(filter_string, False)
+
         return self.store.search_registered_models(filter_string, max_results, order_by, page_token)
 
     def get_registered_model(self, name):

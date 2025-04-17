@@ -4,6 +4,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import pydantic
 import pyspark
 import pytest
 from sklearn.ensemble import RandomForestRegressor
@@ -22,6 +23,7 @@ from mlflow.types.schema import (
     TensorSpec,
     convert_dataclass_to_schema,
 )
+from mlflow.types.utils import InvalidDataForSignatureInferenceError
 
 
 def test_model_signature_with_colspec():
@@ -210,13 +212,11 @@ def test_signature_inference_infers_datime_types_as_expected():
 
 def test_set_signature_to_logged_model():
     artifact_path = "regr-model"
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(RandomForestRegressor(), artifact_path)
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(RandomForestRegressor(), artifact_path)
     signature = infer_signature(np.array([1]))
-    run_id = run.info.run_id
-    model_uri = f"runs:/{run_id}/{artifact_path}"
-    set_signature(model_uri, signature)
-    model_info = get_model_info(model_uri)
+    set_signature(model_info.model_uri, signature)
+    model_info = get_model_info(model_info.model_uri)
     assert model_info.signature == signature
 
 
@@ -234,17 +234,15 @@ def test_set_signature_to_saved_model(tmp_path):
 
 def test_set_signature_overwrite():
     artifact_path = "regr-model"
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
             RandomForestRegressor(),
             artifact_path,
             signature=infer_signature(np.array([1])),
         )
     new_signature = infer_signature(np.array([1]), np.array([1]))
-    run_id = run.info.run_id
-    model_uri = f"runs:/{run_id}/{artifact_path}"
-    set_signature(model_uri, new_signature)
-    model_info = get_model_info(model_uri)
+    set_signature(model_info.model_uri, new_signature)
+    model_info = get_model_info(model_info.model_uri)
     assert model_info.signature == new_signature
 
 
@@ -374,3 +372,17 @@ def test_infer_signature_with_optional_and_child_dataclass():
     assert any(
         schema for schema in inferred_signature.inputs.to_dict() if schema["name"] == "messages"
     )
+
+
+def test_infer_signature_for_pydantic_objects_error():
+    class Message(pydantic.BaseModel):
+        content: str
+        role: str
+
+    m = Message(content="test", role="user")
+    with pytest.raises(
+        InvalidDataForSignatureInferenceError,
+        match=r"MLflow does not support inferring model signature from "
+        r"input example with Pydantic objects",
+    ):
+        infer_signature([m])

@@ -50,6 +50,7 @@ basic_proto_files = [
     "mlflow_artifacts.proto",
     "internal.proto",
     "scalapb/scalapb.proto",
+    "assessments.proto",
 ]
 uc_proto_files = [
     "databricks_managed_catalog_messages.proto",
@@ -60,8 +61,11 @@ uc_proto_files = [
     "unity_catalog_oss_messages.proto",
     "unity_catalog_oss_service.proto",
 ]
+tracing_proto_files = [
+    "databricks_trace_server.proto",
+]
 facet_proto_files = ["facet_feature_statistics.proto"]
-python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files
+python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files + tracing_proto_files
 test_proto_files = ["test_message.proto"]
 
 
@@ -84,6 +88,14 @@ python_gencode_replacements = [
     (
         "import unity_catalog_oss_messages_pb2 as unity__catalog__oss__messages__pb2",
         "from . import unity_catalog_oss_messages_pb2 as unity_catalog_oss_messages_pb2",
+    ),
+    (
+        "import service_pb2 as service__pb2",
+        "from . import service_pb2 as service__pb2",
+    ),
+    (
+        "import assessments_pb2 as assessments__pb2",
+        "from . import assessments_pb2 as assessments__pb2",
     ),
 ]
 

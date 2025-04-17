@@ -20,6 +20,9 @@ from sqlalchemy.pool import (
 )
 
 from mlflow.environment_variables import (
+    MLFLOW_MYSQL_SSL_CA,
+    MLFLOW_MYSQL_SSL_CERT,
+    MLFLOW_MYSQL_SSL_KEY,
     MLFLOW_SQLALCHEMYSTORE_ECHO,
     MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
     MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE,
@@ -27,7 +30,11 @@ from mlflow.environment_variables import (
     MLFLOW_SQLALCHEMYSTORE_POOLCLASS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, TEMPORARILY_UNAVAILABLE
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INTERNAL_ERROR,
+    TEMPORARILY_UNAVAILABLE,
+)
 from mlflow.store.db.db_types import SQLITE
 from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersion,
@@ -257,17 +264,17 @@ def create_sqlalchemy_engine(db_uri):
     pool_recycle = MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE.get()
     echo = MLFLOW_SQLALCHEMYSTORE_ECHO.get()
     poolclass = MLFLOW_SQLALCHEMYSTORE_POOLCLASS.get()
-    pool_kwargs = {}
+    kwargs = {}
     # Send argument only if they have been injected.
     # Some engine does not support them (for example sqllite)
     if pool_size:
-        pool_kwargs["pool_size"] = pool_size
+        kwargs["pool_size"] = pool_size
     if pool_max_overflow:
-        pool_kwargs["max_overflow"] = pool_max_overflow
+        kwargs["max_overflow"] = pool_max_overflow
     if pool_recycle:
-        pool_kwargs["pool_recycle"] = pool_recycle
+        kwargs["pool_recycle"] = pool_recycle
     if echo:
-        pool_kwargs["echo"] = echo
+        kwargs["echo"] = echo
     if poolclass:
         pool_class_map = {
             "AssertionPool": AssertionPool,
@@ -286,7 +293,22 @@ def create_sqlalchemy_engine(db_uri):
             )
             _logger.warning(err_str)
             raise ValueError(err_str)
-        pool_kwargs["poolclass"] = pool_class_map[poolclass]
-    if pool_kwargs:
-        _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
-    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)
+        kwargs["poolclass"] = pool_class_map[poolclass]
+    if kwargs:
+        _logger.info("Create SQLAlchemy engine with pool options %s", kwargs)
+
+    # Handle MySQL SSL certificates via connect_args
+    if db_uri.startswith("mysql"):
+        connect_args = {
+            k: v
+            for k, v in {
+                "ssl_ca": MLFLOW_MYSQL_SSL_CA.get(),
+                "ssl_cert": MLFLOW_MYSQL_SSL_CERT.get(),
+                "ssl_key": MLFLOW_MYSQL_SSL_KEY.get(),
+            }.items()
+            if v
+        }
+        if connect_args:
+            kwargs["connect_args"] = connect_args
+
+    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **kwargs)

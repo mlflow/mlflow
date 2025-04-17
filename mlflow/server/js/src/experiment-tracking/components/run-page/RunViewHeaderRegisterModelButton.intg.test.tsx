@@ -6,7 +6,7 @@ import Utils from '../../../common/utils/Utils';
 import { ReduxState } from '../../../redux-types';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
 import { DesignSystemProvider, DesignSystemThemeProvider } from '@databricks/design-system';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { createModelVersionApi, createRegisteredModelApi } from '../../../model-registry/actions';
 import { KeyValueEntity } from '../../types';
 
@@ -50,6 +50,7 @@ describe('RunViewHeaderRegisterModelButton integration', () => {
                 artifactRootUri={artifactRootUri}
                 runUuid={runUuid}
                 experimentId={experimentId}
+                registeredModelVersionSummaries={[]}
               />
             </div>
           </MockedReduxStoreProvider>
@@ -121,6 +122,7 @@ describe('RunViewHeaderRegisterModelButton integration', () => {
       'testRunUuid',
       [],
       expect.anything(),
+      undefined,
     );
   });
 });

@@ -1,5 +1,4 @@
 import {
-  shouldUseNewRunRowsVisibilityModel,
   shouldEnableToggleIndividualRunsInGroups,
   shouldUseRunRowsVisibilityMap,
 } from '../../../../common/utils/FeatureUtils';
@@ -10,9 +9,10 @@ import { RunGroupingAggregateFunction, RunGroupingMode, RunRowVisibilityControl 
 import { SingleRunData, prepareRunsGridData } from './experimentPage.row-utils';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
-  shouldUseNewRunRowsVisibilityModel: jest.fn().mockImplementation(() => false),
-  shouldUseRunRowsVisibilityMap: jest.fn().mockImplementation(() => false),
+  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
+    '../../../../common/utils/FeatureUtils',
+  ),
+  shouldUseRunRowsVisibilityMap: jest.fn(() => false),
   shouldEnableToggleIndividualRunsInGroups: jest.fn(),
 }));
 
@@ -441,186 +441,7 @@ describe.each([
   'ExperimentViewRuns row utils, grouped run hierarchy - individual run toggling set to $individualRunsInGroupsFlagValue',
   ({ individualRunsInGroupsFlagValue }) => {
     beforeEach(() => {
-      jest.mocked(shouldUseNewRunRowsVisibilityModel).mockImplementation(() => false);
       jest.mocked(shouldEnableToggleIndividualRunsInGroups).mockImplementation(() => individualRunsInGroupsFlagValue);
-    });
-
-    test('it creates proper row set for runs grouped by a tag', () => {
-      const runsGridData = prepareRunsGridData({
-        ...commonPrepareRunsGridDataParams,
-        groupBy: {
-          aggregateFunction: RunGroupingAggregateFunction.Min,
-          groupByKeys: [
-            {
-              mode: RunGroupingMode.Tag,
-              groupByData: 'testtag1',
-            },
-          ],
-        },
-      });
-
-      // We expect 7 rows - 4 groups and 3 runs. Ungrouped runs are hidden by default.
-      expect(runsGridData).toHaveLength(7);
-
-      // We expect first group to be expanded by default
-      expect(runsGridData[0].groupParentInfo).toEqual(
-        expect.objectContaining({
-          aggregateFunction: 'min',
-          expanderOpen: true,
-          groupId: 'tag.testtag1.testval1',
-          groupingValues: [
-            {
-              groupByData: 'testtag1',
-              mode: 'tag',
-              value: 'testval1',
-            },
-          ],
-          isRemainingRunsGroup: false,
-          aggregatedMetricData: {
-            met1: {
-              key: 'met1',
-              maxStep: 0,
-              value: 111.123456789,
-            },
-          },
-          aggregatedParamData: {
-            p1: {
-              key: 'p1',
-              maxStep: 0,
-              value: 123,
-            },
-          },
-          runUuids: ['run1_1'],
-        }),
-      );
-      // Next, we expect the first run to be a child of the first group
-      expect(runsGridData[1].groupParentInfo).toBeUndefined();
-      expect(runsGridData[1].runUuid).toBe('run1_1');
-
-      // Similar for 2nd and 3rd group
-      expect(runsGridData[2].groupParentInfo).toEqual(
-        expect.objectContaining({
-          groupId: 'tag.testtag1.testval2',
-          aggregatedMetricData: {
-            met1: {
-              key: 'met1',
-              maxStep: 0,
-              value: 222,
-            },
-          },
-          runUuids: ['run1_2'],
-        }),
-      );
-      expect(runsGridData[3].groupParentInfo).toBeUndefined();
-      expect(runsGridData[3].runUuid).toBe('run1_2');
-      expect(runsGridData[4].groupParentInfo).toEqual(
-        expect.objectContaining({
-          groupId: 'tag.testtag1.testval3',
-          runUuids: ['run1_3'],
-        }),
-      );
-      expect(runsGridData[5].groupParentInfo).toBeUndefined();
-      expect(runsGridData[5].runUuid).toBe('run1_3');
-
-      // In the end, we expect the last group with ungrouped runs to be collapsed by default
-      expect(runsGridData[6].groupParentInfo).toEqual(
-        expect.objectContaining({
-          groupId: 'tag.testtag1',
-          isRemainingRunsGroup: true,
-          expanderOpen: false,
-          runUuids: ['run1_4', 'run2_1', 'run2_2'],
-        }),
-      );
-    });
-
-    test('it creates proper row dataset for runs grouped by a tag when expanded configuration is provided', () => {
-      const runsGridData = prepareRunsGridData({
-        ...commonPrepareRunsGridDataParams,
-        groupBy: {
-          aggregateFunction: RunGroupingAggregateFunction.Min,
-          groupByKeys: [
-            {
-              mode: RunGroupingMode.Tag,
-              groupByData: 'testtag1',
-            },
-          ],
-        },
-        // Contract all groups but expand "remaining runs" group
-        groupsExpanded: {
-          'tag.testtag1.testval1': false,
-          'tag.testtag1.testval2': false,
-          'tag.testtag1.testval3': false,
-          'tag.testtag1': true,
-        },
-      });
-      expect(runsGridData).toHaveLength(7);
-      expect(runsGridData[0].groupParentInfo?.expanderOpen).toBe(false);
-      expect(runsGridData[1].groupParentInfo?.expanderOpen).toBe(false);
-      expect(runsGridData[2].groupParentInfo?.expanderOpen).toBe(false);
-      expect(runsGridData[3].groupParentInfo?.expanderOpen).toBe(true);
-      expect(runsGridData[4].runUuid).toEqual('run1_4');
-      expect(runsGridData[5].runUuid).toEqual('run2_1');
-      expect(runsGridData[6].runUuid).toEqual('run2_2');
-    });
-
-    test('it properly hoists pinned runs within a certain group', () => {
-      const runsGridData = prepareRunsGridData({
-        ...commonPrepareRunsGridDataParams,
-        groupBy: {
-          aggregateFunction: RunGroupingAggregateFunction.Min,
-          groupByKeys: [
-            {
-              mode: RunGroupingMode.Tag,
-              groupByData: 'testtag1',
-            },
-          ],
-        },
-        groupsExpanded: {
-          'tag.testtag1.testval1': false,
-          'tag.testtag1.testval2': false,
-          'tag.testtag1.testval3': false,
-          'tag.testtag1': true,
-        },
-        // Pin a single run
-        runsPinned: ['run2_2'],
-      });
-      expect(runsGridData).toHaveLength(7);
-      expect(runsGridData[3].groupParentInfo?.expanderOpen).toBe(true);
-      // Expect pinned run to be hoisted to the top of the group
-      expect(runsGridData[4].runUuid).toEqual('run2_2');
-      expect(runsGridData[5].runUuid).toEqual('run1_4');
-      expect(runsGridData[6].runUuid).toEqual('run2_1');
-    });
-
-    test('it properly hoists pinned group runs', () => {
-      const runsGridData = prepareRunsGridData({
-        ...commonPrepareRunsGridDataParams,
-        groupBy: {
-          aggregateFunction: RunGroupingAggregateFunction.Min,
-          groupByKeys: [
-            {
-              mode: RunGroupingMode.Tag,
-              groupByData: 'testtag1',
-            },
-          ],
-        },
-        groupsExpanded: {
-          'tag.testtag1.testval1': false,
-          'tag.testtag1.testval2': false,
-          'tag.testtag1.testval3': false,
-          'tag.testtag1': false,
-        },
-        // Pin two run groups
-        runsPinned: ['tag.testtag1.testval2', 'tag.testtag1'],
-      });
-      expect(runsGridData).toHaveLength(4);
-      // Expect pinned groups to be hoisted to the top of the list
-      expect(runsGridData[0].rowUuid).toEqual('tag.testtag1.testval2');
-      expect(runsGridData[1].rowUuid).toEqual('tag.testtag1');
-
-      // Expect not pinned groups to be at the bottom
-      expect(runsGridData[2].rowUuid).toEqual('tag.testtag1.testval1');
-      expect(runsGridData[3].rowUuid).toEqual('tag.testtag1.testval3');
     });
 
     describe.each([
@@ -628,7 +449,6 @@ describe.each([
       ['when using legacy runsHidden UI state', false],
     ])('Configurable runs visibility mode  %s', (_, useExplicitRunRowsVisibility) => {
       beforeEach(() => {
-        jest.mocked(shouldUseNewRunRowsVisibilityModel).mockImplementation(() => true);
         jest.mocked(shouldUseRunRowsVisibilityMap).mockImplementation(() => useExplicitRunRowsVisibility);
       });
 
@@ -723,7 +543,6 @@ describe.each([
 
 describe('ExperimentViewRuns row utils, grouped run hierarchy - selecting individual runs', () => {
   beforeEach(() => {
-    jest.mocked(shouldUseNewRunRowsVisibilityModel).mockImplementation(() => true);
     jest.mocked(shouldEnableToggleIndividualRunsInGroups).mockImplementation(() => true);
   });
 

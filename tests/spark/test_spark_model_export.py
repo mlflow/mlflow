@@ -292,15 +292,13 @@ def test_log_model_with_signature_and_examples(spark_model_iris, iris_signature)
     for signature in (None, iris_signature):
         for example in (None, example_):
             with mlflow.start_run():
-                mlflow.spark.log_model(
+                model_info = mlflow.spark.log_model(
                     spark_model_iris.model,
                     artifact_path,
                     signature=signature,
                     input_example=example,
                 )
-                artifact_uri = mlflow.get_artifact_uri()
-                model_path = os.path.join(artifact_uri, artifact_path)
-                mlflow_model = Model.load(model_path)
+                mlflow_model = Model.load(model_info.model_uri)
                 if example is None and signature is None:
                     assert mlflow_model.signature is None
                 else:
@@ -308,7 +306,7 @@ def test_log_model_with_signature_and_examples(spark_model_iris, iris_signature)
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((_read_example(mlflow_model, model_path) == example).all())
+                    assert all((_read_example(mlflow_model, model_info.model_uri) == example).all())
 
 
 def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_env):
@@ -398,14 +396,15 @@ def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"
-        mlflow.spark.log_model(
+        model_info = mlflow.spark.log_model(
             spark_model_iris.model,
             artifact_path,
             dfs_tmpdir=dfs_tmpdir,
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
-        reloaded_model = mlflow.spark.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
+        reloaded_model = mlflow.spark.load_model(
+            model_uri=model_info.model_uri, dfs_tmpdir=dfs_tmpdir
+        )
         preds_df = reloaded_model.transform(spark_model_iris.spark_df)
         preds = [x.prediction for x in preds_df.select("prediction").collect()]
         assert spark_model_iris.predictions == preds
@@ -435,7 +434,7 @@ def test_load_spark_model_from_models_uri(
         ) as mock_download_artifacts,
         mock.patch("mlflow.get_registry_uri", return_value=registry_uri),
         mock.patch.object(
-            mlflow.tracking.MlflowClient,
+            mlflow.tracking._model_registry.client.ModelRegistryClient,
             "get_model_version_by_alias",
             return_value=fake_model_version,
         ) as get_model_version_by_alias_mock,
@@ -453,16 +452,10 @@ def test_load_spark_model_from_models_uri(
             if artifact_repo_class is UnityCatalogModelsArtifactRepository
             else {}
         )
-        assert mock_download_artifacts.mock_calls == [
-            mock.call("MLmodel", None, **kwargs),
-            mock.call("", None, **kwargs),
-        ]
+        mock_download_artifacts.assert_called_once_with("", None, **kwargs)
         mock_download_artifacts.reset_mock()
         mlflow.spark.load_model(f"models:/{model_name}@Champion")
-        assert mock_download_artifacts.mock_calls == [
-            mock.call("MLmodel", None, **kwargs),
-            mock.call("", None, **kwargs),
-        ]
+        mock_download_artifacts.assert_called_once_with("", None, **kwargs)
         assert get_model_version_by_alias_mock.called_with(model_name, "Champion")
 
 
@@ -480,14 +473,15 @@ def test_sparkml_estimator_model_log(
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"
-        mlflow.spark.log_model(
+        model_info = mlflow.spark.log_model(
             spark_model_estimator.model,
             artifact_path,
             dfs_tmpdir=dfs_tmpdir,
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
 
-        reloaded_model = mlflow.spark.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
+        reloaded_model = mlflow.spark.load_model(
+            model_uri=model_info.model_uri, dfs_tmpdir=dfs_tmpdir
+        )
         preds_df = reloaded_model.transform(spark_model_estimator.spark_df)
         preds = [x.prediction for x in preds_df.select("prediction").collect()]
         assert spark_model_estimator.predictions == preds
@@ -501,16 +495,15 @@ def test_log_model_calls_register_model(tmp_path, spark_model_iris):
     dfs_tmp_dir = tmp_path.joinpath("test")
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
-        mlflow.spark.log_model(
+        model_info = mlflow.spark.log_model(
             spark_model_iris.model,
             artifact_path,
             dfs_tmpdir=dfs_tmp_dir,
             registered_model_name="AdsModel1",
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
-            model_uri=model_uri,
+            model_uri=model_info.model_uri,
             registered_model_name="AdsModel1",
         )
 
@@ -579,27 +572,27 @@ def test_log_model_with_pip_requirements(spark_model_iris, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.spark.log_model(spark_model_iris.model, "model", pip_requirements=str(req_file))
-        _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        model_info = mlflow.spark.log_model(
+            spark_model_iris.model, "model", pip_requirements=str(req_file)
         )
+        _assert_pip_requirements(model_info.model_uri, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.spark.log_model(
+        model_info = mlflow.spark.log_model(
             spark_model_iris.model, "model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
+            model_info.model_uri, [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.spark.log_model(
+        model_info = mlflow.spark.log_model(
             spark_model_iris.model, "model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
@@ -614,29 +607,29 @@ def test_log_model_with_extra_pip_requirements(spark_model_iris, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.spark.log_model(
+        model_info = mlflow.spark.log_model(
             spark_model_iris.model, "model", extra_pip_requirements=str(req_file)
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+            model_info.model_uri, [expected_mlflow_version, *default_reqs, "a"]
         )
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.spark.log_model(
+        model_info = mlflow.spark.log_model(
             spark_model_iris.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
+            model_info.model_uri, [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.spark.log_model(
+        model_info = mlflow.spark.log_model(
             spark_model_iris.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
@@ -668,10 +661,8 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
             artifact_path,
             conda_env=spark_custom_env,
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        assert model_info.model_uri == model_uri
 
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    model_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
@@ -689,14 +680,12 @@ def test_sparkml_model_log_persists_requirements_in_mlflow_model_directory(
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.spark.log_model(
+        model_info = mlflow.spark.log_model(
             spark_model_iris.model,
             artifact_path,
             conda_env=spark_custom_env,
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    model_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(spark_custom_env, saved_pip_req_path)
 
@@ -713,10 +702,9 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.spark.log_model(spark_model_iris.model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.spark.log_model(spark_model_iris.model, artifact_path)
 
-    _assert_pip_requirements(model_uri, mlflow.spark.get_default_pip_requirements())
+    _assert_pip_requirements(model_info.model_uri, mlflow.spark.get_default_pip_requirements())
 
 
 def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
@@ -725,10 +713,9 @@ def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
     for dev_suffix in [".dev0", ".dev", ".dev1", "dev.a", ".devb"]:
         with mock.patch("importlib_metadata.version", return_value=unsuffixed_version + dev_suffix):
             with mlflow.start_run():
-                mlflow.spark.log_model(spark_model_iris.model, "model")
-                model_uri = mlflow.get_artifact_uri("model")
+                model_info = mlflow.spark.log_model(spark_model_iris.model, "model")
             _assert_pip_requirements(
-                model_uri, [expected_mlflow_version, f"pyspark=={unsuffixed_version}"]
+                model_info.model_uri, [expected_mlflow_version, f"pyspark=={unsuffixed_version}"]
             )
 
     for unaffected_version in ["2.0", "2.3.4", "2"]:
@@ -935,10 +922,11 @@ def test_log_model_with_code_paths(spark_model_iris):
             wraps=_add_code_from_conf_to_system_path,
         ) as add_mock,
     ):
-        mlflow.spark.log_model(spark_model_iris.model, artifact_path, code_paths=[__file__])
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.spark.FLAVOR_NAME)
-        mlflow.spark.load_model(model_uri)
+        model_info = mlflow.spark.log_model(
+            spark_model_iris.model, artifact_path, code_paths=[__file__]
+        )
+        _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.spark.FLAVOR_NAME)
+        mlflow.spark.load_model(model_info.model_uri)
         add_mock.assert_called()
 
 
@@ -960,17 +948,14 @@ def test_model_save_load_with_metadata(spark_model_iris, model_path):
 
 
 def test_model_log_with_metadata(spark_model_iris):
-    artifact_path = "model"
-
     with mlflow.start_run():
-        mlflow.spark.log_model(
+        model_info = mlflow.spark.log_model(
             spark_model_iris.model,
-            artifact_path,
+            "model",
             metadata={"metadata_key": "metadata_value"},
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
@@ -987,10 +972,11 @@ def test_model_log_with_signature_inference(spark_model_iris, input_example):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.spark.log_model(spark_model_iris.model, artifact_path, input_example=input_example)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.spark.log_model(
+            spark_model_iris.model, artifact_path, input_example=input_example
+        )
 
-    mlflow_model = Model.load(model_uri)
+    mlflow_model = Model.load(model_info.model_uri)
     input_columns = mlflow_model.signature.inputs.inputs
     assert all(col.type == DataType.double for col in input_columns)
     column_names = [col.name for col in input_columns]

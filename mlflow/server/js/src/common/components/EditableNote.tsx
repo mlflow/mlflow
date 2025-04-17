@@ -29,6 +29,8 @@ type EditableNoteImplProps = {
 
 type EditableNoteImplState = any;
 
+const getReactMdeIcon = (name: string) => <TooltipIcon name={name} />;
+
 export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableNoteImplState> {
   static defaultProps = {
     defaultMarkdown: '',
@@ -170,7 +172,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
                 onTabChange={this.handleTabChange}
                 // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
                 generateMarkdownPreview={(md) => Promise.resolve(this.getSanitizedHtmlContent(md))}
-                getIcon={(name) => <TooltipIcon name={name} />}
+                getIcon={getReactMdeIcon}
               />
             </div>
             {error && (

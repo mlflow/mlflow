@@ -11,6 +11,9 @@ from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServer
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse
+from tests.helper_functions import skip_if_hf_hub_unhealthy
+
+pytestmark = skip_if_hf_hub_unhealthy()
 
 
 def completions_config():

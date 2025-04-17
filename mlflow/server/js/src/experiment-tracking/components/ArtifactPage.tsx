@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import _ from 'lodash';
+import _, { first } from 'lodash';
 import React, { Component } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { WithRouterNextProps, withRouterNext } from '../../common/utils/withRouterNext';
@@ -15,7 +15,7 @@ import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
 import { searchModelVersionsApi } from '../../model-registry/actions';
 import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
 import { connect } from 'react-redux';
-import { getArtifactRootUri } from '../reducers/Reducers';
+import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../../model-registry/constants';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import Utils from '../../common/utils/Utils';
@@ -25,6 +25,9 @@ import { ArtifactViewBrowserSkeleton } from './artifact-view-components/Artifact
 import { DangerIcon, Empty } from '@databricks/design-system';
 import { ArtifactViewErrorState } from './artifact-view-components/ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { UseGetRunQueryResponseOutputs } from './run-page/hooks/useGetRunQuery';
+import { ReduxState } from '../../redux-types';
 
 type ArtifactPageImplProps = {
   runUuid?: string;
@@ -35,6 +38,7 @@ type ArtifactPageImplProps = {
   listArtifactsLoggedModelApi: typeof listArtifactsLoggedModelApi;
   searchModelVersionsApi: (...args: any[]) => any;
   runTags?: any;
+  runOutputs?: UseGetRunQueryResponseOutputs;
 
   /**
    * If true, the artifact browser will try to use all available height
@@ -164,7 +168,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
   };
 
   renderArtifactView = (isLoading: any, shouldRenderError: any, requests: any) => {
-    if (isLoading) {
+    if (isLoading && !shouldRenderError) {
       return <ArtifactViewBrowserSkeleton />;
     }
     if (this.renderErrorCondition(shouldRenderError)) {
@@ -173,11 +177,19 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
         // eslint-disable-next-line no-console -- TODO(FEINF-3587)
         console.error(failedReq.error);
       }
+      const errorDescription = (() => {
+        const error = failedReq?.error;
+        if (error instanceof ErrorWrapper) {
+          return error.getMessageField();
+        }
+
+        return this.getFailedtoListArtifactsMsg();
+      })();
       return (
         <ArtifactViewErrorState
           css={{ flex: this.props.useAutoHeight ? 1 : 'unset', height: this.props.useAutoHeight ? 'auto' : undefined }}
           data-testid="artifact-view-error"
-          description={this.getFailedtoListArtifactsMsg()}
+          description={errorDescription}
         />
       );
     }
@@ -212,11 +224,36 @@ type ArtifactPageOwnProps = Omit<
   /* prettier-ignore */
 >;
 
+const validVolumesPrefix = ['/Volumes/', 'dbfs:/Volumes/'];
+
+// Internal utility function to determine if the component should fallback to logged model artifacts
+// if there are no run artifacts available
+const shouldFallbackToLoggedModelArtifacts = (
+  state: ReduxState,
+  ownProps: ArtifactPageOwnProps & WithRouterNextProps,
+): {
+  isFallbackToLoggedModelArtifacts: boolean;
+  fallbackLoggedModelId?: string;
+} => {
+  const isVolumePath = validVolumesPrefix.some((prefix) => ownProps.artifactRootUri?.startsWith(prefix));
+
+  return {
+    isFallbackToLoggedModelArtifacts: false,
+  };
+};
+
 const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouterNextProps) => {
-  const { runUuid, location } = ownProps;
+  const { runUuid, location, runOutputs } = ownProps;
   const currentPathname = location?.pathname || '';
 
   const initialSelectedArtifactPathMatch = currentPathname.match(/\/(?:artifactPath|artifacts)\/(.+)/);
+
+  // Check the conditions to fallback to logged model artifacts
+  const { isFallbackToLoggedModelArtifacts, fallbackLoggedModelId } = shouldFallbackToLoggedModelArtifacts(
+    state,
+    ownProps,
+  );
+
   // The dot ("*") parameter behavior is not stable between implementations
   // so we'll extract the catch-all after /artifactPath, e.g.
   // `/experiments/123/runs/321/artifactPath/models/requirements.txt`
@@ -235,7 +272,16 @@ const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouter
       selectedPath = _.first(loggedModelPaths);
     }
   }
-  return { artifactRootUri, apis, initialSelectedArtifactPath: selectedPath };
+  return {
+    artifactRootUri,
+    apis,
+    initialSelectedArtifactPath: selectedPath,
+
+    // Use the run outputs if available, otherwise fallback to the run outputs from the Redux store
+    isLoggedModelsMode: isFallbackToLoggedModelArtifacts ? true : ownProps.isLoggedModelsMode,
+    loggedModelId: isFallbackToLoggedModelArtifacts ? fallbackLoggedModelId : ownProps.loggedModelId,
+    isFallbackToLoggedModelArtifacts,
+  };
 };
 
 const mapDispatchToProps = {

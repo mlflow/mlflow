@@ -12,6 +12,8 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_trace_server_pb2 import Trace as ProtoTrace
+from mlflow.protos.databricks_trace_server_pb2 import TraceData as ProtoTraceData
 
 _logger = logging.getLogger(__name__)
 
@@ -111,6 +113,7 @@ class Trace(_MlflowObject):
             "request_metadata": self.info.request_metadata,
             "spans": [span.to_dict() for span in self.data.spans],
             "tags": self.info.tags,
+            "assessments": self.info.assessments,
         }
 
     def _deserialize_json_attr(self, value: str):
@@ -166,7 +169,8 @@ class Trace(_MlflowObject):
 
             # Run the function and get the trace
             y = run(2)
-            trace = mlflow.get_last_active_trace()
+            trace_id = mlflow.get_last_active_trace_id()
+            trace = mlflow.get_trace(trace_id)
 
             # 1. Search spans by name (exact match)
             spans = trace.search_spans(name="add_one")
@@ -230,4 +234,13 @@ class Trace(_MlflowObject):
             "request_metadata",
             "spans",
             "tags",
+            "assessments",
         ]
+
+    def to_proto(self):
+        """Convert into a proto object to sent to the Databricks Trace Server."""
+        return ProtoTrace(
+            # Convert MLflow's TraceInfoV3 to Databricks Trace Server's TraceInfo
+            info=self.info.to_v3_proto(self.data.request, self.data.response),
+            data=ProtoTraceData(spans=[span.to_proto() for span in self.data.spans]),
+        )

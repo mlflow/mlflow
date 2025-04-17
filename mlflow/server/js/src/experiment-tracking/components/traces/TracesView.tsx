@@ -11,6 +11,7 @@ import { compact, isFunction, isNil, uniq } from 'lodash';
 import { useExperimentViewTracesUIState } from './hooks/useExperimentViewTracesUIState';
 import { ExperimentViewTracesTableColumns, getTraceInfoTotalTokens } from './TracesView.utils';
 import { useActiveExperimentTrace } from './hooks/useActiveExperimentTrace';
+import { useActiveExperimentSpan } from './hooks/useActiveExperimentSpan';
 import { ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 
 export const TRACE_AUTO_REFRESH_INTERVAL = 30000;
@@ -44,6 +45,7 @@ export const TracesView = ({
   const [rowSelection, setRowSelection] = useState<{ [id: string]: boolean }>({});
 
   const [selectedTraceId, setSelectedTraceId] = useActiveExperimentTrace();
+  const [selectedSpanId, setSelectedSpanId] = useActiveExperimentSpan();
 
   const { traces, loading, error, hasNextPage, hasPreviousPage, fetchNextPage, fetchPrevPage, refreshCurrentPage } =
     useExperimentTraces({
@@ -154,13 +156,12 @@ export const TracesView = ({
         experimentIds={experimentIds}
         filter={filter}
         onChangeFilter={setFilter}
-        hiddenColumns={uiState.hiddenColumns ?? []}
-        disabledColumns={allDisabledColumns}
-        toggleHiddenColumn={toggleHiddenColumn}
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
         refreshTraces={refreshCurrentPage}
         baseComponentId={baseComponentId}
+        runUuid={runUuid}
+        traces={traces}
       />
       <TracesViewTable
         experimentIds={experimentIds}
@@ -179,6 +180,7 @@ export const TracesView = ({
         onResetFilters={() => setFilter('')}
         hiddenColumns={allHiddenColumns}
         disableTokenColumn={!anyTraceContainsTokenCount}
+        disabledColumns={allDisabledColumns}
         setSorting={(sortingSetter) => {
           // If header is clicked enough times, tanstack table switches to "no sort" mode.
           // In that case, we should just reverse the direction of the current sort instead.
@@ -197,6 +199,7 @@ export const TracesView = ({
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
         baseComponentId={baseComponentId}
+        toggleHiddenColumn={toggleHiddenColumn}
       />
       {selectedTraceId && (
         <TraceDataDrawer
@@ -204,6 +207,8 @@ export const TracesView = ({
           loadingTraceInfo={loading}
           requestId={selectedTraceId}
           onClose={() => setSelectedTraceId(undefined)}
+          selectedSpanId={selectedSpanId}
+          onSelectSpan={setSelectedSpanId}
         />
       )}
       {EditTagsModal}

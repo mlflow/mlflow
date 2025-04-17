@@ -5,6 +5,7 @@ import random
 import threading
 import time
 import uuid
+from collections import defaultdict
 from functools import reduce
 from typing import Optional
 
@@ -87,6 +88,7 @@ from mlflow.utils.validation import (
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_dataset_inputs,
+    _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_experiment_tag,
     _validate_metric,
@@ -95,7 +97,6 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag,
     _validate_trace_tag,
-    append_to_json_path,
 )
 
 _logger = logging.getLogger(__name__)
@@ -267,6 +268,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_experiment_name(name)
         if artifact_location:
             artifact_location = resolve_uri_if_local(artifact_location)
+            _validate_experiment_artifact_location_length(artifact_location)
         with self.ManagedSessionMaker() as session:
             try:
                 creation_time = get_current_time_millis()
@@ -518,7 +520,10 @@ class SqlAlchemyStore(AbstractStore):
             run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             session.add(run)
 
-            return run.to_mlflow_entity()
+            run = run.to_mlflow_entity()
+            inputs_list = self._get_run_inputs(session, [run_id])
+            dataset_inputs = inputs_list[0] if inputs_list else []
+            return Run(run.info, run.data, RunInputs(dataset_inputs=dataset_inputs))
 
     def _get_run(self, session, run_uuid, eager=False):  # noqa: D417
         """
@@ -544,46 +549,32 @@ class SqlAlchemyStore(AbstractStore):
         return runs[0]
 
     def _get_run_inputs(self, session, run_uuids):
-        datasets = (
+        datasets_with_tags = (
             session.query(
                 SqlInput.input_uuid,
                 SqlInput.destination_id.label("run_uuid"),
                 SqlDataset,
-            )
-            .select_from(SqlDataset)
-            .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
-            .filter(
-                SqlInput.destination_type == "RUN",
-                SqlInput.destination_id.in_(run_uuids),
-            )
-            .order_by("run_uuid")
-        ).all()
-        input_uuids = [dataset.input_uuid for dataset in datasets]
-        input_tags = (
-            session.query(
-                SqlInput.input_uuid,
-                SqlInput.destination_id.label("run_uuid"),
                 SqlInputTag,
             )
-            .join(SqlInput, (SqlInput.input_uuid == SqlInputTag.input_uuid))
-            .filter(SqlInput.input_uuid.in_(input_uuids))
+            .select_from(SqlInput)
+            .join(SqlDataset, SqlInput.source_id == SqlDataset.dataset_uuid)
+            .outerjoin(SqlInputTag, SqlInputTag.input_uuid == SqlInput.input_uuid)
+            .filter(SqlInput.destination_type == "RUN", SqlInput.destination_id.in_(run_uuids))
             .order_by("run_uuid")
         ).all()
 
-        all_dataset_inputs = []
-        for run_uuid in run_uuids:
-            dataset_inputs = []
-            for input_uuid, dataset_run_uuid, dataset_sql in datasets:
-                if run_uuid == dataset_run_uuid:
-                    dataset_entity = dataset_sql.to_mlflow_entity()
-                    tags = []
-                    for tag_input_uuid, tag_run_uuid, tag_sql in input_tags:
-                        if input_uuid == tag_input_uuid and run_uuid == tag_run_uuid:
-                            tags.append(tag_sql.to_mlflow_entity())
-                    dataset_input_entity = DatasetInput(dataset=dataset_entity, tags=tags)
-                    dataset_inputs.append(dataset_input_entity)
-            all_dataset_inputs.append(dataset_inputs)
-        return all_dataset_inputs
+        dataset_inputs_per_run = defaultdict(dict)
+        for input_uuid, run_uuid, dataset_sql, tag_sql in datasets_with_tags:
+            dataset_inputs = dataset_inputs_per_run[run_uuid]
+            dataset_uuid = dataset_sql.dataset_uuid
+            dataset_input = dataset_inputs.get(dataset_uuid)
+            if dataset_input is None:
+                dataset_entity = dataset_sql.to_mlflow_entity()
+                dataset_input = DatasetInput(dataset=dataset_entity, tags=[])
+                dataset_inputs[dataset_uuid] = dataset_input
+            if tag_sql is not None:
+                dataset_input.tags.append(tag_sql.to_mlflow_entity())
+        return [list(dataset_inputs_per_run[run_uuid].values()) for run_uuid in run_uuids]
 
     @staticmethod
     def _get_eager_run_query_options():
@@ -706,34 +697,43 @@ class SqlAlchemyStore(AbstractStore):
             )
             return [run.run_uuid for run in runs]
 
-    def _get_metric_value_details(self, path, metric):
-        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step, path=path)
-        is_nan = math.isnan(metric.value)
-        if is_nan:
-            value = 0
-        elif math.isinf(metric.value):
-            #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float value
-            value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
-        else:
-            value = metric.value
-        return metric, value, is_nan
-
     def log_metric(self, run_id, metric):
         # simply call _log_metrics and let it handle the rest
-        self._log_metrics(run_id, [metric], isSingleMetric=True)
+        self._log_metrics(run_id, [metric])
 
-    def _log_metrics(self, run_id, metrics, path="", isSingleMetric=False):
-        if not metrics:
-            return
+    def sanitize_metric_value(self, metric_value: float) -> tuple[bool, float]:
+        """
+        Returns a tuple of two values:
+            - A boolean indicating whether the metric is NaN.
+            - The metric value, which is set to 0 if the metric is NaN.
+        """
+        is_nan = math.isnan(metric_value)
+        if is_nan:
+            value = 0
+        elif math.isinf(metric_value):
+            #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float
+            # value
+            value = 1.7976931348623157e308 if metric_value > 0 else -1.7976931348623157e308
+        else:
+            value = metric_value
+        return is_nan, value
 
+    def _log_metrics(self, run_id, metrics):
         # Duplicate metric values are eliminated here to maintain
         # the same behavior in log_metric
         metric_instances = []
         seen = set()
-        for index, metric in enumerate(metrics):
-            path = path if isSingleMetric else append_to_json_path(path, f"[{index}]")
-            metric, value, is_nan = self._get_metric_value_details(path, metric)
+        is_single_metric = len(metrics) == 1
+        for idx, metric in enumerate(metrics):
+            _validate_metric(
+                metric.key,
+                metric.value,
+                metric.timestamp,
+                metric.step,
+                path="" if is_single_metric else f"metrics[{idx}]",
+            )
             if metric not in seen:
+                is_nan, value = self.sanitize_metric_value(metric.value)
                 metric_instances.append(
                     SqlMetric(
                         run_uuid=run_id,
@@ -1161,6 +1161,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_experiment_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
+            tag = _validate_tag(tag.key, tag.value)
             experiment = self._get_experiment(
                 session, experiment_id, ViewType.ALL
             ).to_mlflow_entity()
@@ -1188,7 +1189,7 @@ class SqlAlchemyStore(AbstractStore):
                 # NB: Updating the run_info will set the tag. No need to do it twice.
                 session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
-    def _set_tags(self, run_id, tags, path=""):
+    def _set_tags(self, run_id, tags):
         """
         Set multiple tags on a run
 
@@ -1200,10 +1201,7 @@ class SqlAlchemyStore(AbstractStore):
         if not tags:
             return
 
-        tags = [
-            _validate_tag(t.key, t.value, path=append_to_json_path(path, f"tags[{idx}]"))
-            for (idx, t) in enumerate(tags)
-        ]
+        tags = [_validate_tag(t.key, t.value, path=f"tags[{idx}]") for (idx, t) in enumerate(tags)]
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
@@ -1335,7 +1333,7 @@ class SqlAlchemyStore(AbstractStore):
                 stmt = stmt.join(non_attr_filter)
             for idx, dataset_filter in enumerate(dataset_filters):
                 # need to reference the anon table in the join condition
-                anon_table_name = f"anon_{idx+1}"
+                anon_table_name = f"anon_{idx + 1}"
                 stmt = stmt.join(
                     dataset_filter,
                     text(f"runs.run_uuid = {anon_table_name}.destination_id"),
@@ -1387,8 +1385,8 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             try:
                 self._log_params(run_id, params)
-                self._log_metrics(run_id, metrics, path="metrics")
-                self._set_tags(run_id, tags, path="tags")
+                self._log_metrics(run_id, metrics)
+                self._set_tags(run_id, tags)
             except MlflowException as e:
                 raise e
             except Exception as e:
@@ -1592,11 +1590,6 @@ class SqlAlchemyStore(AbstractStore):
                 status=TraceStatus.IN_PROGRESS,
             )
 
-            # tags could contain special tag='request_id' to make it possible to
-            # override `request_id` from Python tests in other stores like GO store.
-            # Filter it from here.
-            if "request_id" in tags:
-                del tags["request_id"]
             trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in tags.items()]
             trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
 
@@ -1656,16 +1649,23 @@ class SqlAlchemyStore(AbstractStore):
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
             return sql_trace_info.to_mlflow_entity()
 
-    def get_trace_info(self, request_id) -> TraceInfo:
+    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
         """
         Fetch the trace info for the given request id.
 
         Args:
             request_id: Unique string identifier of the trace.
+            should_query_v3: If True, the backend store will query the V3 API for the trace info.
+                TODO: Remove this flag once the V3 API is the default in OSS.
 
         Returns:
             The TraceInfo object.
         """
+        if should_query_v3:
+            raise MlflowException.invalid_parameter_value(
+                "GetTraceInfoV3 API is not supported in the FileStore backend.",
+            )
+
         with self.ManagedSessionMaker() as session:
             sql_trace_info = self._get_sql_trace_info(session, request_id)
             return sql_trace_info.to_mlflow_entity()

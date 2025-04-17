@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { useCallback } from 'react';
 import sanitizeHtml from 'sanitize-html';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'show... Remove this comment to see the full error message
 import { Converter } from 'showdown';

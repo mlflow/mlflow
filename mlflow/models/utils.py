@@ -13,6 +13,7 @@ import uuid
 import warnings
 from contextlib import contextmanager
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -35,6 +36,7 @@ from mlflow.types.utils import (
 )
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import create_tmp_dir, get_local_path_or_none
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
@@ -528,11 +530,13 @@ def _save_example(  # noqa: D417
     return example
 
 
-def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
+def _get_mlflow_model_input_example_dict(mlflow_model: Model, uri_or_path: str) -> Optional[dict]:
     """
     Args:
         mlflow_model: Model metadata.
-        path: Path to the model directory.
+        uri_or_path: Model or run URI, or path to the `model` directory.
+            e.g. models://<model_name>/<model_version>, runs:/<run_id>/<artifact_path>
+            or /path/to/model
 
     Returns:
         Input example or None if the model has no example.
@@ -548,9 +552,9 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
         "json_object",
     ]:
         raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
-    path = os.path.join(path, mlflow_model.saved_input_example_info[INPUT_EXAMPLE_PATH])
-    with open(path) as handle:
-        return json.load(handle)
+    return json.loads(
+        _read_file_content(uri_or_path, mlflow_model.saved_input_example_info[INPUT_EXAMPLE_PATH])
+    )
 
 
 def _load_serving_input_example(mlflow_model: Model, path: str) -> Optional[str]:
@@ -582,20 +586,31 @@ def load_serving_example(model_uri_or_path: str):
         model_uri_or_path: Model URI or path to the `model` directory.
             e.g. models://<model_name>/<model_version> or /path/to/model
     """
-    serving_input_path = model_uri_or_path.rstrip("/") + "/" + SERVING_INPUT_FILENAME
-    if os.path.exists(serving_input_path):
-        with open(serving_input_path) as handle:
+    return _read_file_content(model_uri_or_path, SERVING_INPUT_FILENAME)
+
+
+def _read_file_content(uri_or_path: str, file_name: str):
+    """
+    Read file content from a model directory or URI.
+
+    Args:
+        uri_or_path: Model or run URI, or path to the `model` directory.
+            e.g. models://<model_name>/<model_version>, runs:/<run_id>/<artifact_path>
+            or /path/to/model
+        file_name: Name of the file to read.
+    """
+    file_path = str(uri_or_path).rstrip("/") + "/" + file_name
+    if os.path.exists(file_path):
+        with open(file_path) as handle:
             return handle.read()
     else:
         with tempfile.TemporaryDirectory() as tmpdir:
-            local_serving_input_path = _download_artifact_from_uri(
-                serving_input_path, output_path=tmpdir
-            )
-            with open(local_serving_input_path) as handle:
+            local_file_path = _download_artifact_from_uri(file_path, output_path=tmpdir)
+            with open(local_file_path) as handle:
                 return handle.read()
 
 
-def _read_example(mlflow_model: Model, path: str):
+def _read_example(mlflow_model: Model, uri_or_path: str):
     """
     Read example from a model directory. Returns None if there is no example metadata (i.e. the
     model was saved without example). Raises FileNotFoundError if there is model metadata but the
@@ -603,12 +618,14 @@ def _read_example(mlflow_model: Model, path: str):
 
     Args:
         mlflow_model: Model metadata.
-        path: Path to the model directory.
+        uri_or_path: Model or run URI, or path to the `model` directory.
+                e.g. models://<model_name>/<model_version>, runs:/<run_id>/<artifact_path>
+                or /path/to/model
 
     Returns:
         Input example data or None if the model has no example.
     """
-    input_example = _get_mlflow_model_input_example_dict(mlflow_model, path)
+    input_example = _get_mlflow_model_input_example_dict(mlflow_model, uri_or_path)
     if input_example is None:
         return None
 
@@ -1355,10 +1372,22 @@ def _enforce_array(data: Any, arr: Array, required: bool = True):
     if not isinstance(data, (list, np.ndarray)):
         raise MlflowException(f"Expected data to be list or numpy array, got {type(data).__name__}")
 
-    data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
+    if isinstance(arr.dtype, DataType):
+        # TODO: this is still significantly slower than direct np.asarray dtype conversion
+        # pd.Series conversion can be removed once we support direct validation on the numpy array
+        data_enforced = (
+            _enforce_mlflow_datatype("", pd.Series(data), arr.dtype).to_numpy(
+                dtype=arr.dtype.to_numpy()
+            )
+            if len(data) > 0
+            else data
+        )
+    else:
+        data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 
-    # Keep input data type
-    if isinstance(data, np.ndarray):
+    if isinstance(data, list) and isinstance(data_enforced, np.ndarray):
+        data_enforced = data_enforced.tolist()
+    elif isinstance(data, np.ndarray) and isinstance(data_enforced, list):
         data_enforced = np.array(data_enforced)
 
     return data_enforced
@@ -1774,6 +1803,24 @@ def _convert_llm_input_data(data: Any) -> Union[list, dict]:
     return _convert_llm_ndarray_to_list(data)
 
 
+def _databricks_path_exists(path: Path) -> bool:
+    """
+    Check if a path exists in Databricks workspace.
+    """
+    if not is_in_databricks_runtime():
+        return False
+
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.errors import ResourceDoesNotExist
+
+    client = WorkspaceClient()
+    try:
+        client.workspace.get_status(str(path))
+        return True
+    except ResourceDoesNotExist:
+        return False
+
+
 def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> str:
     """
     Validate model code path exists. When failing to open the model file on Databricks,
@@ -1783,11 +1830,12 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
     """
 
     # If the path is not a absolute path then convert it
-    model_code_path = os.path.abspath(model_code_path)
+    model_code_path = Path(model_code_path).resolve()
 
-    if not os.path.exists(model_code_path):
-        _, ext = os.path.splitext(model_code_path)
-        additional_message = f" Perhaps you meant '{model_code_path}.py'?" if not ext else ""
+    if not (model_code_path.exists() or _databricks_path_exists(model_code_path)):
+        additional_message = (
+            f" Perhaps you meant '{model_code_path}.py'?" if not model_code_path.suffix else ""
+        )
 
         raise MlflowException.invalid_parameter_value(
             f"The provided model path '{model_code_path}' does not exist. "
@@ -1795,28 +1843,35 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
         )
 
     try:
-        with open(model_code_path) as _:
-            return model_code_path
+        # If `model_code_path` points to a notebook on Databricks, this line throws either
+        # a `FileNotFoundError` or an `OSError`. In this case, try to export the notebook as
+        # a Python file.
+        with open(model_code_path):
+            pass
+
+        return str(model_code_path)
     except Exception:
-        try:
-            from databricks.sdk import WorkspaceClient
-            from databricks.sdk.service.workspace import ExportFormat
+        pass
 
-            w = WorkspaceClient()
-            response = w.workspace.export(path=model_code_path, format=ExportFormat.SOURCE)
-            decoded_content = base64.b64decode(response.content)
-        except Exception:
-            raise MlflowException.invalid_parameter_value(
-                f"The provided model path '{model_code_path}' is not a valid Python file path or a "
-                "Databricks Notebook file path containing the code for defining the chain "
-                "instance. Ensure the file path is valid and try again."
-            )
+    try:
+        from databricks.sdk import WorkspaceClient
+        from databricks.sdk.service.workspace import ExportFormat
 
-        _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
-        path = os.path.join(temp_dir, "model.py")
-        with open(path, "wb") as f:
-            f.write(decoded_content)
-        return path
+        w = WorkspaceClient()
+        response = w.workspace.export(path=model_code_path, format=ExportFormat.SOURCE)
+        decoded_content = base64.b64decode(response.content)
+    except Exception:
+        raise MlflowException.invalid_parameter_value(
+            f"The provided model path '{model_code_path}' is not a valid Python file path or a "
+            "Databricks Notebook file path containing the code for defining the chain "
+            "instance. Ensure the file path is valid and try again."
+        )
+
+    _validate_model_code_from_notebook(decoded_content.decode("utf-8"))
+    path = os.path.join(temp_dir, "model.py")
+    with open(path, "wb") as f:
+        f.write(decoded_content)
+    return path
 
 
 @contextmanager
@@ -1939,6 +1994,7 @@ def validate_serving_input(model_uri: str, serving_input: Union[str, dict[str, A
         The prediction result from the model.
     """
     from mlflow.pyfunc.scoring_server import _parse_json_data
+    from mlflow.pyfunc.utils.environment import _simulate_serving_environment
 
     # sklearn model might not have python_function flavor if it
     # doesn't define a predict function. In such case the model
@@ -1953,7 +2009,8 @@ def validate_serving_input(model_uri: str, serving_input: Union[str, dict[str, A
             pyfunc_model.metadata,
             pyfunc_model.metadata.get_input_schema(),
         )
-        return pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
+        with _simulate_serving_environment():
+            return pyfunc_model.predict(parsed_input.data, params=parsed_input.params)
     finally:
         if output_dir and os.path.exists(output_dir):
             shutil.rmtree(output_dir)

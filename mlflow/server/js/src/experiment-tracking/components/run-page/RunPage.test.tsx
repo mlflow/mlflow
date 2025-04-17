@@ -1,5 +1,5 @@
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { renderWithIntl, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { renderWithIntl, screen, waitFor, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { getExperimentApi, getRunApi, updateRunApi } from '../../actions';
 import { searchModelVersionsApi } from '../../../model-registry/actions';
 import { merge } from 'lodash';
@@ -8,17 +8,26 @@ import { DeepPartial } from 'redux';
 import { RunPage } from './RunPage';
 import { testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { RunInfoEntity } from '../../types';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
-import { shouldEnableGraphQLRunDetailsPage } from '../../../common/utils/FeatureUtils';
+import {
+  isExperimentLoggedModelsUIEnabled,
+  shouldEnableGraphQLRunDetailsPage,
+} from '../../../common/utils/FeatureUtils';
 import { setupServer } from '../../../common/utils/setup-msw';
-import { graphql } from 'msw';
+import { graphql, rest } from 'msw';
 import { GetRun, GetRunVariables, MlflowRunStatus } from '../../../graphql/__generated__/graphql';
+import { DesignSystemProvider } from '@databricks/design-system';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import Utils from '../../../common/utils/Utils';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableGraphQLRunDetailsPage: jest.fn(),
+  isExperimentLoggedModelsUIEnabled: jest.fn(() => false),
+  isModelsInUCEnabled: jest.fn(),
+  isRegisterUCModelFromUIEnabled: jest.fn(),
 }));
 
 const mockAction = (id: string) => ({ type: 'action', payload: Promise.resolve(), meta: { id } });
@@ -31,6 +40,8 @@ jest.mock('../../actions', () => ({
 
 jest.mock('../../../model-registry/actions', () => ({
   searchModelVersionsApi: jest.fn(() => mockAction('models_request')),
+  searchRegisteredModelsApi: jest.fn(() => mockAction('search_registered_models_request')),
+  ucRegisterModelVersionApi: jest.fn(() => mockAction('register_model_version_request')),
 }));
 
 const testRunUuid = 'test-run-uuid';
@@ -41,6 +52,8 @@ const testRunInfo: Partial<RunInfoEntity> = {
 };
 
 describe('RunPage (legacy redux + REST API)', () => {
+  const server = setupServer();
+
   beforeEach(() => {
     jest.mocked(shouldEnableGraphQLRunDetailsPage).mockImplementation(() => false);
   });
@@ -72,14 +85,18 @@ describe('RunPage (legacy redux + REST API)', () => {
       ),
     };
 
+    const queryClient = new QueryClient();
+
     const renderResult = renderWithIntl(
       <TestApolloProvider>
-        <MockedReduxStoreProvider state={state}>
-          <TestRouter
-            initialEntries={[`/experiment/${testExperimentId}/run/${testRunUuid}`]}
-            routes={[testRoute(<RunPage />, '/experiment/:experimentId/run/:runUuid')]}
-          />
-        </MockedReduxStoreProvider>
+        <QueryClientProvider client={queryClient}>
+          <MockedReduxStoreProvider state={state}>
+            <TestRouter
+              initialEntries={[`/experiment/${testExperimentId}/run/${testRunUuid}`]}
+              routes={[testRoute(<RunPage />, '/experiment/:experimentId/run/:runUuid')]}
+            />
+          </MockedReduxStoreProvider>
+        </QueryClientProvider>
         ,
       </TestApolloProvider>,
     );
@@ -225,6 +242,7 @@ describe('RunPage (GraphQL API)', () => {
                 },
                 inputs: {
                   __typename: 'MlflowRunInputs',
+                  modelInputs: null,
                   datasetInputs: [
                     {
                       __typename: 'MlflowDatasetInput',
@@ -241,6 +259,7 @@ describe('RunPage (GraphQL API)', () => {
                     },
                   ],
                 },
+                outputs: null,
                 modelVersions: [],
               },
             },
@@ -251,14 +270,22 @@ describe('RunPage (GraphQL API)', () => {
   });
 
   const mountComponent = (runUuid = testRunUuid) => {
+    const queryClient = new QueryClient();
+
     const renderResult = renderWithIntl(
       <TestApolloProvider disableCache>
-        <MockedReduxStoreProvider state={{ entities: { modelVersionsByRunUuid: {}, tagsByRunUuid: {} } }}>
-          <TestRouter
-            initialEntries={[`/experiment/${testExperimentId}/run/${runUuid}`]}
-            routes={[testRoute(<RunPage />, '/experiment/:experimentId/run/:runUuid')]}
-          />
-        </MockedReduxStoreProvider>
+        <QueryClientProvider client={queryClient}>
+          <MockedReduxStoreProvider
+            state={{ entities: { modelVersionsByRunUuid: {}, tagsByRunUuid: {}, modelByName: {} } }}
+          >
+            <DesignSystemProvider>
+              <TestRouter
+                initialEntries={[`/experiment/${testExperimentId}/run/${runUuid}`]}
+                routes={[testRoute(<RunPage />, '/experiment/:experimentId/run/:runUuid')]}
+              />
+            </DesignSystemProvider>
+          </MockedReduxStoreProvider>
+        </QueryClientProvider>
       </TestApolloProvider>,
     );
 
@@ -327,6 +354,7 @@ describe('RunPage (GraphQL API)', () => {
                   endTime: '0',
                 },
                 inputs: null,
+                outputs: null,
                 modelVersions: [],
               },
             },

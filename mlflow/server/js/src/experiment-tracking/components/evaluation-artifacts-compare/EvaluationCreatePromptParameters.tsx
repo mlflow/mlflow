@@ -101,7 +101,7 @@ export const EvaluationCreatePromptParameters = ({
                 max={parameterDef.max}
                 min={parameterDef.min}
                 step={parameterDef.step}
-                defaultValue={parameters[parameterDef.name] || 0}
+                value={parameters[parameterDef.name] || 0}
                 onChange={(value) => updateParameter(parameterDef.name, value)}
               />
             )}

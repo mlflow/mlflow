@@ -1,5 +1,6 @@
 import React from 'react';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import { type KeyValueEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 
 export type Option = {
   label?: string | React.ReactNode;
@@ -28,7 +29,7 @@ export type EntityNameGroup = {
   tagNames: string[];
 };
 
-export const ATTRIBUTE_OPTIONS = [
+const ATTRIBUTE_OPTIONS = [
   'run_id',
   'run_name',
   'status',
@@ -43,27 +44,27 @@ export const getEntityNamesFromRunsData = (
   newRunsData: ExperimentRunsSelectorResult,
   existingNames: EntityNameGroup,
 ): EntityNameGroup => {
-  const mergeDedup = (list1: any[], list2: any[]) => [...new Set([...list1, ...list2])];
-  const getTagNames = (tagsList: any[]) => tagsList.flatMap((tagRecord) => Object.keys(tagRecord));
+  const mergeDedup = (list1: string[], list2: string[]) => [...new Set([...list1, ...list2])];
+  const getTagNames = (tagsList: Record<string, KeyValueEntity>[]) =>
+    tagsList.flatMap((tagRecord) => Object.keys(tagRecord));
 
   const metricNames = mergeDedup(existingNames.metricNames, newRunsData.metricKeyList);
   const paramNames = mergeDedup(existingNames.paramNames, newRunsData.paramKeyList);
-  const tagNames = mergeDedup(getTagNames(existingNames.tagNames), getTagNames(newRunsData.tagsList));
+
   // Filter out internal tag names and wrap names that include control characters in backticks.
-  const tagNamesCleaned = tagNames
+  const tagNamesCleaned = getTagNames(newRunsData.tagsList)
     .filter((s: string) => !s.startsWith('mlflow.'))
     .map((s: string) => {
-      if (s.includes('"') || s.includes(' ') || s.includes('.')) {
+      if (s.includes('"') || s.includes(' ') || s.includes('.') || /^\d+$/.test(s)) {
         return `\`${s}\``;
       } else if (s.includes('`')) {
         return `"${s}"`;
-      } else return s;
+      } else {
+        return s;
+      }
     });
-  return {
-    metricNames,
-    paramNames,
-    tagNames: tagNamesCleaned,
-  };
+  const newTagNames = mergeDedup(existingNames.tagNames, tagNamesCleaned);
+  return { metricNames, paramNames, tagNames: newTagNames };
 };
 
 export const getOptionsFromEntityNames = (entityNames: EntityNameGroup): OptionGroup[] => [
@@ -146,7 +147,7 @@ export const getEntitiesAndIndices = (str: string) => {
 export const getFilteredOptionsFromEntityName = (
   baseOptions: OptionGroup[],
   entityBeingEdited: Entity,
-  suggestionLimits: any,
+  suggestionLimits: Record<string, number>,
 ): OptionGroup[] => {
   return baseOptions
     .map((group) => {
@@ -156,7 +157,7 @@ export const getFilteredOptionsFromEntityName = (
           value: match.value,
           label: boldedText(match.value, entityBeingEdited.name.trim()),
         }));
-      const limitForGroup = (suggestionLimits as any)[group.label];
+      const limitForGroup = suggestionLimits[group.label];
       const ellipsized = [
         ...newOptions.slice(0, limitForGroup),
         ...(newOptions.length > limitForGroup ? [{ label: '...', value: `..._${group.label}` }] : []),

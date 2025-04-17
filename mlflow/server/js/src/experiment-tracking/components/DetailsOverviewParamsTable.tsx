@@ -19,6 +19,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ColumnDef, flexRender, getCoreRowModel, getExpandedRowModel, useReactTable } from '@tanstack/react-table';
 import { Interpolation, Theme } from '@emotion/react';
 import { ExpandedJSONValueCell } from '@mlflow/mlflow/src/common/components/ExpandableCell';
+import { isUnstableNestedComponentsMigrated } from '../../common/utils/FeatureUtils';
 
 type ParamsColumnDef = ColumnDef<KeyValueEntity> & {
   meta?: { styles?: Interpolation<Theme>; multiline?: boolean };
@@ -100,8 +101,8 @@ const ExpandableParamValueCell = ({
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           display: '-webkit-box',
-          '-webkit-box-orient': 'vertical',
-          '-webkit-line-clamp': isExpanded ? undefined : '3',
+          WebkitBoxOrient: 'vertical',
+          WebkitLineClamp: isExpanded ? undefined : '3',
         }}
         ref={cellRef}
       >
@@ -110,6 +111,54 @@ const ExpandableParamValueCell = ({
     </div>
   );
 };
+
+type DetailsOverviewParamsTableMeta = {
+  autoExpandedRowsList: React.MutableRefObject<Record<string, boolean>>;
+};
+
+const staticColumns: ParamsColumnDef[] = [
+  {
+    id: 'key',
+    accessorKey: 'key',
+    header: () => (
+      <FormattedMessage
+        defaultMessage="Parameter"
+        description="Run page > Overview > Parameters table > Key column header"
+      />
+    ),
+    enableResizing: true,
+    size: 240,
+  },
+  {
+    id: 'value',
+    header: () => (
+      <FormattedMessage
+        defaultMessage="Value"
+        description="Run page > Overview > Parameters table > Value column header"
+      />
+    ),
+    accessorKey: 'value',
+    enableResizing: false,
+    meta: { styles: { paddingLeft: 0 } },
+    cell: ({
+      row: { original, getIsExpanded, toggleExpanded },
+      table: {
+        options: { meta },
+      },
+    }) => {
+      const { autoExpandedRowsList } = meta as DetailsOverviewParamsTableMeta;
+      return (
+        <ExpandableParamValueCell
+          name={original.key}
+          value={original.value}
+          isExpanded={getIsExpanded()}
+          toggleExpanded={toggleExpanded}
+          autoExpandedRowsList={autoExpandedRowsList.current}
+        />
+      );
+    },
+  },
+];
 
 /**
  * Displays filterable table with parameter key/values.
@@ -132,41 +181,44 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
   );
 
   const columns = useMemo<ParamsColumnDef[]>(
-    () => [
-      {
-        id: 'key',
-        accessorKey: 'key',
-        header: () => (
-          <FormattedMessage
-            defaultMessage="Parameter"
-            description="Run page > Overview > Parameters table > Key column header"
-          />
-        ),
-        enableResizing: true,
-        size: 240,
-      },
-      {
-        id: 'value',
-        header: () => (
-          <FormattedMessage
-            defaultMessage="Value"
-            description="Run page > Overview > Parameters table > Value column header"
-          />
-        ),
-        accessorKey: 'value',
-        enableResizing: false,
-        meta: { styles: { paddingLeft: 0 } },
-        cell: ({ row: { original, getIsExpanded, toggleExpanded } }) => (
-          <ExpandableParamValueCell
-            name={original.key}
-            value={original.value}
-            isExpanded={getIsExpanded()}
-            toggleExpanded={toggleExpanded}
-            autoExpandedRowsList={autoExpandedRowsList.current}
-          />
-        ),
-      },
-    ],
+    () =>
+      isUnstableNestedComponentsMigrated()
+        ? staticColumns
+        : [
+            {
+              id: 'key',
+              accessorKey: 'key',
+              header: () => (
+                <FormattedMessage
+                  defaultMessage="Parameter"
+                  description="Run page > Overview > Parameters table > Key column header"
+                />
+              ),
+              enableResizing: true,
+              size: 240,
+            },
+            {
+              id: 'value',
+              header: () => (
+                <FormattedMessage
+                  defaultMessage="Value"
+                  description="Run page > Overview > Parameters table > Value column header"
+                />
+              ),
+              accessorKey: 'value',
+              enableResizing: false,
+              meta: { styles: { paddingLeft: 0 } },
+              cell: ({ row: { original, getIsExpanded, toggleExpanded } }) => (
+                <ExpandableParamValueCell
+                  name={original.key}
+                  value={original.value}
+                  isExpanded={getIsExpanded()}
+                  toggleExpanded={toggleExpanded}
+                  autoExpandedRowsList={autoExpandedRowsList.current}
+                />
+              ),
+            },
+          ],
     [],
   );
 
@@ -178,6 +230,7 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
     columns,
+    meta: { autoExpandedRowsList } satisfies DetailsOverviewParamsTableMeta,
   });
 
   const renderTableContent = () => {
@@ -235,8 +288,9 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
               <TableHeader
                 componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewparamstable.tsx_244"
                 key={header.id}
-                resizable={header.column.getCanResize()}
-                resizeHandler={header.getResizeHandler()}
+                header={header}
+                column={header.column}
+                setColumnSizing={table.setColumnSizing}
                 isResizing={header.column.getIsResizing()}
                 css={{
                   flexGrow: header.column.getCanResize() ? 0 : 1,

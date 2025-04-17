@@ -98,6 +98,9 @@ class ArtifactRepository:
 
         self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(artifact_uri={self.artifact_uri!r})"
+
     def _create_thread_pool(self):
         return ThreadPoolExecutor(
             max_workers=self.max_workers, thread_name_prefix=f"Mlflow{self.__class__.__name__}"
@@ -384,14 +387,14 @@ class ArtifactRepository:
 def write_local_temp_trace_data_file(trace_data: str):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_file = Path(temp_dir, TRACE_DATA_FILE_NAME)
-        temp_file.write_text(trace_data)
+        temp_file.write_text(trace_data, encoding="utf-8")
         yield temp_file
 
 
 def try_read_trace_data(trace_data_path):
     if not os.path.exists(trace_data_path):
         raise MlflowTraceDataNotFound(artifact_path=trace_data_path)
-    with open(trace_data_path) as f:
+    with open(trace_data_path, encoding="utf-8") as f:
         data = f.read()
     if not data:
         raise MlflowTraceDataNotFound(artifact_path=trace_data_path)

@@ -28,13 +28,11 @@ import {
   EXPERIMENT_PARENT_ID_TAG,
 } from './experimentPage.common-utils';
 import { getStableColorForRun } from '../../../utils/RunNameUtils';
-import {
-  shouldEnableToggleIndividualRunsInGroups,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../common/utils/FeatureUtils';
+import { shouldEnableToggleIndividualRunsInGroups } from '../../../../common/utils/FeatureUtils';
 import { getGroupedRowRenderMetadata, type RunsGroupByConfig } from './experimentPage.group-row-utils';
 import { type ExperimentPageUIState, RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { determineIfRowIsHidden } from './experimentPage.common-row-utils';
+import { type ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 
 /**
  * A simple tree-like interface used in nested rows calculations.
@@ -228,6 +226,7 @@ export const prepareRunsGridData = ({
   groupBy = null,
   groupsExpanded = {},
   useGroupedValuesInCharts,
+  searchFacetsState,
 }: PrepareRunsGridDataParams) => {
   const experimentNameMap = Utils.getExperimentNameMap(Utils.sortExperimentsById(experiments)) as Record<
     string,
@@ -246,6 +245,7 @@ export const prepareRunsGridData = ({
         runData,
         groupBy,
         groupsExpanded,
+        searchFacetsState,
         runsHidden,
         runsVisibilityMap,
         runsHiddenMode,
@@ -435,6 +435,7 @@ export const useExperimentRunRows = ({
   runsHiddenMode,
   groupsExpanded = {},
   useGroupedValuesInCharts,
+  searchFacetsState,
 }: PrepareRunsGridDataParams) =>
   useMemo(
     () =>
@@ -456,6 +457,7 @@ export const useExperimentRunRows = ({
         groupsExpanded,
         runsHiddenMode,
         useGroupedValuesInCharts,
+        searchFacetsState,
       }),
     [
       // Explicitly include each dependency here to avoid unnecessary recalculations
@@ -476,6 +478,7 @@ export const useExperimentRunRows = ({
       groupsExpanded,
       runsHiddenMode,
       useGroupedValuesInCharts,
+      searchFacetsState,
     ],
   );
 
@@ -485,11 +488,6 @@ const determineVisibleRuns = (
   runsHiddenMode: RUNS_VISIBILITY_MODE,
   runsVisibilityMap: Record<string, boolean> = {},
 ): RunRowType[] => {
-  // In the legacy version, just look into the runs hidden array
-  if (!shouldUseNewRunRowsVisibilityModel()) {
-    return runs.map((runRow) => ({ ...runRow, hidden: runsHidden.includes(runRow.runUuid) }));
-  }
-
   // In the new visibility model, we will count rows that can change visibility (groups and ungrouped runs)
   // and use the counter to limit the visible rows based on selected mode
   let visibleRowCounter = 0;
@@ -579,6 +577,8 @@ type PrepareRunsGridDataParams = Pick<
     runUuidsMatchingFilter: string[];
 
     groupBy: string | RunsGroupByConfig | null;
+
+    searchFacetsState?: Readonly<ExperimentPageSearchFacetsState>;
   };
 
 export const extractRunRowParamFloat = (run: RunRowType, paramName: string, fallback = undefined) => {
