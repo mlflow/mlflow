@@ -559,6 +559,18 @@ service MlflowService {
     };
   }
 
+  // Create a trace using the V3 API format
+  rpc startTraceV3 (StartTraceV3) returns (StartTraceV3.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces"
+        since { major: 3, minor: 0 }
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
   // Edge endpoint used to search for online traces from an inference table.
   rpc searchUnifiedTraceHandler(SearchUnifiedTraces) returns (SearchUnifiedTraces.Response) {
     option (rpc) = {
@@ -1970,6 +1982,18 @@ message TraceInfoV3 {
 
   // Mutable, user-defined tags for the trace, e.g. “question_topic”: “DBSQL”
   map<string, string> tags = 11;
+}
+
+message StartTraceV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The information for the trace being created.
+  optional Trace trace = 1 [(validate_required) = true];
+
+  message Response {
+    // The created trace information.
+    optional Trace trace = 1;
+  }
 }
 
 // DatasetSummary. Represents a summary of information about a dataset.

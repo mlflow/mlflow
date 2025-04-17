@@ -45,6 +45,7 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     GetTraceInfo,
     GetTraceInfoV3,
+    StartTraceV3,
     LogBatch,
     LogInputs,
     LogMetric,
@@ -289,6 +290,20 @@ class RestStore(AbstractStore):
         )
         response_proto = self._call_endpoint(StartTrace, req_body)
         return TraceInfo.from_proto(response_proto.trace_info)
+
+    def start_trace_v3(self, trace):
+        """
+        Start a trace using the V3 API format.
+
+        Args:
+            trace: The Trace object to create.
+
+        Returns:
+            The created Trace object.
+        """
+        req_body = message_to_json(StartTraceV3(trace=trace))
+        response_proto = self._call_endpoint(StartTraceV3, req_body)
+        return response_proto.trace
 
     def end_trace(
         self,
