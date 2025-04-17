@@ -516,9 +516,7 @@ transformers:
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
-        "4.38.0",
-        "4.38.1",
-        "4.38.2",
+        ">=4.38.0,<4.38.1",
       ]
     requirements:
       ">= 0.0.0": [
@@ -559,9 +557,7 @@ transformers:
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
-        "4.38.0",
-        "4.38.1",
-        "4.38.2",
+        ">=4.38.0,<4.38.1",
       ]
     requirements:
       ">= 0.0.0": [
@@ -829,7 +825,7 @@ autogen:
   autologging:
     minimum: "0.2.36"
     maximum: "0.2.40"
-    unsupported: ["0.4.*", "0.5.*"]
+    unsupported: [">=0.4"]
     python:
       "== dev": "3.10"
     requirements:
@@ -969,7 +965,8 @@ litellm:
   autologging:
     minimum: "1.52.9"
     maximum: "1.63.7"
-    unsupported: ["1.59.*", "1.6*.*"]
+    # TODO: Remove this once https://github.com/BerriAI/litellm/issues/9656 is fixed
+    unsupported: [">=1.59"]
     requirements:
       ">= 0.0.0": [
           "openai",
