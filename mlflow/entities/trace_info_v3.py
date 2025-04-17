@@ -28,11 +28,7 @@ class TraceInfoV3(_MlflowObject):
     assessments: list[Assessment] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        res = MessageToDict(self.to_proto(), preserving_proto_field_name=True)
-        if "execution_duration" in res:
-            del res["execution_duration"]
-            res["execution_duration_ms"] = self.execution_time_ms
-        return res
+        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "TraceInfoV3":
