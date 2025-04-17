@@ -516,7 +516,7 @@ transformers:
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
-        ">=4.38.0,<4.38.1",
+        ">=4.38.0,<4.39.0",
       ]
     requirements:
       ">= 0.0.0": [
@@ -557,7 +557,7 @@ transformers:
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
-        ">=4.38.0,<4.38.1",
+        ">=4.38.0,<4.39.0",
       ]
     requirements:
       ">= 0.0.0": [
