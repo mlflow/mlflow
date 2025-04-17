@@ -12,6 +12,7 @@ import os
 import threading
 from contextvars import ContextVar
 from copy import deepcopy
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import mlflow
@@ -3054,6 +3055,18 @@ def autolog(
 
 
 _ACTIVE_MODEL_ID = ContextVar("active_model_id", default=None)
+_ACTIVE_MODEL_ID_STATE = ContextVar("active_model_id_state", default=None)
+
+
+class ActiveModelIdState(Enum):
+    """
+    Enum to represent the state of the active model ID.
+    It is used to determine whether the active model ID is set by the user or system.
+    If the active model ID is set by the user, MLflow should not modify it.
+    """
+
+    USER = "user"
+    SYSTEM = "system"
 
 
 class ActiveModel(LoggedModel):
@@ -3079,6 +3092,9 @@ class ActiveModel(LoggedModel):
             MLFLOW_ACTIVE_MODEL_ID.unset()
 
 
+# NB: This function is only intended to be used publicly by users to set the
+# active model ID. MLflow internally should NEVER call this function directly,
+# since we need to differentiate between user and system set active model IDs.
 def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
     """
     Set the active model with the specified name or model ID, and it will be used for linking
@@ -3129,6 +3145,14 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
         traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
         assert len(traces) == 1
     """
+    active_model = _set_active_model(name=name, model_id=model_id)
+    _ACTIVE_MODEL_ID_STATE.set(ActiveModelIdState.USER)
+    return active_model
+
+
+# NB: This function is only intended to be used internally by MLflow to set
+# the active model ID under some specific conditions (e.g. load_model calls)
+def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
     if name is None and model_id is None:
         raise MlflowException.invalid_parameter_value(
             message="Either name or model_id must be provided",
@@ -3155,6 +3179,7 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
             logged_model = mlflow.create_external_model(name=name)
         else:
             logged_model = logged_models[0]
+    _ACTIVE_MODEL_ID_STATE.set(ActiveModelIdState.SYSTEM)
     return ActiveModel(logged_model)
 
 
@@ -3170,9 +3195,25 @@ def get_active_model_id() -> Optional[str]:
     return _ACTIVE_MODEL_ID.get() or MLFLOW_ACTIVE_MODEL_ID.get()
 
 
+def _get_active_model_id_state() -> Optional[ActiveModelIdState]:
+    """
+    Get the state of the active model ID.
+    This is used to determine whether the active model ID is set by the user or system.
+    Should be called only internally by MLflow.
+    """
+    return _ACTIVE_MODEL_ID_STATE.get()
+
+
 def _reset_active_model_id() -> None:
     """
     Should be called only for testing purposes.
     """
     _ACTIVE_MODEL_ID.set(None)
     MLFLOW_ACTIVE_MODEL_ID.unset()
+
+
+def _reset_active_model_id_state() -> None:
+    """
+    Should be called only for testing purposes.
+    """
+    _ACTIVE_MODEL_ID_STATE.set(None)
