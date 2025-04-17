@@ -108,7 +108,7 @@ const config: Config = {
           label: "Docs",
         },
         {
-          to: `${apiReferencePrefix()}api_reference/`,
+          to: `${apiReferencePrefix()}api_reference/index.html`,
           position: "left",
           label: "API Reference",
         },
