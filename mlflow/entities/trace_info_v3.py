@@ -19,8 +19,8 @@ class TraceInfoV3(_MlflowObject):
     trace_location: TraceLocation
     request_time: int
     state: TraceState
-    request: Optional[str] = None
-    response: Optional[str] = None
+    request_preview: Optional[str] = None
+    request_preview: Optional[str] = None
     client_request_id: Optional[str] = None
     execution_duration: Optional[int] = None
     trace_metadata: dict[str, str] = field(default_factory=dict)
@@ -72,8 +72,8 @@ class TraceInfoV3(_MlflowObject):
             trace_id=self.trace_id,
             client_request_id=self.client_request_id,
             trace_location=self.trace_location.to_proto(),
-            request=self.request,
-            response=self.response,
+            request_preview=self.request_preview,
+            response_preview=self.response_preview,
             request_time=request_time,
             execution_duration=execution_duration,
             state=self.state.to_proto(),
@@ -100,8 +100,8 @@ class TraceInfoV3(_MlflowObject):
             trace_id=proto.trace_id,
             client_request_id=proto.client_request_id,
             trace_location=TraceLocation.from_proto(proto.trace_location),
-            request=proto.request,
-            response=proto.response,
+            request_preview=proto.request_preview,
+            response_preview=proto.response_preview,
             request_time=proto.request_time.ToMilliseconds(),
             execution_duration=(
                 proto.execution_duration.ToMilliseconds()
