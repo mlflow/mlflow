@@ -61,7 +61,7 @@
   },
   "+RYBrq" : {
     "defaultMessage" : "Promouvoir le modèle",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+dGAnC" : {
     "defaultMessage" : "Aperçu",
@@ -6612,7 +6612,7 @@
   },
   "oBjwod" : {
     "defaultMessage" : "Promouvoir {sourceModelName} version {sourceModelVersion}",
-    "description" : "Modal title to pomote the model to a different registered model"
+    "description" : "Modal title to promote the model to a different registered model"
   },
   "oDT2FP" : {
     "defaultMessage" : "L'option Compute Scale-out est nécessaire.",

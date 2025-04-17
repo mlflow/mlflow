@@ -61,7 +61,7 @@
   },
   "+RYBrq" : {
     "defaultMessage" : "推廣模型",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+dGAnC" : {
     "defaultMessage" : "預覽",
@@ -6612,7 +6612,7 @@
   },
   "oBjwod" : {
     "defaultMessage" : "升級{sourceModelName}版本{sourceModelVersion}",
-    "description" : "Modal title to pomote the model to a different registered model"
+    "description" : "Modal title to promote the model to a different registered model"
   },
   "oDT2FP" : {
     "defaultMessage" : "需要運算資源橫向擴展。",

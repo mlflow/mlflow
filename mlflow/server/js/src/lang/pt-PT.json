@@ -61,7 +61,7 @@
   },
   "+RYBrq" : {
     "defaultMessage" : "Promover modelo",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+dGAnC" : {
     "defaultMessage" : "Pré-visualizar",
@@ -6612,7 +6612,7 @@
   },
   "oBjwod" : {
     "defaultMessage" : "Promover {sourceModelName} versão {sourceModelVersion}",
-    "description" : "Modal title to pomote the model to a different registered model"
+    "description" : "Modal title to promote the model to a different registered model"
   },
   "oDT2FP" : {
     "defaultMessage" : "É necessário aumentar horizontalmente o compute.",

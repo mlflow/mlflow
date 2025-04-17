@@ -499,7 +499,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     }
   }
 
-  renderPomoteModelButton() {
+  renderPromoteModelButton() {
     const { modelVersion, usingNextModelsUI, navigate } = this.props;
     return usingNextModelsUI ? <PromoteModelButton modelVersion={modelVersion} /> : null;
   }
@@ -521,7 +521,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     return (
       <PageHeader title={title} breadcrumbs={breadcrumbs}>
         {!this.shouldHideDeleteOption() && <OverflowMenu menu={menu} />}
-        {this.renderPomoteModelButton()}
+        {this.renderPromoteModelButton()}
       </PageHeader>
     );
   }

@@ -61,7 +61,7 @@
   },
   "+RYBrq" : {
     "defaultMessage" : "モデルをプロモート",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+dGAnC" : {
     "defaultMessage" : "プレビュー",
@@ -6612,7 +6612,7 @@
   },
   "oBjwod" : {
     "defaultMessage" : "{sourceModelName}を{sourceModelVersion}バージョンに格上げ",
-    "description" : "Modal title to pomote the model to a different registered model"
+    "description" : "Modal title to promote the model to a different registered model"
   },
   "oDT2FP" : {
     "defaultMessage" : "コンピュートのスケールアウトが必要です。",
