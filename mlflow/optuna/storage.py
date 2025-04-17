@@ -1,7 +1,6 @@
 import copy
 import datetime
 import json
-import sys
 import threading
 import time
 import uuid
@@ -9,8 +8,8 @@ from collections.abc import Container, Sequence
 from typing import Any, Optional
 
 from mlflow import MlflowClient
-from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag
+from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 
 try:
