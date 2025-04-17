@@ -3065,7 +3065,7 @@ class ActiveModelContext:
     """
 
     model_id: Optional[str] = None
-    set_by_user: Optional[bool] = None
+    set_by_user: bool = False
 
 
 _ACTIVE_MODEL_CONTEXT = ContextVar(
@@ -3093,8 +3093,12 @@ class ActiveModel(LoggedModel):
         _ACTIVE_MODEL_CONTEXT.set(self.last_active_model_context)
         if self.last_active_model_context.model_id is not None:
             MLFLOW_ACTIVE_MODEL_ID.set(self.last_active_model_context.model_id)
+            _logger.info(
+                f"Active model reset to model with ID: {self.last_active_model_context.model_id}"
+            )
         else:
             MLFLOW_ACTIVE_MODEL_ID.unset()
+            _logger.info("Active model reset to None")
 
 
 # NB: This function is only intended to be used publicly by users to set the
