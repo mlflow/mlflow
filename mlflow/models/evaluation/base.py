@@ -7,7 +7,6 @@ import pathlib
 import signal
 import urllib
 import urllib.parse
-import warnings
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
