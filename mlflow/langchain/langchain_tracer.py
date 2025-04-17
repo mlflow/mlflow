@@ -4,6 +4,7 @@ from contextvars import ContextVar
 from typing import Any, Optional, Sequence, Union
 from uuid import UUID
 
+from mlflow.tracing.fluent import start_span_no_context
 import pydantic
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.callbacks.base import BaseCallbackHandler
@@ -18,7 +19,6 @@ from langchain_core.outputs import (
 from tenacity import RetryCallState
 
 import mlflow
-from mlflow import MlflowClient
 from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID
@@ -132,7 +132,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         # NB: The tracer can handle multiple traces in parallel under multi-threading scenarios.
         # DO NOT use instance variables to manage the state of single trace.
         super().__init__()
-        self._mlflow_client = MlflowClient()
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, SpanWithToken] = {}
         self._prediction_context = prediction_context
@@ -155,10 +154,9 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         with maybe_set_prediction_context(self._prediction_context):
             parent = self._get_parent_span(parent_run_id)
             if parent:
-                span = self._mlflow_client.start_span(
+                span = start_span_no_context(
                     name=span_name,
-                    request_id=parent.request_id,
-                    parent_id=parent.span_id,
+                    parent_span=parent,
                     span_type=span_type,
                     inputs=inputs,
                     attributes=attributes,
@@ -170,7 +168,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     if self._prediction_context
                     else None
                 )
-                span = self._mlflow_client.start_trace(
+                span = start_span_no_context(
                     name=span_name,
                     span_type=span_type,
                     inputs=inputs,
@@ -209,9 +207,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Close MLflow Span (or Trace if it is root component)"""
         try:
             with maybe_set_prediction_context(self._prediction_context):
-                self._mlflow_client.end_span(
-                    request_id=span.request_id,
-                    span_id=span.span_id,
+                span.end(
                     outputs=outputs,
                     attributes=attributes,
                     status=status,

@@ -15,12 +15,9 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.context import get_prediction_context, maybe_set_prediction_context
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import (
-    end_client_span_or_trace,
-    set_span_chat_messages,
-    start_client_span_or_trace,
-)
+from mlflow.tracing.utils import set_span_chat_messages
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.utils.autologging_utils import (
     get_autologging_config,
@@ -304,8 +301,7 @@ class MlflowCallback(BaseCallback):
             prediction_context.update(**self._dependencies_schema)
 
         with maybe_set_prediction_context(prediction_context):
-            span = start_client_span_or_trace(
-                self._client,
+            span = start_span_no_context(
                 name=name,
                 span_type=span_type,
                 parent_span=mlflow.get_current_active_span(),
@@ -336,12 +332,7 @@ class MlflowCallback(BaseCallback):
             st.span.add_event(SpanEvent.from_exception(exception))
 
         try:
-            end_client_span_or_trace(
-                client=self._client,
-                span=st.span,
-                outputs=outputs,
-                status=status,
-            )
+            st.span.end(outputs=outputs, status=status)
         finally:
             detach_span_from_context(st.token)
 

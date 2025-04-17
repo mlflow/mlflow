@@ -165,7 +165,7 @@ class ErroringStreamTestModel:
 @pytest.fixture
 def mock_client():
     client = mock.MagicMock()
-    with mock.patch("mlflow.tracing.fluent.MlflowClient", return_value=client):
+    with mock.patch("mlflow.tracing.fluent.TracingClient", return_value=client):
         yield client
 
 
@@ -916,7 +916,7 @@ def test_search_traces_with_pagination(mock_client):
 
 def test_search_traces_with_default_experiment_id(mock_client):
     mock_client.search_traces.return_value = PagedList([], token=None)
-    with mock.patch("mlflow.tracing.fluent._get_experiment_id", return_value="123"):
+    with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"):
         mlflow.search_traces()
 
     mock_client.search_traces.assert_called_once_with(
@@ -1301,7 +1301,7 @@ def test_export_to_otel_collector(otel_collector, mock_client, monkeypatch):
     assert exporter._endpoint == "127.0.0.1:4317"
 
     # Traces should not be logged to MLflow
-    mock_client._start_stacked_trace.assert_not_called()
+    mock_client.start_trace.assert_not_called()
     mock_client._upload_trace_data.assert_not_called()
     mock_client._upload_ended_trace_info.assert_not_called()
 

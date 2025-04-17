@@ -8,6 +8,7 @@ from typing import Any, Optional, Union
 
 from autogen import Agent, ConversableAgent
 from autogen.logger.base_logger import BaseLogger
+from mlflow.tracing.fluent import start_span_no_context
 from openai.types.chat import ChatCompletion
 
 from mlflow import MlflowClient
@@ -66,7 +67,6 @@ def _catch_exception(func):
 
 class MlflowAutogenLogger(BaseLogger):
     def __init__(self):
-        self._client = MlflowClient()
         self._chat_state = ChatState()
 
     def start(self) -> str:
@@ -122,7 +122,7 @@ class MlflowAutogenLogger(BaseLogger):
 
             if self._chat_state.session_span is None:
                 # Create the trace per chat session
-                span = self._client.start_trace(
+                span = start_span_no_context(
                     name=original.__name__,
                     span_type=span_type,
                     inputs=capture_function_input_args(original, args, kwargs),
@@ -135,9 +135,7 @@ class MlflowAutogenLogger(BaseLogger):
                     self._record_exception(span, e)
                     raise e
                 finally:
-                    self._client.end_trace(
-                        request_id=span.request_id, outputs=result, status=span.status
-                    )
+                    span.end(outputs=result)
                     # Clear the state to start a new chat session
                     self._chat_state.clear()
             elif not root_only:
@@ -153,12 +151,7 @@ class MlflowAutogenLogger(BaseLogger):
                     self._record_exception(span, e)
                     raise e
                 finally:
-                    self._client.end_span(
-                        request_id=span.request_id,
-                        span_id=span.span_id,
-                        outputs=result,
-                        status=span.status,
-                    )
+                    span.end(outputs=result)
                     self._chat_state.pending_spans.append(span)
             else:
                 result = original(*args, **kwargs)
