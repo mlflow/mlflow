@@ -9,6 +9,7 @@ from collections.abc import Container, Sequence
 from typing import Any, Optional
 
 from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 
@@ -25,8 +26,8 @@ try:
     from optuna.study import StudyDirection
     from optuna.study._frozen import FrozenStudy
     from optuna.trial import FrozenTrial, TrialState
-except ImportError:
-    sys.exit()
+except ImportError as e:
+    raise MlflowException(f"Importing 'mlflow.optuna module fails: {e}'")
 
 optuna_mlflow_status_map = {
     TrialState.RUNNING: "RUNNING",
