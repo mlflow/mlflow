@@ -5,6 +5,7 @@ syntax = "proto2";
 package mlflow.traceserver;
 
 import "databricks.proto";
+import "assessments.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
@@ -56,15 +57,21 @@ message TraceInfo {
 
   optional TraceLocation trace_location = 3;
 
-  // Request to the model/agent.
-  // Equivalent to the input of the root span but added for ease of access.
-  // Represented as a JSON string.
+  // [Deprecated, please use ``request_preview`` instead].
+  // The request to the model/agent represented as a JSON string. This is equivalent to the input of the root span.
   optional string request = 4;
 
-  // Response of the model/agent.
-  // Equivalent to the output of the root span but added for ease of access.
-  // Represented as a JSON string.
+  // [Deprecated, please use ``response_preview`` instead].
+  // The response of the model/agent represented as a JSON string. This is equivalent to the output of the root span.
   optional string response = 5;
+
+  // A preview of the request to the model/agent represented as a JSON string. This is equivalent to the input of the root
+  // span. This preview value is truncated to 10KB while the full request is stored in the trace data in blob storage.
+  optional string request_preview = 12;
+
+  // A preview of the request to the model/agent represented as a JSON string. This is equivalent to the output of the root
+  // span. This preview value is truncated to 10KB while the full response is stored in the trace data in blob storage.
+  optional string response_preview = 13;
 
   // Start time of the trace
   optional google.protobuf.Timestamp request_time = 6;
@@ -98,7 +105,7 @@ message TraceInfo {
   // - session_id: The ID of the session (e.g. chat conversation) where the request came from
   map<string, string> trace_metadata = 9;
 
-  repeated Assessment assessments = 10;
+  repeated assessments.Assessment assessments = 10;
 
   // Mutable, user-defined tags for the trace, e.g. “question_topic”: “DBSQL”
   map<string, string> tags = 11;
@@ -258,96 +265,4 @@ message Span {
     }
     // An optional final status for this span.
     optional Status status = 15;
-}
-
-
-message AssessmentSource {
-  // Type of the assessment source.
-  enum SourceType {
-    SOURCE_TYPE_UNSPECIFIED = 0;
-    // Assessment from a human.
-    HUMAN = 1;
-    // Assessment from an LLM Judge.
-    LLM_JUDGE = 2;
-    // Code-based assessment, (e.g. Python UDF).
-    CODE = 3;
-  }
-  // The type of the source.
-  optional SourceType source_type = 1 [(validate_required) = true];
-
-  // Identifier for the source.
-  // Example: For human -> user name; for LLM judge -> judge source (databricks or custom); for code -> empty.
-  optional string source_id = 2 [(validate_required) = true];
-}
-
-message AssessmentError {
-  // Value of an assessment when an error has occurred.
-  optional string error_code = 1;
-
-  optional string error_message = 2;
-}
-
-// An expectation for the values or guidelines for the outputs that a model or agent should produce
-// from the inputs contained in the trace.
-message Expectation {
-  // Value of the expectation-based assessment.
-  // We use google.protobuf.Value to support a flexible schema of expectation values.
-  optional google.protobuf.Value value = 2;
-}
-
-// Feedback provided on the model / agent output(s) contained in the trace
-message Feedback {
-  // Value of the feedback-based assessment.
-  // We use google.protobuf.Value to support a flexible schema of feedback values.
-  // Supported initial types:
-  // - Numeric values like integers or floats
-  // - Boolean values
-  // - Text value (can contain json text the user wishes to store, but it will only be searchable as text)
-  // - Non-empty list values containing only strings
-  // - Other values like structs, non-string lists etc. will be rejected for now
-  optional google.protobuf.Value value = 2;
-}
-
-// Data and metadata for an assessment of a trace.
-message Assessment {
-  // Unique ID of the assessment.
-  // NB: This is not marked as required field via "validate_required", because the message is
-  //  used in the context of creating a new assessment, where the ID is not known.
-  optional string assessment_id = 1;
-
-  // Name of the assessment. The name must not contain ".".
-  optional string assessment_name = 2 [(validate_required) = true];
-  // ID of the trace this assessment is associated with.
-  optional string trace_id = 3;
-
-  // ID of the span if the assessment is for a particular span (optional).
-  optional string span_id = 4;
-
-  // The source this assessment came from.
-  optional AssessmentSource source = 5;
-
-  // The creation time of this assessment.
-  optional google.protobuf.Timestamp create_time = 6;
-
-  // The last update time of this assessment.
-  optional google.protobuf.Timestamp last_update_time = 7;
-
-  // An Assessment can either be human/code/judge Feedback, human-generated Expectation, or an error.
-  // The name of the Feedback or Expectation must be the same with the assessment_name.
-  oneof value {
-    // The feedback on the trace from this assessment.
-    Feedback feedback = 9;
-    // A representation of the guidelines and/or expected response from the agent.
-    Expectation expectation = 10;
-  }
-
-  // Justification for the assessment.
-  optional string rationale = 11;
-
-  // An error encountered while computing the assessment.
-  optional AssessmentError error = 12;
-  
-  // Additional metadata describing the assessment and store additional information,
-  // such as the chunk relevance chunk_index. This metadata is required to be JSON-serializable.
-  map<string, string> metadata = 13;
 }

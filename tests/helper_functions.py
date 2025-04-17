@@ -13,6 +13,7 @@ import time
 import uuid
 from contextlib import ExitStack, contextmanager
 from functools import wraps
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -730,3 +731,75 @@ def start_mock_openai_server():
             yield base_url
         finally:
             proc.kill()
+
+
+def _is_hf_hub_healthy() -> bool:
+    """
+    Check if the Hugging Face Hub is healthy by attempting to load a small dataset.
+    """
+    try:
+        import datasets
+        from huggingface_hub import HfApi
+    except ImportError:
+        # Cannot import datasets or huggingface_hub, so we assume the hub is healthy.
+        return True
+
+    try:
+        dataset = next(HfApi().list_datasets(filter="size_categories:n<1K", limit=1))
+        datasets.load_dataset(dataset.id)
+        return True
+    except requests.exceptions.RequestException:
+        return False
+
+
+def _iter_pr_files() -> Iterator[str]:
+    if "GITHUB_ACTIONS" not in os.environ:
+        return
+
+    if os.environ.get("GITHUB_EVENT_NAME") != "pull_request":
+        return
+
+    with open(os.environ["GITHUB_EVENT_PATH"]) as f:
+        pr_data = json.load(f)
+
+    pull_number = pr_data["pull_request"]["number"]
+    repo = pr_data["repository"]["full_name"]
+    page = 1
+    per_page = 100
+    headers = {"Authorization": token} if (token := os.environ.get("GITHUB_TOKEN")) else None
+    while True:
+        resp = requests.get(
+            f"https://api.github.com/repos/{repo}/pulls/{pull_number}/files",
+            params={"per_page": per_page, "page": page},
+            headers=headers,
+        )
+        resp.raise_for_status()
+        files = [f["filename"] for f in resp.json()]
+        yield from files
+        if len(files) < per_page:
+            break
+        page += 1
+
+
+@functools.lru_cache(maxsize=1)
+def _should_skip_hf_test() -> bool:
+    if "CI" not in os.environ:
+        # This is not a CI run. Do not skip tests.
+        return False
+
+    if any(("huggingface" in f or "transformers" in f) for f in _iter_pr_files()):
+        # This PR modifies huggingface-related files. Do not skip tests.
+        return False
+
+    # Skip tests if the Hugging Face Hub is unhealthy.
+    return not _is_hf_hub_healthy()
+
+
+def skip_if_hf_hub_unhealthy():
+    return pytest.mark.skipif(
+        _should_skip_hf_test(),
+        reason=(
+            "Skipping test because Hugging Face Hub is unhealthy. "
+            "See https://status.huggingface.co/ for more information."
+        ),
+    )

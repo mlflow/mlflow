@@ -792,7 +792,6 @@ def test_log_assessment():
         feedback=Feedback(value=True),
         rationale="rationale",
         metadata={"model": "gpt-4o-mini"},
-        error=None,
         span_id=None,
     )
 
