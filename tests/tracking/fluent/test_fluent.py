@@ -1937,7 +1937,7 @@ def test_set_active_model():
 
     model = mlflow.create_external_model(name="test_model")
 
-    mlflow.set_active_model(name="test_model")
+    mlflow.set_active_model(name=model.name)
     assert mlflow.get_active_model_id() == model.model_id
     assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
 
