@@ -10,6 +10,7 @@ import inspect
 import logging
 import os
 import threading
+from contextvars import ContextVar
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -32,6 +33,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
+    MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
@@ -3049,3 +3051,128 @@ def autolog(
             register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
         if "pyspark.ml" in target_library_and_module:
             register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)
+
+
+_ACTIVE_MODEL_ID = ContextVar("active_model_id", default=None)
+
+
+class ActiveModel(LoggedModel):
+    """
+    Wrapper around :py:class:`mlflow.entities.LoggedModel` to enable using Python ``with`` syntax.
+    """
+
+    def __init__(self, logged_model: LoggedModel):
+        super().__init__(**logged_model.to_dictionary())
+        self.last_active_model_id = _ACTIVE_MODEL_ID.get()
+        _ACTIVE_MODEL_ID.set(self.model_id)
+        MLFLOW_ACTIVE_MODEL_ID.set(self.model_id)
+        _logger.info(f"Active model set to model with ID: {self.model_id}")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _ACTIVE_MODEL_ID.set(self.last_active_model_id)
+        if self.last_active_model_id is not None:
+            MLFLOW_ACTIVE_MODEL_ID.set(self.last_active_model_id)
+        else:
+            MLFLOW_ACTIVE_MODEL_ID.unset()
+
+
+def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
+    """
+    Set the active model with the specified name or model ID, and it will be used for linking
+    traces that are generated during the lifecycle of the model. The return value can be used as
+    a context manager within a ``with`` block; otherwise, you must call ``set_active_model()``
+    to update active model. Note that this function also sets the environment variable
+    ``MLFLOW_ACTIVE_MODEL_ID`` to the model ID of the active model.
+
+    Args:
+        name: The name of the :py:class:`mlflow.entities.LoggedModel` to set as active.
+            If a LoggedModel with the name does not exist, it will be created under the current
+            experiment. If multiple LoggedModels with the name exist, the latest one will be
+            set as active.
+        model_id: The ID of the :py:class:`mlflow.entities.LoggedModel` to set as active.
+            If no LoggedModel with the ID exists, Exception will be raised.
+
+    Returns:
+        :py:class:`mlflow.ActiveModel` object that acts as a context manager wrapping the
+        LoggedModel's state.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        # Set the active model by name
+        mlflow.set_active_model(name="my_model")
+
+        # Set the active model by model ID
+        model = mlflow.create_external_model(name="test_model")
+        mlflow.set_active_model(model_id=model.model_id)
+
+        # Use the active model in a context manager
+        with mlflow.set_active_model(name="new_model"):
+            print(mlflow.get_active_model_id())
+
+        # Traces are automatically linked to the active model
+        mlflow.set_active_model(name="my_model")
+
+
+        @mlflow.trace
+        def predict(model_input):
+            return model_input
+
+
+        predict("abc")
+        traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
+        assert len(traces) == 1
+    """
+    if name is None and model_id is None:
+        raise MlflowException.invalid_parameter_value(
+            message="Either name or model_id must be provided",
+        )
+
+    if model_id is not None:
+        logged_model = mlflow.get_logged_model(model_id)
+        if name is not None and logged_model.name != name:
+            raise MlflowException.invalid_parameter_value(
+                f"LoggedModel with model_id {model_id!r} has name {logged_model.name!r}, which does"
+                f" not match the provided name {name!r}."
+            )
+    elif name is not None:
+        logged_models = mlflow.search_logged_models(
+            filter_string=f"name='{name}'", max_results=2, output_format="list"
+        )
+        if len(logged_models) > 1:
+            _logger.warning(
+                f"Multiple LoggedModels found with name {name!r}, setting the latest one as active "
+                "model."
+            )
+        if len(logged_models) == 0:
+            _logger.info(f"LoggedModel with name {name!r} does not exist, creating one...")
+            logged_model = mlflow.create_external_model(name=name)
+        else:
+            logged_model = logged_models[0]
+    return ActiveModel(logged_model)
+
+
+def get_active_model_id() -> Optional[str]:
+    """
+    Get the active model ID. If no active model is set with ``set_active_model()``, this will
+    try to get the model ID from the environment variable ``MLFLOW_ACTIVE_MODEL_ID``.
+    If neither is set, return None.
+
+    Returns:
+        The active model ID if set, otherwise None.
+    """
+    return _ACTIVE_MODEL_ID.get() or MLFLOW_ACTIVE_MODEL_ID.get()
+
+
+def _reset_active_model_id() -> None:
+    """
+    Should be called only for testing purposes.
+    """
+    _ACTIVE_MODEL_ID.set(None)
+    MLFLOW_ACTIVE_MODEL_ID.unset()

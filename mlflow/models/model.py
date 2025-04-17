@@ -3,11 +3,8 @@ import logging
 import os
 import posixpath
 import shutil
-import threading
 import uuid
 import warnings
-from collections import defaultdict
-from contextvars import ContextVar
 from datetime import datetime
 from pathlib import Path
 from pprint import pformat
@@ -1392,61 +1389,3 @@ def set_model(model) -> None:
             pass
 
     raise mlflow.MlflowException(SET_MODEL_ERROR)
-
-
-class _ModelTracker:
-    """
-    Tracks models existing in current context.
-    """
-
-    def __init__(self):
-        # maps model identity (id(model)) to model_id for logged models
-        self._model_ids: dict[int, str] = {}
-        self._lock = threading.Lock()
-        # use model-level locks to avoid contention
-        self._model_locks = defaultdict(threading.Lock)
-        # thread-safe variable to track active model_id
-        self._active_model_id = ContextVar("_active_model_id", default=None)
-        self._is_active_model_id_set = False
-
-    def get(self, identity: int) -> Optional[str]:
-        """
-        Get the model ID associated with the given model identity
-        """
-        if not isinstance(identity, int):
-            raise TypeError("identity must be an integer")
-        with self._model_locks[identity]:
-            return self._model_ids.get(identity)
-
-    def set(self, identity: int, model_id: str) -> None:
-        """
-        Set the model ID associated with the given model identity
-        """
-        if not isinstance(identity, int):
-            raise TypeError("identity must be an integer")
-        with self._model_locks[identity]:
-            self._model_ids[identity] = model_id
-
-    def set_active_model_id(self, model_id: Optional[str]) -> None:
-        """
-        Set the current active model id.
-        """
-        self._active_model_id.set(model_id)
-
-    def get_active_model_id(self) -> Optional[str]:
-        """
-        Get the current active model id.
-        This should be used inside callbacks before starting the
-        span to add the model id to span tags.
-        """
-        return self._active_model_id.get()
-
-    def clear(self) -> None:
-        with self._lock:
-            self._model_ids.clear()
-            self._model_locks.clear()
-            self._active_model_id.set(None)
-            self._is_active_model_id_set = False
-
-
-_MODEL_TRACKER = _ModelTracker()
