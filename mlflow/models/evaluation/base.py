@@ -1110,11 +1110,8 @@ def evaluate(  # noqa: D417
     custom_metrics=None,
     extra_metrics=None,
     custom_artifacts=None,
-    validation_thresholds=None,
-    baseline_model=None,
     env_manager="local",
     model_config=None,
-    baseline_config=None,
     inference_params=None,
     model_id=None,
 ):
