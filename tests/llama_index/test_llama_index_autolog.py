@@ -308,7 +308,7 @@ def test_autolog_link_traces_to_loaded_model_workflow_pyfunc():
 )
 def test_autolog_link_traces_to_active_model():
     model = mlflow.create_external_model(name="test_model")
-    mlflow.set_active_model(model_id=model.model_id)
+    mlflow.set_active_model(model_id=model.model_id)  # noqa: TID251
     mlflow.llama_index.autolog()
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(

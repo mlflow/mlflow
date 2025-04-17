@@ -16,6 +16,7 @@ from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
+from mlflow import set_active_model  # noqa: TID251
 from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
@@ -910,7 +911,7 @@ def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
 
 def test_autolog_link_traces_active_model():
     model = mlflow.create_external_model(name="test_model")
-    mlflow.set_active_model(model_id=model.model_id)
+    set_active_model(model_id=model.model_id)
     mlflow.dspy.autolog()
     dspy.settings.configure(
         lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}] * 5)

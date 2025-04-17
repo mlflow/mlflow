@@ -263,6 +263,8 @@ forced-separate = ["tests"]
 "pkg_resources".msg = "Do not use pkg_resources. Use importlib.resources or importlib.metadata instead."
 "entrypoints".msg = "Do not use entrypoints. Use importlib.metadata.entry_points instead."
 "pip".msg = "Importing pip can cause undesired side effects such as https://github.com/scikit-learn/scikit-learn/issues/26992. Consider using `subprocess.run([sys.executable, '-m', 'pip', ...])` instead."
+"mlflow.set_active_model".msg = "Usage of `set_active_model` is not allowed in mlflow, use `_set_active_model` instead."
+"mlflow.tracking.fluent.set_active_model".msg = "Usage of `set_active_model` is not allowed in mlflow, use `_set_active_model` instead."
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
