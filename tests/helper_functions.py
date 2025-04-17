@@ -737,8 +737,12 @@ def _is_hf_hub_healthy() -> bool:
     """
     Check if the Hugging Face Hub is healthy by attempting to load a small dataset.
     """
-    import datasets
-    from huggingface_hub import HfApi
+    try:
+        import datasets
+        from huggingface_hub import HfApi
+    except ImportError:
+        # Cannot import datasets or huggingface_hub, so we assume the hub is healthy.
+        return True
 
     try:
         dataset = next(HfApi().list_datasets(filter="size_categories:n<1K", limit=1))
