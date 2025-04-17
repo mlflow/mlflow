@@ -82,12 +82,27 @@ class Assessment(_MlflowObject):
     #   backend API asks for an incomplete Assessment object without an ID and returns a
     #   complete one with assessment_id, so the ID is Optional in the constructor here.
     assessment_id: Optional[str] = None
+    # Deprecated, use `error` in Feedback instead. Just kept for backward compatibility
+    # and will be removed in the 3.0.0 release.
+    error: Optional[AssessmentError] = None
 
     def __post_init__(self):
         if (self.expectation is not None) + (self.feedback is not None) != 1:
             raise MlflowException.invalid_parameter_value(
                 "Exactly one of `expectation` or `feedback` should be specified.",
             )
+
+        # Populate the error field to the feedback object
+        if self.error is not None:
+            if self.expectation is not None:
+                raise MlflowException.invalid_parameter_value(
+                    "Cannot set `error` when `expectation` is specified.",
+                )
+            if self.feedback is None:
+                raise MlflowException.invalid_parameter_value(
+                    "Cannot set `error` when `feedback` is not specified.",
+                )
+            self.feedback.error = self.error
 
         # Set timestamp if not provided
         current_time = int(time.time() * 1000)  # milliseconds
@@ -154,19 +169,9 @@ class Assessment(_MlflowObject):
         )
 
     def to_dictionary(self):
-        return {
-            "assessment_id": self.assessment_id,
-            "trace_id": self.trace_id,
-            "name": self.name,
-            "source": self.source.to_dictionary(),
-            "create_time_ms": self.create_time_ms,
-            "last_update_time_ms": self.last_update_time_ms,
-            "expectation": self.expectation.to_dictionary() if self.expectation else None,
-            "feedback": self.feedback.to_dictionary() if self.feedback else None,
-            "rationale": self.rationale,
-            "metadata": self.metadata,
-            "span_id": self.span_id,
-        }
+        # Note that MessageToDict excludes None fields. For example, if assessment_id is None,
+        # it won't be included in the resulting dictionary.
+        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
 
     @classmethod
     def from_dictionary(cls, d: dict[str, Any]) -> "Assessment":
@@ -239,7 +244,7 @@ class Feedback(_MlflowObject):
         )
 
     def to_dictionary(self):
-        return {"value": self.value, "error": self.error.to_dictionary() if self.error else None}
+        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
 
     @classmethod
     def from_dictionary(self, d):

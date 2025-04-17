@@ -37,7 +37,7 @@ def build_docker(
     .. important::
 
         Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**
-        for improved performance, unless the model flavor is one of ``["johnsnowlabs",
+        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o"
         "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
         that uses SparkML, please specify ``install-java=True`` to enforce Java installation.
         For earlier versions, Java is always installed to the image.

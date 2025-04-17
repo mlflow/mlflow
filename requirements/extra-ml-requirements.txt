@@ -21,6 +21,8 @@ lightgbm
 catboost
 # Required by mlflow.statsmodels
 statsmodels
+# Required by mlflow.h2o
+h2o
 # Required by mlflow.onnx
 onnx>=1.11.0
 onnxruntime
