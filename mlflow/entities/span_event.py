@@ -76,7 +76,7 @@ class SpanEvent(_MlflowObject):
         return ProtoSpan.Event(
             name=self.name,
             time_unix_nano=self.timestamp,
-            attributes={key: ParseDict(value, Value()) for key, value in self.attributes.items()},
+            attributes={k: ParseDict(v, Value()) for k, v in self.attributes.items()},
         )
 
 
