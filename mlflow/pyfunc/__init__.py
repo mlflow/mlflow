@@ -581,7 +581,7 @@ from mlflow.utils.model_utils import (
     _validate_pyfunc_model_config,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_dump_compat
+from mlflow.utils.pydantic_utils import model_dump_compat
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
