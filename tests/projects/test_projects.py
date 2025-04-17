@@ -19,8 +19,6 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.conda import CONDA_EXE, get_or_create_conda_env
 from mlflow.utils.mlflow_tags import (
-    LEGACY_MLFLOW_GIT_BRANCH_NAME,
-    LEGACY_MLFLOW_GIT_REPO_URL,
     MLFLOW_GIT_BRANCH,
     MLFLOW_GIT_REPO_URL,
     MLFLOW_PARENT_RUN_ID,
@@ -163,8 +161,6 @@ def test_run_local_git_repo(
     if version == "master":
         assert tags[MLFLOW_GIT_BRANCH] == "master"
         assert tags[MLFLOW_GIT_REPO_URL] == local_git_repo_uri
-        assert tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] == "master"
-        assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri
 
 
 def test_invalid_version_local_git_repo(local_git_repo_uri):
