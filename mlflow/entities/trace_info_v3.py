@@ -20,7 +20,7 @@ class TraceInfoV3(_MlflowObject):
     request_time: int
     state: TraceState
     request_preview: Optional[str] = None
-    request_preview: Optional[str] = None
+    response_preview: Optional[str] = None
     client_request_id: Optional[str] = None
     execution_duration: Optional[int] = None
     trace_metadata: dict[str, str] = field(default_factory=dict)
