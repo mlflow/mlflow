@@ -50,7 +50,6 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         self._GCS_UPLOAD_CHUNK_SIZE = MLFLOW_GCS_UPLOAD_CHUNK_SIZE.get()
         self._GCS_DEFAULT_TIMEOUT = (
             MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get()
-            or MLFLOW_GCS_DEFAULT_TIMEOUT.get()
             or _DEFAULT_TIMEOUT
         )
         # Method to use for refresh
