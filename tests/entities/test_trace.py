@@ -14,6 +14,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
+from mlflow.utils.proto_json_utils import (
+    milliseconds_to_proto_duration,
+    milliseconds_to_proto_timestamp,
+)
 
 from tests.tracing.helper import create_test_trace_info
 
@@ -57,18 +61,17 @@ def test_json_deserialization(monkeypatch):
     assert trace_json_as_dict == {
         "info": {
             "trace_id": trace.info.request_id,
-            "client_request_id": None,
             "trace_location": {
                 "mlflow_experiment": {
                     "experiment_id": "0",
                 },
                 "type": "MLFLOW_EXPERIMENT",
             },
-            "request_time": trace.info.timestamp_ms,
-            "execution_duration": trace.info.execution_time_ms,
+            "request_time": milliseconds_to_proto_timestamp(trace.info.timestamp_ms),
+            "execution_duration": milliseconds_to_proto_duration(trace.info.execution_time_ms),
             "state": "OK",
-            "request": '{"x": 2, "y": 5}',
-            "response": "8",
+            "request_preview": '{"x": 2, "y": 5}',
+            "response_preview": "8",
             "trace_metadata": {
                 "mlflow.traceInputs": '{"x": 2, "y": 5}',
                 "mlflow.traceOutputs": "8",
@@ -80,7 +83,6 @@ def test_json_deserialization(monkeypatch):
                 "mlflow.source.type": "LOCAL",
                 "mlflow.artifactLocation": trace.info.tags[MLFLOW_ARTIFACT_LOCATION],
             },
-            "assessments": [],
         },
         "data": {
             "request": '{"x": 2, "y": 5}',
