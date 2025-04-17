@@ -973,7 +973,6 @@ def test_evaluate_with_multi_evaluators(
                 "run_id": run.info.run_id,
                 "evaluator_config": evaluator_config,
                 "extra_metrics": None,
-                "custom_metrics": None,
                 "custom_artifacts": None,
                 "predictions": None,
             }
