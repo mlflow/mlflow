@@ -8,13 +8,12 @@ from typing import Any, Optional, Union
 
 from autogen import Agent, ConversableAgent
 from autogen.logger.base_logger import BaseLogger
-from mlflow.tracing.fluent import start_span_no_context
 from openai.types.chat import ChatCompletion
 
-from mlflow import MlflowClient
 from mlflow.entities.span import NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import capture_function_input_args
 from mlflow.utils.autologging_utils import autologging_is_disabled
 from mlflow.utils.autologging_utils.safety import safe_patch

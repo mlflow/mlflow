@@ -8,15 +8,14 @@ import agents.tracing as oai
 from agents import add_trace_processor
 from agents._run_impl import TraceCtxManager
 from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
-from mlflow.tracing.fluent import start_span_no_context
 from pydantic import BaseModel
 
-from mlflow import MlflowClient
 from mlflow.entities.span import LiveSpan, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.openai import FLAVOR_NAME
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.types.chat import (
     ChatMessage,
     ChatTool,
@@ -80,7 +79,6 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
         super().__init__(**kwargs)
         self._span_id_to_mlflow_span: dict[str, LiveSpan] = {}
         self._project_name = project_name
-        self._mlflow_client = MlflowClient()
 
         # Patch TraceCtxManager to handle exceptions from the agent properly
         # The original implementation does not propagate exception to the root span,
@@ -105,8 +103,7 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
 
     def on_trace_start(self, trace: oai.Trace) -> None:
         try:
-            mlflow_span = start_client_span_or_trace(
-                client=self._mlflow_client,
+            mlflow_span = start_span_no_context(
                 name=trace.name,
                 span_type=SpanType.AGENT,
                 # TODO: Trace object doesn't contain input/output. Can we get it somehow?

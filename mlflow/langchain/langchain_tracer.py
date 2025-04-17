@@ -4,7 +4,6 @@ from contextvars import ContextVar
 from typing import Any, Optional, Sequence, Union
 from uuid import UUID
 
-from mlflow.tracing.fluent import start_span_no_context
 import pydantic
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.callbacks.base import BaseCallbackHandler
@@ -29,6 +28,7 @@ from mlflow.langchain.utils.chat import (
 )
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.utils.token import SpanWithToken

@@ -179,7 +179,6 @@ from mlflow.tracing.assessment import (
 from mlflow.tracing.fluent import (
     add_trace,
     get_current_active_span,
-    get_last_active_trace,
     get_last_active_trace_id,
     get_trace,
     log_trace,
@@ -338,6 +337,7 @@ __all__ = [
     "trace",
     "add_trace",
     "log_trace",
+    "set_trace_tag",
     "update_current_trace",
     # Assessment APIs
     "delete_expectation",
