@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
@@ -172,6 +173,27 @@ class Assessment(_MlflowObject):
         # it won't be included in the resulting dictionary.
         return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
 
+    @classmethod
+    def from_dictionary(cls, d: dict[str, Any]) -> "Assessment":
+        t = Timestamp()
+        t.FromJsonString(d["create_time"])
+        create_time_ms = t.ToMilliseconds()
+        t.FromJsonString(d["last_update_time"])
+        last_update_time_ms = t.ToMilliseconds()
+        return cls(
+            assessment_id=d.get("assessment_id"),
+            trace_id=d.get("trace_id"),
+            name=d["assessment_name"],
+            source=AssessmentSource.from_dictionary(d["source"]),
+            create_time_ms=create_time_ms,
+            last_update_time_ms=last_update_time_ms,
+            expectation=Expectation.from_dictionary(e) if (e := d.get("expectation")) else None,
+            feedback=Feedback.from_dictionary(f) if (f := d.get("feedback")) else None,
+            rationale=d.get("rationale"),
+            metadata=d.get("metadata"),
+            span_id=d.get("span_id"),
+        )
+
 
 @experimental
 @dataclass
@@ -190,6 +212,10 @@ class Expectation(_MlflowObject):
 
     def to_dictionary(self):
         return {"value": self.value}
+
+    @classmethod
+    def from_dictionary(self, d):
+        return Expectation(d["value"])
 
 
 @experimental
@@ -219,3 +245,10 @@ class Feedback(_MlflowObject):
 
     def to_dictionary(self):
         return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
+
+    @classmethod
+    def from_dictionary(self, d):
+        return Feedback(
+            value=d["value"],
+            error=AssessmentError.from_dictionary(err) if (err := d.get("error")) else None,
+        )
