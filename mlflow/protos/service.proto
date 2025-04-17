@@ -6,8 +6,8 @@ import "scalapb/scalapb.proto";
 import "databricks.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
+import "assessments.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
@@ -1377,81 +1377,15 @@ message AssessmentError {
   optional string error_message = 2;
 }
 
-// An expectation for the values or guidelines for the outputs that a model or agent should produce
-// from the inputs contained in the trace.
-message Expectation {
-  // Value of the expectation-based assessment.
-  // We use google.protobuf.Value to support a flexible schema of expectation values.
-  optional google.protobuf.Value value = 2;
-}
-
-// Feedback provided on the model / agent output(s) contained in the trace
-message Feedback {
-  // Value of the feedback-based assessment.
-  // We use google.protobuf.Value to support a flexible schema of feedback values.
-  // Supported initial types:
-  // - Numeric values like integers or floats
-  // - Boolean values
-  // - Text value (can contain json text the user wishes to store, but it will only be searchable as text)
-  // - Non-empty list values containing only strings
-  // - Other values like structs, non-string lists etc. will be rejected for now
-  optional google.protobuf.Value value = 2;
-}
-
-// Data and metadata for an assessment of a trace.
-message Assessment {
-  // Unique ID of the assessment.
-  // NB: This is not marked as required field via "validate_required", because the message is
-  //  used in the context of creating a new assessment, where the ID is not known.
-  optional string assessment_id = 1;
-
-  // Name of the assessment. The name must not contain ".".
-  optional string assessment_name = 2 [(validate_required) = true];
-  // ID of the trace this assessment is associated with.
-  optional string trace_id = 3;
-
-  // ID of the span if the assessment is for a particular span (optional).
-  optional string span_id = 4;
-
-  // The source this assessment came from.
-  optional AssessmentSource source = 5;
-
-  // The creation time of this assessment.
-  optional google.protobuf.Timestamp create_time = 6;
-
-  // The last update time of this assessment.
-  optional google.protobuf.Timestamp last_update_time = 7;
-
-  // An Assessment can either be human/code/judge Feedback, human-generated Expectation, or an error.
-  // The name of the Feedback or Expectation must be the same with the assessment_name.
-  oneof value {
-    // The feedback on the trace from this assessment.
-    Feedback feedback = 9;
-    // A representation of the guidelines and/or expected response from the agent.
-    Expectation expectation = 10;
-  }
-
-  // Justification for the assessment.
-  optional string rationale = 11;
-
-  // An error encountered while computing the assessment.
-  optional AssessmentError error = 12;
-  
-  // Additional metadata describing the assessment and store additional information,
-  // such as the chunk relevance chunk_index. This metadata is required to be JSON-serializable.
-  map<string, string> metadata = 13;
-}
-
-
 message CreateAssessment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // The assessment to create.
-  optional Assessment assessment = 1 [(validate_required) = true];;
+  optional assessments.Assessment assessment = 1 [(validate_required) = true];;
 
   message Response {
     // The created assessment.
-    optional Assessment assessment = 1;
+    optional assessments.Assessment assessment = 1;
   }
 }
 
@@ -1460,14 +1394,14 @@ message UpdateAssessment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // The Assessment containing the fields which should be updated.
-  optional Assessment assessment = 1 [(validate_required) = true];
+  optional assessments.Assessment assessment = 1 [(validate_required) = true];
 
   // The list of the assessment fields to update. These should correspond to the values (or lack thereof) present in `assessment`.
   optional google.protobuf.FieldMask update_mask = 2 [(validate_required) = true];
 
   message Response {
     // The Assessment after the update.
-    optional Assessment assessment = 1;
+    optional assessments.Assessment assessment = 1;
   }
 }
 
@@ -1767,7 +1701,7 @@ message TraceInfoV3 {
   // - session_id: The ID of the session (e.g. chat conversation) where the request came from
   map<string, string> trace_metadata = 9;
 
-  repeated Assessment assessments = 10;
+  repeated assessments.Assessment assessments = 10;
 
   // Mutable, user-defined tags for the trace, e.g. “question_topic”: “DBSQL”
   map<string, string> tags = 11;

@@ -95,7 +95,7 @@ jobs:
           source dev/setup-ssh.sh
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
-            --ignore tests/deployments/server tests
+            --ignore=tests/deployments/server --ignore=tests/pyspark/optuna tests
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -302,6 +302,30 @@ jobs:
         run: |
           pytest tests/evaluate/test_default_evaluator_delta.py
 
+  optuna:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions: {}
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install 'pyspark>=3.5' 'optuna>=4' .
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        run: |
+          pytest tests/pyspark/optuna/test_storage.py
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -422,7 +446,7 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server \
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server --ignore=tests/pyspark/optuna \
             tests
           # MLeap is incompatible on Windows with PySpark3.4 release.
           # Reinstate tests when MLeap has released a fix. [ML-30491]
