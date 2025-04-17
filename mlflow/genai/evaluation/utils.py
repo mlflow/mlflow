@@ -7,8 +7,6 @@ from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities import Trace
 from mlflow.evaluation import Assessment
 from mlflow.genai.scorers import Scorer
-from mlflow.metrics.base import MetricValue
-from mlflow.metrics.genai.genai_metric import _get_aggregate_results
 from mlflow.models import EvaluationMetric
 from mlflow.types.llm import ChatCompletionRequest
 
@@ -43,36 +41,13 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         expected_response: Optional[Any],
         trace: Optional[Trace],
         **kwargs,
-    ) -> MetricValue:
-        # TODO: predictions and targets are out of order
-        scores = scorer(
+    ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
+        # TODO: scorer.aggregations require a refactor on the agents side
+        return scorer(
             inputs=request,
             outputs=response,
             expectations=expected_response,
             trace=trace,
-        )
-
-        scores = scores if isinstance(scores, list) else [scores]
-
-        processed_scores = []
-        for score in scores:
-            if isinstance(score, Assessment):
-                processed_scores.append(score.value)
-            else:
-                processed_scores.append(score)
-
-        try:
-            aggregated_results = _get_aggregate_results(scores, scorer.aggregations)
-        except Exception as e:
-            raise ValueError(
-                f"Failed to aggregate results for scorer `{scorer.name}` with ",
-                f"aggregations {scorer.aggregations}. Please check that the outputs ",
-                "of the scorer are compatible with the aggregations.",
-            ) from e
-
-        return MetricValue(
-            scores=processed_scores,
-            aggregate_results=aggregated_results,
         )
 
     return metric(
