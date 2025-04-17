@@ -8,8 +8,7 @@ from mlflow.models.dependencies_schemas import _get_dependencies_schema_from_mod
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.fluent import (
-    ActiveModelIdState,
-    _get_active_model_id_state,
+    _is_active_model_id_set_by_user,
     _set_active_model,
     get_active_model_id,
 )
@@ -45,7 +44,7 @@ def _load_model(model_uri, dst_path=None):
     if (
         mlflow_model.model_id
         # only set the active model if the model is not set by the user
-        and _get_active_model_id_state() != ActiveModelIdState.USER
+        and not _is_active_model_id_set_by_user()
         and get_active_model_id() != mlflow_model.model_id
     ):
         _set_active_model(model_id=mlflow_model.model_id)

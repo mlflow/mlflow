@@ -12,7 +12,7 @@ import os
 import threading
 from contextvars import ContextVar
 from copy import deepcopy
-from enum import Enum
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import mlflow
@@ -3054,19 +3054,24 @@ def autolog(
             register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)
 
 
-_ACTIVE_MODEL_ID = ContextVar("active_model_id", default=None)
-_ACTIVE_MODEL_ID_STATE = ContextVar("active_model_id_state", default=None)
-
-
-class ActiveModelIdState(Enum):
+@dataclass
+class ActiveModelContext:
     """
-    Enum to represent the state of the active model ID.
-    It is used to determine whether the active model ID is set by the user or system.
-    If the active model ID is set by the user, MLflow should not modify it.
+    The context of the active model.
+
+    Args:
+        model_id: The ID of the active model.
+        set_by_user: Whether the active model was set by the user or not.
     """
 
-    USER = "user"
-    SYSTEM = "system"
+    model_id: Optional[str] = None
+    set_by_user: Optional[bool] = None
+
+
+_ACTIVE_MODEL_CONTEXT = ContextVar(
+    "active_model_context",
+    default=ActiveModelContext(),
+)
 
 
 class ActiveModel(LoggedModel):
@@ -3074,10 +3079,10 @@ class ActiveModel(LoggedModel):
     Wrapper around :py:class:`mlflow.entities.LoggedModel` to enable using Python ``with`` syntax.
     """
 
-    def __init__(self, logged_model: LoggedModel):
+    def __init__(self, logged_model: LoggedModel, set_by_user: bool):
         super().__init__(**logged_model.to_dictionary())
-        self.last_active_model_id = _ACTIVE_MODEL_ID.get()
-        _ACTIVE_MODEL_ID.set(self.model_id)
+        self.last_active_model_context = _ACTIVE_MODEL_CONTEXT.get()
+        _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(self.model_id, set_by_user))
         MLFLOW_ACTIVE_MODEL_ID.set(self.model_id)
         _logger.info(f"Active model set to model with ID: {self.model_id}")
 
@@ -3085,9 +3090,9 @@ class ActiveModel(LoggedModel):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        _ACTIVE_MODEL_ID.set(self.last_active_model_id)
-        if self.last_active_model_id is not None:
-            MLFLOW_ACTIVE_MODEL_ID.set(self.last_active_model_id)
+        _ACTIVE_MODEL_CONTEXT.set(self.last_active_model_context)
+        if self.last_active_model_context.model_id is not None:
+            MLFLOW_ACTIVE_MODEL_ID.set(self.last_active_model_context.model_id)
         else:
             MLFLOW_ACTIVE_MODEL_ID.unset()
 
@@ -3095,6 +3100,7 @@ class ActiveModel(LoggedModel):
 # NB: This function is only intended to be used publicly by users to set the
 # active model ID. MLflow internally should NEVER call this function directly,
 # since we need to differentiate between user and system set active model IDs.
+# For MLflow internal usage, use `_set_active_model` instead.
 def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
     """
     Set the active model with the specified name or model ID, and it will be used for linking
@@ -3146,12 +3152,11 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
         assert len(traces) == 1
     """
     active_model = _set_active_model(name=name, model_id=model_id)
-    _ACTIVE_MODEL_ID_STATE.set(ActiveModelIdState.USER)
+    active_model_ctx = _ACTIVE_MODEL_CONTEXT.get()
+    active_model_ctx.set_by_user = True
     return active_model
 
 
-# NB: This function is only intended to be used internally by MLflow to set
-# the active model ID under some specific conditions (e.g. load_model calls)
 def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
     if name is None and model_id is None:
         raise MlflowException.invalid_parameter_value(
@@ -3179,8 +3184,7 @@ def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = N
             logged_model = mlflow.create_external_model(name=name)
         else:
             logged_model = logged_models[0]
-    _ACTIVE_MODEL_ID_STATE.set(ActiveModelIdState.SYSTEM)
-    return ActiveModel(logged_model)
+    return ActiveModel(logged_model=logged_model, set_by_user=False)
 
 
 def get_active_model_id() -> Optional[str]:
@@ -3192,28 +3196,20 @@ def get_active_model_id() -> Optional[str]:
     Returns:
         The active model ID if set, otherwise None.
     """
-    return _ACTIVE_MODEL_ID.get() or MLFLOW_ACTIVE_MODEL_ID.get()
+    return _ACTIVE_MODEL_CONTEXT.get().model_id or MLFLOW_ACTIVE_MODEL_ID.get()
 
 
-def _get_active_model_id_state() -> Optional[ActiveModelIdState]:
+def _is_active_model_id_set_by_user() -> Optional[bool]:
     """
-    Get the state of the active model ID.
-    This is used to determine whether the active model ID is set by the user or system.
+    Get whether the active model ID was set by the user or not.
     Should be called only internally by MLflow.
     """
-    return _ACTIVE_MODEL_ID_STATE.get()
+    return _ACTIVE_MODEL_CONTEXT.get().set_by_user
 
 
-def _reset_active_model_id() -> None:
+def _reset_active_model_context() -> None:
     """
     Should be called only for testing purposes.
     """
-    _ACTIVE_MODEL_ID.set(None)
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
     MLFLOW_ACTIVE_MODEL_ID.unset()
-
-
-def _reset_active_model_id_state() -> None:
-    """
-    Should be called only for testing purposes.
-    """
-    _ACTIVE_MODEL_ID_STATE.set(None)
