@@ -13,7 +13,7 @@ except ImportError:
 
 # TODO: ML-52299
 def _convert_to_legacy_eval_set(
-    data: pd.DataFrame | spark.DataFrame | list[dict] | EvaluationDataset
+    data: pd.DataFrame | spark.DataFrame | list[dict] | EvaluationDataset,
 ) -> dict:
     """
     Takes in different types of inputs and converts it into to the current eval-set schema that
