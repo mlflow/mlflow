@@ -1,21 +1,25 @@
 import json
 import logging
-from typing import Optional
+from typing import Optional, Dict
 
+from google.protobuf.duration_pb2 import Duration
+from google.protobuf.timestamp_pb2 import Timestamp
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
+from mlflow.entities import Trace, TraceInfoV3
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
-from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
 )
+from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
 
 _logger = logging.getLogger(__name__)
@@ -32,9 +36,11 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
     def __init__(
         self,
         span_exporter: SpanExporter,
+        client: Optional[MlflowClient] = None,
         experiment_id: Optional[str] = None,
     ):
         self.span_exporter = span_exporter
+        self._client = client or MlflowClient()
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._experiment_id = experiment_id
 
@@ -90,8 +96,18 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
                     _logger.debug(f"Trace data with request ID {request_id} not found.")
                     return
 
+                # Update in-memory trace info
                 trace.info.execution_time_ms = (span.end_time - span.start_time) // 1_000_000
                 trace.info.status = TraceStatus.from_otel_status(span.status)
                 deduplicate_span_names_in_place(list(trace.span_dict.values()))
-
-        super().on_end(span)
+                
+                # Prepare V3 trace for export
+                trace_info_v3 = trace.info.to_v3(
+                    request=trace.data.request if trace.data else None,
+                    response=trace.data.response if trace.data else None
+                )
+                trace_info_v3.client_request_id = trace.info.request_id
+                mlflow_trace = Trace(trace_info=trace_info_v3)
+                
+                # We pass both the original trace and the V3 trace to avoid unnecessary conversions
+                self.span_exporter.export_to_mlflow_v3(mlflow_trace, self._client, original_trace=trace)

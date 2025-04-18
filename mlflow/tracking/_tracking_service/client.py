@@ -209,6 +209,18 @@ class TrackingServiceClient:
             request_metadata=request_metadata,
             tags=tags,
         )
+        
+    def start_trace_v3(self, trace):
+        """
+        Start a trace using the V3 API format.
+
+        Args:
+            trace: The Trace object to create.
+
+        Returns:
+            The created Trace object.
+        """
+        return self.store.start_trace_v3(trace=trace)
 
     def end_trace(
         self,
