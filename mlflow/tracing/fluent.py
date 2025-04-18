@@ -462,7 +462,7 @@ def start_span_no_context(
     with a parent span and instead manually manage the parent-child relationships.
 
     The span started with this function must be ended manually using the
-    :py:meth:`end() <mlflow.entities.Span.end>` method of the span object.
+    `end()` method of the span object.
 
     Args:
         name: The name of the span.
