@@ -47,10 +47,8 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracing.provider import _get_trace_exporter
-from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
-from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.context import registry as context_registry
-from mlflow.tracking.default_experiment import registry as default_experiment_registry
+from mlflow.tracking._tracking_service.client import TrackingServiceClient
+from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -77,6 +75,14 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
+from mlflow.version import IS_MLFLOW_SKINNY_INSTALLED
+
+if IS_MLFLOW_SKINNY_INSTALLED:
+    from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
+    from mlflow.tracking.client import MlflowClient
+    from mlflow.tracking.context import registry as context_registry
+    from mlflow.tracking.default_experiment import registry as default_experiment_registry
+
 
 if TYPE_CHECKING:
     import matplotlib
@@ -167,7 +173,7 @@ def set_experiment(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    client = MlflowClient()
+    client = TrackingServiceClient(_resolve_tracking_uri())
 
     with _experiment_lock:
         if experiment_id is None:

@@ -7,14 +7,11 @@ import subprocess
 import sys
 import threading
 
-import click
 import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
 from mlflow.utils.os import is_windows
-from mlflow.version import VERSION
-
-from tests.helper_functions import get_safe_port
+from mlflow.version import IS_MLFLOW_SKINNY_INSTALLED, VERSION
 
 
 def pytest_addoption(parser):
@@ -92,6 +89,11 @@ def pytest_cmdline_main(config):
 
 
 def pytest_sessionstart(session):
+    if not IS_MLFLOW_SKINNY_INSTALLED:
+        return
+
+    import click
+
     if uri := MLFLOW_TRACKING_URI.get():
         click.echo(
             click.style(
@@ -329,7 +331,7 @@ def enable_mlflow_testing():
         yield
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session", autouse=IS_MLFLOW_SKINNY_INSTALLED)
 def serve_wheel(request, tmp_path_factory):
     """
     Models logged during tests have a dependency on the dev version of MLflow built from
@@ -338,6 +340,8 @@ def serve_wheel(request, tmp_path_factory):
     PyPI repository running on localhost and appends the repository URL to the
     `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
     """
+    from tests.helper_functions import get_safe_port
+
     if not request.config.getoption("--serve-wheel"):
         yield  # pytest expects a generator fixture to yield
         return

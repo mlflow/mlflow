@@ -2,14 +2,13 @@ import os
 import pathlib
 from mimetypes import guess_type
 
+from mlflow.version import IS_MLFLOW_SKINNY_INSTALLED
+
 
 # TODO: Create a module to define constants to avoid circular imports
 #  and move MLMODEL_FILE_NAME and MLPROJECT_FILE_NAME in the module.
 def get_text_extensions():
-    from mlflow.models.model import MLMODEL_FILE_NAME
-    from mlflow.projects._project_spec import MLPROJECT_FILE_NAME
-
-    return [
+    exts = [
         "txt",
         "log",
         "err",
@@ -33,9 +32,15 @@ def get_text_extensions():
         "tsv",
         "md",
         "rst",
-        MLMODEL_FILE_NAME,
-        MLPROJECT_FILE_NAME,
     ]
+
+    if IS_MLFLOW_SKINNY_INSTALLED:
+        from mlflow.models.model import MLMODEL_FILE_NAME
+        from mlflow.projects._project_spec import MLPROJECT_FILE_NAME
+
+        exts.extend([MLMODEL_FILE_NAME, MLPROJECT_FILE_NAME])
+
+    return exts
 
 
 def _guess_mime_type(file_path):

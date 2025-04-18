@@ -730,7 +730,7 @@ def search_traces(
             raise MlflowException(
                 message=(
                     "The `pandas` library is not installed. Please install `pandas` to use"
-                    " the `return_type='pandas'` option."
+                    " the `return_type='pandas'` option, or set `return_type='list'`."
                 ),
             )
 

@@ -8,7 +8,6 @@ import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
-from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
@@ -18,9 +17,14 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.os import is_windows
 
-from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
+from tests.tracing.helper import (
+    create_mock_otel_span,
+    create_test_trace_info,
+    skip_when_testing_trace_sdk,
+)
 
 _TRACE_ID = 12345
 _REQUEST_ID = f"tr-{_TRACE_ID}"
@@ -45,7 +49,7 @@ def test_on_start(monkeypatch):
     processor.on_start(span)
 
     mock_client.start_trace.assert_called_once_with(
-        experiment_id="0",
+        experiment_id=_get_experiment_id(),
         timestamp_ms=5,
         request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={
@@ -129,7 +133,10 @@ def test_on_start_with_experiment_id(monkeypatch):
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
 
 
+@skip_when_testing_trace_sdk
 def test_on_start_during_model_evaluation():
+    from mlflow.pyfunc.context import Context, set_prediction_context
+
     # Root span should create a new trace on start
     span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1)
     mock_client = mock.MagicMock()
@@ -145,6 +152,7 @@ def test_on_start_during_model_evaluation():
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
 
 
+@skip_when_testing_trace_sdk
 def test_on_start_during_run(monkeypatch):
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")

@@ -1,3 +1,4 @@
+import functools
 import os
 import time
 import uuid
@@ -18,9 +19,10 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import _get_tracer
-from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, get_autolog_function
 from mlflow.utils.autologging_utils.safety import revert_patches
+from mlflow.version import IS_MLFLOW_SKINNY_INSTALLED
 
 
 def create_mock_otel_span(
@@ -124,15 +126,19 @@ def create_test_trace_info(
     )
 
 
-def get_traces(experiment_id=DEFAULT_EXPERIMENT_ID) -> list[Trace]:
+def get_traces(experiment_id=None) -> list[Trace]:
     # Get all traces from the backend
-    return TracingClient().search_traces(experiment_ids=[experiment_id])
+    return TracingClient().search_traces(
+        experiment_ids=[experiment_id or _get_experiment_id()],
+    )
 
 
-def purge_traces(experiment_id=DEFAULT_EXPERIMENT_ID):
+def purge_traces(experiment_id=None):
     # Delete all traces from the backend
     TracingClient().delete_traces(
-        experiment_id=experiment_id, max_traces=1000, max_timestamp_millis=0
+        experiment_id=experiment_id or _get_experiment_id(),
+        max_traces=1000,
+        max_timestamp_millis=int(time.time() * 1000),
     )
 
 
@@ -204,3 +210,15 @@ def score_in_model_serving(model_uri: str, model_input: dict):
 
         trace = pop_trace(request_id)
         return (request_id, predictions, trace)
+
+
+def skip_when_testing_trace_sdk(f):
+    # Decorator to Skip the test if only mlflow-trace package is installed and
+    # not the full mlflow package.
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        if not IS_MLFLOW_SKINNY_INSTALLED:
+            pytest.skip("Skipping test because it requires MLflow skinny to be installed.")
+        return f(*args, **kwargs)
+
+    return wrapper

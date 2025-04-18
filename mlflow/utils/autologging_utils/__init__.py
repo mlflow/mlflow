@@ -9,7 +9,6 @@ from typing import Any, Callable, Optional
 
 import mlflow
 from mlflow.entities import Metric
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
 # Define the module-level logger for autologging utilities before importing utilities defined in
@@ -19,7 +18,6 @@ _logger = logging.getLogger(__name__)
 
 # Import autologging utilities used by this module
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS, FLAVOR_TO_MODULE_NAME
-from mlflow.utils.autologging_utils.client import MlflowAutologgingQueueingClient  # noqa: F401
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     MlflowEventsAndWarningsBehaviorGlobally,
@@ -255,6 +253,8 @@ class BatchMetricsLogger:
     """
 
     def __init__(self, run_id=None, tracking_uri=None):
+        from mlflow.tracking.client import MlflowClient
+
         self.run_id = run_id
         self.client = MlflowClient(tracking_uri)
 
