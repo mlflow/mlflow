@@ -182,13 +182,12 @@ class MlflowAutogenLogger(BaseLogger):
             _logger.warning("Failed to start span. No active chat session.")
             return NoOpSpan()
 
-        return self._client.start_span(
-            request_id=self._chat_state.session_span.request_id,
+        return start_span_no_context(
             # Tentatively set the parent ID to the session root span, because we
             # cannot create a span without a parent span (otherwise it will start
             # a new trace). The actual parent will be determined once the chat
             # message is received.
-            parent_id=self._chat_state.session_span.span_id,
+            parent_span=self._chat_state.session_span,
             name=name,
             span_type=span_type,
             inputs=inputs,
@@ -210,12 +209,7 @@ class MlflowAutogenLogger(BaseLogger):
                     span_type=SpanType.AGENT,
                     start_time_ns=self._chat_state.last_message_timestamp,
                 )
-                self._client.end_span(
-                    request_id=span.request_id,
-                    span_id=span.span_id,
-                    outputs=kwargs,
-                    end_time_ns=event_end_time,
-                )
+                span.end(outputs=kwargs, end_time_ns=event_end_time)
 
                 # Re-locate the pended spans under this message span
                 for child_span in self._chat_state.pending_spans:
@@ -256,12 +250,7 @@ class MlflowAutogenLogger(BaseLogger):
             },
             start_time_ns=start_time_ns,
         )
-        self._client.end_span(
-            request_id=span.request_id,
-            span_id=span.span_id,
-            outputs=response,
-            end_time_ns=time.time_ns(),
-        )
+        span.end(outputs=response, end_time_ns=time.time_ns())
         self._chat_state.pending_spans.append(span)
 
     # The following methods are not used but are required to implement the BaseLogger interface.

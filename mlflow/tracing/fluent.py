@@ -509,7 +509,10 @@ def start_span_no_context(
         # Once OTel span is created, SpanProcessor.on_start is invoked
         # TraceInfo is created and logged into backend store inside on_start method
         otel_span = provider.start_detached_span(
-            name, experiment_id=experiment_id, start_time_ns=start_time_ns
+            name,
+            parent=parent_span._span if parent_span else None,
+            start_time_ns=start_time_ns,
+            experiment_id=experiment_id,
         )
 
         if parent_span:

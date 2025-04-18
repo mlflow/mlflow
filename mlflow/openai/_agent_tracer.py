@@ -140,11 +140,7 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
     def on_trace_end(self, trace: oai.Trace) -> None:
         try:
             mlflow_span = self._span_id_to_mlflow_span.pop(trace.trace_id, None)
-            mlflow_span.end(
-                span=mlflow_span,
-                status=mlflow_span.status,
-                outputs="",
-            )
+            mlflow_span.end(status=mlflow_span.status, outputs="")
         except Exception:
             _logger.debug("Failed to end MLflow trace", exc_info=True)
 

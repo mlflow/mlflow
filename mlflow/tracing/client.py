@@ -76,12 +76,14 @@ class TracingClient:
             The created TraceInfo object.
         """
         tags = exclude_immutable_tags(tags or {})
-        return self.store.start_trace(
+        info = self.store.start_trace(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
             request_metadata=request_metadata,
             tags=tags,
         )
+        print(info)
+        return info
 
     def end_trace(
         self,

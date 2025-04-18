@@ -779,10 +779,6 @@ class MlflowClient:
             raise MlflowException(f"Prompt '{uri}' does not exist.", RESOURCE_DOES_NOT_EXIST)
 
     ##### Tracing #####
-
-    def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
-        return self._tracing_client._upload_trace_data(trace_info, trace_data)
-
     def delete_traces(
         self,
         experiment_id: str,
@@ -1067,7 +1063,8 @@ class MlflowClient:
                 )
 
         root_span = trace_manager.get_span_from_id(request_id, root_span_id)
-        root_span.end(outputs, attributes, status, end_time_ns)
+        if root_span:
+            root_span.end(outputs, attributes, status, end_time_ns)
 
     @experimental
     def _log_trace(self, trace: Trace) -> str:
@@ -1107,7 +1104,7 @@ class MlflowClient:
             request_metadata=trace.info.request_metadata,
             tags=trace.info.tags,
         )
-        self._upload_trace_data(new_info, trace.data)
+        self._tracing_client._upload_trace_data(new_info, trace.data)
         return new_info.request_id
 
     def start_span(
@@ -1260,6 +1257,7 @@ class MlflowClient:
             parent_span=parent_span,
             inputs=inputs,
             attributes=attributes,
+            start_time_ns=start_time_ns,
         )
 
     def end_span(
@@ -1290,12 +1288,13 @@ class MlflowClient:
                 If not provided, the current time will be used.
         """
         span = InMemoryTraceManager.get_instance().get_span_from_id(request_id, span_id)
-        span.end(
-            outputs=outputs,
-            attributes=attributes,
-            status=status,
-            end_time_ns=end_time_ns,
-        )
+        if span:
+            span.end(
+                outputs=outputs,
+                attributes=attributes,
+                status=status,
+                end_time_ns=end_time_ns,
+            )
 
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """
