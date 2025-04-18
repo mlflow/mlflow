@@ -781,7 +781,7 @@ def get_current_active_span() -> Optional[LiveSpan]:
 
         This only works when the span is created with fluent APIs like `@mlflow.trace` or
         `with mlflow.start_span`. If a span is created with the
-        :py:func:`mlflow.start_span_no_context` APIs, it won't be
+        `mlflow.start_span_no_context` APIs, it won't be
         attached to the global context so this function will not return it.
 
 
