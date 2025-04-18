@@ -253,11 +253,6 @@ by converting it to a list. Bytes are base64-encoded. When the ``signature`` par
 ``None``, the input example is used to infer a model signature.
 """
         ),
-        "example_no_conversion": (
-            """This parameter is deprecated and will be removed in a future release.
-It's no longer used and can be safely removed. Input examples are not converted anymore.
-"""
-        ),
         "prompt_template": (
             """A string that, if provided, will be used to format the user's input prior
 to inference. The string should contain a single placeholder, ``{prompt}``, which will be

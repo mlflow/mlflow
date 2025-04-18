@@ -274,7 +274,6 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    example_no_conversion=None,
     **kwargs,
 ):
     """
@@ -306,7 +305,6 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        example_no_conversion: {{ example_no_conversion }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
             or ``top_p`` value to use for chat completion.
@@ -384,7 +382,7 @@ def save_model(
             outputs=Schema([TensorSpec(type=np.dtype("float64"), shape=(-1,))]),
         )
 
-    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+    saved_example = _save_example(mlflow_model, input_example, path)
     if signature is None and saved_example is not None:
         wrapped_model = _OpenAIWrapper(model)
         signature = _infer_signature_from_input_example(saved_example, wrapped_model)
@@ -477,7 +475,6 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    example_no_conversion=None,
     prompts: Optional[list[Union[str, Prompt]]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
@@ -523,7 +520,6 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        example_no_conversion: {{ example_no_conversion }}
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -581,7 +577,6 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
-        example_no_conversion=example_no_conversion,
         prompts=prompts,
         params=params,
         tags=tags,

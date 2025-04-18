@@ -10,7 +10,6 @@ import shutil
 import sys
 import tempfile
 import uuid
-import warnings
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
@@ -491,7 +490,7 @@ def convert_input_example_to_serving_input(input_example) -> Optional[str]:
 
 
 def _save_example(  # noqa: D417
-    mlflow_model: Model, input_example: Optional[ModelInputExample], path: str, no_conversion=None
+    mlflow_model: Model, input_example: Optional[ModelInputExample], path: str
 ) -> Optional[_Example]:
     """
     Saves example to a file on the given path and updates passed Model with example metadata.
@@ -515,16 +514,6 @@ def _save_example(  # noqa: D417
     """
     if input_example is None:
         return None
-
-    # TODO: remove this and all example_no_conversion param after 2.17.0 release
-    if no_conversion is not None:
-        warnings.warn(
-            "The `example_no_conversion` parameter is deprecated since mlflow 2.16.0 and will be "
-            "removed in a future release. This parameter is no longer used and safe to be removed, "
-            "MLflow no longer converts input examples when logging the model.",
-            FutureWarning,
-            stacklevel=2,
-        )
 
     example = _Example(input_example)
     example.save(path)
