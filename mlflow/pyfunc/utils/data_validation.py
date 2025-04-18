@@ -34,6 +34,9 @@ class FuncInfo(NamedTuple):
     input_param_name: str
 
 
+class TypeHintWarning(UserWarning): ...
+
+
 def pyfunc(func):
     """
     A decorator that forces data validation against type hint of the input data
@@ -176,7 +179,7 @@ def _get_func_info_if_type_hint_supported(func) -> Optional[FuncInfo]:
                 "Remove the type hint to disable this warning. "
                 "To enable validation for the input data, specify input example "
                 "or model signature when logging the model. ",
-                category=UserWarning,
+                category=TypeHintWarning,
                 stacklevel=3,
                 color="red",
             )
@@ -190,6 +193,7 @@ def _get_func_info_if_type_hint_supported(func) -> Optional[FuncInfo]:
             " for more details.",
             stacklevel=1,
             color="yellow",
+            category=TypeHintWarning,
         )
 
 
