@@ -68,7 +68,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, is_pydantic_v2_or_newer
+from mlflow.utils.pydantic_utils import is_pydantic_v2_or_newer
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
@@ -1186,10 +1186,6 @@ class _PythonModelPyfuncWrapper:
 
 
 def _get_pyfunc_loader_module(python_model):
-    print(f"python_model: {python_model}")
-    print(type(python_model))
-    print(IS_PYDANTIC_V2_OR_NEWER)
-    print(is_pydantic_v2_or_newer())
     if isinstance(python_model, ChatModel):
         return mlflow.pyfunc.loaders.chat_model.__name__
     elif isinstance(python_model, ChatAgent):
