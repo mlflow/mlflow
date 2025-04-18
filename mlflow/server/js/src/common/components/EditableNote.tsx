@@ -27,7 +27,12 @@ type EditableNoteImplProps = {
   intl: IntlShape;
 };
 
-type EditableNoteImplState = any;
+type EditableNoteImplState = {
+  markdown?: string;
+  selectedTab?: string;
+  confirmLoading: boolean;
+  error: any;
+};
 
 const getReactMdeIcon = (name: string) => <TooltipIcon name={name} />;
 
@@ -39,7 +44,6 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
     saveText: (
       <FormattedMessage defaultMessage="Save" description="Default text for save button on editable notes in MLflow" />
     ),
-    confirmLoading: false,
     toolbarCommands: [
       ['header', 'bold', 'italic', 'strikethrough'],
       ['link', 'quote', 'code', 'image'],
@@ -53,6 +57,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
   state = {
     markdown: this.props.defaultMarkdown,
     selectedTab: this.props.defaultSelectedTab,
+    confirmLoading: false,
     error: null,
   };
 
@@ -108,7 +113,6 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
   }
 
   renderActions() {
-    // @ts-expect-error TS(2339): Property 'confirmLoading' does not exist on type '... Remove this comment to see the full error message
     const { confirmLoading } = this.state;
     return (
       <div className="editable-note-actions" data-testid="editable-note-actions">
