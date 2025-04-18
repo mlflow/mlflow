@@ -19,7 +19,7 @@ from mlflow.gateway.utils import assemble_uri_path
 @pytest.fixture
 def basic_config_dict():
     return {
-        "routes": [
+        "endpoints": [
             {
                 "name": "completions-gpt4",
                 "route_type": "llm/v1/completions",
@@ -103,7 +103,7 @@ def test_api_key_input_exceeding_maximum_filename_length():
 def test_api_key_parsing_file(tmp_path):
     key_path = tmp_path.joinpath("api.key")
     config = {
-        "routes": [
+        "endpoints": [
             {
                 "name": "claude-chat",
                 "route_type": "llm/v1/chat",
@@ -196,7 +196,7 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
 
 def test_invalid_route_definition(tmp_path):
     invalid_conf = {
-        "routes": [
+        "endpoints": [
             {
                 "name": "invalid_route",
                 "route_type": "invalid/route",
@@ -223,7 +223,7 @@ def test_invalid_route_definition(tmp_path):
 
 def test_invalid_provider(tmp_path):
     invalid_conf = {
-        "routes": [
+        "endpoints": [
             {
                 "name": "invalid_route",
                 "route_type": "llm/v1/completions",
@@ -250,7 +250,7 @@ def test_invalid_provider(tmp_path):
 
 def test_invalid_model_definition(tmp_path):
     invalid_partial_config = {
-        "routes": [
+        "endpoints": [
             {
                 "name": "some_name",
                 "route_type": "llm/v1/completions",
@@ -272,7 +272,7 @@ def test_invalid_model_definition(tmp_path):
         _load_route_config(conf_path)
 
     invalid_format_config_key_is_not_string = {
-        "routes": [
+        "endpoints": [
             {
                 "name": "some_name",
                 "route_type": "llm/v1/chat",
@@ -295,7 +295,7 @@ def test_invalid_model_definition(tmp_path):
         _load_route_config(conf_path)
 
     invalid_format_config_key_invalid_path = {
-        "routes": [
+        "endpoints": [
             {
                 "name": "some_name",
                 "route_type": "llm/v1/embeddings",
@@ -314,7 +314,7 @@ def test_invalid_model_definition(tmp_path):
     assert _load_route_config(conf_path).routes[0].model.config.openai_api_key == "/not/a/real/path"
 
     invalid_no_config = {
-        "routes": [
+        "endpoints": [
             {
                 "name": "some_name",
                 "route_type": "llm/v1/embeddings",
@@ -340,7 +340,7 @@ def test_invalid_model_definition(tmp_path):
 )
 def test_invalid_route_name(tmp_path, route_name):
     bad_name = {
-        "routes": [
+        "endpoints": [
             {
                 "name": route_name,
                 "route_type": "bad/naming",
@@ -366,7 +366,7 @@ def test_invalid_route_name(tmp_path, route_name):
 
 def test_default_base_api(tmp_path):
     route_no_base = {
-        "routes": [
+        "endpoints": [
             {
                 "name": "chat-gpt4",
                 "route_type": "llm/v1/chat",
@@ -387,7 +387,7 @@ def test_default_base_api(tmp_path):
 
 def test_duplicate_routes_in_config(tmp_path):
     route = {
-        "routes": [
+        "endpoints": [
             {
                 "name": "classifier",
                 "route_type": "llm/v1/classifier",
@@ -424,7 +424,7 @@ def test_duplicate_routes_in_config(tmp_path):
 
 def test_deprecated_keys_in_config(tmp_path):
     deprecated_config = {
-        "routes": [
+        "endpoints": [
             {
                 "name": "model1",
                 "route_type": "llm/v1/chat",

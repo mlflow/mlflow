@@ -35,7 +35,7 @@ from tests.gateway.tools import (
 @pytest.fixture
 def basic_config_dict():
     return {
-        "routes": [
+        "endpoints": [
             {
                 "name": "chat-openai",
                 "route_type": "llm/v1/chat",

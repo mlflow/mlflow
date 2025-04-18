@@ -58,7 +58,7 @@ class GatewayAPI(FastAPI):
 
     def set_dynamic_routes(self, config: GatewayConfig, limiter: Limiter) -> None:
         self.dynamic_routes.clear()
-        for route in config.routes:
+        for route in config.endpoints:
             # TODO: Remove deployments server URLs after deprecation window elapses
             self.add_api_route(
                 path=(
@@ -212,7 +212,7 @@ class SearchRoutesResponse(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "routes": [
+                "endpoints": [
                     {
                         "name": "openai-chat",
                         "route_type": "llm/v1/chat",

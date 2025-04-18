@@ -14,7 +14,7 @@ from tests.helper_functions import get_safe_port
 pytest.importorskip("mlflow.gateway")
 
 _TEST_CONFIG = """
-routes:
+endpoints:
   - name: chat
     route_type: llm/v1/chat
     model:

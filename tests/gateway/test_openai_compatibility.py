@@ -14,7 +14,7 @@ from tests.gateway.tools import (
 @pytest.fixture(scope="module")
 def config():
     return {
-        "routes": [
+        "endpoints": [
             {
                 "name": "chat",
                 "route_type": "llm/v1/chat",

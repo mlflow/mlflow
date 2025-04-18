@@ -10,7 +10,7 @@ BASE_ROUTE = "api/2.0/gateway/routes/"
 @pytest.fixture
 def basic_config_dict():
     return {
-        "routes": [
+        "endpoints": [
             {
                 "name": "completions-gpt4",
                 "route_type": "llm/v1/completions",
@@ -72,7 +72,7 @@ def basic_routes():
 @pytest.fixture
 def update_config_dict():
     return {
-        "routes": [
+        "endpoints": [
             {
                 "name": "chat-gpt4",
                 "route_type": "llm/v1/chat",
@@ -111,7 +111,7 @@ def update_routes():
 @pytest.fixture
 def invalid_config_dict():
     return {
-        "routes": [
+        "endpoints": [
             {
                 "invalid_name": "invalid",
                 "route_type": "llm/v1/chat",
@@ -188,7 +188,7 @@ def test_server_update_config_removed_then_recreated(
         gateway.wait_reload()
         gateway.assert_health()
 
-        save_yaml(config, {"routes": basic_config_dict["routes"][1:]})
+        save_yaml(config, {"endpoints": basic_config_dict["routes"][1:]})
         gateway.wait_reload()
         response = gateway.get(BASE_ROUTE)
         assert response.json()["routes"] == basic_routes[1:]
@@ -206,7 +206,7 @@ def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
             response = gateway.get(route)
             assert response.status_code == 200
 
-        for index, route in enumerate(basic_config_dict["routes"]):
+        for index, route in enumerate(basic_config_dict["endpoints"]):
             response = gateway.get(f"{BASE_ROUTE}{route['name']}")
             assert response.json() == basic_routes[index]
 
