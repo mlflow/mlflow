@@ -9,7 +9,6 @@ from typing import Any, Optional
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric, Param, RunTag
-from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 
 try:
