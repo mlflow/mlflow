@@ -26,7 +26,10 @@ try:
     from optuna.study._frozen import FrozenStudy
     from optuna.trial import FrozenTrial, TrialState
 except ImportError:
-    sys.exit()
+    raise ImportError(
+        "Failed to import Optuna modules. Optuna is required for using this storage. "
+        "Please install Optuna with 'pip install optuna'"
+    )
 
 optuna_mlflow_status_map = {
     TrialState.RUNNING: "RUNNING",
