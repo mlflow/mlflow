@@ -793,7 +793,7 @@ class _PyTorchWrapper:
                 predicted = pd.DataFrame(preds.numpy())
                 predicted.index = data.index
             else:
-                predicted = preds.numpy()
+                predicted = preds.cpu().numpy()
             return predicted
 
 
