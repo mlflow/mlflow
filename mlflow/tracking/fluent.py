@@ -12,7 +12,6 @@ import os
 import threading
 from contextvars import ContextVar
 from copy import deepcopy
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import mlflow
@@ -3054,7 +3053,6 @@ def autolog(
             register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)
 
 
-@dataclass
 class ActiveModelContext:
     """
     The context of the active model.
@@ -3064,8 +3062,25 @@ class ActiveModelContext:
         set_by_user: Whether the active model was set by the user or not.
     """
 
-    model_id: Optional[str] = None
-    set_by_user: bool = False
+    def __init__(self, model_id: Optional[str] = None, set_by_user: bool = False):
+        self.model_id = model_id
+        self.set_by_user = set_by_user
+
+    @property
+    def model_id(self) -> Optional[str]:
+        return self._model_id or MLFLOW_ACTIVE_MODEL_ID.get()
+
+    @model_id.setter
+    def model_id(self, value: Optional[str]):
+        self._model_id = value
+
+    @property
+    def set_by_user(self) -> bool:
+        return self._set_by_user
+
+    @set_by_user.setter
+    def set_by_user(self, value: bool):
+        self._set_by_user = value
 
 
 _ACTIVE_MODEL_CONTEXT = ContextVar(
@@ -3082,8 +3097,9 @@ class ActiveModel(LoggedModel):
     def __init__(self, logged_model: LoggedModel, set_by_user: bool):
         super().__init__(**logged_model.to_dictionary())
         self.last_active_model_context = _ACTIVE_MODEL_CONTEXT.get()
+        self.last_active_model_id_env_var = MLFLOW_ACTIVE_MODEL_ID.get()
         _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(self.model_id, set_by_user))
-        MLFLOW_ACTIVE_MODEL_ID.set(self.model_id)
+        _update_active_model_id_env_var(self.model_id)
         _logger.info(f"Active model set to model with ID: {self.model_id}")
 
     def __enter__(self):
@@ -3091,14 +3107,7 @@ class ActiveModel(LoggedModel):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         _ACTIVE_MODEL_CONTEXT.set(self.last_active_model_context)
-        if self.last_active_model_context.model_id is not None:
-            MLFLOW_ACTIVE_MODEL_ID.set(self.last_active_model_context.model_id)
-            _logger.info(
-                f"Active model reset to model with ID: {self.last_active_model_context.model_id}"
-            )
-        else:
-            MLFLOW_ACTIVE_MODEL_ID.unset()
-            _logger.info("Active model reset to None")
+        _update_active_model_id_env_var(self.last_active_model_id_env_var)
 
 
 # NB: This function is only intended to be used publicly by users to set the
@@ -3191,6 +3200,14 @@ def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = N
     return ActiveModel(logged_model=logged_model, set_by_user=False)
 
 
+def _get_active_model_context() -> ActiveModelContext:
+    """
+    Get the active model context. This is used internally by MLflow to manage the active model
+    context.
+    """
+    return _ACTIVE_MODEL_CONTEXT.get()
+
+
 def get_active_model_id() -> Optional[str]:
     """
     Get the active model ID. If no active model is set with ``set_active_model()``, this will
@@ -3200,15 +3217,7 @@ def get_active_model_id() -> Optional[str]:
     Returns:
         The active model ID if set, otherwise None.
     """
-    return _ACTIVE_MODEL_CONTEXT.get().model_id or MLFLOW_ACTIVE_MODEL_ID.get()
-
-
-def _is_active_model_id_set_by_user() -> Optional[bool]:
-    """
-    Get whether the active model ID was set by the user or not.
-    Should be called only internally by MLflow.
-    """
-    return _ACTIVE_MODEL_CONTEXT.get().set_by_user
+    return _get_active_model_context().model_id
 
 
 def _reset_active_model_context() -> None:
@@ -3216,4 +3225,11 @@ def _reset_active_model_context() -> None:
     Should be called only for testing purposes.
     """
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
-    MLFLOW_ACTIVE_MODEL_ID.unset()
+    _update_active_model_id_env_var(None)
+
+
+def _update_active_model_id_env_var(value):
+    if value is None:
+        MLFLOW_ACTIVE_MODEL_ID.unset()
+    else:
+        MLFLOW_ACTIVE_MODEL_ID.set(value)

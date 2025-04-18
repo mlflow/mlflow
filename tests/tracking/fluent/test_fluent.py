@@ -18,7 +18,7 @@ import pytest
 import mlflow
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
-from mlflow import MlflowClient, set_active_model  # noqa: TID251
+from mlflow import MlflowClient, set_active_model
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
@@ -1987,10 +1987,14 @@ def test_set_active_model_env_var(monkeypatch):
     monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "1234")
     assert mlflow.get_active_model_id() == "1234"
 
-    with set_active_model(name="abc"):
+    with set_active_model(name="abc") as model:
         model_id = mlflow.get_active_model_id()
-        assert model_id is not None
+        assert model_id == model.model_id
         assert MLFLOW_ACTIVE_MODEL_ID.get() == model_id
+    assert mlflow.get_active_model_id() == "1234"
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == "1234"
+
+    monkeypatch.delenv(MLFLOW_ACTIVE_MODEL_ID.name)
     assert mlflow.get_active_model_id() is None
     assert MLFLOW_ACTIVE_MODEL_ID.get() is None
 
