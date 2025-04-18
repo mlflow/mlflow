@@ -93,20 +93,37 @@ class DatabricksSpanExporter(SpanExporter):
             if res.status_code != 200:
                 _logger.warning(f"Failed to log trace to the trace server. Response: {res.text}")
                 
-    def export_to_mlflow_v3(self, trace: Trace, client=None):
+    def export_to_mlflow_v3(self, trace: Trace, client=None, original_trace=None):
         """
         Export a trace to MLflow using the V3 API.
         
         Args:
-            trace: The trace object to export
+            trace: The V3 trace object to export
             client: Optional MLflow client to use. If not provided, a new client will be created.
+            original_trace: The original trace object which already contains the trace_info and trace_data
+                           in the format needed for blob upload
         """
         from mlflow.tracking import MlflowClient
         
         if client is None:
             client = MlflowClient()
-            
+        
         try:
-            client._start_trace_v3(trace)
+
+            if original_trace and original_trace.info and original_trace.data:
+                
+                _logger.info(f"Uploading trace data for trace {original_trace.info.request_id} to blob storage")
+                
+                # 1. Upload the trace data to blob storage
+                client._upload_trace_data(original_trace.info, original_trace.data)
+                
+                # 2. Create the trace in MLflow (now it will reference the blob storage)
+                client._start_trace_v3(trace)
+            else:
+                # Fallback if original trace is not provided - just create the V3 trace directly
+                # This won't include the blob data
+                _logger.warning("Original trace not provided, skipping blob storage upload")
+                client._start_trace_v3(trace)
+            
         except Exception as e:
             _logger.warning(f"Failed to send trace to MLflow backend: {e}")

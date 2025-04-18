@@ -110,4 +110,5 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
                 mlflow_trace = Trace(trace_info=trace_info_v3)
                 
                 # Use the exporter to send the trace to MLflow
-                self.span_exporter.export_to_mlflow_v3(mlflow_trace, self._client)
+                # We pass both the original trace and the V3 trace to avoid unnecessary conversions
+                self.span_exporter.export_to_mlflow_v3(mlflow_trace, self._client, original_trace=trace)
