@@ -432,7 +432,7 @@ def test_search_traces_with_filestore(tmp_path):
                     TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
                 },
                 {},
-            )
+            ).to_v3()
         )
 
     with mock.patch.object(

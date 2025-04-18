@@ -18,6 +18,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -371,25 +372,24 @@ class RestStore(AbstractStore):
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
+        if should_query_v3:
+            trace_v3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
+            trace_v3_endpoint = get_trace_assessment_endpoint(request_id)
+            try:
+                trace_v3_response_proto = self._call_endpoint(
+                    GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
+                )
+                return TraceInfoV3.from_proto(trace_v3_response_proto)
+            except Exception:
+                # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
+                _logger.debug(
+                    f"Failed to fetch trace info from V3 API for request ID {request_id!r}.",
+                    exc_info=True,
+                )
         req_body = message_to_json(GetTraceInfo(request_id=request_id))
         endpoint = get_trace_info_endpoint(request_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
-        assessments = None
-        if should_query_v3:
-            try:
-                tracev3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
-                tracev3_endpoint = get_trace_assessment_endpoint(request_id)
-                tracev3_response_proto = self._call_endpoint(
-                    GetTraceInfoV3, tracev3_req_body, endpoint=tracev3_endpoint
-                )
-                assessments = [
-                    Assessment.from_proto(a)
-                    for a in tracev3_response_proto.trace.trace_info.assessments
-                ]
-            except Exception:
-                # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
-                pass
-        return TraceInfo.from_proto(response_proto.trace_info, assessments=assessments)
+        return TraceInfo.from_proto(response_proto.trace_info)
 
     def get_online_trace_details(
         self,

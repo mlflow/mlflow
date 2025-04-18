@@ -755,5 +755,7 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
 
 
 #: Specified the ID of the LoggedModel to link traces to.
+#: This should only by used by MLflow internally or in standalone environments such
+#: as Databricks serving.
 #: (default: ``None``)
 MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("MLFLOW_ACTIVE_MODEL_ID", str, None)
