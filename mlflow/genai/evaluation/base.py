@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Callable, Optional
 
 from pyspark import sql as spark
@@ -9,16 +10,15 @@ from mlflow.genai.evaluation.utils import (
     _convert_to_legacy_eval_set,
 )
 from mlflow.genai.scorers import BuiltInScorer, Scorer
-from mlflow.models import Model
-from mlflow.models.evaluation.base import _get_model_from_function
-from mlflow.pyfunc import PyFuncModel
-from mlflow.tracing.fluent import is_traced
+from mlflow.tracing.utils import is_model_traced
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
     import pandas as pd
 except ImportError:
     pass
+
+logger = logging.getLogger(__name__)
 
 
 class EvaluationResult:
@@ -115,17 +115,12 @@ def evaluate(
     for _scorer in custom_scorers:
         extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
 
-    if not is_traced(predict_fn):
+    if not is_model_traced(predict_fn):
+        logger.info("Annotating predict_fn with tracing since it is not already traced.")
         predict_fn = mlflow.trace(predict_fn)
 
-    pyfunc_model = PyFuncModel(
-        model_id=model_id,
-        model_meta=Model(),
-        model_impl=_get_model_from_function(predict_fn),
-    )
-
     mlflow.evaluate(
-        model=pyfunc_model,
+        model=predict_fn,
         # convert into a pandas dataframe with current evaluation set schema
         data=_convert_to_legacy_eval_set(data),
         evaluator_config=evaluation_config,
