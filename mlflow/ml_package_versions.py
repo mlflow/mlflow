@@ -178,7 +178,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.40.0.1",
-            "maximum": "3.46.0.7"
+            "maximum": "3.46.0.6"
         }
     },
     "shap": {
