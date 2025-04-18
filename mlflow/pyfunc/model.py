@@ -71,9 +71,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, is_pydantic_v2_or_newer
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
-if is_pydantic_v2_or_newer():
-    from mlflow.pyfunc.python_model_subclasses.responses_agent import ResponsesAgent
-
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
 CONFIG_KEY_ARTIFACT_URI = "uri"
@@ -786,6 +783,23 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
             "Streaming implementation not provided. Please override the "
             "`predict_stream` method on your model to generate streaming predictions"
         )
+
+
+if is_pydantic_v2_or_newer():
+    from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
+
+    class ResponsesAgent(PythonModel, metaclass=ABCMeta):
+        _skip_type_hint_validation = True
+
+        @abstractmethod
+        def predict(self, request: ResponsesRequest) -> ResponsesResponse:
+            pass
+
+        @abstractmethod
+        def predict_stream(
+            self, request: ResponsesRequest
+        ) -> Generator[ResponsesStreamEvent, None, None]:
+            pass
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
