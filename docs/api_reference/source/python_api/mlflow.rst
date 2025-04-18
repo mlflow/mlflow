@@ -4,7 +4,7 @@ mlflow
 .. automodule:: mlflow
     :members:
     :undoc-members:
-    :exclude-members: MlflowClient, trace, start_span, get_trace, search_traces, get_current_active_span, get_last_active_trace_id
+    :exclude-members: MlflowClient, trace, start_span, start_span_no_context, get_trace, search_traces, get_current_active_span, get_last_active_trace_id
 
 
 .. _mlflow-tracing-fluent-python-apis:
