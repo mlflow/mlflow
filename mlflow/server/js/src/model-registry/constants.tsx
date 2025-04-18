@@ -104,12 +104,12 @@ export const MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER = 75; // request size has 
 
 export const REGISTERED_MODELS_SEARCH_NAME_FIELD = 'name';
 
-export const REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD = 'timestamp';
+export const REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD = 'last_updated_timestamp';
 
 export const AntdTableSortOrder = {
   ASC: 'ascend',
   DESC: 'descend',
-};
+} as const;
 
 export const archiveExistingVersionToolTipText = (currentStage: string) => (
   <FormattedMessage
