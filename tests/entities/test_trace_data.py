@@ -178,7 +178,7 @@ def test_intermediate_outputs_no_value():
 def test_to_proto():
     with mlflow.start_span():
         pass
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     proto = trace.data.to_proto()
     assert len(proto.spans) == 1
     # Ensure the legacy properties are not present
@@ -189,7 +189,7 @@ def test_to_proto():
 def test_to_dict():
     with mlflow.start_span():
         pass
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     trace_dict = trace.data.to_dict()
     assert len(trace_dict["spans"]) == 1
     # Ensure the legacy properties are not present
@@ -210,7 +210,7 @@ def test_request_and_response_are_still_available():
     with mlflow.start_span():
         pass
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     trace_data = trace.data
     assert trace_data.request is None
     assert trace_data.response is None
