@@ -3063,24 +3063,19 @@ class ActiveModelContext:
     """
 
     def __init__(self, model_id: Optional[str] = None, set_by_user: bool = False):
-        self.model_id = model_id
-        self.set_by_user = set_by_user
+        self._model_id = model_id
+        self._set_by_user = set_by_user
+
+    def __repr__(self):
+        return f"ActiveModelContext(model_id={self.model_id}, set_by_user={self.set_by_user})"
 
     @property
     def model_id(self) -> Optional[str]:
         return self._model_id or MLFLOW_ACTIVE_MODEL_ID.get()
 
-    @model_id.setter
-    def model_id(self, value: Optional[str]):
-        self._model_id = value
-
     @property
     def set_by_user(self) -> bool:
         return self._set_by_user
-
-    @set_by_user.setter
-    def set_by_user(self, value: bool):
-        self._set_by_user = value
 
 
 _ACTIVE_MODEL_CONTEXT = ContextVar(
@@ -3166,7 +3161,7 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
     """
     active_model = _set_active_model(name=name, model_id=model_id)
     active_model_ctx = _ACTIVE_MODEL_CONTEXT.get()
-    active_model_ctx.set_by_user = True
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(active_model_ctx.model_id, set_by_user=True))
     return active_model
 
 
