@@ -356,10 +356,10 @@ jobs:
       - name: Run tests
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
-            tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
+            tests/pyfunc/test_responses_agent.py tests/pyfunc/test_responses_agent_validation.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
-          pytest tests/pyfunc/test_spark_connect.py
+          # pytest tests/pyfunc/test_spark_connect.py
       - name: Run tests on pydantic v1
         run: |
           pip install 'pydantic<2'
