@@ -394,7 +394,7 @@ def start_span(
     .. tip::
 
         If you want more explicit control over the trace lifecycle, you can use
-        :py:func:`mlflow.start_span_no_context()`. It provides lower
+        the `mlflow.start_span_no_context()` API. It provides lower
         level to start spans and control the parent-child relationships explicitly.
         However, it is generally recommended to use this context manager as long as it satisfies
         your requirements, because it requires less boilerplate code and is less error-prone.
