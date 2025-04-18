@@ -72,13 +72,10 @@ from mlflow.utils.file_utils import (
     make_containing_dirs,
     mkdir,
     mv,
-    overwrite_yaml,
     path_to_local_file_uri,
     read_file,
     read_file_lines,
-    read_yaml,
     write_to,
-    write_yaml,
 )
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
@@ -115,6 +112,7 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag_name,
 )
+from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
 
 _logger = logging.getLogger(__name__)
 
