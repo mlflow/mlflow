@@ -37,8 +37,6 @@ def test_json_deserialization():
     span_to_events = {span["name"]: span.pop("events") for span in trace_data_dict_copy["spans"]}
 
     assert trace_data_dict_copy == {
-        "request": '{"x": 2, "y": 5}',
-        "response": None,
         "spans": [
             {
                 "name": "predict",
@@ -177,9 +175,21 @@ def test_intermediate_outputs_no_value():
     assert trace.data.intermediate_outputs is None
 
 
-def test_proto():
+def test_to_proto():
     with mlflow.start_span():
         pass
     trace = mlflow.get_last_active_trace()
     proto = trace.data.to_proto()
     assert len(proto.spans) == 1
+    assert not hasattr(proto, "request")
+    assert not hasattr(proto, "response")
+
+
+def test_to_dict():
+    with mlflow.start_span():
+        pass
+    trace = mlflow.get_last_active_trace()
+    trace_dict = trace.data.to_dict()
+    assert len(trace_dict["spans"]) == 1
+    assert "request" not in trace_dict
+    assert "response" not in trace_dict
