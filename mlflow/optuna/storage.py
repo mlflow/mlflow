@@ -26,7 +26,7 @@ try:
     from optuna.study._frozen import FrozenStudy
     from optuna.trial import FrozenTrial, TrialState
 except ImportError as e:
-    raise MlflowException(f"Importing 'mlflow.optuna module fails: {e}'")
+    raise ImportError("Install optuna to use `mlflow.optuna` module") from e
 
 optuna_mlflow_status_map = {
     TrialState.RUNNING: "RUNNING",
