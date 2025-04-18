@@ -68,8 +68,11 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
+from mlflow.utils.pydantic_utils import is_pydantic_v2_or_newer
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+
+if is_pydantic_v2_or_newer():
+    from mlflow.pyfunc.python_model_subclasses.responses_agent import ResponsesAgent
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -785,23 +788,6 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         )
 
 
-if IS_PYDANTIC_V2_OR_NEWER:
-    from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
-
-    class ResponsesAgent(PythonModel, metaclass=ABCMeta):
-        _skip_type_hint_validation = True
-
-        @abstractmethod
-        def predict(self, request: ResponsesRequest) -> ResponsesResponse:
-            pass
-
-        @abstractmethod
-        def predict_stream(
-            self, request: ResponsesRequest
-        ) -> Generator[ResponsesStreamEvent, None, None]:
-            pass
-
-
 def _save_model_with_class_artifacts_params(  # noqa: D417
     path,
     python_model,
@@ -1190,7 +1176,7 @@ def _get_pyfunc_loader_module(python_model):
         return mlflow.pyfunc.loaders.chat_model.__name__
     elif isinstance(python_model, ChatAgent):
         return mlflow.pyfunc.loaders.chat_agent.__name__
-    elif IS_PYDANTIC_V2_OR_NEWER and isinstance(python_model, ResponsesAgent):
+    elif is_pydantic_v2_or_newer() and isinstance(python_model, ResponsesAgent):
         return mlflow.pyfunc.loaders.responses_agent.__name__
     return __name__
 
