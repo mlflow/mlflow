@@ -17,6 +17,7 @@ guidance on how to use these tracing APIs, please refer to the `Tracing Fluent A
 
 .. autofunction:: mlflow.trace
 .. autofunction:: mlflow.start_span
+.. autofunction:: mlflow.start_span_no_context
 .. autofunction:: mlflow.get_trace
 .. autofunction:: mlflow.search_traces
 .. autofunction:: mlflow.get_current_active_span

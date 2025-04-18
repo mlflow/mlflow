@@ -36,8 +36,6 @@ from mlflow.entities import (
     SpanStatus,
     SpanType,
     Trace,
-    TraceData,
-    TraceInfo,
     ViewType,
 )
 from mlflow.entities.assessment import (
