@@ -3228,3 +3228,12 @@ def _update_active_model_id_env_var(value):
         MLFLOW_ACTIVE_MODEL_ID.unset()
     else:
         MLFLOW_ACTIVE_MODEL_ID.set(value)
+
+
+@contextlib.contextmanager
+def _maybe_set_active_model_id(model_id: Optional[str]):
+    if model_id is None:
+        yield
+    else:
+        with _set_active_model(model_id=model_id):
+            yield

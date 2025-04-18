@@ -29,6 +29,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.fluent import _maybe_set_active_model_id
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.annotations import developer_stable, experimental
 from mlflow.utils.class_utils import _get_class_from_string
@@ -1722,75 +1723,85 @@ def evaluate(  # noqa: D417
 
     # Use specified model_id if provided, otherwise use derived model_id
     model_id = specified_model_id if specified_model_id is not None else model_id
+    # If none of the model_id and model is specified, use the active model_id
+    if model_id is None:
+        model_id = mlflow.get_active_model_id()
+    # model_id could be None
+    with _maybe_set_active_model_id(model_id=model_id):
+        evaluators: list[EvaluatorBundle] = resolve_evaluators_and_configs(
+            evaluators, evaluator_config, model_type
+        )
 
-    evaluators: list[EvaluatorBundle] = resolve_evaluators_and_configs(
-        evaluators, evaluator_config, model_type
-    )
+        # NB: MLflow do not use either of these two variables. However, we need to pass these to
+        # _evaluate() function for backward compatibility.
+        evaluator_name_list = [evaluator.name for evaluator in evaluators]
+        evaluator_name_to_conf_map = {evaluator.name: evaluator.config for evaluator in evaluators}
 
-    # NB: MLflow do not use either of these two variables. However, we need to pass these to
-    # _evaluate() function for backward compatibility.
-    evaluator_name_list = [evaluator.name for evaluator in evaluators]
-    evaluator_name_to_conf_map = {evaluator.name: evaluator.config for evaluator in evaluators}
+        with _start_run_or_reuse_active_run() as run_id:
+            if not isinstance(data, Dataset):
+                # Convert data to `mlflow.data.dataset.Dataset`.
+                if model is None:
+                    data = convert_data_to_mlflow_dataset(
+                        data=data, targets=targets, predictions=predictions
+                    )
+                else:
+                    data = convert_data_to_mlflow_dataset(data=data, targets=targets)
 
-    with _start_run_or_reuse_active_run() as run_id:
-        if not isinstance(data, Dataset):
-            # Convert data to `mlflow.data.dataset.Dataset`.
-            if model is None:
-                data = convert_data_to_mlflow_dataset(
-                    data=data, targets=targets, predictions=predictions
+            from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
+
+            if isinstance(data, Dataset) and issubclass(
+                data.__class__, PyFuncConvertibleDatasetMixin
+            ):
+                dataset = data.to_evaluation_dataset(dataset_path, feature_names)
+
+                # Use metrix_prefix configured for builtin evaluators as a dataset tag
+                context = None
+                for e in evaluators:
+                    if _model_evaluation_registry.is_builtin(e.name) and e.config.get(
+                        "metric_prefix"
+                    ):
+                        context = e.config.get("metric_prefix")
+                        break
+
+                client = MlflowClient()
+                tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
+                dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
+                client.log_inputs(
+                    run_id,
+                    [dataset_input],
+                    models=[LoggedModelInput(model_id)] if model_id else None,
                 )
             else:
-                data = convert_data_to_mlflow_dataset(data=data, targets=targets)
+                dataset = EvaluationDataset(
+                    data,
+                    targets=targets,
+                    path=dataset_path,
+                    feature_names=feature_names,
+                    predictions=predictions,
+                )
+            predictions_expected_in_model_output = predictions if model is not None else None
 
-        from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
+            try:
+                evaluate_result = _evaluate(
+                    model=model,
+                    model_type=model_type,
+                    model_id=model_id,
+                    dataset=dataset,
+                    run_id=run_id,
+                    evaluator_name_list=evaluator_name_list,
+                    evaluator_name_to_conf_map=evaluator_name_to_conf_map,
+                    custom_metrics=custom_metrics,
+                    extra_metrics=extra_metrics,
+                    custom_artifacts=custom_artifacts,
+                    predictions=predictions_expected_in_model_output,
+                    evaluators=evaluators,
+                )
+            finally:
+                if isinstance(model, _ServedPyFuncModel):
+                    os.kill(model.pid, signal.SIGTERM)
 
-        if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
-            dataset = data.to_evaluation_dataset(dataset_path, feature_names)
+            # if model_id is specified log metrics to the eval run and logged model
+            if model_id is not None:
+                mlflow.log_metrics(metrics=evaluate_result.metrics, dataset=data, model_id=model_id)
 
-            # Use metrix_prefix configured for builtin evaluators as a dataset tag
-            context = None
-            for e in evaluators:
-                if _model_evaluation_registry.is_builtin(e.name) and e.config.get("metric_prefix"):
-                    context = e.config.get("metric_prefix")
-                    break
-
-            client = MlflowClient()
-            tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
-            dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
-            client.log_inputs(
-                run_id, [dataset_input], models=[LoggedModelInput(model_id)] if model_id else None
-            )
-        else:
-            dataset = EvaluationDataset(
-                data,
-                targets=targets,
-                path=dataset_path,
-                feature_names=feature_names,
-                predictions=predictions,
-            )
-        predictions_expected_in_model_output = predictions if model is not None else None
-
-        try:
-            evaluate_result = _evaluate(
-                model=model,
-                model_type=model_type,
-                model_id=model_id,
-                dataset=dataset,
-                run_id=run_id,
-                evaluator_name_list=evaluator_name_list,
-                evaluator_name_to_conf_map=evaluator_name_to_conf_map,
-                custom_metrics=custom_metrics,
-                extra_metrics=extra_metrics,
-                custom_artifacts=custom_artifacts,
-                predictions=predictions_expected_in_model_output,
-                evaluators=evaluators,
-            )
-        finally:
-            if isinstance(model, _ServedPyFuncModel):
-                os.kill(model.pid, signal.SIGTERM)
-
-        # if model_id is specified log metrics to the eval run and logged model
-        if model_id is not None:
-            mlflow.log_metrics(metrics=evaluate_result.metrics, dataset=data, model_id=model_id)
-
-    return evaluate_result
+        return evaluate_result
