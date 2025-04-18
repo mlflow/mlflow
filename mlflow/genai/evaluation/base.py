@@ -31,7 +31,7 @@ def evaluate(
     predict_fn: Optional[Callable[..., Any]] = None,
     scorers: Optional[list[Scorer]] = None,
     model_id: Optional[str] = None,
-) -> mlflow.genai.EvaluationResult:
+) -> EvaluationResult:
     """
     TODO: updating docstring with real examples and API links
     Args:

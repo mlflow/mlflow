@@ -1,6 +1,7 @@
 from databricks.agents.evals import metric
 from pyspark import sql as spark
 
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.genai.scorers import Scorer
 
 try:
@@ -12,7 +13,7 @@ except ImportError:
 
 # TODO: ML-52299
 def _convert_to_legacy_eval_set(
-    data: pd.DataFrame | spark.DataFrame | list[dict], EvaluationDataset
+    data: pd.DataFrame | spark.DataFrame | list[dict] | EvaluationDataset
 ) -> dict:
     """
     Takes in different types of inputs and converts it into to the current eval-set schema that
