@@ -489,7 +489,7 @@ def start_span_no_context(
             root_span = mlflow.start_span_no_context("my_trace")
 
             # Create a child span
-            child_span = start_span_no_context(
+            child_span = mlflow.start_span_no_context(
                 "child_span",
                 # Manually specify the parent span
                 parent_span=root_span,
