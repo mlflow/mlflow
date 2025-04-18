@@ -291,7 +291,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(StartTrace, req_body)
         return TraceInfo.from_proto(response_proto.trace_info)
 
-    def start_trace_v3(self, trace):
+    def start_trace_v3(self, trace: Trace):
         """
         Start a trace using the V3 API format.
 
