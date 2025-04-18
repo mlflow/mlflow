@@ -92,3 +92,21 @@ class DatabricksSpanExporter(SpanExporter):
         ) as res:
             if res.status_code != 200:
                 _logger.warning(f"Failed to log trace to the trace server. Response: {res.text}")
+                
+    def export_to_mlflow_v3(self, trace: Trace, client=None):
+        """
+        Export a trace to MLflow using the V3 API.
+        
+        Args:
+            trace: The trace object to export
+            client: Optional MLflow client to use. If not provided, a new client will be created.
+        """
+        from mlflow.tracking import MlflowClient
+        
+        if client is None:
+            client = MlflowClient()
+            
+        try:
+            client._start_trace_v3(trace)
+        except Exception as e:
+            _logger.warning(f"Failed to send trace to MLflow backend: {e}")

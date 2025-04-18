@@ -101,57 +101,13 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
                 trace.info.status = TraceStatus.from_otel_status(span.status)
                 deduplicate_span_names_in_place(list(trace.span_dict.values()))
                 
-                # Create and send V3 trace to MLflow backend
-                self._send_trace_to_mlflow(trace, request_id)
-    
-    def _send_trace_to_mlflow(self, trace: _Trace, request_id: str) -> None:
-        """
-        Convert the internal trace format to MLflow's V3 format and send it to the MLflow backend.
-        
-        Args:
-            trace: The trace object from the trace manager
-            request_id: The unique identifier for the trace
-        """
-        # Create a timestamp from trace timestamp
-        timestamp = Timestamp()
-        timestamp.FromMilliseconds(trace.info.timestamp_ms)
-        
-        # Create duration from execution time
-        duration = Duration()
-        duration.FromMilliseconds(trace.info.execution_time_ms or 0)
-        
-        # Map status from TraceStatus to TraceInfoV3.State
-        state_mapping = {
-            TraceStatus.OK: TraceInfoV3.State.OK,
-            TraceStatus.ERROR: TraceInfoV3.State.ERROR,
-            TraceStatus.IN_PROGRESS: TraceInfoV3.State.IN_PROGRESS,
-        }
-        state = state_mapping.get(trace.info.status, TraceInfoV3.State.STATE_UNSPECIFIED)
-        
-        # Build metadata dictionary from trace info
-        metadata: Dict[str, str] = {}
-        for meta in trace.info.request_metadata:
-            metadata[meta.key] = meta.value
-        
-        # Build tags dictionary from trace info
-        tags: Dict[str, str] = {}
-        for tag in trace.info.tags:
-            tags[tag.key] = tag.value
-        
-        # Create TraceInfoV3 object
-        trace_info_v3 = TraceInfoV3(
-            trace_id=request_id,
-            client_request_id=request_id,
-            request_time=timestamp,
-            execution_duration=duration,
-            state=state,
-            trace_metadata=metadata,
-            tags=tags
-        )
-        
-        # Create Trace object and send to MLflow backend
-        mlflow_trace = Trace(trace_info=trace_info_v3)
-        try:
-            self._client._start_trace_v3(mlflow_trace)
-        except Exception as e:
-            _logger.warning(f"Failed to send trace to MLflow backend: {e}")
+                # Prepare V3 trace for export
+                trace_info_v3 = trace.info.to_v3(
+                    request=trace.data.request if trace.data else None,
+                    response=trace.data.response if trace.data else None
+                )
+                trace_info_v3.client_request_id = trace.info.request_id
+                mlflow_trace = Trace(trace_info=trace_info_v3)
+                
+                # Use the exporter to send the trace to MLflow
+                self.span_exporter.export_to_mlflow_v3(mlflow_trace, self._client)
