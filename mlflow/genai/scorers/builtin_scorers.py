@@ -1,5 +1,4 @@
 from copy import deepcopy
-from typing import List
 
 from mlflow.genai.scorers import BuiltInScorer
 
@@ -12,7 +11,9 @@ class _BaseBuiltInScorer(BuiltInScorer):
 
     def update_evaluation_config(self, evaluation_config) -> dict:
         config = deepcopy(evaluation_config)
-        config.setdefault("databricks-agents", {}).setdefault("metrics", []).append(self.name)
+        config.setdefault("databricks-agents", {}).setdefault("metrics", []).append(
+            self.name
+        )
         return config
 
 
@@ -81,7 +82,7 @@ safety = _Safety()
 
 
 # === Shorthand for all builtin scorers ===
-def rag_evaluators(global_guideline: str) -> List[BuiltInScorer]:
+def rag_evaluators(global_guideline: str) -> list[BuiltInScorer]:
     return [
         chunk_relevance,
         context_sufficiency,

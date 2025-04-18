@@ -1,3 +1,5 @@
+import pytest
+
 from mlflow.genai.scorers import (
     chunk_relevance,
     context_sufficiency,
@@ -9,7 +11,6 @@ from mlflow.genai.scorers import (
     relevance_to_query,
     safety,
 )
-import pytest
 
 
 def normalize_config(config):
