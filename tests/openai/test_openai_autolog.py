@@ -723,7 +723,7 @@ def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai):
     )
 
     model = mlflow.create_external_model(name="test_model")
-    mlflow.set_active_model(model_id=model.model_id)  # noqa: TID251
+    mlflow.set_active_model(model_id=model.model_id)
     mlflow.openai.autolog()
 
     encoding_formats = ["float", "base64"]

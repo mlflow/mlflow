@@ -1129,7 +1129,7 @@ def test_autolog_link_traces_to_loaded_model_pyfunc(model_infos):
 
 def test_autolog_link_traces_to_active_model(model_infos):
     model = mlflow.create_external_model(name="test_model")
-    mlflow.set_active_model(model_id=model.model_id)  # noqa: TID251
+    mlflow.set_active_model(model_id=model.model_id)
     mlflow.langchain.autolog()
 
     for model_info in model_infos:

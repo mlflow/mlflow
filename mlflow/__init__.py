@@ -242,7 +242,7 @@ from mlflow.tracking.fluent import (
     search_experiments,
     search_logged_models,
     search_runs,
-    set_active_model,  # noqa: TID251
+    set_active_model,
     set_experiment,
     set_experiment_tag,
     set_experiment_tags,
