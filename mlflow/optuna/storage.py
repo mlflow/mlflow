@@ -1,7 +1,6 @@
 import copy
 import datetime
 import json
-import sys
 import threading
 import time
 import uuid
@@ -25,8 +24,8 @@ try:
     from optuna.study import StudyDirection
     from optuna.study._frozen import FrozenStudy
     from optuna.trial import FrozenTrial, TrialState
-except ImportError:
-    sys.exit()
+except ImportError as e:
+    raise ImportError("Install optuna to use `mlflow.optuna` module") from e
 
 optuna_mlflow_status_map = {
     TrialState.RUNNING: "RUNNING",
