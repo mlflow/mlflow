@@ -1116,7 +1116,6 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
             pass
 
     assert mock_warning.call_count == 0
-    # from mlflow.pyfunc.utils.data_validation import TypeHintWarning
 
     # Check import does not trigger any warning (from builtin sub-classes)
     subprocess.check_call(
@@ -1127,11 +1126,6 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
             "-c",
             "import mlflow.pyfunc.model",
         ]
-    )
-
-    # Check import does not trigger any warning (from builtin sub-classes)
-    subprocess.check_call(
-        [sys.executable, "-W", "error::TypeHintWarning", "-c", "import mlflow.pyfunc"]
     )
 
 
