@@ -7,7 +7,6 @@ from typing import Optional
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import EvaluationResult
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import deprecated
 
 _logger = logging.getLogger(__name__)
 
