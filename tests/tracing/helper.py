@@ -14,6 +14,7 @@ import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import _get_tracer
@@ -85,7 +86,7 @@ def create_mock_otel_span(
         def update_name(self, name):
             self.name = name
 
-        def end(self, end_time=None):
+        def end(self, end_time_ns=None):
             pass
 
         def record_exception():
@@ -126,12 +127,12 @@ def create_test_trace_info(
 
 def get_traces(experiment_id=DEFAULT_EXPERIMENT_ID) -> list[Trace]:
     # Get all traces from the backend
-    return mlflow.MlflowClient().search_traces(experiment_ids=[experiment_id])
+    return TracingClient().search_traces(experiment_ids=[experiment_id])
 
 
 def purge_traces(experiment_id=DEFAULT_EXPERIMENT_ID):
     # Delete all traces from the backend
-    mlflow.tracking.MlflowClient().delete_traces(
+    TracingClient().delete_traces(
         experiment_id=experiment_id, max_traces=1000, max_timestamp_millis=0
     )
 

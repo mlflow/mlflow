@@ -17,7 +17,7 @@ from mlflow.exceptions import MlflowException
 @pytest.fixture
 def store():
     mock_store = mock.MagicMock()
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
+    with mock.patch("mlflow.tracing.client._get_store") as mock_get_store:
         mock_get_store.return_value = mock_store
         yield mock_store
 

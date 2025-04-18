@@ -16,18 +16,14 @@ from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.openai.constant import FLAVOR_NAME
 from mlflow.openai.utils.chat_schema import set_span_chat_attributes
-from mlflow.tracing.assessment import MlflowClient
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
     TraceMetadataKey,
 )
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import (
-    TraceJSONEncoder,
-    end_client_span_or_trace,
-    start_client_span_or_trace,
-)
+from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
@@ -244,21 +240,20 @@ def patched_call(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.openai.FLAVOR_NAME)
     active_run = mlflow.active_run()
     run_id = active_run.info.run_id if active_run else None
-    mlflow_client = mlflow.MlflowClient()
 
     if config.log_traces:
-        span = _start_span(mlflow_client, self, kwargs, run_id)
+        span = _start_span(self, kwargs, run_id)
 
     # Execute the original function
     try:
         raw_result = original(self, *args, **kwargs)
     except Exception as e:
         if config.log_traces:
-            _end_span_on_exception(mlflow_client, span, e)
+            _end_span_on_exception(span, e)
         raise
 
     if config.log_traces:
-        _end_span_on_success(mlflow_client, span, kwargs, raw_result)
+        _end_span_on_success(span, kwargs, raw_result)
 
     return raw_result
 
@@ -267,27 +262,25 @@ async def async_patched_call(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.openai.FLAVOR_NAME)
     active_run = mlflow.active_run()
     run_id = active_run.info.run_id if active_run else None
-    mlflow_client = mlflow.MlflowClient()
 
     if config.log_traces:
-        span = _start_span(mlflow_client, self, kwargs, run_id)
+        span = _start_span(self, kwargs, run_id)
 
     # Execute the original function
     try:
         raw_result = await original(self, *args, **kwargs)
     except Exception as e:
         if config.log_traces:
-            _end_span_on_exception(mlflow_client, span, e)
+            _end_span_on_exception(span, e)
         raise
 
     if config.log_traces:
-        _end_span_on_success(mlflow_client, span, kwargs, raw_result)
+        _end_span_on_success(span, kwargs, raw_result)
 
     return raw_result
 
 
 def _start_span(
-    mlflow_client: MlflowClient,
     instance: Any,
     inputs: dict[str, Any],
     run_id: str,
@@ -296,8 +289,7 @@ def _start_span(
     attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
 
     # If there is an active span, create a child span under it, otherwise create a new trace
-    span = start_client_span_or_trace(
-        mlflow_client,
+    span = start_span_no_context(
         name=instance.__class__.__name__,
         span_type=_get_span_type(instance.__class__),
         inputs=inputs,
@@ -314,9 +306,7 @@ def _start_span(
     return span
 
 
-def _end_span_on_success(
-    mlflow_client: MlflowClient, span: LiveSpan, inputs: dict[str, Any], raw_result: Any
-):
+def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any):
     from openai import AsyncStream, Stream
 
     result = _try_parse_raw_response(raw_result)
@@ -330,7 +320,7 @@ def _end_span_on_success(
                 output.append(_process_chunk(span, i, chunk))
                 yield chunk
             output = chunk.response if _is_responses_final_event(chunk) else "".join(output)
-            _end_span_on_success(mlflow_client, span, inputs, output)
+            _end_span_on_success(span, inputs, output)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     elif isinstance(result, AsyncStream):
@@ -341,13 +331,13 @@ def _end_span_on_success(
                 output.append(_process_chunk(span, len(output), chunk))
                 yield chunk
             output = chunk.response if _is_responses_final_event(chunk) else "".join(output)
-            _end_span_on_success(mlflow_client, span, inputs, output)
+            _end_span_on_success(span, inputs, output)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     else:
         try:
             set_span_chat_attributes(span, inputs, result)
-            end_client_span_or_trace(mlflow_client, span, outputs=result)
+            span.end(outputs=result)
         except Exception as e:
             _logger.warning(f"Encountered unexpected error when ending trace: {e}", exc_info=True)
 
@@ -361,10 +351,10 @@ def _is_responses_final_event(chunk: Any) -> bool:
         return False
 
 
-def _end_span_on_exception(mlflow_client: MlflowClient, span: LiveSpan, e: Exception):
+def _end_span_on_exception(span: LiveSpan, e: Exception):
     try:
         span.add_event(SpanEvent.from_exception(e))
-        mlflow_client.end_span(span.trace_id, span.span_id, status=SpanStatusCode.ERROR)
+        span.end(status=SpanStatusCode.ERROR)
     except Exception as inner_e:
         _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
 

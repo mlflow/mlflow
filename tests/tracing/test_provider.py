@@ -13,6 +13,7 @@ from mlflow.tracing.export.inference_table import (
     InferenceTableSpanExporter,
 )
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
@@ -283,8 +284,6 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
     monkeypatch.setenv("ENABLE_MLFLOW_TRACING", str(enable_mlflow_tracing).lower())
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
 
-    client = mlflow.MlflowClient()
-
     def foo():
         return bar()
 
@@ -296,10 +295,10 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
     with mock.patch(
         "mlflow.tracing.processor.inference_table.maybe_get_request_id", side_effect=request_ids
     ):
-        client.start_trace("root")
+        span = start_span_no_context("root")
         foo()
         if enable_mlflow_tracing:
-            client.end_trace(request_id="123")
+            span.end()
 
     if enable_mlflow_tracing:
         assert sorted(_TRACE_BUFFER) == request_ids

@@ -9,12 +9,11 @@ from collections import Counter
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional, Union
+from unittest.mock import MagicMock, patch
 
 from opentelemetry import trace as trace_api
 from packaging.version import Version
 
-import mlflow
-from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
@@ -24,7 +23,6 @@ _logger = logging.getLogger(__name__)
 SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
-    from mlflow.client import MlflowClient
     from mlflow.entities import LiveSpan
     from mlflow.types.chat import ChatMessage, ChatTool
 
@@ -395,65 +393,20 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
 
 
-def start_client_span_or_trace(
-    client: MlflowClient,
-    name: str,
-    span_type: str,
-    parent_span: Optional[LiveSpan] = None,
-    inputs: Optional[dict[str, Any]] = None,
-    attributes: Optional[dict[str, Any]] = None,
-    start_time_ns: Optional[int] = None,
-) -> LiveSpan:
+def is_model_traced(model):
     """
-    An utility to start a span or trace using MlflowClient based on the current active span.
-    """
-    if parent_span := parent_span or mlflow.get_current_active_span():
-        return client.start_span(
-            name=name,
-            trace_id=parent_span.trace_id,
-            parent_id=parent_span.span_id,
-            span_type=span_type,
-            inputs=inputs,
-            attributes=attributes,
-            start_time_ns=start_time_ns,
-        )
-    else:
-        return client.start_trace(
-            name=name,
-            span_type=span_type,
-            inputs=inputs,
-            attributes=attributes,
-            start_time_ns=start_time_ns,
-        )
+    Check if a PyFuncModel is being traced without logging to the database.
 
+    Args:
+        model (PyFuncModel): The model to check.
 
-def end_client_span_or_trace(
-    client: MlflowClient,
-    span: LiveSpan,
-    outputs: Optional[dict[str, Any]] = None,
-    attributes: Optional[dict[str, Any]] = None,
-    status: str = SpanStatusCode.OK,
-    end_time_ns: Optional[int] = None,
-) -> LiveSpan:
+    Returns:
+        True if the model is being traced, False otherwise.
     """
-    An utility to end a span or trace using MlflowClient based on the current active span.
-    """
-    if span.parent_id is not None:
-        return client.end_span(
-            trace_id=span.trace_id,
-            span_id=span.span_id,
-            outputs=outputs,
-            attributes=attributes,
-            status=status,
-            end_time_ns=end_time_ns,
-        )
-    else:
-        span.set_status(status)
-        span.set_outputs(outputs)
-        return client.end_trace(
-            trace_id=span.trace_id,
-            outputs=outputs,
-            attributes=attributes,
-            status=status,
-            end_time_ns=end_time_ns,
-        )
+    with patch("mlflow.tracing.provider._get_tracer", return_value=None) as mock_get_tracer:
+        try:
+            model.predict(MagicMock())
+        except Exception:
+            pass
+
+        return 0 < mock_get_tracer.call_count
