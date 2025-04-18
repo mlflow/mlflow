@@ -14,7 +14,6 @@ import logging
 import os
 import posixpath
 import shutil
-import warnings
 from functools import partial
 from typing import Any, Optional
 
