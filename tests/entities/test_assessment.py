@@ -11,6 +11,7 @@ from mlflow.entities.assessment import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
+from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 
 
 def test_assessment_creation():
@@ -218,17 +219,17 @@ def test_assessment_conversion(expectation, feedback, source, metadata):
     assert result == assessment
 
     dict = assessment.to_dictionary()
-    assert dict["assessment_id"] == assessment.assessment_id
+    assert dict.get("assessment_id") == assessment.assessment_id
     assert dict["trace_id"] == assessment.trace_id
-    assert dict["name"] == assessment.name
-    assert dict["source"] == {
-        "source_type": source.source_type,
-        "source_id": source.source_id,
-    }
-    assert dict["create_time_ms"] == assessment.create_time_ms
-    assert dict["last_update_time_ms"] == assessment.last_update_time_ms
-    assert dict["rationale"] == assessment.rationale
-    assert dict["metadata"] == metadata
+    assert dict["assessment_name"] == assessment.name
+    assert dict["source"].get("source_type") == source.source_type
+    assert dict["source"].get("source_id") == source.source_id
+    assert proto_timestamp_to_milliseconds(dict["create_time"]) == assessment.create_time_ms
+    assert (
+        proto_timestamp_to_milliseconds(dict["last_update_time"]) == assessment.last_update_time_ms
+    )
+    assert dict.get("rationale") == assessment.rationale
+    assert dict.get("metadata") == metadata
 
     if expectation:
         assert dict["expectation"] == {"value": expectation.value}

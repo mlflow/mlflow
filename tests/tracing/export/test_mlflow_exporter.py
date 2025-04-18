@@ -60,6 +60,10 @@ def test_export(async_logging_enabled):
     # Trace should be logged
     assert mock_client._upload_trace_data.call_count == 1
     logged_trace_info, logged_trace_data = mock_client._upload_trace_data.call_args[0]
-    assert trace_info == logged_trace_info
+    trace_info_v3 = trace_info.to_v3(
+        request=logged_trace_data.request,
+        response=logged_trace_data.response,
+    )
+    assert trace_info_v3 == logged_trace_info
     assert len(logged_trace_data.spans) == 2
-    mock_client._upload_ended_trace_info.assert_called_once_with(trace_info)
+    mock_client._upload_ended_trace_info.assert_called_once_with(trace_info_v3)
