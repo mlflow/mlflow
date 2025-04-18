@@ -4631,6 +4631,93 @@ def test_log_outputs(store: SqlAlchemyStore):
     assert run.outputs.model_outputs == [LoggedModelOutput(model.model_id, 1)]
 
 
+@pytest.mark.parametrize("tags_count", [0, 1, 2])
+def test_get_run_inputs(store, tags_count):
+    run = _run_factory(store)
+
+    dataset = entities.Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+
+    tags = [entities.InputTag(key=f"foo{i}", value=f"bar{i}") for i in range(tags_count)]
+
+    dataset_inputs = [entities.DatasetInput(dataset, tags)]
+
+    store.log_inputs(run.info.run_id, dataset_inputs)
+
+    with store.ManagedSessionMaker() as session:
+        actual = store._get_run_inputs(session, [run.info.run_id])
+
+    assert len(actual) == 1
+    assert_dataset_inputs_equal(actual[0], dataset_inputs)
+
+
+def test_get_run_inputs_run_order(store):
+    exp_id = _create_experiments(store, "test_get_run_inputs_run_order")
+    config = _get_run_configs(exp_id)
+
+    run_with_one_input = _run_factory(store, config)
+    run_with_no_inputs = _run_factory(store, config)
+    run_with_two_inputs = _run_factory(store, config)
+
+    dataset1 = entities.Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+
+    dataset2 = entities.Dataset(
+        name="name2",
+        digest="digest2",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+
+    tags_1 = [entities.InputTag(key="foo1", value="bar1")]
+
+    tags_2 = [
+        entities.InputTag(key="foo2", value="bar2"),
+        entities.InputTag(key="foo3", value="bar3"),
+    ]
+
+    tags_3 = [
+        entities.InputTag(key="foo4", value="bar4"),
+        entities.InputTag(key="foo5", value="bar5"),
+        entities.InputTag(key="foo6", value="bar6"),
+    ]
+
+    dataset_inputs_1 = [entities.DatasetInput(dataset1, tags_1)]
+    dataset_inputs_2 = [
+        entities.DatasetInput(dataset2, tags_2),
+        entities.DatasetInput(dataset1, tags_3),
+    ]
+
+    store.log_inputs(run_with_one_input.info.run_id, dataset_inputs_1)
+    store.log_inputs(run_with_two_inputs.info.run_id, dataset_inputs_2)
+
+    expected = [dataset_inputs_1, [], dataset_inputs_2]
+
+    runs = [run_with_one_input, run_with_no_inputs, run_with_two_inputs]
+    run_uuids = [run.info.run_id for run in runs]
+
+    with store.ManagedSessionMaker() as session:
+        actual = store._get_run_inputs(session, run_uuids)
+
+    assert len(expected) == len(actual)
+    for expected_i, actual_i in zip(expected, actual):
+        assert_dataset_inputs_equal(expected_i, actual_i)
+
+
 def test_create_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     model = store.create_logged_model(experiment_id=exp_id)

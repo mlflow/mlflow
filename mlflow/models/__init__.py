@@ -7,6 +7,7 @@ The built-in flavors are:
 - :py:mod:`mlflow.catboost`
 - :py:mod:`mlflow.diviner`
 - :py:mod:`mlflow.dspy`
+- :py:mod:`mlflow.h2o`
 - :py:mod:`mlflow.langchain`
 - :py:mod:`mlflow.lightgbm`
 - :py:mod:`mlflow.llama_index`

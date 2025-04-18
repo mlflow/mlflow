@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Any
 
@@ -9,8 +8,6 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.models.model import _MODEL_TRACKER
-from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
     construct_full_inputs,
     end_client_span_or_trace,
@@ -67,18 +64,6 @@ class TracingSession:
 
         if config.log_traces:
             attributes = {}
-            model_dict = _stringify_model_dict(self.inputs)
-            model_identity = _generate_model_identity(model_dict)
-            model_id = _MODEL_TRACKER.get(model_identity)
-            if model_id is None and config.log_models:
-                params = _generate_model_params_dict(model_dict)
-                logged_model = mlflow.create_external_model(
-                    name=mlflow.anthropic.FLAVOR_NAME, params=params
-                )
-                _MODEL_TRACKER.set(model_identity, logged_model.model_id)
-                model_id = logged_model.model_id
-            if model_id:
-                attributes[SpanAttributeKey.MODEL_ID] = model_id
             self.span = start_client_span_or_trace(
                 self.mlflow_client,
                 name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
@@ -134,34 +119,3 @@ def _set_chat_message_attribute(span: LiveSpan, inputs: dict[str, Any], output: 
         set_span_chat_messages(span, messages)
     except Exception as e:
         _logger.debug(f"Failed to set chat messages for {span}. Error: {e}")
-
-
-def _stringify_model_dict(model_dict: dict[str, Any]) -> dict[str, str]:
-    return {
-        k: (v if isinstance(v, str) else json.dumps(v, default=str)) for k, v in model_dict.items()
-    }
-
-
-def _generate_model_params_dict(model_dict: dict[str, str]) -> dict[str, str]:
-    # drop input fields
-    exclude_fields = {"messages"}
-    return {k: v for k, v in model_dict.items() if k not in exclude_fields}
-
-
-def _generate_model_identity(model_dict: dict[str, str]) -> int:
-    if "model" not in model_dict:
-        raise ValueError("The model dictionary must contain 'model' key.")
-    # drop input and non-model config fields to ensure consistent hashing
-    exclude_fields = {
-        # input
-        "messages",
-        # request metadata including user id
-        "metadata",
-        # extra API configs
-        "extra_headers",
-        "extra_query",
-        "extra_body",
-        "timeout",
-    }
-    model_dict = {k: v for k, v in model_dict.items() if k not in exclude_fields}
-    return hash(str(model_dict))

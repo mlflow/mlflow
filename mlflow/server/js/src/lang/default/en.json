@@ -2899,6 +2899,10 @@
     "defaultMessage": "Toggle detailed view",
     "description": "Experiment page > artifact compare view > table header > label for \"toggle detailed view\" button"
   },
+  "lG4hDp": {
+    "defaultMessage": "Auto-refresh",
+    "description": "Experiment tracking > Artifact view > Auto-refresh toggle button"
+  },
   "lISqyJ": {
     "defaultMessage": "Run details",
     "description": "Compare table title on the compare runs page"

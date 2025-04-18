@@ -27,7 +27,6 @@ from mlflow.langchain.utils.chat import (
     convert_lc_generation_to_chat_message,
     convert_lc_message_to_chat_message,
 )
-from mlflow.models.model import _MODEL_TRACKER
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
@@ -107,10 +106,6 @@ def patched_runnable_sequence_batch(original, self, *args, **kwargs):
     """
     original_state = _should_attach_span_to_context.get()
     _should_attach_span_to_context.set(False)
-    if model_id := _MODEL_TRACKER.get(id(self)):
-        _MODEL_TRACKER.set_active_model_id(model_id)
-    else:
-        _MODEL_TRACKER.set_active_model_id(None)
     try:
         return original(self, *args, **kwargs)
     finally:
@@ -141,8 +136,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, SpanWithToken] = {}
         self._prediction_context = prediction_context
-        # This can be set in init because the tracer instance is only created during inference
-        self._model_id = _MODEL_TRACKER.get_active_model_id()
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
         if span_with_token := self._run_span_mapping.get(str(run_id), None):
@@ -159,11 +152,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         attributes: Optional[dict[str, Any]] = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
-        if self._model_id:
-            attributes = {
-                **(attributes or {}),
-                SpanAttributeKey.MODEL_ID: self._model_id,
-            }
         with maybe_set_prediction_context(self._prediction_context):
             parent = self._get_parent_span(parent_run_id)
             if parent:

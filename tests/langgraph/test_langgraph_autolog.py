@@ -69,7 +69,7 @@ def test_langgraph_tracing_prebuilt():
     loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
 
     # No trace should be created for the first call
-    assert mlflow.get_last_active_trace() is None
+    assert mlflow.get_trace(mlflow.get_last_active_trace_id()) is None
 
     loaded_graph.invoke(input_example)
 
@@ -141,7 +141,7 @@ def test_langgraph_tracing_with_custom_span():
     loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
 
     # No trace should be created for the first call
-    assert mlflow.get_last_active_trace() is None
+    assert mlflow.get_trace(mlflow.get_last_active_trace_id()) is None
 
     loaded_graph.invoke(input_example)
 
@@ -185,7 +185,7 @@ def test_langgraph_chat_agent_trace():
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     # No trace should be created for loading it in
-    assert mlflow.get_last_active_trace() is None
+    assert mlflow.get_trace(mlflow.get_last_active_trace_id()) is None
 
     loaded_model.predict(input_example)
     traces = get_traces()

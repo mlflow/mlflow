@@ -26,7 +26,7 @@ def commands():
 @cli_args.PORT
 @cli_args.HOST
 @cli_args.TIMEOUT
-@cli_args.WORKERS
+@cli_args.MODELS_WORKERS
 @cli_args.ENV_MANAGER
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
@@ -286,7 +286,7 @@ def build_docker(**kwargs):
     .. important::
 
         Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**
-        for improved performance, unless the model flavor is one of ``["johnsnowlabs",
+        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o",
         "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
         that uses SparkML, please specify the ``--install-java`` flag to enforce Java installation.
 

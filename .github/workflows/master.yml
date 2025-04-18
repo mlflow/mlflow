@@ -94,8 +94,8 @@ jobs:
           source .venv/bin/activate
           source dev/setup-ssh.sh
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
-            --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
-            --ignore tests/deployments/server tests
+            --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+            --ignore=tests/deployments/server --ignore=tests/pyspark/optuna tests
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -120,6 +120,12 @@ jobs:
         run: |
           python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
           pytest tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py
+      - name: Run databricks-connect related tests
+        run: |
+          # this needs to be run in a separate job because installing databricks-connect could break other 
+          # tests that uses normal SparkSession instead of remote SparkSession
+          pip install databricks-agents
+          pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -296,6 +302,30 @@ jobs:
         run: |
           pytest tests/evaluate/test_default_evaluator_delta.py
 
+  optuna:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions: {}
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install 'pyspark>=3.5' 'optuna>=4' .
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        run: |
+          pytest tests/pyspark/optuna/test_storage.py
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -416,5 +446,5 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore tests/deployments/server \
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server --ignore=tests/pyspark/optuna \
             tests

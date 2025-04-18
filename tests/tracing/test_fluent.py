@@ -483,7 +483,7 @@ def test_trace_handle_exception_during_prediction(sync):
         model.predict(2, 5) if sync else asyncio.run(model.predict(2, 5))
 
     # Trace should be logged even if the function fails, with status code ERROR
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.request_id is not None
     assert trace.info.status == TraceStatus.ERROR
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
@@ -599,7 +599,7 @@ def test_trace_skip_resolving_unrelated_tags_to_traces():
         model = DefaultTestModel()
         model.predict(2, 5)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert "unrelated tags" not in trace.info.tags
 
 
@@ -785,7 +785,7 @@ def test_mlflow_trace_isolated_from_other_otel_processors():
 
     # MLflow only processes spans created with MLflow APIs
     assert len(get_traces()) == 1
-    assert mlflow.get_last_active_trace().data.spans[0].name == "mlflow_span"
+    assert mlflow.get_trace(mlflow.get_last_active_trace_id()).data.spans[0].name == "mlflow_span"
 
     # Other spans are processed by the other processor
     assert len(other_exporter.exported_spans) == 1
@@ -797,7 +797,7 @@ def test_get_trace(mock_get_display_handler):
     model = DefaultTestModel()
     model.predict(2, 5)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     request_id = trace.info.request_id
     mock_get_display_handler.reset_mock()
 
@@ -939,10 +939,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         model.predict(2, 5)
         time.sleep(0.1)
 
-        # The in-memory trace returned from get_last_active_trace() is not guaranteed to be
-        # exactly same as the trace stored in the backend (e.g., tags created by the backend).
-        # Therefore, we fetch the trace from the backend to compare the results.
-        trace = client.get_trace(mlflow.get_last_active_trace().info.request_id)
+        trace = client.get_trace(mlflow.get_last_active_trace_id())
         expected_traces.append(trace)
 
     df = mlflow.search_traces(max_results=10, order_by=["timestamp ASC"])
@@ -1280,8 +1277,8 @@ def test_search_traces_invalid_extract_fields(extract_fields):
         mlflow.search_traces(extract_fields=extract_fields)
 
 
-def test_get_last_active_trace():
-    assert mlflow.get_last_active_trace() is None
+def test_get_last_active_trace_id():
+    assert mlflow.get_last_active_trace_id() is None
 
     @mlflow.trace()
     def predict(x, y):
@@ -1291,7 +1288,8 @@ def test_get_last_active_trace():
     predict(2, 5)
     predict(3, 6)
 
-    trace = mlflow.get_last_active_trace()
+    trace_id = mlflow.get_last_active_trace_id()
+    trace = mlflow.get_trace(trace_id)
     assert trace.info.request_id is not None
     assert trace.data.request == '{"x": 3, "y": 6}'
 
@@ -1302,7 +1300,7 @@ def test_get_last_active_trace():
 
 
 def test_get_last_active_trace_thread_local():
-    assert mlflow.get_last_active_trace() is None
+    assert mlflow.get_last_active_trace_id() is None
 
     def run(id):
         @mlflow.trace(name=f"predict_{id}")
@@ -1311,14 +1309,15 @@ def test_get_last_active_trace_thread_local():
 
         predict(1, 2)
 
-        return mlflow.get_last_active_trace(thread_local=True)
+        return mlflow.get_last_active_trace_id(thread_local=True)
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = [executor.submit(run, i) for i in range(10)]
-        traces = [future.result() for future in futures]
+        trace_ids = [future.result() for future in futures]
 
-    assert len(traces) == 10
-    for i, trace in enumerate(traces):
+    assert len(trace_ids) == 10
+    for i, trace_id in enumerate(trace_ids):
+        trace = mlflow.get_trace(trace_id)
         assert trace.info.status == TraceStatus.OK
         assert trace.data.spans[0].name == f"predict_{i}"
 
@@ -1344,7 +1343,7 @@ def test_update_current_trace():
     }
 
     # Validate in-memory trace
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
     tags = {k: v for k, v in trace.info.tags.items() if not k.startswith("mlflow.")}
     assert tags == expected_tags
@@ -1485,12 +1484,12 @@ def test_add_trace():
 
     # If we don't call add_trace, the trace from the remote service should be discarded
     predict(add_trace=False)
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
 
     # If we call add_trace, the trace from the remote service should be merged
     predict(add_trace=True)
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     request_id = trace.info.request_id
     assert request_id is not None
     assert trace.data.request == '{"add_trace": true}'
@@ -1522,7 +1521,7 @@ def test_add_trace_no_current_active_trace():
 
     mlflow.add_trace(remote_trace)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 3
     parent_span, child_span, grandchild_span = trace.data.spans
     assert parent_span.name == "Remote Trace <remote>"
@@ -1548,7 +1547,7 @@ def test_add_trace_specific_target_span():
     mlflow.add_trace(_SAMPLE_REMOTE_TRACE, target=span)
     client.end_trace(span.request_id)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 3
     parent_span, child_span, grandchild_span = trace.data.spans
     assert parent_span.span_id == span.span_id
@@ -1568,7 +1567,7 @@ def test_add_trace_merge_tags():
 
         mlflow.add_trace(Trace.from_dict(_SAMPLE_REMOTE_TRACE))
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     custom_tags = {k: v for k, v in trace.info.tags.items() if not k.startswith("mlflow.")}
     assert custom_tags == {
         "fruit": "apple",
@@ -1650,10 +1649,10 @@ def test_add_trace_logging_model_from_code():
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     # Trace should not be logged while logging / loading
-    assert mlflow.get_last_active_trace() is None
+    assert mlflow.get_trace(mlflow.get_last_active_trace_id()) is None
 
     loaded_model.predict(1)
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert len(trace.data.spans) == 2
 
@@ -1685,7 +1684,7 @@ def test_log_trace_success(inputs, outputs, intermediate_outputs):
         execution_time_ms=execution_time_ms,
     )
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     if inputs is not None:
         assert trace.data.request == json.dumps(inputs)
     else:

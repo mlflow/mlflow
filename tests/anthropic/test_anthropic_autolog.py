@@ -434,34 +434,3 @@ def test_messages_autolog_with_thinking(is_async):
             ],
         },
     ]
-
-
-@pytest.mark.parametrize("log_models", [True, False])
-def test_autolog_log_models_and_link_traces(is_async, log_models):
-    mlflow.anthropic.autolog(log_models=log_models)
-
-    with mlflow.start_run() as run:
-        for _ in range(3):
-            _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
-
-    traces = get_traces()
-    assert len(traces) == 3
-    logged_models = mlflow.search_logged_models(
-        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
-    )
-    if log_models:
-        assert len(logged_models) == 1
-        logged_model = logged_models[0]
-        assert logged_model.params["model"] == DUMMY_CREATE_MESSAGE_REQUEST["model"]
-        assert logged_model.params["max_tokens"] == str(DUMMY_CREATE_MESSAGE_REQUEST["max_tokens"])
-        assert "messages" not in logged_model.params
-        logged_model_id = logged_models[0].model_id
-        for i in range(3):
-            assert (
-                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
-            )
-    else:
-        assert len(logged_models) == 0
-        logged_model_id = None
-        for i in range(3):
-            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes

@@ -12,7 +12,6 @@ import posixpath
 import re
 import sys
 import tempfile
-import time
 import urllib
 import uuid
 import warnings
@@ -43,7 +42,6 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import (
     Assessment,
-    AssessmentError,
     Expectation,
     Feedback,
 )
@@ -881,6 +879,7 @@ class MlflowClient:
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
+        include_spans: bool = True,
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
@@ -897,9 +896,13 @@ class MlflowClient:
             run_id: A run id to scope the search. When a trace is created under an active run,
                 it will be associated with the run and you can filter on the run id to retrieve
                 the trace.
+            include_spans: If ``True``, include spans in the returned traces. Otherwise, only
+                the trace metadata is returned, e.g., trace ID, start time, end time, etc,
+                without any spans.
             model_id: If specified, return traces associated with the model ID.
             sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
                 searching traces in inference tables.
+
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -932,6 +935,7 @@ class MlflowClient:
             order_by=order_by,
             page_token=page_token,
             run_id=run_id,
+            include_spans=include_spans,
             model_id=model_id,
             sql_warehouse_id=sql_warehouse_id,
         )
@@ -1444,6 +1448,12 @@ class MlflowClient:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+        if not isinstance(value, str):
+            _logger.warning(
+                "Received non-string value for trace tag. Please note that non-string tag values"
+                "will automatically be stringified when the trace is logged."
+            )
+
         # Trying to set the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
             if trace:
@@ -1499,23 +1509,17 @@ class MlflowClient:
         source: AssessmentSource,
         expectation: Optional[Expectation] = None,
         feedback: Optional[Feedback] = None,
-        error: Optional[AssessmentError] = None,
         rationale: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         span_id: Optional[str] = None,
     ) -> Assessment:
-        timestamp = int(time.time() * 1000)  # milliseconds
-
         assessment = Assessment(
             # assessment_id must be None when creating a new assessment
             trace_id=trace_id,
             name=name,
             source=source,
-            create_time_ms=timestamp,
-            last_update_time_ms=timestamp,
             expectation=expectation,
             feedback=feedback,
-            error=error,
             rationale=rationale,
             metadata=metadata,
             span_id=span_id,
@@ -5424,6 +5428,7 @@ class MlflowClient:
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
+        datasets: Optional[list[dict[str, Any]]] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
@@ -5451,7 +5456,17 @@ class MlflowClient:
                     - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
                     - `tags.release LIKE 'v1.%'`
                     - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
+            datasets: List of dictionaries to specify datasets on which to apply metrics filters
+                For example, a filter string with `metrics.accuracy > 0.9` and dataset with name
+                "test_dataset" means we will return all logged models with accuracy > 0.9 on the
+                test_dataset. Metric values from ANY dataset matching the criteria are considered.
+                If no datasets are specified, then metrics across all datasets are considered in
+                the filter. The following fields are supported:
 
+                dataset_name (str):
+                    Required. Name of the dataset.
+                dataset_digest (str):
+                    Optional. Digest of the dataset.
             max_results: Maximum number of logged models desired.
             order_by: List of dictionaries to specify the ordering of the search results.
                 The following fields are supported:
@@ -5477,5 +5492,5 @@ class MlflowClient:
             :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
         """
         return self._tracking_client.search_logged_models(
-            experiment_ids, filter_string, max_results, order_by, page_token
+            experiment_ids, filter_string, datasets, max_results, order_by, page_token
         )
