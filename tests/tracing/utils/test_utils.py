@@ -209,7 +209,6 @@ def get_openai_predict_fn(with_tracing=False):
     client = openai.OpenAI()
 
     if with_tracing:
-        mlflow.autolog()
         mlflow.openai.autolog()
 
     def predict_fn(request):
