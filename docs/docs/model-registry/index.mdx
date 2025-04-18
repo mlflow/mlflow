@@ -758,7 +758,7 @@ conda_env = {
 
 # Save the model
 with mlflow.start_run(run_name="Vader Sentiment Analysis") as run:
-    model_path = f"{model_path}-{run.info.run_uuid}"
+    model_path = f"{model_path}-{run.info.run_id}"
     mlflow.log_param("algorithm", "VADER")
     mlflow.log_param("total_sentiments", len(INPUT_TEXTS))
     mlflow.pyfunc.save_model(
