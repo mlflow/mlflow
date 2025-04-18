@@ -22,7 +22,10 @@ from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import autologging_integration
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    disable_autologging_globally,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -311,9 +314,10 @@ def save_model(
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces while loading model
+@disable_autologging_globally  # Avoid side-effect of autologging while logging model
 def log_model(
     llama_index_model,
-    artifact_path: str,
+    artifact_path: Optional[str] = None,
     engine_type: Optional[str] = None,
     model_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
@@ -326,6 +330,12 @@ def log_model(
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
     prompts: Optional[list[Union[str, Prompt]]] = None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -355,7 +365,7 @@ def log_model(
             4. A string representing the path to a script contains LlamaIndex model definition
                 of the one of the above types.
 
-        artifact_path: Local path where the serialized model (as YAML) is to be saved.
+        artifact_path: Deprecated. Use `name` instead.
         engine_type: Required when saving an Index object to determine the inference interface
             for the index when loaded as a pyfunc model. This field is **not** required when
             saving other LlamaIndex objects. The supported values are as follows:
@@ -437,11 +447,17 @@ def log_model(
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
         prompts: {{ prompts }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
-
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         engine_type=engine_type,
         model_config=model_config,
         flavor=mlflow.llama_index,
@@ -456,6 +472,11 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         prompts=prompts,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
@@ -509,6 +530,7 @@ def _load_llama_model(path, flavor_conf):
 
 @experimental
 @trace_disabled  # Suppress traces while loading model
+@disable_autologging_globally  # Avoid side-effect of autologging while loading model
 def load_model(model_uri, dst_path=None):
     """
     Load a LlamaIndex index/engine/workflow from a local file or a run.
@@ -584,7 +606,11 @@ def autolog(
     else:
         remove_llama_index_tracer()
 
-    _autolog(log_traces=log_traces, disable=disable, silent=silent)
+    _autolog(
+        log_traces=log_traces,
+        disable=disable,
+        silent=silent,
+    )
 
 
 # This is required by mlflow.autolog()

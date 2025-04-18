@@ -180,6 +180,9 @@ def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
     )
 
 
+@pytest.mark.skip(
+    reason="In MLflow 3.0, `log_model` does not start a run. Consider removing this test."
+)
 def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model_no_run"
     with mlflow.start_run():
@@ -2484,3 +2487,19 @@ def test_both_resources_and_auth_policy():
                     DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct")
                 ],
             )
+
+
+def test_load_model_warning():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str]):
+            return model_input
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            python_model=Model(),
+            name="model",
+            input_example=["a", "b", "c"],
+        )
+
+    with pytest.warns(UserWarning, match=r"`runs:/<run_id>/artifact_path` is deprecated"):
+        mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")

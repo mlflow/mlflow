@@ -23,9 +23,11 @@ from mlflow.data.evaluation_dataset import (
 )
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
+from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.artifact.utils.models import _parse_model_id_if_present
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _get_fully_qualified_class_name
@@ -988,6 +990,7 @@ def _evaluate(
     *,
     model,
     model_type,
+    model_id,
     dataset,
     run_id,
     # The `evaluator_name_list` and `evaluator_name_to_conf_map` are not used by MLflow at all,
@@ -1025,6 +1028,7 @@ def _evaluate(
                 eval_result = eval_.evaluator.evaluate(
                     model=model,
                     model_type=model_type,
+                    model_id=model_id,
                     dataset=dataset,
                     run_id=run_id,
                     evaluator_config=eval_.config,
@@ -1112,6 +1116,7 @@ def evaluate(  # noqa: D417
     model_config=None,
     baseline_config=None,
     inference_params=None,
+    model_id=None,
 ):
     '''
     Evaluate the model performance on given data and selected metrics.
@@ -1437,7 +1442,7 @@ def evaluate(  # noqa: D417
                     # other arguments if needed
                 )
         dataset_path: (Optional) The path where the data is stored. Must not contain double
-            quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
+            quotes (``"``). If specified, the path is logged to the ``mlflow.datasets``
             tag for lineage tracking purposes.
 
         feature_names: (Optional) A list. If the ``data`` argument is a numpy array or list,
@@ -1587,6 +1592,10 @@ def evaluate(  # noqa: D417
             when making predictions, such as ``{"max_tokens": 100}``. This is only used when
             the ``model`` is an MLflow Deployments endpoint URI e.g. ``"endpoints:/my-chat"``
 
+        model_id: (Optional) The ID of the MLflow LoggedModel or Model Version to which the
+                  evaluation results (e.g. metrics and traces) will be linked. If `model_id` is not
+                  specified but `model` is specified, the ID from `model` will be used.
+
     Returns:
         An :py:class:`mlflow.models.EvaluationResult` instance containing
         metrics of evaluating the model with the given dataset.
@@ -1678,7 +1687,10 @@ def evaluate(  # noqa: D417
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    specified_model_id = model_id
+    model_id = None
     if isinstance(model, str):
+        model_id = _parse_model_id_if_present(model)
         if _is_model_deployment_endpoint_uri(model):
             model = _get_model_from_deployment_endpoint_uri(model, inference_params)
         else:
@@ -1690,6 +1702,7 @@ def evaluate(  # noqa: D417
             error_code=INVALID_PARAMETER_VALUE,
         )
     elif isinstance(model, PyFuncModel):
+        model_id = model.model_id
         if model_config:
             raise MlflowException(
                 message="Indicating ``model_config`` when passing a `PyFuncModel`` object as "
@@ -1708,6 +1721,20 @@ def evaluate(  # noqa: D417
             "a function, or None.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+    # If model_id is specified, verify it matches the derived model_id
+    if specified_model_id is not None and model_id is not None and specified_model_id != model_id:
+        raise MlflowException(
+            message=(
+                f"The specified value of the 'model_id' parameter '{specified_model_id}' "
+                f"contradicts the model_id '{model_id}' associated with the model. Please ensure "
+                f"they match or omit the 'model_id' parameter."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Use specified model_id if provided, otherwise use derived model_id
+    model_id = specified_model_id if specified_model_id is not None else model_id
 
     evaluators: list[EvaluatorBundle] = resolve_evaluators_and_configs(
         evaluators, evaluator_config, model_type
@@ -1743,7 +1770,9 @@ def evaluate(  # noqa: D417
             client = MlflowClient()
             tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
             dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
-            client.log_inputs(run_id, [dataset_input])
+            client.log_inputs(
+                run_id, [dataset_input], models=[LoggedModelInput(model_id)] if model_id else None
+            )
         else:
             dataset = EvaluationDataset(
                 data,
@@ -1758,6 +1787,7 @@ def evaluate(  # noqa: D417
             evaluate_result = _evaluate(
                 model=model,
                 model_type=model_type,
+                model_id=model_id,
                 dataset=dataset,
                 run_id=run_id,
                 evaluator_name_list=evaluator_name_list,
@@ -1771,6 +1801,10 @@ def evaluate(  # noqa: D417
         finally:
             if isinstance(model, _ServedPyFuncModel):
                 os.kill(model.pid, signal.SIGTERM)
+
+        # if model_id is specified log metrics to the eval run and logged model
+        if model_id is not None:
+            mlflow.log_metrics(metrics=evaluate_result.metrics, dataset=data, model_id=model_id)
 
     # TODO: Remove this block in a future release when we
     # remove the deprecated arguments.
@@ -1793,6 +1827,7 @@ def evaluate(  # noqa: D417
         baseline_result = _evaluate(
             model=baseline_model,
             model_type=model_type,
+            model_id=model_id,
             dataset=dataset,
             run_id=run_id,
             evaluator_name_list=evaluator_name_list,

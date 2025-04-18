@@ -9,7 +9,6 @@ import anthropic
 import autogen
 import boto3
 import dspy
-import fastai
 import google.genai
 import groq
 import keras
@@ -49,7 +48,6 @@ from tests.helper_functions import start_mock_openai_server
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
     keras: mlflow.keras,
-    fastai: mlflow.fastai,
     sklearn: mlflow.sklearn,
     xgboost: mlflow.xgboost,
     lightgbm: mlflow.lightgbm,

@@ -24,6 +24,7 @@ from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
+    maybe_get_logged_model_id,
     maybe_get_request_id,
 )
 from mlflow.tracking.client import MlflowClient
@@ -31,7 +32,7 @@ from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunCon
 from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
-from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.tracking.fluent import _get_experiment_id, get_active_model_id
 from mlflow.utils.mlflow_tags import TRACE_RESOLVE_TAGS_ALLOWLIST
 
 _logger = logging.getLogger(__name__)
@@ -114,6 +115,9 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         if run := _get_latest_active_run():
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
 
+        if model_id := maybe_get_logged_model_id():
+            metadata[TraceMetadataKey.MODEL_ID] = model_id
+
         experiment_id = self._get_experiment_id_for_trace(span)
         if experiment_id == DEFAULT_EXPERIMENT_ID and not self._issued_default_exp_warning:
             _logger.warning(
@@ -167,12 +171,14 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             return
 
         request_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+        # TODO: We should remove the model ID from the span attributes
+        model_id = get_otel_attribute(span, SpanAttributeKey.MODEL_ID)
         with self._trace_manager.get_trace(request_id) as trace:
             if trace is None:
                 _logger.debug(f"Trace data with request ID {request_id} not found.")
                 return
 
-            self._update_trace_info(trace, span)
+            self._update_trace_info(trace, span, model_id)
             deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
         super().on_end(span)
@@ -200,7 +206,9 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
         return _get_experiment_id()
 
-    def _update_trace_info(self, trace: _Trace, root_span: OTelReadableSpan):
+    def _update_trace_info(
+        self, trace: _Trace, root_span: OTelReadableSpan, model_id: Optional[str]
+    ):
         """Update the trace info with the final values from the root span."""
         # The trace/span start time needs adjustment to exclude the latency of
         # the backend API call. We already adjusted the span start time in the
@@ -218,6 +226,12 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 ),
             }
         )
+        # model_id is used in start_span and passed as attribute, so it should
+        # be used even if active_model_id exists
+        if model_id is not None:
+            trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = model_id
+        elif active_model_id := get_active_model_id():
+            trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = active_model_id
 
     def _truncate_metadata(self, value: Optional[str]) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""

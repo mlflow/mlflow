@@ -21,6 +21,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import (
     convert_lc_generation_to_chat_message,
@@ -43,7 +44,8 @@ _should_attach_span_to_context = ContextVar("should_attach_span_to_context", def
 def patched_callback_manager_init(original, self, *args, **kwargs):
     original(self, *args, **kwargs)
 
-    if not AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME).log_traces:
+    autologging_config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
+    if not autologging_config.log_traces:
         return
 
     for handler in self.inheritable_handlers:
@@ -175,6 +177,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     attributes=attributes,
                     tags=dependencies_schemas,
                 )
+                if span.request_id == NO_OP_SPAN_REQUEST_ID:
+                    _logger.debug("No Op span was created, the trace will not be recorded.")
 
             # Attach the span to the current context to mark it "active"
             token = set_span_in_context(span) if _should_attach_span_to_context.get() else None

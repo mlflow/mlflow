@@ -138,9 +138,9 @@ def test_trace_info_serialization_deserialization(trace_info_proto):
 
 
 def test_trace_info_v3(trace_info):
-    v3_proto = trace_info.to_v3_proto("request", "response")
-    assert v3_proto.request == "request"
-    assert v3_proto.response == "response"
+    v3_proto = trace_info.to_v3("request", "response").to_proto()
+    assert v3_proto.request_preview == "request"
+    assert v3_proto.response_preview == "response"
     assert v3_proto.trace_id == "request_id"
     assert isinstance(v3_proto.request_time, Timestamp)
     assert v3_proto.request_time.ToSeconds() == 0

@@ -73,6 +73,8 @@ logger = logging.getLogger(__name__)
 
 @lru_cache
 def base_lc_types():
+    # add this import to avoid missing module error
+    import langchain.agents
     import langchain.agents.agent
     import langchain.chains.base
     import langchain.schema
@@ -245,6 +247,7 @@ def _get_supported_llms():
     safe_import_and_add("langchain.langchain_huggingface", "HuggingFacePipeline")
     safe_import_and_add("langchain_openai", "OpenAI")
     safe_import_and_add("langchain_databricks", "ChatDatabricks")
+    safe_import_and_add("databricks_langchain", "ChatDatabricks")
 
     for llm_name in ["Databricks", "Mlflow"]:
         safe_import_and_add("langchain.llms", llm_name)
@@ -555,7 +558,7 @@ def patch_langchain_type_to_cls_dict(func):
             return AzureChatOpenAI
 
         def _load_chat_databricks():
-            from langchain_databricks import ChatDatabricks
+            from databricks_langchain import ChatDatabricks
 
             return ChatDatabricks
 
@@ -570,7 +573,11 @@ def patch_langchain_type_to_cls_dict(func):
 
             return _wrapped
 
-        modules_to_patch = ["langchain.llms", "langchain_community.llms.loading"]
+        modules_to_patch = [
+            "langchain_databricks",
+            "langchain.llms",
+            "langchain_community.llms.loading",
+        ]
         originals = {}
         for name in modules_to_patch:
             try:

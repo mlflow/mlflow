@@ -1,13 +1,17 @@
 from unittest import mock
 
+import importlib_metadata
 from llama_index.core.instrumentation import get_dispatcher
 from llama_index.core.instrumentation.event_handlers.base import BaseEventHandler
 from llama_index.core.instrumentation.span_handlers.base import BaseSpanHandler
 from llama_index.llms.openai import OpenAI
+from packaging.version import Version
 
 import mlflow
 
 from tests.tracing.helper import get_traces
+
+llama_core_version = Version(importlib_metadata.version("llama-index-core"))
 
 
 def test_autolog_enable_tracing(multi_index):

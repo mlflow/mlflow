@@ -16,22 +16,12 @@ from dev.update_mlflow_versions import (
 )
 
 # { filename: expected lines changed }
-_JAVA_FILES = {
-    "mlflow/java/scoring/src/main/java/org/mlflow/sagemaker/ScoringServer.java": {
-        175: '      response.getWriter().print("{new_version}");',
-    },
-    "mlflow/java/scoring/src/test/java/org/mlflow/ScoringServerTest.java": {
-        81: '    Assert.assertEquals("{new_version}", responseBody);',
-    },
-}
+_JAVA_FILES = {}
 
 _JAVA_XML_FILES = {
     "mlflow/java/pom.xml": {
         6: "  <version>{new_version}</version>",
         62: "    <mlflow-version>{new_version}</mlflow-version>",
-    },
-    "mlflow/java/scoring/pom.xml": {
-        8: "    <version>{new_version}</version>",
     },
     "mlflow/java/client/pom.xml": {
         8: "    <version>{new_version}</version>",

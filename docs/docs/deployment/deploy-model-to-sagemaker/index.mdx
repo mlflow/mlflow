@@ -27,12 +27,6 @@ and creates a SageMaker endpoint using this image. It also uploads the model art
 The container provides the same REST endpoints as a local inference server. For instance, the `/invocations` endpoint accepts CSV and JSON input data and returns
 prediction results. For more details on the endpoints, refer to [Local Inference Server](/deployment/deploy-model-locally#local-inference-server-spec).
 
-:::note
-In addition to the general `pyfunc` deployment (default), SageMaker deployment also supports the `mleap` flavor. For this deployment flavor,
-the endpoint only accepts JSON-serialized pandas DataFrames in the `split` orientation, like `data = pandas_df.to_json(orient='split')`.
-This format is specified using a `Content-Type` request header value of `application/json`.
-:::
-
 ## Deploying Model to SageMaker Endpoint
 
 This section outlines the process of deploying a model to SageMaker using the MLflow CLI. For Python API references and tutorials,

@@ -1,7 +1,9 @@
 import logging
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
+from typing import Optional
 
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
@@ -39,7 +41,7 @@ class AbstractStore:
     # CRUD API for RegisteredModel objects
 
     @abstractmethod
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -48,6 +50,7 @@ class AbstractStore:
             tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                 instances associated with this registered model.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -56,13 +59,14 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """
         Update description of the registered model.
 
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -180,6 +184,8 @@ class AbstractStore:
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
+        model_params: Optional[list[LoggedModelParameter]] = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -198,6 +204,9 @@ class AbstractStore:
                 a redundant download from the source location when logging
                 and registering a model via a single
                 mlflow.<flavor>.log_model(..., registered_model_name) call
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
+            model_params: The parameters of the model (from an Experiment) that is being promoted
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`

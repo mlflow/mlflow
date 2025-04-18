@@ -31,6 +31,7 @@ CREATE TABLE inputs (
 	source_id VARCHAR(36) NOT NULL,
 	destination_type VARCHAR(36) NOT NULL,
 	destination_id VARCHAR(36) NOT NULL,
+	step BIGINT DEFAULT '0' NOT NULL,
 	PRIMARY KEY (source_type, source_id, destination_type, destination_id)
 )
 
@@ -64,6 +65,24 @@ CREATE TABLE experiment_tags (
 	experiment_id INTEGER NOT NULL,
 	PRIMARY KEY (key, experiment_id),
 	CONSTRAINT experiment_tags_ibfk_1 FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE logged_models (
+	model_id VARCHAR(36) NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(500) NOT NULL,
+	artifact_location VARCHAR(1000) NOT NULL,
+	creation_timestamp_ms BIGINT NOT NULL,
+	last_updated_timestamp_ms BIGINT NOT NULL,
+	status INTEGER NOT NULL,
+	lifecycle_stage VARCHAR(32),
+	model_type VARCHAR(500),
+	source_run_id VARCHAR(32),
+	status_message VARCHAR(1000),
+	PRIMARY KEY (model_id),
+	CONSTRAINT fk_logged_models_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
+	CONSTRAINT logged_models_lifecycle_stage_check CHECK ((`lifecycle_stage` in (_utf8mb4'active',_utf8mb4'deleted')))
 )
 
 
@@ -148,6 +167,46 @@ CREATE TABLE latest_metrics (
 	PRIMARY KEY (key, run_uuid),
 	CONSTRAINT latest_metrics_ibfk_1 FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid),
 	CONSTRAINT latest_metrics_chk_1 CHECK ((`is_nan` in (0,1)))
+)
+
+
+CREATE TABLE logged_model_metrics (
+	model_id VARCHAR(36) NOT NULL,
+	metric_name VARCHAR(500) NOT NULL,
+	metric_timestamp_ms BIGINT NOT NULL,
+	metric_step BIGINT NOT NULL,
+	metric_value DOUBLE,
+	experiment_id INTEGER NOT NULL,
+	run_id VARCHAR(32) NOT NULL,
+	dataset_uuid VARCHAR(36),
+	dataset_name VARCHAR(500),
+	dataset_digest VARCHAR(36),
+	PRIMARY KEY (model_id, metric_name, metric_timestamp_ms, metric_step, run_id),
+	CONSTRAINT fk_logged_model_metrics_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_logged_model_metrics_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE,
+	CONSTRAINT fk_logged_model_metrics_run_id FOREIGN KEY(run_id) REFERENCES runs (run_uuid) ON DELETE CASCADE
+)
+
+
+CREATE TABLE logged_model_params (
+	model_id VARCHAR(36) NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	param_key VARCHAR(255) NOT NULL,
+	param_value TEXT NOT NULL,
+	PRIMARY KEY (model_id, param_key),
+	CONSTRAINT fk_logged_model_params_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_logged_model_params_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE logged_model_tags (
+	model_id VARCHAR(36) NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	tag_key VARCHAR(255) NOT NULL,
+	tag_value TEXT NOT NULL,
+	PRIMARY KEY (model_id, tag_key),
+	CONSTRAINT fk_logged_model_tags_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_logged_model_tags_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE
 )
 
 

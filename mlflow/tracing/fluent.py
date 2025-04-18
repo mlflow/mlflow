@@ -67,6 +67,7 @@ def trace(
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
     output_reducer: Optional[Callable] = None,
+    model_id: Optional[str] = None,
 ) -> Callable:
     """
     A decorator that creates a new span for the decorated function.
@@ -157,6 +158,7 @@ def trace(
         attributes: A dictionary of attributes to set on the span.
         output_reducer: A function that reduces the outputs of the generator function into a
             single value to be set as the span output.
+        model_id: If specified, associates the span with the given model ID.
     """
 
     def decorator(fn):
@@ -167,7 +169,7 @@ def trace(
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions."
                 )
-            return _wrap_function(fn, name, span_type, attributes)
+            return _wrap_function(fn, name, span_type, attributes, model_id)
 
     return decorator(func) if func else decorator
 
@@ -177,6 +179,7 @@ def _wrap_function(
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
+    model_id: Optional[str] = None,
 ) -> Callable:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -185,7 +188,9 @@ def _wrap_function(
         def _wrapping_logic(fn, args, kwargs):
             span_name = name or fn.__name__
 
-            with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
+            with start_span(
+                name=span_name, span_type=span_type, attributes=attributes, model_id=model_id
+            ) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
                 span.set_inputs(capture_function_input_args(fn, args, kwargs))
                 result = yield  # sync/async function output to be sent here
@@ -363,6 +368,7 @@ def start_span(
     name: str = "span",
     span_type: Optional[str] = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
+    model_id: Optional[str] = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -415,6 +421,7 @@ def start_span(
         span_type: The type of the span. Can be either a string or
             a :py:class:`SpanType <mlflow.entities.SpanType>` enum value
         attributes: A dictionary of attributes to set on the span.
+        model_id: If specified, associates the span with the given model ID.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
@@ -425,7 +432,10 @@ def start_span(
         # Create a new MLflow span and register it to the in-memory trace manager
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
         mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
-        mlflow_span.set_attributes(attributes or {})
+        attributes = dict(attributes) if attributes is not None else {}
+        if model_id is not None:
+            attributes[SpanAttributeKey.MODEL_ID] = model_id
+        mlflow_span.set_attributes(attributes)
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
     except Exception:
@@ -496,6 +506,8 @@ def search_traces(
     extract_fields: Optional[list[str]] = None,
     run_id: Optional[str] = None,
     return_type: Literal["pandas", "list"] = "pandas",
+    model_id: Optional[str] = None,
+    sql_warehouse_id: Optional[str] = None,
 ) -> Union["pandas.DataFrame", list[Trace]]:
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -552,6 +564,10 @@ def search_traces(
                 where each row represents a single trace and each column represents a field of the
                 trace e.g. request_id, spans, etc.
             - `"list"`: Returns a list of :py:class:`Trace <mlflow.entities.Trace>` objects.
+
+        model_id: If specified, search traces associated with the given model ID.
+        sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
+            searching traces in inference tables.
 
     Returns:
         Traces that satisfy the search expressions. Either as a list of
@@ -641,6 +657,8 @@ def search_traces(
             filter_string=filter_string,
             order_by=order_by,
             page_token=next_page_token,
+            model_id=model_id,
+            sql_warehouse_id=sql_warehouse_id,
         )
 
     results = get_results_from_paginated_fn(
