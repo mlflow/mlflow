@@ -11,9 +11,7 @@ class _BaseBuiltInScorer(BuiltInScorer):
 
     def update_evaluation_config(self, evaluation_config) -> dict:
         config = deepcopy(evaluation_config)
-        config.setdefault("databricks-agents", {}).setdefault("metrics", []).append(
-            self.name
-        )
+        config.setdefault("databricks-agents", {}).setdefault("metrics", []).append(self.name)
         return config
 
 
