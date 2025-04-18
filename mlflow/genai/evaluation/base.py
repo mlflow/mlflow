@@ -10,6 +10,10 @@ from mlflow.genai.evaluation.utils import (
     _convert_to_legacy_eval_set,
 )
 from mlflow.genai.scorers import BuiltInScorer, Scorer
+from mlflow.models.evaluation.base import (
+    _get_model_from_deployment_endpoint_uri,
+    _is_model_deployment_endpoint_uri,
+)
 from mlflow.tracing.utils import is_model_traced
 
 try:
@@ -31,7 +35,7 @@ def evaluate(
     predict_fn: Optional[Callable[..., Any]] = None,
     scorers: Optional[list[Scorer]] = None,
     model_id: Optional[str] = None,
-) -> mlflow.genai.EvaluationResult:
+) -> EvaluationResult:
     """
     TODO: updating docstring with real examples and API links
     Args:
@@ -90,7 +94,7 @@ def evaluate(
     builtin_scorers = []
     custom_scorers = []
 
-    for scorer in scorers:
+    for scorer in scorers or []:
         if isinstance(scorer, BuiltInScorer):
             builtin_scorers.append(scorer)
         elif isinstance(scorer, Scorer):
@@ -127,3 +131,25 @@ def evaluate(
         extra_metrics=extra_metrics,
         model_type="databricks-agent",
     )
+
+
+def to_predict_fn(endpoint_uri: str) -> Callable:
+    """
+    Convert an endpoint URI to a predict function.
+
+    Args:
+        endpoint_uri: The endpoint URI to convert.
+
+    Returns:
+        A predict function that can be used to make predictions.
+    """
+    if not _is_model_deployment_endpoint_uri(endpoint_uri):
+        raise ValueError(
+            f"Invalid endpoint URI: {endpoint_uri}. The endpoint URI must be a valid model deployment endpoint URI."
+        )
+
+    model = _get_model_from_deployment_endpoint_uri(endpoint_uri)
+    if model is None:
+        raise ValueError(f"Model not found for endpoint URI: {endpoint_uri}")
+
+    return model.predict
