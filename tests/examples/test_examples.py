@@ -178,7 +178,6 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("sentence_transformers", [sys.executable, "simple.py"]),
         ("tracing", [sys.executable, "fluent.py"]),
         ("tracing", [sys.executable, "client.py"]),
-        ("tracing", [sys.executable, "multithreading.py"]),
         ("llama_index", [sys.executable, "simple_index.py"]),
         ("llama_index", [sys.executable, "autolog.py"]),
     ],

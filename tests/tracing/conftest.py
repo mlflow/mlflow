@@ -49,7 +49,7 @@ def mock_store(monkeypatch):
     API calls, so the rest of the tracking API calls the actual tracking store e.g. create_run().
     """
     store = mlflow.tracking._tracking_service.utils._get_store()
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
+    with mock.patch("mlflow.tracing.client._get_store") as mock_get_store:
         mock_get_store.return_value = store
 
         _traces: dict[str, TraceInfo] = {}

@@ -10,10 +10,10 @@ from autogen import Agent, ConversableAgent
 from autogen.logger.base_logger import BaseLogger
 from openai.types.chat import ChatCompletion
 
-from mlflow import MlflowClient
 from mlflow.entities.span import NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import capture_function_input_args
 from mlflow.utils.autologging_utils import autologging_is_disabled
 from mlflow.utils.autologging_utils.safety import safe_patch
@@ -66,7 +66,6 @@ def _catch_exception(func):
 
 class MlflowAutogenLogger(BaseLogger):
     def __init__(self):
-        self._client = MlflowClient()
         self._chat_state = ChatState()
 
     def start(self) -> str:
@@ -122,7 +121,7 @@ class MlflowAutogenLogger(BaseLogger):
 
             if self._chat_state.session_span is None:
                 # Create the trace per chat session
-                span = self._client.start_trace(
+                span = start_span_no_context(
                     name=original.__name__,
                     span_type=span_type,
                     inputs=capture_function_input_args(original, args, kwargs),
@@ -135,9 +134,7 @@ class MlflowAutogenLogger(BaseLogger):
                     self._record_exception(span, e)
                     raise e
                 finally:
-                    self._client.end_trace(
-                        request_id=span.request_id, outputs=result, status=span.status
-                    )
+                    span.end(outputs=result)
                     # Clear the state to start a new chat session
                     self._chat_state.clear()
             elif not root_only:
@@ -153,12 +150,7 @@ class MlflowAutogenLogger(BaseLogger):
                     self._record_exception(span, e)
                     raise e
                 finally:
-                    self._client.end_span(
-                        request_id=span.request_id,
-                        span_id=span.span_id,
-                        outputs=result,
-                        status=span.status,
-                    )
+                    span.end(outputs=result)
                     self._chat_state.pending_spans.append(span)
             else:
                 result = original(*args, **kwargs)
@@ -190,13 +182,12 @@ class MlflowAutogenLogger(BaseLogger):
             _logger.warning("Failed to start span. No active chat session.")
             return NoOpSpan()
 
-        return self._client.start_span(
-            request_id=self._chat_state.session_span.request_id,
+        return start_span_no_context(
             # Tentatively set the parent ID to the session root span, because we
             # cannot create a span without a parent span (otherwise it will start
             # a new trace). The actual parent will be determined once the chat
             # message is received.
-            parent_id=self._chat_state.session_span.span_id,
+            parent_span=self._chat_state.session_span,
             name=name,
             span_type=span_type,
             inputs=inputs,
@@ -218,12 +209,7 @@ class MlflowAutogenLogger(BaseLogger):
                     span_type=SpanType.AGENT,
                     start_time_ns=self._chat_state.last_message_timestamp,
                 )
-                self._client.end_span(
-                    request_id=span.request_id,
-                    span_id=span.span_id,
-                    outputs=kwargs,
-                    end_time_ns=event_end_time,
-                )
+                span.end(outputs=kwargs, end_time_ns=event_end_time)
 
                 # Re-locate the pended spans under this message span
                 for child_span in self._chat_state.pending_spans:
@@ -264,12 +250,7 @@ class MlflowAutogenLogger(BaseLogger):
             },
             start_time_ns=start_time_ns,
         )
-        self._client.end_span(
-            request_id=span.request_id,
-            span_id=span.span_id,
-            outputs=response,
-            end_time_ns=time.time_ns(),
-        )
+        span.end(outputs=response, end_time_ns=time.time_ns())
         self._chat_state.pending_spans.append(span)
 
     # The following methods are not used but are required to implement the BaseLogger interface.
