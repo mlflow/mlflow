@@ -184,9 +184,7 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    saved_example = _save_example(
-        mlflow_model, input_example, path
-    )
+    saved_example = _save_example(mlflow_model, input_example, path)
 
     if task is not None:
         signature = ModelSignature(

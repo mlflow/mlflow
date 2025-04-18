@@ -10,7 +10,6 @@ import shutil
 import sys
 import tempfile
 import uuid
-import warnings
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
