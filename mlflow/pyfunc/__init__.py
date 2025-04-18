@@ -411,7 +411,6 @@ import sys
 import tempfile
 import threading
 import uuid
-import warnings
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple, Union

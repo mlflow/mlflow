@@ -1129,14 +1129,6 @@ def test_model_with_code_path_containing_main(tmp_path):
     assert "__main__" in sys.modules
 
 
-def test_deprecation_warning_for_code_path(tmp_path):
-    pyfunc_model_path = tmp_path.joinpath("pyfunc_model")
-    directory = tmp_path.joinpath("model_with_main")
-    directory.mkdir()
-    main = directory.joinpath("__main__.py")
-    main.write_text("# empty main")
-
-
 def test_model_save_load_with_metadata(tmp_path):
     pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
 
