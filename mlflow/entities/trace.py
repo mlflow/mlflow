@@ -14,7 +14,6 @@ from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_trace_server_pb2 import Trace as ProtoTrace
-from mlflow.protos.databricks_trace_server_pb2 import TraceData as ProtoTraceData
 
 _logger = logging.getLogger(__name__)
 
@@ -247,5 +246,5 @@ class Trace(_MlflowObject):
         return ProtoTrace(
             # Convert MLflow's TraceInfoV3 to Databricks Trace Server's TraceInfo
             info=self.info.to_proto(),
-            data=ProtoTraceData(spans=[span.to_proto() for span in self.data.spans]),
+            data=self.data.to_proto(),
         )
