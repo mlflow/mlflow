@@ -18,7 +18,7 @@ import pytest
 import mlflow
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
-from mlflow import MlflowClient
+from mlflow import MlflowClient, set_active_model
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
@@ -35,6 +35,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
+    MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_REGISTRY_URI,
@@ -47,6 +48,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking.fluent import (
     _get_experiment_id,
     _get_experiment_id_from_env,
@@ -64,6 +66,7 @@ from mlflow.utils.async_logging.async_logging_queue import (
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import multi_context
+from tests.tracing.helper import get_traces
 
 
 def create_run(
@@ -1927,3 +1930,110 @@ def test_search_logged_models_pagination():
             ),
         ]
         mock_client.search_logged_models.assert_has_calls(expected_calls)
+
+
+def test_set_active_model():
+    assert mlflow.get_active_model_id() is None
+
+    model = mlflow.create_external_model(name="test_model")
+
+    set_active_model(name=model.name)
+    assert mlflow.get_active_model_id() == model.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+
+    set_active_model(model_id=model.model_id)
+    assert mlflow.get_active_model_id() == model.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+
+    model2 = mlflow.create_external_model(name="test_model")
+    set_active_model(name="test_model")
+    assert mlflow.get_active_model_id() == model2.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == model2.model_id
+
+    set_active_model(name="new_model")
+    logged_model = mlflow.search_logged_models(
+        filter_string="name='new_model'", output_format="list"
+    )[0]
+    assert logged_model.name == "new_model"
+    assert mlflow.get_active_model_id() == logged_model.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
+
+    with set_active_model(model_id=model.model_id) as active_model:
+        assert active_model.model_id == model.model_id
+        assert mlflow.get_active_model_id() == model.model_id
+        assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+        with set_active_model(name="new_model"):
+            assert mlflow.get_active_model_id() == logged_model.model_id
+            assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
+        assert mlflow.get_active_model_id() == model.model_id
+        assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+    assert mlflow.get_active_model_id() == logged_model.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
+
+
+def test_set_active_model_error():
+    with pytest.raises(MlflowException, match=r"Either name or model_id must be provided"):
+        set_active_model()
+
+    model = mlflow.create_external_model(name="test_model")
+    with pytest.raises(MlflowException, match=r"does not match the provided name"):
+        set_active_model(name="abc", model_id=model.model_id)
+
+    with pytest.raises(MlflowException, match=r"Logged model with ID '1234' not found"):
+        set_active_model(model_id="1234")
+
+
+def test_set_active_model_env_var(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "1234")
+    assert mlflow.get_active_model_id() == "1234"
+
+    with set_active_model(name="abc") as model:
+        model_id = mlflow.get_active_model_id()
+        assert model_id == model.model_id
+        assert MLFLOW_ACTIVE_MODEL_ID.get() == model_id
+    assert mlflow.get_active_model_id() == "1234"
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == "1234"
+
+    monkeypatch.delenv(MLFLOW_ACTIVE_MODEL_ID.name)
+    assert mlflow.get_active_model_id() is None
+    assert MLFLOW_ACTIVE_MODEL_ID.get() is None
+
+
+def test_set_active_model_link_traces():
+    set_active_model(name="test_model")
+    model_id = mlflow.get_active_model_id()
+    assert model_id is not None
+
+    @mlflow.trace
+    def predict(model_input):
+        return model_input
+
+    for i in range(3):
+        predict(model_input=i)
+
+    traces = get_traces()
+    assert len(traces) == 3
+    for trace in traces:
+        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
+
+    # manual start span without model_id
+    with mlflow.start_span():
+        predict(model_input=1)
+    traces = get_traces()
+    assert len(traces) == 4
+    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
+
+    # manual start span with model_id
+    with mlflow.start_span(model_id="1234"):
+        predict(model_input=1)
+
+    traces = get_traces()
+    assert len(traces) == 5
+    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == "1234"
+
+    with set_active_model(name="new_model") as new_model:
+        predict(model_input=1)
+    traces = get_traces()
+    assert len(traces) == 6
+    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == new_model.model_id
+    assert new_model.model_id != model_id

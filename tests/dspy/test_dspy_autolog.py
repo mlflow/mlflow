@@ -16,6 +16,7 @@ from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
+from mlflow import set_active_model
 from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
@@ -863,6 +864,7 @@ def test_autolog_log_compile_with_evals():
 
 
 def test_autolog_link_traces_loaded_model_custom_module():
+    mlflow.dspy.autolog()
     dspy.settings.configure(
         lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}] * 5)
     )
@@ -873,20 +875,15 @@ def test_autolog_link_traces_loaded_model_custom_module():
         with mlflow.start_run():
             model_infos.append(mlflow.dspy.log_model(dspy_model, "model"))
 
-    loaded_model_and_ids = []
     for model_info in model_infos:
-        loaded_model_and_ids.append(
-            (mlflow.dspy.load_model(model_info.model_uri), model_info.model_id)
-        )
-    mlflow.dspy.autolog()
-    for model, model_id in loaded_model_and_ids:
-        model(model_id)
+        loaded_model = mlflow.dspy.load_model(model_info.model_uri)
+        loaded_model(model_info.model_id)
 
     traces = get_traces()
     assert len(traces) == len(model_infos)
     for trace in traces:
         model_id = json.loads(trace.data.request)["args"][0]
-        assert model_id == trace.data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+        assert model_id == trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
 
 
 def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
@@ -901,163 +898,38 @@ def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
         with mlflow.start_run():
             model_infos.append(mlflow.dspy.log_model(dspy_model, "model"))
 
-    pyfunc_model_and_ids = []
     for model_info in model_infos:
-        pyfunc_model_and_ids.append(
-            (mlflow.pyfunc.load_model(model_info.model_uri), model_info.model_id)
-        )
-
-    for model, model_id in pyfunc_model_and_ids:
-        model.predict(model_id)
+        pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+        pyfunc_model.predict(model_info.model_id)
 
     traces = get_traces()
     assert len(traces) == len(model_infos)
     for trace in traces:
         model_id = json.loads(trace.data.request)["args"][0]
-        assert model_id == trace.data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
+        assert model_id == trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
 
 
-def test_autolog_link_traces_logged_model():
-    mlflow.dspy.autolog()
-
-    dspy.settings.configure(
-        lm=DummyLM(
-            [
-                {
-                    "answer": "test output",
-                    "reasoning": "No more responses",
-                }
-            ]
-            * 3
-        )
-    )
-
-    dspy_model = CoT()
-    with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(dspy_model, "model")
-    dspy_model("test")
-
-    dspy_model2 = CoT()
-    with mlflow.start_run():
-        model_info2 = mlflow.dspy.log_model(dspy_model2, "model2")
-
-    dspy_model2("test")
-    dspy_model("test")
-    traces = get_traces()
-    assert len(traces) == 3
-    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
-    assert traces[1].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info2.model_id
-    assert traces[2].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
-
-
-def test_autolog_with_pyfunc_model_link_traces():
-    class MyModel(mlflow.pyfunc.PythonModel):
-        def __init__(self):
-            self.dspy_model = CoT()
-
-        @mlflow.trace
-        def predict(self, model_input):
-            return self.dspy_model(model_input)
-
+def test_autolog_link_traces_active_model():
+    model = mlflow.create_external_model(name="test_model")
+    set_active_model(model_id=model.model_id)
     mlflow.dspy.autolog()
     dspy.settings.configure(
-        lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}])
+        lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}] * 5)
     )
-    with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
-    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    loaded_model.predict("test")
-
-    traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_info.model_id
-
-
-@pytest.mark.parametrize("log_models", [False, True])
-def test_autolog_log_models_and_link_traces(log_models):
-    mlflow.dspy.autolog(log_models=log_models)
-
-    dspy.settings.configure(
-        lm=DummyLM(
-            [
-                {
-                    "answer": "test output",
-                    "reasoning": "No more responses",
-                }
-            ]
-            * 6
-        )
-    )
-
     dspy_model = CoT()
-    with mlflow.start_run() as run:
-        for _ in range(5):
-            dspy_model("test")
+
+    model_infos = []
+    for _ in range(5):
+        with mlflow.start_run():
+            model_infos.append(mlflow.dspy.log_model(dspy_model, "model"))
+
+    for model_info in model_infos:
+        pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+        pyfunc_model.predict(model_info.model_id)
 
     traces = get_traces()
-    assert len(traces) == 5
-    logged_models = mlflow.search_logged_models(
-        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
-    )
-    if log_models:
-        assert len(logged_models) == 1
-        logged_model = logged_models[0]
-        for i in range(5):
-            assert (
-                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
-                == logged_model.model_id
-            )
-    else:
-        assert len(logged_models) == 0
-        for i in range(5):
-            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
-
-
-def test_autolog_create_new_model_logged_after_loaded():
-    mlflow.dspy.autolog()
-
-    dspy.settings.configure(
-        lm=DummyLM(
-            [
-                {
-                    "answer": "test output",
-                    "reasoning": "No more responses",
-                }
-            ]
-            * 3
-        )
-    )
-
-    dspy_model = CoT()
-    with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(dspy_model, "model")
-    loaded_model_id = model_info.model_id
-    loaded_model = mlflow.dspy.load_model(model_info.model_uri)
-    dspy_model("test")
-    loaded_model("test")
-    traces = get_traces()
-    assert len(traces) == 2
-    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == loaded_model_id
-    assert traces[1].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == loaded_model_id
-
-    # log the model again will create a new LoggedModel
-    with mlflow.start_run():
-        model_info2 = mlflow.dspy.log_model(dspy_model, "model2")
-    assert model_info2.model_id != loaded_model_id
-
-    # dspy_model links to the latest model_id
-    dspy_model("test")
-    traces = get_traces()
-    assert len(traces) == 3
-    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info2.model_id
-
-    loaded_model2 = mlflow.dspy.load_model(model_info2.model_uri)
-    loaded_model2("test")
-    traces = get_traces()
-    assert len(traces) == 4
-    assert traces[0].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info2.model_id
-
-    # log the loaded model again will create a new LoggedModel
-    with mlflow.start_run():
-        model_info3 = mlflow.dspy.log_model(loaded_model, "model3")
-    assert model_info3.model_id != loaded_model_id
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        model_id = json.loads(trace.data.request)["args"][0]
+        assert model_id != model.model_id
+        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
