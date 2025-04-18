@@ -61,8 +61,12 @@ class TraceData:
     # `request` and `response` are preserved for backward compatibility with v2
     @property
     def request(self) -> Optional[str]:
-        return self._get_root_span().get_attribute(SpanAttributeKey.INPUTS)
+        if span := self._get_root_span():
+            return span.get_attribute(SpanAttributeKey.INPUTS)
+        return None
 
     @property
     def response(self) -> Optional[str]:
-        return self._get_root_span().get_attribute(SpanAttributeKey.OUTPUTS)
+        if span := self._get_root_span():
+            return span.get_attribute(SpanAttributeKey.OUTPUTS)
+        return None

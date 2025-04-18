@@ -181,6 +181,7 @@ def test_to_proto():
     trace = mlflow.get_last_active_trace()
     proto = trace.data.to_proto()
     assert len(proto.spans) == 1
+    # Ensure the legacy properties are not present
     assert not hasattr(proto, "request")
     assert not hasattr(proto, "response")
 
@@ -191,5 +192,25 @@ def test_to_dict():
     trace = mlflow.get_last_active_trace()
     trace_dict = trace.data.to_dict()
     assert len(trace_dict["spans"]) == 1
+    # Ensure the legacy properties are not present
     assert "request" not in trace_dict
     assert "response" not in trace_dict
+
+
+def test_request_and_response_are_still_available():
+    with mlflow.start_span() as s:
+        s.set_inputs("foo")
+        s.set_outputs("bar")
+
+    trace = mlflow.get_last_active_trace()
+    trace_data = trace.data
+    assert trace_data.request == "foo"
+    assert trace_data.response == "bar"
+
+    with mlflow.start_span():
+        pass
+
+    trace = mlflow.get_last_active_trace()
+    trace_data = trace.data
+    assert trace_data.request is None
+    assert trace_data.response is None
