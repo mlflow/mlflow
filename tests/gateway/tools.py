@@ -19,7 +19,7 @@ import yaml
 from sentence_transformers import SentenceTransformer
 
 import mlflow
-from mlflow.deployments.server import app
+from mlflow.gateway import app
 from mlflow.gateway.utils import kill_child_processes
 
 from tests.helper_functions import _get_mlflow_home, _start_scoring_proc, get_safe_port
