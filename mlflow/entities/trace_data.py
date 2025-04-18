@@ -62,11 +62,13 @@ class TraceData:
     @property
     def request(self) -> Optional[str]:
         if span := self._get_root_span():
-            return span.get_attribute(SpanAttributeKey.INPUTS)
+            # Accessing the OTel span directly get serialized value directly.
+            return span._span.attributes.get(SpanAttributeKey.INPUTS)
         return None
 
     @property
     def response(self) -> Optional[str]:
         if span := self._get_root_span():
-            return span.get_attribute(SpanAttributeKey.OUTPUTS)
+            # Accessing the OTel span directly get serialized value directly.
+            return span._span.attributes.get(SpanAttributeKey.OUTPUTS)
         return None
