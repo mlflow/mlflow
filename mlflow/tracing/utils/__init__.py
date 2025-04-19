@@ -6,6 +6,7 @@ import json
 import logging
 import uuid
 from collections import Counter
+from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional, Union
@@ -16,6 +17,7 @@ from packaging.version import Version
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
 
@@ -24,6 +26,9 @@ SPANS_COLUMN_NAME = "spans"
 if TYPE_CHECKING:
     from mlflow.entities import LiveSpan
     from mlflow.types.chat import ChatMessage, ChatTool
+
+    if not IS_TRACING_SDK_ONLY:
+        from mlflow.pyfunc.context import Context
 
 
 def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:
@@ -263,6 +268,21 @@ def construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
         arguments.pop("self")
 
     return arguments
+
+
+@contextmanager
+def maybe_set_prediction_context(context: Optional["Context"]):
+    """
+    Set the prediction context if the given context
+    is not None. Otherwise no-op.
+    """
+    if not IS_TRACING_SDK_ONLY and context:
+        from mlflow.pyfunc.context import set_prediction_context
+
+        with set_prediction_context(context):
+            yield
+    else:
+        yield
 
 
 def set_span_chat_messages(
