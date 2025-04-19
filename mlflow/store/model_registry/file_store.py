@@ -55,11 +55,8 @@ from mlflow.utils.file_utils import (
     local_file_uri_to_path,
     make_containing_dirs,
     mkdir,
-    overwrite_yaml,
     read_file,
-    read_yaml,
     write_to,
-    write_yaml,
 )
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
@@ -74,6 +71,7 @@ from mlflow.utils.validation import (
 from mlflow.utils.validation import (
     _validate_model_name as _original_validate_model_name,
 )
+from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
 
 
 def _default_root_dir():
