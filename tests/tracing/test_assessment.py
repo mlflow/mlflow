@@ -43,7 +43,6 @@ def test_log_expectation(store):
     assert assessment.feedback is None
     assert assessment.rationale is None
     assert assessment.metadata == {"key": "value"}
-    assert assessment.error is None
 
 
 def test_log_expectation_invalid_parameters():
@@ -117,10 +116,10 @@ def test_log_feedback(store):
     assert assessment.create_time_ms is not None
     assert assessment.last_update_time_ms is not None
     assert assessment.feedback.value == 1.0
+    assert assessment.feedback.error is None
     assert assessment.expectation is None
     assert assessment.rationale == "This answer is very faithful."
     assert assessment.metadata == {"model": "gpt-4o-mini"}
-    assert assessment.error is None
 
 
 def test_log_feedback_with_error(store):
@@ -147,9 +146,9 @@ def test_log_feedback_with_error(store):
     assert assessment.last_update_time_ms is not None
     assert assessment.expectation is None
     assert assessment.feedback.value is None
+    assert assessment.feedback.error.error_code == "RATE_LIMIT_EXCEEDED"
+    assert assessment.feedback.error.error_message == "Rate limit for the judge exceeded."
     assert assessment.rationale is None
-    assert assessment.error.error_code == "RATE_LIMIT_EXCEEDED"
-    assert assessment.error.error_message == "Rate limit for the judge exceeded."
 
 
 def test_log_feedback_with_value_and_error(store):
@@ -176,10 +175,10 @@ def test_log_feedback_with_value_and_error(store):
     assert assessment.create_time_ms is not None
     assert assessment.last_update_time_ms is not None
     assert assessment.expectation is None
-    assert assessment.feedback == Feedback(value=0.5)
+    assert assessment.feedback.value == 0.5
+    assert assessment.feedback.error.error_code == "RATE_LIMIT_EXCEEDED"
+    assert assessment.feedback.error.error_message == "Rate limit for the judge exceeded."
     assert assessment.rationale is None
-    assert assessment.error.error_code == "RATE_LIMIT_EXCEEDED"
-    assert assessment.error.error_message == "Rate limit for the judge exceeded."
 
 
 def test_log_feedback_invalid_parameters():

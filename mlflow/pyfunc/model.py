@@ -942,6 +942,8 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
+    # `mlflow_model.save` must be called before _validate_infer_and_copy_code_paths as it
+    # internally infers dependency, and MLmodel file is required to successfully load the model
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     saved_code_subpath = _validate_infer_and_copy_code_paths(

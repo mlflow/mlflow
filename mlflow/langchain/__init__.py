@@ -1021,28 +1021,39 @@ def autolog(
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
-    user_specified_args = {
-        key
-        for key, value in {
-            "log_input_examples": log_input_examples,
-            "log_model_signatures": log_model_signatures,
-            "log_models": log_models,
-            "log_datasets": log_datasets,
-            "registered_model_name": registered_model_name,
-            "extra_tags": extra_tags,
-        }.items()
-        if value is True or value is not None
-    }
-    if user_specified_args:
+    if log_models:
         color_warning(
-            "The following parameters are deprecated in langchain autologging and will be removed "
-            f"in a future release: `{', '.join(user_specified_args)}`. Langchain autologging will "
-            "not support automatic model logging and any related parameters. Please log your model "
-            "manually with `mlflow.langchain.log_model` if needed.",
+            "The `log_models` parameter's behavior will be changed in a future release. "
+            "MLflow no longer logs model artifacts automatically, use `mlflow.langchain.log_model` "
+            "to log model artifacts manually if needed.",
             stacklevel=2,
             color="red",
             category=FutureWarning,
         )
+    else:
+        user_specified_args = {
+            key
+            for key, value in {
+                "log_input_examples": log_input_examples,
+                "log_model_signatures": log_model_signatures,
+                "log_datasets": log_datasets,
+                "registered_model_name": registered_model_name,
+                "extra_tags": extra_tags,
+                "extra_model_classes": extra_model_classes,
+            }.items()
+            if value not in [False, None]
+        }
+        if user_specified_args:
+            color_warning(
+                "The following parameters are deprecated in langchain autologging and will be "
+                f"removed in a future release: `{', '.join(user_specified_args)}`. Langchain "
+                "autologging will not support automatic model artifacts logging and any "
+                "related parameters. Please log your model manually with "
+                "`mlflow.langchain.log_model` if needed.",
+                stacklevel=2,
+                color="yellow",
+                category=FutureWarning,
+            )
 
     from mlflow.langchain.langchain_tracer import (
         patched_callback_manager_init,

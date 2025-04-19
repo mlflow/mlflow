@@ -20,6 +20,11 @@ const sidebars: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
+      type: 'doc',
+      id: 'introduction/index',
+      label: 'Introduction',
+    },
+    {
       type: 'category',
       label: 'Getting Started',
       className: 'sidebar-top-level-category',

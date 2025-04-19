@@ -169,7 +169,8 @@ class Trace(_MlflowObject):
 
             # Run the function and get the trace
             y = run(2)
-            trace = mlflow.get_last_active_trace()
+            trace_id = mlflow.get_last_active_trace_id()
+            trace = mlflow.get_trace(trace_id)
 
             # 1. Search spans by name (exact match)
             spans = trace.search_spans(name="add_one")

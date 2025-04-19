@@ -1,4 +1,6 @@
 import pytest
+from google.protobuf.duration_pb2 import Duration
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
@@ -133,3 +135,19 @@ def test_trace_info_serialization_deserialization(trace_info_proto):
     assert TraceInfo.from_dict(trace_info_as_dict) == trace_info
     # TraceInfo -> trace info proto
     assert trace_info.to_proto() == trace_info_proto
+
+
+def test_trace_info_v3(trace_info):
+    v3_proto = trace_info.to_v3_proto("request", "response")
+    assert v3_proto.request == "request"
+    assert v3_proto.response == "response"
+    assert v3_proto.trace_id == "request_id"
+    assert isinstance(v3_proto.request_time, Timestamp)
+    assert v3_proto.request_time.ToSeconds() == 0
+    assert isinstance(v3_proto.execution_duration, Duration)
+    assert v3_proto.execution_duration.ToMilliseconds() == 1
+    assert v3_proto.state == 1
+    assert v3_proto.trace_metadata["foo"] == "bar"
+    assert v3_proto.trace_metadata["k" * 250] == "v" * 250
+    assert v3_proto.tags["baz"] == "qux"
+    assert v3_proto.tags["k" * 250] == "v" * 250

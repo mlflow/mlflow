@@ -38,6 +38,7 @@ env:
   MLFLOW_RUN_SLOW_TESTS: "true"
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: /home/runner/work/mlflow/mlflow/requirements/constraints.txt
 
 jobs:
   docker-build:
@@ -52,7 +53,7 @@ jobs:
         include:
           - splits: 3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
       - uses: ./.github/actions/free-disk-space

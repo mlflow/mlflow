@@ -44,7 +44,7 @@ from mlflow.tracing.utils import (
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated, experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -700,19 +700,19 @@ def get_current_active_span() -> Optional[LiveSpan]:
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
 
 
-def get_last_active_trace(thread_local=False) -> Optional[Trace]:
+@deprecated(
+    impact=(
+        "Use `mlflow.get_last_active_trace_id()` API instead to get the last active trace ID. "
+        "You can then use the `mlflow.get_trace()` API to get the trace object as well."
+    )
+)
+def get_last_active_trace() -> Optional[Trace]:
     """
     Get the last active trace in the same process if exists.
 
     .. warning::
 
         This function DOES NOT work in the model deployed in Databricks model serving.
-
-    .. warning::
-
-        This function is not thread-safe by default, returns the last active trace in
-        the same process. If you want to get the last active trace in the current thread,
-        set the `thread_local` parameter to True.
 
     .. note::
 
@@ -722,11 +722,6 @@ def get_last_active_trace(thread_local=False) -> Optional[Trace]:
         immutable after the trace is ended, you can still edit some fields such as `tags`),
         please use the respective MlflowClient APIs with the request ID of the trace, as
         shown in the example below.
-
-    Args:
-
-        thread_local: If True, returns the last active trace in the current thread. Otherwise,
-            returns the last active trace in the same process. Default is False.
 
     .. code-block:: python
         :test:
@@ -750,20 +745,62 @@ def get_last_active_trace(thread_local=False) -> Optional[Trace]:
     Returns:
         The last active trace if exists, otherwise None.
     """
-    trace_id = (
-        _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get() if thread_local else _LAST_ACTIVE_TRACE_ID_GLOBAL
-    )
-    if trace_id is not None:
+    if _LAST_ACTIVE_TRACE_ID_GLOBAL is not None:
         try:
-            return MlflowClient().get_trace(trace_id, display=False)
+            return MlflowClient().get_trace(_LAST_ACTIVE_TRACE_ID_GLOBAL, display=False)
         except:
             _logger.debug(
-                f"Failed to get the last active trace with request ID {trace_id}.",
+                "Failed to get the last active trace with "
+                f"request ID {_LAST_ACTIVE_TRACE_ID_GLOBAL}.",
                 exc_info=True,
             )
             raise
     else:
         return None
+
+
+def get_last_active_trace_id(thread_local: bool = False) -> Optional[str]:
+    """
+    Get the last active trace in the same process if exists.
+
+    .. warning::
+
+        This function is not thread-safe by default, returns the last active trace in
+        the same process. If you want to get the last active trace in the current thread,
+        set the `thread_local` parameter to True.
+
+    Args:
+
+        thread_local: If True, returns the last active trace in the current thread. Otherwise,
+            returns the last active trace in the same process. Default is False.
+
+    Returns:
+        The ID of the last active trace if exists, otherwise None.
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            pass
+
+
+        f()
+
+        trace_id = mlflow.get_last_active_trace_id()
+
+        # Use MlflowClient APIs to mutate the ended trace
+        mlflow.MlflowClient().set_trace_tag(trace_id, "key", "value")
+
+        # Get the full trace object
+        trace = mlflow.get_trace(trace_id)
+    """
+    return (
+        _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get() if thread_local else _LAST_ACTIVE_TRACE_ID_GLOBAL
+    )
 
 
 def _set_last_active_trace_id(trace_id: str):
@@ -808,6 +845,21 @@ def update_current_trace(
             "`@mlflow.trace` before calling this function.",
             error_code=BAD_REQUEST,
         )
+
+    if isinstance(tags, dict):
+        non_string_items = {k: v for k, v in tags.items() if not isinstance(v, str)}
+        if non_string_items:
+            none_values_present = any(v is None for v in non_string_items.values())
+            null_tag_advice = (
+                "Consider dropping None values from the tag dict prior to updating the trace."
+                if none_values_present
+                else ""
+            )
+            _logger.warning(
+                "Found non-string values in tags. Please note that non-string tag values will "
+                f"automatically be stringified when the trace is logged. {null_tag_advice}\n\n"
+                f"Non-string items: {non_string_items}"
+            )
 
     # Update tags for the trace stored in-memory rather than directly updating the
     # backend store. The in-memory trace will be exported when it is ended. By doing
