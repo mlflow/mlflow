@@ -105,20 +105,9 @@ export const CompareRunArtifactView = ({
                     fontWeight: 500,
                   }}
                 >
-                  Run {index + 1}: {runUuid}
+                  Run: {runUuid}
                 </div>
   
-                <div
-                  css={{
-                    overflow: 'auto',
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '8px',
-                    height: '100%',
-                  }}
-                >
                   <div
                     css={{
                       width: '100%',
@@ -135,7 +124,6 @@ export const CompareRunArtifactView = ({
                     />
                   </div>
                 </div>
-              </div>
             );
           })}
         </div>
