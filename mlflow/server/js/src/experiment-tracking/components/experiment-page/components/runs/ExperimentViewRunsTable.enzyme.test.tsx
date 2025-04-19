@@ -12,8 +12,10 @@ import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils'
  * Mock all expensive utility functions
  */
 jest.mock('../../utils/experimentPage.column-utils', () => ({
-  ...jest.requireActual('../../utils/experimentPage.column-utils'),
-  useRunsColumnDefinitions: jest.fn().mockImplementation(() => []),
+  ...jest.requireActual<typeof import('../../utils/experimentPage.column-utils')>(
+    '../../utils/experimentPage.column-utils',
+  ),
+  useRunsColumnDefinitions: jest.fn(() => []),
 }));
 
 /**
@@ -60,7 +62,7 @@ jest.mock('../../../../../common/components/ag-grid/AgGridLoader', () => {
  * settings enzyme wrapper's props prossible
  */
 jest.mock('react-intl', () => ({
-  ...jest.requireActual('react-intl'),
+  ...jest.requireActual<typeof import('react-intl')>('react-intl'),
   FormattedMessage: () => <div />,
 }));
 

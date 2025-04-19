@@ -1705,3 +1705,40 @@ def test_spark_udf_model_server_timeout(spark, monkeypatch):
     # Broad exception catching here due to PySpark / DBConnect stacktrace handling.
     with pytest.raises(Exception, match="An exception was thrown from the Python worker"):
         spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
+
+
+@pytest.mark.parametrize(
+    ("numpy_type", "schema", "value"),
+    [
+        (np.int32, IntegerType(), 1),
+        (np.int64, LongType(), 1),
+        (np.float32, FloatType(), 1.0),
+        (np.float64, DoubleType(), 1.0),
+        (np.bool_, BooleanType(), True),
+        (np.str_, StringType(), "string"),
+    ],
+)
+def test_spark_udf_preserve_model_output_type(spark, numpy_type, schema, value):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return [np.array([numpy_type(value)], dtype=numpy_type)] * len(model_input)
+
+    signature = mlflow.models.infer_signature(numpy_type(value), numpy_type(value))
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+    spark_df = spark.createDataFrame(
+        [(value,), (value,), (value,)],
+        schema=StructType([StructField("input_col", schema)]),
+    )
+    udf = mlflow.pyfunc.spark_udf(
+        spark,
+        model_info.model_uri,
+        result_type=schema,
+    )
+
+    res = spark_df.withColumn("res", udf("input_col")).toPandas()
+    assert res["res"][0] == numpy_type(value)

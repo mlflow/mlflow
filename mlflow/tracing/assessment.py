@@ -27,7 +27,7 @@ def log_expectation(
 
         This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
 
-    Logs an expectation (ground truth) to a Trace.
+    Logs an expectation (e.g. ground truth label) to a Trace.
 
     Args:
         trace_id: The ID of the trace.
@@ -165,22 +165,22 @@ def log_feedback(
 
         This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
 
-    Logs a feedback to a Trace.
+    Logs feedback to a Trace.
 
     Args:
         trace_id: The ID of the trace.
         name: The name of the feedback assessment e.g., "faithfulness"
-        source: The source of the expectation assessment. Must be either an instance of
+        source: The source of the feedback assessment. Must be either an instance of
                 :py:class:`~mlflow.entities.AssessmentSource` or a string that
                 is a valid value in the
                 :py:class:`~mlflow.entities.AssessmentSourceType` enum.
-        value: The value of the expectation. It can be any JSON-serializable value.
+        value: The value of the feedback.
         error: An error object representing any issues encountered while computing the
             feedback, e.g., a timeout error from an LLM judge. Either this or `value`
             must be provided.
         rationale: The rationale / justification for the feedback.
-        metadata: Additional metadata for the expectation.
-        span_id: The ID of the span associated with the expectation, if it needs be
+        metadata: Additional metadata for the feedback.
+        span_id: The ID of the span associated with the feedback, if it needs be
                 associated with a specific span in the trace.
 
     Returns:
@@ -242,8 +242,7 @@ def log_feedback(
         trace_id=trace_id,
         name=name,
         source=_parse_source(source),
-        feedback=Feedback(value),
-        error=error,
+        feedback=Feedback(value, error),
         rationale=rationale,
         metadata=metadata,
         span_id=span_id,

@@ -32,14 +32,15 @@ from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.data_validation import (
     _check_func_signature,
     _get_func_info_if_type_hint_supported,
-    _wrap_chat_agent_predict,
     _wrap_predict_with_pyfunc,
+    wrap_non_list_predict_pydantic,
 )
 from mlflow.pyfunc.utils.input_converter import _hydrate_dataclass
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.agent import (
     ChatAgentChunk,
     ChatAgentMessage,
+    ChatAgentRequest,
     ChatAgentResponse,
     ChatContext,
 )
@@ -654,7 +655,17 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         for attr_name in ("predict", "predict_stream"):
             attr = cls.__dict__.get(attr_name)
             if callable(attr):
-                setattr(cls, attr_name, _wrap_chat_agent_predict(attr))
+                setattr(
+                    cls,
+                    attr_name,
+                    wrap_non_list_predict_pydantic(
+                        attr,
+                        ChatAgentRequest,
+                        "Invalid dictionary input for a ChatAgent. Expected a dictionary with the "
+                        "ChatAgentRequest schema.",
+                        unpack=True,
+                    ),
+                )
 
     def _convert_messages_to_dict(self, messages: list[ChatAgentMessage]):
         return [m.model_dump_compat(exclude_none=True) for m in messages]
@@ -931,6 +942,8 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
+    # `mlflow_model.save` must be called before _validate_infer_and_copy_code_paths as it
+    # internally infers dependency, and MLmodel file is required to successfully load the model
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     saved_code_subpath = _validate_infer_and_copy_code_paths(

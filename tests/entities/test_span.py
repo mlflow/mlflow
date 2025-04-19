@@ -211,8 +211,8 @@ def test_from_dict_raises_when_request_id_is_empty():
             {
                 "name": "predict",
                 "context": {
-                    "trace_id": "0x12345",
-                    "span_id": "0x12345",
+                    "trace_id": "12345",
+                    "span_id": "12345",
                 },
                 "parent_id": None,
                 "start_time": 0,

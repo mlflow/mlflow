@@ -126,8 +126,10 @@ def encode_span_id(span_id: int) -> str:
     """
     Encode the given integer span ID to a 16-byte hex string.
     # https://github.com/open-telemetry/opentelemetry-python/blob/9398f26ecad09e02ad044859334cd4c75299c3cd/opentelemetry-sdk/src/opentelemetry/sdk/trace/__init__.py#L507-L508
+    # NB: We don't add '0x' prefix to the hex string here for simpler parsing in backend.
+    #   Some backend (e.g. Databricks) disallow this prefix.
     """
-    return f"0x{trace_api.format_span_id(span_id)}"
+    return trace_api.format_span_id(span_id)
 
 
 @lru_cache(maxsize=1)
@@ -135,7 +137,7 @@ def encode_trace_id(trace_id: int) -> str:
     """
     Encode the given integer trace ID to a 32-byte hex string.
     """
-    return f"0x{trace_api.format_trace_id(trace_id)}"
+    return trace_api.format_trace_id(trace_id)
 
 
 def decode_id(span_or_trace_id: str) -> int:

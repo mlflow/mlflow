@@ -95,6 +95,7 @@ from mlflow.utils.openai_utils import (
     _validate_model_params,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.warnings_utils import color_warning
 
 FLAVOR_NAME = "openai"
 MODEL_FILENAME = "model.yaml"
@@ -947,6 +948,38 @@ def _autolog(
     extra_tags=None,
     log_traces=True,
 ):
+    if log_models:
+        color_warning(
+            "The `log_models` parameter's behavior will be changed in a future release. "
+            "MLflow no longer logs model artifacts automatically, use `mlflow.openai.log_model` "
+            "to log model artifacts manually if needed.",
+            stacklevel=2,
+            color="red",
+            category=FutureWarning,
+        )
+    else:
+        user_specified_args = {
+            key
+            for key, value in {
+                "log_input_examples": log_input_examples,
+                "log_model_signatures": log_model_signatures,
+                "log_datasets": log_datasets,
+                "registered_model_name": registered_model_name,
+                "extra_tags": extra_tags,
+            }.items()
+            if value not in [False, None]
+        }
+        if user_specified_args:
+            color_warning(
+                "The following parameters are deprecated in OpenAI autologging and will be removed "
+                f"in a future release: `{', '.join(user_specified_args)}`. OpenAI autologging will "
+                "not support automatic model artifacts logging and any related parameters. Please "
+                "log your model manually with `mlflow.openai.log_model` if needed.",
+                stacklevel=2,
+                color="yellow",
+                category=FutureWarning,
+            )
+
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import AsyncCompletions, Completions
@@ -965,6 +998,14 @@ def _autolog(
     else:
         safe_patch(FLAVOR_NAME, Completions, "parse", patched_call)
         safe_patch(FLAVOR_NAME, AsyncCompletions, "parse", async_patched_call)
+
+    try:
+        from openai.resources.responses import AsyncResponses, Responses
+    except ImportError:
+        pass
+    else:
+        safe_patch(FLAVOR_NAME, Responses, "create", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncResponses, "create", async_patched_call)
 
     # Patch Swarm agent to generate traces
     try:

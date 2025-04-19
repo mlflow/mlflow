@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.protos.service_pb2 import AssessmentError as ProtoAssessmentError
+from mlflow.protos.assessments_pb2 import AssessmentError as ProtoAssessmentError
 from mlflow.utils.annotations import experimental
 
 
@@ -53,3 +53,10 @@ class AssessmentError(_MlflowObject):
             error_code=proto.error_code,
             error_message=proto.error_message or None,
         )
+
+    def to_dictionary(self):
+        return {"error_code": self.error_code, "error_message": self.error_message}
+
+    @classmethod
+    def from_dictionary(cls, error_dict):
+        return cls(**error_dict)

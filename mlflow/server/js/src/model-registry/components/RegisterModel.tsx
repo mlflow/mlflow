@@ -143,6 +143,7 @@ class RegisterModelImpl extends React.Component<RegisterModelImplProps, Register
               runUuid,
               [],
               this.createModelVersionRequestId,
+              this.props.loggedModelId,
             ),
           )
           .then(this.props.onRegisterSuccess ?? identity)
@@ -152,7 +153,14 @@ class RegisterModelImpl extends React.Component<RegisterModelImplProps, Register
           .catch(Utils.logErrorAndNotifyUser);
       } else {
         return this.props
-          .createModelVersionApi(selectedModelName, modelPath, runUuid, [], this.createModelVersionRequestId)
+          .createModelVersionApi(
+            selectedModelName,
+            modelPath,
+            runUuid,
+            [],
+            this.createModelVersionRequestId,
+            this.props.loggedModelId,
+          )
           .then(this.props.onRegisterSuccess ?? identity)
           .then(this.resetAndClearModalForm)
           .catch(this.props.onRegisterFailure ?? this.handleRegistrationFailure)

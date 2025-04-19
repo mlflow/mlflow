@@ -16,10 +16,12 @@ export interface AccordionProps extends HTMLDataAttributes, AnalyticsEventValueC
     destroyInactivePanel?: boolean;
     /** Callback function executed when active panel is changed */
     onChange?: (key: string | string[]) => void;
+    alignContentToEdge?: boolean;
     /** Escape hatch to allow passing props directly to the underlying Ant `TabPane` component. */
     dangerouslySetAntdProps?: Partial<AntDCollapseProps>;
     /** Applies emotion styles to the top-level element in the component. Ask in #dubois before using. */
     dangerouslyAppendEmotionCSS?: Interpolation<EmotionTheme>;
+    chevronAlignment?: 'left' | 'right';
 }
 export interface AccordionPanelProps extends HTMLDataAttributes {
     children: React.ReactNode;

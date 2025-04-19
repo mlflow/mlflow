@@ -1,10 +1,11 @@
+import warnings
 from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
+from mlflow.protos.assessments_pb2 import AssessmentSource as ProtoAssessmentSource
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.protos.service_pb2 import AssessmentSource as ProtoAssessmentSource
 from mlflow.utils.annotations import experimental
 
 
@@ -53,6 +54,7 @@ class AssessmentSource(_MlflowObject):
 class AssessmentSourceType:
     SOURCE_TYPE_UNSPECIFIED = "SOURCE_TYPE_UNSPECIFIED"
     LLM_JUDGE = "LLM_JUDGE"
+    AI_JUDGE = "AI_JUDGE"  # Deprecated, use LLM_JUDGE instead
     HUMAN = "HUMAN"
     CODE = "CODE"
     _SOURCE_TYPES = [SOURCE_TYPE_UNSPECIFIED, LLM_JUDGE, HUMAN, CODE]
@@ -63,6 +65,15 @@ class AssessmentSourceType:
     @staticmethod
     def _parse(source_type: str) -> str:
         source_type = source_type.upper()
+
+        # Backwards compatibility shim for mlflow.evaluations.AssessmentSourceType
+        if source_type == AssessmentSourceType.AI_JUDGE:
+            warnings.warn(
+                "AI_JUDGE is deprecated. Use LLM_JUDGE instead.",
+                DeprecationWarning,
+            )
+            source_type = AssessmentSourceType.LLM_JUDGE
+
         if source_type not in AssessmentSourceType._SOURCE_TYPES:
             raise MlflowException(
                 message=(

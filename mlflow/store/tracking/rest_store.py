@@ -473,7 +473,7 @@ class RestStore(AbstractStore):
             set_pb_value(assessment.expectation.value, expectation.value)
             mask.paths.append("expectation")
         if feedback is not None:
-            set_pb_value(assessment.feedback.value, feedback.value)
+            assessment.feedback.CopyFrom(feedback.to_proto())
             mask.paths.append("feedback")
         if rationale is not None:
             assessment.rationale = rationale

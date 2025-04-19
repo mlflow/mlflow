@@ -1,3 +1,4 @@
+import logging
 import os
 from subprocess import Popen
 from typing import Optional, Union
@@ -7,6 +8,8 @@ from mlflow.environment_variables import MLFLOW_DOCKER_OPENJDK_VERSION
 from mlflow.utils import env_manager as em
 from mlflow.utils.file_utils import _copy_project
 from mlflow.version import VERSION
+
+_logger = logging.getLogger(__name__)
 
 UBUNTU_BASE_IMAGE = "ubuntu:20.04"
 PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
@@ -73,6 +76,7 @@ def generate_dockerfile(
     mlflow_home: Optional[str] = None,
     enable_mlserver: bool = False,
     disable_env_creation_at_runtime: bool = True,
+    install_java: Optional[bool] = None,
 ):
     """
     Generates a Dockerfile that can be used to build a docker image, that serves ML model
@@ -84,6 +88,11 @@ def generate_dockerfile(
     install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)
 
     if base_image.startswith("python:"):
+        if install_java:
+            _logger.warning(
+                "`install_java` option is not supported when using python base image, "
+                "switch to UBUNTU_BASE_IMAGE to enable java installation."
+            )
         setup_python_venv_steps = (
             "RUN apt-get -y update && apt-get install -y --no-install-recommends nginx"
         )
@@ -97,15 +106,15 @@ def generate_dockerfile(
         setup_python_venv_steps += (
             SETUP_MINICONDA if env_manager == em.CONDA else SETUP_PYENV_AND_VIRTUALENV
         )
+        if install_java is not False:
+            jdk_ver = MLFLOW_DOCKER_OPENJDK_VERSION.get()
+            setup_java_steps = (
+                "# Setup Java\n"
+                f"RUN apt-get install -y --no-install-recommends openjdk-{jdk_ver}-jdk maven\n"
+                f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
+            )
 
-        jdk_ver = MLFLOW_DOCKER_OPENJDK_VERSION.get()
-        setup_java_steps = (
-            "# Setup Java\n"
-            f"RUN apt-get install -y --no-install-recommends openjdk-{jdk_ver}-jdk maven\n"
-            f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
-        )
-
-        install_mlflow_steps += "\n\n" + _java_mlflow_install_step(mlflow_home)
+            install_mlflow_steps += "\n\n" + _java_mlflow_install_step(mlflow_home)
 
     with open(os.path.join(output_dir, "Dockerfile"), "w") as f:
         f.write(

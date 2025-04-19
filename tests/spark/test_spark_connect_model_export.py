@@ -1,5 +1,6 @@
 import json
 import os
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -137,3 +138,20 @@ def test_pyfunc_serve_and_score(spark_model):
     np.testing.assert_array_almost_equal(
         scores, spark_model.model.transform(spark_model.pandas_df)["prediction"].values
     )
+
+
+def test_databricks_serverless_model_save_load(spark_model):
+    with (
+        mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True),
+        mock.patch("mlflow.spark._is_uc_volume_uri", return_value=True),
+    ):
+        for mock_fun in [
+            "is_in_databricks_serverless_runtime",
+            "is_in_databricks_shared_cluster_runtime",
+        ]:
+            with mock.patch(f"mlflow.utils.databricks_utils.{mock_fun}", return_value=True):
+                artifact_path = "model"
+                with mlflow.start_run():
+                    model_info = mlflow.spark.log_model(spark_model.model, artifact_path)
+
+                mlflow.spark.load_model(model_info.model_uri)

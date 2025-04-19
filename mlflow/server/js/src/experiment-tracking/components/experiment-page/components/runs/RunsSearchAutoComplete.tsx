@@ -90,8 +90,6 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
     const mergedEntityNames = getEntityNamesFromRunsData(runsData, existingEntityNames);
     existingEntityNamesRef.current = mergedEntityNames;
     return getOptionsFromEntityNames(mergedEntityNames);
-    // existingEntityNamesRef is only set here. Omit from dependencies to avoid infinite loop
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runsData]);
 
   useEffect(() => {

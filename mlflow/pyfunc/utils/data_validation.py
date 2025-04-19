@@ -10,7 +10,6 @@ from mlflow.models.signature import (
     _extract_type_hints,
     _is_context_in_predict_function_signature,
 )
-from mlflow.types.agent import ChatAgentRequest
 from mlflow.types.type_hints import (
     InvalidTypeHintException,
     _convert_data_to_type_hint,
@@ -81,30 +80,49 @@ def _wrap_predict_with_pyfunc(func, func_info: Optional[FuncInfo]):
     return wrapper
 
 
-def _wrap_chat_agent_predict(func):
+def wrap_non_list_predict_pydantic(func, input_pydantic_model, validation_error_msg, unpack=False):
+    """
+    Used by MLflow defined subclasses of PythonModel that have non-list a pydantic model as input.
+    Takes in a dict input, validates it against `input_pydantic_model`, and then creates
+    the pydantic model.
+
+    If `unpack` is True, the validated dict is parsed into the function arguments.
+    Otherwise, the whole pydantic object is passed to the function.
+
+    Args:
+        func: The predict/predict_stream method of the PythonModel subclass.
+        input_pydantic_model: The pydantic model that the input should be validated against.
+        validation_error_msg: The error message to raise if the dict input fails to validate.
+        unpack: Whether to unpack the validated dict into the function arguments. Defaults to False.
+
+    Raises:
+        MlflowException: If the input fails to validate against the pydantic model.
+
+    Returns:
+        A function that can take either a dict input or a pydantic object as input.
+    """
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if len(args) == 1 and isinstance(args[0], dict):
             try:
-                model_validate(ChatAgentRequest, args[0])
-                request = ChatAgentRequest(**args[0])
+                model_validate(input_pydantic_model, args[0])
+                pydantic_obj = input_pydantic_model(**args[0])
             except pydantic.ValidationError as e:
                 raise MlflowException(
-                    "Invalid dictionary input for a ChatAgent. Expected a dictionary with the "
-                    f"ChatAgentRequest schema. Pydantic validation error: {e}"
+                    f"{validation_error_msg} Pydantic validation error: {e}"
                 ) from e
             else:
-                return func(
-                    self,
-                    messages=request.messages,
-                    context=request.context,
-                    custom_inputs=request.custom_inputs,
-                )
-
+                if unpack:
+                    param_names = inspect.signature(func).parameters.keys() - {"self"}
+                    kwargs = {k: getattr(pydantic_obj, k) for k in param_names}
+                    return func(self, **kwargs)
+                else:
+                    return func(self, pydantic_obj)
         else:
-            # After logging, signature enforcement happens in the _convert_input method
-            # of _ChatAgentPyfuncWrapper
             # Before logging, this is equivalent to the behavior from the raw predict method
+            # After logging, signature enforcement happens in the _convert_input method
+            # of the wrapper class
             return func(self, *args, **kwargs)
 
     wrapper._is_pyfunc = True
