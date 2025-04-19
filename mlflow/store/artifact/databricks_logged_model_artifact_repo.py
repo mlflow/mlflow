@@ -40,11 +40,11 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         experiment_id = m.group("experiment_id")
         model_id = m.group("model_id")
         relative_path = m.group("relative_path") or ""
-        self.root_path = (
+        root_path = (
             f"/WorkspaceInternal/Mlflow/Artifacts/{experiment_id}/LoggedModels/{model_id}"
             f"{relative_path}"
         )
-        self.databricks_sdk_repo = DatabricksSdkArtifactRepository(artifact_uri)
+        self.databricks_sdk_repo = DatabricksSdkArtifactRepository(root_path)
 
     @cached_property
     def databricks_artifact_repo(self) -> DatabricksArtifactRepository:
