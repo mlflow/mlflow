@@ -12,7 +12,7 @@ from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
 
-# TODO: Migrate the following artifact repository to use this class.
+# TODO: The following artifact repositories should use this class. Migrate them.
 #   - uc_volume_artifact_repo.py
 #   - databricks_sdk_models_artifact_repo.py
 class DatabricksSdkArtifactRepository(ArtifactRepository):
