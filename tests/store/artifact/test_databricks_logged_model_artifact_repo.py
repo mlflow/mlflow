@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest import mock
 
+import pytest
 from databricks.sdk.service.files import DirectoryEntry
 
 from mlflow.entities.file_info import FileInfo
@@ -31,7 +32,10 @@ def test_log_artifact(tmp_path: Path):
         mock_files_api.upload.assert_called_once()
 
         # Simulate failure and fallback
-        mock_files_api.upload.side_effect = Exception("Upload failed")
+        mock_files_api.upload.side_effect = RuntimeError("Upload failed")
+        with pytest.raises(RuntimeError, match=r"^Upload failed$"):
+            repo.databricks_sdk_repo.log_artifact(str(local_file), "artifact_path")
+
         repo.log_artifact(str(local_file), "artifact_path")
         mock_databricks_artifact_repo.log_artifact.assert_called_once()
 
@@ -60,8 +64,14 @@ def test_log_artifacts(tmp_path: Path):
         mock_files_api.upload.assert_called()
 
         # Simulate failure and fallback
-        mock_files_api.upload.side_effect = Exception("Upload failed")
-        mock_databricks_artifact_repo.log_artifact.side_effect = Exception("Fallback failed")
+        mock_files_api.upload.side_effect = RuntimeError("Upload failed")
+        with pytest.raises(RuntimeError, match=r"^Upload failed$"):
+            repo.databricks_sdk_repo.log_artifacts(str(local_dir), "artifact_path")
+
+        mock_databricks_artifact_repo.log_artifact.side_effect = RuntimeError("Fallback failed")
+        with pytest.raises(RuntimeError, match=r"^Fallback failed$"):
+            repo.databricks_artifact_repo.log_artifact("test", "artifact_path")
+
         repo.log_artifacts(str(local_dir), "artifact_path")
         mock_databricks_artifact_repo.log_artifacts.assert_called_once()
 
@@ -89,7 +99,10 @@ def test_download_file(tmp_path: Path):
         mock_databricks_artifact_repo._download_file.assert_not_called()
 
         # Simulate failure and fallback
-        mock_files_api.download.side_effect = Exception("Download failed")
+        mock_files_api.download.side_effect = RuntimeError("Download failed")
+        with pytest.raises(RuntimeError, match=r"^Download failed$"):
+            repo.databricks_sdk_repo._download_file("remote_file_path", str(local_file))
+
         repo._download_file("remote_file_path", str(local_file))
         mock_databricks_artifact_repo._download_file.assert_called_once()
 
@@ -119,7 +132,10 @@ def test_list_artifacts():
         assert len(artifacts) == 2
 
         # Simulate failure and fallback
-        mock_files_api.list_directory_contents.side_effect = Exception("List failed")
+        mock_files_api.list_directory_contents.side_effect = RuntimeError("List failed")
+        with pytest.raises(RuntimeError, match=r"^List failed$"):
+            repo.databricks_sdk_repo.list_artifacts("artifact_path")
+
         mock_databricks_artifact_repo.list_artifacts.return_value = [
             FileInfo(path="fallback_artifact", is_dir=False, file_size=456)
         ]
