@@ -9,7 +9,6 @@ from collections import Counter
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional, Union
-from unittest.mock import MagicMock, patch
 
 from opentelemetry import trace as trace_api
 from packaging.version import Version
@@ -391,22 +390,3 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
             sanitized_tools.append(tool.model_dump_compat(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
-
-
-def is_model_traced(model):
-    """
-    Check if a PyFuncModel is being traced without logging to the database.
-
-    Args:
-        model (PyFuncModel): The model to check.
-
-    Returns:
-        True if the model is being traced, False otherwise.
-    """
-    with patch("mlflow.tracing.provider._get_tracer", return_value=None) as mock_get_tracer:
-        try:
-            model.predict(MagicMock())
-        except Exception:
-            pass
-
-        return 0 < mock_get_tracer.call_count

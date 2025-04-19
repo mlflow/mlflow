@@ -222,3 +222,12 @@ def skip_when_testing_trace_sdk(f):
         return f(*args, **kwargs)
 
     return wrapper
+
+
+def skip_module_when_testing_trace_sdk():
+    """Skip the entire module if only mlflow-trace package is installed"""
+    if not IS_MLFLOW_SKINNY_INSTALLED:
+        pytest.skip(
+            "Skipping test because it requires MLflow skinny to be installed.",
+            allow_module_level=True,
+        )

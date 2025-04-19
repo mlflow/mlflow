@@ -124,4 +124,5 @@ class TraceInfo(_MlflowObject):
             state=self.status.to_state(),
             trace_metadata=self.request_metadata,
             tags=self.tags,
+            assessments=self.assessments,
         )

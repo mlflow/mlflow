@@ -9,23 +9,8 @@ import mlflow
 from mlflow.entities import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
-from mlflow.version import IS_MLFLOW_SKINNY_INSTALLED
 
-from tests.tracing.helper import create_test_trace_info, purge_traces
-
-
-# A fixture only used for testing mlflow-trace package integration.
-@pytest.fixture(autouse=not IS_MLFLOW_SKINNY_INSTALLED)
-def remote_backend(monkeypatch):
-    mlflow.set_tracking_uri("http://localhost:5000")
-    experiment = mlflow.set_experiment("trace-unit-test")
-
-    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
-
-    yield
-
-    # Remove all traces in the backend
-    purge_traces(experiment_id=experiment.experiment_id)
+from tests.tracing.helper import create_test_trace_info
 
 
 @pytest.fixture(autouse=True)

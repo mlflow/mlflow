@@ -18,6 +18,7 @@ from mlflow.utils.os import is_windows
 from mlflow.version import IS_MLFLOW_SKINNY_INSTALLED
 
 from tests.autologging.fixtures import enable_test_mode
+from tests.tracing.helper import purge_traces
 
 if IS_MLFLOW_SKINNY_INSTALLED:
     from mlflow.tracking._tracking_service.utils import _use_tracking_uri
@@ -26,6 +27,33 @@ if IS_MLFLOW_SKINNY_INSTALLED:
         _reset_active_model_context,
         _reset_last_logged_model_id,
     )
+
+
+# A fixture only used for testing mlflow-trace package integration.
+@pytest.fixture(autouse=not IS_MLFLOW_SKINNY_INSTALLED)
+def remote_backend_for_tracing_sdk_test(monkeypatch):
+    # Check remote backend is running or not
+
+    try:
+        import requests
+
+        requests.get("http://localhost:5000")
+    except requests.exceptions.ConnectionError:
+        # error if remote backend is not running
+        raise pytest.UsageError(
+            "Remote backend is not running at http://localhost:5000. When testing mlflow-trace, "
+            "package, you need to start the remote tracking server in a separate environment. "
+        )
+
+    mlflow.set_tracking_uri("http://localhost:5000")
+    experiment = mlflow.set_experiment("trace-unit-test")
+
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
+
+    yield
+
+    # Remove all traces in the backend
+    purge_traces(experiment_id=experiment.experiment_id)
 
 
 @pytest.fixture(autouse=IS_MLFLOW_SKINNY_INSTALLED)
