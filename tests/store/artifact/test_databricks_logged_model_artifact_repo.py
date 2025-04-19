@@ -12,13 +12,15 @@ from mlflow.store.artifact.databricks_logged_model_artifact_repo import (
 def test_log_artifact(tmp_path: Path):
     local_file = tmp_path / "local_file.txt"
     local_file.write_text("test content")
+    mock_databricks_artifact_repo = mock.MagicMock()
     with (
         mock.patch(
             "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository.files_api"
         ) as mock_files_api,
         mock.patch(
-            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksLoggedModelArtifactRepository.databricks_artifact_repo"
-        ) as mock_fallback_repo,
+            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksArtifactRepository",
+            return_value=mock_databricks_artifact_repo,
+        ),
     ):
         repo = DatabricksLoggedModelArtifactRepository(
             "dbfs:/databricks/mlflow-tracking/1/logged_models/1"
@@ -31,7 +33,7 @@ def test_log_artifact(tmp_path: Path):
         # Simulate failure and fallback
         mock_files_api.upload.side_effect = Exception("Upload failed")
         repo.log_artifact(str(local_file), "artifact_path")
-        mock_fallback_repo.log_artifact.assert_called_once()
+        mock_databricks_artifact_repo.log_artifact.assert_called_once()
 
 
 def test_log_artifacts(tmp_path: Path):
@@ -39,14 +41,15 @@ def test_log_artifacts(tmp_path: Path):
     local_dir.mkdir()
     (local_dir / "file1.txt").write_text("content1")
     (local_dir / "file2.txt").write_text("content2")
-
+    mock_databricks_artifact_repo = mock.MagicMock()
     with (
         mock.patch(
             "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository.files_api"
         ) as mock_files_api,
         mock.patch(
-            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksLoggedModelArtifactRepository.databricks_artifact_repo"
-        ) as mock_fallback_repo,
+            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksArtifactRepository",
+            return_value=mock_databricks_artifact_repo,
+        ),
     ):
         repo = DatabricksLoggedModelArtifactRepository(
             "dbfs:/databricks/mlflow-tracking/1/logged_models/1"
@@ -58,22 +61,23 @@ def test_log_artifacts(tmp_path: Path):
 
         # Simulate failure and fallback
         mock_files_api.upload.side_effect = Exception("Upload failed")
-        mock_fallback_repo.log_artifact.side_effect = Exception("Fallback failed")
+        mock_databricks_artifact_repo.log_artifact.side_effect = Exception("Fallback failed")
         repo.log_artifacts(str(local_dir), "artifact_path")
-        mock_fallback_repo.log_artifacts.assert_called_once()
+        mock_databricks_artifact_repo.log_artifacts.assert_called_once()
 
 
 def test_download_file(tmp_path: Path):
     local_file = tmp_path / "downloaded_file.txt"
-
+    mock_databricks_artifact_repo = mock.MagicMock()
     with (
         mock.patch(
             "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository.files_api"
         ) as mock_files_api,
         mock.patch(
-            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksLoggedModelArtifactRepository.databricks_artifact_repo"
+            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksArtifactRepository"
         ) as mock_fallback_repo,
     ):
+        mock_fallback_repo.return_value = mock_databricks_artifact_repo
         repo = DatabricksLoggedModelArtifactRepository(
             "dbfs:/databricks/mlflow-tracking/1/logged_models/1"
         )
@@ -82,22 +86,24 @@ def test_download_file(tmp_path: Path):
         mock_files_api.download.return_value.contents.read.side_effect = [b"test", b""]
         repo._download_file("remote_file_path", str(local_file))
         mock_files_api.download.assert_called_once()
-        mock_fallback_repo._download_file.assert_not_called()
+        mock_databricks_artifact_repo._download_file.assert_not_called()
 
         # Simulate failure and fallback
         mock_files_api.download.side_effect = Exception("Download failed")
         repo._download_file("remote_file_path", str(local_file))
-        mock_fallback_repo._download_file.assert_called_once()
+        mock_databricks_artifact_repo._download_file.assert_called_once()
 
 
 def test_list_artifacts():
+    mock_databricks_artifact_repo = mock.MagicMock()
     with (
         mock.patch(
             "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository.files_api"
         ) as mock_files_api,
         mock.patch(
-            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksLoggedModelArtifactRepository.databricks_artifact_repo"
-        ) as mock_fallback_repo,
+            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksArtifactRepository",
+            return_value=mock_databricks_artifact_repo,
+        ),
     ):
         repo = DatabricksLoggedModelArtifactRepository(
             "dbfs:/databricks/mlflow-tracking/1/logged_models/1"
@@ -114,9 +120,9 @@ def test_list_artifacts():
 
         # Simulate failure and fallback
         mock_files_api.list_directory_contents.side_effect = Exception("List failed")
-        mock_fallback_repo.list_artifacts.return_value = [
+        mock_databricks_artifact_repo.list_artifacts.return_value = [
             FileInfo(path="fallback_artifact", is_dir=False, file_size=456)
         ]
         artifacts = repo.list_artifacts("artifact_path")
-        mock_fallback_repo.list_artifacts.assert_called_once()
+        mock_databricks_artifact_repo.list_artifacts.assert_called_once()
         assert len(artifacts) == 1

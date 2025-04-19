@@ -1,6 +1,5 @@
 import logging
 import re
-from functools import cached_property
 from typing import Optional
 
 from mlflow.entities import FileInfo
@@ -45,10 +44,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
             f"{relative_path}"
         )
         self.databricks_sdk_repo = DatabricksSdkArtifactRepository(root_path)
-
-    @cached_property
-    def databricks_artifact_repo(self) -> DatabricksArtifactRepository:
-        return DatabricksArtifactRepository(self.artifact_uri)
+        self.databricks_artifact_repo = DatabricksArtifactRepository(artifact_uri)
 
     def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
         try:
