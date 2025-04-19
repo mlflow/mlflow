@@ -7,6 +7,14 @@ from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 
+GENERATION_CONFIG_KEY_MAPPING = {
+    "stop": "stopSequences",
+    "n": "candidateCount",
+    "max_tokens": "maxOutputTokens",
+    "top_k": "topK",
+    "top_p": "topP",
+}
+
 
 class GeminiAdapter(ProviderAdapter):
     @classmethod
@@ -42,15 +50,8 @@ class GeminiAdapter(ProviderAdapter):
         #         "topK": 40
         #     }
         # }
-        key_mapping = {
-            "stop": "stopSequences",
-            "n": "candidateCount",
-            "max_tokens": "maxOutputTokens",
-            "top_k": "topK",
-            "top_p": "topP",
-        }
 
-        for k1, k2 in key_mapping.items():
+        for k1, k2 in GENERATION_CONFIG_KEY_MAPPING.items():
             if k2 in payload:
                 raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
@@ -61,35 +62,28 @@ class GeminiAdapter(ProviderAdapter):
                 status_code=422, detail="top_p should be less than or equal to 1"
             )
 
-        payload = rename_payload_keys(payload, key_mapping)
+        payload = rename_payload_keys(payload, GENERATION_CONFIG_KEY_MAPPING)
 
-        contents = []
+        contents, system_message = [], None
         for message in payload["messages"]:
             role = message["role"]
 
             if role == "assistant":
                 role = "model"
             elif role == "system":
-                role = "user"
-                message["content"] = f"System: {message['content']}"
+                system_message = {"parts": [{"text": message["content"]}]}
+                continue
 
             contents.append({"role": role, "parts": [{"text": message["content"]}]})
 
-        gemini_payload = {
-            "contents": contents,
-        }
+        gemini_payload = {"contents": contents}
 
-        generation_config = {}
-        for param in [
-            "temperature",
-            "topP",
-            "stopSequences",
-            "candidateCount",
-            "maxOutputTokens",
-            "topK",
-        ]:
-            if param in payload:
-                generation_config[param] = payload[param]
+        if system_message:
+            gemini_payload["system_instruction"] = system_message
+
+        generation_config = {
+            k: v for k, v in payload.items() if k in GENERATION_CONFIG_KEY_MAPPING.values()
+        }
 
         if generation_config:
             gemini_payload["generationConfig"] = generation_config
@@ -123,8 +117,10 @@ class GeminiAdapter(ProviderAdapter):
         choices = []
         for idx, candidate in enumerate(resp.get("candidates", [])):
             content = ""
-            if "content" in candidate and candidate["content"]["parts"]:
-                content = candidate["content"]["parts"][0].get("text", "")
+            if parts := candidate.get("content", {}).get("parts", None):
+                content = parts[0].get("text", None)
+            if not content:
+                continue
 
             finish_reason = candidate.get("finishReason", "stop")
             if finish_reason == "MAX_TOKENS":
@@ -141,10 +137,9 @@ class GeminiAdapter(ProviderAdapter):
                 )
             )
 
-        usage_metadata = resp.get("usageMetadata", {})
-        prompt_tokens = usage_metadata.get("promptTokenCount", None)
-        completion_tokens = usage_metadata.get("candidatesTokenCount", None)
-        total_tokens = usage_metadata.get("totalTokenCount", None)
+        prompt_tokens = resp.get("usageMetadata", {}).get("promptTokenCount", None)
+        completion_tokens = resp.get("usageMetadata", {}).get("candidatesTokenCount", None)
+        total_tokens = resp.get("usageMetadata", {}).get("totalTokenCount", None)
 
         return chat.ResponsePayload(
             id=resp.get("promptFeedback", {}).get("promptId", f"gemini-chat-{int(time.time())}"),
@@ -174,7 +169,10 @@ class GeminiAdapter(ProviderAdapter):
         #     "top_k": 40,
         # }
 
+        system_message = payload.pop("system_prompt", None)
         chat_payload = {"messages": [{"role": "user", "content": payload.pop("prompt")}], **payload}
+        if system_message:
+            chat_payload["messages"].insert(0, {"role": "system", "content": system_message})
         return cls.chat_to_model(chat_payload, config)
 
     @classmethod
@@ -205,8 +203,10 @@ class GeminiAdapter(ProviderAdapter):
 
         for idx, candidate in enumerate(resp.get("candidates", [])):
             text = ""
-            if "content" in candidate and candidate.get("content", {}).get("parts", {}):
-                text = candidate["content"]["parts"][0].get("text", "")
+            if parts := candidate.get("content", {}).get("parts", None):
+                text = parts[0].get("text", None)
+            if not text:
+                continue
 
             finish_reason = candidate.get("finishReason", "stop")
             if finish_reason == "MAX_TOKENS":
@@ -220,10 +220,9 @@ class GeminiAdapter(ProviderAdapter):
                 )
             )
 
-        usage_metadata = resp.get("usageMetadata", {})
-        prompt_tokens = usage_metadata.get("promptTokenCount", None)
-        completion_tokens = usage_metadata.get("candidatesTokenCount", None)
-        total_tokens = usage_metadata.get("totalTokenCount", None)
+        prompt_tokens = resp.get("usageMetadata", {}).get("promptTokenCount", None)
+        completion_tokens = resp.get("usageMetadata", {}).get("candidatesTokenCount", None)
+        total_tokens = resp.get("usageMetadata", {}).get("totalTokenCount", None)
 
         return completions.ResponsePayload(
             created=int(time.time()),
