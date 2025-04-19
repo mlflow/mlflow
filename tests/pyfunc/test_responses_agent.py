@@ -135,8 +135,10 @@ def test_responses_agent_log_default_task():
 
 def test_responses_agent_predict(tmp_path):
     model = SimpleResponsesAgent()
-    response = model.predict(ResponsesRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
+    response = model.predict(RESPONSES_AGENT_INPUT_EXAMPLE)
     assert response.output[0].content[0]["type"] == "output_text"
+    response = model.predict_stream(RESPONSES_AGENT_INPUT_EXAMPLE)
+    assert next(response).type == "response.output_item.added"
     mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     response = loaded_model.predict(RESPONSES_AGENT_INPUT_EXAMPLE)

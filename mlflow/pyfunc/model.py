@@ -68,7 +68,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
-from mlflow.utils.pydantic_utils import is_pydantic_v2_or_newer
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
@@ -785,11 +785,27 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         )
 
 
-if is_pydantic_v2_or_newer():
+if IS_PYDANTIC_V2_OR_NEWER():
     from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
 
     class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         _skip_type_hint_validation = True
+
+        def __init_subclass__(cls, **kwargs) -> None:
+            super().__init_subclass__(**kwargs)
+            for attr_name in ("predict", "predict_stream"):
+                attr = cls.__dict__.get(attr_name)
+                if callable(attr):
+                    setattr(
+                        cls,
+                        attr_name,
+                        wrap_non_list_predict_pydantic(
+                            attr,
+                            ResponsesRequest,
+                            "Invalid dictionary input for a ResponsesAgent. "
+                            "Expected a dictionary with the ResponsesRequest schema.",
+                        ),
+                    )
 
         @abstractmethod
         def predict(self, request: ResponsesRequest) -> ResponsesResponse:
@@ -1190,7 +1206,7 @@ def _get_pyfunc_loader_module(python_model):
         return mlflow.pyfunc.loaders.chat_model.__name__
     elif isinstance(python_model, ChatAgent):
         return mlflow.pyfunc.loaders.chat_agent.__name__
-    elif is_pydantic_v2_or_newer() and isinstance(python_model, ResponsesAgent):
+    elif IS_PYDANTIC_V2_OR_NEWER and isinstance(python_model, ResponsesAgent):
         return mlflow.pyfunc.loaders.responses_agent.__name__
     return __name__
 

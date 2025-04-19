@@ -7,10 +7,6 @@ from pydantic import BaseModel
 IS_PYDANTIC_V2_OR_NEWER = Version(pydantic.VERSION).major >= 2
 
 
-def is_pydantic_v2_or_newer():
-    return Version(pydantic.VERSION).major >= 2
-
-
 def field_validator(field: str, mode: str = "before"):
     def decorator(func: Callable) -> Callable:
         if IS_PYDANTIC_V2_OR_NEWER:
