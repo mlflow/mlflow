@@ -52,7 +52,6 @@ module.exports = async ({ context, github, core }) => {
   const releases = await github.rest.repos.listReleases({
     owner,
     repo,
-    per_page: 1,
   });
   // TODO: Remove this line once MLflow 3.0.0 is released
   const latest = releases.data.find(({ tag_name }) => !tag_name.startsWith("v3"));

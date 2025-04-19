@@ -50,7 +50,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -60,6 +60,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
+          pip install -U pip setuptools wheel
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install .[extras,genai]
           pip install pyspark
