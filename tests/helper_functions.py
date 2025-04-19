@@ -409,7 +409,8 @@ def _compare_conda_env_requirements(env_path, req_path):
     from mlflow.utils.yaml_utils import read_yaml
 
     assert os.path.exists(req_path)
-    custom_env_parsed = read_yaml(env_path)
+    env_root, env_path = os.path.split(env_path)
+    custom_env_parsed = read_yaml(env_root, env_path)
     requirements = _read_lines(req_path)
     assert _get_pip_deps(custom_env_parsed) == requirements
 
@@ -455,7 +456,7 @@ def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=F
 
     local_path = _download_artifact_from_uri(model_uri)
     txt_reqs = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
-    conda_reqs = _get_pip_deps(read_yaml(os.path.join(local_path, _CONDA_ENV_FILE_NAME)))
+    conda_reqs = _get_pip_deps(read_yaml(local_path, _CONDA_ENV_FILE_NAME))
     compare_func = set.__eq__ if strict else set.__le__
     requirements = set(requirements)
     assert compare_func(requirements, set(txt_reqs))
