@@ -13,7 +13,6 @@ from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import MlflowException
-from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.openai.constant import FLAVOR_NAME
 from mlflow.openai.utils.chat_schema import set_span_chat_attributes
 from mlflow.tracing.constant import (
@@ -28,9 +27,6 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
-
-MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["openai"]["autologging"]["minimum"])
-MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["openai"]["autologging"]["maximum"])
 
 _logger = logging.getLogger(__name__)
 

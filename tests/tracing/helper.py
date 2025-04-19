@@ -1,3 +1,4 @@
+import asyncio
 import functools
 import os
 import time
@@ -216,13 +217,21 @@ def score_in_model_serving(model_uri: str, model_input: dict):
 def skip_when_testing_trace_sdk(f):
     # Decorator to Skip the test if only mlflow-tracing package is installed and
     # not the full mlflow package.
-    @functools.wraps(f)
-    def wrapper(*args, **kwargs):
-        if IS_TRACING_SDK_ONLY:
-            pytest.skip(
-                "Skipping test because it requires mlflow or mlflow-skinny to be installed."
-            )
-        return f(*args, **kwargs)
+    msg = "Skipping test because it requires mlflow or mlflow-skinny to be installed."
+    if asyncio.iscoroutinefunction(f):
+
+        @functools.wraps(f)
+        async def wrapper(*args, **kwargs):
+            if IS_TRACING_SDK_ONLY:
+                pytest.skip(msg)
+            return await f(*args, **kwargs)
+    else:
+
+        @functools.wraps(f)
+        def wrapper(*args, **kwargs):
+            if IS_TRACING_SDK_ONLY:
+                pytest.skip(msg)
+            return f(*args, **kwargs)
 
     return wrapper
 
