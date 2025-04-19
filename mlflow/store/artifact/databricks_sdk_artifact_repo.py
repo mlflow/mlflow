@@ -31,7 +31,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
             return False
         return True
 
-    def full_path(self, artifact_path: str) -> str:
+    def full_path(self, artifact_path: Optional[str]) -> str:
         return f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
 
     def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
@@ -39,12 +39,21 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
             self.files_api.upload(self.full_path(artifact_path), f, overwrite=True)
 
     def log_artifacts(self, local_dir: str, artifact_path: Optional[str] = None) -> None:
+        local_dir = Path(local_dir).resolve()
         futures: list[Future[None]] = []
         with ThreadPoolExecutor() as executor:
-            for f in Path(local_dir).rglob("*"):
-                if f.is_file():
-                    fut = executor.submit(self.log_artifact, f, artifact_path)
-                    futures.append(fut)
+            for f in local_dir.rglob("*"):
+                if not f.is_file():
+                    continue
+                rel_path = f.relative_to(local_dir).as_posix()
+                fut = executor.submit(
+                    self.log_artifact,
+                    local_file=f,
+                    artifact_path=(
+                        posixpath.join(artifact_path, rel_path) if artifact_path else rel_path
+                    ),
+                )
+                futures.append(fut)
 
         for fut in futures:
             fut.result()
