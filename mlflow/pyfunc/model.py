@@ -785,7 +785,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         )
 
 
-if IS_PYDANTIC_V2_OR_NEWER():
+if IS_PYDANTIC_V2_OR_NEWER:
     from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
 
     class ResponsesAgent(PythonModel, metaclass=ABCMeta):
