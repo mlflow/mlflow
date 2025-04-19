@@ -59,9 +59,9 @@ export const TracesViewTableNoTracesQuickstart = ({
       </Typography.Text>
       <Tabs.Root componentId={`${baseComponentId}.traces_table.quickstart`} defaultValue="openai">
         <Tabs.List>
-          {keys(QUICKSTART_CONTENT).map((flavorName) => (
+          {(Object.entries(QUICKSTART_TAB_MESSAGES) as [QUICKSTART_FLAVOR, string][]).map(([flavorName, tabLabel]) => (
             <Tabs.Trigger key={flavorName} value={flavorName}>
-              {QUICKSTART_TAB_MESSAGES[flavorName as QUICKSTART_FLAVOR]}
+              {tabLabel}
             </Tabs.Trigger>
           ))}
         </Tabs.List>
