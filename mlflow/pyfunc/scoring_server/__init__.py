@@ -50,9 +50,23 @@ from mlflow.utils.proto_json_utils import (
 from mlflow.version import VERSION
 
 try:
-    from mlflow.pyfunc import PyFuncModel, load_model
+    from mlflow.pyfunc import PyFuncModel, load_model as raw_load_model
 except ImportError:
-    from mlflow.pyfunc import load_pyfunc as load_model
+    from mlflow.pyfunc import load_pyfunc as raw_load_model
+
+
+_loaded_model_uri = None
+
+
+def load_model(model_uri, *args, **kwargs):
+    from mlflow.utils import print_time, gen_flamegraph
+    global _loaded_model_uri
+    with gen_flamegraph("load_model_prof"):
+        with print_time(f"load model"):
+            _loaded_model_uri = model_uri
+            return raw_load_model(model_uri, *args, **kwargs)
+
+
 from io import StringIO
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
@@ -305,6 +319,9 @@ class InvocationsResponse(NamedTuple):
     mimetype: str
 
 
+invoke_batch_count = 0
+
+
 def invocations(data, content_type, model, input_schema):
     type_parts = list(map(str.strip, content_type.split(";")))
     mime_type = type_parts[0]
@@ -365,11 +382,18 @@ def invocations(data, content_type, model, input_schema):
     # NB: utils._validate_serving_input mimic the scoring process here to validate input_example
     # work for serving, so any changes here should be reflected there as well
     try:
-        if "params" in inspect.signature(model.predict).parameters:
-            raw_predictions = model.predict(data, params=params)
-        else:
-            _log_warning_if_params_not_in_predict_signature(_logger, params)
-            raw_predictions = model.predict(data)
+        from mlflow.utils import print_time, gen_flamegraph
+        global invoke_batch_count
+
+        invoke_batch_count += 1
+        with gen_flamegraph(
+            f"predict_batch_{invoke_batch_count}_prof"
+        ):
+            if "params" in inspect.signature(model.predict).parameters:
+                raw_predictions = model.predict(data, params=params)
+            else:
+                _log_warning_if_params_not_in_predict_signature(_logger, params)
+                raw_predictions = model.predict(data)
     except MlflowException as e:
         if "Failed to enforce schema" in e.message:
             _logger.warning(
@@ -596,6 +620,8 @@ def get_cmd(
 
     if nworkers:
         args.append(f"--workers {nworkers}")
+
+    # args.extend(["--capture-output", "--error-logfile", "-"])
 
     command = f"uvicorn {' '.join(args)} mlflow.pyfunc.scoring_server.app:app"
 
