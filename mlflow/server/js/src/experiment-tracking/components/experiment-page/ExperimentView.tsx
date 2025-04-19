@@ -32,7 +32,16 @@ import invariant from 'invariant';
 import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
 import { ExperimentViewTraces } from './components/ExperimentViewTraces';
 
-export const ExperimentView = () => {
+import { ExperimentPageUIState } from './models/ExperimentPageUIState';
+import { UseExperimentsResult } from './hooks/useExperiments';
+
+type ExperimentViewProps = {
+  uiState: ExperimentPageUIState;
+  setUIState: React.Dispatch<React.SetStateAction<ExperimentPageUIState>>;
+  seedInitialUIState: (experiments: UseExperimentsResult, runs: ExperimentRunsSelectorResult) => void;
+};
+
+export const ExperimentView = ({ uiState, setUIState, seedInitialUIState }: ExperimentViewProps) => {
   const dispatch = useDispatch<ThunkDispatch>();
 
   const [searchFacets, experimentIds, isPreview] = useExperimentPageSearchFacets();
@@ -49,9 +58,6 @@ export const ExperimentView = () => {
   const [editing, setEditing] = useState(false);
 
   const [showAddDescriptionButton, setShowAddDescriptionButton] = useState(true);
-
-  // Create new version of the UI state for the experiment page on this level
-  const [uiState, setUIState, seedInitialUIState] = useInitializeUIState(experimentIds);
 
   const { isViewStateShared } = useSharedExperimentViewState(setUIState, first(experiments));
 

@@ -20,18 +20,20 @@ import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
+import { ExperimentPageUIState } from './experiment-page/models/ExperimentPageUIState';
 import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
 
 type Props = {
   activeExperimentIds: string[];
   experiments: ExperimentEntity[];
+  uiState: ExperimentPageUIState;
+  setUIState: React.Dispatch<React.SetStateAction<ExperimentPageUIState>>;
 } & WithRouterNextProps &
   DesignSystemHocProps;
 
 type State = {
   checkedKeys: string[];
-  hidden: boolean;
   searchInput: string;
   showCreateExperimentModal: boolean;
   showDeleteExperimentModal: boolean;
@@ -45,7 +47,6 @@ export class ExperimentListView extends Component<Props, State> {
 
   state = {
     checkedKeys: this.props.activeExperimentIds,
-    hidden: false,
     searchInput: '',
     showCreateExperimentModal: false,
     showDeleteExperimentModal: false,
@@ -225,15 +226,14 @@ export class ExperimentListView extends Component<Props, State> {
     );
   };
 
-  unHide = () => this.setState({ hidden: false });
-  hide = () => this.setState({ hidden: true });
+  unHide = () => this.props.setUIState((uiState) => ({ ...uiState, experimentListHidden: false}));
+  hide = () => this.props.setUIState((uiState) => ({ ...uiState, experimentListHidden: true}));
 
   render() {
-    const { hidden } = this.state;
     const { activeExperimentIds, designSystemThemeApi } = this.props;
     const { theme } = designSystemThemeApi;
 
-    if (hidden) {
+    if (this.props.uiState.experimentListHidden) {
       return (
         <Tooltip content="Show experiment list" componentId="mlflow.experiment_list_view.show_experiments.tooltip">
           <Button

@@ -8,7 +8,8 @@ import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import { ExperimentListView } from './ExperimentListView';
 import Fixtures from '../utils/test-utils/Fixtures';
-import { DesignSystemProvider, DesignSystemThemeInterface } from '@databricks/design-system';
+import { DesignSystemProvider } from '@databricks/design-system';
+import { createExperimentPageUIState } from './experiment-page/models/ExperimentPageUIState';
 
 // Make the autosizer render items.
 // https://github.com/bvaughn/react-virtualized/blob/v9.22.3/source/AutoSizer/AutoSizer.jest.js#L68
@@ -31,18 +32,26 @@ afterAll(() => {
   jest.restoreAllMocks();
 });
 
-// Need to mock this since the hoc doesn't pick up theme
-const designSystemThemeApi: DesignSystemThemeInterface = {
-  theme: {
-    colors: { primary: 'solid', actionDefaultBackgroundPress: `solid` },
-    general: { iconSize: 24 },
-    spacing: { xs: 4 },
-    typography: { fontSize: 13 },
+const defaultProps = {
+  // Need to mock this since the hoc doesn't pick up theme
+  designSystemThemeApi: {
+    theme: {
+      colors: { primary: 'solid', actionDefaultBackgroundPress: `solid` },
+      general: { iconSize: 24 },
+      spacing: { xs: 4 },
+      typography: { fontSize: 13 },
+    },
   },
-} as any;
+  history: [],
+  uiState: createExperimentPageUIState()
+};
 
-const mountComponent = (props: any) => {
+const mountComponent = (addedProps: any) => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
+  const props = { ...defaultProps, ...addedProps };
+  props.setUIState = (setState: (state: Record<string, unknown>) => Record<string, unknown>) => {
+    props.uiState = setState(props.uiState);
+  };
   return renderWithIntl(
     <DesignSystemProvider>
       <Provider
@@ -53,7 +62,7 @@ const mountComponent = (props: any) => {
         })}
       >
         <BrowserRouter>
-          <ExperimentListView {...props} history={[]} designSystemThemeApi={designSystemThemeApi} />,
+          <ExperimentListView {...props} />,
         </BrowserRouter>
       </Provider>
     </DesignSystemProvider>,
