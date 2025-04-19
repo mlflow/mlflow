@@ -55,9 +55,9 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import MAX_EXPERIMENT_NAME_LENGTH
-from mlflow.utils.yaml_utils import read_yaml, write_yaml
+from mlflow.utils.yaml_utils import read_yaml, safe_edit_yaml, write_yaml
 
-from tests.helper_functions import random_int, random_str, safe_edit_yaml
+from tests.helper_functions import random_int, random_str
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
 

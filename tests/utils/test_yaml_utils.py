@@ -9,10 +9,11 @@ from mlflow.exceptions import MissingConfigException
 from mlflow.utils.yaml_utils import (
     read_yaml,
     render_and_merge_yaml,
+    safe_edit_yaml,
     write_yaml,
 )
 
-from tests.helper_functions import random_file, random_int, safe_edit_yaml
+from tests.helper_functions import random_file, random_int
 
 
 def test_yaml_read_and_write(tmp_path):

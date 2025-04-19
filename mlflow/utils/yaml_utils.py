@@ -162,3 +162,18 @@ def render_and_merge_yaml(root, template_name, context_name):
     source = j2_env.get_template(template_name).render(context_dict)
     rendered_template_dict = yaml.load(source, Loader=UniqueKeyLoader)
     return merge_dicts(rendered_template_dict, context_dict)
+
+
+class safe_edit_yaml:
+    def __init__(self, root, file_name, edit_func):
+        self._root = root
+        self._file_name = file_name
+        self._edit_func = edit_func
+        self._original = read_yaml(root, file_name)
+
+    def __enter__(self):
+        new_dict = self._edit_func(self._original.copy())
+        write_yaml(self._root, self._file_name, new_dict, overwrite=True)
+
+    def __exit__(self, *args):
+        write_yaml(self._root, self._file_name, self._original, overwrite=True)
