@@ -6,6 +6,7 @@ from typing import Any, Optional
 from unittest.mock import MagicMock
 
 import langchain
+import pydantic
 import pytest
 from langchain.chains.llm import LLMChain
 from langchain.prompts import PromptTemplate
@@ -33,6 +34,7 @@ from mlflow.langchain import _LangChainModelWrapper
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import trace_disabled
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 from tests.tracing.helper import get_traces
 
@@ -693,3 +695,60 @@ def test_tracer_with_manual_traces():
     assert spans[4].parent_id == spans[3].span_id
     assert spans[5].name == "PromptTemplate"
     assert spans[5].parent_id == spans[1].span_id
+
+
+def test_serialize_invocation_params_success():
+    class DummyModel(pydantic.BaseModel):
+        field: str
+
+    callback = MlflowLangchainTracer()
+    attributes = {"invocation_params": {"response_format": DummyModel, "other_param": "preserved"}}
+    result = callback._serialize_invocation_params(attributes)
+    expected_schema = (
+        DummyModel.model_json_schema() if IS_PYDANTIC_V2_OR_NEWER else DummyModel.schema()
+    )
+    assert "invocation_params" in result
+    assert "response_format" in result["invocation_params"]
+    assert result["invocation_params"]["response_format"] == expected_schema
+    assert result["invocation_params"]["other_param"] == "preserved"
+
+
+def test_serialize_invocation_params_failure():
+    class FaultyModel(pydantic.BaseModel):
+        field: str
+
+        @classmethod
+        def model_json_schema(cls):
+            raise Exception("dummy failure")
+
+    callback = MlflowLangchainTracer()
+    attributes = {"invocation_params": {"response_format": FaultyModel, "other_param": "preserved"}}
+    result = callback._serialize_invocation_params(attributes)
+    assert result["invocation_params"]["response_format"] == FaultyModel
+    assert result["invocation_params"]["other_param"] == "preserved"
+
+
+def test_serialize_invocation_params_non_pydantic_response_format():
+    callback = MlflowLangchainTracer()
+    test_cases = ["string_value", {"dict_key": "value"}, 123, ["list", "of", "items"], None]
+
+    for test_value in test_cases:
+        attributes = {
+            "invocation_params": {"response_format": test_value, "other_param": "preserved"}
+        }
+        result = callback._serialize_invocation_params(attributes)
+        assert result["invocation_params"]["response_format"] == test_value
+        assert result["invocation_params"]["other_param"] == "preserved"
+
+
+def test_serialize_invocation_params_no_invocation_params():
+    callback = MlflowLangchainTracer()
+    attributes = {"other_key": "value"}
+    result = callback._serialize_invocation_params(attributes)
+    assert result == attributes
+
+
+def test_serialize_invocation_params_none():
+    callback = MlflowLangchainTracer()
+    result = callback._serialize_invocation_params(None)
+    assert result is None

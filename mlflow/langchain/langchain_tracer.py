@@ -32,6 +32,7 @@ from mlflow.tracing.provider import detach_span_from_context, set_span_in_contex
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatMessage, ChatTool, FunctionToolDefinition
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
@@ -140,6 +141,35 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             return span_with_token.span
         raise MlflowException(f"Span for run_id {run_id!s} not found.")
 
+    def _serialize_invocation_params(
+        self, attributes: Optional[dict[str, Any]]
+    ) -> Optional[dict[str, Any]]:
+        """
+        Serialize the 'invocation_params' in the attributes dictionary.
+        If 'invocation_params' contains a key 'response_format' whose value is a subclass
+        of pydantic.BaseModel, replace it with its JSON schema.
+        """
+        if not attributes:
+            return attributes
+
+        invocation_params = attributes.get("invocation_params")
+        if not isinstance(invocation_params, dict):
+            return attributes
+
+        response_format = invocation_params.get("response_format")
+        if isinstance(response_format, type) and issubclass(response_format, pydantic.BaseModel):
+            try:
+                invocation_params["response_format"] = (
+                    response_format.model_json_schema()
+                    if IS_PYDANTIC_V2_OR_NEWER
+                    else response_format.schema()
+                )
+            except Exception as e:
+                _logger.error(
+                    "Failed to generate JSON schema for response_format: %s", e, exc_info=True
+                )
+        return attributes
+
     def _start_span(
         self,
         span_name: str,
@@ -150,6 +180,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         attributes: Optional[dict[str, Any]] = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
+        serialized_attributes = self._serialize_invocation_params(attributes)
         with maybe_set_prediction_context(self._prediction_context):
             parent = self._get_parent_span(parent_run_id)
             if parent:
@@ -159,7 +190,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     parent_id=parent.span_id,
                     span_type=span_type,
                     inputs=inputs,
-                    attributes=attributes,
+                    attributes=serialized_attributes,
                 )
             else:
                 # When parent_run_id is None, this is root component so start trace
@@ -172,7 +203,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     name=span_name,
                     span_type=span_type,
                     inputs=inputs,
-                    attributes=attributes,
+                    attributes=serialized_attributes,
                     tags=dependencies_schemas,
                 )
 
