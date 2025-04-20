@@ -1,6 +1,5 @@
 ---
 sidebar_position: 1
-sidebar_label: Manual Tracing
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -9,7 +8,7 @@ import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
-# Manual Tracing
+# Decorators & Fluent APIs (reccomended)
 
 In addition to the [Auto Tracing](/tracing/#automatic-tracing) integrations, you can instrument your Python code using the MLflow Tracing SDK. This is especially useful when you need to instrument your custom Python code.
 
@@ -116,47 +115,7 @@ within `Events` of the partially completed span, further aiding the identificati
 
 ### Combining with Auto-Tracing
 
-The `@mlflow.trace` decorator can be used in conjunction with auto tracing. For example, the following code combines OpenAI auto-tracing with manually defined spans in a single cohesive and integrated trace.
-
-```python
-import mlflow
-import openai
-
-mlflow.openai.autolog()
-
-
-@mlflow.trace(span_type=SpanType.CHAIN)
-def run(question):
-    messages = build_messages()
-    # MLflow automatically generates a span for OpenAI invocation
-    response = openai.OpenAI().chat.completions.create(
-        model="gpt-4o-mini",
-        max_tokens=100,
-        messages=messages,
-    )
-    return parse_response(response)
-
-
-@mlflow.trace
-def build_messages(question):
-    return [
-        {"role": "system", "content": "You are a helpful chatbot."},
-        {"role": "user", "content": question},
-    ]
-
-
-@mlflow.trace
-def parse_response(response):
-    return response.choices[0].message.content
-
-
-run("What is MLflow?")
-```
-
-Running this code generates the following single trace:
-
-![](/images/llms/tracing/tracing-auto-manual-mix.png)
-
+The `@mlflow.trace` decorator can be used in conjunction with auto tracing to combine auto-tracing with manually defined spans in a single cohesive and integrated trace.  Learn more [here](../automatic#combining-manual-and-automatic-tracing).
 
 ### Streaming
 

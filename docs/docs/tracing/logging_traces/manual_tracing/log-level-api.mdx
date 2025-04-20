@@ -1,6 +1,5 @@
 ---
-sidebar_position: 4
-sidebar_label: Low-level Client APIs
+sidebar_position: 2
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -9,12 +8,12 @@ import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
-# (Advanced) Low-level Client APIs
+# Low-level Client APIs (advanced) 
 
 The <APILink fn="mlflow.client.MlflowClient">`MlflowClient`</APILink> class provides a set of low-level APIS for fine-grained control over creating, manipulating, and retrieving traces.
 
 :::warning
-We recommend using the client APIs ONLY when the high-level APIs like `@mlflow.trace` and `mlflow.start_span` do not satisfy your requirements. See [this page](/tracing/api/manual-instrumentation) for the usage of those high-level APIs.
+We recommend using the client APIs ONLY when the high-level APIs like `@mlflow.trace` and `mlflow.start_span` do not satisfy your requirements. See [this page](fluent-apis) for the usage of those high-level APIs.
 :::
 
 ### Starting a Trace
@@ -92,7 +91,3 @@ client.end_trace(
     attributes={"token_usage": "1174"},
 )
 ```
-
-### Other APIs
-
-The MLflow client exposes several other APIs for interacting with trace data. Refer to the [how-to guide](/tracing/api/how-to) to learn more.

@@ -1,0 +1,51 @@
+---
+sidebar_position: 9
+---
+
+
+# Linking to MLflow Runs
+
+## <span style={{color: "red"}}>TODO: do we really need this?</span>
+
+
+If a trace is generated within a run context, the recorded traces to an active Experiment will be associated with the active Run.
+
+For example, in the following code, the traces are generated within the `start_run` context.
+
+```python
+import mlflow
+
+# Create and activate an Experiment
+mlflow.set_experiment("Run Associated Tracing")
+
+# Start a new MLflow Run
+with mlflow.start_run() as run:
+    # Initiate a trace by starting a Span context from within the Run context
+    with mlflow.start_span(name="Run Span") as parent_span:
+        parent_span.set_inputs({"input": "a"})
+        parent_span.set_outputs({"response": "b"})
+        parent_span.set_attribute("a", "b")
+        # Initiate a child span from within the parent Span's context
+        with mlflow.start_span(name="Child Span") as child_span:
+            child_span.set_inputs({"input": "b"})
+            child_span.set_outputs({"response": "c"})
+            child_span.set_attributes({"b": "c", "c": "d"})
+```
+
+When navigating to the MLflow UI and selecting the active Experiment, the trace display view will show the run that is associated with the trace, as
+well as providing a link to navigate to the run within the MLflow UI. See the below video for an example of this in action.
+
+![Tracing within a Run Context](/images/llms/tracing/run-trace.gif)
+
+You can also programmatically retrieve the traces associated to a particular Run by using the <APILink fn="mlflow.client.MlflowClient.search_traces" /> method.
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+# Retrieve traces associated with a specific Run
+traces = client.search_traces(run_id=run.info.run_id)
+
+print(traces)
+```
