@@ -9,7 +9,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Generator, Optional, Union
+from typing import Any, AsyncGenerator, Generator, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -172,9 +172,15 @@ class PythonModel:
             if predict_attr is not None and callable(predict_attr):
                 func_info = _get_func_info_if_type_hint_supported(predict_attr)
                 setattr(cls, "predict", _wrap_predict_with_pyfunc(predict_attr, func_info))
+            predict_async_attr = cls.__dict__.get("predict_async")
+            if predict_async_attr is not None and callable(predict_async_attr):
+                _check_func_signature(predict_async_attr, "predict_async")
             predict_stream_attr = cls.__dict__.get("predict_stream")
             if predict_stream_attr is not None and callable(predict_stream_attr):
                 _check_func_signature(predict_stream_attr, "predict_stream")
+            predict_stream_async_attr = cls.__dict__.get("predict_stream_async")
+            if predict_stream_async_attr is not None and callable(predict_stream_async_attr):
+                _check_func_signature(predict_stream_async_attr, "predict_stream_async")
         else:
             cls.predict._is_pyfunc = True
 
@@ -210,6 +216,41 @@ class PythonModel:
             Since MLflow 2.20.0, `context` parameter can be removed from `predict_stream` function
             signature if it's not used.
             `def predict_stream(self, model_input, params=None)` is valid.
+        """
+        raise NotImplementedError()
+    
+    async def predict_async(self, context, model_input, params: Optional[dict[str, Any]] = None):
+        """
+        Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
+        For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.
+
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                     can use to perform inference.
+            model_input: A pyfunc-compatible input for the model to evaluate.
+            params: Additional parameters to pass to the model for inference.
+
+        .. tip::
+            Since MLflow 2.20.0, `context` parameter can be removed from `predict_async` function
+            signature if it's not used. `async def predict_async(self, model_input, params=None)` is valid.
+        """
+        raise NotImplementedError()
+
+    async def predict_stream_async(self, context, model_input, params: Optional[dict[str, Any]] = None):
+        """
+        Evaluates a pyfunc-compatible input and produces an iterator of output.
+        For more information about the pyfunc input API, see the :ref:`pyfunc-inference-api`.
+
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                     can use to perform inference.
+            model_input: A pyfunc-compatible input for the model to evaluate.
+            params: Additional parameters to pass to the model for inference.
+
+        .. tip::
+            Since MLflow 2.20.0, `context` parameter can be removed from `predict_stream_async` function
+            signature if it's not used.
+            `async def predict_stream_async(self, model_input, params=None)` is valid.
         """
         raise NotImplementedError()
 
@@ -398,6 +439,71 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
             "`predict_stream` method on your model to generate streaming "
             "predictions"
         )
+    
+    async def predict_async(
+        self, context, messages: list[ChatMessage], params: ChatParams
+    ) -> ChatCompletionResponse:
+        """
+        Evaluates a chat input and produces a chat output.
+
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                can use to perform inference.
+            messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
+                A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
+                objects representing chat history.
+            params (:py:class:`ChatParams <mlflow.types.llm.ChatParams>`):
+                A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
+                containing various parameters used to modify model behavior during
+                inference.
+
+        .. tip::
+            Since MLflow 2.20.0, `context` parameter can be removed from `predict` function
+            signature if it's not used.
+            `def predict(self, messages: list[ChatMessage], params: ChatParams)` is valid.
+
+        Returns:
+            A :py:class:`ChatCompletionResponse <mlflow.types.llm.ChatCompletionResponse>`
+            object containing the model's response(s), as well as other metadata.
+        """
+        raise NotImplementedError(
+            "Async implementation not provided. Please override the "
+            "`predict_async` method on your model to generate async "
+            "predictions"
+            )
+
+    async def predict_stream_async(
+        self, context, messages: list[ChatMessage], params: ChatParams
+    ) -> AsyncGenerator[ChatCompletionChunk, None, None]:
+        """
+        Evaluates a chat input and produces a chat output.
+        Override this function to implement a real stream prediction.
+
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                can use to perform inference.
+            messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
+                A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
+                objects representing chat history.
+            params (:py:class:`ChatParams <mlflow.types.llm.ChatParams>`):
+                A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
+                containing various parameters used to modify model behavior during
+                inference.
+
+        .. tip::
+            Since MLflow 2.20.0, `context` parameter can be removed from `predict_stream` function
+            signature if it's not used.
+            `def predict_stream(self, messages: list[ChatMessage], params: ChatParams)` is valid.
+
+        Returns:
+            An async generator over :py:class:`ChatCompletionChunk <mlflow.types.llm.ChatCompletionChunk>`
+            object containing the model's response(s), as well as other metadata.
+        """
+        raise NotImplementedError(
+            "Async streaming implementation not provided. Please override the "
+            "`predict_stream_async` method on your model to generate async streaming "
+            "predictions"
+        )
 
 
 @experimental
@@ -494,7 +600,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     across clients, and is ready for serving workloads.
 
     To write your own agent, subclass ``ChatAgent``, implementing the ``predict`` and optionally
-    ``predict_stream`` methods to define the non-streaming and streaming behavior of your agent. You
+    ``predict_async``,``predict_stream`` or ``predict_stream_async`` methods to define the non-streaming and streaming behavior of your agent. You
     can use any agent authoring framework - the only hard requirement is to implement the
     ``predict`` interface.
 
@@ -652,7 +758,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
-        for attr_name in ("predict", "predict_stream"):
+        for attr_name in ("predict", "predict_async", "predict_stream", "predict_stream_async"):
             attr = cls.__dict__.get(attr_name)
             if callable(attr):
                 setattr(
@@ -780,6 +886,121 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         raise NotImplementedError(
             "Streaming implementation not provided. Please override the "
             "`predict_stream` method on your model to generate streaming predictions"
+        )
+    
+    # nb: We use `messages` instead of `model_input` so that the trace generated by default is
+    # compatible with mlflow evaluate. We also want `custom_inputs` to be a top level key for
+    # ease of use.
+    async def predict_async(
+        self,
+        messages: list[ChatAgentMessage],
+        context: Optional[ChatContext] = None,
+        custom_inputs: Optional[dict[str, Any]] = None,
+    ) -> ChatAgentResponse:
+        """
+        Given a ChatAgent input, returns a ChatAgent output. In addition to calling ``predict_async``
+        with an input matching the type hints, you can also pass a single input dict that matches
+        the :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema for ease
+        of testing.
+
+        .. code-block:: python
+
+            chat_agent = ChatAgent()
+            await chat_agent.predict(
+                {
+                    "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                    "context": {"conversation_id": "123", "user_id": "456"},
+                }
+            )
+
+        Args:
+            messages (List[:py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`]):
+                A list of :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`
+                objects representing the chat history.
+            context (:py:class:`ChatContext <mlflow.types.agent.ChatContext>`):
+                A :py:class:`ChatContext <mlflow.types.agent.ChatContext>` object
+                containing conversation_id and user_id. **Optional** Defaults to None.
+            custom_inputs (Dict[str, Any]):
+                An optional param to provide arbitrary additional inputs
+                to the model. The dictionary values must be JSON-serializable. **Optional**
+                Defaults to None.
+
+        Returns:
+            A :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` object containing
+            the model's response, as well as other metadata.
+        """
+        raise NotImplementedError(
+            "Async implementation not provided. Please override the "
+            "`predict_async` method on your model to generate streaming predictions"
+        )
+
+    # nb: We use `messages` instead of `model_input` so that the trace generated by default is
+    # compatible with mlflow evaluate. We also want `custom_inputs` to be a top level key for
+    # ease of use.
+    async def predict_stream_async(
+        self,
+        messages: list[ChatAgentMessage],
+        context: Optional[ChatContext] = None,
+        custom_inputs: Optional[dict[str, Any]] = None,
+    ) -> AsyncGenerator[ChatAgentChunk]:
+        """
+        Given a ChatAgent input, returns an async generator containing streaming ChatAgent output chunks.
+        In addition to calling ``predict_stream_async`` with an input matching the type hints, you can
+        also pass a single input dict that matches the
+        :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>`
+        schema for ease of testing.
+
+        .. code-block:: python
+
+            chat_agent = ChatAgent()
+            async for event in chat_agent.predict_stream_async(
+                {
+                    "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                    "context": {"conversation_id": "123", "user_id": "456"},
+                }
+            ):
+                print(event)
+
+        To support async streaming the output of your agent, override this method in your subclass of
+        ``ChatAgent``. When implementing ``predict_stream_async``, keep in mind the following
+        requirements:
+
+        - Ensure your implementation adheres to the ``predict_stream_async`` type signature. For example,
+          streamed messages must be of the type
+          :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>`, where each chunk contains
+          partial output from a single response message.
+        - At most one chunk in a particular response can contain the ``custom_outputs`` key.
+        - Chunks containing partial content of a single response message must have the same ``id``.
+          The content field of the message and usage stats of the
+          :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` should be aggregated by
+          the consuming client. See the example below.
+
+        .. code-block:: python
+
+            {"delta": {"role": "assistant", "content": "Born", "id": "123"}}
+            {"delta": {"role": "assistant", "content": " in", "id": "123"}}
+            {"delta": {"role": "assistant", "content": " data", "id": "123"}}
+
+
+        Args:
+            messages (List[:py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`]):
+                A list of :py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`
+                objects representing the chat history.
+            context (:py:class:`ChatContext <mlflow.types.agent.ChatContext>`):
+                A :py:class:`ChatContext <mlflow.types.agent.ChatContext>` object
+                containing conversation_id and user_id. **Optional** Defaults to None.
+            custom_inputs (Dict[str, Any]):
+                An optional param to provide arbitrary additional inputs
+                to the model. The dictionary values must be JSON-serializable. **Optional**
+                Defaults to None.
+
+        Returns:
+            An async generator over :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>`
+            objects containing the model's response(s), as well as other metadata.
+        """
+        raise NotImplementedError(
+            "Async Streaming implementation not provided. Please override the "
+            "`predict_stream_async` method on your model to generate streaming predictions"
         )
 
 
@@ -1164,6 +1385,50 @@ class _PythonModelPyfuncWrapper:
             )
         else:
             return self.python_model.predict_stream(self._convert_input(model_input), **kwargs)
+        
+    async def predict_async(self, model_input, params: Optional[dict[str, Any]] = None):
+        """
+        Args:
+            model_input: LLM Model single input.
+            params: Additional parameters to pass to the model for inference.
+
+        Returns:
+            predictions.
+        """
+        parameters = inspect.signature(self.python_model.predict_async).parameters
+        kwargs = {}
+        if "params" in parameters:
+            kwargs["params"] = params
+        else:
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
+        if _is_context_in_predict_function_signature(parameters=parameters):
+            return await self.python_model.predict_async(
+                self.context, self._convert_input(model_input), **kwargs
+            )
+        else:
+            return await self.python_model.predict_async(self._convert_input(model_input), **kwargs)
+    
+    async def predict_stream_async(self, model_input, params: Optional[dict[str, Any]] = None):
+        """
+        Args:
+            model_input: LLM Model single input.
+            params: Additional parameters to pass to the model for inference.
+
+        Returns:
+            Streaming predictions.
+        """
+        parameters = inspect.signature(self.python_model.predict_stream_async).parameters
+        kwargs = {}
+        if "params" in parameters:
+            kwargs["params"] = params
+        else:
+            _log_warning_if_params_not_in_predict_signature(_logger, params)
+        if _is_context_in_predict_function_signature(parameters=parameters):
+            return await self.python_model.predict_stream_async(
+                self.context, self._convert_input(model_input), **kwargs
+            )
+        else:
+            return await self.python_model.predict_stream_async(self._convert_input(model_input), **kwargs)
 
 
 def _get_pyfunc_loader_module(python_model):
