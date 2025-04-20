@@ -124,6 +124,12 @@ class SimpleChatModel(mlflow.pyfunc.ChatModel):
         mock_response = get_mock_response(messages, params)
         return ChatCompletionResponse.from_dict(mock_response)
 
+    async def predict_async(
+        self, context, messages: list[ChatMessage], params: ChatParams
+    ) -> ChatCompletionResponse:
+        mock_response = get_mock_response(messages, params)
+        return ChatCompletionResponse.from_dict(mock_response)
+    
     def predict_stream(self, context, messages: list[ChatMessage], params: ChatParams):
         num_chunks = 10
         for i in range(num_chunks):
@@ -132,6 +138,13 @@ class SimpleChatModel(mlflow.pyfunc.ChatModel):
             )
             yield ChatCompletionChunk.from_dict(mock_response)
 
+    async def predict_stream_async(self, context, messages: list[ChatMessage], params: ChatParams):
+        num_chunks = 10
+        for i in range(num_chunks):
+            mock_response = get_mock_streaming_response(
+                f"message {i}", is_last_chunk=(i == num_chunks - 1)
+            )
+            yield ChatCompletionChunk.from_dict(mock_response)
 
 class ChatModelWithContext(mlflow.pyfunc.ChatModel):
     def load_context(self, context):
@@ -347,6 +360,47 @@ def test_chat_model_predict(tmp_path):
         **params_subset,
     }
 
+async def test_chat_model_predict_async(tmp_path):
+    model = SimpleChatModel()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "user", "content": "Hello!"},
+    ]
+
+    response = await loaded_model.predict_async({"messages": messages})
+    assert response["choices"][0]["message"]["content"] == json.dumps(messages)
+    assert json.loads(response["choices"][1]["message"]["content"]) == DEFAULT_PARAMS
+
+    # override all params
+    params_override = {
+        "temperature": 0.5,
+        "max_tokens": 10,
+        "stop": ["\n"],
+        "n": 2,
+        "stream": True,
+        "top_p": 0.1,
+        "top_k": 20,
+        "frequency_penalty": 0.5,
+        "presence_penalty": -0.5,
+    }
+    response = await loaded_model.predict_async({"messages": messages, **params_override})
+    assert response["choices"][0]["message"]["content"] == json.dumps(messages)
+    assert json.loads(response["choices"][1]["message"]["content"]) == params_override
+
+    # override a subset of params
+    params_subset = {
+        "max_tokens": 100,
+    }
+    response = await loaded_model.predict_async({"messages": messages, **params_subset})
+    assert response["choices"][0]["message"]["content"] == json.dumps(messages)
+    assert json.loads(response["choices"][1]["message"]["content"]) == {
+        **DEFAULT_PARAMS,
+        **params_subset,
+    }
+
 
 def test_chat_model_works_in_serving():
     model = SimpleChatModel()
@@ -543,6 +597,23 @@ def test_chat_model_predict_stream(tmp_path):
     ]
 
     responses = list(loaded_model.predict_stream({"messages": messages}))
+    for i, resp in enumerate(responses[:-1]):
+        assert resp["choices"][0]["delta"]["content"] == f"message {i}"
+
+    assert responses[-1]["choices"][0]["delta"] == {}
+
+async def test_chat_model_predict_stream_async(tmp_path):
+    model = SimpleChatModel()
+    mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
+
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "user", "content": "Hello!"},
+    ]
+
+    responses = await loaded_model.predict_stream_async({"messages": messages})
+    responses = list(responses)
     for i, resp in enumerate(responses[:-1]):
         assert resp["choices"][0]["delta"]["content"] == f"message {i}"
 
