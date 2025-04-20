@@ -474,7 +474,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 
     async def predict_stream_async(
         self, context, messages: list[ChatMessage], params: ChatParams
-    ) -> AsyncGenerator[ChatCompletionChunk, None, None]:
+    ) -> AsyncGenerator[ChatCompletionChunk]:
         """
         Evaluates a chat input and produces a chat output.
         Override this function to implement a real stream prediction.
