@@ -57,6 +57,7 @@ type ModelVersionTableProps = {
   onMetadataUpdated: () => void;
   usingNextModelsUI: boolean;
   aliases?: ModelAliasMap;
+  serverPaginated?: boolean;
 };
 
 type ModelVersionColumnDef = ColumnDef<ModelVersionInfoEntity> & {
@@ -83,6 +84,7 @@ export const ModelVersionTable = ({
   onMetadataUpdated,
   usingNextModelsUI,
   aliases,
+  serverPaginated = false,
 }: ModelVersionTableProps) => {
   const aliasesByVersion = useMemo(() => {
     const result: Record<string, string[]> = {};
@@ -98,7 +100,7 @@ export const ModelVersionTable = ({
     () =>
       activeStageOnly
         ? (modelVersions || []).filter(({ current_stage }) => ACTIVE_STAGES.includes(current_stage))
-        : modelVersions,
+        : modelVersions || [],
     [activeStageOnly, modelVersions],
   );
 
@@ -129,7 +131,7 @@ export const ModelVersionTable = ({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const [pagination, setPagination] = useState<PaginationState>({
-    pageSize: 10,
+    pageSize: serverPaginated ? versions.length : 10,
     pageIndex: 0,
   });
 
@@ -286,7 +288,7 @@ export const ModelVersionTable = ({
     data: versions || [],
     columns: tableColumns,
     state: {
-      pagination,
+      pagination: serverPaginated ? undefined : pagination,
       rowSelection,
       sorting,
     },
@@ -296,6 +298,9 @@ export const ModelVersionTable = ({
     getRowId: ({ version }) => version,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
+    ...(serverPaginated
+      ? { manualPagination: true }
+      : { getPaginationRowModel: getPaginationRowModel(), state: { pagination } }),
   });
 
   const isEmpty = () => table.getRowModel().rows.length === 0;
@@ -304,14 +309,14 @@ export const ModelVersionTable = ({
     return RegisteringModelDocUrl;
   };
 
-  const paginationComponent = (
+  const paginationComponent = serverPaginated ? undefined : (
     <Pagination
       componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_403"
       currentPageIndex={pagination.pageIndex + 1}
       numTotal={(versions || []).length}
       onChange={(page, pageSize) => {
         setPagination({
-          pageSize: pageSize || pagination.pageSize,
+          pageSize: pageSize ?? pagination.pageSize,
           pageIndex: page - 1,
         });
       }}

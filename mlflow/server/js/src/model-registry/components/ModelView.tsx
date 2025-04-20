@@ -26,6 +26,7 @@ import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { CursorPagination } from '@databricks/design-system';
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -49,6 +50,15 @@ type ModelViewImplProps = {
   intl: IntlShape;
   onMetadataUpdated: () => void;
   usingNextModelsUI: boolean;
+  paginationProps: {
+    currentPage: number;
+    hasPreviousPage: boolean;
+    hasNextPage: boolean;
+    maxResultValue: number;
+    onNext: () => void;
+    onPrev: () => void;
+    onPageSizeChange: (args: { key: number }) => void;
+  };
 };
 
 type ModelViewImplState = any;
@@ -235,7 +245,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   }
 
   renderDetails = () => {
-    const { model, modelVersions, tags } = this.props;
+    const { model, modelVersions, tags, paginationProps } = this.props;
     const {
       stageFilter,
       showDescriptionEditor,
@@ -389,17 +399,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
           }
           data-test-id="model-versions-section"
         >
-          {shouldShowModelsNextUI() && (
-            <div
-              css={{
-                marginBottom: 8,
-                display: 'flex',
-                justifyContent: 'flex-end',
-              }}
-            >
-              <ModelsNextUIToggleSwitch />
-            </div>
-          )}
           <ModelVersionTable
             activeStageOnly={stageFilter === StageFilters.ACTIVE && !this.props.usingNextModelsUI}
             modelName={modelName}
@@ -409,7 +408,22 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             onMetadataUpdated={this.props.onMetadataUpdated}
             usingNextModelsUI={this.props.usingNextModelsUI}
             aliases={model?.aliases}
+            serverPaginated
           />
+          <div css={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <CursorPagination
+              componentId="model_page.cursor_pagination"
+              hasNextPage={paginationProps.hasNextPage}
+              hasPreviousPage={paginationProps.hasPreviousPage}
+              onNextPage={paginationProps.onNext}
+              onPreviousPage={paginationProps.onPrev}
+              pageSizeSelect={{
+                onChange: (num) => paginationProps.onPageSizeChange({ key: num }),
+                default: paginationProps.maxResultValue,
+                options: [10, 25, 50, 100],
+              }}
+            />
+          </div>
         </CollapsibleSection>
 
         {/* Delete Model Dialog */}

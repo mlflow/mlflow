@@ -31,6 +31,14 @@ import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { ErrorCodes } from '../../common/constants';
 
+type PaginationState = {
+  currentPage: number;
+  maxResultValue: number;
+  currentPageToken: string | null;
+  nextPageToken: string | null;
+  previousPageTokens: Array<string | null>;
+};
+
 type ModelPageImplProps = WithRouterNextProps<{ subpage: string }> & {
   modelName: string;
   model?: any;
@@ -48,7 +56,7 @@ type ModelPageImplProps = WithRouterNextProps<{ subpage: string }> & {
   intl?: any;
 };
 
-export class ModelPageImpl extends React.Component<ModelPageImplProps> {
+export class ModelPageImpl extends React.Component<ModelPageImplProps, PaginationState> {
   hasUnfilledRequests: any;
   pollIntervalId: any;
 
@@ -58,6 +66,60 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
   deleteRegisteredModelApiId = getUUID();
 
   criticalInitialRequestIds = [this.initSearchModelVersionsApiRequestId, this.initgetRegisteredModelApiRequestId];
+
+  state: PaginationState = {
+    currentPage: 1,
+    maxResultValue: 25,
+    currentPageToken: null,
+    nextPageToken: null,
+    previousPageTokens: [],
+  };
+
+  handleClickNext = () => {
+    const { nextPageToken, currentPageToken, previousPageTokens, currentPage } = this.state;
+    if (!nextPageToken) return;
+
+    this.setState(
+      {
+        previousPageTokens: [...previousPageTokens, currentPageToken],
+        currentPageToken: nextPageToken,
+        nextPageToken: null,
+        currentPage: currentPage + 1,
+      },
+      () => this.fetchData(this.state.currentPageToken),
+    );
+  };
+
+  handleClickPrev = () => {
+    const { previousPageTokens, currentPage } = this.state;
+    if (previousPageTokens.length === 0) return;
+
+    const tokens = [...previousPageTokens];
+    const prevToken = tokens.pop() ?? null;
+
+    this.setState(
+      {
+        previousPageTokens: tokens,
+        currentPageToken: prevToken,
+        nextPageToken: null,
+        currentPage: currentPage - 1,
+      },
+      () => this.fetchData(this.state.currentPageToken),
+    );
+  };
+
+  handleSetMaxResult = ({ key: pageSize }: { key: number }) => {
+    this.setState(
+      {
+        maxResultValue: pageSize,
+        currentPage: 1,
+        currentPageToken: null,
+        nextPageToken: null,
+        previousPageTokens: [],
+      },
+      () => this.fetchData(null),
+    );
+  };
 
   handleEditDescription = (description: any) => {
     const { model } = this.props;
@@ -70,29 +132,39 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
     const { model } = this.props;
     return this.props.deleteRegisteredModelApi(model.name, this.deleteRegisteredModelApiId);
   };
-
-  loadData = (isInitialLoading: any) => {
+  fetchData = (pageToken: string | null) => {
     const { modelName } = this.props;
     this.hasUnfilledRequests = true;
-    const promiseValues = [
-      this.props.getRegisteredModelApi(
-        modelName,
-        isInitialLoading === true ? this.initgetRegisteredModelApiRequestId : null,
-      ),
-      this.props.searchModelVersionsApi(
-        { name: modelName },
-        isInitialLoading === true ? this.initSearchModelVersionsApiRequestId : null,
-      ),
-    ];
-    return Promise.all(promiseValues).then(() => {
-      this.hasUnfilledRequests = false;
-    });
+
+    return this.props
+      .searchModelVersionsApi(
+        {
+          filterObj: { name: modelName },
+          maxResults: this.state.maxResultValue,
+          pageToken: pageToken ?? undefined,
+        },
+        this.initSearchModelVersionsApiRequestId,
+      )
+      .then((resp: any) => {
+        const nextToken = resp?.next_page_token ?? resp?.value?.next_page_token ?? null;
+        this.setState({ nextPageToken: nextToken });
+      })
+      .finally(() => (this.hasUnfilledRequests = false));
+  };
+
+  loadData = (isInitial = false) => {
+    const { modelName } = this.props;
+
+    const apiCalls = isInitial
+      ? [this.props.getRegisteredModelApi(modelName, this.initgetRegisteredModelApiRequestId), this.fetchData(null)]
+      : [this.fetchData(null)];
+
+    return Promise.all(apiCalls);
   };
 
   pollData = () => {
     const { modelName, navigate } = this.props;
     if (!this.hasUnfilledRequests && Utils.isBrowserTabVisible()) {
-      // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
       return this.loadData().catch((e) => {
         if (e instanceof ErrorWrapper && e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
           Utils.logErrorAndNotifyUser(e);
@@ -109,10 +181,15 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
   };
 
   componentDidMount() {
-    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-    this.loadData(true).catch(console.error);
-    this.hasUnfilledRequests = false;
-    this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
+    this.loadData(true)
+      .then(() => {
+        const { modelVersions } = this.props;
+        const hasPending = (modelVersions || []).some(({ status }) => status !== 'READY');
+        if (hasPending) {
+          this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
+        }
+      })
+      .catch(console.error);
   }
 
   componentWillUnmount() {
@@ -185,6 +262,15 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
                   handleDelete={this.handleDelete}
                   navigate={navigate}
                   onMetadataUpdated={this.loadData}
+                  paginationProps={{
+                    currentPage: this.state.currentPage,
+                    hasPreviousPage: this.state.currentPage > 1,
+                    hasNextPage: Boolean(this.state.nextPageToken),
+                    maxResultValue: this.state.maxResultValue,
+                    onNext: this.handleClickNext,
+                    onPrev: this.handleClickPrev,
+                    onPageSizeChange: this.handleSetMaxResult,
+                  }}
                 />
               );
             }

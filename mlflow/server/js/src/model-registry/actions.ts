@@ -11,6 +11,12 @@ import { getArtifactContent } from '../common/utils/ArtifactUtils';
 import yaml from 'js-yaml';
 import type { KeyValueEntity, ModelVersionInfoEntity } from '../experiment-tracking/types';
 
+type SearchModelVersionsArgs = {
+  filterObj: Record<string, string | string[]>;
+  maxResults?: number;
+  pageToken?: string | null;
+};
+
 const CREATE_REGISTERED_MODEL = 'CREATE_REGISTERED_MODEL';
 // @ts-expect-error TS(7006): Parameter 'name' implicitly has an 'any' type.
 export const createRegisteredModelApi = (name, id = getUUID()) => ({
@@ -156,30 +162,30 @@ export const resolveFilterValue = (value: any, includeWildCard = false) => {
 };
 
 export const SEARCH_MODEL_VERSIONS = 'SEARCH_MODEL_VERSIONS';
-export const searchModelVersionsApi = (filterObj: any, id = getUUID(), maxResults: number | undefined = undefined) => {
+export const searchModelVersionsApi = (
+  { filterObj, maxResults, pageToken }: SearchModelVersionsArgs,
+  id = getUUID(),
+) => {
   const filter = Object.keys(filterObj)
     .map((key) => {
-      if (Array.isArray(filterObj[key]) && filterObj[key].length > 1) {
-        return `${key} IN (${filterObj[key].map((elem: any) => resolveFilterValue(elem)).join()})`;
-      } else if (Array.isArray(filterObj[key]) && filterObj[key].length === 1) {
-        return `${key}=${resolveFilterValue(filterObj[key][0])}`;
-      } else {
-        return `${key}=${resolveFilterValue(filterObj[key])}`;
+      const value = filterObj[key];
+      if (Array.isArray(value)) {
+        return value.length === 1
+          ? `${key}=${resolveFilterValue(value[0])}`
+          : `${key} IN (${value.map((v) => resolveFilterValue(v)).join()})`;
       }
+      return `${key}=${resolveFilterValue(value)}`;
     })
     .join('&');
 
-  const reqBody: any = {
-    filter,
-  };
-  if (maxResults) {
-    reqBody['max_results'] = maxResults;
-  }
+  const params: Record<string, unknown> = { filter };
+  if (maxResults) params['max_results'] = maxResults;
+  if (pageToken) params['page_token'] = pageToken;
 
   return {
     type: SEARCH_MODEL_VERSIONS,
-    payload: Services.searchModelVersions(reqBody),
-    meta: { id },
+    payload: Services.searchModelVersions(params),
+    meta: { id, modelName: filterObj['name'], maxResults, pageToken },
   };
 };
 
