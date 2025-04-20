@@ -942,7 +942,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         messages: list[ChatAgentMessage],
         context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
-    ) -> AsyncGenerator[ChatAgentChunk]:
+    ) -> AsyncGenerator[ChatAgentChunk, None]:
         """
         Given a ChatAgent input, returns an async generator containing streaming ChatAgent output chunks.
         In addition to calling ``predict_stream_async`` with an input matching the type hints, you can
