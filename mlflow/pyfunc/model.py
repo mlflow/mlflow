@@ -1137,8 +1137,10 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
             shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
+    asyncable = python_model.__class__.predict_async != PythonModel.predict_async
     if streamable is None:
         streamable = python_model.__class__.predict_stream != PythonModel.predict_stream
+    asyncstreamable = python_model.__class__.predict_stream_async != PythonModel.predict_stream_async
 
     if model_code_path:
         loader_module = mlflow.pyfunc.loaders.code_model.__name__
@@ -1157,7 +1159,9 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
+        asyncable=asyncable,
         streamable=streamable,
+        asyncstreamable=asyncstreamable,
         model_code_path=model_code_path,
         **custom_model_config_kwargs,
     )

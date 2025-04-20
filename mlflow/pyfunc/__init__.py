@@ -413,7 +413,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Iterator, Optional, Tuple, Union
+from typing import Any, AsyncIterator, Iterator, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -756,7 +756,9 @@ class PyFuncModel:
         model_meta: Model,
         model_impl: Any,
         predict_fn: str = "predict",
+        predict_async_fn: Optional[str] = None,
         predict_stream_fn: Optional[str] = None,
+        predict_stream_async_fn: Optional[str] = None,
     ):
         if not hasattr(model_impl, predict_fn):
             raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
@@ -765,6 +767,14 @@ class PyFuncModel:
         self._model_meta = model_meta
         self.__model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
+        if predict_async_fn:
+            if not hasattr(model_impl, predict_async_fn):
+                raise MlflowException(
+                    f"Model implementation is missing required {predict_async_fn} method."
+                )
+            self._predict_async_fn = getattr(model_impl, predict_async_fn)
+        else:
+            self._predict_async_fn = None
         if predict_stream_fn:
             if not hasattr(model_impl, predict_stream_fn):
                 raise MlflowException(
@@ -773,6 +783,14 @@ class PyFuncModel:
             self._predict_stream_fn = getattr(model_impl, predict_stream_fn)
         else:
             self._predict_stream_fn = None
+        if predict_stream_async_fn:
+            if not hasattr(model_impl, predict_stream_async_fn):
+                raise MlflowException(
+                    f"Model implementation is missing required {predict_stream_async_fn} method."
+                )
+            self._predict_stream_async_fn = getattr(model_impl, predict_stream_async_fn)
+        else:
+            self._predict_stream_async_fn = None
         self._input_example = None
 
     @property
@@ -855,6 +873,69 @@ class PyFuncModel:
 
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self._predict_fn(data)
+    
+    async def predict_async(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
+        context = _try_get_prediction_context() or Context()
+        with set_prediction_context(context):
+            if schema := _get_dependencies_schema_from_model(self._model_meta):
+                context.update(**schema)
+            return await self._predict_async(data, params)
+
+    async def _predict_async(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
+        """
+        Generates model predictions.
+
+        If the model contains signature, enforce the input schema first before calling the model
+        implementation with the sanitized input. If the pyfunc model does not include model schema,
+        the input is passed to the model implementation as is. See `Model Signature Enforcement
+        <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details.
+
+        Args:
+            data: LLM Model single input as one of pandas.DataFrame, numpy.ndarray,
+                scipy.sparse.(csc_matrix | csr_matrix), List[Any], or
+                Dict[str, numpy.ndarray].
+                For model signatures with tensor spec inputs
+                (e.g. the Tensorflow core / Keras model), the input data type must be one of
+                `numpy.ndarray`, `List[numpy.ndarray]`, `Dict[str, numpy.ndarray]` or
+                `pandas.DataFrame`. If data is of `pandas.DataFrame` type and the model
+                contains a signature with tensor spec inputs, the corresponding column values
+                in the pandas DataFrame will be reshaped to the required shape with 'C' order
+                (i.e. read / write the elements using C-like index order), and DataFrame
+                column values will be cast as the required tensor spec type. For Pyspark
+                DataFrame inputs, MLflow will only enforce the schema on a subset
+                of the data rows.
+            params: Additional parameters to pass to the model for inference.
+
+        Returns:
+            Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
+        """
+        if self._predict_async_fn is None:
+            raise MlflowException("This model does not support predict_async method.")
+        
+        # fetch the schema from metadata to avoid signature change after model is loaded
+        self.input_schema = self.metadata.get_input_schema()
+        self.params_schema = self.metadata.get_params_schema()
+        # signature can only be inferred from type hints if the model is PythonModel
+        if self.metadata._is_signature_from_type_hint():
+            # we don't need to validate on data as data validation
+            # will be done during PythonModel's predict call
+            params = _enforce_params_schema(params, self.params_schema)
+        else:
+            data, params = _validate_prediction_input(
+                data, params, self.input_schema, self.params_schema, self.loader_module
+            )
+            if (
+                isinstance(data, pandas.DataFrame)
+                and self.metadata._is_type_hint_from_example()
+                and self.input_example is not None
+            ):
+                data = _convert_dataframe_to_example_format(data, self.input_example)
+        params_arg = inspect.signature(self._predict_async_fn).parameters.get("params")
+        if params_arg and params_arg.kind != inspect.Parameter.VAR_KEYWORD:
+            return await self._predict_async_fn(data, params=params)
+
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
+        return await self._predict_async_fn(data)
 
     def predict_stream(
         self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
@@ -917,6 +998,69 @@ class PyFuncModel:
 
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self._predict_stream_fn(data)
+    
+    async def predict_stream_async(
+        self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
+    ) -> AsyncIterator[PyFuncLLMOutputChunk]:
+        context = _try_get_prediction_context() or Context()
+
+        if schema := _get_dependencies_schema_from_model(self._model_meta):
+            context.update(**schema)
+
+        # NB: The prediction context must be applied during iterating over the stream,
+        # hence, simply wrapping the self._predict_stream_async call with the context manager
+        # is not sufficient.
+        async def _gen_with_context(*args, **kwargs):
+            with set_prediction_context(context):
+                async for item in self._predict_stream_async(*args, **kwargs):
+                    yield item
+
+        return _gen_with_context(data, params)
+
+    async def _predict_stream_async(
+        self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
+    ) -> AsyncIterator[PyFuncLLMOutputChunk]:
+        """
+        Generates streaming model predictions. Only LLM supports this method.
+
+        If the model contains signature, enforce the input schema first before calling the model
+        implementation with the sanitized input. If the pyfunc model does not include model schema,
+        the input is passed to the model implementation as is. See `Model Signature Enforcement
+        <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details.
+
+        Args:
+            data: LLM Model single input as one of dict, str, bool, bytes, float, int, str type.
+            params: Additional parameters to pass to the model for inference.
+
+        Returns:
+            Model predictions as an iterator of chunks. The chunks in the iterator must be type of
+            dict or string. Chunk dict fields are determined by the model implementation.
+        """
+
+        if self._predict_stream_async_fn is None:
+            raise MlflowException("This model does not support predict_stream_async method.")
+
+        self.input_schema = self.metadata.get_input_schema()
+        self.params_schema = self.metadata.get_params_schema()
+        data, params = _validate_prediction_input(
+            data, params, self.input_schema, self.params_schema, self.loader_module
+        )
+        data = _convert_llm_input_data(data)
+        if isinstance(data, list):
+            # `predict_stream` only accepts single input.
+            # but `enforce_schema` might convert single input into a list like `[single_input]`
+            # so extract the first element in the list.
+            if len(data) != 1:
+                raise MlflowException(
+                    f"'predict_stream' requires single input, but it got input data {data}"
+                )
+            data = data[0]
+
+        if "params" in inspect.signature(self._predict_stream_async_fn).parameters:
+            return await self._predict_stream_async_fn(data, params=params)
+
+        _log_warning_if_params_not_in_predict_signature(_logger, params)
+        return await self._predict_stream_async_fn(data)
 
     @experimental
     def unwrap_python_model(self):
@@ -1143,14 +1287,23 @@ def load_model(
         # This avoids the schema being used by other models loaded in the same process.
         _clear_dependencies_schemas()
     predict_fn = conf.get("predict_fn", "predict")
+    asyncable = conf.get("asyncable", False)
+    predict_async_fn = conf.get("predict_async_fn", "predict_async") if asyncable else None
     streamable = conf.get("streamable", False)
     predict_stream_fn = conf.get("predict_stream_fn", "predict_stream") if streamable else None
+    asyncstreamable = conf.get("asyncstreamable", False)
+    predict_stream_async_fn = (
+        conf.get("predict_stream_async_fn", "predict_stream_async") if asyncstreamable else None
+    )
 
     pyfunc_model = PyFuncModel(
         model_meta=model_meta,
         model_impl=model_impl,
         predict_fn=predict_fn,
+        predict_async_fn=predict_async_fn,
         predict_stream_fn=predict_stream_fn,
+        predict_stream_async_fn=predict_stream_async_fn,
+
     )
 
     try:
