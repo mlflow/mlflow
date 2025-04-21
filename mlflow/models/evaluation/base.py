@@ -110,7 +110,7 @@ class EvaluationMetric:
                     ...
 
         name: The name of the metric.
-        greater_is_better: Whether a higher value of the metric is better.
+        greater_is_better: Whether a greater value of the metric is better.
         long_name: (Optional) The long name of the metric. For example,
             ``"root_mean_squared_error"`` for ``"mse"``.
         version: (Optional) The metric version. For example ``v1``.
@@ -372,7 +372,7 @@ def make_metric(
                     """
                     ...
 
-        greater_is_better: Whether a higher value of the metric is better.
+        greater_is_better: Whether a greater value of the metric is better.
         name: The name of the metric. This argument must be specified if ``eval_fn`` is a lambda
                     function or the ``eval_fn.__name__`` attribute is not available.
         long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
@@ -453,7 +453,7 @@ def _make_metric(
                     """
                     ...
 
-        greater_is_better: Whether a higher value of the metric is better.
+        greater_is_better: Whether a greater value of the metric is better.
         name: The name of the metric. This argument must be specified if ``eval_fn`` is a lambda
                     function or the ``eval_fn.__name__`` attribute is not available.
         long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
