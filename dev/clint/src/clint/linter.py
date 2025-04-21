@@ -514,7 +514,7 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
     if type_ != "code":
         return []
 
-    src = "\n".join(cell.get("source"))
+    src = "\n".join(cell.get("source", []))
     try:
         tree = ast.parse(src)
     except SyntaxError:
