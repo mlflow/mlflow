@@ -456,7 +456,7 @@ def start_span(
             _logger.debug(f"Failed to end span {mlflow_span.span_id}.", exc_info=True)
 
 
-def get_trace(request_id: str) -> Optional[Trace]:
+def get_trace(trace_id: str) -> Optional[Trace]:
     """
     Get a trace by the given request ID if it exists.
 
@@ -465,7 +465,7 @@ def get_trace(request_id: str) -> Optional[Trace]:
     it returns None.
 
     Args:
-        request_id: The request ID of the trace.
+        trace_id: The ID of the trace.
 
 
     .. code-block:: python
@@ -477,7 +477,7 @@ def get_trace(request_id: str) -> Optional[Trace]:
         with mlflow.start_span(name="span") as span:
             span.set_attribute("key", "value")
 
-        trace = mlflow.get_trace(span.request_id)
+        trace = mlflow.get_trace(span.trace_id)
         print(trace)
 
 
@@ -485,10 +485,10 @@ def get_trace(request_id: str) -> Optional[Trace]:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
     """
     # Special handling for evaluation request ID.
-    request_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(request_id) or request_id
+    trace_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(trace_id) or trace_id
 
     try:
-        return MlflowClient().get_trace(request_id, display=False)
+        return MlflowClient().get_trace(trace_id, display=False)
     except MlflowException as e:
         _logger.warning(
             f"Failed to get trace from the tracking store: {e}"
@@ -562,7 +562,7 @@ def search_traces(
 
             - `"pandas"`: Returns a Pandas DataFrame containing information about traces
                 where each row represents a single trace and each column represents a field of the
-                trace e.g. request_id, spans, etc.
+                trace e.g. trace_id, spans, etc.
             - `"list"`: Returns a list of :py:class:`Trace <mlflow.entities.Trace>` objects.
 
         model_id: If specified, search traces associated with the given model ID.
@@ -758,7 +758,7 @@ def get_last_active_trace() -> Optional[Trace]:
 
 
         # Use MlflowClient APIs to mutate the ended trace
-        mlflow.MlflowClient().set_trace_tag(trace.info.request_id, "key", "value")
+        mlflow.MlflowClient().set_trace_tag(trace.info.trace_id, "key", "value")
 
     Returns:
         The last active trace if exists, otherwise None.
@@ -974,7 +974,7 @@ def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = 
     if target_span := target or get_current_active_span():
         _merge_trace(
             trace=trace,
-            target_request_id=target_span.request_id,
+            target_trace_id=target_span.trace_id,
             target_parent_span_id=target_span.span_id,
         )
     else:
@@ -996,11 +996,11 @@ def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = 
         )
         _merge_trace(
             trace=trace,
-            target_request_id=span.request_id,
+            target_trace_id=span.trace_id,
             target_parent_span_id=span.span_id,
         )
         client.end_trace(
-            request_id=span.request_id,
+            trace_id=span.trace_id,
             status=trace.info.status,
             outputs=remote_root_span.outputs,
             end_time_ns=remote_root_span.end_time_ns,
@@ -1037,7 +1037,7 @@ def log_trace(
         execution_time_ms: The execution time of the trace in milliseconds since the UNIX epoch.
 
     Returns:
-        The request ID of the logged trace.
+        The ID of the logged trace.
 
     Example:
 
@@ -1047,7 +1047,7 @@ def log_trace(
         import time
         import mlflow
 
-        request_id = mlflow.log_trace(
+        trace_id = mlflow.log_trace(
             request="Does mlflow support tracing?",
             response="Yes",
             intermediate_outputs={
@@ -1057,7 +1057,7 @@ def log_trace(
             start_time_ms=int(time.time() * 1000),
             execution_time_ms=5129,
         )
-        trace = mlflow.get_trace(request_id)
+        trace = mlflow.get_trace(trace_id)
 
         print(trace.data.intermediate_outputs)
     """
@@ -1076,19 +1076,19 @@ def log_trace(
         start_time_ns=start_time_ms * 1000000 if start_time_ms else None,
     )
     client.end_trace(
-        request_id=span.request_id,
+        trace_id=span.trace_id,
         outputs=response,
         end_time_ns=(start_time_ms + execution_time_ms) * 1000000
         if start_time_ms and execution_time_ms
         else None,
     )
 
-    return span.request_id
+    return span.trace_id
 
 
 def _merge_trace(
     trace: Trace,
-    target_request_id: str,
+    target_trace_id: str,
     target_parent_span_id: str,
 ):
     """
@@ -1096,16 +1096,16 @@ def _merge_trace(
 
     Args:
         trace: The trace object to be merged.
-        target_request_id: The request ID of the parent trace.
+        target_trace_id: The ID of the parent trace.
         target_parent_span_id: The parent span ID, under which the child trace should be merged.
     """
     trace_manager = InMemoryTraceManager.get_instance()
 
     # The merged trace should have the same trace ID as the parent trace.
-    with trace_manager.get_trace(target_request_id) as parent_trace:
+    with trace_manager.get_trace(target_trace_id) as parent_trace:
         if not parent_trace:
             _logger.warning(
-                f"Parent trace with request ID {target_request_id} not found. Skipping merge."
+                f"Parent trace with ID {target_trace_id} not found. Skipping merge."
             )
             return
 
@@ -1118,7 +1118,7 @@ def _merge_trace(
         # works upon the assumption that the parent span always comes before its children.
         # This is guaranteed in current implementation, but if it changes in the future,
         # we have to traverse the tree to determine the order.
-        if not trace_manager.get_span_from_id(target_request_id, parent_span_id):
+        if not trace_manager.get_span_from_id(target_trace_id, parent_span_id):
             raise MlflowException.invalid_parameter_value(
                 f"Span with ID {parent_span_id} not found. Please make sure the "
                 "spans in the trace are ordered correctly i.e. the parent span comes before "
@@ -1128,13 +1128,13 @@ def _merge_trace(
         cloned_span = LiveSpan.from_immutable_span(
             span=span,
             parent_span_id=parent_span_id,
-            request_id=target_request_id,
-            trace_id=new_trace_id,
+            trace_id=target_trace_id,
+            otel_trace_id=new_trace_id,
         )
         trace_manager.register_span(cloned_span)
 
     # Merge the tags and metadata from the child trace to the parent trace.
-    with trace_manager.get_trace(target_request_id) as parent_trace:
+    with trace_manager.get_trace(target_trace_id) as parent_trace:
         # Order of merging is important to ensure the parent trace's metadata is
         # not overwritten by the child trace's metadata if they have the same key.
         parent_trace.info.tags = {**trace.info.tags, **parent_trace.info.tags}

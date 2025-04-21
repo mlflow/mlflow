@@ -162,7 +162,7 @@ def _start_span(
     # associated with the trace.
     if run_id is not None:
         tm = InMemoryTraceManager().get_instance()
-        tm.set_request_metadata(span.request_id, TraceMetadataKey.SOURCE_RUN, run_id)
+        tm.set_request_metadata(span.trace_id, TraceMetadataKey.SOURCE_RUN, run_id)
 
     return span
 
@@ -217,7 +217,7 @@ def _is_responses_final_event(chunk: Any) -> bool:
 def _end_span_on_exception(mlflow_client: MlflowClient, span: LiveSpan, e: Exception):
     try:
         span.add_event(SpanEvent.from_exception(e))
-        mlflow_client.end_span(span.request_id, span.span_id, status=SpanStatusCode.ERROR)
+        mlflow_client.end_span(span.trace_id, span.span_id, status=SpanStatusCode.ERROR)
     except Exception as inner_e:
         _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
 
