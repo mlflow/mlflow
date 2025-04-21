@@ -50,6 +50,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
+          git diff-tree --no-commit-id --name-only -r $(git rev-parse HEAD)
           source ./dev/install-common-deps.sh --skinny
       - name: Run tests
         run: |
