@@ -19,7 +19,6 @@ from mlflow.data.dataset import Dataset
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _truncate_dict, chunk_list
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
@@ -104,6 +103,8 @@ class MlflowAutologgingQueueingClient:
     """
 
     def __init__(self, tracking_uri=None):
+        from mlflow.tracking.client import MlflowClient
+
         self._client = MlflowClient(tracking_uri)
         self._pending_ops_by_run_id = {}
 

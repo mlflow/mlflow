@@ -18,6 +18,7 @@ _logger = logging.getLogger(__name__)
 
 # Import autologging utilities used by this module
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS, FLAVOR_TO_MODULE_NAME
+from mlflow.utils.autologging_utils.client import MlflowAutologgingQueueingClient  # noqa: F401
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     MlflowEventsAndWarningsBehaviorGlobally,
