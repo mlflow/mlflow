@@ -940,7 +940,6 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     dataset=iris_dataset,
                     run_id=run.info.run_id,
                     evaluator_config=evaluator1_config,
-                    custom_metrics=None,
                     extra_metrics=None,
                     custom_artifacts=None,
                     predictions=None,
@@ -975,7 +974,6 @@ def test_evaluate_with_multi_evaluators(
                 "run_id": run.info.run_id,
                 "evaluator_config": evaluator_config,
                 "extra_metrics": None,
-                "custom_metrics": None,
                 "custom_artifacts": None,
                 "predictions": None,
             }
@@ -1074,7 +1072,6 @@ def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model
                     model_id=None,
                     run_id=run.info.run_id,
                     evaluator_config={},
-                    custom_metrics=None,
                     extra_metrics=None,
                     custom_artifacts=None,
                 )
