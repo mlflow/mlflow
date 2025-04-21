@@ -1725,29 +1725,30 @@ def evaluate(  # noqa: D417
     model_id = specified_model_id if specified_model_id is not None else model_id
     # If none of the model_id and model is specified, use the active model_id
     model_id = model_id or mlflow.get_active_model_id()
-    # model_id could be None
-    with _set_active_model(model_id=model_id) if model_id else nullcontext():
-        evaluators: list[EvaluatorBundle] = resolve_evaluators_and_configs(
-            evaluators, evaluator_config, model_type
-        )
 
-        # NB: MLflow do not use either of these two variables. However, we need to pass these to
-        # _evaluate() function for backward compatibility.
-        evaluator_name_list = [evaluator.name for evaluator in evaluators]
-        evaluator_name_to_conf_map = {evaluator.name: evaluator.config for evaluator in evaluators}
+    evaluators: list[EvaluatorBundle] = resolve_evaluators_and_configs(
+        evaluators, evaluator_config, model_type
+    )
 
-        with _start_run_or_reuse_active_run() as run_id:
-            if not isinstance(data, Dataset):
-                # Convert data to `mlflow.data.dataset.Dataset`.
-                if model is None:
-                    data = convert_data_to_mlflow_dataset(
-                        data=data, targets=targets, predictions=predictions
-                    )
-                else:
-                    data = convert_data_to_mlflow_dataset(data=data, targets=targets)
+    # NB: MLflow do not use either of these two variables. However, we need to pass these to
+    # _evaluate() function for backward compatibility.
+    evaluator_name_list = [evaluator.name for evaluator in evaluators]
+    evaluator_name_to_conf_map = {evaluator.name: evaluator.config for evaluator in evaluators}
 
-            from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
+    with _start_run_or_reuse_active_run() as run_id:
+        if not isinstance(data, Dataset):
+            # Convert data to `mlflow.data.dataset.Dataset`.
+            if model is None:
+                data = convert_data_to_mlflow_dataset(
+                    data=data, targets=targets, predictions=predictions
+                )
+            else:
+                data = convert_data_to_mlflow_dataset(data=data, targets=targets)
 
+        from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
+
+        # model_id could be None
+        with _set_active_model(model_id=model_id) if model_id else nullcontext():
             if isinstance(data, Dataset) and issubclass(
                 data.__class__, PyFuncConvertibleDatasetMixin
             ):
@@ -1803,4 +1804,4 @@ def evaluate(  # noqa: D417
             if model_id is not None:
                 mlflow.log_metrics(metrics=evaluate_result.metrics, dataset=data, model_id=model_id)
 
-        return evaluate_result
+    return evaluate_result
