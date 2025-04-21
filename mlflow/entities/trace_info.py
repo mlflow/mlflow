@@ -11,13 +11,25 @@ from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestM
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 
 
-def _truncate_dict_keys_and_values(d: dict[str, Any]) -> dict[str, str]:
+def _truncate_request_metadata(d: dict[str, Any]) -> dict[str, str]:
     from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
 
     return {
         k[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]: str(v)[
             :MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
         ]
+        for k, v in d.items()
+    }
+
+
+def _truncate_tags(d: dict[str, Any]) -> dict[str, str]:
+    from mlflow.tracing.constant import (
+        MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
+        MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    )
+
+    return {
+        k[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]: str(v)[:MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE]
         for k, v in d.items()
     }
 
@@ -64,7 +76,7 @@ class TraceInfo(_MlflowObject):
         proto.status = self.status.to_proto()
 
         request_metadata = []
-        for key, value in _truncate_dict_keys_and_values(self.request_metadata).items():
+        for key, value in _truncate_request_metadata(self.request_metadata).items():
             attr = ProtoTraceRequestMetadata()
             attr.key = key
             attr.value = value
@@ -72,7 +84,7 @@ class TraceInfo(_MlflowObject):
         proto.request_metadata.extend(request_metadata)
 
         tags = []
-        for key, value in _truncate_dict_keys_and_values(self.tags).items():
+        for key, value in _truncate_tags(self.tags).items():
             tag = ProtoTraceTag()
             tag.key = key
             tag.value = str(value)
@@ -130,9 +142,9 @@ class TraceInfo(_MlflowObject):
             proto.execution_duration.FromMilliseconds(self.execution_time_ms)
 
         if self.request_metadata:
-            proto.trace_metadata.update(_truncate_dict_keys_and_values(self.request_metadata))
+            proto.trace_metadata.update(_truncate_request_metadata(self.request_metadata))
 
         if self.tags:
-            proto.tags.update(_truncate_dict_keys_and_values(self.tags))
+            proto.tags.update(_truncate_tags(self.tags))
 
         return proto
