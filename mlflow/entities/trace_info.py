@@ -12,24 +12,22 @@ from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 
 
 def _truncate_request_metadata(d: dict[str, Any]) -> dict[str, str]:
-    from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
+    from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA
 
     return {
-        k[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]: str(v)[
-            :MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
-        ]
+        k[:MAX_CHARS_IN_TRACE_INFO_METADATA]: str(v)[:MAX_CHARS_IN_TRACE_INFO_METADATA]
         for k, v in d.items()
     }
 
 
 def _truncate_tags(d: dict[str, Any]) -> dict[str, str]:
     from mlflow.tracing.constant import (
-        MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
+        MAX_CHARS_IN_TRACE_INFO_TAGS_KEY,
         MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
     )
 
     return {
-        k[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]: str(v)[:MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE]
+        k[:MAX_CHARS_IN_TRACE_INFO_TAGS_KEY]: str(v)[:MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE]
         for k, v in d.items()
     }
 

@@ -32,10 +32,11 @@ class SpanAttributeKey:
     INTERMEDIATE_OUTPUTS = "mlflow.trace.intermediate_outputs"
 
 
-# All storage backends are guaranteed to support request_metadata key/value and tag key
-# length up to 250 characters
-MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS = 250
-# All storage backends are guaranteed to support tag values up to 4096 characters
+# All storage backends are guaranteed to support request_metadata key/value up to 250 characters
+MAX_CHARS_IN_TRACE_INFO_METADATA = 250
+# All storage backends are guaranteed to support tag keys up to 250 characters,
+# values up to 4096 characters
+MAX_CHARS_IN_TRACE_INFO_TAGS_KEY = 259
 MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE = 4096
 TRUNCATION_SUFFIX = "..."
 
