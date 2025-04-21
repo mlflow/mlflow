@@ -22,10 +22,10 @@ class TraceData:
     _response: Optional[str] = field(default=None)
 
     def __init__(self,
-                 spans: list[Span],
+                 spans: Optional[list[Span]] = None,
                  request: Optional[str] = None,
                  response: Optional[str] = None):
-        self.spans = spans
+        self.spans = spans or []
         self._request = request
         self._response = response
 
