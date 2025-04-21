@@ -1,5 +1,5 @@
 # Copyright 2018 Databricks, Inc.
-import importlib
+import importlib.metadata
 import re
 
 VERSION = "2.21.4.dev0"
