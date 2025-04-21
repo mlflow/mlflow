@@ -788,7 +788,9 @@ def tf_keras_random_data_run_with_callback(
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
-def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback, initial_epoch):
+def test_tf_keras_autolog_early_stop_logs(
+    tf_keras_random_data_run_with_callback, initial_epoch, log_models
+):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
@@ -818,6 +820,12 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
 
     artifacts = [f.path for f in client.list_artifacts(run.info.run_id)]
     assert "tensorboard_logs" in artifacts
+
+    # Check metrics are logged to the LoggedModel
+    if log_models:
+        logged_model = mlflow.last_logged_model()
+        assert logged_model is not None
+        assert {metric.key: metric.value for metric in logged_model.metrics} == metrics
 
 
 @pytest.mark.parametrize("log_models", [False])

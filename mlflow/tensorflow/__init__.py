@@ -27,7 +27,7 @@ from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, ModelInfo
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback  # noqa: F401
@@ -1177,7 +1177,7 @@ def autolog(
         except Exception:
             return None
 
-    def _log_early_stop_callback_metrics(callback, history):
+    def _log_early_stop_callback_metrics(callback, history, model_id=None):
         from mlflow import log_metrics
 
         if callback is None or not callback.model.stop_training:
@@ -1188,7 +1188,7 @@ def autolog(
             return
 
         stopped_epoch, restore_best_weights, _ = callback_attrs
-        log_metrics({"stopped_epoch": stopped_epoch}, synchronous=False)
+        log_metrics({"stopped_epoch": stopped_epoch}, synchronous=False, model_id=model_id)
 
         if not restore_best_weights or callback.best_weights is None:
             return
@@ -1203,7 +1203,7 @@ def autolog(
         # the best epoch. In keras > 2.6.0, the best epoch can be obtained via the `best_epoch`
         # attribute of an `EarlyStopping` instance: https://github.com/keras-team/keras/pull/15197
         restored_epoch = initial_epoch + monitored_metric.index(callback.best)
-        log_metrics({"restored_epoch": restored_epoch}, synchronous=False)
+        log_metrics({"restored_epoch": restored_epoch}, synchronous=False, model_id=model_id)
         restored_index = history.epoch.index(restored_epoch)
         restored_metrics = {
             key: metrics[restored_index] for key, metrics in history.history.items()
@@ -1211,9 +1211,9 @@ def autolog(
         # Checking that a metric history exists
         metric_key = next(iter(history.history), None)
         if metric_key is not None:
-            log_metrics(restored_metrics, stopped_epoch + 1, synchronous=False)
+            log_metrics(restored_metrics, stopped_epoch + 1, synchronous=False, model_id=model_id)
 
-    def _log_keras_model(history, args):
+    def _log_keras_model(history, args) -> ModelInfo:
         def _infer_model_signature(input_data_slice):
             # In certain TensorFlow versions, calling `predict()` on model may modify
             # the `stop_training` attribute, so we save and restore it accordingly
@@ -1247,7 +1247,7 @@ def autolog(
             _logger,
         )
 
-        log_model(
+        return log_model(
             history.model,
             "model",
             input_example=input_example,
@@ -1366,12 +1366,14 @@ def autolog(
 
             history = original(inst, *args, **kwargs)
 
+            model_id = None
             if log_models:
-                _log_keras_model(history, args)
+                model_id = _log_keras_model(history, args).model_id
 
             _log_early_stop_callback_metrics(
                 callback=early_stop_callback,
                 history=history,
+                model_id=model_id,
             )
             # Ensure all data are logged.
             # Shut down the async logging (instead of flushing)
