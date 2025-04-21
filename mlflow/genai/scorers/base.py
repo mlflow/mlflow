@@ -72,9 +72,9 @@ def scorer(
             )
 
     class CustomScorer(Scorer):
-        def __call__(self, *, inputs, outputs=None, expectations=None, trace=None):
+        def __call__(self, *, inputs=None, outputs=None, expectations=None, trace=None):
             result = func(inputs=inputs, outputs=outputs, expectations=expectations, trace=trace)
-            if not isinstance(result, (float, bool, str, Assessment)):
+            if not isinstance(result, (int, float, bool, str, Assessment, list)):
                 raise ValueError(
                     (
                         f"{func.__name__} must return one of float, bool, str, ",

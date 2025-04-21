@@ -1,8 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from inspect import Parameter, Signature
 from typing import Any, Callable, Literal, Optional, Union
 
-import numpy as np
 import pandas as pd
 import pydantic
 
@@ -19,8 +17,42 @@ from mlflow.protos.databricks_pb2 import (
 
 
 def _cast_to_result_type(raw_result: str, result_type: Union[type, pydantic.BaseModel]):
-    # TODO: cast the output of the LLM to a pydantic basemodel or a primitive type
-    pass
+    """
+    Cast the raw string output from an LLM to the specified result type.
+
+    Args:
+        raw_result: String output from the LLM
+        result_type: Target type to convert to (primitive type or Pydantic model)
+
+    Returns:
+        Converted value matching the specified result_type
+    """
+
+    # Handle primitive types
+    if result_type == bool:
+        lower_result = raw_result.lower().strip()
+        if lower_result in ("true", "yes", "1", "t", "y"):
+            return True
+        elif lower_result in ("false", "no", "0", "f", "n"):
+            return False
+        else:
+            return None
+    elif result_type == int:
+        try:
+            return int(raw_result.strip())
+        except (ValueError, TypeError):
+            return None
+    elif result_type == float:
+        try:
+            return float(raw_result.strip())
+        except (ValueError, TypeError):
+            return None
+    elif result_type == str:
+        return raw_result
+
+    # TODO: add support for pydantic models
+
+    return None
 
 
 def _score_model_on_one_payload(
@@ -53,7 +85,7 @@ def _score_model_on_one_payload(
 
 def _score_model_on_payloads(
     grading_payloads, model, parameters, result_type, max_workers
-) -> list[Union[type, pydantic.BaseModel]]:
+) -> list[Union[int, float, bool, str]]:
     scores = [None] * len(grading_payloads)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
@@ -87,7 +119,7 @@ def llm_judge_scorer(
     name: str,
     prompt_template: str,
     judge: str = "openai:/gpt-4o",
-    result_type: Union[type, pydantic.BaseModel] = bool,
+    result_type: type = bool,
     max_workers: int = 10,
     aggregations: Optional[
         list[Union[Literal["max", "min", "mean", "p90", "p99"], Callable]]
@@ -117,34 +149,21 @@ def llm_judge_scorer(
     # TODO: switch to structured generation API instead of optimistically casting to result_type
 
     prompt_template = PromptTemplate(prompt_template)
-    allowed_variables = prompt_template.variables
 
     def eval_fn(
-        *args,
+        inputs=None,
+        outputs=None,
+        expectations=None,
+        trace=None,
         **kwargs,
-    ) -> Union[
-        type, pydantic.BaseModel
-    ]:  # TODO: update this to be exactly result_type? or leave it
+    ) -> Union[int, float, bool, str]:
         """
-        This is the function that is called when the metric is evaluated.
+        This is the function that is called when the metric is evaluated (typically row-by-row).
         """
-        if missing_variables := allowed_variables - set(kwargs.keys()):
-            raise MlflowException(
-                message=f"Missing variable inputs to eval_fn: {missing_variables}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        kwargs = {k: [v] if np.isscalar(v) else v for k, v in kwargs.items()}
+        kwargs.update({"inputs": inputs, "outputs": outputs, "expectations": expectations})
         grading_payloads = pd.DataFrame(kwargs).to_dict(orient="records")
         arg_strings = [prompt_template.format(**payload) for payload in grading_payloads]
-        scores, _ = _score_model_on_payloads(arg_strings, judge, {}, result_type, max_workers)
-
-        return scores
-
-    if allowed_variables:
-        eval_fn.__signature__ = Signature(
-            parameters=[
-                Parameter(name=var, kind=Parameter.KEYWORD_ONLY) for var in allowed_variables
-            ]
-        )
+        scores = _score_model_on_payloads(arg_strings, judge, {}, result_type, max_workers)
+        return scores if len(scores) > 1 else scores[0]
 
     return scorer(name=name)(eval_fn)
