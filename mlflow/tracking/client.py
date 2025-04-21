@@ -757,7 +757,6 @@ class MlflowClient:
         """
         Parse prompt URI into prompt name and prompt version.
         - 'prompt:/<name>/<version>' -> ('<name>', '<version>')
-        - 'prompt:/<name>' -> ('<name>', '<latest version>')
         - 'prompt:/<name>@<alias>' -> ('<name>', '<version>')
         """
         parsed = urllib.parse.urlparse(uri)
