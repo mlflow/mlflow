@@ -101,7 +101,6 @@ class Span:
         """The trace ID of the span, a unique identifier for the trace it belongs to."""
         return self.get_attribute(SpanAttributeKey.REQUEST_ID)
 
-
     @property
     def request_id(self) -> str:
         """Deprecated. Use `trace_id` instead."""

@@ -138,8 +138,8 @@ print(f"LoggedModel model id: {logged_model.model_id}")
 
 traces = mlflow.search_traces(model_id=logged_model.model_id)
 print(traces)
-#                          request_id                                              trace  ...                                               tags assessments
-# 0  5882df1240cf4dbf845fdc9fa26c4168  Trace(request_id=5882df1240cf4dbf845fdc9fa26c4...  ...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
+#                          trace_id                                              trace  ...                                               tags assessments
+# 0  5882df1240cf4dbf845fdc9fa26c4168  Trace(trace_id=5882df1240cf4dbf845fdc9fa26c4...  ...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
 # [1 rows x 11 columns]
 ```
 

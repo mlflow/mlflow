@@ -44,7 +44,7 @@ from mlflow.tracing.utils import (
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -718,65 +718,6 @@ def get_current_active_span() -> Optional[LiveSpan]:
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
 
 
-@deprecated(
-    impact=(
-        "Use `mlflow.get_last_active_trace_id()` API instead to get the last active trace ID. "
-        "You can then use the `mlflow.get_trace()` API to get the trace object as well."
-    )
-)
-def get_last_active_trace() -> Optional[Trace]:
-    """
-    Get the last active trace in the same process if exists.
-
-    .. warning::
-
-        This function DOES NOT work in the model deployed in Databricks model serving.
-
-    .. note::
-
-        This function returns an immutable copy of the original trace that is logged
-        in the tracking store. Any changes made to the returned object will not be reflected
-        in the original trace. To modify the already ended trace (while most of the data is
-        immutable after the trace is ended, you can still edit some fields such as `tags`),
-        please use the respective MlflowClient APIs with the request ID of the trace, as
-        shown in the example below.
-
-    .. code-block:: python
-        :test:
-
-        import mlflow
-
-
-        @mlflow.trace
-        def f():
-            pass
-
-
-        f()
-
-        trace = mlflow.get_last_active_trace()
-
-
-        # Use MlflowClient APIs to mutate the ended trace
-        mlflow.MlflowClient().set_trace_tag(trace.info.trace_id, "key", "value")
-
-    Returns:
-        The last active trace if exists, otherwise None.
-    """
-    if _LAST_ACTIVE_TRACE_ID_GLOBAL is not None:
-        try:
-            return MlflowClient().get_trace(_LAST_ACTIVE_TRACE_ID_GLOBAL, display=False)
-        except:
-            _logger.debug(
-                "Failed to get the last active trace with "
-                f"request ID {_LAST_ACTIVE_TRACE_ID_GLOBAL}.",
-                exc_info=True,
-            )
-            raise
-    else:
-        return None
-
-
 def get_last_active_trace_id(thread_local: bool = False) -> Optional[str]:
     """
     Get the last active trace in the same process if exists.
@@ -1104,9 +1045,7 @@ def _merge_trace(
     # The merged trace should have the same trace ID as the parent trace.
     with trace_manager.get_trace(target_trace_id) as parent_trace:
         if not parent_trace:
-            _logger.warning(
-                f"Parent trace with ID {target_trace_id} not found. Skipping merge."
-            )
+            _logger.warning(f"Parent trace with ID {target_trace_id} not found. Skipping merge.")
             return
 
         new_trace_id = parent_trace.span_dict[target_parent_span_id]._trace_id

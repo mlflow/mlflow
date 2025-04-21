@@ -510,9 +510,7 @@ def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
     experiment_id = client.create_experiment("test_experiment")
 
     root = client.start_trace(name="root", experiment_id=experiment_id, inputs=[])
-    span = client.start_span(
-        name="child", trace_id=root.trace_id, parent_id=root.span_id, inputs=0
-    )
+    span = client.start_span(name="child", trace_id=root.trace_id, parent_id=root.span_id, inputs=0)
     client.end_span(trace_id=root.trace_id, span_id=span.span_id, outputs=False)
     client.end_trace(trace_id=root.trace_id, outputs="")
 
