@@ -338,3 +338,11 @@ class LazyModule(Rule):
 
     def _message(self) -> str:
         return "Module loaded by `LazyLoader` must be imported in `TYPE_CHECKING` block."
+
+
+class EmptyNotebookCell(Rule):
+    def _id(self) -> str:
+        return "MLF0020"
+
+    def _message(self) -> str:
+        return "Empty notebook cell. Remove it or add some content."
