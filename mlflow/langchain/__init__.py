@@ -1039,6 +1039,7 @@ def autolog(
                 "log_datasets": log_datasets,
                 "registered_model_name": registered_model_name,
                 "extra_tags": extra_tags,
+                "extra_model_classes": extra_model_classes,
             }.items()
             if value not in [False, None]
         }

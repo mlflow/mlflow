@@ -114,7 +114,7 @@ def _cached_evaluate_load(path: str, module_type: str = "metric"):
 
     try:
         return evaluate.load(path, module_type=module_type)
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         if _MLFLOW_TESTING.get():
             # `evaluate.load` is highly unstable and often fails due to a network error or
             # huggingface hub being down. In testing, we want to avoid this instability, so we

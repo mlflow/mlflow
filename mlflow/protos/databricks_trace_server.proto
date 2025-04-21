@@ -57,15 +57,21 @@ message TraceInfo {
 
   optional TraceLocation trace_location = 3;
 
-  // Request to the model/agent.
-  // Equivalent to the input of the root span but added for ease of access.
-  // Represented as a JSON string.
+  // [Deprecated, please use ``request_preview`` instead].
+  // The request to the model/agent represented as a JSON string. This is equivalent to the input of the root span.
   optional string request = 4;
 
-  // Response of the model/agent.
-  // Equivalent to the output of the root span but added for ease of access.
-  // Represented as a JSON string.
+  // [Deprecated, please use ``response_preview`` instead].
+  // The response of the model/agent represented as a JSON string. This is equivalent to the output of the root span.
   optional string response = 5;
+
+  // A preview of the request to the model/agent represented as a JSON string. This is equivalent to the input of the root
+  // span. This preview value is truncated to 10KB while the full request is stored in the trace data in blob storage.
+  optional string request_preview = 12;
+
+  // A preview of the request to the model/agent represented as a JSON string. This is equivalent to the output of the root
+  // span. This preview value is truncated to 10KB while the full response is stored in the trace data in blob storage.
+  optional string response_preview = 13;
 
   // Start time of the trace
   optional google.protobuf.Timestamp request_time = 6;
