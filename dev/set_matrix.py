@@ -227,6 +227,7 @@ def filter_versions(
     )
 
     def _is_supported(v):
+        print("@@@ is supported", v, unsupported)
         for specified_set in unsupported:
             if v in specified_set:
                 return False
