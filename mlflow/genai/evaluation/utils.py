@@ -1,6 +1,5 @@
 from typing import Any, Optional, Union
 
-from databricks.agents.evals import metric
 from pyspark import sql as spark
 
 from mlflow.data.evaluation_dataset import EvaluationDataset
@@ -33,6 +32,13 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
     Takes in a Scorer object and converts it into a legacy MLflow 2.x
     Metric object.
     """
+    try:
+        from databricks.agents.evals import metric
+    except ImportError:
+        raise ImportError(
+            "The `databricks.agents.evals` package is required to use mlflow.genai.evaluate() "
+            "Please install it with `pip install databricks-agents`."
+        )
 
     def eval_fn(
         request_id: str,

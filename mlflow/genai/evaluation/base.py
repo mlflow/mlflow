@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Union
 
 from pyspark import sql as spark
 
@@ -27,7 +27,6 @@ class EvaluationResult:
 
 
 def evaluate(
-    # See the "Input Data" section for the required format
     data: Union[pd.DataFrame, spark.DataFrame, list[dict], EvaluationDataset],
     predict_fn: Optional[Callable[..., Any]] = None,
     scorers: Optional[list[Scorer]] = None,

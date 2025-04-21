@@ -10,7 +10,6 @@ from mlflow.evaluation import Assessment
 class Scorer(BaseModel):
     name: str
     aggregations: Optional[list] = None
-    greater_is_better: Optional[bool] = True
 
     def __call__(
         self,
