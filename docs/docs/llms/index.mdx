@@ -12,6 +12,10 @@ MLflow is built specifically to help developers build complex, production-grade 
 
 ## Key challenges
 
+:::note 
+See the [developer workflow](/llms/eval-workflow) to learn more.
+:::
+
 MLflow addresses the 2 inherent challenges in delivering high-quality generative AI:
 
 
@@ -34,6 +38,10 @@ MLflow addresses the 2 inherent challenges in delivering high-quality generative
 </CardGroup>
 
 ## How MLflow Helps
+
+:::note 
+See the [developer workflow](/llms/eval-workflow) to learn more.
+:::
 
 <CardGroup singleColumn={true}>
   <PageCard
@@ -86,62 +94,9 @@ MLflow addresses the 2 inherent challenges in delivering high-quality generative
   />
 </CardGroup>
 
+
+
 ## Getting started
 
-## <span style={{color: "red"}}>TODO: add this</span>
+## <span style={{color: "red"}}>TODO: add this - what are the key things we shuold have ppl do? prob just point to our getting started section??</span>
 
-
-MLflow equips AI developers with **evaluation, observability, and continuous‑improvement tooling** made for generative AI, allowing developers to evaluate quality, measure cost and latency, and continuously iterate to fix issues and improve their applications as user needs evolve.
-
-MLflow closes that loop: monitor live traffic, surface issues, test fixes offline, then redeploy with confidence.
-
-
-Developers need specialized traces, metrics, and scorers to measure quality, catch regressions in production, and iterate rapidly. MLflow closes that loop: monitor live traffic, surface issues, collect feedback from humans, test fixes offline, then redeploy with confidence.
-
-
-
-MLflow enables AI developers to build production‑grade GenAI applications that deliver business value.
-
-GenAI apps only create business value when they deliver high‑quality (accurate) answers at the right cost and latency.
-
-To achieve this, MLflow offers evaluation and observability tooling designed for the unique challenges of generative AI. When the same prompt can yield many different outputs, measuring quality and debugging issues require specialized traces, metrics, and scorers—exactly what MLflow provides
-
-
- efficient—and stay that way after they ship.Traditional test suites or ML validation sets aren't enough, because:
-
-Language is open‑ended. There may be many "right" answers and some are better than others.
-
-Models are stochastic. The same prompt can yield different outputs.
-
-Quality is multi‑dimensional. Correctness, latency, cost, toxicity, etc. all matter and they trade off.
-
-MLflow gives you an evaluation‑centric workflow that tackles these problems head‑on.
-
-**MLflow enables AI developers to build production-grade GenAI applications that deliver business value. To deliver business value, GenAI applications must consistently provide high quality responses while optimizing for cost and latency.**
-
-However, building GenAI applications presents unique challenges compared to both traditional software development and ML development.  Just as traditional software engineering relies on test suites and traditional ML relies on validation sets, GenAI applications need robust evaluation frameworks to ensure they deliver high-quality, performant, and cost-effective responses.  However, evaluating these aspects in GenAI is more complex:
-- Unlike traditional software or ML, GenAI most often produces plain language outputs.  These outputs are either "right" or "wrong" but there are many right answers and some "right" answers are more correct than others.  Human feedback is often required to confidently assess these outputs.
-- The non-deterministic nature of LLMs adds an extra layer of complexity - teams must evaluate not just for correctness, but for consistency and stability.
-
-MLflow provides the infrastructure and tooling to enable AI developers to address these challenges by using an **evaluation-centric development workflow.**  An evaluation-centric workflow allows teams to:
-
-- **Quickly experiment to improve quality/performance:** Iteratively refine prompts and model configurations, systematically comparing each iteration for quality, cost, and latency
-- **Monitor production quality/performance in real-time:** Identify and quickly address failure modes that surface during production
-- **Collaborate with business stakeholders:**  Define and measure quality standards based on input from key business stakeholders and domain experts
-- **Define metrics to evaluate plain language outputs:** TALK ABOUT LLM JUDGES
-
-## What is an evaluation-centric development workflow?
-
-![Evaluation Driven Workflow](/images/genai/eval-driven-dev.png)
-
-The most effective GenAI development workflows treat production as an extension of development. Teams deploy early versions to pre-production environments where beta testers can interact with the application. This traffic becomes valuable evaluation data, helping identify edge cases, failure modes, and performance bottlenecks that might not emerge in controlled testing. 
-
-This evaluation-driven workflow continues in the production deployment. Teams monitor live traffic, identify new edge cases, failure modes, and performance issues, and use this real-world data to continuously update their evaluation data and improve their models and prompts. This ensures that GenAI applications maintain high quality, stay within cost constraints, and meet latency requirements as they evolve and encounter new scenarios.
-
-Using this approach, teams can:
-- Collect and analyze production traces to understand real-world usage patterns
-- Identify problematic interactions and create targeted evaluation datasets
-- Run offline evaluations on these datasets to test potential improvements
-- Deploy refined versions and monitor their impact on key metrics
-
-Without an evaluation-driven development workflow, teams risk deploying GenAI solutions that work well in demos but fail to deliver consistent value in production. By making evaluation a cornerstone of the development process and treating production as an extension of the development environment, organizations can more effectively bridge the gap between proof-of-concept and production-ready GenAI applications.
