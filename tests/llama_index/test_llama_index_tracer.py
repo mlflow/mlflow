@@ -236,7 +236,7 @@ def _multi_modal_test_cases():
             ImageBlock(path="tests/resources/images/test.png", image_mimetype="image/png"),
             {
                 "url": f"data:image/png;base64,{image_base64}",
-                "detail": "low" if llama_core_version < Version("0.12.30") else "auto",
+                "detail": "low" if llama_core_version < Version("0.12.25") else "auto",
             },
         ),
     ]
