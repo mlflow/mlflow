@@ -10,6 +10,12 @@ from mlflow.store.artifact.databricks_logged_model_artifact_repo import (
 )
 
 
+@pytest.fixture(autouse=True)
+def set_fake_databricks_creds(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://localhost:8080")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "token")
+
+
 def test_log_artifact(tmp_path: Path):
     local_file = tmp_path / "local_file.txt"
     local_file.write_text("test content")
