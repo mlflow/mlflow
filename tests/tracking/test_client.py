@@ -1748,6 +1748,9 @@ def test_crud_prompts(tracking_uri):
     with pytest.raises(MlflowException, match=r"Prompt \(name=prompt_1, version=2\) not found"):
         client.load_prompt("prompt_1", version=2)
 
+    assert mlflow.load_prompt("prompt_1", version=2, allow_missing=True) is None
+    assert mlflow.load_prompt("does_not_exist", allow_missing=True) is None
+
     client.delete_prompt("prompt_1", version=1)
 
 
@@ -1861,6 +1864,9 @@ def test_load_prompt_error(tracking_uri):
     with pytest.raises(MlflowException, match=error_msg):
         client.load_prompt("test", version=2)
 
+    with pytest.raises(MlflowException, match=error_msg):
+        client.load_prompt("test", version=2, allow_missing=False)
+
     # Load prompt with a model name
     client.create_registered_model("model")
     client.create_model_version("model", "source")
@@ -1870,6 +1876,12 @@ def test_load_prompt_error(tracking_uri):
 
     with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
         client.load_prompt("model", version=1)
+
+    with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
+        client.load_prompt("model", allow_missing=False)
+
+    with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
+        client.load_prompt("model", version=1, allow_missing=False)
 
 
 def test_delete_prompt_error(tracking_uri):
