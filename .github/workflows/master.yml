@@ -96,7 +96,7 @@ jobs:
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
             --ignore=tests/deployments/server --ignore=tests/pyspark/optuna \
-            --ignore tests/genai/evaluate tests
+            --ignore tests/genai tests
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -303,6 +303,7 @@ jobs:
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run GenAI evaluation tests
         run: |
+          # GenAI evaluation tests require databricks-agents that only work with Python 3.10~
           pip install databricks-agents
           pytest tests/genai
       - name: Run tests with delta
