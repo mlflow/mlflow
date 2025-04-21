@@ -721,6 +721,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         evaluator_config,
         model=None,
         extra_metrics=None,
+        custom_artifacts=None,
         predictions=None,
         **kwargs,
     ):
@@ -738,6 +739,7 @@ class ModelEvaluator(metaclass=ABCMeta):
             model: A pyfunc model instance. If None, the model output is supposed to be found in
                 ``dataset.predictions_data``.
             extra_metrics: A list of :py:class:`EvaluationMetric` objects.
+            custom_artifacts: A list of callable custom artifact functions.
             predictions: The column name of the model output column that is used for evaluation.
                 This is only used when a model returns a pandas dataframe that contains
                 multiple columns.
