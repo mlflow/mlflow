@@ -13,6 +13,13 @@ from pydantic import ConfigDict
 
 from mlflow.types.chat import BaseModel
 
+"""
+Classes are inspired by classes for Response and ResponseStreamEvent in openai-python
+
+https://github.com/openai/openai-python/blob/ed53107e10e6c86754866b48f8bd862659134ca8/src/openai/types/responses/response.py#L31
+https://github.com/openai/openai-python/blob/ed53107e10e6c86754866b48f8bd862659134ca8/src/openai/types/responses/response_stream_event.py#L42
+"""
+
 
 #########################
 # Response helper classes
