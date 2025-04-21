@@ -38,12 +38,13 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
         "trace": "trace",
     }
 
-    if isinstance(data, list):
+    if isinstance(data, (list, dict)):
         df = pd.DataFrame(data)
-    elif isinstance(data, spark.DataFrame):
-        df = data.toPandas()
-    else:  # data is already a pandas DataFrame
+    elif isinstance(data, pd.DataFrame):
+        # data is already a pandas DataFrame, just copy it
         df = data.copy()
+    else:  # spark DataFrame
+        df = data.toPandas()
 
     # Rename columns according to the mapping
     renamed_df = pd.DataFrame()
