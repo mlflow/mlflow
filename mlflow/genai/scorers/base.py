@@ -22,18 +22,15 @@ class Scorer(BaseModel):
         """
 
         Args:
-            inputs (required): A column that contains a single input.
-            outputs (optional): A column that contains a single output from the
-                target model/app. If the predict_fn is provided, this is generated
-                by MLflow so not required.
-            expectations (optional): A column that contains a ground truth, or a
-                dictionary of ground truths for individual output fields.
-            trace (optional): A column that contains a single trace object
-                corresponding to the prediction for the row. Only required when
-                any of scorers requires a trace in order to compute
-                assessments/metrics.
+            inputs (required): A single input to the target model/app.
+            outputs (optional): A single output from the target model/app.
+            expectations (optional): Ground truth, or a dictionary of ground
+                truths for individual output fields.
+            trace (optional): A single trace object corresponding to the prediction
+                for the row. Only required when any of scorers requires a trace in
+                order to compute assessments/metrics.
         """
-        raise NotImplementedError("Please use an instance of Scorer")
+        raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
 
 # TODO: ML-52304: Inherit the following class for every builtin scorer made available
@@ -55,7 +52,6 @@ def scorer(
     aggregations: Optional[
         list[Union[Literal["min", "max", "mean", "median", "variance", "p90", "p99"], Callable]]
     ] = None,
-    greater_is_better: Optional[bool] = True,
 ):
     """
     Syntactic sugar that ensures the decorated function has the correct parameters (with inputs
@@ -89,6 +85,5 @@ def scorer(
 
     return CustomScorer(
         name=name or func.__name__,
-        greater_is_better=greater_is_better,
         aggregations=aggregations,
     )

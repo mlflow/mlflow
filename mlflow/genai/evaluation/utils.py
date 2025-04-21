@@ -36,7 +36,7 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         from databricks.agents.evals import metric
     except ImportError:
         raise ImportError(
-            "The `databricks.agents.evals` package is required to use mlflow.genai.evaluate() "
+            "The `databricks-agents` package is required to use mlflow.genai.evaluate() "
             "Please install it with `pip install databricks-agents`."
         )
 
