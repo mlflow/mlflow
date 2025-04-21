@@ -120,9 +120,7 @@ def evaluate(
         extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
 
     if not is_model_traced(predict_fn):
-        logger.info(
-            "Annotating predict_fn with tracing since it is not already traced."
-        )
+        logger.info("Annotating predict_fn with tracing since it is not already traced.")
         predict_fn = mlflow.trace(predict_fn)
 
     mlflow.evaluate(
