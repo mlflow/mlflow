@@ -18,6 +18,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
