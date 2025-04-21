@@ -304,7 +304,7 @@ jobs:
       - name: Run GenAI evaluation tests
         run: |
           # GenAI evaluation tests require databricks-agents that only work with Python 3.10~
-          pip install databricks-agents
+          pip install databricks-agents openai
           pytest tests/genai
       - name: Run tests with delta
         run: |

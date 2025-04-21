@@ -19,7 +19,7 @@ class TraceData:
     # NB: Custom constructor to allow passing additional kwargs for backward compatibility for
     # DBX agent evaluator. Once they migrates to trace V3 schema, we can remove this.
     def __init__(self, spans: Optional[list[Span]] = None, **kwargs):
-        self.spans = spans
+        self.spans = spans or []
 
     @classmethod
     def from_dict(cls, d):

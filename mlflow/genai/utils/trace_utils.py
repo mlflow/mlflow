@@ -4,8 +4,10 @@ from unittest.mock import MagicMock, patch
 def is_model_traced(model):
     """
     Check if a PyFuncModel is being traced without logging to the database.
+
     Args:
         model (PyFuncModel): The model to check.
+
     Returns:
         True if the model is being traced, False otherwise.
     """

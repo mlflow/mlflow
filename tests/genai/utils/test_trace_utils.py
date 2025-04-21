@@ -3,6 +3,9 @@ import pytest
 
 import mlflow
 from mlflow.genai.utils.trace_utils import is_model_traced
+from mlflow.models import Model
+from mlflow.models.evaluation.base import _get_model_from_function
+from mlflow.pyfunc import PyFuncModel
 
 
 def get_openai_predict_fn(with_tracing=False):
