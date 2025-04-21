@@ -838,7 +838,7 @@ def test_search_traces(return_type, mock_client):
         [
             Trace(
                 info=create_test_trace_info(f"tr-{i}"),
-                data=TraceData([], "", ""),
+                data=TraceData([]),
             )
             for i in range(10)
         ],
@@ -981,11 +981,7 @@ def test_search_traces_handles_missing_response_tags_and_metadata(monkeypatch):
                         execution_time_ms=2,
                         status=TraceStatus.OK,
                     ),
-                    data=TraceData(
-                        spans=[],
-                        request="request",
-                        # Response is missing
-                    ),
+                    data=TraceData(spans=[]),
                 )
             ]
 
@@ -1060,7 +1056,7 @@ def test_search_traces_with_invalid_span_content(monkeypatch):
                         execution_time_ms=2,
                         status=TraceStatus.OK,
                     ),
-                    data=TraceData(spans=[None], request="request", response="response"),
+                    data=TraceData(spans=[None]),
                 )
             ]
 
