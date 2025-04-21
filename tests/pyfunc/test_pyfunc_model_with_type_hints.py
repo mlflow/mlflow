@@ -1118,6 +1118,9 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
     assert mock_warning.call_count == 0
 
     # Check import does not trigger any warning (from builtin sub-classes)
+    # Note: DO NOT USE importlib.reload as classes in the reloaded
+    # module are different than original ones, which could cause unintended
+    # side effects in other tests.
     subprocess.check_call(
         [
             sys.executable,
