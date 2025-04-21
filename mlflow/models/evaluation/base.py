@@ -7,7 +7,6 @@ import pathlib
 import signal
 import urllib
 import urllib.parse
-import warnings
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -1110,11 +1109,8 @@ def evaluate(  # noqa: D417
     custom_metrics=None,
     extra_metrics=None,
     custom_artifacts=None,
-    validation_thresholds=None,
-    baseline_model=None,
     env_manager="local",
     model_config=None,
-    baseline_config=None,
     inference_params=None,
     model_id=None,
 ):
@@ -1561,12 +1557,6 @@ def evaluate(  # noqa: D417
 
                 mlflow.evaluate(..., custom_artifacts=[scatter_plot, pred_sample])
 
-        validation_thresholds: DEPRECATED. Please use :py:func:`mlflow.validate_evaluation_results`
-            API instead for running model validation against baseline.
-
-        baseline_model: DEPRECATED. Please use :py:func:`mlflow.validate_evaluation_results`
-            API instead for running model validation against baseline.
-
         env_manager: Specify an environment manager to load the candidate ``model`` in
             isolated Python environments and restore their
             dependencies. Default value is ``local``, and the following values are
@@ -1584,9 +1574,6 @@ def evaluate(  # noqa: D417
             the model's pyfunc flavor to know which keys are supported for your
             specific model. If not indicated, the default model configuration
             from the model is used (if any).
-
-        baseline_config: DEPRECATED. Please use :py:func:`mlflow.validate_evaluation_results`
-            API instead for running model validation against baseline.
 
         inference_params: (Optional) A dictionary of inference parameters to be passed to the model
             when making predictions, such as ``{"max_tokens": 100}``. This is only used when
@@ -1805,43 +1792,5 @@ def evaluate(  # noqa: D417
         # if model_id is specified log metrics to the eval run and logged model
         if model_id is not None:
             mlflow.log_metrics(metrics=evaluate_result.metrics, dataset=data, model_id=model_id)
-
-    # TODO: Remove this block in a future release when we
-    # remove the deprecated arguments.
-    if baseline_model is not None and validation_thresholds is not None:
-        from mlflow.models.evaluation.validation import validate_evaluation_results
-
-        warnings.warn(
-            "Model validation functionality is moved from `mlflow.evaluate` to the "
-            "`mlflow.validate_evaluation_results()` API. The "
-            "`baseline_model` argument will be removed in a future release.",
-            category=FutureWarning,
-            stacklevel=2,
-        )
-
-        if isinstance(baseline_model, str):
-            baseline_model = _load_model_or_server(
-                baseline_model, env_manager, model_config=baseline_config
-            )
-
-        baseline_result = _evaluate(
-            model=baseline_model,
-            model_type=model_type,
-            model_id=model_id,
-            dataset=dataset,
-            run_id=run_id,
-            evaluator_name_list=evaluator_name_list,
-            evaluator_name_to_conf_map=evaluator_name_to_conf_map,
-            custom_metrics=custom_metrics,
-            extra_metrics=extra_metrics,
-            custom_artifacts=custom_artifacts,
-            predictions=predictions_expected_in_model_output,
-            evaluators=evaluators,
-        )
-        return validate_evaluation_results(
-            validation_thresholds=validation_thresholds,
-            candidate_result=evaluate_result,
-            baseline_result=baseline_result,
-        )
 
     return evaluate_result
