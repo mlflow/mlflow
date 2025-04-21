@@ -120,6 +120,10 @@ class TraceInfoV3(_MlflowObject):
     def request_id(self) -> str:
         return self.trace_id
 
+    @request_id.setter
+    def request_id(self, value: str) -> None:
+        self.trace_id = value
+
     @property
     def experiment_id(self) -> Optional[str]:
         return (
