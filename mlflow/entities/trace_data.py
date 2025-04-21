@@ -70,7 +70,7 @@ class TraceData:
     # `request` and `response` are preserved for backward compatibility with v2
     @property
     def request(self) -> Optional[str]:
-        if self._request:
+        if self._request is not None:
             return self._request
 
         if span := self._get_root_span():
@@ -80,7 +80,7 @@ class TraceData:
 
     @property
     def response(self) -> Optional[str]:
-        if self._response:
+        if self._response is not None:
             return self._response
 
         if span := self._get_root_span():
