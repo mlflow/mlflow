@@ -3,6 +3,7 @@ import os
 import pathlib
 import subprocess
 import tempfile
+import urllib
 from collections import namedtuple
 from io import BytesIO
 
@@ -388,7 +389,7 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
     artifact_list_response.raise_for_status()
 
     for file in artifact_list_response.json()["files"]:
-        path = file["path"]
+        path = urllib.parse.quote(file["path"])
         get_artifact_response = requests.get(
             url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": path}
         )
