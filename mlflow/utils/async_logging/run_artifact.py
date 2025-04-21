@@ -33,7 +33,6 @@ class RunArtifact:
             local_dir = self._tmpdir.name
 
         self.local_filepath = posixpath.join(local_dir, filename)
-        self.completion_event = threading.Event()
         self._exception = None
         self.completion_event = threading.Event() if completion_event is None else completion_event
         self._handle_image()
