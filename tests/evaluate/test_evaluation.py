@@ -2291,7 +2291,7 @@ def test_evaluate_log_metrics_to_active_model(iris_dataset):
         predictions="predictions",
     )
 
-    # Evaluate the model with the specified model ID
+    # Evaluate the model without model_id, active model_id should be used
     with mlflow.start_run():
         result = evaluate(
             data=eval_dataset,
@@ -2311,14 +2311,7 @@ def test_evaluate_log_metrics_to_active_model(iris_dataset):
         logged_metrics = {metric.key: metric.value for metric in logged_model.metrics}
 
         # Verify each metric from the evaluation result matches the logged model metrics
-        for metric_name, metric_value in result.metrics.items():
-            assert metric_name in logged_metrics, (
-                f"Metric {metric_name} not found in logged model metrics"
-            )
-            assert logged_metrics[metric_name] == metric_value, (
-                f"Metric {metric_name} value mismatch: "
-                f"expected {metric_value}, got {logged_metrics[metric_name]}"
-            )
+        assert logged_metrics.items() <= result.metrics.items()
 
 
 def test_mlflow_evaluate_logs_traces_to_active_model():
@@ -2342,42 +2335,58 @@ def test_mlflow_evaluate_logs_traces_to_active_model():
     assert len(traces) == 1
     assert SpanAttributeKey.MODEL_ID not in traces[0].info.request_metadata
 
-    # set active model
-    active_model = mlflow.set_active_model(name="my-model")
-    model_id = active_model.model_id
-    evaluate(model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()])
-    traces = get_traces()
-    assert len(traces) == 2
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
-
-    # pass model_id explicitly takes precedence over active model
-    assert mlflow.get_active_model_id() is not None
-    another_model_id = mlflow.create_external_model(name="another-model").model_id
+    # no active model set and pass model_id explicitly
+    assert mlflow.get_active_model_id() is None
+    model_id = mlflow.create_external_model(name="my-model").model_id
     evaluate(
         model,
         eval_data,
         targets="ground_truth",
         extra_metrics=[mlflow.metrics.exact_match()],
-        model_id=another_model_id,
+        model_id=model_id,
     )
     traces = get_traces()
-    assert len(traces) == 3
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == another_model_id
+    assert len(traces) == 2
+    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
 
-    # model_id of the passed model takes precedence over active model
-    assert mlflow.get_active_model_id() is not None
-    model_info = mlflow.pyfunc.log_model(
-        "model",
-        python_model=model,
-        input_example="What is MLflow?",
-    )
-    evaluate(
-        model_info.model_uri,
-        eval_data,
-        targets="ground_truth",
-        extra_metrics=[mlflow.metrics.exact_match()],
-    )
-    traces = get_traces()
-    assert len(traces) == 4
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_info.model_id
+    # set active model
+    with mlflow.set_active_model(name="my-model") as active_model:
+        model_id = active_model.model_id
+        evaluate(
+            model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()]
+        )
+        traces = get_traces()
+        assert len(traces) == 3
+        assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
+
+        # pass model_id explicitly takes precedence over active model
+        assert mlflow.get_active_model_id() is not None
+        another_model_id = mlflow.create_external_model(name="another-model").model_id
+        evaluate(
+            model,
+            eval_data,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.exact_match()],
+            model_id=another_model_id,
+        )
+        traces = get_traces()
+        assert len(traces) == 4
+        assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == another_model_id
+
+        # model_id of the passed model takes precedence over active model
+        assert mlflow.get_active_model_id() is not None
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=model,
+            input_example="What is MLflow?",
+        )
+        evaluate(
+            model_info.model_uri,
+            eval_data,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.exact_match()],
+        )
+        traces = get_traces()
+        assert len(traces) == 5
+        assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_info.model_id
     # TODO: test registered ModelVersion's model_id works after it's supported

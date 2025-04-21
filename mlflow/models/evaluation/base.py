@@ -8,7 +8,7 @@ import signal
 import urllib
 import urllib.parse
 from abc import ABCMeta, abstractmethod
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from inspect import Parameter, Signature
 from types import FunctionType
@@ -29,7 +29,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import _maybe_set_active_model_id
+from mlflow.tracking.fluent import _set_active_model
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.annotations import developer_stable, experimental
 from mlflow.utils.class_utils import _get_class_from_string
@@ -1724,10 +1724,9 @@ def evaluate(  # noqa: D417
     # Use specified model_id if provided, otherwise use derived model_id
     model_id = specified_model_id if specified_model_id is not None else model_id
     # If none of the model_id and model is specified, use the active model_id
-    if model_id is None:
-        model_id = mlflow.get_active_model_id()
+    model_id = model_id or mlflow.get_active_model_id()
     # model_id could be None
-    with _maybe_set_active_model_id(model_id=model_id):
+    with _set_active_model(model_id=model_id) if model_id else nullcontext():
         evaluators: list[EvaluatorBundle] = resolve_evaluators_and_configs(
             evaluators, evaluator_config, model_type
         )
