@@ -18,8 +18,9 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.model_registry.file_store import FileStore
-from mlflow.utils.file_utils import path_to_local_file_uri, write_yaml
+from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.yaml_utils import write_yaml
 
 from tests.helper_functions import random_int, random_str
 
