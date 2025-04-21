@@ -1,0 +1,75 @@
+---
+sidebar_position: 2
+---
+
+
+
+# End user feedback
+
+## <span style={{color: "red"}}>TODO</span>
+
+
+- talk about
+    - log_feedback() api 
+    - how you get the trace_id to use
+- refer to trace data model for explanation of the data model and how feedback is stored on traces
+
+
+## <span style={{color: "red"}}>raw dbx content - update this </span>
+
+## <a id="provide-feedback"></a>Provide feedback on a deployed agent (experimental)
+
+When you deploy your agent with `agents.deploy()`, agent framework also creates and deploys a “feedback” model version within the same endpoint, which you can query to provide feedback on your agent application. Feedback entries appear as request rows within the [inference table](#agent-inference-tables) associated with your agent serving endpoint.
+
+
+Limitations of this API include:
+
+- The feedback API lacks input validation - it always responds successfully, even if passed invalid input.
+- The feedback API requires passing in the Databricks-generated `request_id` of the agent endpoint request on which you wish to provide feedback. To get the `databricks_request_id`, include `{"databricks_options": {"return_trace": True}}` in your original request to the agent serving endpoint. The agent endpoint response will then include the `databricks_request_id` associated with the request so that you can pass that request ID back to the feedback API when providing feedback on the agent response.
+- Feedback is collected using inference tables. See [inference table limitations](https://docs.databricks.com/aws/en/ai-gateway/inference-tables.md#limitations).
+
+The following example request provides feedback on the agent endpoint named “your-agent-endpoint-name”, and assumes that the `DATABRICKS_TOKEN` environment variable is set to a Databricks REST API token.
+
+```bash
+curl \
+  -u token:$DATABRICKS_TOKEN \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '
+      {
+          "dataframe_records": [
+              {
+                  "source": {
+                      "id": "user@company.com",
+                      "type": "human"
+                  },
+                  "request_id": "573d4a61-4adb-41bd-96db-0ec8cebc3744",
+                  "text_assessments": [
+                      {
+                          "ratings": {
+                              "answer_correct": {
+                                  "value": "positive"
+                              },
+                              "accurate": {
+                                  "value": "positive"
+                              }
+                          },
+                          "free_text_comment": "The answer used the provided context to talk about DLT"
+                      }
+                  ],
+                  "retrieval_assessments": [
+                      {
+                          "ratings": {
+                              "groundedness": {
+                                  "value": "positive"
+                              }
+                          }
+                      }
+                  ]
+              }
+          ]
+      }' \
+https://<workspace-host>.databricks.com/serving-endpoints/<your-agent-endpoint-name>/served-models/feedback/invocations
+```
+
+You can pass additional or different key-value pairs in the `text_assessments.ratings` and `retrieval_assessments.ratings` fields to provide different types of feedback. In the example, the feedback payload indicates that the agent’s response to the request with ID `573d4a61-4adb-41bd-96db-0ec8cebc3744` was correct, accurate, and grounded in context fetched by a retriever tool.

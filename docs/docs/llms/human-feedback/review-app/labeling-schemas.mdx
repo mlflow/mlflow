@@ -1,0 +1,19 @@
+---
+sidebar_position: 3
+---
+
+# Labeling schemas
+
+
+- talk about what these are
+- what is built in 
+- creating a custom one 
+
+- only applies to labeling session & not to feedback api
+
+## <span style={{color: "red"}}>raw dbx content - needs to be fleshed out more</span>
+
+
+The following example creates a [LabelingSession](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.review_app.LabelingSession) from the dataset above using [ReviewApp.create_labeling_session](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.review_app.ReviewApp.create_labeling_session), configuring the session
+to collect `guidelines` and `expected_facts` from SMEs using the [ReviewApp.label_schemas](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.review_app.ReviewApp.label_schemas) field. You can also create custom label schemas with [ReviewApp.create_label_schema](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.review_app.ReviewApp.create_label_schema)
+

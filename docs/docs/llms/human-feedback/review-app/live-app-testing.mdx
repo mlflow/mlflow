@@ -1,0 +1,30 @@
+---
+sidebar_position: 2
+---
+
+# Chat with a deployed app
+
+
+## <span style={{color: "red"}}>TODO</span>
+
+
+
+### Setup permissions for "Chat with the bot"
+
+- For users who do not have access to the workspace, an account admin uses account-level SCIM provisioning to sync users and groups automatically from your identity provider to your :re[Databricks] account. You can also manually register these users and groups to give them access when you set up identities in Databricks. See [\_](https://docs.databricks.com/aws/en/admin/users-groups/scim/index.md).
+- For users who already have access to the workspace that contains the review app, no additional configuration is required.
+
+The following code example shows how to give users permission to the model that was deployed via `agents.deploy`. The `users` parameter takes a list of email addresses.
+
+```python
+from databricks import agents
+
+# Note that <user_list> can specify individual users or groups.
+agents.set_permissions(model_name=<model_name>, users=[<user_list>], permission_level=agents.PermissionLevel.CAN_QUERY)
+```
+
+:::note
+
+To give permissions for all users in the workspace, set `users=["users"]`.
+
+:::
