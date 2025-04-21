@@ -10,6 +10,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
 from mlflow.protos.databricks_trace_server_pb2 import DatabricksTracingServerService
+from mlflow.tracking import MlflowClient
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -18,7 +19,6 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     extract_api_info_for_service,
 )
-from mlflow.tracking import MlflowClient
 
 _logger = logging.getLogger(__name__)
 

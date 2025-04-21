@@ -1,19 +1,16 @@
 import json
 import logging
-from typing import Optional, Dict
+from typing import Optional
 
-from google.protobuf.duration_pb2 import Duration
-from google.protobuf.timestamp_pb2 import Timestamp
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
-from mlflow.entities import Trace, TraceInfoV3
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
-from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     get_otel_attribute,
