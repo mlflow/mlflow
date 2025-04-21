@@ -1,10 +1,7 @@
 import logging
-from typing import Any, Callable, Optional, Union
-
-from pyspark import sql as spark
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
-from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
@@ -16,11 +13,8 @@ from mlflow.models.evaluation.base import (
     _is_model_deployment_endpoint_uri,
 )
 
-try:
-    # `pandas` is not required for `mlflow-skinny`.
-    import pandas as pd
-except ImportError:
-    pass
+if TYPE_CHECKING:
+    from genai.evaluation.utils import EvaluationDatasetTypes
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +25,7 @@ class EvaluationResult:
 
 
 def evaluate(
-    data: Union[pd.DataFrame, spark.DataFrame, list[dict], EvaluationDataset],
+    data: "EvaluationDatasetTypes",
     predict_fn: Optional[Callable[..., Any]] = None,
     scorers: Optional[list[Scorer]] = None,
     model_id: Optional[str] = None,

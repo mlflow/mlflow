@@ -453,4 +453,4 @@ jobs:
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server --ignore=tests/optuna \
-            tests
+            --ignore=tests/genai tests

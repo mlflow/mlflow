@@ -1,6 +1,4 @@
-from typing import Any, Optional, Union
-
-from pyspark import sql as spark
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities import Trace
@@ -15,11 +13,19 @@ try:
 except ImportError:
     pass
 
+if TYPE_CHECKING:
+    try:
+        import pyspark.sql.dataframe
+
+        EvaluationDatasetTypes = Union[
+            pd.DataFrame, pyspark.sql.dataframe.DataFrame, list[dict], EvaluationDataset
+        ]
+    except ImportError:
+        EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
+
 
 # TODO: ML-52299
-def _convert_to_legacy_eval_set(
-    data: Union[pd.DataFrame, spark.DataFrame, list[dict], EvaluationDataset],
-) -> dict:
+def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
     """
     Takes in different types of inputs and converts it into to the current eval-set schema that
     Agent Evaluation takes in. The transformed schema should be accepted by mlflow.evaluate()
