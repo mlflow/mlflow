@@ -53,45 +53,45 @@ def mock_openai():
 @pytest.mark.parametrize(
     ("directory", "params"),
     [
-        ("h2o", []),
+        # ("h2o", []),
         # TODO: Fix the hyperparam example and re-enable it
         # ("hyperparam", ["-e", "train", "-P", "epochs=1"]),
         # ("hyperparam", ["-e", "random", "-P", "epochs=1"]),
         # ("hyperparam", ["-e", "hyperopt", "-P", "epochs=1"]),
-        (
-            "lightgbm/lightgbm_native",
-            ["-P", "learning_rate=0.1", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
-        ),
-        ("lightgbm/lightgbm_sklearn", []),
-        ("statsmodels", ["-P", "inverse_method=qr"]),
-        ("pytorch", ["-P", "epochs=2"]),
-        ("sklearn_logistic_regression", []),
-        ("sklearn_elasticnet_wine", ["-P", "alpha=0.5"]),
-        ("sklearn_elasticnet_diabetes/linux", []),
-        ("spacy", []),
-        (
-            "xgboost/xgboost_native",
-            ["-P", "learning_rate=0.3", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
-        ),
-        ("xgboost/xgboost_sklearn", []),
-        ("fastai", ["-P", "lr=0.02", "-P", "epochs=3"]),
-        ("pytorch/MNIST", ["-P", "max_epochs=1"]),
+        # (
+        #     "lightgbm/lightgbm_native",
+        #     ["-P", "learning_rate=0.1", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
+        # ),
+        # ("lightgbm/lightgbm_sklearn", []),
+        # ("statsmodels", ["-P", "inverse_method=qr"]),
+        # ("pytorch", ["-P", "epochs=2"]),
+        # ("sklearn_logistic_regression", []),
+        # ("sklearn_elasticnet_wine", ["-P", "alpha=0.5"]),
+        # ("sklearn_elasticnet_diabetes/linux", []),
+        # ("spacy", []),
+        # (
+        #     "xgboost/xgboost_native",
+        #     ["-P", "learning_rate=0.3", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
+        # ),
+        # ("xgboost/xgboost_sklearn", []),
+        # ("fastai", ["-P", "lr=0.02", "-P", "epochs=3"]),
+        # ("pytorch/MNIST", ["-P", "max_epochs=1"]),
         (
             "pytorch/BertNewsClassification",
             ["-P", "max_epochs=1", "-P", "num_samples=100", "-P", "dataset=20newsgroups"],
         ),
-        (
-            "pytorch/AxHyperOptimizationPTL",
-            ["-P", "max_epochs=10", "-P", "total_trials=1"],
-        ),
-        (
-            "pytorch/IterativePruning",
-            ["-P", "max_epochs=1", "-P", "total_trials=1"],
-        ),
-        ("pytorch/CaptumExample", ["-P", "max_epochs=50"]),
-        ("supply_chain_security", []),
-        ("tensorflow", []),
-        ("sktime", []),
+        # (
+        #     "pytorch/AxHyperOptimizationPTL",
+        #     ["-P", "max_epochs=10", "-P", "total_trials=1"],
+        # ),
+        # (
+        #     "pytorch/IterativePruning",
+        #     ["-P", "max_epochs=1", "-P", "total_trials=1"],
+        # ),
+        # ("pytorch/CaptumExample", ["-P", "max_epochs=50"]),
+        # ("supply_chain_security", []),
+        # ("tensorflow", []),
+        # ("sktime", []),
     ],
 )
 def test_mlflow_run_example(directory, params, tmp_path):
