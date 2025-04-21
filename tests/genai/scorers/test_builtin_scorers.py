@@ -7,7 +7,7 @@ from mlflow.genai.scorers import (
     global_guideline_adherence,
     groundedness,
     guideline_adherence,
-    rag_evaluators,
+    rag_scorers,
     relevance_to_query,
     safety,
 )
@@ -21,14 +21,14 @@ def normalize_config(config):
 
 
 ALL_SCORERS = [
-    chunk_relevance,
-    context_sufficiency,
-    document_recall,
+    chunk_relevance(),
+    context_sufficiency(),
+    document_recall(),
     global_guideline_adherence("Be polite"),
-    groundedness,
-    guideline_adherence,
-    relevance_to_query,
-    safety,
+    groundedness(),
+    guideline_adherence(),
+    relevance_to_query(),
+    safety(),
 ]
 
 
@@ -36,11 +36,12 @@ ALL_SCORERS = [
     "scorers",
     [
         ALL_SCORERS,
-        rag_evaluators(global_guideline="Be polite"),
-        [*rag_evaluators(global_guideline="Be polite")],
+        [*ALL_SCORERS] + [*ALL_SCORERS],  # duplicate scorers
+        rag_scorers(global_guideline="Be polite") + [guideline_adherence(), safety()],
+        [*rag_scorers(global_guideline="Be polite")] + [guideline_adherence(), safety()],
     ],
 )
-def test_scorers_and_rag_evaluators_config(scorers):
+def test_scorers_and_rag_scorers_config(scorers):
     evaluation_config = {}
     for scorer in scorers:
         evaluation_config = scorer.update_evaluation_config(evaluation_config)

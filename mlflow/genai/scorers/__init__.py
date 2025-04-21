@@ -6,7 +6,7 @@ from mlflow.genai.scorers.builtin_scorers import (
     global_guideline_adherence,
     groundedness,
     guideline_adherence,
-    rag_evaluators,
+    rag_scorers,
     relevance_to_query,
     safety,
 )
@@ -21,7 +21,7 @@ __all__ = [
     "global_guideline_adherence",
     "groundedness",
     "guideline_adherence",
-    "rag_evaluators",
+    "rag_scorers",
     "relevance_to_query",
     "safety",
 ]
