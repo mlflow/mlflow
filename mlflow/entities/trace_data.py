@@ -16,10 +16,18 @@ class TraceData:
 
     spans: list[Span] = field(default_factory=list)
 
-    # NB: Custom constructor to allow passing additional kwargs for backward compatibility for
-    # DBX agent evaluator. Once they migrates to trace V3 schema, we can remove this.
-    def __init__(self, spans: Optional[list[Span]] = None, **kwargs):
+    # DEPRECATED: These attributes should be removed once the DBX agent evaluator
+    # migrates to trace V3 schema.
+    _request: Optional[str] = field(default=None)
+    _response: Optional[str] = field(default=None)
+
+    def __init__(self,
+                 spans: list[Span],
+                 request: Optional[str] = None,
+                 response: Optional[str] = None):
         self.spans = spans
+        self._request = request
+        self._response = response
 
     @classmethod
     def from_dict(cls, d):
@@ -62,6 +70,9 @@ class TraceData:
     # `request` and `response` are preserved for backward compatibility with v2
     @property
     def request(self) -> Optional[str]:
+        if self._request:
+            return self._request
+
         if span := self._get_root_span():
             # Accessing the OTel span directly get serialized value directly.
             return span._span.attributes.get(SpanAttributeKey.INPUTS)
@@ -69,6 +80,9 @@ class TraceData:
 
     @property
     def response(self) -> Optional[str]:
+        if self._response:
+            return self._response
+
         if span := self._get_root_span():
             # Accessing the OTel span directly get serialized value directly.
             return span._span.attributes.get(SpanAttributeKey.OUTPUTS)
