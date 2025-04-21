@@ -1,24 +1,22 @@
 import logging
 from typing import Sequence
 
-from google.protobuf.json_format import MessageToDict
+
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
-    MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
-from mlflow.protos.databricks_trace_server_pb2 import CreateTrace, DatabricksTracingServerService
+from mlflow.protos.databricks_trace_server_pb2 import DatabricksTracingServerService
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.utils.databricks_utils import get_databricks_host_creds
+
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     extract_api_info_for_service,
-    http_request,
 )
 from mlflow.tracking import MlflowClient
 
@@ -84,9 +82,8 @@ class DatabricksSpanExporter(SpanExporter):
         try:
             if trace:
                 returned_trace = self._client._start_trace_v3(trace)
-                self._client._upload_trace_data(returned_trace.info, trace_data)
+                self._client._upload_trace_data(returned_trace.info, trace.data)
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
-            
         except Exception as e:
             _logger.warning(f"Failed to send trace to MLflow backend: {e}")
