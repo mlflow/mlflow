@@ -558,7 +558,9 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def load_prompt(self, name_or_uri: str, version: Optional[int] = None) -> Prompt:
+    def load_prompt(
+        self, name_or_uri: str, version: Optional[int] = None, allow_missing: bool = False
+    ) -> Prompt:
         """
         Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 
@@ -584,6 +586,8 @@ class MlflowClient:
         Args:
             name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
             version: The version of the prompt. If not specified, the latest version will be loaded.
+            allow_missing: If True, return None instead of raising Exception if the specified prompt
+                is not found.
         """
         if name_or_uri.startswith("prompts:/"):
             if version is not None:
@@ -596,10 +600,16 @@ class MlflowClient:
             name = name_or_uri
 
         registry_client = self._get_registry_client()
-        if version is None:
-            mv = registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
-        else:
-            mv = registry_client.get_model_version(name, version)
+        try:
+            mv = (
+                registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
+                if version is None
+                else registry_client.get_model_version(name, version)
+            )
+        except MlflowException as exc:
+            if allow_missing and exc.error_code == "RESOURCE_DOES_NOT_EXIST":
+                return None
+            raise
 
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
@@ -762,7 +772,6 @@ class MlflowClient:
         """
         Parse prompt URI into prompt name and prompt version.
         - 'prompt:/<name>/<version>' -> ('<name>', '<version>')
-        - 'prompt:/<name>' -> ('<name>', '<latest version>')
         - 'prompt:/<name>@<alias>' -> ('<name>', '<version>')
         """
         parsed = urllib.parse.urlparse(uri)

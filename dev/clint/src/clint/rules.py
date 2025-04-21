@@ -340,9 +340,17 @@ class LazyModule(Rule):
         return "Module loaded by `LazyLoader` must be imported in `TYPE_CHECKING` block."
 
 
-class ForbiddenSetActiveModelUsage(Rule):
+class EmptyNotebookCell(Rule):
     def _id(self) -> str:
         return "MLF0020"
+
+    def _message(self) -> str:
+        return "Empty notebook cell. Remove it or add some content."
+
+
+class ForbiddenSetActiveModelUsage(Rule):
+    def _id(self) -> str:
+        return "MLF0021"
 
     def _message(self) -> str:
         return (
