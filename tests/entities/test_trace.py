@@ -85,8 +85,6 @@ def test_json_deserialization(monkeypatch):
             },
         },
         "data": {
-            "request": '{"x": 2, "y": 5}',
-            "response": "8",
             "spans": [
                 {
                     "name": "predict",

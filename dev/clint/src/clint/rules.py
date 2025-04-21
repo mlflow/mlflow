@@ -338,3 +338,13 @@ class LazyModule(Rule):
 
     def _message(self) -> str:
         return "Module loaded by `LazyLoader` must be imported in `TYPE_CHECKING` block."
+
+
+class ForbiddenSetActiveModelUsage(Rule):
+    def _id(self) -> str:
+        return "MLF0020"
+
+    def _message(self) -> str:
+        return (
+            "Usage of `set_active_model` is not allowed in mlflow, use `_set_active_model` instead."
+        )

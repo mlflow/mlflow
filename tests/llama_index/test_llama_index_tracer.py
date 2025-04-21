@@ -227,14 +227,16 @@ def _multi_modal_test_cases():
     test_cases = [
         (
             ImageBlock(url="https://example/image.jpg"),
-            {"url": "https://example/image.jpg"},
+            {"url": "https://example/image.jpg"}
+            if llama_core_version < Version("0.12.30")
+            else {"url": "https://example/image.jpg", "detail": "auto"},
         ),
         # LlamaIndex support passing local image path
         (
             ImageBlock(path="tests/resources/images/test.png", image_mimetype="image/png"),
             {
                 "url": f"data:image/png;base64,{image_base64}",
-                "detail": "low",
+                "detail": "low" if llama_core_version < Version("0.12.30") else "auto",
             },
         ),
     ]

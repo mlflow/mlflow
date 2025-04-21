@@ -18,7 +18,7 @@ import pytest
 import mlflow
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
-from mlflow import MlflowClient
+from mlflow import MlflowClient, set_active_model
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
@@ -1937,20 +1937,20 @@ def test_set_active_model():
 
     model = mlflow.create_external_model(name="test_model")
 
-    mlflow.set_active_model(name=model.name)
+    set_active_model(name=model.name)
     assert mlflow.get_active_model_id() == model.model_id
     assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
 
-    mlflow.set_active_model(model_id=model.model_id)
+    set_active_model(model_id=model.model_id)
     assert mlflow.get_active_model_id() == model.model_id
     assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
 
     model2 = mlflow.create_external_model(name="test_model")
-    mlflow.set_active_model(name="test_model")
+    set_active_model(name="test_model")
     assert mlflow.get_active_model_id() == model2.model_id
     assert MLFLOW_ACTIVE_MODEL_ID.get() == model2.model_id
 
-    mlflow.set_active_model(name="new_model")
+    set_active_model(name="new_model")
     logged_model = mlflow.search_logged_models(
         filter_string="name='new_model'", output_format="list"
     )[0]
@@ -1958,11 +1958,11 @@ def test_set_active_model():
     assert mlflow.get_active_model_id() == logged_model.model_id
     assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
 
-    with mlflow.set_active_model(model_id=model.model_id) as active_model:
+    with set_active_model(model_id=model.model_id) as active_model:
         assert active_model.model_id == model.model_id
         assert mlflow.get_active_model_id() == model.model_id
         assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
-        with mlflow.set_active_model(name="new_model"):
+        with set_active_model(name="new_model"):
             assert mlflow.get_active_model_id() == logged_model.model_id
             assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
         assert mlflow.get_active_model_id() == model.model_id
@@ -1973,30 +1973,34 @@ def test_set_active_model():
 
 def test_set_active_model_error():
     with pytest.raises(MlflowException, match=r"Either name or model_id must be provided"):
-        mlflow.set_active_model()
+        set_active_model()
 
     model = mlflow.create_external_model(name="test_model")
     with pytest.raises(MlflowException, match=r"does not match the provided name"):
-        mlflow.set_active_model(name="abc", model_id=model.model_id)
+        set_active_model(name="abc", model_id=model.model_id)
 
     with pytest.raises(MlflowException, match=r"Logged model with ID '1234' not found"):
-        mlflow.set_active_model(model_id="1234")
+        set_active_model(model_id="1234")
 
 
 def test_set_active_model_env_var(monkeypatch):
     monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "1234")
     assert mlflow.get_active_model_id() == "1234"
 
-    with mlflow.set_active_model(name="abc"):
+    with set_active_model(name="abc") as model:
         model_id = mlflow.get_active_model_id()
-        assert model_id is not None
+        assert model_id == model.model_id
         assert MLFLOW_ACTIVE_MODEL_ID.get() == model_id
+    assert mlflow.get_active_model_id() == "1234"
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == "1234"
+
+    monkeypatch.delenv(MLFLOW_ACTIVE_MODEL_ID.name)
     assert mlflow.get_active_model_id() is None
     assert MLFLOW_ACTIVE_MODEL_ID.get() is None
 
 
 def test_set_active_model_link_traces():
-    mlflow.set_active_model(name="test_model")
+    set_active_model(name="test_model")
     model_id = mlflow.get_active_model_id()
     assert model_id is not None
 
@@ -2027,7 +2031,7 @@ def test_set_active_model_link_traces():
     assert len(traces) == 5
     assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == "1234"
 
-    with mlflow.set_active_model(name="new_model") as new_model:
+    with set_active_model(name="new_model") as new_model:
         predict(model_input=1)
     traces = get_traces()
     assert len(traces) == 6

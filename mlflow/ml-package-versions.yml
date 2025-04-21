@@ -53,6 +53,9 @@ pytorch:
     maximum: "2.6.0"
     requirements:
       ">= 0.0.0": ["tensorboard"]
+      # Old pytorch uses setuptools.distutils.version, which is not available in setuptools>59.5
+      # https://github.com/pytorch/pytorch/blob/v1.10.2/torch/utils/tensorboard/__init__.py#L4
+      "<1.11.0": ["setuptools<=59.5.0"]
     run: |
       pytest tests/pytorch/test_tensorboard_autolog.py
 
@@ -468,9 +471,7 @@ transformers:
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
-        "4.38.0",
-        "4.38.1",
-        "4.38.2",
+        ">=4.38.0,<4.39.0",
       ]
     requirements:
       ">= 0.0.0": [
@@ -511,9 +512,7 @@ transformers:
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
-        "4.38.0",
-        "4.38.1",
-        "4.38.2",
+        ">=4.38.0,<4.39.0",
       ]
     requirements:
       ">= 0.0.0": [
@@ -784,6 +783,7 @@ autogen:
   autologging:
     minimum: "0.2.36"
     maximum: "0.2.40"
+    unsupported: [">=0.4"]
     python:
       "== dev": "3.10"
     requirements:
@@ -833,6 +833,7 @@ crewai:
   autologging:
     minimum: "0.80.0"
     maximum: "0.114.0"
+    unsupported: ["==0.114.0"]
     python:
       ">= 0.80.0": "3.10"
     requirements:
@@ -923,6 +924,8 @@ litellm:
   autologging:
     minimum: "1.52.9"
     maximum: "1.66.0"
+    # TODO: Remove this once https://github.com/BerriAI/litellm/issues/9656 is fixed
+    unsupported: [">=1.59"]
     requirements:
       ">= 0.0.0": [
           "openai",
