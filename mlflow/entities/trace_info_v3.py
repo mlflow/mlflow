@@ -29,8 +29,8 @@ class TraceInfoV3(_MlflowObject):
 
     def to_dict(self) -> dict[str, Any]:
         res = MessageToDict(self.to_proto(), preserving_proto_field_name=True)
-        res.pop("execution_duration", None)
         if self.execution_duration is not None:
+            res.pop("execution_duration", None)
             res["execution_duration_ms"] = self.execution_duration
         return res
 
@@ -56,7 +56,7 @@ class TraceInfoV3(_MlflowObject):
             timestamp.FromJsonString(request_time)
             d["request_time"] = timestamp.ToMilliseconds()
 
-        if (execution_duration := d.pop("execution_duration_ms")) is not None:
+        if (execution_duration := d.pop("execution_duration_ms", None)) is not None:
             d["execution_duration"] = execution_duration
 
         return cls(**d)
