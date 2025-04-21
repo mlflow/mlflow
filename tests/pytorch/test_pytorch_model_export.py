@@ -23,12 +23,11 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example, load_serving_example
-from mlflow.pytorch import get_default_conda_env
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import Schema, TensorSpec
-from mlflow.utils.environment import _mlflow_additional_pip_env, _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
@@ -914,106 +913,6 @@ def create_requirements_file(tmp_path):
     test_string = "mlflow"
     fp.write_text(test_string)
     return str(fp), test_string
-
-
-@pytest.mark.parametrize("scripted_model", [True, False])
-def test_requirements_file_log_model(create_requirements_file, sequential_model):
-    requirements_file, content_expected = create_requirements_file
-    with mlflow.start_run():
-        mlflow.pytorch.log_model(
-            sequential_model,
-            "models",
-            requirements_file=requirements_file,
-        )
-
-        model_uri = "runs:/{run_id}/{model_path}".format(
-            run_id=mlflow.active_run().info.run_id, model_path="models"
-        )
-
-        # Verify that explicitly specified requirements file overrides default requirements file
-        conda_env = get_default_conda_env()
-        pip_deps = conda_env["dependencies"][-1]["pip"]
-        assert _mlflow_additional_pip_env(pip_deps) != content_expected
-
-        with TempDir(remove_on_exit=True) as tmp:
-            model_path = _download_artifact_from_uri(model_uri, tmp.path())
-            model_config_path = os.path.join(model_path, "MLmodel")
-            model_config = Model.load(model_config_path)
-            flavor_config = model_config.flavors["pytorch"]
-
-            assert "requirements_file" in flavor_config
-            loaded_requirements_file = flavor_config["requirements_file"]
-
-            assert "path" in loaded_requirements_file
-            requirements_file_path = loaded_requirements_file["path"]
-            requirements_file_path = os.path.join(model_path, requirements_file_path)
-            with open(requirements_file_path) as fp:
-                assert fp.read() == content_expected
-
-
-@pytest.mark.parametrize("scripted_model", [True, False])
-def test_requirements_file_save_model(create_requirements_file, sequential_model):
-    requirements_file, content_expected = create_requirements_file
-    with TempDir(remove_on_exit=True) as tmp:
-        model_path = os.path.join(tmp.path(), "models")
-        mlflow.pytorch.save_model(
-            pytorch_model=sequential_model, path=model_path, requirements_file=requirements_file
-        )
-
-        # Verify that explicitly specified requirements file overrides default requirements file
-        conda_env = get_default_conda_env()
-        pip_deps = conda_env["dependencies"][-1]["pip"]
-        assert _mlflow_additional_pip_env(pip_deps) != content_expected
-
-        model_config_path = os.path.join(model_path, "MLmodel")
-        model_config = Model.load(model_config_path)
-        flavor_config = model_config.flavors["pytorch"]
-
-        assert "requirements_file" in flavor_config
-        loaded_requirements_file = flavor_config["requirements_file"]
-
-        assert "path" in loaded_requirements_file
-        requirements_file_path = loaded_requirements_file["path"]
-        requirements_file_path = os.path.join(model_path, requirements_file_path)
-        with open(requirements_file_path) as fp:
-            assert fp.read() == content_expected
-
-
-@pytest.mark.parametrize("scripted_model", [True, False])
-def test_log_model_invalid_requirement_file_path(sequential_model):
-    with (
-        mlflow.start_run(),
-        pytest.raises(MlflowException, match="No such file or directory: 'non_existing_file.txt'"),
-    ):
-        mlflow.pytorch.log_model(
-            sequential_model,
-            "models",
-            requirements_file="non_existing_file.txt",
-        )
-
-
-@pytest.mark.parametrize("scripted_model", [True, False])
-def test_log_model_invalid_requirement_file_type(sequential_model):
-    with (
-        mlflow.start_run(),
-        pytest.raises(TypeError, match="Path to requirements file should be a string"),
-    ):
-        mlflow.pytorch.log_model(
-            sequential_model,
-            "models",
-            requirements_file=["non_existing_file.txt"],
-        )
-
-
-def test_save_model_emits_deprecation_warning_for_requirements_file(tmp_path):
-    reqs_file = tmp_path.joinpath("requirements.txt")
-    reqs_file.write_text("torch")
-    with pytest.warns(FutureWarning, match="`requirements_file` has been deprecated"):
-        mlflow.pytorch.save_model(
-            get_sequential_model(),
-            tmp_path.joinpath("model"),
-            requirements_file=str(reqs_file),
-        )
 
 
 @pytest.fixture
