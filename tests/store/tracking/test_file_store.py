@@ -2952,6 +2952,11 @@ def test_set_trace_tag(store_and_trace_info):
     trace_info = store.get_trace_info(trace.request_id)
     assert trace_info.tags["int_key"] == "1234"
 
+    # test value length
+    store.set_trace_tag(trace.request_id, "key", "v" * 4096)
+    trace_info = store.get_trace_info(trace.request_id)
+    assert trace_info.tags["key"] == "v" * 4096
+
     with pytest.raises(MlflowException, match=r"Missing value for required parameter \'key\'"):
         store.set_trace_tag(trace.request_id, None, "test")
 

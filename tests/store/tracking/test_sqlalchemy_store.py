@@ -4462,6 +4462,10 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
     store.delete_trace_tag(request_id, "tag1")
     assert store.get_trace_info(request_id).tags == {"tag2": "orange"}
 
+    # test value length
+    store.set_trace_tag(request_id, "key", "v" * 4096)
+    assert store.get_trace_info(request_id).tags["key"] == "v" * 4096
+
     with pytest.raises(MlflowException, match="No trace tag with key 'tag1'"):
         store.delete_trace_tag(request_id, "tag1")
 
