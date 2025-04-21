@@ -717,7 +717,7 @@ def test_trace_dataset_hash():
     df = pd.DataFrame(
         {
             "request": ["Hello"],
-            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([]))],
         }
     )
     dataset = EvaluationDataset(data=df)
@@ -726,7 +726,7 @@ def test_trace_dataset_hash():
     df2 = pd.DataFrame(
         {
             "request": ["Hi"],
-            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([], "", ""))],
+            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([]))],
         }
     )
     dataset2 = EvaluationDataset(data=df2)
