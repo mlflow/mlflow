@@ -13,6 +13,7 @@ from mlflow.pyfunc import PyFuncModel
 
 
 def mock_init_auth(config_instance):
+    config_instance.host = "https://databricks.com/"
     config_instance._header_factory = lambda: {}
 
 
