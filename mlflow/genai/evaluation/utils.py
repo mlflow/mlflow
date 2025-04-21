@@ -27,10 +27,31 @@ if TYPE_CHECKING:
 # TODO: ML-52299
 def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
     """
-    Takes in different types of inputs and converts it into to the current eval-set schema that
-    Agent Evaluation takes in. The transformed schema should be accepted by mlflow.evaluate()
+    Takes in a dataset in the format that mlflow.genai.evaluate() expects and converts it into
+    to the current eval-set schema that Agent Evaluation takes in. The transformed schema should
+    be accepted by mlflow.evaluate().
     """
-    raise NotImplementedError("This function is not implemented yet.")
+    column_mapping = {
+        "inputs": "request",
+        "outputs": "response",
+        "expectations": "expected_response",
+        "trace": "trace",
+    }
+
+    if isinstance(data, list):
+        df = pd.DataFrame(data)
+    elif isinstance(data, spark.DataFrame):
+        df = data.toPandas()
+    else:  # data is already a pandas DataFrame
+        df = data.copy()
+
+    # Rename columns according to the mapping
+    renamed_df = pd.DataFrame()
+    for old_col, new_col in column_mapping.items():
+        if old_col in df.columns:
+            renamed_df[new_col] = df[old_col]
+
+    return renamed_df
 
 
 def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
