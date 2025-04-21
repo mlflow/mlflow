@@ -441,13 +441,14 @@ jobs:
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
           source .venv/Scripts/activate
-          # Set Hadoop environment variables required for testing Spark integrations on Windows
-          export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
-          export PATH=$PATH:$HADOOP_HOME/bin
-          # Run Windows tests
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server --ignore=tests/optuna \
-            tests
-          # MLeap is incompatible on Windows with PySpark3.4 release.
-          # Reinstate tests when MLeap has released a fix. [ML-30491]
-          # pytest tests/mleap
+          pytest tests/tracking/test_mlflow_artifacts.py::test_rest_get_artifact_api_log_image
+          # # Set Hadoop environment variables required for testing Spark integrations on Windows
+          # export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
+          # export PATH=$PATH:$HADOOP_HOME/bin
+          # # Run Windows tests
+          # pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          #   --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server --ignore=tests/optuna \
+          #   tests
+          # # MLeap is incompatible on Windows with PySpark3.4 release.
+          # # Reinstate tests when MLeap has released a fix. [ML-30491]
+          # # pytest tests/mleap

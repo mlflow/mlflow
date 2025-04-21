@@ -370,7 +370,14 @@ def test_mime_type_for_download_artifacts_api(
     assert artifact_response.headers["X-Content-Type-Options"] == "nosniff"
 
 
-def test_rest_get_artifact_api_log_image(artifacts_server):
+@pytest.mark.parametrize(
+    "func",
+    [
+        lambda x: x,
+        urllib.parse.quote,
+    ],
+)
+def test_rest_get_artifact_api_log_image(artifacts_server, func):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
 
@@ -389,7 +396,7 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
     artifact_list_response.raise_for_status()
 
     for file in artifact_list_response.json()["files"]:
-        path = urllib.parse.quote(file["path"])
+        path = func(file["path"])
         get_artifact_response = requests.get(
             url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": path}
         )
