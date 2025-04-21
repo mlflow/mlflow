@@ -3,9 +3,9 @@ The :py:mod:`mlflow.types` module defines data types and utilities to be used by
 components to describe interface independent of other frameworks or languages.
 """
 
-from mlflow.version import IS_MLFLOW_SKINNY_INSTALLED
+from mlflow.version import IS_FULL_MLFLOW_INSTALLED
 
-if IS_MLFLOW_SKINNY_INSTALLED:
+if IS_FULL_MLFLOW_INSTALLED:
     import mlflow.types.llm  # noqa: F401
 
     # Our typing system depends on numpy, which is not included in mlflow-trace package

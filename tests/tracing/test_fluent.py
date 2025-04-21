@@ -37,7 +37,7 @@ from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.os import is_windows
-from mlflow.version import IS_MLFLOW_SKINNY_INSTALLED
+from mlflow.version import IS_FULL_MLFLOW_INSTALLED
 
 from tests.tracing.helper import (
     create_test_trace_info,
@@ -48,7 +48,7 @@ from tests.tracing.helper import (
 
 # NB: mlflow.search_traces() depends on Pandas by default.
 #   If mlflow-skinny is not installed, we will use list format for testing.
-_SEARCH_RETURN_TYPE = "pandas" if IS_MLFLOW_SKINNY_INSTALLED else "list"
+_SEARCH_RETURN_TYPE = "pandas" if IS_FULL_MLFLOW_INSTALLED else "list"
 
 
 class DefaultTestModel:
@@ -185,8 +185,8 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
     model = DefaultTestModel() if wrap_sync_func else DefaultAsyncTestModel()
 
     if with_active_run:
-        if not IS_MLFLOW_SKINNY_INSTALLED:
-            pytest.skip("Skipping test because mlflow-skinny is not installed.")
+        if not IS_FULL_MLFLOW_INSTALLED:
+            pytest.skip("Skipping test because mlflow or mlflow-skinny is not installed.")
 
         with mlflow.start_run() as run:
             model.predict(2, 5) if wrap_sync_func else asyncio.run(model.predict(2, 5))
@@ -838,7 +838,7 @@ def test_test_search_traces_empty(mock_client):
     traces = mlflow.search_traces(return_type=_SEARCH_RETURN_TYPE)
     assert len(traces) == 0
 
-    if IS_MLFLOW_SKINNY_INSTALLED:
+    if IS_FULL_MLFLOW_INSTALLED:
         default_columns = Trace.pandas_dataframe_columns()
         assert traces.columns.tolist() == default_columns
 
@@ -850,8 +850,8 @@ def test_test_search_traces_empty(mock_client):
 
 @pytest.mark.parametrize("return_type", ["pandas", "list"])
 def test_search_traces(return_type, mock_client):
-    if return_type == "pandas" and not IS_MLFLOW_SKINNY_INSTALLED:
-        pytest.skip("Skipping test because mlflow-skinny is not installed.")
+    if return_type == "pandas" and not IS_FULL_MLFLOW_INSTALLED:
+        pytest.skip("Skipping test because mlflow or mlflow-skinny is not installed.")
 
     mock_client.search_traces.return_value = PagedList(
         [

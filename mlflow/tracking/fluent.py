@@ -75,9 +75,9 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
-from mlflow.version import IS_MLFLOW_SKINNY_INSTALLED
+from mlflow.version import IS_FULL_MLFLOW_INSTALLED
 
-if IS_MLFLOW_SKINNY_INSTALLED:
+if IS_FULL_MLFLOW_INSTALLED:
     from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
     from mlflow.tracking.client import MlflowClient
     from mlflow.tracking.context import registry as context_registry

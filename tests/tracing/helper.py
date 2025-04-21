@@ -22,7 +22,7 @@ from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, get_autolog_function
 from mlflow.utils.autologging_utils.safety import revert_patches
-from mlflow.version import IS_MLFLOW_SKINNY_INSTALLED
+from mlflow.version import IS_FULL_MLFLOW_INSTALLED
 
 
 def create_mock_otel_span(
@@ -217,8 +217,8 @@ def skip_when_testing_trace_sdk(f):
     # not the full mlflow package.
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        if not IS_MLFLOW_SKINNY_INSTALLED:
-            pytest.skip("Skipping test because it requires MLflow skinny to be installed.")
+        if not IS_FULL_MLFLOW_INSTALLED:
+            pytest.skip("Skipping test because it requires mlflow or mlflow-skinny to be installed.")
         return f(*args, **kwargs)
 
     return wrapper
@@ -226,8 +226,8 @@ def skip_when_testing_trace_sdk(f):
 
 def skip_module_when_testing_trace_sdk():
     """Skip the entire module if only mlflow-trace package is installed"""
-    if not IS_MLFLOW_SKINNY_INSTALLED:
+    if not IS_FULL_MLFLOW_INSTALLED:
         pytest.skip(
-            "Skipping test because it requires MLflow skinny to be installed.",
+            "Skipping test because it requires mlflow or mlflow-skinny to be installed.",
             allow_module_level=True,
         )

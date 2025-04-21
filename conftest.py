@@ -11,7 +11,7 @@ import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
 from mlflow.utils.os import is_windows
-from mlflow.version import IS_MLFLOW_SKINNY_INSTALLED, VERSION
+from mlflow.version import IS_FULL_MLFLOW_INSTALLED, VERSION
 
 
 def pytest_addoption(parser):
@@ -89,7 +89,7 @@ def pytest_cmdline_main(config):
 
 
 def pytest_sessionstart(session):
-    if not IS_MLFLOW_SKINNY_INSTALLED:
+    if not IS_FULL_MLFLOW_INSTALLED:
         return
 
     import click
@@ -331,7 +331,7 @@ def enable_mlflow_testing():
         yield
 
 
-@pytest.fixture(scope="session", autouse=IS_MLFLOW_SKINNY_INSTALLED)
+@pytest.fixture(scope="session", autouse=IS_FULL_MLFLOW_INSTALLED)
 def serve_wheel(request, tmp_path_factory):
     """
     Models logged during tests have a dependency on the dev version of MLflow built from

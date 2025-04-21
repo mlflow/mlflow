@@ -13,7 +13,7 @@ from mlflow.tracking._tracking_service.utils import (
     is_tracking_uri_set,
     set_tracking_uri,
 )
-from mlflow.version import IS_MLFLOW_SKINNY_INSTALLED
+from mlflow.version import IS_FULL_MLFLOW_INSTALLED
 
 __all__ = [
     "get_tracking_uri",
@@ -23,8 +23,8 @@ __all__ = [
     "_get_store",
 ]
 
-# Importing the following APIs only if mlflow-skinny is installed.
-if IS_MLFLOW_SKINNY_INSTALLED:
+# Importing the following APIs only if mlflow or mlflow-skinny is installed.
+if IS_FULL_MLFLOW_INSTALLED:
     from mlflow.tracking._model_registry.utils import (
         get_registry_uri,
         set_registry_uri,
