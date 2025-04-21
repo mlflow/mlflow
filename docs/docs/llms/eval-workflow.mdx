@@ -1,0 +1,212 @@
+import { Card, LogoCard, CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
+
+
+# Evaluation-driven development 
+
+## Why GenAI needs a different development workflow
+
+There are 2 inherent challenges in delivering high-quality generative AI apps:
+
+<CardGroup>
+  <PageCard
+    headerText="Outputs are plain language 🗣️"
+    
+    text={[
+      "LLMs speak in free‑form text, so judging accuracy is tough — there's rarely one perfect wording — so humans often need to look and decide.",
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="LLMs are non-deterministic 🎲"
+    text={[
+      "Even if you change nothing in the app, the same prompt can yield different responses — making issues hard to debug - so developers must track both accuracy and *consistency*.",
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+<br/>
+
+
+This means that GenAI apps don't behave (or fail) like regular software. They can hallucinate, drift as data changes, and, worse, real users phrase the same intent in endless fresh ways, so the input space is vast—and always in flux. 
+
+Classic software testing and monitoring approaches don't cover the unique challenges of GenAI:
+
+<CardGroup singleColumn={true}>
+  <PageCard
+    headerText="Software tests assumes a static/fixed output, GenAI tests must account for the semantic meaning of language"
+    icon="fa-language"
+    text={[
+      "A GenAI response is free‑form and probabilistic.<br/><br/>A unit test like <code>expect(answer).toEqual('You should buy an apple.')</code> tells you nothing about the language's tone, completeness, or hallucination.<br/><br/>A unit test doesn't account for the fact that <code>'Apple is the right product for you.'</code> is an equally great answer.<br/><br/>A unit test has fixed inputs e.g., <code>answer = generate('What should I buy to be healthy?)</code>, not accounting for the many variations of this question: <code>'What's a healthy snack?'</code>, <code>'food to keep me fit'</code>, etc." 
+    ]}
+    isBoldHeader={true}
+  />
+
+  <PageCard
+    headerText="Software monitoring assumes there is a fixed set of user actions, GenAI monitoring must account for users asking anything"
+    icon="fa-chart-line"
+    text={[
+      "User inputs to GenAI apps can (and do) change over time, even if the developer hasn't made any changes to the app, where-as there is a deterministic set of actions/inputs a user can do.<br/><br/>A test suite can't account for the fact that users might start asking about completely new topics e.g., <code>'Give me recs for the healthiest dishes to order if I go to a restaurant'</code>." 
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+
+### Requirements for a GenAI-specific development approach 
+
+**To address the challenges of building high-quality GenAI applications, you need a evaluation and monitoring workflow that:**
+
+<CardGroup singleColumn={true}>
+  <PageCard
+    headerText="Accuratly measures open‑ended language"
+    icon="fa-comments"
+    text={[
+      "Tests must compare the semantic meaning of text-based inputs and outputs - not their specific wording - so phrasing changes don't cause false failures."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Turns real traffic into test cases"
+    icon="fa-database"
+    text={[
+      "Tests must be updated by harvesting the most frequent intents and failure patterns from production to ensure it reflects what real users actually ask and the issues they encounter."
+    ]}
+    isBoldHeader={true}
+  />
+  
+  
+  <PageCard
+    headerText="Brings domain experts into the loop, yet scales their judgement"
+    icon="fa-users"
+    text={[
+      "Since developers aren't domain experts - tests must be reviewed by domain experts to define 'correct' so that tests match business needs.<br/><br/>Although domain expert help is needed, it is not feasible to wait for a human review every iteration or to review every production request. The test suite must encode domain expert's one-time feedback into automated checks that can scale to test every change and monitor every live request."
+    ]}
+    isBoldHeader={true}
+  />
+  
+  <PageCard
+    headerText="Unifies evaluation across dev and prod"
+    icon="fa-sync"
+    text={[
+      "You must be able to run the test suite's checks on live production traffic to ensure the app is continuously delivering accurate answers."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Provides a language‑first review UI"
+    icon="fa-eye"
+    text={[
+      "Developers and domain experts must be able to quickly read, search, and compare inputs/outputs that are plain-language — traditional call stack dumps or terminal outputs are not helpful."
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+<br/>
+**However, the GenAI workflow must still deliver the core functionality of software testing and monitoring workflows:**
+
+<CardGroup singleColumn={true}>
+  <PageCard
+    headerText="Metric-driven development"
+    icon="fa-chart-bar"
+    text={[
+      "You still have quantifiable metrics with targets and track them over time - both operational metrics (latency, error rates, cost, etc) and quality metrics (accuracy, relevance, hallucination, etc)."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Automated CI/CD integration"
+    icon="fa-code-branch"
+    text={[
+      "Tests must run for every pull request so issues surface before merge."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Version-controlled tests"
+    icon="fa-code"
+    text={[
+      "Changes to the test suite are tracked so reproducible comparisons across commits are possible."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Prioritized debuggability"
+    icon="fa-bug"
+    text={[
+      "Trace logs, inputs, and intermediate steps are captured so failures can be root‑caused quickly."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="24/7 monitoring"
+    icon="fa-desktop"
+    text={[
+      "Dashboards and alerts watch runtime KPIs and quality scores 24/7."
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+
+## MLflow's solution: Evaluation-centric development
+
+Evaluation-centric development is MLflow's response to these challenges and requirements. 
+
+The most effective GenAI development workflows treat production as an extension of development. Teams deploy early versions to pre-production environments where beta testers can interact with the application. This traffic becomes valuable evaluation data, helping identify edge cases, failure modes, and performance bottlenecks that might not emerge in controlled testing. 
+
+This evaluation-driven workflow continues in the production deployment. Teams monitor live traffic, identify new edge cases, failure modes, and performance issues, and use this real-world data to continuously update their evaluation data and improve their models and prompts. This ensures that GenAI applications maintain high quality, stay within cost constraints, and meet latency requirements as they evolve and encounter new scenarios.
+
+MLflow's evaluation-centric workflow allows teams to:
+
+<CardGroup singleColumn={true}>
+  <PageCard
+    headerText="Evaluate quality with LLM judges"
+    icon="fa-gavel"
+    text={[
+      "Use our built-in LLM judge scorers or build your own LLM judges that mimic your domain expert's judgment on quality to see how prompt or code tweaks affect quality without a full human review — and then use those same scorers on live traffic to monitor quality continuously."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Validate quality with CI/CD testing, then monitor quality in production"
+    icon="fa-chart-line"
+    text={[
+      "Use the same LLM judge scorers during development, CI/CD testing, and on live traffic so quality issues surface the moment they appear."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Turn production traces into evaluation datasets"
+    icon="fa-database"
+    text={[
+      "Log every user request as a [trace](/tracing/) with a one‑line import and attach user feedback to those traces. Prioritize traces based on user feedback, LLM judge scores, and user intent classification to create evaluation datasets (test cases) that reflect the your app's most important use cases."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Iterate offline with side‑by‑side comparisons"
+    icon="fa-code-compare"
+    text={[
+      "Tweak your app (prompts, retrieval pipelines, model settings, tools, etc) and use evaluation datasets and LLM judge scorers to test each version scores on quality, latency, and cost."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Efficiently collect & leverage domain expert's feedback"
+    icon="fa-users"
+    text={[
+      "Collect feedback from domain experts on production traces to codify their expertise into evaluation datasets and training data to improve the LLM judge scorers."
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+### How it works
+
+![Evaluation Driven Workflow](/images/genai/eval-driven-dev.png)
+
+## Get started!
+
+## <span style={{color: "red"}}>TODO: add in correct links</span>

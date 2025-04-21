@@ -8,6 +8,115 @@ import { APILink } from "@site/src/components/APILink";
 
 # MLflow for GenAI
 
+MLflow is built specifically to help developers build complex, production-grade GenAI applications that create business value by delivering **high‑quality (accurate) answers at the optimal cost and latency**.
+
+## Key challenges
+
+MLflow addresses the 2 inherent challenges in delivering high-quality generative AI:
+
+
+<CardGroup>
+  <PageCard
+    headerText="Outputs are plain language 🗣️"
+    
+    text={[
+      "LLMs speak in free‑form text, so judging accuracy is tough — there's rarely one perfect wording — so humans often need to look and decide.",
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="LLMs are non-deterministic 🎲"
+    text={[
+      "Even if you change nothing in the app, the same prompt can yield different responses — making issues hard to debug - so developers must track both accuracy and *consistency*.",
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+## How MLflow Helps
+
+<CardGroup singleColumn={true}>
+  <PageCard
+    headerText="Tracing"
+    icon="fa-search"
+    text={[
+      "Capture every user request and response plus each step in your app’s logic — retrievals, tool calls, LLM calls, etc — with a one‑line import. Jump straight to all the details you need to diagnose and fix any issue fast." 
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Evaluation Metrics"
+    icon="fa-chart-line"
+    text={[
+      "Use or build LLM‑based scorers that mimic human expert judgment on quality, so you can see how prompt or code tweaks affect quality without a full human review — and run those same scorers on live traffic to monitor quality continuously."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Human Labeling Workflows"
+    icon="fa-users"
+    text={[
+      "Let users and domain experts label tough cases in a simple UI, turning their feedback into better evaluation metrics and training data."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Production Monitoring"
+    icon="fa-tachometer-alt"
+    text={[
+      "Turn your quality metrics into live dashboards and alerts that surface quality regressions the moment they appear. Additionally, track latency and cost so you can similarly identify operational issues."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Iterative Evaluation"
+    icon="fa-sync"
+    text={[
+      "Rapidly test many prompt or code versions offline against historical traffic, then ship only the top‑scoring versions to lift overall quality."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="User Behavior Insights"
+    icon="fa-lightbulb"
+    text={[
+      "Mine user sessions and feedback to uncover what users want and where they struggle, and feed those insights into your next iteration."
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+## Getting started
+
+## <span style={{color: "red"}}>TODO: add this</span>
+
+
+MLflow equips AI developers with **evaluation, observability, and continuous‑improvement tooling** made for generative AI, allowing developers to evaluate quality, measure cost and latency, and continuously iterate to fix issues and improve their applications as user needs evolve.
+
+MLflow closes that loop: monitor live traffic, surface issues, test fixes offline, then redeploy with confidence.
+
+
+Developers need specialized traces, metrics, and scorers to measure quality, catch regressions in production, and iterate rapidly. MLflow closes that loop: monitor live traffic, surface issues, collect feedback from humans, test fixes offline, then redeploy with confidence.
+
+
+
+MLflow enables AI developers to build production‑grade GenAI applications that deliver business value.
+
+GenAI apps only create business value when they deliver high‑quality (accurate) answers at the right cost and latency.
+
+To achieve this, MLflow offers evaluation and observability tooling designed for the unique challenges of generative AI. When the same prompt can yield many different outputs, measuring quality and debugging issues require specialized traces, metrics, and scorers—exactly what MLflow provides
+
+
+ efficient—and stay that way after they ship.Traditional test suites or ML validation sets aren't enough, because:
+
+Language is open‑ended. There may be many "right" answers and some are better than others.
+
+Models are stochastic. The same prompt can yield different outputs.
+
+Quality is multi‑dimensional. Correctness, latency, cost, toxicity, etc. all matter and they trade off.
+
+MLflow gives you an evaluation‑centric workflow that tackles these problems head‑on.
+
 **MLflow enables AI developers to build production-grade GenAI applications that deliver business value. To deliver business value, GenAI applications must consistently provide high quality responses while optimizing for cost and latency.**
 
 However, building GenAI applications presents unique challenges compared to both traditional software development and ML development.  Just as traditional software engineering relies on test suites and traditional ML relies on validation sets, GenAI applications need robust evaluation frameworks to ensure they deliver high-quality, performant, and cost-effective responses.  However, evaluating these aspects in GenAI is more complex:

@@ -21,6 +21,12 @@ const sidebars: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
+      type: 'doc',
+      id: 'llms/eval-workflow',
+      label: '👉 Developer workflow',
+      className: 'sidebar-top-level-category',
+    },
+    {
       type: 'category',
       label: 'Getting Started 🚀',
       className: 'sidebar-top-level-category',
