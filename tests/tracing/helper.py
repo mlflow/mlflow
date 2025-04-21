@@ -218,7 +218,9 @@ def skip_when_testing_trace_sdk(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         if not IS_FULL_MLFLOW_INSTALLED:
-            pytest.skip("Skipping test because it requires mlflow or mlflow-skinny to be installed.")
+            pytest.skip(
+                "Skipping test because it requires mlflow or mlflow-skinny to be installed."
+            )
         return f(*args, **kwargs)
 
     return wrapper

@@ -1041,7 +1041,7 @@ def test_search_traces_with_input_and_no_output():
     assert df["with_input_and_no_output.outputs"].isnull().all()
 
 
-# Test case where span inputs / outputs aren’t dict
+@skip_when_testing_trace_sdk
 def test_search_traces_with_non_dict_span_inputs_outputs():
     with mlflow.start_span(name="non_dict_span") as span:
         span.set_inputs(["a", "b"])
