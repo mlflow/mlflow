@@ -4,7 +4,6 @@ from typing import Any, Optional, Union
 
 from pydantic import BaseModel
 
-from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
@@ -31,9 +30,8 @@ _RESPONSE_API_BUILT_IN_TOOLS = {
 
 
 def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any):
-    if span.span_type not in (SpanType.CHAT_MODEL, SpanType.LLM):
-        return
-
+    # NB: This function is also used for setting chat attributes for ResponsesAgent tracing spans
+    # (TODO: Add doc link). Therefore, the core logic should still run without openai package.
     messages = _parse_inputs_output(inputs, output)
     try:
         set_span_chat_messages(span, messages)
@@ -51,36 +49,63 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
 
 
 def _parse_inputs_output(inputs: dict[str, Any], output: Any) -> list[ChatMessage]:
-    from openai.types.chat import ChatCompletion
-
-    try:
-        from openai.types.responses import Response
-
-        if isinstance(output, Response):
-            messages = []
-            if _input := inputs.get("input"):
-                if isinstance(_input, str):
-                    messages.append(ChatMessage(role="user", content=_input))
-                elif isinstance(_input, list):
-                    for item in _input:
-                        messages.extend(_parse_response_item(item, messages))
-
-            for output in output.output:
-                output_dict = output.model_dump(exclude_unset=True)
-                messages.extend(_parse_response_item(output_dict, messages))
-
-            return messages
-    except ImportError:
-        pass
+    if _is_responses_output(output):
+        return _parse_responses_inputs_outputs(inputs, output)
 
     messages = []
     if "messages" in inputs:
         messages.extend(inputs["messages"])
 
-    if isinstance(output, ChatCompletion):
-        messages.extend([output.choices[0].message.to_dict(exclude_unset=True)])
-    elif isinstance(output, str):
-        messages.extend([{"role": "assistant", "content": output}])
+    try:
+        from openai.types.chat import ChatCompletion
+
+        if isinstance(output, ChatCompletion):
+            return [*messages, output.choices[0].message.to_dict(exclude_unset=True)]
+    except ImportError:
+        pass
+
+    if isinstance(output, str):
+        messages.append({"role": "assistant", "content": output})
+
+    return messages
+
+
+def _is_responses_output(output: Any) -> bool:
+    """
+    Check whether the output is OpenAI Responses API output, or
+    a response from the MLflow ResponsesAgent instance.
+    """
+    try:
+        from mlflow.types.responses import ResponsesResponse
+
+        if isinstance(output, ResponsesResponse):
+            return True
+    except ImportError:
+        pass
+
+    try:
+        from openai.types.responses import Response
+
+        if isinstance(output, Response):
+            return True
+    except ImportError:
+        pass
+
+    return False
+
+
+def _parse_responses_inputs_outputs(inputs: dict[str, Any], output: Any) -> list[ChatMessage]:
+    messages = []
+    if _input := inputs.get("input"):
+        if isinstance(_input, str):
+            messages.append(ChatMessage(role="user", content=_input))
+        elif isinstance(_input, list):
+            for item in _input:
+                messages.extend(_parse_response_item(item, messages))
+
+    for output in output.output:
+        output_dict = output.model_dump(exclude_unset=True)
+        messages.extend(_parse_response_item(output_dict, messages))
 
     return messages
 

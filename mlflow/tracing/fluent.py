@@ -36,6 +36,7 @@ from mlflow.tracing.utils import (
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
+    set_chat_attributes_special_case,
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracing.utils.warning import request_id_backward_compatible
@@ -188,9 +189,16 @@ def _wrap_function(
                 name=span_name, span_type=span_type, attributes=attributes, model_id=model_id
             ) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
-                span.set_inputs(capture_function_input_args(fn, args, kwargs))
+                inputs = capture_function_input_args(fn, args, kwargs)
+                span.set_inputs(inputs)
                 result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
+
+                try:
+                    set_chat_attributes_special_case(span, inputs=inputs, outputs=result)
+                except Exception:
+                    pass
+
                 try:
                     yield result
                 except GeneratorExit:
@@ -261,14 +269,14 @@ def _wrap_generator(
     even worse, leak span context and pollute subsequent traces.
     """
 
-    def _start_stream_span(fn, args, kwargs):
+    def _start_stream_span(fn, inputs):
         try:
             return start_span_no_context(
                 name=name or fn.__name__,
                 parent_span=get_current_active_span(),
                 span_type=span_type,
                 attributes=attributes,
-                inputs=capture_function_input_args(fn, args, kwargs),
+                inputs=inputs,
             )
         except Exception as e:
             _logger.debug(f"Failed to start stream span: {e}")
@@ -276,6 +284,7 @@ def _wrap_generator(
 
     def _end_stream_span(
         span: LiveSpan,
+        inputs: Optional[dict[str, Any]] = None,
         outputs: Optional[list[Any]] = None,
         output_reducer: Optional[Callable] = None,
         error: Optional[Exception] = None,
@@ -290,6 +299,8 @@ def _wrap_generator(
                 outputs = output_reducer(outputs)
             except Exception as e:
                 _logger.debug(f"Failed to reduce outputs from stream: {e}")
+
+        set_chat_attributes_special_case(span, inputs=inputs, outputs=outputs)
         span.end(outputs=outputs)
 
     def _record_chunk_event(span: LiveSpan, chunk: Any, chunk_index: int):
@@ -306,7 +317,8 @@ def _wrap_generator(
     if inspect.isgeneratorfunction(fn):
 
         def wrapper(*args, **kwargs):
-            span = _start_stream_span(fn, args, kwargs)
+            inputs = capture_function_input_args(fn, args, kwargs)
+            span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
             i = 0
@@ -326,10 +338,11 @@ def _wrap_generator(
                     _record_chunk_event(span, value, i)
                     yield value
                     i += 1
-            _end_stream_span(span, outputs, output_reducer)
+            _end_stream_span(span, inputs, outputs, output_reducer)
     else:
 
         async def wrapper(*args, **kwargs):
+            inputs = capture_function_input_args(fn, args, kwargs)
             span = _start_stream_span(fn, args, kwargs)
             generator = fn(*args, **kwargs)
 
@@ -349,7 +362,7 @@ def _wrap_generator(
                     _record_chunk_event(span, value, i)
                     yield value
                     i += 1
-            _end_stream_span(span, outputs, output_reducer)
+            _end_stream_span(span, inputs, outputs, output_reducer)
 
     return functools.wraps(fn)(wrapper)
 
