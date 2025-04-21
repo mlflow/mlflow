@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Union
 
 from pyspark import sql as spark
 
@@ -31,7 +31,7 @@ class EvaluationResult:
 
 
 def evaluate(
-    data: pd.DataFrame | spark.DataFrame | list[dict] | EvaluationDataset,
+    data: Union[pd.DataFrame, spark.DataFrame, list[dict], EvaluationDataset],
     predict_fn: Optional[Callable[..., Any]] = None,
     scorers: Optional[list[Scorer]] = None,
     model_id: Optional[str] = None,
@@ -120,7 +120,9 @@ def evaluate(
         extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
 
     if not is_model_traced(predict_fn):
-        logger.info("Annotating predict_fn with tracing since it is not already traced.")
+        logger.info(
+            "Annotating predict_fn with tracing since it is not already traced."
+        )
         predict_fn = mlflow.trace(predict_fn)
 
     mlflow.evaluate(
@@ -161,7 +163,8 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
     """
     if not _is_model_deployment_endpoint_uri(endpoint_uri):
         raise ValueError(
-            f"Invalid endpoint URI: {endpoint_uri}. The endpoint URI must be a valid model deployment endpoint URI."
+            f"Invalid endpoint URI: {endpoint_uri}. The endpoint URI must be a valid model "
+            f"deployment endpoint URI."
         )
 
     model = _get_model_from_deployment_endpoint_uri(endpoint_uri)
