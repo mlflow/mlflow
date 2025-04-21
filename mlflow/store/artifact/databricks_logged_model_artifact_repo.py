@@ -11,6 +11,12 @@ from mlflow.store.artifact.databricks_sdk_artifact_repo import DatabricksSdkArti
 _logger = logging.getLogger(__name__)
 
 
+_FALLBACK_MESSAGE_TEMPLATE = (
+    "Failed to perform {operation} operation using Databricks SDK, falling back to "
+    "DatabricksArtifactRepository. Original error: %s"
+)
+
+
 class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
     """
     Artifact repository for interacting with logged model artifacts in a Databricks workspace.
@@ -49,12 +55,9 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
     def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
         try:
             self.databricks_sdk_repo.log_artifact(local_file, artifact_path)
-        except Exception:
+        except Exception as e:
             _logger.debug(
-                (
-                    "Failed to log artifact using Databricks SDK, falling back to "
-                    "DatabricksArtifactRepository"
-                ),
+                _FALLBACK_MESSAGE_TEMPLATE.format(operation="log_artifact") % str(e),
                 exc_info=True,
             )
             self.databricks_artifact_repo.log_artifact(local_file, artifact_path)
@@ -62,12 +65,9 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
     def log_artifacts(self, local_dir: str, artifact_path: Optional[str] = None) -> None:
         try:
             self.databricks_sdk_repo.log_artifacts(local_dir, artifact_path)
-        except Exception:
+        except Exception as e:
             _logger.debug(
-                (
-                    "Failed to log artifacts using Databricks SDK, falling back to "
-                    "DatabricksArtifactRepository"
-                ),
+                _FALLBACK_MESSAGE_TEMPLATE.format(operation="log_artifacts") % str(e),
                 exc_info=True,
             )
             self.databricks_artifact_repo.log_artifacts(local_dir, artifact_path)
@@ -75,12 +75,9 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
     def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         try:
             return self.databricks_sdk_repo.list_artifacts(path)
-        except Exception:
+        except Exception as e:
             _logger.debug(
-                (
-                    "Failed to list artifacts using Databricks SDK, falling back to "
-                    "DatabricksArtifactRepository"
-                ),
+                _FALLBACK_MESSAGE_TEMPLATE.format(operation="list_artifacts") % str(e),
                 exc_info=True,
             )
             return self.databricks_artifact_repo.list_artifacts(path)
@@ -88,12 +85,9 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path: str, local_path: str) -> None:
         try:
             self.databricks_sdk_repo._download_file(remote_file_path, local_path)
-        except Exception:
+        except Exception as e:
             _logger.debug(
-                (
-                    "Failed to download file using Databricks SDK, falling back to "
-                    "DatabricksArtifactRepository"
-                ),
+                _FALLBACK_MESSAGE_TEMPLATE.format(operation="download_file") % str(e),
                 exc_info=True,
             )
             self.databricks_artifact_repo._download_file(remote_file_path, local_path)
