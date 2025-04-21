@@ -1,3 +1,5 @@
+from typing import Generator
+
 import pytest
 
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
@@ -21,6 +23,7 @@ from mlflow.types.responses import (
     RESPONSES_AGENT_OUTPUT_SCHEMA,
     ResponsesRequest,
     ResponsesResponse,
+    ResponsesStreamEvent,
 )
 from mlflow.types.schema import ColSpec, DataType, Schema
 
@@ -104,8 +107,10 @@ class SimpleResponsesAgent(ResponsesAgent):
         mock_response = get_mock_response(request)
         return ResponsesResponse(**mock_response)
 
-    def predict_stream(self, request: ResponsesRequest):
-        yield from get_stream_mock_response()
+    def predict_stream(
+        self, request: ResponsesRequest
+    ) -> Generator[ResponsesStreamEvent, None, None]:
+        yield from [ResponsesStreamEvent(**r) for r in get_stream_mock_response()]
 
 
 def test_responses_agent_save_load_signatures(tmp_path):
