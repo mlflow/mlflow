@@ -8,7 +8,7 @@ dependencies:
   - transformers>=4.0.0
   - pandas
   - numpy<2.0
-  - torch==2.1
+  - torch==2.1.2
   - torchdata
   - torchtext==0.16.2
   - lightning
