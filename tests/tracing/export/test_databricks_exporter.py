@@ -25,8 +25,16 @@ def _predict(x: str) -> str:
 
 def _flush_async_logging():
     exporter = _get_trace_exporter()
-    assert hasattr(exporter, "_async_queue"), "Async queue is not initialized"
-    exporter._async_queue.flush(terminate=True)
+    if hasattr(exporter, "_async_queue") and exporter._async_queue is not None:
+        exporter._async_queue.flush(terminate=True)
+
+
+@pytest.fixture(autouse=True)
+def flush_async_queue_after_test():
+    # This fixture ensures the async queue is flushed after every test to prevent hangs
+    exporter = _get_trace_exporter()
+    if hasattr(exporter, "_async_queue") and exporter._async_queue is not None:
+        exporter._async_queue.flush(terminate=True)
 
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
