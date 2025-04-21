@@ -89,17 +89,7 @@ gsm8k = GSM8K()
 
 trainset, devset = gsm8k.train, gsm8k.dev[:50]
 
-
-class CoT(dspy.Module):
-    def __init__(self):
-        super().__init__()
-        self.prog = dspy.ChainOfThought("question -> answer")
-
-    def forward(self, question):
-        return self.prog(question=question)
-
-
-program = CoT()
+program = dspy.ChainOfThought("question -> answer")
 
 # define a teleprompter
 teleprompter = dspy.teleprompt.MIPROv2(

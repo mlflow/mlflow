@@ -544,11 +544,7 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
     if type_ != "code":
         return []
 
-    lines = cell.get("source")
-    if not lines:
-        return []
-
-    src = "\n".join(lines)
+    src = "\n".join(cell.get("source", []))
     try:
         tree = ast.parse(src)
     except SyntaxError:
@@ -557,7 +553,13 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
 
     linter = Linter(path=path, config=config, ignore=ignore_map(src), cell=index)
     linter.visit(tree)
-    return linter.violations
+    violations = linter.violations
+
+    if not src.strip():
+        violations.append(
+            Violation(rules.EmptyNotebookCell(), path, lineno=1, col_offset=1, cell=index)
+        )
+    return violations
 
 
 def lint_file(path: Path, config: Config) -> list[Violation]:
