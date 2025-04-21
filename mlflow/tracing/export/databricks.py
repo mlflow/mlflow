@@ -20,6 +20,7 @@ from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
     http_request,
 )
+from mlflow.tracking import MlflowClient
 
 _logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class DatabricksSpanExporter(SpanExporter):
         if self._is_async:
             _logger.info("MLflow is configured to log traces asynchronously.")
             self._async_queue = AsyncTraceExportQueue()
+        self._client = MlflowClient()
 
     def export(self, spans: Sequence[ReadableSpan]):
         """
@@ -71,59 +73,20 @@ class DatabricksSpanExporter(SpanExporter):
             else:
                 self._log_trace(trace)
 
+
     def _log_trace(self, trace: Trace):
-        """Create a new Trace record in the Databricks Tracing Server."""
-        request_body = MessageToDict(trace.to_proto(), preserving_proto_field_name=True)
-        endpoint, method = _METHOD_TO_INFO[CreateTrace]
-
-        # NB: Using Databricks SDK's built-in retry logic, which simply retries until the timeout
-        #    is reached, with linearly increasing backoff. Since it doesn't expose additional
-        #    configuration options, we might want to implement our own retry logic in the future.
-        # NB: If async logging is disabled, we don't retry to avoid blocking the application.
-        timeout = MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get() if self._is_async else 0
-
-        # Use context manager to ensure the request is closed properly
-        with http_request(
-            host_creds=get_databricks_host_creds(),
-            endpoint=endpoint,
-            method=method,
-            json=request_body,
-            retry_timeout_seconds=timeout,
-        ) as res:
-            if res.status_code != 200:
-                _logger.warning(f"Failed to log trace to the trace server. Response: {res.text}")
-                
-    def export_to_mlflow_v3(self, trace: Trace, client=None, original_trace=None):
         """
-        Export a trace to MLflow using the V3 API.
-        
-        Args:
-            trace: The V3 trace object to export
-            client: Optional MLflow client to use. If not provided, a new client will be created.
-            original_trace: The original trace object which already contains the trace_info and trace_data
-                           in the format needed for blob upload
+        Handles exporting a trace to MLflow using the V3 API and blob storage.
+        Steps:
+        1. Create the trace in MLflow
+        2. Upload the trace data to blob storage using the returned trace info.
         """
-        from mlflow.tracking import MlflowClient
-        
-        if client is None:
-            client = MlflowClient()
-        
         try:
-
-            if original_trace and original_trace.info and original_trace.data:
-                
-                _logger.info(f"Uploading trace data for trace {original_trace.info.request_id} to blob storage")
-                
-                # 1. Upload the trace data to blob storage
-                client._upload_trace_data(original_trace.info, original_trace.data)
-                
-                # 2. Create the trace in MLflow (now it will reference the blob storage)
-                client._start_trace_v3(trace)
+            if trace:
+                returned_trace = self._client._start_trace_v3(trace)
+                self._client._upload_trace_data(returned_trace.info, trace_data)
             else:
-                # Fallback if original trace is not provided - just create the V3 trace directly
-                # This won't include the blob data
-                _logger.warning("Original trace not provided, skipping blob storage upload")
-                client._start_trace_v3(trace)
+                _logger.warning("No trace or trace info provided, unable to export")
             
         except Exception as e:
             _logger.warning(f"Failed to send trace to MLflow backend: {e}")

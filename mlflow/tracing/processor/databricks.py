@@ -100,14 +100,5 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
                 trace.info.execution_time_ms = (span.end_time - span.start_time) // 1_000_000
                 trace.info.status = TraceStatus.from_otel_status(span.status)
                 deduplicate_span_names_in_place(list(trace.span_dict.values()))
-                
-                # Prepare V3 trace for export
-                trace_info_v3 = trace.info.to_v3(
-                    request=trace.data.request if trace.data else None,
-                    response=trace.data.response if trace.data else None
-                )
-                trace_info_v3.client_request_id = trace.info.request_id
-                mlflow_trace = Trace(trace_info=trace_info_v3)
-                
-                # We pass both the original trace and the V3 trace to avoid unnecessary conversions
-                self.span_exporter.export_to_mlflow_v3(mlflow_trace, self._client, original_trace=trace)
+
+                super().on_end(span)
