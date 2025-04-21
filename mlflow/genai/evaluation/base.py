@@ -142,6 +142,22 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
 
     Returns:
         A predict function that can be used to make predictions.
+
+    Example:
+        .. code-block:: python
+
+            data = (
+                pd.DataFrame(
+                    {
+                        "inputs": ["What is MLflow?", "What is Spark?"],
+                    }
+                ),
+            )
+            predict_fn = mlflow.genai.to_predict_fn("endpoints:/chat")
+            mlflow.genai.evaluate(
+                data=data,
+                predict_fn=predict_fn,
+            )
     """
     if not _is_model_deployment_endpoint_uri(endpoint_uri):
         raise ValueError(

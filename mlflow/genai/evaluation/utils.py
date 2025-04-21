@@ -1,4 +1,7 @@
-from databricks.agents.evals import metric
+try:
+    from databricks.agents.evals import metric
+except ImportError:
+    pass
 from pyspark import sql as spark
 
 from mlflow.genai.scorers import Scorer
