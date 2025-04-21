@@ -16,7 +16,7 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.tracking.fluent import (
     _last_active_run_id,
-    _reset_active_model_id,
+    _reset_active_model_context,
     _reset_last_logged_model_id,
 )
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
@@ -247,5 +247,5 @@ def mock_is_in_databricks(request):
 
 
 @pytest.fixture(autouse=True)
-def reset_active_model_id():
-    _reset_active_model_id()
+def reset_active_model_context():
+    _reset_active_model_context()

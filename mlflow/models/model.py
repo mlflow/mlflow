@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import posixpath
 import shutil
 import uuid
 import warnings
@@ -752,6 +751,8 @@ class Model:
             res.pop("artifact_path", None)
         if self.run_id is None:
             res.pop("run_id", None)
+        if self.env_vars is not None:
+            res["env_vars"] = self.env_vars
         return res
 
     def to_yaml(self, stream=None) -> str:
@@ -813,22 +814,6 @@ class Model:
         mlmodel_local_path = _download_artifact_from_uri(artifact_uri=mlmodel_file_path)
         with open(mlmodel_local_path) as f:
             model_dict = yaml.safe_load(f)
-        env_var_path = (
-            f"{path}/{ENV_VAR_FILE_NAME}"
-            if is_model_dir
-            else posixpath.join(posixpath.dirname(path), ENV_VAR_FILE_NAME)
-        )
-
-        try:
-            env_var_path = _download_artifact_from_uri(env_var_path)
-        except Exception:
-            env_var_path = None
-        env_vars = None
-        if env_var_path is not None:
-            # comments start with `#` such as ENV_VAR_FILE_HEADER
-            lines = Path(env_var_path).read_text().splitlines()
-            env_vars = [line for line in lines if line and not line.startswith("#")]
-        model_dict["env_vars"] = env_vars
         return cls.from_dict(model_dict)
 
     @classmethod
@@ -1050,6 +1035,8 @@ class Model:
                         or None
                     )
             if env_vars:
+                # Keep the environment variable file as it serves as a check
+                # for displaying tips in Databricks serving endpoint
                 env_var_path = Path(local_path, ENV_VAR_FILE_NAME)
                 env_var_path.write_text(ENV_VAR_FILE_HEADER + "\n".join(env_vars) + "\n")
                 if len(env_vars) <= 3:
@@ -1064,7 +1051,10 @@ class Model:
                     "model. To disable this message, set environment variable "
                     f"`{MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name}` to `false`."
                 )
-            mlflow_model.env_vars = env_vars
+                mlflow_model.env_vars = env_vars
+                # mlflow_model is updated, rewrite the MLmodel file
+                mlflow_model.save(os.path.join(local_path, MLMODEL_FILE_NAME))
+
             client.log_model_artifacts(model.model_id, local_path)
             # If the model was previously identified as external, delete the tag because the model
             # now has artifacts in MLflow Model format
