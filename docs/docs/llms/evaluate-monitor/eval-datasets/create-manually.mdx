@@ -1,0 +1,203 @@
+---
+sidebar_position: 4
+---
+
+
+
+# Import existing data
+
+## <span style={{color: "red"}}>TODO - raw from dbx; update to have this content</span>
+
+
+
+## Sample evaluations sets
+
+This section includes simple examples of evaluation sets.
+
+### Sample evaluation set with only `request`
+
+```python
+eval_set = [
+    {
+        "request": "What is the difference between reduceByKey and groupByKey in Spark?",
+    }
+]
+```
+
+### Sample evaluation set with `request` and `expected_response`
+
+```python
+eval_set  = [
+    {
+        "request_id": "request-id",
+        "request": "What is the difference between reduceByKey and groupByKey in Spark?",
+        "expected_response": "There's no significant difference.",
+    }
+]
+```
+
+### Sample evaluation set with `request`, `expected_response`, and `expected_retrieved_content`
+
+```python
+eval_set  = [
+    {
+        "request_id": "request-id",
+        "request": "What is the difference between reduceByKey and groupByKey in Spark?",
+        "expected_retrieved_context": [
+            {
+                "doc_uri": "doc_uri_1",
+            },
+            {
+                "doc_uri": "doc_uri_2",
+            },
+        ],
+        "expected_response": "There's no significant difference.",
+    }
+]
+```
+
+### Sample evaluation set with only `request` and `response`
+
+```python
+eval_set = [
+    {
+        "request": "What is the difference between reduceByKey and groupByKey in Spark?",
+        "response": "reduceByKey aggregates data before shuffling, whereas groupByKey shuffles all data, making reduceByKey more efficient.",
+    }
+]
+```
+
+### Sample evaluation set with an arbitrarily formatted `request` and `response`
+
+```python
+eval_set = [
+    {
+        "request": {"query": "Difference between", "item_a": "reduceByKey", "item_b": "groupByKey"},
+        "response": {
+            "differences": [
+                "reduceByKey aggregates data before shuffling",
+                "groupByKey shuffles all data",
+                "reduceByKey is more efficient",
+            ]
+        }
+    }
+]
+```
+
+### Sample evaluation set with `request`, `response`, and `guidelines`
+
+```python
+eval_set = [
+    {
+        "request": "What is the difference between reduceByKey and groupByKey in Spark?",
+        "response": "reduceByKey aggregates data before shuffling, whereas groupByKey shuffles all data, making reduceByKey more efficient.",
+        # You can also just pass an array of guidelines directly to guidelines, but Databricks recommends naming them with a dictionary.
+        "guidelines": {
+            "english": ["The response must be in English"],
+            "clarity": ["The response must be clear, coherent, and concise"],
+        }
+    }
+]
+```
+
+### <a id="req-resp-guide-exp-facts"></a> Sample evaluation set with `request`, `response`, `guidelines`, and `expected_facts`
+
+```python
+eval_set = [
+    {
+        "request": "What is the difference between reduceByKey and groupByKey in Spark?",
+        "response": "reduceByKey aggregates data before shuffling, whereas groupByKey shuffles all data, making reduceByKey more efficient.",
+        "expected_facts": [
+            "There's no significant difference.",
+        ],
+        # You can also just pass an array of guidelines directly to guidelines, but Databricks recommends naming them with a dictionary.
+        "guidelines": {
+            "english": ["The response must be in English"],
+            "clarity": ["The response must be clear, coherent, and concise"],
+        }
+    }
+]
+```
+
+### Sample evaluation set with `request`, `response`, and `retrieved_context`
+
+```python
+eval_set = [
+    {
+        "request_id": "request-id", # optional, but useful for tracking
+        "request": "What is the difference between reduceByKey and groupByKey in Spark?",
+        "response": "reduceByKey aggregates data before shuffling, whereas groupByKey shuffles all data, making reduceByKey more efficient.",
+        "retrieved_context": [
+            {
+                # In `retrieved_context`, `content` is optional, but delivers additional functionality if provided (the Databricks Context Relevance LLM judge runs to check the relevance of the provided content to the request).
+                "content": "reduceByKey reduces the amount of data shuffled by merging values before shuffling.",
+                "doc_uri": "doc_uri_2_1",
+            },
+            {
+                "content": "groupByKey may lead to inefficient data shuffling due to sending all values across the network.",
+                "doc_uri": "doc_uri_6_extra",
+            },
+        ],
+    }
+]
+```
+
+### Sample evaluation set with `request`, `response`, `retrieved_context`, and `expected_facts`
+
+```python
+eval_set  = [
+    {
+        "request_id": "request-id",
+        "request": "What is the difference between reduceByKey and groupByKey in Spark?",
+        "expected_facts": [
+            "There's no significant difference.",
+        ],
+        "response": "reduceByKey aggregates data before shuffling, whereas groupByKey shuffles all data, making reduceByKey more efficient.",
+        "retrieved_context": [
+            {
+                # In `retrieved_context`, `content` is optional, but delivers additional functionality if provided (the Databricks Context Relevance LLM judge runs to check the relevance of the provided content to the request).
+                "content": "reduceByKey reduces the amount of data shuffled by merging values before shuffling.",
+                "doc_uri": "doc_uri_2_1",
+            },
+            {
+                "content": "groupByKey may lead to inefficient data shuffling due to sending all values across the network.",
+                "doc_uri": "doc_uri_6_extra",
+            },
+        ],
+    }
+]
+```
+
+### Sample evaluation set with `request`, `response`, `retrieved_context`, `expected_facts`, and `expected_retrieved_context`
+
+```python
+eval_set  = [
+    {
+        "request_id": "request-id",
+        "request": "What is the difference between reduceByKey and groupByKey in Spark?",
+        "expected_retrieved_context": [
+            {
+                "doc_uri": "doc_uri_2_1",
+            },
+            {
+                "doc_uri": "doc_uri_2_2",
+            },
+        ],
+        "expected_facts": [
+            "There's no significant difference.",
+        ],
+        "response": "reduceByKey aggregates data before shuffling, whereas groupByKey shuffles all data, making reduceByKey more efficient.",
+        "retrieved_context": [
+            {
+                # In `retrieved_context`, `content` is optional, but delivers additional functionality if provided (the Databricks Context Relevance LLM judge runs to check the relevance of the provided content to the request).
+                "content": "reduceByKey reduces the amount of data shuffled by merging values before shuffling.",
+                "doc_uri": "doc_uri_2_1",
+            },
+            {
+                "content": "groupByKey may lead to inefficient data shuffling due to sending all values across the network.",
+                "doc_uri": "doc_uri_6_extra",
+            },
+        ],
+    }
+]
+```
