@@ -204,8 +204,8 @@ def test_request_and_response_are_still_available():
 
     trace = mlflow.get_last_active_trace()
     trace_data = trace.data
-    assert trace_data.request == "foo"
-    assert trace_data.response == "bar"
+    assert trace_data.request == '"foo"'
+    assert trace_data.response == '"bar"'
 
     with mlflow.start_span():
         pass
