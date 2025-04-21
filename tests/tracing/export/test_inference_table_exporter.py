@@ -53,7 +53,7 @@ def test_export():
     trace_dict = pop_trace(_REQUEST_ID)
     trace_info = trace_dict["info"]
     assert trace_info["request_time"] == "1970-01-01T00:00:00Z"
-    assert trace_info["execution_duration"] == "0.001s"
+    assert trace_info["execution_duration_ms"] == 1
 
     spans = trace_dict["data"]["spans"]
     assert len(spans) == 2
