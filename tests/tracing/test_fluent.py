@@ -884,7 +884,7 @@ def test_search_traces_with_pagination(mock_client):
     traces = [
         Trace(
             info=create_test_trace_info(f"tr-{i}"),
-            data=TraceData([], "", ""),
+            data=TraceData([]),
         )
         for i in range(30)
     ]
