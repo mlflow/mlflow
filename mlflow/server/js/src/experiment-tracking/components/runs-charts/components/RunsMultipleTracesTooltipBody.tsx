@@ -6,7 +6,7 @@ import { TraceLabelColorIndicator } from './RunsMetricsLegend';
 import { FormattedDate, FormattedTime, useIntl } from 'react-intl';
 import { getChartAxisLabelDescriptor, RunsChartsLineChartXAxisType } from './RunsCharts.common';
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { shouldEnableRelativeTimeDateAxis } from 'common/utils/FeatureUtils';
+import { shouldEnableRelativeTimeDateAxis } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 // Sadly when hovering outside data point, we can't get the date-time value from Plotly chart
 // so we have to format it ourselves in a way that resembles Plotly's logic
@@ -16,7 +16,6 @@ const PlotlyLikeFormattedTime = ({ value }: { value: string | number }) => (
     <FormattedDate value={value} month="2-digit" />-
     <FormattedDate value={value} day="2-digit" /> <FormattedTime value={value} hour="numeric" hourCycle="h24" />:
     <FormattedTime value={value} minute="2-digit" />:
-    {/* @ts-expect-error "fractionalSecondDigits" is supported but missing from TS types */}
     <FormattedTime value={value} second="2-digit" fractionalSecondDigits={3} />
   </>
 );
@@ -27,7 +26,6 @@ const PlotlyLikeFormattedTimestamp = ({ value }: { value: string | number }) => 
   <>
     <FormattedTime value={value} hour="2-digit" hourCycle="h23" />:
     <FormattedTime value={value} minute="2-digit" />:
-    {/* @ts-expect-error "fractionalSecondDigits" is supported but missing from TS types */}
     <FormattedTime value={value} second="2-digit" fractionalSecondDigits={3} />
   </>
 );

@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { Input as AntDInput } from 'antd';
 import { Button } from '../Button';
 import type { InputProps } from '../Input';

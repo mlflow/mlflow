@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react-for-react-18';
+import { renderHook } from '@testing-library/react';
 
 import { ATTRIBUTE_COLUMN_SORT_LABEL } from '../../../constants';
 import { useRunSortOptions } from './useRunSortOptions';

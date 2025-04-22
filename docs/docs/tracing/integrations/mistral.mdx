@@ -1,0 +1,49 @@
+---
+sidebar_position: 10.5
+sidebar_label: Mistral
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Tracing Mistral
+
+![Mistral tracing via autolog](/images/llms/mistral/mistral-tracing.png)
+
+MLflow Tracing ensures observability for your interactions with Mistral AI models.
+When Mistral auto-tracing is enabled by calling the <APILink fn="mlflow.mistral.autolog" /> function,
+usage of the Mistral SDK will automatically record generated traces during interactive development.
+
+Note that only synchronous calls to the Text Generation API are supported,
+and that asynchronous API and streaming methods are not traced.
+
+### Example Usage
+
+```python
+import os
+
+from mistralai import Mistral
+
+import mlflow
+
+# Turn on auto tracing for Mistral AI by calling mlflow.mistral.autolog()
+mlflow.mistral.autolog()
+
+# Configure your API key.
+client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
+
+# Use the chat complete method to create new chat.
+chat_response = client.chat.complete(
+    model="mistral-small-latest",
+    messages=[
+        {
+            "role": "user",
+            "content": "Who is the best French painter? Answer in one short sentence.",
+        },
+    ],
+)
+print(chat_response.choices[0].message)
+```
+
+## Disable auto-tracing
+
+Auto tracing for Mistral can be disabled globally by calling `mlflow.mistral.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

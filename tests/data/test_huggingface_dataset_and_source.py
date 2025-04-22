@@ -1,5 +1,7 @@
 import json
 import os
+import time
+from unittest import mock
 
 import datasets
 import pandas as pd
@@ -9,12 +11,40 @@ import mlflow.data
 import mlflow.data.huggingface_dataset
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.dataset_source_registry import get_dataset_source_from_json
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.huggingface_dataset import HuggingFaceDataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
+
+from tests.helper_functions import skip_if_hf_hub_unhealthy
+
+pytestmark = skip_if_hf_hub_unhealthy()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def mock_datasets_load_dataset():
+    """
+    `datasets.load_dataset` is flaky and sometimes fails with a network error.
+    This fixture retries the call up to 5 times with exponential backoff.
+    """
+
+    original = datasets.load_dataset
+
+    def load_dataset(*args, **kwargs):
+        for i in range(5):
+            try:
+                return original(*args, **kwargs)
+            except Exception:
+                if i < 4:
+                    time.sleep(2**i)
+                    continue
+                raise
+
+    with mock.patch("datasets.load_dataset", wraps=load_dataset) as mock_load_dataset:
+        yield
+        mock_load_dataset.assert_called()
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset():
@@ -48,25 +78,22 @@ def test_from_huggingface_dataset_constructs_expected_dataset():
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset_with_revision():
-    new_revision = "c33cbf965006dba64f134f7bef69c53d5d0d285d"
-    old_revision = "8ca2693371541a5ba2b23981de4222be3bef149f"
-    ds_new = datasets.load_dataset("rotten_tomatoes", split="train", revision=new_revision)
-    ds_old = datasets.load_dataset("rotten_tomatoes", split="train", revision=old_revision)
+    # Load this revision:
+    # https://huggingface.co/datasets/cornell-movie-review-data/rotten_tomatoes/commit/aa13bc287fa6fcab6daf52f0dfb9994269ffea28
+    revision = "aa13bc287fa6fcab6daf52f0dfb9994269ffea28"
+    ds = datasets.load_dataset(
+        "cornell-movie-review-data/rotten_tomatoes",
+        split="train",
+        revision=revision,
+        trust_remote_code=True,
+    )
 
     mlflow_ds_new = mlflow.data.from_huggingface(
-        ds_new, path="rotten_tomatoes", revision=new_revision
-    )
-    mlflow_ds_old = mlflow.data.from_huggingface(
-        ds_old, path="rotten_tomatoes", revision=old_revision
+        ds, path="rotten_tomatoes", revision=revision, trust_remote_code=True
     )
 
-    reloaded_ds_new = mlflow_ds_new.source.load()
-    reloaded_ds_old = mlflow_ds_old.source.load()
-
-    # Newer versions of the rotten "rotten_tomatoes" has a `task_templates` field, while the older
-    # one does not.
-    assert reloaded_ds_new.task_templates
-    assert not reloaded_ds_old.task_templates
+    ds = mlflow_ds_new.source.load()
+    assert any(revision in cs for cs in ds.info.download_checksums)
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset_with_data_files():

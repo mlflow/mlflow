@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { DialogComboboxTriggerProps } from '../DialogCombobox';
 export interface SelectTriggerProps extends DialogComboboxTriggerProps {
 }

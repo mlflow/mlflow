@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict
+import json
+import os
+from typing import TYPE_CHECKING, Any, Optional
 
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ALREADY_EXISTS
+from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, INVALID_PARAMETER_VALUE
 from mlflow.transformers.hub_utils import get_latest_commit_for_repo
 from mlflow.transformers.peft import _PEFT_ADAPTOR_DIR_NAME, get_peft_base_model, is_peft_model
 from mlflow.transformers.torch_utils import _extract_torch_dtype_if_set
@@ -42,7 +44,7 @@ class FlavorKey:
 
 def build_flavor_config(
     pipeline: transformers.Pipeline, processor=None, torch_dtype=None, save_pretrained=True
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generates the base flavor metadata needed for reconstructing a pipeline from saved
     components. This is important because the ``Pipeline`` class does not have a loader
@@ -54,6 +56,7 @@ def build_flavor_config(
     Args:
         pipeline: Transformer pipeline to generate the flavor configuration for.
         processor: Optional processor instance to save alongside the pipeline.
+        torch_dtype: Torch tensor data type.
         save_pretrained: Whether to save the pipeline and components weights to local disk.
 
     Returns:
@@ -118,13 +121,19 @@ def _get_model_config(model, save_pretrained=True):
     return conf
 
 
-def _get_component_config(component, key, save_pretrained=True, default_repo=None):
+def _get_component_config(
+    component: Any,
+    key: str,
+    save_pretrained: bool = True,
+    default_repo: Optional[str] = None,
+    commit_sha: Optional[str] = None,
+):
     conf = {FlavorKey.COMPONENT_TYPE.format(key): _get_instance_type(component)}
 
     # Log source repo name and commit sha for the component
     if not save_pretrained:
         repo = getattr(component, "name_or_path", default_repo)
-        revision = get_latest_commit_for_repo(repo)
+        revision = commit_sha or get_latest_commit_for_repo(repo)
         conf[FlavorKey.COMPONENT_NAME.format(key)] = repo
         conf[FlavorKey.COMPONENT_REVISION.format(key)] = revision
 
@@ -157,9 +166,68 @@ def _get_instance_type(obj):
     return obj.__class__.__name__
 
 
+def build_flavor_config_from_local_checkpoint(
+    local_checkpoint_dir: str,
+    task: str,
+    processor=None,
+    torch_dtype=None,
+) -> dict[str, Any]:
+    """
+    Generates the flavor metadata from a Hugging Face model repository ID
+    e.g. "meta-llama/Meta-Llama-3.1-405B, instead of the pipeline instance in-memory.
+    """
+    from transformers import AutoTokenizer, pipelines
+    from transformers.utils import is_torch_available
+
+    from mlflow.transformers.model_io import _MODEL_BINARY_FILE_NAME
+
+    config_path = os.path.join(local_checkpoint_dir, "config.json")
+    if not os.path.exists(config_path):
+        raise MlflowException(
+            f"The provided directory {local_checkpoint_dir} does not contain a config.json file."
+            "Please ensure that the directory contains a valid transformers model checkpoint.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    with open(config_path) as f:
+        config = json.load(f)
+
+    task_metadata = pipelines.check_task(task)
+    pipeline_class = task_metadata[1]["impl"].__name__
+    flavor_conf = {
+        FlavorKey.TASK: task,
+        FlavorKey.INSTANCE_TYPE: pipeline_class,
+        FlavorKey.FRAMEWORK: "pt" if is_torch_available() else "tf",
+        FlavorKey.TORCH_DTYPE: str(torch_dtype) if torch_dtype else None,
+        FlavorKey.MODEL_TYPE: config["architectures"][0],
+        FlavorKey.MODEL_NAME: local_checkpoint_dir,
+        FlavorKey.MODEL_BINARY: _MODEL_BINARY_FILE_NAME,
+    }
+
+    components = {FlavorKey.TOKENIZER}
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(local_checkpoint_dir)
+    except OSError as e:
+        raise MlflowException(
+            f"Error loading tokenizer from {local_checkpoint_dir}. When logging a "
+            "Transformers model from a local checkpoint, please make sure that the "
+            "checkpoint directory contains a valid tokenizer configuration as well.",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
+
+    tokenizer_conf = _get_component_config(tokenizer, FlavorKey.TOKENIZER)
+    flavor_conf.update(tokenizer_conf)
+
+    if processor:
+        flavor_conf.update(_get_component_config(processor, FlavorKey.PROCESSOR))
+
+    flavor_conf[FlavorKey.COMPONENTS] = list(components)
+    return flavor_conf
+
+
 def update_flavor_conf_to_persist_pretrained_model(
-    original_flavor_conf: Dict[str, Any],
-) -> Dict[str, Any]:
+    original_flavor_conf: dict[str, Any],
+) -> dict[str, Any]:
     """
     Updates the flavor configuration that was saved with save_pretrained=False to the one that
     includes the local path to the model binary file.

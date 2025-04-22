@@ -1,3 +1,5 @@
+import hashlib
+import importlib.metadata
 import logging
 import os
 import pathlib
@@ -5,16 +7,30 @@ import re
 import subprocess
 import sys
 import tempfile
-from typing import List
+from copy import deepcopy
+from typing import Optional
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT
+from mlflow.environment_variables import (
+    _MLFLOW_TESTING,
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
+    MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils import PYTHON_VERSION, insecure_hash
+from mlflow.tracking import get_tracking_uri
+from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils import PYTHON_VERSION
+from mlflow.utils.databricks_utils import (
+    _get_databricks_serverless_env_vars,
+    get_databricks_env_vars,
+    is_databricks_connect,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
@@ -88,17 +104,10 @@ class _PythonEnv:
         )
 
     @staticmethod
-    def _get_package_version(package_name):
-        try:
-            return __import__(package_name).__version__
-        except (ImportError, AttributeError, AssertionError):
-            return None
-
-    @staticmethod
     def get_current_build_dependencies():
         build_dependencies = []
         for package in _PythonEnv.BUILD_PACKAGES:
-            version = _PythonEnv._get_package_version(package)
+            version = _get_package_version(package)
             dep = (package + "==" + version) if version else package
             build_dependencies.append(dep)
         return build_dependencies
@@ -197,7 +206,7 @@ class _PythonEnv:
         return cls.from_dict(cls.get_dependencies_from_conda_yaml(path))
 
 
-def _mlflow_conda_env(
+def _mlflow_conda_env(  # noqa: D417
     path=None,
     additional_conda_deps=None,
     additional_pip_deps=None,
@@ -232,7 +241,7 @@ def _mlflow_conda_env(
     pip_deps = mlflow_deps + additional_pip_deps
     conda_deps = additional_conda_deps if additional_conda_deps else []
     if pip_deps:
-        pip_version = _get_pip_version()
+        pip_version = _get_package_version("pip")
         if pip_version is not None:
             # When a new version of pip is released on PyPI, it takes a while until that version is
             # uploaded to conda-forge. This time lag causes `conda create` to fail with
@@ -261,18 +270,10 @@ def _mlflow_conda_env(
         return env
 
 
-def _get_pip_version():
-    """
-    Returns:
-        The version of ``pip`` that is installed in the current environment,
-        or ``None`` if ``pip`` is not currently installed / does not have a
-        ``__version__`` attribute.
-    """
+def _get_package_version(package_name: str) -> Optional[str]:
     try:
-        import pip
-
-        return pip.__version__
-    except ImportError:
+        return importlib.metadata.version(package_name)
+    except importlib.metadata.PackageNotFoundError:
         return None
 
 
@@ -394,8 +395,24 @@ _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE = (
 )
 
 
-def infer_pip_requirements_with_timeout(model_uri, flavor, fallback):
-    timeout = MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT.get()
+def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra_env_vars=None):
+    """Infers the pip requirements of the specified model by creating a subprocess and loading
+    the model in it to determine which packages are imported.
+
+    Args:
+        model_uri: The URI of the model.
+        flavor: The flavor name of the model.
+        fallback: If provided, an unexpected error during the inference procedure is swallowed
+            and the value of ``fallback`` is returned. Otherwise, the error is raised.
+        timeout: If specified, the inference operation is bound by the timeout (in seconds).
+        extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
+            Default to None.
+
+    Returns:
+        A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
+
+    """
+    raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
 
     if timeout and is_windows():
         timeout = None
@@ -408,54 +425,31 @@ def infer_pip_requirements_with_timeout(model_uri, flavor, fallback):
     try:
         if timeout:
             with run_with_timeout(timeout):
-                return infer_pip_requirements(model_uri, flavor, fallback)
+                return _infer_requirements(
+                    model_uri, flavor, raise_on_error=raise_on_error, extra_env_vars=extra_env_vars
+                )
         else:
-            return infer_pip_requirements(model_uri, flavor, fallback)
-    except Exception as e:
-        if fallback is not None:
-            if isinstance(e, MlflowTimeoutError):
-                msg = (
-                    "Attempted to infer pip requirements for the saved model or pipeline but the "
-                    f"operation timed out in {timeout} seconds. Fall back to return {fallback}. "
-                    "You can specify a different timeout by setting the environment variable "
-                    f"{MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}."
-                )
-            else:
-                msg = _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE.format(
-                    model_uri=model_uri, flavor=flavor, fallback=fallback
-                )
-            _logger.warning(msg)
-            _logger.debug("", exc_info=True)
-            return fallback
-        raise
-
-
-def infer_pip_requirements(model_uri, flavor, fallback=None):
-    """Infers the pip requirements of the specified model by creating a subprocess and loading
-    the model in it to determine which packages are imported.
-
-    Args:
-        model_uri: The URI of the model.
-        flavor: The flavor name of the model.
-        fallback: If provided, an unexpected error during the inference procedure is swallowed
-            and the value of ``fallback`` is returned. Otherwise, the error is raised.
-
-    Returns:
-        A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
-
-    """
-    try:
-        return _infer_requirements(model_uri, flavor)
-    except Exception:
-        if fallback is not None:
-            _logger.warning(
-                msg=_INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE.format(
-                    model_uri=model_uri, flavor=flavor, fallback=fallback
-                )
+            return _infer_requirements(
+                model_uri, flavor, raise_on_error=raise_on_error, extra_env_vars=extra_env_vars
             )
-            _logger.debug("", exc_info=True)
-            return fallback
-        raise
+    except Exception as e:
+        if raise_on_error or (fallback is None):
+            raise
+
+        if isinstance(e, MlflowTimeoutError):
+            msg = (
+                "Attempted to infer pip requirements for the saved model or pipeline but the "
+                f"operation timed out in {timeout} seconds. Fall back to return {fallback}. "
+                "You can specify a different timeout by setting the environment variable "
+                f"{MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT}."
+            )
+        else:
+            msg = _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE.format(
+                model_uri=model_uri, flavor=flavor, fallback=fallback
+            )
+        _logger.warning(msg)
+        _logger.debug("", exc_info=True)
+        return fallback
 
 
 def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):
@@ -573,6 +567,7 @@ def _process_pip_requirements(
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
     sanitized_pip_reqs = _deduplicate_requirements(pip_reqs)
+    sanitized_pip_reqs = _remove_incompatible_requirements(sanitized_pip_reqs)
 
     # Check if pip requirements contain incompatible version with the current environment
     warn_dependency_requirement_mismatches(sanitized_pip_reqs)
@@ -672,6 +667,28 @@ def _deduplicate_requirements(requirements):
     return [str(req) for req in deduped_reqs.values()]
 
 
+def _parse_requirement_name(req: str) -> str:
+    try:
+        return Requirement(req).name
+    except InvalidRequirement:
+        return req
+
+
+def _remove_incompatible_requirements(requirements: list[str]) -> list[str]:
+    req_names = {_parse_requirement_name(req) for req in requirements}
+    if "databricks-connect" in req_names and req_names.intersection({"pyspark", "pyspark-connect"}):
+        _logger.debug(
+            "Found incompatible requirements: 'databricks-connect' with 'pyspark' or "
+            "'pyspark-connect'. Removing 'pyspark' or 'pyspark-connect' from the requirements."
+        )
+        requirements = [
+            req
+            for req in requirements
+            if _parse_requirement_name(req) not in ["pyspark", "pyspark-connect"]
+        ]
+    return requirements
+
+
 def _validate_version_constraints(requirements):
     """
     Validates the version constraints of given Python package requirements using pip's resolver with
@@ -756,7 +773,7 @@ def _get_mlflow_env_name(s):
         (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
 
     """
-    return "mlflow-" + insecure_hash.sha1(s.encode("utf-8")).hexdigest()
+    return "mlflow-" + hashlib.sha1(s.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 def _get_pip_install_mlflow():
@@ -774,7 +791,7 @@ def _get_pip_install_mlflow():
 
 def _get_requirements_from_file(
     file_path: pathlib.Path,
-) -> List[Requirement]:
+) -> list[Requirement]:
     data = file_path.read_text()
     if file_path.name == _CONDA_ENV_FILE_NAME:
         conda_env = yaml.safe_load(data)
@@ -786,7 +803,7 @@ def _get_requirements_from_file(
 
 def _write_requirements_to_file(
     file_path: pathlib.Path,
-    new_reqs: List[str],
+    new_reqs: list[str],
 ) -> None:
     if file_path.name == _CONDA_ENV_FILE_NAME:
         conda_env = yaml.safe_load(file_path.read_text())
@@ -798,9 +815,9 @@ def _write_requirements_to_file(
 
 
 def _add_or_overwrite_requirements(
-    new_reqs: List[Requirement],
-    old_reqs: List[Requirement],
-) -> List[str]:
+    new_reqs: list[Requirement],
+    old_reqs: list[Requirement],
+) -> list[str]:
     deduped_new_reqs = _deduplicate_requirements([str(req) for req in new_reqs])
     deduped_new_reqs = [Requirement(req) for req in deduped_new_reqs]
 
@@ -811,9 +828,9 @@ def _add_or_overwrite_requirements(
 
 
 def _remove_requirements(
-    reqs_to_remove: List[Requirement],
-    old_reqs: List[Requirement],
-) -> List[str]:
+    reqs_to_remove: list[Requirement],
+    old_reqs: list[Requirement],
+) -> list[str]:
     old_reqs_dict = {req.name: str(req) for req in old_reqs}
     for req in reqs_to_remove:
         if req.name not in old_reqs_dict:
@@ -843,9 +860,14 @@ class Environment:
         stdin=None,
         synchronous=True,
     ):
-        if command_env is None:
-            command_env = os.environ.copy()
-        command_env = {**self._extra_env, **command_env}
+        command_env = os.environ.copy() if command_env is None else deepcopy(command_env)
+        if is_in_databricks_runtime():
+            command_env.update(get_databricks_env_vars(get_tracking_uri()))
+        if is_databricks_connect():
+            command_env.update(_get_databricks_serverless_env_vars())
+        if exp_id := _get_experiment_id():
+            command_env[MLFLOW_EXPERIMENT_ID.name] = exp_id
+        command_env.update(self._extra_env)
         if not isinstance(command, list):
             command = [command]
 

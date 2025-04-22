@@ -10,6 +10,7 @@ import {
   DEFAULT_IMAGE_GRID_CHART_NAME,
 } from '../../constants';
 import { isNil, uniq } from 'lodash';
+import { customMetricBehaviorDefs } from '../experiment-page/utils/customMetricBehaviorUtils';
 
 /**
  * Enum for all recognized chart types used in runs charts
@@ -49,6 +50,9 @@ export abstract class RunsChartsCardConfig {
   metricSectionId?: string = '';
   deleted = false;
   isGenerated = false;
+
+  // Custom title of the chart. If not provided, it's inferred from configuration (e.g. metric key).
+  displayName?: string;
 
   constructor(isGenerated: boolean, uuid?: string, metricSectionId?: string) {
     this.isGenerated = isGenerated;
@@ -135,7 +139,9 @@ export abstract class RunsChartsCardConfig {
 
   // Extract chart section from metric key
   static extractChartSectionName = (metricKey: string, delimiter = '/') => {
-    const parts = metricKey.split(delimiter);
+    const displayMetricName = customMetricBehaviorDefs[metricKey]?.displayName ?? metricKey;
+
+    const parts = displayMetricName.split(delimiter);
     const section = parts.slice(0, -1).join(delimiter);
     if (section === MLFLOW_MODEL_METRIC_PREFIX) {
       return MLFLOW_MODEL_METRIC_NAME;
@@ -326,7 +332,7 @@ export abstract class RunsChartsCardConfig {
           // If section has not been reordered, then insert alphabetically
           const insertIndex = resultChartSet.findIndex((chart) => {
             const chartImageKeys = (chart as RunsChartsImageCardConfig).imageKeys;
-            return chartImageKeys ? chartImageKeys[0].localeCompare(imageKey) >= 0 : false;
+            return chartImageKeys ? chartImageKeys[0]?.localeCompare(imageKey) >= 0 : false;
           });
           resultChartSet.splice(insertIndex, 0, newChartConfig);
         }
@@ -446,6 +452,27 @@ export class RunsChartsScatterCardConfig extends RunsChartsCardConfig {
   runsCountToCompare = 100;
 }
 
+export interface ChartRange {
+  xMin?: number;
+  xMax?: number;
+  yMin?: number;
+  yMax?: number;
+}
+
+export enum RunsChartsLineChartYAxisType {
+  METRIC = 'metric',
+  EXPRESSION = 'expression',
+}
+
+export interface RunsChartsLineChartExpression {
+  // The expression parsed in Reverse Polish Notation
+  rpn: (string | number)[];
+  // The parsed variables in the expression
+  variables: string[];
+  // The original input expression
+  expression: string;
+}
+
 // TODO: add configuration fields relevant to line chart
 export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
   type: RunsChartType.LINE = RunsChartType.LINE;
@@ -477,6 +504,16 @@ export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
   scaleType: 'linear' | 'log' = 'linear';
 
   /**
+   * Range of Y axis, X axis.
+   */
+  range?: ChartRange = {
+    xMin: undefined,
+    xMax: undefined,
+    yMin: undefined,
+    yMax: undefined,
+  };
+
+  /**
    * Choose X axis mode - numeric step, relative time in seconds or absolute time value
    */
   xAxisKey: RunsChartsLineChartXAxisType = RunsChartsLineChartXAxisType.STEP;
@@ -491,6 +528,32 @@ export class RunsChartsLineCardConfig extends RunsChartsCardConfig {
    * there are fewer than 60 datapoints on the chart.
    */
   displayPoints?: boolean = undefined;
+
+  /**
+   * Show metrics directly or custom expressions on metrics
+   */
+  yAxisKey?: RunsChartsLineChartYAxisType = RunsChartsLineChartYAxisType.METRIC;
+
+  /**
+   * Custom expressions for Y axis
+   */
+  yAxisExpressions?: RunsChartsLineChartExpression[] = [];
+
+  /**
+   * Whether or not to ignore outliers. If true, the data will be clipped
+   * to the 5th and 95th percentiles.
+   */
+  ignoreOutliers?: boolean = false;
+
+  /**
+   * Whether or not to use global X axis settings.
+   */
+  useGlobalXaxisKey?: boolean = true;
+
+  /**
+   * Whether or not to use global line smoothing setting.
+   */
+  useGlobalLineSmoothing?: boolean = true;
 }
 
 // TODO: add configuration fields relevant to bar chart
@@ -501,6 +564,16 @@ export class RunsChartsBarCardConfig extends RunsChartsCardConfig {
    * A metric key used for chart's X axis
    */
   metricKey = '';
+
+  /**
+   * If the chart is configured to use a particular dataset, this field will contain the dataset identifier.
+   */
+  datasetName?: string;
+
+  /**
+   * Present if the chart is configured to use a particular key to get data.
+   */
+  dataAccessKey?: string;
 }
 
 // TODO: add configuration fields relevant to contour chart
@@ -555,4 +628,13 @@ export class RunsChartsImageCardConfig extends RunsChartsCardConfig {
   // image keys to show
   imageKeys: string[] = [];
   step = 0;
+}
+
+/**
+ * Defines a metric entry in the chart configuration, used to access dataset-specific metrics.
+ */
+export interface RunsChartsMetricByDatasetEntry {
+  dataAccessKey: string;
+  metricKey: string;
+  datasetName?: string;
 }

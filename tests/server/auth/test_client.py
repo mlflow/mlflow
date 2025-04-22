@@ -5,7 +5,11 @@ import pytest
 
 import mlflow
 from mlflow import MlflowException
-from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import (
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_USERNAME,
+)
 from mlflow.protos.databricks_pb2 import (
     PERMISSION_DENIED,
     RESOURCE_DOES_NOT_EXIST,
@@ -49,6 +53,7 @@ def client(tmp_path):
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         app="mlflow.server.auth:create_app",
+        extra_env={MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key"},
     ) as url:
         yield AuthServiceClient(url)
 

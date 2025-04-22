@@ -1,9 +1,10 @@
+import contextlib
 import json
 import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import yaml
 
@@ -225,7 +226,7 @@ def _validate_path_exists(path, name):
         raise MlflowException(
             message=(
                 f"Failed to copy the specified {name} path '{path}' into the model "
-                f"artifacts. The specified {name }path does not exist. Please specify a valid "
+                f"artifacts. The specified {name}path does not exist. Please specify a valid "
                 f"{name} path and try again."
             ),
             error_code=INVALID_PARAMETER_VALUE,
@@ -294,7 +295,7 @@ def _validate_onnx_session_options(onnx_session_options):
     """Validates that the specified onnx_session_options dict is valid.
 
     Args:
-        ort_session_options: The onnx_session_options dict to validate.
+        onnx_session_options: The onnx_session_options dict to validate.
     """
     import onnxruntime as ort
 
@@ -334,8 +335,8 @@ def _validate_onnx_session_options(onnx_session_options):
 
 
 def _get_overridden_pyfunc_model_config(
-    pyfunc_config: Dict[str, Any], load_config: Dict[str, Any], logger
-) -> Dict[str, Any]:
+    pyfunc_config: dict[str, Any], load_config: dict[str, Any], logger
+) -> dict[str, Any]:
     """
     Updates the inference configuration according to the model's configuration and the overrides.
     Only arguments already present in the inference configuration can be updated. The environment
@@ -381,6 +382,7 @@ def _get_overridden_pyfunc_model_config(
 
 
 def _validate_and_get_model_config_from_file(model_config):
+    model_config = os.path.abspath(model_config)
     if os.path.exists(model_config):
         with open(model_config) as file:
             try:
@@ -427,3 +429,55 @@ def _validate_pyfunc_model_config(model_config):
             "valid file path or of type ``dict`` with string keys.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+RECORD_ENV_VAR_ALLOWLIST = {
+    # api key related
+    "API_KEY",
+    "API_TOKEN",
+    # databricks auth related
+    "DATABRICKS_HOST",
+    "DATABRICKS_USERNAME",
+    "DATABRICKS_PASSWORD",
+    "DATABRICKS_TOKEN",
+    "DATABRICKS_INSECURE",
+    "DATABRICKS_CLIENT_ID",
+    "DATABRICKS_CLIENT_SECRET",
+    "_DATABRICKS_WORKSPACE_HOST",
+    "_DATABRICKS_WORKSPACE_ID",
+}
+
+
+@contextlib.contextmanager
+def env_var_tracker():
+    """
+    Context manager for temporarily tracking environment variables accessed.
+    It tracks environment variables accessed during the context manager's lifetime.
+    """
+    from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
+
+    tracked_env_names = set()
+
+    if MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.get():
+        original_getitem = os._Environ.__getitem__
+        original_get = os._Environ.get
+
+        def updated_get_item(self, key):
+            result = original_getitem(self, key)
+            tracked_env_names.add(key)
+            return result
+
+        def updated_get(self, key, *args, **kwargs):
+            if key in self:
+                tracked_env_names.add(key)
+            return original_get(self, key, *args, **kwargs)
+
+        try:
+            os._Environ.__getitem__ = updated_get_item
+            os._Environ.get = updated_get
+            yield tracked_env_names
+        finally:
+            os._Environ.__getitem__ = original_getitem
+            os._Environ.get = original_get
+    else:
+        yield tracked_env_names

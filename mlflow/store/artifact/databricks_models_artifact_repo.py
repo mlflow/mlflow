@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import posixpath
+from typing import Optional
 
 import mlflow.tracking
 from mlflow.entities import FileInfo
@@ -84,7 +85,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             body["page_token"] = page_token
         return body
 
-    def list_artifacts(self, path=None):
+    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         infos = []
         page_token = None
         if not path:
@@ -135,6 +136,8 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         return json_response.get("signed_uri", None), json_response.get("headers", None)
 
     def _extract_headers_from_signed_url(self, headers):
+        if headers is None:
+            return {}
         filtered_headers = filter(lambda h: "name" in h and "value" in h, headers)
         return {header.get("name"): header.get("value") for header in filtered_headers}
 

@@ -1,4 +1,3 @@
-/// <reference types="react" />
 export interface EmptyResultsProps {
     emptyText?: string | React.ReactNode;
 }

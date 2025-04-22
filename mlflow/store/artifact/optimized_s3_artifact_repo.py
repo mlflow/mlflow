@@ -13,11 +13,11 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
+from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
-    _retry_with_new_creds,
     _validate_chunk_size_aws,
 )
 from mlflow.store.artifact.s3_artifact_repo import _get_s3_client
@@ -50,8 +50,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         secret_access_key=None,
         session_token=None,
         credential_refresh_def=None,
-        addressing_style="path",
+        addressing_style=None,
         s3_endpoint_url=None,
+        s3_upload_extra_args=None,
     ):
         super().__init__(artifact_uri)
         self._access_key_id = access_key_id
@@ -62,6 +63,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._s3_endpoint_url = s3_endpoint_url
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
         self._region_name = self._get_region_name()
+        self._s3_upload_extra_args = s3_upload_extra_args if s3_upload_extra_args else {}
 
     def _refresh_credentials(self):
         if not self._credential_refresh_def:
@@ -70,13 +72,14 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._access_key_id = new_creds["access_key_id"]
         self._secret_access_key = new_creds["secret_access_key"]
         self._session_token = new_creds["session_token"]
+        self._s3_upload_extra_args = new_creds["s3_upload_extra_args"]
         return self._get_s3_client()
 
     def _get_region_name(self):
         from botocore.exceptions import ClientError
 
         temp_client = _get_s3_client(
-            addressing_style="path",
+            addressing_style=self._addressing_style,
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,
@@ -146,6 +149,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
 
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = {}
+        extra_args.update(self._s3_upload_extra_args)
         guessed_type, guessed_encoding = guess_type(local_file)
         if guessed_type is not None:
             extra_args["ContentType"] = guessed_type
@@ -159,7 +163,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             creds.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
+            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
         )
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -219,7 +223,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                     return response.headers["ETag"]
 
             return _retry_with_new_creds(
-                try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
+                try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
             )
 
         try:
@@ -271,6 +275,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         if path:
             dest_path = posixpath.join(dest_path, path)
         infos = []
+        dest_path = dest_path.rstrip("/") if dest_path else ""
         prefix = dest_path + "/" if dest_path else ""
         s3_client = self._get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
@@ -327,7 +332,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             creds.download_file(self.bucket, s3_full_path, local_path)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, og_creds=s3_client
+            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
         )
 
     def delete_artifacts(self, artifact_path=None):
@@ -335,13 +340,17 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
 
+        dest_path = dest_path.rstrip("/") if dest_path else ""
         s3_client = self._get_s3_client()
-        list_objects = s3_client.list_objects(Bucket=self.bucket, Prefix=dest_path).get(
-            "Contents", []
-        )
-        for to_delete_obj in list_objects:
-            file_path = to_delete_obj.get("Key")
-            self._verify_listed_object_contains_artifact_path_prefix(
-                listed_object_path=file_path, artifact_path=dest_path
-            )
-            s3_client.delete_object(Bucket=self.bucket, Key=file_path)
+        paginator = s3_client.get_paginator("list_objects_v2")
+        results = paginator.paginate(Bucket=self.bucket, Prefix=dest_path)
+        for result in results:
+            keys = []
+            for to_delete_obj in result.get("Contents", []):
+                file_path = to_delete_obj.get("Key")
+                self._verify_listed_object_contains_artifact_path_prefix(
+                    listed_object_path=file_path, artifact_path=dest_path
+                )
+                keys.append({"Key": file_path})
+            if keys:
+                s3_client.delete_objects(Bucket=self.bucket, Delete={"Objects": keys})

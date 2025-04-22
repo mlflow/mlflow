@@ -247,6 +247,7 @@ class RestStore(BaseRestStore):
                 instances associated with this model version.
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
+            local_model_path: Unused.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -438,7 +439,9 @@ class RestStore(BaseRestStore):
         Returns:
             None
         """
-        req_body = message_to_json(SetRegisteredModelAlias(name=name, alias=alias, version=version))
+        req_body = message_to_json(
+            SetRegisteredModelAlias(name=name, alias=alias, version=str(version))
+        )
         self._call_endpoint(SetRegisteredModelAlias, req_body)
 
     def delete_registered_model_alias(self, name, alias):

@@ -146,3 +146,9 @@ def test_register_constructor_and_call(dataset_registry, dataset_source_registry
     assert dataset2.data_list == [4, 5, 6]
     assert dataset2.name == "name2"
     assert dataset2.digest == "digest2"
+
+
+def test_dataset_source_registration_failure(dataset_source_registry):
+    with mock.patch.object(dataset_source_registry, "register", side_effect=ImportError("Error")):
+        with pytest.warns(UserWarning, match="Failure attempting to register dataset constructor"):
+            dataset_source_registry.register_entrypoints()

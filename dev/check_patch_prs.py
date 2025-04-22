@@ -59,11 +59,15 @@ class PR:
     merged: bool
 
 
+def is_closed(pr):
+    return pr["state"] == "closed" and pr["pull_request"]["merged_at"] is None
+
+
 def fetch_patch_prs(version):
     """
-    Fetch PRs labeled with `patch-{version}` from the MLflow repository.
+    Fetch PRs labeled with `v{version}` from the MLflow repository.
     """
-    label = f"patch-{version}"
+    label = f"v{version}"
     per_page = 100
     page = 1
     pulls = []
@@ -73,7 +77,8 @@ def fetch_patch_prs(version):
         )
         response.raise_for_status()
         data = response.json()
-        pulls.extend(data["items"])
+        # Exclude closed PRs that are not merged
+        pulls.extend(pr for pr in data["items"] if not is_closed(pr))
         if len(data) < per_page:
             break
         page += 1
@@ -83,22 +88,40 @@ def fetch_patch_prs(version):
 
 @click.command()
 @click.option("--version", required=True, help="The version to release")
-def main(version):
+@click.option(
+    "--dry-run/--no-dry-run",
+    "dry_run",
+    is_flag=True,
+    default=True,
+    envvar="DRY_RUN",
+)
+def main(version, dry_run):
     release_branch = get_release_branch(version)
     commits = get_commits(release_branch)
     patch_prs = fetch_patch_prs(version)
     if not_cherry_picked := set(patch_prs) - {c.pr_num for c in commits}:
         click.echo(f"The following patch PRs are not cherry-picked to {release_branch}:")
         for idx, pr_num in enumerate(sorted(not_cherry_picked)):
-            url = f"https://github.com/mlflow/mlflow/pull/{pr_num} (merged: {patch_prs[pr_num]})"
-            click.echo(f"  {idx + 1}. {url}")
+            merged = patch_prs[pr_num]
+            url = f"https://github.com/mlflow/mlflow/pull/{pr_num} (merged: {merged})"
+            line = f"  {idx + 1}. {url}"
+            if not merged:
+                line = click.style(line, fg="red")
+            click.echo(line)
 
         master_commits = get_commits("master")
         cherry_picks = [c.sha for c in master_commits if c.pr_num in not_cherry_picked]
         # reverse the order of cherry-picks to maintain the order of PRs
-        print("\nTo cherry-pick the above commits, run:")
+        print("\n# Steps to cherry-pick the patch PRs:")
+        print(
+            f"1. Make sure your local master and {release_branch} branches are synced with "
+            "upstream."
+        )
+        print(f"2. Cut a new branch from {release_branch} (e.g. {release_branch}-cherry-picks).")
+        print("3. Run the following command on the new branch:\n")
         print("git cherry-pick " + " ".join(cherry_picks[::-1]))
-        sys.exit(1)
+        print(f"\n4. File a PR against {release_branch}.")
+        sys.exit(0 if dry_run else 1)
 
 
 if __name__ == "__main__":

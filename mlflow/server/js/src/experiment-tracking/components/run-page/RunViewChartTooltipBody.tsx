@@ -6,7 +6,7 @@ import {
 } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { isSystemMetricKey } from '../../utils/MetricsUtils';
 import Utils from '../../../common/utils/Utils';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { isUndefined } from 'lodash';
 import type {
   RunsCompareMultipleTracesTooltipData,
@@ -14,22 +14,24 @@ import type {
 } from '../runs-charts/components/RunsMetricsLinePlot';
 import type { RunsMetricsBarPlotHoverData } from '../runs-charts/components/RunsMetricsBarPlot';
 import { RunsMultipleTracesTooltipBody } from '../runs-charts/components/RunsMultipleTracesTooltipBody';
+import { Spacer, Typography } from '@databricks/design-system';
 
 /**
  * Tooltip body displayed when hovering over run view metric charts
  */
 export const RunViewChartTooltipBody = ({
-  contextData: { runInfo, metricsForRun },
+  contextData: { metricsForRun },
   hoverData,
   chartData: { metricKey },
   isHovering,
   mode,
 }: RunsChartsTooltipBodyProps<
-  { runInfo: RunInfoEntity; metricsForRun: MetricHistoryByName },
+  { metricsForRun: MetricHistoryByName },
   { metricKey: string },
   RunsMetricsBarPlotHoverData | RunsMetricsSingleTraceTooltipData | RunsCompareMultipleTracesTooltipData
 >) => {
   const singleTraceHoverData = containsMultipleRunsTooltipData(hoverData) ? hoverData.hoveredDataPoint : hoverData;
+  const intl = useIntl();
 
   if (
     mode === RunsChartsTooltipMode.MultipleTracesWithScanline &&
@@ -69,12 +71,14 @@ export const RunViewChartTooltipBody = ({
             />
             :
           </strong>{' '}
-          {Utils.formatTimestamp(timestamp)}
+          {Utils.formatTimestamp(timestamp, intl)}
         </div>
       )}
       {value && (
-        <div css={styles.valueField}>
-          <strong>{metricKey}:</strong> {value}
+        <div>
+          <Typography.Text bold>{metricKey}</Typography.Text>
+          <Spacer size="xs" />
+          <Typography.Text>{value}</Typography.Text>
         </div>
       )}
     </div>
@@ -83,7 +87,6 @@ export const RunViewChartTooltipBody = ({
 
 const styles = {
   valueField: {
-    maxWidth: 300,
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
     textOverflow: 'ellipsis',

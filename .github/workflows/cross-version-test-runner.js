@@ -9,17 +9,6 @@ async function main({ context, github }) {
     return;
   }
 
-  // Reject non-maintainers
-  if (!["OWNER", "MEMBER", "COLLABORATOR"].includes(comment.author_association)) {
-    await github.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: pull_number,
-      body: "Only maintainers are allowed to use this command.",
-    });
-    return;
-  }
-
   // Run the workflow
   const flavors = flavorsMatch[1];
   const uuid = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join(

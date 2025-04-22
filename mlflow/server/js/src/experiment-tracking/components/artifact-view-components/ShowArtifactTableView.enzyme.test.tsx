@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { shallow, mount } from 'enzyme';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import ShowArtifactTableView from './ShowArtifactTableView';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'papa... Remove this comment to see the full error message
 import Papa from 'papaparse';

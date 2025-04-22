@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 from mlflow.entities import (
     DatasetInput,
@@ -8,6 +8,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.utils.annotations import developer_stable
@@ -104,7 +105,7 @@ class AbstractStore:
         If an experiment with the given name already exists, throws exception.
 
         Args:
-            name: Desired name for an experiment
+            name: Desired name for an experiment.
             artifact_location: Base location for artifacts in runs. May be None.
             tags: Experiment tags to set upon experiment creation
 
@@ -153,7 +154,7 @@ class AbstractStore:
         Restore deleted experiment unless it is permanently deleted.
 
         Args:
-            experiment_id: String id for the experiment
+            experiment_id: String id for the experiment.
         """
 
     @abstractmethod
@@ -162,7 +163,8 @@ class AbstractStore:
         Update an experiment's name. The new name must be unique.
 
         Args:
-            experiment_id: String id for the experiment
+            experiment_id: String id for the experiment.
+            new_name: New name for the experiment.
         """
 
     @abstractmethod
@@ -200,8 +202,11 @@ class AbstractStore:
         and the start time to the current time.
 
         Args:
-            experiment_id: String id of the experiment for this run
-            user_id: ID of the user launching this run
+            experiment_id: String id of the experiment for this run.
+            user_id: ID of the user launching this run.
+            start_time: Start time of the run.
+            tags: A dictionary of string keys and string values.
+            run_name: Name of the run.
 
         Returns:
             The created Run object
@@ -213,7 +218,7 @@ class AbstractStore:
         Delete a run.
 
         Args:
-            run_id: Description of run_id.
+            run_id: The ID of the run to delete.
 
         """
 
@@ -223,7 +228,7 @@ class AbstractStore:
         Restore a run.
 
         Args:
-            run_id:
+            run_id: The ID of the run to restore.
 
         """
 
@@ -232,8 +237,8 @@ class AbstractStore:
         self,
         experiment_id: str,
         timestamp_ms: int,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Start an initial TraceInfo object in the backend store.
@@ -256,8 +261,8 @@ class AbstractStore:
         request_id: str,
         timestamp_ms: int,
         status: TraceStatus,
-        request_metadata: Dict[str, str],
-        tags: Dict[str, str],
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
     ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
@@ -282,7 +287,7 @@ class AbstractStore:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[List[str]] = None,
+        request_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -294,12 +299,40 @@ class AbstractStore:
             experiment_id: ID of the associated experiment.
             max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
                 deleting traces. Traces older than or equal to this timestamp will be deleted.
-            max_traces: The maximum number of traces to delete.
+            max_traces: The maximum number of traces to delete. If max_traces is specified, and
+                it is less than the number of traces that would be deleted based on the
+                max_timestamp_millis, the oldest traces will be deleted first.
             request_ids: A set of request IDs to delete.
 
         Returns:
             The number of traces deleted.
         """
+        # request_ids can't be an empty list of string
+        if max_timestamp_millis is None and not request_ids:
+            raise MlflowException.invalid_parameter_value(
+                "Either `max_timestamp_millis` or `request_ids` must be specified.",
+            )
+        if max_timestamp_millis and request_ids:
+            raise MlflowException.invalid_parameter_value(
+                "Only one of `max_timestamp_millis` and `request_ids` can be specified.",
+            )
+        if request_ids and max_traces is not None:
+            raise MlflowException.invalid_parameter_value(
+                "`max_traces` can't be specified if `request_ids` is specified.",
+            )
+        if max_traces is not None and max_traces <= 0:
+            raise MlflowException.invalid_parameter_value(
+                f"`max_traces` must be a positive integer, received {max_traces}.",
+            )
+        return self._delete_traces(experiment_id, max_timestamp_millis, max_traces, request_ids)
+
+    def _delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[list[str]] = None,
+    ) -> int:
         raise NotImplementedError
 
     def get_trace_info(self, request_id: str) -> TraceInfo:
@@ -316,12 +349,12 @@ class AbstractStore:
 
     def search_traces(
         self,
-        experiment_ids: List[str],
+        experiment_ids: list[str],
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-    ) -> Tuple[List[TraceInfo], Optional[str]]:
+    ) -> tuple[list[TraceInfo], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -399,8 +432,8 @@ class AbstractStore:
         Log a param for the specified run in async fashion.
 
         Args:
-            run_id: String id for the run
-            param: :py:class:`mlflow.entities.Param` instance to log
+            run_id: String id for the run.
+            param: :py:class:`mlflow.entities.Param` instance to log.
         """
         return self.log_batch_async(run_id, metrics=[], params=[param], tags=[])
 
@@ -409,8 +442,8 @@ class AbstractStore:
         Set a tag for the specified experiment
 
         Args:
-            experiment_id: String id for the experiment
-            tag: :py:class:`mlflow.entities.ExperimentTag` instance to set
+            experiment_id: String id for the experiment.
+            tag: :py:class:`mlflow.entities.ExperimentTag` instance to set.
         """
 
     def set_tag(self, run_id, tag):
@@ -418,8 +451,8 @@ class AbstractStore:
         Set a tag for the specified run
 
         Args:
-            run_id: String id for the run
-            tag: :py:class:`mlflow.entities.RunTag` instance to set
+            run_id: String id for the run.
+            tag: :py:class:`mlflow.entities.RunTag` instance to set.
         """
         self.log_batch(run_id, metrics=[], params=[], tags=[tag])
 
@@ -428,8 +461,8 @@ class AbstractStore:
         Set a tag for the specified run in async fashion.
 
         Args:
-            run_id: String id for the run
-            tag: :py:class:`mlflow.entities.RunTag` instance to set
+            run_id: String id for the run.
+            tag: :py:class:`mlflow.entities.RunTag` instance to set.
         """
         return self.log_batch_async(run_id, metrics=[], params=[], tags=[tag])
 
@@ -589,12 +622,32 @@ class AbstractStore:
             run_id=run_id, metrics=metrics, params=params, tags=tags
         )
 
-    def flush_async_logging(self):
+    def end_async_logging(self):
         """
-        Flushes the async logging queue. This method is a no-op if the queue is not active.
+        Ends the async logging queue. This method is a no-op if the queue is not active. This is
+        different from flush as it just stops the async logging queue from accepting
+        new data (moving the queue state TEAR_DOWN state), but flush will ensure all data
+        is processed before returning (moving the queue to IDLE state).
         """
         if self._async_logging_queue.is_active():
+            self._async_logging_queue.end_async_logging()
+
+    def flush_async_logging(self):
+        """
+        Flushes the async logging queue. This method is a no-op if the queue is already
+        at IDLE state. This methods also shutdown the logging worker threads.
+        After flushing, logging thread is setup again.
+        """
+        if not self._async_logging_queue.is_idle():
             self._async_logging_queue.flush()
+
+    def shut_down_async_logging(self):
+        """
+        Shuts down the async logging queue. This method is a no-op if the queue is already
+        at IDLE state. This methods also shutdown the logging worker threads.
+        """
+        if not self._async_logging_queue.is_idle():
+            self._async_logging_queue.shut_down_async_logging()
 
     @abstractmethod
     def record_logged_model(self, run_id, mlflow_model):
@@ -615,7 +668,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
 

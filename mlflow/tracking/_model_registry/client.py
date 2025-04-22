@@ -3,10 +3,15 @@ Internal package providing a Python CRUD interface to MLflow models and versions
 This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and is
 exposed in the :py:mod:`mlflow.tracking` module.
 """
+
 import logging
 
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import (
+    add_prompt_filter_string,
+    is_prompt_supported_registry,
+)
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -124,6 +129,10 @@ class ModelRegistryClient:
             obtained via the ``token`` attribute of the object.
 
         """
+        if is_prompt_supported_registry(self.registry_uri):
+            # Adjust filter string to include or exclude prompts
+            filter_string = add_prompt_filter_string(filter_string, False)
+
         return self.store.search_registered_models(filter_string, max_results, order_by, page_token)
 
     def get_registered_model(self, name):
@@ -202,6 +211,11 @@ class ModelRegistryClient:
             await_creation_for: Number of seconds to wait for the model version to finish being
                 created and is in ``READY`` status. By default, the function
                 waits for five minutes. Specify 0 or None to skip waiting.
+            local_model_path: Local path to the MLflow model, if it's already accessible on the
+                local filesystem. Can be used by AbstractStores that upload model version files
+                to the model registry to avoid a redundant download from the source location when
+                logging and registering a model via a single
+                mlflow.<flavor>.log_model(..., registered_model_name) call.
 
         Returns:
             Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by

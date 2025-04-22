@@ -1,12 +1,12 @@
 import { ExperimentViewHeader } from './ExperimentViewHeader';
-import { renderWithIntl, act, screen } from 'common/utils/TestUtils.react18';
-import { ExperimentEntity } from 'experiment-tracking/types';
-import userEvent from '@testing-library/user-event-14';
+import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 
 // mock breadcrumbs
 jest.mock('@databricks/design-system', () => ({
-  ...jest.requireActual('@databricks/design-system'),
+  ...jest.requireActual<typeof import('@databricks/design-system')>('@databricks/design-system'),
   Breadcrumb: () => <div />,
 }));
 

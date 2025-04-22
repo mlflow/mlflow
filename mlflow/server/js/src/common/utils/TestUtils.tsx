@@ -9,8 +9,6 @@ import { DEFAULT_LOCALE } from '../../i18n/loadMessages';
 import { ReduxState } from '../../redux-types';
 import { Provider } from 'react-redux';
 
-export const NOOP = (...args: any[]) => {};
-
 export function deepFreeze(o: any) {
   Object.freeze(o);
   Object.getOwnPropertyNames(o).forEach((prop) => {

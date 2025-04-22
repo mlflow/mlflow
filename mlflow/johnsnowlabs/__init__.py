@@ -15,7 +15,7 @@ Johnsnowlabs (native) format
 This flavor gives you access to `20.000+ state-of-the-art enterprise NLP models in 200+ languages
 <https://nlp.johnsnowlabs.com/models>`_ for medical, finance, legal and many more domains.
 Features include: LLM's, Text Summarization, Question Answering, Named Entity Recognition, Relation
-Extration, Sentiment Analysis, Spell Checking, Image Classification, Automatic Speech Recognition
+Extraction, Sentiment Analysis, Spell Checking, Image Classification, Automatic Speech Recognition
 and much more, powered by the latest Transformer Architectures. The models are provided by
 `John Snow Labs <https://www.johnsnowlabs.com/>`_ and requires a `John Snow Labs
 <https://www.johnsnowlabs.com/>`_ Enterprise NLP License. `You can reach out to us
@@ -44,6 +44,7 @@ You can set them using the following code:
     }
     os.environ["JOHNSNOWLABS_LICENSE_JSON"] = json.dumps(creds)
 """
+
 import json
 import logging
 import os
@@ -51,7 +52,7 @@ import posixpath
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -220,8 +221,6 @@ def log_model(
     Args:
         spark_model: NLUPipeline obtained via `nlp.load()
             <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_
-        store_license: If True, the license will be stored with the model and used and re-loading
-            it.
         artifact_path: Run relative artifact path.
         conda_env: Either a dictionary representation of a Conda environment or the path to a
             Conda environment yaml file. If provided, this describes the environment
@@ -274,6 +273,8 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:  {{ metadata }}
+        store_license: If True, the license will be stored with the model and used and re-loading
+            it.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -509,8 +510,6 @@ def save_model(
     is also serialized in MLeap format and the MLeap flavor is added.
 
     Args:
-        store_license: If True, the license will be stored with the model and used and
-            re-loading it.
         spark_model: Either a pyspark.ml.pipeline.PipelineModel or nlu.NLUPipeline object to be
             saved. `Every johnsnowlabs model <https://nlp.johnsnowlabs.com/models>`_
             is a PipelineModel and loadable as nlu.NLUPipeline.
@@ -560,6 +559,8 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        store_license: If True, the license will be stored with the model and used and
+            re-loading it.
 
     .. code-block:: python
         :caption: Example
@@ -664,7 +665,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     return nlp.load(path=local_model_path)
 
 
-def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
+def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     """
     Load the Johnsnowlabs MLflow model from the path.
 
@@ -766,7 +767,7 @@ def _load_pyfunc(path, spark=None):
     )
 
 
-def _get_or_create_sparksession(model_path=None):
+def _get_or_create_sparksession(model_path=None):  # noqa: D417
     """Check if SparkSession running and get it.
 
     If none exists, create a new one using jars in model_path. If model_path not defined, rely on
@@ -868,7 +869,13 @@ class _PyFuncModelWrapper:
         self.spark = spark or _get_or_create_sparksession()
         self.spark_model = spark_model
 
-    def predict(self, text, params: Optional[Dict[str, Any]] = None):
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.spark_model
+
+    def predict(self, text, params: Optional[dict[str, Any]] = None):
         """Generate predictions given input data in a pandas DataFrame.
 
         Args:

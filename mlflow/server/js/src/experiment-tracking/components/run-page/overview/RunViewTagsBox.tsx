@@ -9,8 +9,7 @@ import { ThunkDispatch } from '../../../../redux-types';
 import { setRunTagsBulkApi } from '../../../actions';
 import { MLFLOW_INTERNAL_PREFIX } from '../../../../common/utils/TagUtils';
 import { useMemo } from 'react';
-
-export const isUserFacingTag = (tagKey: string) => !tagKey.startsWith(MLFLOW_INTERNAL_PREFIX);
+import { isUserFacingTag } from '../../../../common/utils/TagUtils';
 
 /**
  * Displays run tags cell in run detail overview.
@@ -57,6 +56,7 @@ export const RunViewTagsBox = ({
         paddingBottom: theme.spacing.xs,
         display: 'flex',
         flexWrap: 'wrap',
+        alignItems: 'center',
         '> *': {
           marginRight: '0 !important',
         },
@@ -65,21 +65,24 @@ export const RunViewTagsBox = ({
     >
       {visibleTagEntities.length < 1 ? (
         <Button
-          componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewtagsbox.tsx_67"
+          componentId="mlflow.run_details.overview.tags.add_button"
           size="small"
-          type="link"
+          type="tertiary"
           onClick={showEditModal}
         >
-          <FormattedMessage defaultMessage="Add" description="Run page > Overview > Tags cell > 'Add' button label" />
+          <FormattedMessage
+            defaultMessage="Add tags"
+            description="Run page > Overview > Tags cell > 'Add' button label"
+          />
         </Button>
       ) : (
         <>
           {visibleTagEntities.map((tag) => (
-            <KeyValueTag tag={tag} key={`${tag.key}-${tag.value}`} enableFullViewModal />
+            <KeyValueTag tag={tag} key={`${tag.key}-${tag.value}`} enableFullViewModal css={{ marginRight: 0 }} />
           ))}
-          <Tooltip title={editTagsLabel}>
+          <Tooltip componentId="mlflow.run_details.overview.tags.edit_button.tooltip" content={editTagsLabel}>
             <Button
-              componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewtagsbox.tsx_76"
+              componentId="mlflow.run_details.overview.tags.edit_button"
               aria-label={editTagsLabel}
               size="small"
               icon={<PencilIcon />}

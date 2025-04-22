@@ -25,21 +25,32 @@ jobs:
       - fetch_merge_ref
       - run:
           name: Build documentation
-          working_directory: docs
+          working_directory: docs/api_reference
           command: |
             ./build-rdoc.sh
             if [ -n "$(git status --porcelain)" ]; then
+              echo "The following files have changed:"
+              git status --porcelain
               exit 1
             fi
 
+  # TODO: Add a job to build the python and java api reference
   build_doc:
     docker:
-      # Pin to 3.8.16 to avoid https://github.com/mlflow/mlflow/issues/8635
-      - image: cimg/python:3.8.16
+      - image: cimg/python:3.9-node
+    resource_class: large
 
     steps:
       - checkout
       - fetch_merge_ref
+      - run:
+          name: Set env vars
+          working_directory: docs
+          command: |
+            DOCS_BASE_URL="/output/job/$CIRCLE_WORKFLOW_JOB_ID/artifacts/0/docs/build/"
+            echo "export DOCS_BASE_URL=$DOCS_BASE_URL" >> "$BASH_ENV"
+            echo "export API_REFERENCE_PREFIX=https://output.circle-artifacts.com$DOCS_BASE_URL" >> "$BASH_ENV"
+            echo "export GTM_ID=GTM-TEST" >> "$BASH_ENV"
       - run:
           name: Install Java
           command: |
@@ -55,69 +66,71 @@ jobs:
           name: Install Python dependencies
           command: |
             pip --version
-            pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly .[gateway]
+            pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly
+            pip install -e .[gateway]
           environment:
             PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+      - run:
+          name: Show package release dates
+          command: |
+            python dev/show_package_release_dates.py
       - run:
           name: Build documentation
           working_directory: docs
           environment:
             JAVA_HOME: /usr/lib/jvm/default-java
+            PR_PREVIEW: "true"
           command: |
-            make rsthtml
-            make javadocs
+            yarn install
+            yarn build-all -- --no-r
             python changed_pages.py
       - run:
-          name: Check for broken links
-          working_directory: docs
-          command: |
-            python broken_links.py
-      - run:
           name: Test examples
-          working_directory: docs
+          working_directory: docs/api_reference
           command: |
             make test-examples
       - store_artifacts:
-          path: docs/build/html
+          path: docs/build/
 
-  mlflow-recipes:
-    docker:
-      - image: cimg/python:3.8
+  # TODO: This job can be removed once we drop support MLflow Recipes
+  # mlflow-recipes:
+  #   docker:
+  #     - image: cimg/python:3.9
 
-    steps:
-      - checkout
-      - fetch_merge_ref
-      - run:
-          name: Pull submodule
-          command: |
-            git submodule update --init --recursive
-      - run:
-          name: Install dependencies
-          command: |
-            pip install .
-            pip install nbconvert ipykernel
-      - run:
-          name: Run CLI
-          working_directory: examples/recipes/regression
-          environment:
-            MLFLOW_RECIPES_PROFILE: local
-          command: |
-            mlflow recipes run
-      - run:
-          name: Run notebook
-          working_directory: examples/recipes/regression
-          environment:
-            MLFLOW_RECIPES_PROFILE: local
-          command: |
-            jupyter nbconvert --to html --execute notebooks/jupyter.ipynb
-            jupyter nbconvert --to html --execute notebooks/jupyter.ipynb --output dark-jupyter --HTMLExporter.theme=dark
+  #   steps:
+  #     - checkout
+  #     - fetch_merge_ref
+  #     - run:
+  #         name: Pull submodule
+  #         command: |
+  #           git submodule update --init --recursive
+  #     - run:
+  #         name: Install dependencies
+  #         command: |
+  #           pip install .
+  #           pip install nbconvert ipykernel "mistune<3.1.0"
+  #     - run:
+  #         name: Run CLI
+  #         working_directory: examples/recipes/regression
+  #         environment:
+  #           MLFLOW_RECIPES_PROFILE: local
+  #         command: |
+  #           mlflow recipes run
+  #     - run:
+  #         name: Run notebook
+  #         working_directory: examples/recipes/regression
+  #         environment:
+  #           MLFLOW_RECIPES_PROFILE: local
+  #         command: |
+  #           jupyter nbconvert --to html --execute notebooks/jupyter.ipynb
+  #           jupyter nbconvert --to html --execute notebooks/jupyter.ipynb --output dark-jupyter --HTMLExporter.theme=dark
 
-      - store_artifacts:
-          path: ~/.mlflow/recipes
-      - store_artifacts:
-          path: examples/recipes/regression/notebooks/jupyter.html
-      - store_artifacts:
-          path: examples/recipes/regression/notebooks/dark-jupyter.html
+  #     - store_artifacts:
+  #         path: ~/.mlflow/recipes
+  #     - store_artifacts:
+  #         path: examples/recipes/regression/notebooks/jupyter.html
+  #     - store_artifacts:
+  #         path: examples/recipes/regression/notebooks/dark-jupyter.html
 
   # A job to get a free Windows VM for testing. See https://circleci.com/docs/ssh-access-jobs/ for how to set up SSH access.
   windows:
@@ -133,5 +146,4 @@ workflows:
     jobs:
       - build_doc
       - build_doc_r
-      - mlflow-recipes
       - windows

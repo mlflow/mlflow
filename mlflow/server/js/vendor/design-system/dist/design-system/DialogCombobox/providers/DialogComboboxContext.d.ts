@@ -1,7 +1,6 @@
-/// <reference types="react" />
 import type { DesignSystemEventProviderAnalyticsEventTypes } from '../../DesignSystemEventProvider/DesignSystemEventProvider';
-import type { AnalyticsEventOptionalProps } from '../../types';
-export interface DialogComboboxContextType extends AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+import type { AnalyticsEventValueChangeNoPiiFlagProps } from '../../types';
+export interface DialogComboboxContextType extends AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     id?: string;
     label?: string | React.ReactNode;
     value: string[];
@@ -19,6 +18,8 @@ export interface DialogComboboxContextType extends AnalyticsEventOptionalProps<D
     setTextOverflowMode: (mode: 'ellipsis' | 'multiline') => void;
     scrollToSelectedElement: boolean;
     rememberLastScrollPosition: boolean;
+    disableMouseOver: boolean;
+    setDisableMouseOver: (disableMouseOver: boolean) => void;
 }
 export declare const DialogComboboxContext: import("react").Context<DialogComboboxContextType>;
 export declare const DialogComboboxContextProvider: ({ children, value, }: {

@@ -2,6 +2,7 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
+
 import json
 import logging
 import math
@@ -11,7 +12,6 @@ import posixpath
 import sys
 import time
 import urllib.parse
-from typing import Dict
 from unittest import mock
 
 import flask
@@ -41,6 +41,7 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server.handlers import _get_sampled_steps_from_steps
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
@@ -153,7 +154,7 @@ def test_create_experiment_validation(mlflow_client):
         },
         "Invalid value 123 for parameter 'name'",
     )
-    assert_bad_request({}, "Missing value for required parameter 'name'")
+    assert_bad_request({}, "Missing value for required parameter 'name'.")
     assert_bad_request(
         {
             "name": "experiment name",
@@ -168,7 +169,7 @@ def test_create_experiment_validation(mlflow_client):
             "artifact_location": "my_location",
             "tags": "5",
         },
-        "Invalid value 5 for parameter 'tags'",
+        "Invalid value \\\"5\\\" for parameter 'tags'",
     )
 
 
@@ -353,7 +354,7 @@ def test_log_metric_validation(mlflow_client):
             "timestamp": 59,
             "step": "foo",
         },
-        "Invalid value foo for parameter 'step' supplied",
+        "Invalid value \\\"foo\\\" for parameter 'step' supplied",
     )
     assert_bad_request(
         {
@@ -363,7 +364,7 @@ def test_log_metric_validation(mlflow_client):
             "timestamp": "foo",
             "step": 41,
         },
-        "Invalid value foo for parameter 'timestamp' supplied",
+        "Invalid value \\\"foo\\\" for parameter 'timestamp' supplied",
     )
     assert_bad_request(
         {
@@ -654,13 +655,13 @@ def test_log_batch_validation(mlflow_client):
                 "run_id": run_id,
                 request_parameter: "foo",
             },
-            f"Invalid value foo for parameter '{request_parameter}' supplied",
+            f"Invalid value \\\"foo\\\" for parameter '{request_parameter}' supplied",
         )
 
     ## Should 400 if missing timestamp
     assert_bad_request(
         {"run_id": run_id, "metrics": [{"key": "mae", "value": 2.5}]},
-        "Invalid value [{'key': 'mae', 'value': 2.5}] for parameter 'metrics' supplied",
+        "Missing value for required parameter 'metrics[0].timestamp'",
     )
 
     ## Should 200 if timestamp provided but step is not
@@ -695,7 +696,7 @@ def test_log_model(mlflow_client):
 
                 history_model_meta = models[i].copy()
                 original_model_uuid = history_model_meta.pop("model_uuid")
-                model_meta = model.to_dict().copy()
+                model_meta = model.get_tags_dict().copy()
                 new_model_uuid = model_meta.pop("model_uuid")
                 assert history_model_meta == model_meta
                 assert original_model_uuid != new_model_uuid
@@ -1030,9 +1031,10 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
         def get(self, key, default=None):
             return self.args_dict.get(key, default)
 
-    with mock.patch(
-        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
-    ), flask_app.test_request_context() as mock_context:
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=mock_store),
+        flask_app.test_request_context() as mock_context,
+    ):
         run_ids = [str(i) for i in range(10)]
         mock_context.request.args = MockRequestArgs(
             {
@@ -1481,6 +1483,17 @@ def test_create_model_version_with_non_local_source(mlflow_client):
     assert response.status_code == 400
     assert "If supplying a source as an http, https," in response.json()["message"]
 
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": f"dbfs:/{run.info.run_id}/artifacts/a%3f/../../../../../../../../../../",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "Invalid model version source" in response.json()["message"]
+
 
 def test_create_model_version_with_file_uri(mlflow_client):
     name = "test"
@@ -1656,7 +1669,9 @@ def test_log_inputs_validation(mlflow_client):
         source="source1",
     )
     tags = [InputTag(key="tag1", value="value1")]
-    dataset_inputs = [message_to_json(DatasetInput(dataset=dataset, tags=tags).to_proto())]
+    dataset_inputs = [
+        json.loads(message_to_json(DatasetInput(dataset=dataset, tags=tags).to_proto()))
+    ]
     assert_bad_request(
         {
             "datasets": dataset_inputs,
@@ -1984,7 +1999,7 @@ def test_start_and_end_trace(mlflow_client):
     client = mlflow_client._tracking_client
 
     # Helper function to remove auto-added system tags (mlflow.xxx) from testing
-    def _exclude_system_tags(tags: Dict[str, str]):
+    def _exclude_system_tags(tags: dict[str, str]):
         return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
 
     trace_info = client.start_trace(
@@ -2045,17 +2060,38 @@ def test_start_and_end_trace(mlflow_client):
     assert trace_info == client.get_trace_info(trace_info.request_id)
 
 
-def _set_tracking_uri_and_reset_tracer(tracking_uri):
-    # NB: MLflow tracer does not handle the change of tracking URI well,
-    # so we need to reset the tracer to switch the tracking URI during testing.
-    mlflow.tracing.disable()
-    mlflow.set_tracking_uri(tracking_uri)
-    mlflow.tracing.enable()
+def test_start_and_end_trace_non_string_name(mlflow_client):
+    # OpenTelemetry span can accept non-string name like 1234. However, it is problematic
+    # when we use it as a trace name (which is set from a root span name) and log it to
+    # remote tracking server. Trace name is stored as mlflow.traceName tag and tag value
+    # can only be string, otherwise protobuf serialization will fail. Therefore, this test
+    # verifies that non-string span name is correctly handled before sending to the server.
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    exp_id = mlflow_client.create_experiment("non-string trace")
+
+    span = mlflow_client.start_trace(name=1234, experiment_id=exp_id)
+    child_span = mlflow_client.start_span(
+        name=None, request_id=span.request_id, parent_id=span.span_id
+    )
+    mlflow_client.end_span(
+        request_id=child_span.request_id, span_id=child_span.span_id, status="OK"
+    )
+    mlflow_client.end_trace(request_id=span.request_id, status="OK")
+
+    traces = mlflow_client.search_traces(experiment_ids=[exp_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.tags[TraceTagKey.TRACE_NAME] == "1234"
+    assert trace.info.status == TraceStatus.OK
+    assert len(trace.data.spans) == 2
+    assert trace.data.spans[0].name == 1234
+    assert trace.data.spans[0].status.status_code == "OK"
+    assert trace.data.spans[1].name is None
+    assert trace.data.spans[1].status.status_code == "OK"
 
 
 def test_search_traces(mlflow_client):
-    _set_tracking_uri_and_reset_tracer(mlflow_client.tracking_uri)
-
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("search traces")
 
     # Create test traces
@@ -2099,8 +2135,7 @@ def test_search_traces(mlflow_client):
 
 
 def test_delete_traces(mlflow_client):
-    _set_tracking_uri_and_reset_tracer(mlflow_client.tracking_uri)
-
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("delete traces")
 
     def _create_trace(name, status):
@@ -2154,6 +2189,7 @@ def test_delete_traces(mlflow_client):
 
 
 def test_set_and_delete_trace_tag(mlflow_client):
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("set delete tag")
 
     # Create test trace
@@ -2179,7 +2215,7 @@ def test_set_and_delete_trace_tag(mlflow_client):
 
 
 def test_get_trace_artifact_handler(mlflow_client):
-    _set_tracking_uri_and_reset_tracer(mlflow_client.tracking_uri)
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
     experiment_id = mlflow_client.create_experiment("get trace artifact")
 
@@ -2198,3 +2234,196 @@ def test_get_trace_artifact_handler(mlflow_client):
     # Validate content
     trace_data = TraceData.from_dict(json.loads(response.text))
     assert trace_data.spans[0].to_dict() == span.to_dict()
+
+
+def test_get_metric_history_bulk_interval_graphql(mlflow_client):
+    name = "GraphqlTest"
+    mlflow_client.create_registered_model(name)
+    experiment_id = mlflow_client.create_experiment(name)
+    created_run = mlflow_client.create_run(experiment_id)
+
+    metric_name = "metric_0"
+    for i in range(10):
+        mlflow_client.log_metric(created_run.info.run_id, metric_name, i, step=i)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                query testQuery {{
+                    mlflowGetMetricHistoryBulkInterval(input: {{
+                        runIds: ["{created_run.info.run_id}"],
+                        metricKey: "{metric_name}",
+                    }}) {{
+                        metrics {{
+                            key
+                            timestamp
+                            value
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json = response.json()
+    expected = [{"key": metric_name, "timestamp": mock.ANY, "value": i} for i in range(10)]
+    assert json["data"]["mlflowGetMetricHistoryBulkInterval"]["metrics"] == expected
+
+
+def test_search_runs_graphql(mlflow_client):
+    name = "GraphqlTest"
+    mlflow_client.create_registered_model(name)
+    experiment_id = mlflow_client.create_experiment(name)
+    created_run_1 = mlflow_client.create_run(experiment_id)
+    created_run_2 = mlflow_client.create_run(experiment_id)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                mutation testMutation {{
+                    mlflowSearchRuns(input: {{ experimentIds: ["{experiment_id}"] }}) {{
+                        runs {{
+                            info {{
+                                runId
+                            }}
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testMutation",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json = response.json()
+    expected = [
+        {"info": {"runId": created_run_2.info.run_id}},
+        {"info": {"runId": created_run_1.info.run_id}},
+    ]
+    assert json["data"]["mlflowSearchRuns"]["runs"] == expected
+
+
+def test_list_artifacts_graphql(mlflow_client, tmp_path):
+    name = "GraphqlTest"
+    experiment_id = mlflow_client.create_experiment(name)
+    created_run_id = mlflow_client.create_run(experiment_id).info.run_id
+    file_path = tmp_path / "test.txt"
+    file_path.write_text("hello world")
+    mlflow_client.log_artifact(created_run_id, file_path.absolute().as_posix())
+    mlflow_client.log_artifact(created_run_id, file_path.absolute().as_posix(), "testDir")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                fragment FilesFragment on MlflowListArtifactsResponse {{
+                    files {{
+                        path
+                        isDir
+                        fileSize
+                    }}
+                }}
+
+                query testQuery {{
+                    file: mlflowListArtifacts(input: {{ runId: "{created_run_id}" }}) {{
+                        ...FilesFragment
+                    }}
+                    subdir: mlflowListArtifacts(input: {{
+                        runId: "{created_run_id}",
+                        path: "testDir",
+                    }}) {{
+                        ...FilesFragment
+                    }}
+                }}
+            """,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json = response.json()
+    file_expected = [
+        {"path": "test.txt", "isDir": False, "fileSize": "11"},
+        {"path": "testDir", "isDir": True, "fileSize": "0"},
+    ]
+    assert json["data"]["file"]["files"] == file_expected
+    subdir_expected = [
+        {"path": "testDir/test.txt", "isDir": False, "fileSize": "11"},
+    ]
+    assert json["data"]["subdir"]["files"] == subdir_expected
+
+
+def test_search_datasets_graphql(mlflow_client):
+    name = "GraphqlTest"
+    experiment_id = mlflow_client.create_experiment(name)
+    created_run_id = mlflow_client.create_run(experiment_id).info.run_id
+    dataset1 = Dataset(
+        name="test-dataset-1",
+        digest="12345",
+        source_type="script",
+        source="test",
+    )
+    dataset_input1 = DatasetInput(dataset=dataset1, tags=[])
+    dataset2 = Dataset(
+        name="test-dataset-2",
+        digest="12346",
+        source_type="script",
+        source="test",
+    )
+    dataset_input2 = DatasetInput(
+        dataset=dataset2, tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="training")]
+    )
+    mlflow_client.log_inputs(created_run_id, [dataset_input1, dataset_input2])
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                mutation testMutation {{
+                    mlflowSearchDatasets(input:{{experimentIds: ["{experiment_id}"]}}) {{
+                        datasetSummaries {{
+                            experimentId
+                            name
+                            digest
+                            context
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testMutation",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json = response.json()
+
+    def sort_dataset_summaries(l1):
+        return sorted(l1, key=lambda x: x["digest"])
+
+    expected = sort_dataset_summaries(
+        [
+            {
+                "experimentId": experiment_id,
+                "name": "test-dataset-2",
+                "digest": "12346",
+                "context": "training",
+            },
+            {
+                "experimentId": experiment_id,
+                "name": "test-dataset-1",
+                "digest": "12345",
+                "context": "",
+            },
+        ]
+    )
+    assert (
+        sort_dataset_summaries(json["data"]["mlflowSearchDatasets"]["datasetSummaries"]) == expected
+    )

@@ -40,7 +40,7 @@ def basic_config_dict():
                 "name": "chat-openai",
                 "route_type": "llm/v1/chat",
                 "model": {
-                    "name": "gpt-3.5-turbo",
+                    "name": "gpt-4o-mini",
                     "provider": "openai",
                     "config": {"openai_api_key": "$OPENAI_API_KEY"},
                 },
@@ -337,12 +337,14 @@ def test_openai_chat(gateway):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "choices": [
             {
                 "message": {
                     "role": "assistant",
                     "content": "\n\nThis is a test!",
+                    "tool_calls": None,
+                    "refusal": None,
                 },
                 "finish_reason": "stop",
                 "index": 0,
@@ -534,6 +536,8 @@ def test_mosaicml_chat(gateway):
                 "message": {
                     "role": "assistant",
                     "content": "This is a test",
+                    "tool_calls": None,
+                    "refusal": None,
                 },
                 "finish_reason": None,
                 "index": 0,
@@ -597,6 +601,8 @@ def test_palm_chat(gateway):
                 "message": {
                     "role": "1",
                     "content": "Hi there! How can I help you today?",
+                    "tool_calls": None,
+                    "refusal": None,
                 },
                 "finish_reason": None,
                 "index": 0,
@@ -718,7 +724,7 @@ def test_invalid_response_structure_raises(gateway):
             "input_tokens": 17,
             "output_tokens": 24,
             "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "route_type": "llm/v1/chat",
         },
     }
@@ -738,10 +744,10 @@ def test_invalid_response_structure_raises(gateway):
     ):
         return _cached_get_request_session(1, 1, 0.5, retry_codes, True, os.getpid(), True)
 
-    with patch(
-        "mlflow.utils.request_utils._get_request_session", _mock_request_session
-    ), patch.object(OpenAIProvider, "chat", mock_chat), pytest.raises(
-        MlflowException, match=".*Max retries exceeded.*"
+    with (
+        patch("mlflow.utils.request_utils._get_request_session", _mock_request_session),
+        patch.object(OpenAIProvider, "chat", mock_chat),
+        pytest.raises(MlflowException, match=".*Max retries exceeded.*"),
     ):
         query(route=route.name, data=data)
 
@@ -755,7 +761,7 @@ def test_invalid_response_structure_no_raises(gateway):
             "input_tokens": 17,
             "output_tokens": 24,
             "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "route_type": "llm/v1/chat",
         },
     }
@@ -775,10 +781,10 @@ def test_invalid_response_structure_no_raises(gateway):
     ):
         return _cached_get_request_session(0, 1, 0.5, retry_codes, False, os.getpid(), True)
 
-    with patch(
-        "mlflow.utils.request_utils._get_request_session", _mock_request_session
-    ), patch.object(OpenAIProvider, "chat", mock_chat), pytest.raises(
-        requests.exceptions.HTTPError, match=".*Internal Server Error.*"
+    with (
+        patch("mlflow.utils.request_utils._get_request_session", _mock_request_session),
+        patch.object(OpenAIProvider, "chat", mock_chat),
+        pytest.raises(requests.exceptions.HTTPError, match=".*Internal Server Error.*"),
     ):
         query(route=route.name, data=data)
 
@@ -790,7 +796,7 @@ def test_invalid_query_request_raises(gateway):
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "choices": [
             {
                 "message": {
@@ -823,10 +829,10 @@ def test_invalid_query_request_raises(gateway):
     ):
         return _cached_get_request_session(2, 1, 0.5, retry_codes, True, os.getpid(), True)
 
-    with patch(
-        "mlflow.utils.request_utils._get_request_session", _mock_request_session
-    ), patch.object(OpenAIProvider, "chat", new=mock_chat), pytest.raises(
-        requests.exceptions.HTTPError, match="Unprocessable Entity for"
+    with (
+        patch("mlflow.utils.request_utils._get_request_session", _mock_request_session),
+        patch.object(OpenAIProvider, "chat", new=mock_chat),
+        pytest.raises(requests.exceptions.HTTPError, match="Unprocessable Entity for"),
     ):
         query(route=route.name, data=data)
 
@@ -844,6 +850,8 @@ def test_mlflow_chat(gateway):
                 "message": {
                     "role": "assistant",
                     "content": "It is a test",
+                    "tool_calls": None,
+                    "refusal": None,
                 },
                 "finish_reason": None,
                 "index": 0,
@@ -1152,6 +1160,8 @@ def test_togetherai_chat(gateway):
                         "I hope this helps! If you have any other questions or need further "
                         "clarification, just let me know."
                     ),
+                    "tool_calls": None,
+                    "refusal": None,
                 },
                 "finish_reason": None,
             }

@@ -9,6 +9,9 @@ from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksMode
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
+from mlflow.store.artifact.unity_catalog_oss_models_artifact_repo import (
+    UnityCatalogOSSModelsArtifactRepository,
+)
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
     is_using_databricks_registry,
@@ -18,6 +21,7 @@ from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_unity_catalog_uri,
+    is_oss_unity_catalog_uri,
 )
 
 REGISTERED_MODEL_META_FILE_NAME = "registered_model_meta"
@@ -46,6 +50,12 @@ class ModelsArtifactRepository(ArtifactRepository):
             )
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
+        elif is_oss_unity_catalog_uri(uri=registry_uri):
+            self.repo = UnityCatalogOSSModelsArtifactRepository(
+                artifact_uri=artifact_uri, registry_uri=registry_uri
+            )
+            self.model_name = self.repo.model_name
+            self.model_version = self.repo.model_version
         elif is_using_databricks_registry(artifact_uri):
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
             self.repo = DatabricksModelsArtifactRepository(artifact_uri)
@@ -70,13 +80,22 @@ class ModelsArtifactRepository(ArtifactRepository):
         """
         Split 'models:/<name>/<version>/path/to/model' into
         ('models:/<name>/<version>', 'path/to/model').
+        Split 'models://<scope>:<prefix>@databricks/<name>/<version>/path/to/model' into
+        ('models://<scope>:<prefix>@databricks/<name>/<version>', 'path/to/model').
+        Split 'models:/<name>@alias/path/to/model' into
+        ('models:/<name>@alias', 'path/to/model').
         """
-        path = urllib.parse.urlparse(uri).path
-        if path.count("/") >= 3 and not path.endswith("/"):
+        uri = uri.rstrip("/")
+        parsed_url = urllib.parse.urlparse(uri)
+        path = parsed_url.path
+        netloc = parsed_url.netloc
+        if path.count("/") >= 2 and not path.endswith("/"):
             splits = path.split("/", 3)
-            model_name_and_version = splits[:3]
-            artifact_path = splits[-1]
-            return "models:" + "/".join(model_name_and_version), artifact_path
+            cut_index = 2 if "@" in splits[1] else 3
+            model_name_and_version = splits[:cut_index]
+            artifact_path = "/".join(splits[cut_index:])
+            base_part = f"models://{netloc}" if netloc else "models:"
+            return base_part + "/".join(model_name_and_version), artifact_path
         return uri, ""
 
     @staticmethod
@@ -174,6 +193,7 @@ class ModelsArtifactRepository(ArtifactRepository):
                 If unspecified, the artifacts will either be downloaded to a new
                 uniquely-named directory on the local filesystem or will be returned
                 directly in the case of the LocalArtifactRepository.
+            lineage_header_info: Linear header information.
 
         Returns:
             Absolute path of the local filesystem location containing the desired artifacts.

@@ -230,7 +230,7 @@ def test_client_correctly_operates_as_context_manager_for_synchronous_flush():
     assert run_tags_1 == tags_to_log
 
     exc_to_raise = Exception("test exception")
-    with pytest.raises(Exception, match=str(exc_to_raise)) as raised_exc_info:  # noqa: PT012
+    with pytest.raises(Exception, match=str(exc_to_raise)) as raised_exc_info:  # noqa PT012
         with mlflow.start_run(), MlflowAutologgingQueueingClient() as client:
             run_id_2 = mlflow.active_run().info.run_id
             client.log_params(run_id_2, params_to_log)

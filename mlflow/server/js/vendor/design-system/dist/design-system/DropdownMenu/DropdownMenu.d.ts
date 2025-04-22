@@ -1,31 +1,35 @@
 import { type CSSObject, type Interpolation } from '@emotion/react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import type { ReactElement } from 'react';
 import React from 'react';
 import type { Theme } from '../../theme';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
-import type { AnalyticsEventOptionalProps, AnalyticsEventValueChangeNoPiiFlagOptionalProps } from '../types';
-export declare const Root: React.FC<DropdownMenu.DropdownMenuProps>;
+import type { AnalyticsEventProps, AnalyticsEventValueChangeNoPiiFlagProps } from '../types';
+interface DropdownRootProps extends DropdownMenu.DropdownMenuProps {
+    itemHtmlType?: 'submit' | 'button';
+}
+export declare const Root: ({ children, itemHtmlType, ...props }: DropdownRootProps) => ReactElement;
 export interface DropdownMenuProps extends DropdownMenu.MenuContentProps {
     minWidth?: number;
-    isInsideModal?: boolean;
+    forceCloseOnEscape?: boolean;
 }
-export interface DropdownMenuItemProps extends DropdownMenu.DropdownMenuItemProps, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
+export interface DropdownMenuItemProps extends DropdownMenu.DropdownMenuItemProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
     danger?: boolean;
     disabledReason?: React.ReactNode;
 }
 export interface DropdownMenuSubTriggerProps extends DropdownMenu.DropdownMenuSubTriggerProps {
     disabledReason?: React.ReactNode;
 }
-export interface DropdownMenuCheckboxItemProps extends DropdownMenu.DropdownMenuCheckboxItemProps, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface DropdownMenuCheckboxItemProps extends DropdownMenu.DropdownMenuCheckboxItemProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     disabledReason?: React.ReactNode;
 }
-export interface DropdownMenuRadioGroupProps extends DropdownMenu.DropdownMenuRadioGroupProps, AnalyticsEventValueChangeNoPiiFlagOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface DropdownMenuRadioGroupProps extends DropdownMenu.DropdownMenuRadioGroupProps, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
 }
 export interface DropdownMenuRadioItemProps extends DropdownMenu.DropdownMenuRadioItemProps {
     disabledReason?: React.ReactNode;
 }
 export declare const Content: React.ForwardRefExoticComponent<DropdownMenuProps & React.RefAttributes<HTMLDivElement>>;
-export declare const SubContent: React.ForwardRefExoticComponent<Omit<DropdownMenuProps, "isInsideModal"> & React.RefAttributes<HTMLDivElement>>;
+export declare const SubContent: React.ForwardRefExoticComponent<Omit<DropdownMenuProps, "forceCloseOnEscape"> & React.RefAttributes<HTMLDivElement>>;
 export declare const Trigger: React.ForwardRefExoticComponent<DropdownMenu.DropdownMenuTriggerProps & React.RefAttributes<HTMLButtonElement>>;
 export declare const Item: React.ForwardRefExoticComponent<DropdownMenuItemProps & React.RefAttributes<HTMLDivElement>>;
 export declare const Label: React.ForwardRefExoticComponent<DropdownMenu.DropdownMenuLabelProps & React.RefAttributes<HTMLDivElement>>;
@@ -52,11 +56,12 @@ export declare const HintRow: React.ForwardRefExoticComponent<Pick<Pick<React.De
 export declare const IconWrapper: React.ForwardRefExoticComponent<Pick<Pick<React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>, "key" | keyof React.HTMLAttributes<HTMLDivElement>> & {
     ref?: ((instance: HTMLDivElement | null) => void) | React.RefObject<HTMLDivElement> | null | undefined;
 }, "key" | keyof React.HTMLAttributes<HTMLDivElement>> & React.RefAttributes<HTMLDivElement>>;
-export declare const dropdownContentStyles: (theme: Theme) => CSSObject;
+export declare const dropdownContentStyles: (theme: Theme, useNewShadows: boolean) => CSSObject;
 export declare const dropdownItemStyles: (theme: Theme) => Interpolation<Theme>;
 export declare const dropdownSeparatorStyles: (theme: Theme) => {
     height: number;
     margin: string;
     backgroundColor: string;
 };
+export {};
 //# sourceMappingURL=DropdownMenu.d.ts.map

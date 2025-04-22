@@ -1,4 +1,4 @@
-import { Button, InfoIcon, PlayIcon, RefreshIcon, Tooltip } from '@databricks/design-system';
+import { Button, InfoIcon, PlayIcon, RefreshIcon, LegacyTooltip } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { usePromptEngineeringContext } from '../contexts/PromptEngineeringContext';
 import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
@@ -25,7 +25,7 @@ export const EvaluationCellEvaluateButton = ({
 
   if (missingParamsToEvaluate && missingParamsToEvaluate.length > 0) {
     return (
-      <Tooltip
+      <LegacyTooltip
         title={
           <FormattedMessage
             description="Experiment page > artifact compare view > text cell > missing evaluation parameter values tooltip"
@@ -37,13 +37,13 @@ export const EvaluationCellEvaluateButton = ({
         }
       >
         <InfoIcon />
-      </Tooltip>
+      </LegacyTooltip>
     );
   }
 
   if (!isRunEvaluable) {
     return (
-      <Tooltip
+      <LegacyTooltip
         title={
           <FormattedMessage
             description="Experiment page > artifact compare view > text cell > run not evaluable tooltip"
@@ -52,7 +52,7 @@ export const EvaluationCellEvaluateButton = ({
         }
       >
         <InfoIcon />
-      </Tooltip>
+      </LegacyTooltip>
     );
   }
   return (

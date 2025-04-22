@@ -3,6 +3,7 @@ import os
 import posixpath
 
 from mlflow.entities import FileInfo
+from mlflow.exceptions import RestException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.protos.databricks_filesystem_service_pb2 import (
     CreateDownloadUrlRequest,
@@ -12,7 +13,9 @@ from mlflow.protos.databricks_filesystem_service_pb2 import (
     FilesystemService,
     ListDirectoryResponse,
 )
-from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository, _retry_with_new_creds
+from mlflow.protos.databricks_pb2 import NOT_FOUND, ErrorCode
+from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
+from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 from mlflow.utils.file_utils import download_file_using_http_uri
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.request_utils import augmented_raise_for_status, cloud_storage_http_request
@@ -89,7 +92,7 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
             return self._get_write_credential_infos(remote_file_paths=[artifact_file_path])[0]
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=creds_func, og_creds=cloud_credential_info
+            try_func=try_func, creds_func=creds_func, orig_creds=cloud_credential_info
         )
 
     def list_artifacts(self, path=""):
@@ -97,16 +100,26 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
         page_token = ""
         while True:
             endpoint = posixpath.join(DIRECTORIES_ENDPOINT, self.artifact_uri.lstrip("/"), path)
-            req_body = json.dumps({"page_token": page_token}) if page_token else ""
+            req_body = json.dumps({"page_token": page_token}) if page_token else None
 
             response_proto = ListDirectoryResponse()
-            resp = call_endpoint(
-                host_creds=self.db_creds,
-                endpoint=endpoint,
-                method="GET",
-                json_body=req_body,
-                response_proto=response_proto,
-            )
+
+            # If the path specified is not a directory, we return an empty list instead of raising
+            # an exception. This is due to this method being used in artifact_repo._is_directory
+            # to determine when a filepath is a directory.
+            try:
+                resp = call_endpoint(
+                    host_creds=self.db_creds,
+                    endpoint=endpoint,
+                    method="GET",
+                    json_body=req_body,
+                    response_proto=response_proto,
+                )
+            except RestException as e:
+                if e.error_code == ErrorCode.Name(NOT_FOUND):
+                    return []
+                else:
+                    raise e
             for dir_entry in resp.contents:
                 rel_path = posixpath.relpath(dir_entry.path, self.artifact_uri)
                 if dir_entry.is_directory:

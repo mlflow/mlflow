@@ -1,37 +1,76 @@
-import { ExperimentRunsSelectorResult } from 'experiment-tracking/components/experiment-page/utils/experimentRuns.selector';
 import {
-  DifferenceCardAttributes,
-  DifferenceCardConfigCompareGroup,
-  RunsChartsCardConfig,
-  RunsChartsDifferenceCardConfig,
-} from '../../runs-charts.types';
-import { RunsChartsRunData } from '../RunsCharts.common';
-import { ReactChild, ReactFragment, ReactPortal, useCallback, useMemo, useState } from 'react';
-import { MLFLOW_SYSTEM_METRIC_PREFIX } from 'experiment-tracking/constants';
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import {
+  Button,
+  ChevronDownIcon,
+  ChevronRightIcon,
   Table,
   TableCell,
   TableHeader,
   TableRow,
   useDesignSystemTheme,
-  Typography,
-  Tag,
-  Tooltip,
 } from '@databricks/design-system';
-import { RunColorPill } from 'experiment-tracking/components/experiment-page/components/RunColorPill';
-import { FormattedMessage, useIntl } from 'react-intl';
-import { MetricEntitiesByName } from 'experiment-tracking/types';
-import { differenceView, getDifferenceViewDataGroups, getFixedPointValue } from '../../utils/differenceView';
-import { OverflowIcon, Button, DropdownMenu } from '@databricks/design-system';
-import Utils from 'common/utils/Utils';
-import { TableSkeletonRows } from '@databricks/design-system';
-import { ArrowUpIcon } from '@databricks/design-system';
-import { ArrowDownIcon } from '@databricks/design-system';
+import {
+  CellContext,
+  ColumnDef,
+  ColumnDefTemplate,
+  flexRender,
+  getCoreRowModel,
+  getExpandedRowModel,
+  Row,
+  useReactTable,
+} from '@tanstack/react-table';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useIntl } from 'react-intl';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
+import {
+  DifferenceCardConfigCompareGroup,
+  RunsChartsCardConfig,
+  RunsChartsDifferenceCardConfig,
+} from '../../runs-charts.types';
+import {
+  DIFFERENCE_PLOT_EXPAND_COLUMN_ID,
+  DIFFERENCE_PLOT_HEADING_COLUMN_ID,
+  getDifferencePlotJSONRows,
+  getDifferenceViewDataGroups,
+} from '../../utils/differenceView';
+import { RunsChartsRunData } from '../RunsCharts.common';
+import { DifferencePlotDataCell } from './difference-view-plot/DifferencePlotDataCell';
+import { DifferencePlotRunHeaderCell } from './difference-view-plot/DifferencePlotRunHeaderCell';
 
-const HEADING_COLUMN_ID = 'headingColumn';
-const COLUMN_WIDTH = 200;
+export type DifferencePlotDataColumnDef = ColumnDef<DifferencePlotDataRow> & {
+  meta?: {
+    traceData?: RunsChartsRunData;
+    updateBaselineColumnUuid: (uuid: string) => void;
+    isBaseline: boolean;
+    showChangeFromBaseline: boolean;
+    baselineColumnUuid?: string;
+  };
+};
+
+export type DifferencePlotDataRow =
+  | Record<string, any>
+  | {
+      children: DifferencePlotDataRow[];
+      key: string;
+      [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: string;
+    };
+
+const ExpandCell: ColumnDefTemplate<
+  CellContext<DifferencePlotDataRow, unknown> & { toggleExpand?: (row: Row<DifferencePlotDataRow>) => void }
+> = ({ row, toggleExpand }) => {
+  if (row.getCanExpand() && toggleExpand) {
+    return (
+      <Button
+        componentId="mlflow.charts.difference_plot.expand_button"
+        size="small"
+        type="link"
+        onClick={() => toggleExpand(row)}
+        icon={row.getIsExpanded() ? <ChevronDownIcon /> : <ChevronRightIcon />}
+      />
+    );
+  }
+  return null;
+};
 
 export const DifferenceViewPlot = ({
   previewData,
@@ -48,202 +87,260 @@ export const DifferenceViewPlot = ({
   const { theme } = useDesignSystemTheme();
 
   const { modelMetrics, systemMetrics, parameters, tags, attributes } = useMemo(
-    () => getDifferenceViewDataGroups(previewData, cardConfig, HEADING_COLUMN_ID, groupBy),
+    () => getDifferenceViewDataGroups(previewData, cardConfig, DIFFERENCE_PLOT_HEADING_COLUMN_ID, groupBy),
     [previewData, cardConfig, groupBy],
   );
-  // Each metric/param is a row in the table
-  const getData = [
-    ...(cardConfig.compareGroups.includes(DifferenceCardConfigCompareGroup.MODEL_METRICS) ? modelMetrics : []),
-    ...(cardConfig.compareGroups.includes(DifferenceCardConfigCompareGroup.SYSTEM_METRICS) ? systemMetrics : []),
-    ...(cardConfig.compareGroups.includes(DifferenceCardConfigCompareGroup.PARAMETERS) ? parameters : []),
-    ...(cardConfig.compareGroups.includes(DifferenceCardConfigCompareGroup.ATTRIBUTES) ? attributes : []),
-    ...(cardConfig.compareGroups.includes(DifferenceCardConfigCompareGroup.TAGS) ? tags : []),
-  ];
 
   const { baselineColumn, nonBaselineColumns } = useMemo(() => {
+    const dataTracesReverse = previewData.slice().reverse();
     // baseline column (can be undefined if no baseline selected)
-    let baselineColumn = previewData.find((runData) => runData.uuid === cardConfig.baselineColumnUuid);
-    if (baselineColumn === undefined && previewData.length > 0) {
+    let baselineColumn = dataTracesReverse.find((runData) => runData.uuid === cardConfig.baselineColumnUuid);
+    if (baselineColumn === undefined && dataTracesReverse.length > 0) {
       // Set the first column as baseline column
-      baselineColumn = previewData[0];
+      baselineColumn = dataTracesReverse[0];
     }
     // non-baseline columns
-    const nonBaselineColumns = previewData.filter(
+    const nonBaselineColumns = dataTracesReverse.filter(
       (runData) => baselineColumn === undefined || runData.uuid !== baselineColumn.uuid,
     );
-
     return { baselineColumn, nonBaselineColumns };
   }, [previewData, cardConfig.baselineColumnUuid]);
 
-  // Split columns into baseline/non-baseline
-  const getColumns = useMemo(() => {
-    const convertRunToColumnInfo = (runData: RunsChartsRunData, isBaseline: boolean) => {
-      const accessorFn = (row: Record<string, string | number>) => {
-        return {
-          text: row[runData.uuid],
-          difference: baselineColumn ? differenceView(row[runData.uuid], row[baselineColumn.uuid]) : null,
-        };
-      };
-
-      const baselineAccessorFn = (row: Record<string, string | number>) => {
-        return row[runData.uuid];
-      };
-      if (isBaseline) {
-        return {
-          id: runData.uuid,
-          header: () => {
-            return (
-              <span css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
-                <span css={{ display: 'inline-flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-                  <RunColorPill color={runData.color} />
-                  {runData.displayName}
-                  <Tag css={{ margin: 0 }}>
-                    <FormattedMessage
-                      defaultMessage="baseline"
-                      description="Runs charts > components > charts > DifferenceViewPlot > baseline tag"
-                    />
-                  </Tag>
-                </span>
-              </span>
-            );
-          },
-          size: COLUMN_WIDTH,
-          accessorFn: baselineAccessorFn,
-          cell: (row: any) => <span>{getFixedPointValue(row.getValue())}</span>,
-        };
-      }
-      return {
-        id: runData.uuid,
-        header: () => {
-          return (
-            <span css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
-              <span css={{ display: 'inline-flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-                <RunColorPill color={runData.color} />
-                {runData.displayName}
-              </span>
-            </span>
-          );
-        },
-        size: COLUMN_WIDTH,
-        accessorFn: accessorFn,
-        cell: (row: any) => (
-          <span css={{ display: 'inline-flex', gap: theme.spacing.md, verticalAlign: 'middle' }}>
-            <Typography.Text>{getFixedPointValue(row.getValue().text)}</Typography.Text>
-            {baselineColumn &&
-              cardConfig.showChangeFromBaseline &&
-              row.getValue().difference &&
-              (row.getValue().difference[0] === '-' ? (
-                <div css={{ display: 'inline-flex', gap: theme.spacing.xs }}>
-                  <Typography.Paragraph color="error">{row.getValue().difference}</Typography.Paragraph>
-                  <ArrowDownIcon color="danger" />
-                </div>
-              ) : (
-                <div css={{ display: 'inline-flex', gap: theme.spacing.xs }}>
-                  <Typography.Paragraph color="success">{row.getValue().difference}</Typography.Paragraph>
-                  <ArrowUpIcon color="success" />
-                </div>
-              ))}
-          </span>
-        ),
-      };
-    };
-
-    return [
-      {
-        id: HEADING_COLUMN_ID,
-        header: formatMessage({
-          defaultMessage: 'Compare by',
-          description: 'Runs charts > components > charts > DifferenceViewPlot > Compare by column heading',
-        }),
-        accessorKey: HEADING_COLUMN_ID,
-        size: COLUMN_WIDTH,
-      },
-      ...(baselineColumn ? [convertRunToColumnInfo(baselineColumn, true)] : []),
-      ...nonBaselineColumns.map((runData) => convertRunToColumnInfo(runData, false)),
-    ];
-  }, [theme.spacing, formatMessage, baselineColumn, nonBaselineColumns, cardConfig.showChangeFromBaseline]);
-
-  const table = useReactTable({
-    data: getData,
-    columns: getColumns,
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-    getCoreRowModel: getCoreRowModel(),
-  });
-
   const updateBaselineColumnUuid = useCallback(
     (baselineColumnUuid: string) => {
-      if (setCardConfig) {
-        setCardConfig((current) => ({
-          ...(current as RunsChartsDifferenceCardConfig),
-          baselineColumnUuid,
-        }));
-      }
+      setCardConfig?.((current) => ({
+        ...(current as RunsChartsDifferenceCardConfig),
+        baselineColumnUuid,
+      }));
     },
     [setCardConfig],
   );
 
-  if (previewData.length === 0) {
-    return null;
-  }
+  const dataRows = useMemo<DifferencePlotDataRow[]>(
+    () =>
+      cardConfig.compareGroups.reduce((acc: DifferencePlotDataRow[], group: DifferenceCardConfigCompareGroup) => {
+        switch (group) {
+          case DifferenceCardConfigCompareGroup.MODEL_METRICS:
+            acc.push({
+              [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
+                defaultMessage: `Model Metrics`,
+                description:
+                  'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > model metrics heading',
+              }),
+              children: [...modelMetrics],
+              key: 'modelMetrics',
+            });
+            break;
+          case DifferenceCardConfigCompareGroup.SYSTEM_METRICS:
+            acc.push({
+              [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
+                defaultMessage: `System Metrics`,
+                description:
+                  'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading',
+              }),
+              children: [...systemMetrics],
+              key: 'systemMetrics',
+            });
+            break;
+          case DifferenceCardConfigCompareGroup.PARAMETERS:
+            acc.push({
+              [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
+                defaultMessage: `Parameters`,
+                description:
+                  'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > parameters heading',
+              }),
+              children: getDifferencePlotJSONRows(parameters),
+              key: 'parameters',
+            });
+            break;
+          case DifferenceCardConfigCompareGroup.ATTRIBUTES:
+            acc.push({
+              [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
+                defaultMessage: `Attributes`,
+                description:
+                  'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading',
+              }),
+              children: [...attributes],
+              key: 'attributes',
+            });
+            break;
+          case DifferenceCardConfigCompareGroup.TAGS:
+            acc.push({
+              [DIFFERENCE_PLOT_HEADING_COLUMN_ID]: formatMessage({
+                defaultMessage: `Tags`,
+                description: 'Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > tags heading',
+              }),
+              children: [...tags],
+              key: 'tags',
+            });
+            break;
+        }
+        return acc;
+      }, []),
+    [modelMetrics, systemMetrics, parameters, tags, attributes, cardConfig.compareGroups, formatMessage],
+  );
+
+  const columns = useMemo(() => {
+    const columns: DifferencePlotDataColumnDef[] = [
+      {
+        id: DIFFERENCE_PLOT_EXPAND_COLUMN_ID,
+        cell: ExpandCell,
+        size: 32,
+        enableResizing: false,
+      },
+      {
+        accessorKey: DIFFERENCE_PLOT_HEADING_COLUMN_ID,
+        size: 150,
+        header: formatMessage({
+          defaultMessage: 'Compare by',
+          description: 'Runs charts > components > charts > DifferenceViewPlot > Compare by column heading',
+        }),
+        id: DIFFERENCE_PLOT_HEADING_COLUMN_ID,
+        enableResizing: true,
+      },
+      ...[baselineColumn, ...nonBaselineColumns].map((traceData, index) => ({
+        accessorKey: traceData?.uuid,
+        size: 200,
+        enableResizing: true,
+        meta: {
+          traceData,
+          updateBaselineColumnUuid,
+          showChangeFromBaseline: cardConfig.showChangeFromBaseline,
+          isBaseline: traceData === baselineColumn,
+          baselineColumnUuid: baselineColumn?.uuid,
+        },
+        id: traceData?.uuid ?? index.toString(),
+        header: DifferencePlotRunHeaderCell as ColumnDefTemplate<DifferencePlotDataRow>,
+        cell: DifferencePlotDataCell as ColumnDefTemplate<DifferencePlotDataRow>,
+      })),
+    ];
+    return columns;
+  }, [formatMessage, baselineColumn, nonBaselineColumns, updateBaselineColumnUuid, cardConfig.showChangeFromBaseline]);
+
+  // Start with all row groups expanded
+  const [expanded, setExpanded] = useState({
+    modelMetrics: true,
+    systemMetrics: true,
+    parameters: true,
+    attributes: true,
+    tags: true,
+  });
+
+  const table = useReactTable({
+    columns,
+    data: dataRows,
+    getCoreRowModel: getCoreRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+    columnResizeMode: 'onChange',
+    enableExpanding: true,
+    getSubRows: (row) => row.children,
+    getRowId: (row) => row.key,
+    getRowCanExpand: (row) => Boolean(row.subRows.length),
+    state: {
+      expanded,
+      columnPinning: {
+        left: [DIFFERENCE_PLOT_EXPAND_COLUMN_ID, DIFFERENCE_PLOT_HEADING_COLUMN_ID],
+      },
+    },
+  });
+
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  const toggleExpand = useCallback((row: Row<DifferencePlotDataRow>) => {
+    const key = row.original.key;
+    setExpanded((prev) => ({
+      ...prev,
+      [key]: !row.getIsExpanded(),
+    }));
+  }, []);
+
+  const { getVirtualItems, getTotalSize } = useVirtualizer({
+    count: table.getExpandedRowModel().rows.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 33, // Default row height
+    paddingStart: 37, // Default header height,
+  });
+
+  const expandedRows = table.getExpandedRowModel().rows;
 
   return (
-    <Table style={{ width: table.getTotalSize() }} scrollable>
-      {table.getHeaderGroups().map((headerGroup) => (
-        <TableRow key={headerGroup.id} isHeader>
-          {headerGroup.headers.map((header, index) => {
+    <div css={{ flex: 1, overflowX: 'scroll', height: '100%' }} ref={tableContainerRef}>
+      <Table css={{ width: table.getTotalSize(), position: 'relative' }}>
+        <TableRow isHeader css={{ position: 'sticky', top: 0, zIndex: 101 }}>
+          {table.getLeafHeaders().map((header, index) => {
+            const isPinned = header.column.getIsPinned();
+
             return (
               <TableHeader
+                header={header}
+                column={header.column}
+                setColumnSizing={table.setColumnSizing}
+                componentId="mlflow.charts.difference_plot.header"
                 key={header.id}
+                multiline={false}
                 style={{
-                  maxWidth: header.column.getSize(),
+                  left: isPinned === 'left' ? `${header.column.getStart('left')}px` : undefined,
+                  position: isPinned ? 'sticky' : 'relative',
+                  width: header.column.getSize(),
+                  flexBasis: header.column.getSize(),
+                  zIndex: isPinned ? 100 : 0,
                 }}
-                resizable={header.column.getCanResize()}
-                resizeHandler={header.getResizeHandler()}
+                wrapContent={false}
               >
-                <div
-                  css={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    gap: theme.spacing.xs,
-                    alignItems: 'center',
-                  }}
-                >
-                  <div css={{ flexShrink: 1, flexGrow: 1, overflow: 'hidden' }}>
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </div>
-                  {index !== 0 && setCardConfig && (
-                    <div>
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                          <Button componentId="set_as_baseline_button" icon={<OverflowIcon />} />
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Content>
-                          <DropdownMenu.Item onClick={() => updateBaselineColumnUuid(header.id)}>
-                            <FormattedMessage
-                              defaultMessage="Set as baseline"
-                              description="Runs charts > components > charts > DifferenceViewPlot > Set as baseline dropdown option"
-                            />
-                          </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Root>
-                    </div>
-                  )}
-                </div>
+                {flexRender(header.column.columnDef.header, header.getContext())}
               </TableHeader>
             );
           })}
         </TableRow>
-      ))}
-      {table.getRowModel().rows.map((row) => (
-        <TableRow key={row.id}>
-          {row.getAllCells().map((cell) => (
-            <TableCell key={cell.id} style={{ maxWidth: cell.column.getSize() }} multiline>
-              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-            </TableCell>
-          ))}
-        </TableRow>
-      ))}
-    </Table>
+        <div css={{ height: getTotalSize() }}>
+          {getVirtualItems().map(({ index, start, size }) => {
+            const row = expandedRows[index];
+
+            return (
+              <TableRow
+                key={row.id + index}
+                css={{
+                  width: 'auto',
+                  position: 'absolute',
+                  top: 0,
+                }}
+                style={{
+                  transform: `translateY(${start}px)`,
+                  height: size,
+                }}
+              >
+                {row.getVisibleCells().map((cell, index) => {
+                  const isPinned = cell.column.getIsPinned();
+
+                  const isNameColumn = cell.column.columnDef.id === DIFFERENCE_PLOT_HEADING_COLUMN_ID;
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      style={{
+                        left: isPinned === 'left' ? `${cell.column.getStart('left')}px` : undefined,
+                        position: isPinned ? 'sticky' : 'relative',
+                        width: cell.column.getSize(),
+                        zIndex: isPinned ? 100 : 0,
+                        flexBasis: cell.column.getSize(),
+                      }}
+                      css={[
+                        {
+                          backgroundColor: isPinned ? theme.colors.backgroundPrimary : undefined,
+                        },
+                        isNameColumn && { borderRight: `1px solid ${theme.colors.border}` },
+                        isNameColumn && { paddingLeft: row.depth * theme.spacing.lg },
+                      ]}
+                      wrapContent={false}
+                    >
+                      {flexRender(cell.column.columnDef.cell, { ...cell.getContext(), toggleExpand })}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            );
+          })}
+        </div>
+      </Table>
+    </div>
   );
 };

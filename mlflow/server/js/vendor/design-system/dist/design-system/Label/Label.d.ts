@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { InfoPopoverProps } from '../Popover';
 import type { HTMLDataAttributes } from '../types';
 export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement>, HTMLDataAttributes {

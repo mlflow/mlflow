@@ -16,9 +16,6 @@ on:
         required: false
         default: ""
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -39,9 +36,10 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: ${{ github.event.inputs.repository }}
           repository: ${{ github.event.inputs.repository }}
@@ -68,9 +66,10 @@ jobs:
   recipe:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: ${{ github.event.inputs.repository }}
           repository: ${{ github.event.inputs.repository }}
@@ -88,9 +87,11 @@ jobs:
           cd ${{ github.event.inputs.repository }} && pytest tests --rootdir .
   recipe-windows:
     runs-on: windows-latest
+    timeout-minutes: 120
+    permissions: {}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           path: ${{ github.event.inputs.repository }}
           repository: ${{ github.event.inputs.repository }}

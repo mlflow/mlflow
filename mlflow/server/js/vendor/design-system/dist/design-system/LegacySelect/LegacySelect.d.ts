@@ -56,8 +56,8 @@ export declare const LegacyOptGroup: React.ForwardRefExoticComponent<LegacySelec
 /**
  * @deprecated Use Select, TypeaheadCombobox, or DialogCombobox depending on your use-case. See http://go/deprecate-ant-select for more information
  */
-export declare const LegacySelect: (<T extends AntdSelectValue>(props: LegacySelectProps<T> & {
-    ref?: SelectRef | undefined;
+export declare const LegacySelect: (<T extends LegacySelectValue>(props: LegacySelectProps<T> & {
+    ref?: SelectRef;
 }) => JSX.Element) & {
     Option: typeof LegacySelectOption;
     OptGroup: typeof LegacySelectOptGroup;

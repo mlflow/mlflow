@@ -2,8 +2,12 @@ import { useCallback, useRef } from 'react';
 import { useUpdateExperimentViewUIState } from '../contexts/ExperimentPageUIStateContext';
 import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import type { RunRowType } from '../utils/experimentPage.row-types';
+import {
+  shouldEnableToggleIndividualRunsInGroups,
+  shouldUseRunRowsVisibilityMap,
+} from '../../../../common/utils/FeatureUtils';
 
-export const useToggleRowVisibilityCallback = (tableRows: RunRowType[]) => {
+export const useToggleRowVisibilityCallback = (tableRows: RunRowType[], useGroupedValuesInCharts = true) => {
   const updateUIState = useUpdateExperimentViewUIState();
 
   // We're going to use current state of the table rows to determine which rows are hidden.
@@ -11,6 +15,67 @@ export const useToggleRowVisibilityCallback = (tableRows: RunRowType[]) => {
   const immediateTableRows = useRef(tableRows);
   immediateTableRows.current = tableRows;
 
+  const toggleRowUsingVisibilityMap = useCallback(
+    (mode: RUNS_VISIBILITY_MODE, groupOrRunUuid?: string, isCurrentlyVisible?: boolean) => {
+      updateUIState((currentUIState) => {
+        // If user has toggled a run or a group manually, we need to update the visibility map
+        if (mode === RUNS_VISIBILITY_MODE.CUSTOM && groupOrRunUuid) {
+          const newRunsVisibilityMap = {
+            ...currentUIState.runsVisibilityMap,
+          };
+
+          // Check if the toggles row is a run group
+          const currentToggledGroupInfo = immediateTableRows.current.find(
+            ({ rowUuid, groupParentInfo }) => rowUuid === groupOrRunUuid && groupParentInfo,
+          )?.groupParentInfo;
+
+          // If we're toggling a group and we're not using grouped values in charts,
+          // then toggle all runs in the group
+          if (
+            currentToggledGroupInfo &&
+            shouldEnableToggleIndividualRunsInGroups() &&
+            useGroupedValuesInCharts === false
+          ) {
+            for (const runUuid of currentToggledGroupInfo.runUuids) {
+              newRunsVisibilityMap[runUuid] = !isCurrentlyVisible;
+            }
+          } else {
+            newRunsVisibilityMap[groupOrRunUuid] = !isCurrentlyVisible;
+          }
+
+          return {
+            ...currentUIState,
+            runsVisibilityMap: newRunsVisibilityMap,
+          };
+        }
+        // Otherwise, we're toggling a predefined visibility mode
+        // and clearing the visibility map
+        if (
+          [
+            RUNS_VISIBILITY_MODE.SHOWALL,
+            RUNS_VISIBILITY_MODE.HIDEALL,
+            RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
+            RUNS_VISIBILITY_MODE.FIRST_20_RUNS,
+          ].includes(mode)
+        ) {
+          return {
+            ...currentUIState,
+            runsHiddenMode: mode,
+            runsHidden: [],
+            runsVisibilityMap: {},
+          };
+        }
+
+        return currentUIState;
+      });
+    },
+    [updateUIState, useGroupedValuesInCharts],
+  );
+
+  /**
+   * @deprecated `toggleRowUsingVisibilityMap` replaces this function.
+   * This one should be removed after ramping up `runsVisibility` field.
+   */
   const toggleRowVisibility = useCallback(
     (mode: RUNS_VISIBILITY_MODE, groupOrRunUuid?: string) => {
       updateUIState((currentUIState) => {
@@ -51,6 +116,38 @@ export const useToggleRowVisibilityCallback = (tableRows: RunRowType[]) => {
             .filter(({ hidden }) => hidden)
             .map(({ groupParentInfo, rowUuid, runUuid }) => (groupParentInfo ? rowUuid : runUuid));
 
+          // Check if the toggles row is a run group
+          const currentToggledGroupInfo = immediateTableRows.current.find(
+            ({ rowUuid, groupParentInfo }) => rowUuid === groupOrRunUuid && groupParentInfo,
+          )?.groupParentInfo;
+
+          // If we're toggling a group and we're not using grouped values in charts,
+          // then toggle all runs in the group
+          if (
+            currentToggledGroupInfo &&
+            shouldEnableToggleIndividualRunsInGroups() &&
+            useGroupedValuesInCharts === false
+          ) {
+            let newHiddenRows: string[] = [];
+
+            // Depending on the current state of the group, we either show all runs or hide all runs
+            if (currentToggledGroupInfo.allRunsHidden) {
+              newHiddenRows = currentlyHiddenRows.filter(
+                (currentGroupOrRunUuid) => !currentToggledGroupInfo.runUuids.includes(currentGroupOrRunUuid),
+              );
+            } else {
+              newHiddenRows = currentlyHiddenRows.concat(
+                currentToggledGroupInfo.runUuids.filter((runUuid) => !currentlyHiddenRows.includes(runUuid)),
+              );
+            }
+            return {
+              ...currentUIState,
+              // Set mode to "custom"
+              runsHiddenMode: RUNS_VISIBILITY_MODE.CUSTOM,
+              runsHidden: newHiddenRows,
+            };
+          }
+
           // Toggle visibility of a run/group by either adding or removing from the array
           const newHiddenRows = currentlyHiddenRows.includes(groupOrRunUuid)
             ? currentlyHiddenRows.filter((currentGroupOrRunUuid) => currentGroupOrRunUuid !== groupOrRunUuid)
@@ -67,8 +164,8 @@ export const useToggleRowVisibilityCallback = (tableRows: RunRowType[]) => {
         return currentUIState;
       });
     },
-    [updateUIState],
+    [updateUIState, useGroupedValuesInCharts],
   );
 
-  return toggleRowVisibility;
+  return shouldUseRunRowsVisibilityMap() ? toggleRowUsingVisibilityMap : toggleRowVisibility;
 };

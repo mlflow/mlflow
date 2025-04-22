@@ -1,3 +1,6 @@
+import inspect
+import io
+import sys
 from unittest import mock
 
 import pandas as pd
@@ -6,6 +9,7 @@ import pytest
 from mlflow.metrics import (
     MetricValue,
     ari_grade_level,
+    bleu,
     exact_match,
     f1_score,
     flesch_kincaid_grade_level,
@@ -39,6 +43,7 @@ from mlflow.metrics import (
         rougeL(),
         rougeLsum(),
         toxicity(),
+        bleu(),
     ],
 )
 def test_return_type_and_len_with_target(metric):
@@ -69,6 +74,7 @@ def test_toxicity():
     assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
     assert result.scores[0] < result.aggregate_results["p90"] < result.scores[1]
     assert "variance" in result.aggregate_results
+    assert toxicity()(predictions=predictions) == result
 
 
 def test_flesch_kincaid_grade_level():
@@ -86,6 +92,7 @@ def test_flesch_kincaid_grade_level():
     assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
     assert result.scores[0] < result.aggregate_results["p90"] < result.scores[1]
     assert "variance" in result.aggregate_results
+    assert flesch_kincaid_grade_level()(predictions=predictions) == result
 
 
 def test_ari_grade_level():
@@ -103,6 +110,7 @@ def test_ari_grade_level():
     assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
     assert result.scores[0] < result.aggregate_results["p90"] < result.scores[1]
     assert "variance" in result.aggregate_results
+    assert ari_grade_level()(predictions=predictions) == result
 
 
 def test_exact_match():
@@ -111,6 +119,7 @@ def test_exact_match():
 
     result = exact_match().eval_fn(predictions, targets, {})
     assert result.aggregate_results["exact_match"] == 1.0
+    assert exact_match()(predictions=predictions, targets=targets) == result
 
     predictions = pd.Series(["not sentence", "random text", "b", "c"])
     targets = pd.Series(["sentence not", "random text", "a", "c"])
@@ -127,6 +136,7 @@ def test_rouge1():
     assert result.aggregate_results["mean"] == 0.25
     assert result.aggregate_results["p90"] == 0.45
     assert result.aggregate_results["variance"] == 0.0625
+    assert rouge1()(predictions=predictions, targets=targets) == result
 
 
 def test_rouge2():
@@ -138,6 +148,7 @@ def test_rouge2():
     assert result.aggregate_results["mean"] == 0.75
     assert result.aggregate_results["p90"] == 0.95
     assert result.aggregate_results["variance"] == 0.0625
+    assert rouge2()(predictions=predictions, targets=targets) == result
 
 
 def test_rougeL():
@@ -149,6 +160,7 @@ def test_rougeL():
     assert result.aggregate_results["mean"] == 0.5
     assert result.aggregate_results["p90"] == 0.9
     assert result.aggregate_results["variance"] == 0.25
+    assert rougeL()(predictions=predictions, targets=targets) == result
 
 
 def test_rougeLsum():
@@ -160,6 +172,7 @@ def test_rougeLsum():
     assert result.aggregate_results["mean"] == 0.5
     assert result.aggregate_results["p90"] == 0.9
     assert result.aggregate_results["variance"] == 0.25
+    assert rougeLsum()(predictions=predictions, targets=targets) == result
 
 
 def test_fails_to_load_metric():
@@ -185,6 +198,7 @@ def test_mae():
     targets = pd.Series([1.0, 2.0, 3.0])
     result = mae().eval_fn(predictions, targets, {})
     assert result.aggregate_results["mean_absolute_error"] == 1.0
+    assert mae()(predictions=predictions, targets=targets) == result
 
 
 def test_mse():
@@ -192,6 +206,7 @@ def test_mse():
     targets = pd.Series([1.0, 2.0, 3.0])
     result = mse().eval_fn(predictions, targets, {})
     assert result.aggregate_results["mean_squared_error"] == 3.0
+    assert mse()(predictions=predictions, targets=targets) == result
 
 
 def test_rmse():
@@ -199,6 +214,7 @@ def test_rmse():
     targets = pd.Series([1.0, 2.0, 3.0])
     result = rmse().eval_fn(predictions, targets, {})
     assert result.aggregate_results["root_mean_squared_error"] == 3.0
+    assert rmse()(predictions=predictions, targets=targets) == result
 
 
 def test_r2_score():
@@ -206,6 +222,7 @@ def test_r2_score():
     targets = pd.Series([3.0, 2.0, 1.0])
     result = r2_score().eval_fn(predictions, targets, {})
     assert result.aggregate_results["r2_score"] == -3.0
+    assert r2_score()(predictions=predictions, targets=targets) == result
 
 
 def test_max_error():
@@ -213,6 +230,7 @@ def test_max_error():
     targets = pd.Series([3.0, 2.0, 1.0])
     result = max_error().eval_fn(predictions, targets, {})
     assert result.aggregate_results["max_error"] == 2.0
+    assert max_error()(predictions=predictions, targets=targets) == result
 
 
 def test_mape_error():
@@ -220,6 +238,7 @@ def test_mape_error():
     targets = pd.Series([2.0, 2.0, 2.0])
     result = mape().eval_fn(predictions, targets, {})
     assert result.aggregate_results["mean_absolute_percentage_error"] == 0.5
+    assert mape()(predictions=predictions, targets=targets) == result
 
 
 def test_binary_recall_score():
@@ -227,6 +246,7 @@ def test_binary_recall_score():
     targets = pd.Series([1, 1, 1, 1, 0, 0, 0, 0])
     result = recall_score().eval_fn(predictions, targets, {})
     assert abs(result.aggregate_results["recall_score"] - 0.5) < 1e-3
+    assert recall_score()(predictions=predictions, targets=targets) == result
 
 
 def test_binary_precision():
@@ -234,6 +254,7 @@ def test_binary_precision():
     targets = pd.Series([1, 1, 1, 1, 0, 0, 0, 0])
     result = precision_score().eval_fn(predictions, targets, {})
     assert abs(result.aggregate_results["precision_score"] == 0.666) < 1e-3
+    assert precision_score()(predictions=predictions, targets=targets) == result
 
 
 def test_binary_f1_score():
@@ -241,6 +262,7 @@ def test_binary_f1_score():
     targets = pd.Series([1, 1, 1, 1, 0, 0, 0, 0])
     result = f1_score().eval_fn(predictions, targets, {})
     assert abs(result.aggregate_results["f1_score"] - 0.5713) < 1e-3
+    assert f1_score()(predictions=predictions, targets=targets) == result
 
 
 def test_precision_at_k():
@@ -254,6 +276,7 @@ def test_precision_at_k():
         "p90": 1.0,
         "variance": 0.171875,
     }
+    assert precision_at_k(4)(predictions=predictions, targets=targets) == result
 
 
 def test_recall_at_k():
@@ -267,6 +290,7 @@ def test_recall_at_k():
         "p90": 0.8,
         "variance": 0.1,
     }
+    assert recall_at_k(4)(predictions=predictions, targets=targets) == result
 
 
 def test_ndcg_at_k():
@@ -283,6 +307,7 @@ def test_ndcg_at_k():
     predictions = data["prediction"]
     targets = data["target"]
     result = ndcg_at_k(3).eval_fn(predictions, targets)
+    assert ndcg_at_k(3)(predictions=predictions, targets=targets) == result
 
     assert result.scores == data["ndcg"].to_list()
     assert pytest.approx(result.aggregate_results["mean"]) == 0.4
@@ -333,3 +358,42 @@ def test_ndcg_at_k():
         result = ndcg_at_k(k).eval_fn(predictions, targets)
         # row 1 and 2 have the same ndcg score
         assert pytest.approx(result.scores[0]) == pytest.approx(result.scores[1])
+
+    predictions = pd.Series([["c", "c", "c"]])
+    targets = pd.Series([["a", "b"]])
+    result = ndcg_at_k(k=3).eval_fn(predictions, targets)
+    assert result.scores[0] == 0.0
+
+
+def test_bleu():
+    predictions = ["hello world", "this is a test"]
+    targets = ["hello world", "this is a test sentence"]
+    result = bleu().eval_fn(predictions, targets)
+    assert result.scores == [0.0, 0.7788007830714049]
+    assert result.justifications is None
+    assert result.aggregate_results["mean"] == 0.38940039153570244
+    assert result.aggregate_results["p90"] == 0.7009207047642644
+    assert result.aggregate_results["variance"] == 0.15163266492815836
+
+    predictions = ["hello there general kenobi", "foo bar foobar"]
+    targets = ["hello there general kenobi", "hello there !", "foo bar foobar"]
+    result = bleu().eval_fn(predictions, targets)
+    assert result.scores == [1.0, 0.0]
+    assert result.justifications is None
+    assert result.aggregate_results["mean"] == 0.5
+    assert result.aggregate_results["p90"] == 0.9
+    assert result.aggregate_results["variance"] == 0.25
+
+
+def test_builtin_metric_call_signature():
+    metric = ndcg_at_k(3)
+    assert inspect.signature(metric).parameters.keys() == {"predictions", "targets"}
+
+    captured_output = io.StringIO()
+    sys.stdout = captured_output
+    try:
+        help(metric)
+    finally:
+        sys.stdout = sys.__stdout__
+
+    assert "__call__ = _call_method(self, *, predictions, targets)" in captured_output.getvalue()

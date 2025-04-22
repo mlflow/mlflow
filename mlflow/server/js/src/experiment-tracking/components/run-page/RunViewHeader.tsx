@@ -2,10 +2,12 @@ import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { OverflowMenu, PageHeader } from '../../../shared/building_blocks/PageHeader';
 import Routes from '../../routes';
-import { ExperimentEntity, KeyValueEntity } from '../../types';
+import type { ExperimentEntity, KeyValueEntity } from '../../types';
 import { RunViewModeSwitch } from './RunViewModeSwitch';
 import Utils from '../../../common/utils/Utils';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
+import type { UseGetRunQueryResponseExperiment } from './hooks/useGetRunQuery';
+import type { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 
 /**
  * Run details page header component, common for all page view modes
@@ -20,6 +22,9 @@ export const RunViewHeader = ({
   runUuid,
   handleRenameRunClick,
   handleDeleteRunClick,
+  artifactRootUri,
+  registeredModelVersionSummaries,
+  isLoading,
 }: {
   hasComparedExperimentsBefore?: boolean;
   comparedExperimentIds?: string[];
@@ -27,9 +32,12 @@ export const RunViewHeader = ({
   runUuid: string;
   runTags: Record<string, KeyValueEntity>;
   runParams: Record<string, KeyValueEntity>;
-  experiment: ExperimentEntity;
+  experiment: ExperimentEntity | UseGetRunQueryResponseExperiment;
   handleRenameRunClick: () => void;
   handleDeleteRunClick?: () => void;
+  artifactRootUri?: string;
+  registeredModelVersionSummaries: RunPageModelVersionSummary[];
+  isLoading?: boolean;
 }) => {
   function getExperimentPageLink() {
     return hasComparedExperimentsBefore && comparedExperimentIds ? (
@@ -44,13 +52,25 @@ export const RunViewHeader = ({
         />
       </Link>
     ) : (
-      <Link to={Routes.getExperimentPageRoute(experiment.experimentId)} data-test-id="experiment-runs-link">
+      <Link to={Routes.getExperimentPageRoute(experiment?.experimentId ?? '')} data-test-id="experiment-runs-link">
         {experiment.name}
       </Link>
     );
   }
 
   const breadcrumbs = [getExperimentPageLink()];
+
+  const renderRegisterModelButton = () => {
+    return (
+      <RunViewHeaderRegisterModelButton
+        runUuid={runUuid}
+        experimentId={experiment?.experimentId ?? ''}
+        runTags={runTags}
+        artifactRootUri={artifactRootUri}
+        registeredModelVersionSummaries={registeredModelVersionSummaries}
+      />
+    );
+  };
 
   return (
     <div css={{ flexShrink: 0 }}>
@@ -82,7 +102,7 @@ export const RunViewHeader = ({
           ]}
         />
 
-        <RunViewHeaderRegisterModelButton runUuid={runUuid} experimentId={experiment.experimentId} />
+        {renderRegisterModelButton()}
       </PageHeader>
       <RunViewModeSwitch />
     </div>

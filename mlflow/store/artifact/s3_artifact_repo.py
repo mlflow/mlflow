@@ -12,6 +12,7 @@ from mlflow.entities.multipart_upload import (
     MultipartUploadCredential,
 )
 from mlflow.environment_variables import (
+    MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE,
     MLFLOW_S3_ENDPOINT_URL,
     MLFLOW_S3_IGNORE_TLS,
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
@@ -80,7 +81,7 @@ def _cached_get_s3_client(
 
 
 def _get_s3_client(
-    addressing_style="path",
+    addressing_style=None,
     access_key_id=None,
     secret_access_key=None,
     session_token=None,
@@ -102,6 +103,9 @@ def _get_s3_client(
 
     # Invalidate cache every `_MAX_CACHE_SECONDS`
     timestamp = int(_get_utcnow_timestamp() / _MAX_CACHE_SECONDS)
+
+    if not addressing_style:
+        addressing_style = MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE.get()
 
     return _cached_get_s3_client(
         signature_version,
@@ -186,10 +190,6 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 rel_path = relative_path_to_artifact_path(rel_path)
                 upload_path = posixpath.join(dest_path, rel_path)
 
-            if not filenames:
-                # We're in an empty directory. Create a folder to preserve the directory structure.
-                s3_client.put_object(Bucket=bucket, Key=upload_path + "/")
-
             for f in filenames:
                 self._upload_file(
                     s3_client=s3_client,
@@ -203,6 +203,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)
+        dest_path = dest_path.rstrip("/") if dest_path else ""
         infos = []
         prefix = dest_path + "/" if dest_path else ""
         s3_client = self._get_s3_client()
@@ -250,14 +251,20 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
 
+        dest_path = dest_path.rstrip("/") if dest_path else ""
         s3_client = self._get_s3_client()
-        list_objects = s3_client.list_objects(Bucket=bucket, Prefix=dest_path).get("Contents", [])
-        for to_delete_obj in list_objects:
-            file_path = to_delete_obj.get("Key")
-            self._verify_listed_object_contains_artifact_path_prefix(
-                listed_object_path=file_path, artifact_path=dest_path
-            )
-            s3_client.delete_object(Bucket=bucket, Key=file_path)
+        paginator = s3_client.get_paginator("list_objects_v2")
+        results = paginator.paginate(Bucket=bucket, Prefix=dest_path)
+        for result in results:
+            keys = []
+            for to_delete_obj in result.get("Contents", []):
+                file_path = to_delete_obj.get("Key")
+                self._verify_listed_object_contains_artifact_path_prefix(
+                    listed_object_path=file_path, artifact_path=dest_path
+                )
+                keys.append({"Key": file_path})
+            if keys:
+                s3_client.delete_objects(Bucket=bucket, Delete={"Objects": keys})
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)

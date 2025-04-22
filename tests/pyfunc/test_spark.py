@@ -1,10 +1,13 @@
 import datetime
 import os
 import random
+import shutil
+import subprocess
 import sys
 import threading
 import time
 from collections import namedtuple
+from pathlib import Path
 from typing import Iterator
 from unittest import mock
 
@@ -39,6 +42,7 @@ from sklearn.preprocessing import FunctionTransformer
 import mlflow
 import mlflow.pyfunc
 import mlflow.sklearn
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.models.signature import infer_signature
@@ -47,11 +51,13 @@ from mlflow.pyfunc import (
     PythonModel,
     _check_udf_return_type,
     _parse_spark_datatype,
+    build_model_env,
     spark_udf,
 )
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, DataType, Object, Property
+from mlflow.types.utils import _infer_schema
 from mlflow.utils._spark_utils import modified_environ
 
 import tests
@@ -206,9 +212,11 @@ def test_spark_udf(spark, model_path):
                 assert expected == actual
 
 
-@pytest.mark.parametrize("sklearn_version", ["0.22.1", "0.24.0"])
+@pytest.mark.parametrize("sklearn_version", ["1.3.2", "1.4.2"])
 @pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
-def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_version, env_manager):
+def test_spark_udf_env_manager_can_restore_env(
+    spark, model_path, sklearn_version, env_manager, monkeypatch
+):
     class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):
         def __init__(self):
             pass
@@ -224,16 +232,16 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
         path=model_path,
         python_model=EnvRestoringTestModel(),
         pip_requirements=[
-            "pyspark==3.2.0",
-            "pandas==1.3.0",
+            f"pyspark=={pyspark.__version__}",
             f"scikit-learn=={sklearn_version}",
-            "pytest==6.2.5",
+            # pytest is required to load the custom model from this file
+            f"pytest=={pytest.__version__}",
         ],
     )
     # tests/helper_functions.py
     from tests.helper_functions import _get_mlflow_home
 
-    os.environ["MLFLOW_HOME"] = _get_mlflow_home()
+    monkeypatch.setenv("MLFLOW_HOME", _get_mlflow_home())
     python_udf = mlflow.pyfunc.spark_udf(
         spark, model_path, env_manager=env_manager, result_type="string"
     )
@@ -1363,7 +1371,7 @@ def test_spark_df_schema_inference_for_map_type(spark):
     with pytest.raises(
         MlflowException, match=r"Please construct spark DataFrame with schema using StructType"
     ):
-        infer_signature(complex_df)
+        _infer_schema(complex_df)
 
 
 def test_spark_udf_structs_and_arrays(spark, tmp_path):
@@ -1538,3 +1546,199 @@ def test_spark_udf_infer_return_type(spark, tmp_path):
     pdf = df.toPandas()
     assert pdf["output"][0] == ("a", [0], (True, ("some_string",)), [(0.1,)])
     assert pdf["output"][1] == ("b", [1], (False, ("another_string",)), [(0.2,), (0.3,)])
+
+
+def test_spark_udf_env_manager_with_invalid_pythonpath(
+    spark, sklearn_model, model_path, tmp_path, monkeypatch
+):
+    # create an unreadable file
+    unreadable_file = tmp_path / "unreadable_file"
+    unreadable_file.write_text("unreadable file content")
+    unreadable_file.chmod(0o000)
+    with pytest.raises(PermissionError, match="Permission denied"):
+        with unreadable_file.open():
+            pass
+    non_exist_file = tmp_path / "does_not_exist"
+    origin_python_path = os.environ.get("PYTHONPATH", "")
+    monkeypatch.setenv("PYTHONPATH", f"{origin_python_path}:{non_exist_file}:{unreadable_file}")
+
+    model, inference_data = sklearn_model
+
+    mlflow.sklearn.save_model(model, model_path)
+    expected_pred_result = model.predict(inference_data)
+
+    infer_data = pd.DataFrame(inference_data, columns=["a", "b"])
+    infer_spark_df = spark.createDataFrame(infer_data)
+
+    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True):
+        pyfunc_udf = spark_udf(spark, model_path, env_manager="virtualenv")
+
+    result = (
+        infer_spark_df.select(pyfunc_udf("a", "b").alias("predictions"))
+        .toPandas()
+        .predictions.to_numpy()
+    )
+
+    np.testing.assert_allclose(result, expected_pred_result, rtol=1e-5)
+
+
+def test_build_model_env(spark, sklearn_model, model_path, tmp_path, monkeypatch):
+    import sklearn
+
+    from mlflow.pyfunc.dbconnect_artifact_cache import extract_archive_to_dir
+
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.4.1")
+    spark.udf.register(
+        "current_version",
+        lambda: {"dbr_version": "15.4.1-scala2.12"},
+        returnType="dbr_version string",
+    )
+    model, inference_data = sklearn_model
+
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            model,
+            "model",
+            pip_requirements=[
+                f"scikit-learn=={sklearn.__version__}",
+                # `build_model_env` doesn't support building env with dev version MLflow,
+                # so add MLflow as a required dependency here.
+                "mlflow",
+            ],
+        )
+
+    model_uri = model_info.model_uri
+    model_env_path = build_model_env(model_uri, tmp_path)
+    archive_name = Path(model_env_path).name[:-7]
+    env_name = "-".join(archive_name.split("-")[:2])
+    extract_dir = Path("/tmp") / archive_name
+    try:
+        extract_archive_to_dir(model_env_path, extract_dir)
+        # Check the extracted python environment installs the expected sklearn package version.
+        subprocess.check_call(
+            [
+                "bash",
+                "-c",
+                f"source /tmp/{archive_name}/virtualenv_envs/{env_name}/bin/activate && "
+                f"python -c "
+                f"\"import sklearn; assert sklearn.__version__ == '{sklearn.__version__}'\"",
+            ]
+        )
+    finally:
+        shutil.rmtree(f"/tmp/{archive_name}", ignore_errors=True)
+
+
+class CustomModelWithMlflowConfig(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input, params=None):
+        alpha = context.model_config["alpha"]
+        return [x + alpha for x in model_input[model_input.columns[0]]]
+
+
+@pytest.mark.parametrize(
+    ("env_manager", "use_stdin_serve"),
+    [("local", None), ("virtualenv", False), ("virtualenv", True)],
+)
+def test_spark_udf_with_model_config(spark, model_path, monkeypatch, env_manager, use_stdin_serve):
+    model = CustomModelWithMlflowConfig()
+    mlflow.pyfunc.save_model(
+        model_path,
+        python_model=model,
+        model_config={"alpha": 0},
+        code_paths=[os.path.dirname(tests.__file__)],
+    )
+    with mock.patch("mlflow.pyfunc.check_port_connectivity", return_value=(not use_stdin_serve)):
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            model_path,
+            result_type="long",
+            model_config={"alpha": 3},
+            env_manager=env_manager,
+        )
+        result = spark.range(10).repartition(1).withColumn("prediction", udf(col("id"))).toPandas()
+    assert all(result.id + 3 == result.prediction)
+
+
+def test_spark_udf_model_server_timeout(spark, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT", "1")
+
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            time.sleep(2)
+            return pd.DataFrame({k: [v] * len(model_input) for k, v in params.items()})
+
+    test_params = {
+        "str_array": np.array(["str_a", "str_b"]),
+    }
+
+    signature = mlflow.models.infer_signature(["input"], params=test_params)
+    spark_df = spark.createDataFrame(
+        [
+            ("input1",),
+        ],
+        ["input_col"],
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+
+    udf = mlflow.pyfunc.spark_udf(
+        spark,
+        f"runs:/{run.info.run_id}/model",
+        result_type=StructType(
+            [
+                StructField("str_array", ArrayType(StringType())),
+            ]
+        ),
+        params=test_params,
+        env_manager="virtualenv",
+        extra_env={
+            "MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT": str(
+                MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
+            )
+        },
+    )
+    # Raised from mlflow.pyfunc.scoring_server.client.StdinScoringServerClient,
+    # but handled as a PythonException from a subprocess failure for a timeout exception.
+    # Broad exception catching here due to PySpark / DBConnect stacktrace handling.
+    with pytest.raises(Exception, match="An exception was thrown from the Python worker"):
+        spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
+
+
+@pytest.mark.parametrize(
+    ("numpy_type", "schema", "value"),
+    [
+        (np.int32, IntegerType(), 1),
+        (np.int64, LongType(), 1),
+        (np.float32, FloatType(), 1.0),
+        (np.float64, DoubleType(), 1.0),
+        (np.bool_, BooleanType(), True),
+        (np.str_, StringType(), "string"),
+    ],
+)
+def test_spark_udf_preserve_model_output_type(spark, numpy_type, schema, value):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return [np.array([numpy_type(value)], dtype=numpy_type)] * len(model_input)
+
+    signature = mlflow.models.infer_signature(numpy_type(value), numpy_type(value))
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+    spark_df = spark.createDataFrame(
+        [(value,), (value,), (value,)],
+        schema=StructType([StructField("input_col", schema)]),
+    )
+    udf = mlflow.pyfunc.spark_udf(
+        spark,
+        model_info.model_uri,
+        result_type=schema,
+    )
+
+    res = spark_df.withColumn("res", udf("input_col")).toPandas()
+    assert res["res"][0] == numpy_type(value)

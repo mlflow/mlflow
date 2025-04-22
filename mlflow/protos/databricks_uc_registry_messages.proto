@@ -139,6 +139,10 @@ message TemporaryCredentials {
   // Server time when the credential will expire, in epoch milliseconds.
   // The API client is advised to cache the credential given this expiration time.
   optional int64 expiration_time = 1;
+
+  optional StorageMode storage_mode = 6;
+
+  optional EncryptionDetails encryption_details = 7;
 }
 
 // AWS temporary credentials for API authentication.
@@ -178,6 +182,35 @@ message R2Credentials {
 
   // The generated JWT that users must pass to use the temporary credentials.
   optional string session_token = 3;
+}
+
+enum StorageMode {
+  STORAGE_MODE_UNSPECIFIED = 0;
+  // The storage resources of the workspace are hosted by customers.
+  CUSTOMER_HOSTED = 1;
+  // Default storage
+  DEFAULT_STORAGE = 2;
+}
+
+message EncryptionDetails {
+  oneof encryption_details_type {
+    // Details for CLOUD_MANAGED_SSE_KEYS:
+    SseEncryptionDetails sse_encryption_details = 1;
+  }
+}
+
+enum SseEncryptionAlgorithm {
+  SSE_ENCRYPTION_ALGORITHM_UNSPECIFIED = 0;
+  AWS_SSE_S3 = 1;    // "AES256" in 'x-amz-server-side-encryption' header
+  AWS_SSE_KMS = 2;   // "aws:kms" in x-amz-server-side-encryption' header
+}
+
+message SseEncryptionDetails {
+  optional SseEncryptionAlgorithm algorithm = 1;
+
+  // Optional. The ARN of the SSE-KMS key used with the S3 location, when algorithm = "SSE-KMS".
+  // Sets the value of the 'x-amz-server-side-encryption-aws-kms-key-id' header.
+  optional string aws_kms_key_arn = 2;
 }
 
 message CreateRegisteredModelRequest {
@@ -257,6 +290,9 @@ enum DependencyType {
   DEPENDENCY_TYPE_UNSPECIFIED = 0;
   DATABRICKS_VECTOR_INDEX = 1;
   DATABRICKS_MODEL_ENDPOINT = 2;
+  DATABRICKS_UC_FUNCTION = 3;
+  DATABRICKS_UC_CONNECTION = 4;
+  DATABRICKS_TABLE = 5;
 }
 
 message Dependency {
@@ -577,4 +613,36 @@ message Lineage {
 message LineageHeaderInfo {
   repeated Entity entities = 1;
   repeated Lineage lineages = 2;
+}
+
+enum ModelVersionLineageDirection {
+  UPSTREAM = 0;
+  DOWNSTREAM = 1;
+}
+
+message ModelVersionLineageInfo {
+  repeated Entity entities = 1;
+  optional ModelVersionLineageDirection direction = 2 [(validate_required) = true];
+}
+
+message EmitModelVersionLineageRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[EmitModelVersionLineageResponse]";
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Model version
+  optional string version = 2 [(validate_required) = true];
+
+  // Model version lineage info
+  optional ModelVersionLineageInfo model_version_lineage_info = 3 [(validate_required) = true];
+}
+
+message EmitModelVersionLineageResponse {}
+
+message IsDatabricksSdkModelsArtifactRepositoryEnabledRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[IsDatabricksSdkModelsArtifactRepositoryEnabledResponse]";
+}
+
+message IsDatabricksSdkModelsArtifactRepositoryEnabledResponse {
+  optional bool is_databricks_sdk_models_artifact_repository_enabled = 1 [(validate_required) = true];
 }

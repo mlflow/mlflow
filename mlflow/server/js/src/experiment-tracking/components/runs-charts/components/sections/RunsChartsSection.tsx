@@ -1,11 +1,14 @@
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsCardConfig } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
-import { RunsCharts } from '../RunsCharts';
 import type { RunsChartCardSetFullscreenFn } from '../cards/ChartCard.common';
+import { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
+import type { ChartSectionConfig } from '../../../../types';
+import { RunsChartsDraggableCardsGridSection } from '../RunsChartsDraggableCardsGridSection';
 
 export interface RunsChartsSectionProps {
   sectionId: string;
+  sectionConfig: ChartSectionConfig;
   sectionCharts: RunsChartsCardConfig[];
   reorderCharts: (sourceChartUuid: string, targetChartUuid: string) => void;
   insertCharts: (sourceChartUuid: string, targetSectionId: string) => void;
@@ -17,6 +20,8 @@ export interface RunsChartsSectionProps {
   sectionIndex: number;
   setFullScreenChart: RunsChartCardSetFullscreenFn;
   autoRefreshEnabled?: boolean;
+  hideEmptyCharts?: boolean;
+  globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
 }
 
 export const RunsChartsSection = ({
@@ -32,21 +37,23 @@ export const RunsChartsSection = ({
   sectionIndex,
   setFullScreenChart,
   autoRefreshEnabled,
+  hideEmptyCharts,
+  globalLineChartConfig,
+  sectionConfig,
 }: RunsChartsSectionProps) => {
   return (
-    <RunsCharts
-      sectionId={sectionId}
-      chartRunData={chartData}
+    <RunsChartsDraggableCardsGridSection
+      sectionConfig={sectionConfig}
       cardsConfig={sectionCharts}
-      isMetricHistoryLoading={isMetricHistoryLoading}
-      onRemoveChart={removeChart}
+      chartRunData={chartData}
       onStartEditChart={startEditChart}
-      onReorderCharts={reorderCharts}
-      onInsertCharts={insertCharts}
-      groupBy={groupBy}
-      sectionIndex={sectionIndex}
+      onRemoveChart={removeChart}
       setFullScreenChart={setFullScreenChart}
+      sectionId={sectionId}
+      groupBy={groupBy}
       autoRefreshEnabled={autoRefreshEnabled}
+      hideEmptyCharts={hideEmptyCharts}
+      globalLineChartConfig={globalLineChartConfig}
     />
   );
 };

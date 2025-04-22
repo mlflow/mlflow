@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { ReactWrapper } from 'enzyme';
 interface QueryOptions {
     /** Whether to trim the whitespace from DOM text using `String.prototype.trim` */

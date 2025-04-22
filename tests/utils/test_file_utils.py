@@ -67,9 +67,9 @@ def test_yaml_read_and_write(tmp_path):
 
     assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
     with safe_edit_yaml(temp_dir, yaml_file, edit_func):
-        editted_dict = file_utils.read_yaml(temp_dir, yaml_file)
-        assert "more_text" in editted_dict
-        assert editted_dict["more_text"] == "西班牙语"
+        edited_dict = file_utils.read_yaml(temp_dir, yaml_file)
+        assert "more_text" in edited_dict
+        assert edited_dict["more_text"] == "西班牙语"
     assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
 
 

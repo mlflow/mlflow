@@ -2,17 +2,21 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 import type { KeyValueEntity } from '../../types';
 import ArtifactPage from '../ArtifactPage';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
+import { UseGetRunQueryResponseOutputs } from './hooks/useGetRunQuery';
 
 /**
  * A run page tab containing the artifact browser
  */
 export const RunViewArtifactTab = ({
   runTags,
-  experimentId,
+  runOutputs,
+  artifactUri,
   runUuid,
 }: {
   runUuid: string;
   experimentId: string;
+  artifactUri?: string;
+  runOutputs?: UseGetRunQueryResponseOutputs;
   runTags: Record<string, KeyValueEntity>;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -30,7 +34,13 @@ export const RunViewArtifactTab = ({
         position: 'relative',
       }}
     >
-      <ArtifactPage runUuid={runUuid} runTags={runTags} useAutoHeight={useFullHeightPage} />
+      <ArtifactPage
+        runUuid={runUuid}
+        runTags={runTags}
+        runOutputs={runOutputs}
+        useAutoHeight={useFullHeightPage}
+        artifactRootUri={artifactUri}
+      />
     </div>
   );
 };

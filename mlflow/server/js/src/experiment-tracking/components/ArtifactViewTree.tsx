@@ -1,5 +1,5 @@
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'reac... Remove this comment to see the full error message
-import { decorators, Treebeard } from 'react-treebeard';
+import { decorators, Treebeard, TreebeardData } from 'react-treebeard';
 import { DATA_EXTENSIONS, getExtension, IMAGE_EXTENSIONS, TEXT_EXTENSIONS } from '../../common/utils/FileUtils';
 
 import spinner from '../../common/static/mlflow-spinner.png';
@@ -16,7 +16,7 @@ interface ArtifactViewTreeProps {
     },
     toggled: boolean,
   ) => void;
-  data: Record<string, string>[];
+  data: TreebeardData;
 }
 
 export const ArtifactViewTree = ({ data, onToggleTreebeard }: ArtifactViewTreeProps) => {

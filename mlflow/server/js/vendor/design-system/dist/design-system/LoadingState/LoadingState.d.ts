@@ -1,4 +1,3 @@
-/// <reference types="react" />
 /** Props for UI components that support a "loading" state. */
 export interface WithLoadingState {
     /**

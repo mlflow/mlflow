@@ -6,9 +6,15 @@ import uuid
 from unittest import mock
 
 import pytest
+from opentelemetry import trace as trace_api
 
 import mlflow
+from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
+from mlflow.tracing.export.inference_table import _TRACE_BUFFER
+from mlflow.tracing.fluent import _set_last_active_trace_id
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.tracking.fluent import _last_active_run_id
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
 
@@ -29,6 +35,60 @@ def tracking_uri_mock(tmp_path, request):
 def reset_active_experiment_id():
     yield
     mlflow.tracking.fluent._active_experiment_id = None
+    os.environ.pop("MLFLOW_EXPERIMENT_ID", None)
+
+
+@pytest.fixture(autouse=True)
+def reset_mlflow_uri():
+    yield
+    os.environ.pop("MLFLOW_TRACKING_URI", None)
+    os.environ.pop("MLFLOW_REGISTRY_URI", None)
+
+
+@pytest.fixture(autouse=True)
+def reset_tracing():
+    """
+    Reset the global state of the tracing feature.
+
+    This fixture is auto-applied for cleaning up the global state between tests
+    to avoid side effects.
+    """
+    yield
+
+    # Reset OpenTelemetry and MLflow tracer setup
+    mlflow.tracing.reset()
+
+    # Clear other global state and singletons
+    _set_last_active_trace_id(None)
+    _TRACE_BUFFER.clear()
+    InMemoryTraceManager.reset()
+    IPythonTraceDisplayHandler._instance = None
+
+
+def _is_span_active():
+    span = trace_api.get_current_span()
+    return (span is not None) and not isinstance(span, trace_api.NonRecordingSpan)
+
+
+@pytest.fixture(autouse=True)
+def validate_trace_finish():
+    """
+    Validate all spans are finished and detached from the context by the end of the each test.
+
+    Leaked span is critical problem and also hard to find without an explicit check.
+    """
+    # When the span is leaked, it causes confusing test failure in the subsequent tests. To avoid
+    # this and make the test failure more clear, we fail first here.
+    if _is_span_active():
+        pytest.skip(reason="A leaked active span is found before starting the test.")
+
+    yield
+
+    assert not _is_span_active(), (
+        "A span is still active at the end of the test. All spans must be finished "
+        "and detached from the context before the test ends. The leaked span context "
+        "may cause other subsequent tests to fail."
+    )
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -51,10 +111,10 @@ def clean_up_leaked_runs():
     """
     try:
         yield
-        assert (
-            not mlflow.active_run()
-        ), "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
-            mlflow.active_run().info, mlflow.active_run().data
+        assert not mlflow.active_run(), (
+            "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
+                mlflow.active_run().info, mlflow.active_run().data
+            )
         )
     finally:
         while mlflow.active_run():
@@ -112,6 +172,11 @@ def clean_up_mlruns_directory(request):
             subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
 
 
+@pytest.fixture(autouse=True)
+def clean_up_last_active_run():
+    _last_active_run_id.set(None)
+
+
 @pytest.fixture
 def mock_s3_bucket():
     """
@@ -153,3 +218,17 @@ def monkeypatch():
 def tmp_sqlite_uri(tmp_path):
     path = tmp_path.joinpath("mlflow.db").as_uri()
     return ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+
+
+@pytest.fixture
+def mock_databricks_serving_with_tracing_env(monkeypatch):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
+
+
+@pytest.fixture(params=[True, False])
+def mock_is_in_databricks(request):
+    with mock.patch(
+        "mlflow.models.model.is_in_databricks_runtime", return_value=request.param
+    ) as mock_databricks:
+        yield mock_databricks

@@ -18,7 +18,7 @@ import mlflow.h2o
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import _read_example
+from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema
@@ -130,11 +130,9 @@ def test_model_log(h2o_iris_model):
     h2o_model = h2o_iris_model.model
     try:
         artifact_path = "gbm_model"
-        model_info = mlflow.h2o.log_model(h2o_model=h2o_model, artifact_path=artifact_path)
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        assert model_info.model_uri == model_uri
+        model_info = mlflow.h2o.log_model(h2o_model, artifact_path)
         # Load model
-        h2o_model_loaded = mlflow.h2o.load_model(model_uri=model_uri)
+        h2o_model_loaded = mlflow.h2o.load_model(model_uri=model_info.model_uri)
         assert all(
             h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame()
             == h2o_model.predict(h2o_iris_model.inference_data).as_data_frame()
@@ -199,29 +197,29 @@ def test_log_model_with_pip_requirements(h2o_iris_model, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.h2o.log_model(h2o_iris_model.model, "model", pip_requirements=str(req_file))
-        _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        model_info = mlflow.h2o.log_model(
+            h2o_iris_model.model, "model", pip_requirements=str(req_file)
         )
+        _assert_pip_requirements(model_info.model_uri, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.h2o.log_model(
+        model_info = mlflow.h2o.log_model(
             h2o_iris_model.model,
             "model",
             pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
+            model_info.model_uri, [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.h2o.log_model(
+        model_info = mlflow.h2o.log_model(
             h2o_iris_model.model, "model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
@@ -236,27 +234,29 @@ def test_log_model_with_extra_pip_requirements(h2o_iris_model, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.h2o.log_model(h2o_iris_model.model, "model", extra_pip_requirements=str(req_file))
+        model_info = mlflow.h2o.log_model(
+            h2o_iris_model.model, "model", extra_pip_requirements=str(req_file)
+        )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+            model_info.model_uri, [expected_mlflow_version, *default_reqs, "a"]
         )
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.h2o.log_model(
+        model_info = mlflow.h2o.log_model(
             h2o_iris_model.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
+            model_info.model_uri, [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.h2o.log_model(
+        model_info = mlflow.h2o.log_model(
             h2o_iris_model.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             ["a"],
         )
@@ -281,13 +281,11 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(
-            h2o_model=h2o_iris_model.model, artifact_path=artifact_path, conda_env=h2o_custom_env
-        )
-        model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+        model_info = mlflow.h2o.log_model(
+            h2o_iris_model.model, artifact_path, conda_env=h2o_custom_env
         )
 
+    model_path = _download_artifact_from_uri(model_info.model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
     assert os.path.exists(saved_conda_env_path)
@@ -303,12 +301,10 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 def test_model_log_persists_requirements_in_mlflow_model_directory(h2o_iris_model, h2o_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(
-            h2o_model=h2o_iris_model.model, artifact_path=artifact_path, conda_env=h2o_custom_env
+        model_info = mlflow.h2o.log_model(
+            h2o_iris_model.model, artifact_path, conda_env=h2o_custom_env
         )
-        model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        )
+        model_path = _download_artifact_from_uri(model_info.model_uri)
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(h2o_custom_env, saved_pip_req_path)
@@ -326,21 +322,22 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(h2o_model=h2o_iris_model.model, artifact_path=artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-    _assert_pip_requirements(model_uri, mlflow.h2o.get_default_pip_requirements())
+        model_info = mlflow.h2o.log_model(h2o_iris_model.model, artifact_path)
+    _assert_pip_requirements(model_info.model_uri, mlflow.h2o.get_default_pip_requirements())
 
 
 def test_pyfunc_serve_and_score(h2o_iris_model):
     model, inference_dataframe = h2o_iris_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.h2o.log_model(
+            model, artifact_path, input_example=inference_dataframe.as_data_frame()
+        )
 
+    inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_dataframe.as_data_frame(),
+        model_info.model_uri,
+        data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     decoded_json = json.loads(resp.content.decode("utf-8"))
@@ -350,14 +347,13 @@ def test_pyfunc_serve_and_score(h2o_iris_model):
 
 
 def test_log_model_with_code_paths(h2o_iris_model):
-    artifact_path = "model_uri"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.h2o._add_code_from_conf_to_system_path"
-    ) as add_mock:
-        mlflow.h2o.log_model(h2o_iris_model.model, artifact_path, code_paths=[__file__])
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.h2o.FLAVOR_NAME)
-        mlflow.h2o.load_model(model_uri)
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.h2o._add_code_from_conf_to_system_path") as add_mock,
+    ):
+        model_info = mlflow.h2o.log_model(h2o_iris_model.model, "model_uri", code_paths=[__file__])
+        _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.h2o.FLAVOR_NAME)
+        mlflow.h2o.load_model(model_info.model_uri)
         add_mock.assert_called()
 
 
@@ -371,17 +367,14 @@ def test_model_save_load_with_metadata(h2o_iris_model, model_path):
 
 
 def test_model_log_with_metadata(h2o_iris_model):
-    artifact_path = "model"
-
     with mlflow.start_run():
-        mlflow.h2o.log_model(
+        model_info = mlflow.h2o.log_model(
             h2o_iris_model.model,
-            artifact_path=artifact_path,
+            "model",
             metadata={"metadata_key": "metadata_value"},
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
@@ -390,10 +383,9 @@ def test_model_log_with_signature_inference(h2o_iris_model, h2o_iris_model_signa
     example = h2o_iris_model.inference_data.as_data_frame().head(3)
 
     with mlflow.start_run():
-        mlflow.h2o.log_model(
-            h2o_iris_model.model, artifact_path=artifact_path, input_example=example
+        model_info = mlflow.h2o.log_model(
+            h2o_iris_model.model, artifact_path, input_example=example
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    mlflow_model = Model.load(model_uri)
+    mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == h2o_iris_model_signature

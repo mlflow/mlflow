@@ -1,6 +1,10 @@
 import json
+import multiprocessing
 import os
 import random
+import subprocess
+import sys
+import threading
 import time
 import uuid
 from collections import defaultdict
@@ -50,6 +54,10 @@ from mlflow.tracking.fluent import (
     start_run,
 )
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
+from mlflow.utils.async_logging.async_logging_queue import (
+    ASYNC_LOGGING_STATUS_CHECK_THREAD_PREFIX,
+    ASYNC_LOGGING_WORKER_THREAD_PREFIX,
+)
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import multi_context
@@ -506,7 +514,7 @@ def test_search_model_versions(tmp_path):
 
 @pytest.fixture
 def empty_active_run_stack():
-    with mock.patch("mlflow.tracking.fluent._active_run_stack", []):
+    with mock.patch("mlflow.tracking.fluent._active_run_stack.get", return_value=[]):
         yield
 
 
@@ -712,7 +720,9 @@ def test_start_run_with_parent():
     mock_experiment_id = "123456"
     mock_source_name = mock.Mock()
 
-    active_run_stack_patch = mock.patch("mlflow.tracking.fluent._active_run_stack", [parent_run])
+    active_run_stack_patch = mock.patch(
+        "mlflow.tracking.fluent._active_run_stack.get", lambda: [parent_run]
+    )
 
     mock_user = mock.Mock()
     user_patch = mock.patch(
@@ -744,8 +754,26 @@ def test_start_run_with_parent():
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
 
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_with_parent_id():
+    parent_run_id = mlflow.start_run().info.run_id
+    mlflow.end_run()
+    nested_run_id = mlflow.start_run(parent_run_id=parent_run_id).info.run_id
+    mlflow.end_run()
+
+    assert mlflow.get_parent_run(nested_run_id).info.run_id == parent_run_id
+
+
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_with_invalid_parent_id():
+    with mlflow.start_run() as run:
+        with pytest.raises(MlflowException, match=f"Current run with UUID {run.info.run_id}"):
+            with mlflow.start_run(nested=True, parent_run_id="hello"):
+                pass
+
+
 def test_start_run_with_parent_non_nested():
-    with mock.patch("mlflow.tracking.fluent._active_run_stack", [mock.Mock()]):
+    with mock.patch("mlflow.tracking.fluent._active_run_stack.get", return_value=[mock.Mock()]):
         with pytest.raises(Exception, match=r"Run with UUID .+ is already active"):
             start_run()
 
@@ -1370,15 +1398,31 @@ def test_log_param_async_throws():
             mlflow.log_params({"async batch param": "3"}, synchronous=False).wait()
 
 
-def test_flush_async_logging():
+@pytest.mark.parametrize("flush_within_run", [True, False])
+def test_flush_async_logging(flush_within_run):
+    # NB: This test validates whether the async logger threads are cleaned up after flushing.
+    # The validation relies on the thread name so it may false alert if other tests create
+    # similar threads without cleaning them up. To avoid this, we only validates the newly
+    # create threads after the test starts.
+    original_threads = set(threading.enumerate())
+
     with mlflow.start_run() as run:
         for i in range(100):
             mlflow.log_metric("dummy", i, step=i, synchronous=False)
 
+        if flush_within_run:
+            mlflow.flush_async_logging()
+
+    if not flush_within_run:
         mlflow.flush_async_logging()
 
-        metric_history = mlflow.MlflowClient().get_metric_history(run.info.run_id, "dummy")
-        assert len(metric_history) == 100
+    metric_history = mlflow.MlflowClient().get_metric_history(run.info.run_id, "dummy")
+    assert len(metric_history) == 100
+
+    # Ensure logging worker threads are cleaned up after flushing
+    for thread in set(threading.enumerate()) - original_threads:
+        assert not thread.name.startswith(ASYNC_LOGGING_WORKER_THREAD_PREFIX)
+        assert not thread.name.startswith(ASYNC_LOGGING_STATUS_CHECK_THREAD_PREFIX)
 
 
 def test_enable_async_logging():
@@ -1445,3 +1489,201 @@ def test_registry_uri_from_spark_conf(spark_session_with_registry_uri):
     # spark conf if present
     with mock.patch.dict(os.environ, {MLFLOW_REGISTRY_URI.name: "something-else"}):
         assert mlflow.get_registry_uri() == "something-else"
+
+
+def test_set_experiment_thread_safety(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_tracking_uri(sqlite_uri)
+
+    origin_create_experiment = MlflowClient.create_experiment
+
+    def patched_create_experiment(self, *args, **kwargs):
+        # The sleep is for triggering `mlflow.set_experiment`
+        # multiple thread / process execution race condition stably.
+        time.sleep(0.1)
+        return origin_create_experiment(self, *args, **kwargs)
+
+    with mock.patch(
+        "mlflow.tracking.client.MlflowClient.create_experiment", patched_create_experiment
+    ):
+        created_exp_ids = []
+
+        def thread_target():
+            exp = mlflow.set_experiment("test_experiment")
+            created_exp_ids.append(exp.experiment_id)
+
+        t1 = threading.Thread(target=thread_target)
+        t1.start()
+        t2 = threading.Thread(target=thread_target)
+        t2.start()
+
+        t1.join()
+        t2.join()
+
+        # assert the `set_experiment` invocations in the 2 threads both succeed.
+        assert len(created_exp_ids) == 2
+        # assert the `set_experiment` invocations in the 2 threads use the same experiment ID.
+        assert created_exp_ids[0] == created_exp_ids[1]
+
+        if os.name == "posix":
+            mp_ctx = multiprocessing.get_context("fork")
+            queue = mp_ctx.Queue()
+
+            def subprocess_target(que):
+                exp = mlflow.set_experiment("test_experiment2")
+                que.put(exp.experiment_id)
+
+            subproc1 = mp_ctx.Process(target=subprocess_target, args=(queue,))
+            subproc1.start()
+            subproc2 = mp_ctx.Process(target=subprocess_target, args=(queue,))
+            subproc2.start()
+
+            subproc1.join()
+            subproc2.join()
+
+            assert subproc1.exitcode == 0
+            assert subproc2.exitcode == 0
+
+            exp_id1 = queue.get(block=False)
+            exp_id2 = queue.get(block=False)
+            assert exp_id1 == exp_id2
+
+
+def test_subprocess_inherit_active_experiment(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_tracking_uri(sqlite_uri)
+
+    exp = mlflow.set_experiment("test_experiment")
+    exp_id = exp.experiment_id
+
+    stdout = subprocess.check_output(
+        [
+            sys.executable,
+            "-c",
+            "import mlflow; print(mlflow.tracking.fluent._get_experiment_id())",
+        ],
+        text=True,
+    )
+    assert exp_id in stdout
+
+
+def test_mlflow_active_run_thread_local(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_tracking_uri(sqlite_uri)
+
+    with mlflow.start_run():
+        thread_active_run = None
+
+        def thread_target():
+            nonlocal thread_active_run
+            thread_active_run = mlflow.active_run()
+
+        thread1 = threading.Thread(target=thread_target)
+        thread1.start()
+        thread1.join()
+        # assert in another thread, active run is None.
+        assert thread_active_run is None
+
+        if os.name == "posix":
+            mp_ctx = multiprocessing.get_context("fork")
+
+            def subprocess_target():
+                # assert in subprocess, active run is None.
+                assert mlflow.active_run() is None
+
+            subproc = mp_ctx.Process(target=subprocess_target)
+            subproc.start()
+            subproc.join()
+            assert subproc.exitcode == 0
+
+
+def test_mlflow_last_active_run_thread_local(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_tracking_uri(sqlite_uri)
+
+    with mlflow.start_run() as run:
+        pass
+
+    assert mlflow.last_active_run().info.run_id == run.info.run_id
+
+    thread_last_active_run = None
+
+    def thread_target():
+        nonlocal thread_last_active_run
+        thread_last_active_run = mlflow.last_active_run()
+
+    thread1 = threading.Thread(target=thread_target)
+    thread1.start()
+    thread1.join()
+    # assert in another thread, active run is None.
+    assert thread_last_active_run is None
+
+    if os.name == "posix":
+        mp_ctx = multiprocessing.get_context("fork")
+
+        def subprocess_target():
+            # assert in subprocess, active run is None.
+            assert mlflow.last_active_run() is None
+
+        subproc = mp_ctx.Process(target=subprocess_target)
+        subproc.start()
+        subproc.join()
+        assert subproc.exitcode == 0
+
+
+def test_subprocess_inherit_tracking_uri(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_tracking_uri(sqlite_uri)
+
+    stdout = subprocess.check_output(
+        [
+            sys.executable,
+            "-c",
+            "import mlflow; print(mlflow.get_tracking_uri())",
+        ],
+        text=True,
+    )
+    assert sqlite_uri in stdout
+
+
+def test_subprocess_inherit_registry_uri(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_registry_uri(sqlite_uri)
+
+    stdout = subprocess.check_output(
+        [
+            sys.executable,
+            "-c",
+            "import mlflow; print(mlflow.get_registry_uri())",
+        ],
+        text=True,
+    )
+    assert sqlite_uri in stdout
+
+
+def test_end_run_inside_start_run_context_manager():
+    client = MlflowClient()
+
+    with mlflow.start_run() as parent_run:
+        with mlflow.start_run(nested=True) as child_run:
+            mlflow.end_run("FAILED")
+            assert client.get_run(child_run.info.run_id).info.status == RunStatus.to_string(
+                RunStatus.FAILED
+            )
+
+        assert client.get_run(parent_run.info.run_id).info.status == RunStatus.to_string(
+            RunStatus.RUNNING
+        )
+    assert client.get_run(parent_run.info.run_id).info.status == RunStatus.to_string(
+        RunStatus.FINISHED
+    )
+
+
+def test_runs_are_ended_by_run_id():
+    with mlflow.start_run() as run:
+        # end run and start it again with the same id
+        # to make sure it's not referentially equal
+        mlflow.end_run()
+        mlflow.start_run(run_id=run.info.run_id)
+
+    assert mlflow.active_run() is None

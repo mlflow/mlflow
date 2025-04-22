@@ -1,8 +1,15 @@
-import { LegacySelect, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import React, { ComponentProps, PropsWithChildren } from 'react';
+import {
+  LegacySelect,
+  SimpleSelect,
+  SimpleSelectOption,
+  SimpleSelectOptionGroup,
+  Tag,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
+import React, { ComponentProps, PropsWithChildren, useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { makeCanonicalSortKey } from '../../../experiment-page/utils/experimentPage.common-utils';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
 
 /**
  * Represents a field in the compare run charts configuration modal.
@@ -10,14 +17,19 @@ import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/
  */
 export const RunsChartsConfigureField = ({
   title,
+  compact = false,
   children,
 }: PropsWithChildren<{
-  title: string;
+  title: React.ReactNode;
+  compact?: boolean;
 }>) => {
   const { theme } = useDesignSystemTheme();
   return (
-    <div css={{ marginBottom: theme.spacing.md * 2 }} data-testid="experiment-view-compare-runs-config-field">
-      <Typography.Title level={4}>{title}:</Typography.Title>
+    <div
+      css={{ marginBottom: compact ? theme.spacing.sm : theme.spacing.md * 2 }}
+      data-testid="experiment-view-compare-runs-config-field"
+    >
+      <Typography.Title level={4}>{title}</Typography.Title>
       {children}
     </div>
   );
@@ -95,40 +107,85 @@ export const RunsChartsMetricParamSelect = ({
   );
 };
 
-export const RunsChartsRunNumberSelect = ({
-  onChange,
+export const RunsChartsMetricParamSelectV2 = ({
   value,
-  options,
+  id,
+  onChange,
+  metricOptions = [],
+  paramOptions = [],
 }: {
-  value?: number;
-  onChange: ComponentProps<typeof LegacySelect<number>>['onChange'];
-  options: (number | { value: number; label: React.ReactNode })[];
+  value: string;
+  id: string;
+  onChange: (value: string) => void;
+  metricOptions: {
+    key: string;
+    datasetName: string | undefined;
+    metricKey: string;
+  }[];
+  paramOptions: {
+    key: string;
+    paramKey: string;
+  }[];
 }) => {
   const { formatMessage } = useIntl();
 
-  // After moving to the new run rows visibility model, we don't configure run count per chart
-  if (shouldUseNewRunRowsVisibilityModel()) {
-    return null;
-  }
+  const isEmpty = !paramOptions.length && !metricOptions.length;
+
   return (
-    <RunsChartsConfigureField
-      title={formatMessage({
-        defaultMessage: 'Max. no of runs shown',
-        description: 'Label for the control allowing selection of number of runs displayed in a compare runs chart',
-      })}
+    <SimpleSelect
+      componentId="mlflow.charts.chart_configure.metric_with_dataset_select"
+      id={id}
+      css={styles.selectFull}
+      value={
+        isEmpty
+          ? formatMessage({
+              description:
+                'Message displayed when no metrics or params are available in the compare runs chart configure modal',
+              defaultMessage: 'No metrics or parameters available',
+            })
+          : value
+      }
+      disabled={isEmpty}
+      onChange={({ target }) => {
+        onChange(target.value);
+      }}
+      contentProps={{
+        matchTriggerWidth: true,
+        maxHeight: 500,
+      }}
     >
-      <LegacySelect<number> css={styles.selectFull} value={value} onChange={onChange}>
-        {options.map((countOption) => {
-          const optionValue = typeof countOption === 'number' ? countOption : countOption.value;
-          const label = typeof countOption === 'number' ? countOption : countOption.label;
-          return (
-            <LegacySelect.Option key={optionValue} value={optionValue}>
-              {label}
-            </LegacySelect.Option>
-          );
-        })}
-      </LegacySelect>
-    </RunsChartsConfigureField>
+      {metricOptions?.length ? (
+        <SimpleSelectOptionGroup
+          label={formatMessage({
+            defaultMessage: 'Metrics',
+            description: "Label for 'metrics' option group in the compare runs chart configure modal",
+          })}
+        >
+          {metricOptions.map(({ datasetName, key, metricKey }) => (
+            <SimpleSelectOption key={key} value={key}>
+              {datasetName && (
+                <Tag componentId="mlflow.charts.chart_configure.metric_with_dataset_select.tag">{datasetName}</Tag>
+              )}{' '}
+              {metricKey}
+            </SimpleSelectOption>
+          ))}
+        </SimpleSelectOptionGroup>
+      ) : null}
+      {paramOptions?.length ? (
+        <SimpleSelectOptionGroup
+          label={formatMessage({
+            defaultMessage: 'Params',
+            description: "Label for 'params' option group in the compare runs chart configure modal",
+          })}
+        >
+          {paramOptions.map(({ key, paramKey }) => (
+            <SimpleSelectOption key={key} value={key}>
+              {paramKey}
+            </SimpleSelectOption>
+          ))}
+        </SimpleSelectOptionGroup>
+      ) : null}
+    </SimpleSelect>
   );
 };
 

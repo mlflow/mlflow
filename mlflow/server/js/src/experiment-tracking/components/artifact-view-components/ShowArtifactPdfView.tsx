@@ -9,26 +9,29 @@ import React, { Component } from 'react';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'reac... Remove this comment to see the full error message
 import { Document, Page, pdfjs } from 'react-pdf';
 import { Pagination, Spinner } from '@databricks/design-system';
-import { getArtifactBytesContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import {
+  getArtifactBytesContent,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactPdfView.css';
 import Utils from '../../../common/utils/Utils';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 
 // See: https://github.com/wojtekmaj/react-pdf/blob/master/README.md#enable-pdfjs-worker for how
 // workerSrc is supposed to be specified.
 pdfjs.GlobalWorkerOptions.workerSrc = `./static-files/pdf.worker.js`;
 
-type OwnProps = {
+type Props = {
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
-};
+} & LoggedModelArtifactViewerProps;
 
 type State = any;
-
-type Props = OwnProps & typeof ShowArtifactPdfView.defaultProps;
 
 class ShowArtifactPdfView extends Component<Props, State> {
   state = {
@@ -45,9 +48,15 @@ class ShowArtifactPdfView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchPdf() {
-    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
+    const { path, runUuid, isLoggedModelsMode, loggedModelId } = this.props;
+
+    const artifactLocation =
+      isLoggedModelsMode && loggedModelId
+        ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
+        : getArtifactLocationUrl(path, runUuid);
+
     this.props
-      .getArtifact(artifactLocation)
+      .getArtifact?.(artifactLocation)
       .then((artifactPdfData: any) => {
         this.setState({ pdfData: { data: artifactPdfData }, loading: false });
       })

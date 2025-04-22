@@ -3,14 +3,18 @@ import copy
 import pytest
 
 from mlflow.entities import Metric, Param, RunTag
+from mlflow.environment_variables import MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.utils.os import is_windows
 from mlflow.utils.validation import (
+    MAX_TAG_VAL_LENGTH,
     _is_numeric,
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_db_type_string,
     _validate_experiment_artifact_location,
+    _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_metric_name,
     _validate_model_alias_name,
@@ -40,7 +44,6 @@ BAD_METRIC_OR_PARAM_NAMES = [
     "a/./b",
     "/a",
     "a/",
-    ":",
     "\\",
     "./",
     "/./",
@@ -52,7 +55,7 @@ GOOD_ALIAS_NAMES = [
     "test-alias",
     "1a2b5cDeFgH",
     "a" * 255,
-    "lates",
+    "lates",  # spellchecker: disable-line
     "v123_temp",
     "123",
     "123v",
@@ -76,10 +79,11 @@ BAD_ALIAS_NAMES = [
     "a" * 256,
     None,
     "$dgs",
-    "latest",
-    "Latest",
     "v123",
     "V1",
+    "latest",
+    "Latest",
+    "LATEST",
 ]
 
 
@@ -123,9 +127,21 @@ def test_validate_metric_name_good(metric_name):
     _validate_metric_name(metric_name)
 
 
+def _bad_parameter_pattern(name):
+    if name == "\\":
+        return r"Invalid value \"\\\\\" for parameter"  # Manually handle the backslash case
+    elif name == "*****":
+        return r"Invalid value \"\*\*\*\*\*\" for parameter"
+    else:
+        return f'Invalid value "{name}" for parameter'
+
+
 @pytest.mark.parametrize("metric_name", BAD_METRIC_OR_PARAM_NAMES)
 def test_validate_metric_name_bad(metric_name):
-    with pytest.raises(MlflowException, match="Invalid metric name") as e:
+    with pytest.raises(
+        MlflowException,
+        match=_bad_parameter_pattern(metric_name),
+    ) as e:
         _validate_metric_name(metric_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -137,7 +153,21 @@ def test_validate_param_name_good(param_name):
 
 @pytest.mark.parametrize("param_name", BAD_METRIC_OR_PARAM_NAMES)
 def test_validate_param_name_bad(param_name):
-    with pytest.raises(MlflowException, match="Invalid parameter name") as e:
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(param_name)) as e:
+        _validate_param_name(param_name)
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.skipif(not is_windows(), reason="Windows do not support colon in params and metrics")
+@pytest.mark.parametrize(
+    "param_name",
+    [
+        ":",
+        "aa:bb:cc",
+    ],
+)
+def test_validate_colon_name_bad_windows(param_name):
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(param_name)) as e:
         _validate_param_name(param_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -149,7 +179,7 @@ def test_validate_tag_name_good(tag_name):
 
 @pytest.mark.parametrize("tag_name", BAD_METRIC_OR_PARAM_NAMES)
 def test_validate_tag_name_bad(tag_name):
-    with pytest.raises(MlflowException, match="Invalid tag name") as e:
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(tag_name)) as e:
         _validate_tag_name(tag_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -187,7 +217,7 @@ def test_validate_run_id_good(run_id):
 
 @pytest.mark.parametrize("run_id", ["a/bc" * 8, "", "a" * 400, "*" * 5])
 def test_validate_run_id_bad(run_id):
-    with pytest.raises(MlflowException, match="Invalid run ID") as e:
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(run_id)) as e:
         _validate_run_id(run_id)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -243,7 +273,7 @@ def test_validate_batch_log_data(monkeypatch):
     ]
     tags_with_bad_val = [
         RunTag("good-tag-key", "hi"),
-        RunTag("another-good-key", "but-bad-val" * 1000),
+        RunTag("another-good-key", "a" * (MAX_TAG_VAL_LENGTH + 1)),
     ]
     bad_kwargs = {
         "metrics": [
@@ -305,3 +335,41 @@ def test_validate_db_type_string_bad(db_type):
     with pytest.raises(MlflowException, match="Invalid database engine") as e:
         _validate_db_type_string(db_type)
     assert "Invalid database engine" in e.value.message
+
+
+@pytest.mark.parametrize(
+    "artifact_location",
+    [
+        "s3://test-bucket/",
+        "file:///path/to/artifacts",
+        "mlflow-artifacts:/path/to/artifacts",
+        "dbfs:/databricks/mlflow-tracking/some-id",
+    ],
+)
+def test_validate_experiment_artifact_location_length_good(artifact_location):
+    _validate_experiment_artifact_location_length(artifact_location)
+
+
+@pytest.mark.parametrize(
+    "artifact_location",
+    ["s3://test-bucket/" + "a" * 10000, "file:///path/to/" + "directory" * 1111],
+)
+def test_validate_experiment_artifact_location_length_bad(artifact_location):
+    with pytest.raises(MlflowException, match="Invalid artifact path length"):
+        _validate_experiment_artifact_location_length(artifact_location)
+
+
+def test_setting_experiment_artifact_location_env_var_works(monkeypatch):
+    artifact_location = "file://aaaa"  # length 11
+
+    # should not throw
+    _validate_experiment_artifact_location_length(artifact_location)
+
+    # reduce limit to 10
+    monkeypatch.setenv(MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.name, "10")
+    with pytest.raises(MlflowException, match="Invalid artifact path length"):
+        _validate_experiment_artifact_location_length(artifact_location)
+
+    # increase limit to 11
+    monkeypatch.setenv(MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.name, "11")
+    _validate_experiment_artifact_location_length(artifact_location)

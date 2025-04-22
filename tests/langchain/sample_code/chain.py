@@ -1,13 +1,19 @@
-from typing import Any, List, Optional
+import dbutils
 
-from langchain.document_loaders import TextLoader
-from langchain.embeddings.fake import FakeEmbeddings
+dbutils.library.restartPython()
+
+from typing import Any, Optional
+
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import FAISS
+from langchain_community.chat_models import ChatDatabricks, ChatMlflow
+from langchain_community.document_loaders import TextLoader
+from langchain_community.embeddings.fake import FakeEmbeddings
+from langchain_community.vectorstores import FAISS
 
+import mlflow
 from mlflow.models import ModelConfig, set_model, set_retriever_schema
 
 base_config = ModelConfig(development_config="tests/langchain/config.yml")
@@ -15,7 +21,6 @@ base_config = ModelConfig(development_config="tests/langchain/config.yml")
 
 def get_fake_chat_model(endpoint="fake-endpoint"):
     from langchain.callbacks.manager import CallbackManagerForLLMRun
-    from langchain.chat_models import ChatDatabricks, ChatMlflow
     from langchain.schema.messages import BaseMessage
     from langchain_core.outputs import ChatResult
 
@@ -26,8 +31,8 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
 
         def _generate(
             self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
+            messages: list[BaseMessage],
+            stop: Optional[list[str]] = None,
             run_manager: Optional[CallbackManagerForLLMRun] = None,
             **kwargs: Any,
         ) -> ChatResult:
@@ -51,6 +56,9 @@ def get_fake_chat_model(endpoint="fake-endpoint"):
 
     return FakeChatModel(endpoint=endpoint)
 
+
+# No need to define the model, but simulating common practice in dev notebooks
+mlflow.langchain.autolog()
 
 text_path = "tests/langchain/state_of_the_union.txt"
 loader = TextLoader(text_path)
@@ -80,3 +88,5 @@ set_retriever_schema(
     doc_uri="doc-uri",
     other_columns=["column1", "column2"],
 )
+
+retrieval_chain.invoke({"question": "What is the capital of Japan?"})

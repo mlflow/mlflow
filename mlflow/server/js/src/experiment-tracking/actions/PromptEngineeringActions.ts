@@ -19,7 +19,7 @@ import {
   PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS,
 } from '../components/prompt-engineering/PromptEngineering.utils';
 
-export const EVALUATE_PROMPT_TABLE_VALUE = 'EVALUATE_PROMPT_TABLE_VALUE';
+const EVALUATE_PROMPT_TABLE_VALUE = 'EVALUATE_PROMPT_TABLE_VALUE';
 export interface EvaluatePromptTableValueAction
   extends AsyncAction<
     { metadata: any; text: string },
@@ -87,7 +87,7 @@ const evaluatePromptTableValueUnified =
     return dispatch(action);
   };
 
-export const DISCARD_PENDING_EVALUATION_DATA = 'DISCARD_PENDING_EVALUATION_DATA';
+const DISCARD_PENDING_EVALUATION_DATA = 'DISCARD_PENDING_EVALUATION_DATA';
 export type DiscardPendingEvaluationDataAction = Action<'DISCARD_PENDING_EVALUATION_DATA'>;
 export const discardPendingEvaluationData = () => ({
   type: DISCARD_PENDING_EVALUATION_DATA,
@@ -161,7 +161,7 @@ export const writeBackEvaluationArtifactsAction = () => async (dispatch: ThunkDi
     meta: { runUuidsToUpdate, artifactPath: MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME },
   });
 };
-export const EVALUATE_ADD_INPUT_VALUES = 'EVALUATE_ADD_INPUT_VALUES';
+const EVALUATE_ADD_INPUT_VALUES = 'EVALUATE_ADD_INPUT_VALUES';
 export interface EvaluateAddInputValues extends Action<'EVALUATE_ADD_INPUT_VALUES'> {
   payload: Record<string, string>;
 }
@@ -200,6 +200,7 @@ export const evaluatePromptTableValue = ({
     run,
   };
 
+  // END-EDGE
   return evaluatePromptTableValueUnified({
     ...evaluateParams,
     routeType,

@@ -2,7 +2,7 @@ import configparser
 import getpass
 import logging
 import os
-from typing import NamedTuple, Optional, Tuple
+from typing import NamedTuple, Optional
 
 from mlflow.environment_variables import (
     MLFLOW_TRACKING_AUTH,
@@ -29,7 +29,7 @@ def _get_credentials_path() -> str:
     return os.path.expanduser("~/.mlflow/credentials")
 
 
-def _read_mlflow_creds_from_file() -> Tuple[Optional[str], Optional[str]]:
+def _read_mlflow_creds_from_file() -> tuple[Optional[str], Optional[str]]:
     path = _get_credentials_path()
     if not os.path.exists(path):
         return None, None
@@ -45,7 +45,7 @@ def _read_mlflow_creds_from_file() -> Tuple[Optional[str], Optional[str]]:
     return mlflow_cfg.get(username_key), mlflow_cfg.get(password_key)
 
 
-def _read_mlflow_creds_from_env() -> Tuple[Optional[str], Optional[str]]:
+def _read_mlflow_creds_from_env() -> tuple[Optional[str], Optional[str]]:
     return MLFLOW_TRACKING_USERNAME.get(), MLFLOW_TRACKING_PASSWORD.get()
 
 
@@ -84,7 +84,7 @@ def login(backend: str = "databricks", interactive: bool = True) -> None:
         backend: string, the backend of the tracking server. Currently only "databricks" is
             supported.
 
-        interacive: bool, controls request for user input on missing credentials. If true, user
+        interactive: bool, controls request for user input on missing credentials. If true, user
             input will be requested if no credentials are found, otherwise an exception will be
             raised if no credentials are found.
 

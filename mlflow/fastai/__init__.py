@@ -12,11 +12,13 @@ fastai (native) format
 .. _fastai.Learner.export:
     https://docs.fast.ai/basic_train.html#Learner.export
 """
+
 import logging
 import os
 import tempfile
+import warnings
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -26,6 +28,7 @@ import mlflow.tracking
 from mlflow import pyfunc
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -61,6 +64,8 @@ FLAVOR_NAME = "fastai"
 _MODEL_DATA_SUBPATH = "model.fastai"
 
 _logger = logging.getLogger(__name__)
+
+warnings.warn("fastai flavor is deprecated and will be removed in MLflow 3.0.", FutureWarning)
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
@@ -163,10 +168,13 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+    if signature is None and saved_example is not None:
+        wrapped_model = _FastaiModelWrapper(fastai_learner)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
+
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -271,13 +279,13 @@ def log_model(
               signature = infer_signature(train, predictions)
 
         input_example: {{ input_example }}
-        kwargs: kwargs to pass to `fastai.Learner.export`_ method.
         await_registration_for: Number of seconds to wait for the model version to finish
             being created and is in ``READY`` status. By default, the function
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        kwargs: kwargs to pass to `fastai.Learner.export`_ method.
 
     Returns:
         A ModelInfo instance that contains the metadata of the logged model.
@@ -345,10 +353,16 @@ class _FastaiModelWrapper:
     def __init__(self, learner):
         self.learner = learner
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.learner
+
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:

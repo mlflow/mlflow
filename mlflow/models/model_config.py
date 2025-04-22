@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import yaml
 
@@ -11,11 +11,83 @@ __mlflow_model_config__ = None
 
 class ModelConfig:
     """
-    ModelConfig used in code to read a YAML configuration file, and this configuration file can be
-    overridden when logging a model.
+    ModelConfig used in code to read a YAML configuration file or a dictionary.
+
+    Args:
+        development_config: Path to the YAML configuration file or a dictionary containing the
+                        configuration. If the configuration is not provided, an error is raised
+
+    .. code-block:: python
+        :caption: Example usage in model code
+
+        from mlflow.models import ModelConfig
+
+        # Load the configuration from a dictionary
+        config = ModelConfig(development_config={"key1": "value1"})
+        print(config.get("key1"))
+
+
+    .. code-block:: yaml
+        :caption: yaml file for model configuration
+
+        key1: value1
+        another_key:
+            - value2
+            - value3
+
+    .. code-block:: python
+        :caption: Example yaml usage in model code
+
+        from mlflow.models import ModelConfig
+
+        # Load the configuration from a file
+        config = ModelConfig(development_config="config.yaml")
+        print(config.get("key1"))
+
+
+    When invoking the ModelConfig locally in a model file, development_config can be passed in
+    which would be used as configuration for the model.
+
+
+    .. code-block:: python
+        :caption: Example to use ModelConfig when logging model as code: agent.py
+
+        import mlflow
+        from mlflow.models import ModelConfig
+
+        config = ModelConfig(development_config={"key1": "value1"})
+
+
+        class TestModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input, params=None):
+                return config.get("key1")
+
+
+        mlflow.models.set_model(TestModel())
+
+
+    But this development_config configuration file will be overridden when logging a model.
+    When no model_config is passed in while logging the model, an error will be raised when
+    trying to load the model using ModelConfig.
+    Note: development_config is not used when logging the model.
+
+
+    .. code-block:: python
+        :caption: Example to use agent.py to log the model: deploy.py
+
+        model_config = {"key1": "value2"}
+        with mlflow.start_run():
+            model_info = mlflow.pyfunc.log_model(
+                artifact_path="model", python_model="agent.py", model_config=model_config
+            )
+
+        loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+        # This will print "value2" as the model_config passed in while logging the model
+        print(loaded_model.predict(None))
     """
 
-    def __init__(self, *, development_config: Optional[Union[str, Dict[str, Any]]] = None):
+    def __init__(self, *, development_config: Optional[Union[str, dict[str, Any]]] = None):
         config = globals().get("__mlflow_model_config__", None)
         # Here mlflow_model_config have 3 states:
         # 1. None, this means if the mlflow_model_config is None, use development_config if
@@ -59,6 +131,10 @@ class ModelConfig:
                 raise MlflowException(
                     f"Error parsing YAML file: {e}", error_code=INVALID_PARAMETER_VALUE
                 )
+
+    def to_dict(self):
+        """Returns the configuration as a dictionary."""
+        return self._read_config()
 
     def get(self, key):
         """Gets the value of a top-level parameter in the configuration."""

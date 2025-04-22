@@ -21,6 +21,12 @@ class KerasModelWrapper:
         self.signature = signature
         self.save_exported_model = save_exported_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
+
     def get_model_call_method(self):
         if self.save_exported_model:
             return self.model.serve
@@ -39,7 +45,8 @@ class KerasModelWrapper:
                 f"received type: {type(data)}.",
                 INVALID_PARAMETER_VALUE,
             )
-        return model_call(data)
+        # Return numpy array for serving purposes.
+        return keras.ops.convert_to_numpy(model_call(data))
 
 
 def _load_keras_model(path, model_conf, custom_objects=None, **load_model_kwargs):

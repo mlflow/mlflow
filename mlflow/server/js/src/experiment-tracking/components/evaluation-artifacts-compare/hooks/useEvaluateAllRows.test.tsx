@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-for-react-18';
+import { act, renderHook } from '@testing-library/react';
 import { useEvaluateAllRows } from './useEvaluateAllRows';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';

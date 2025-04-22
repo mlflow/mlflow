@@ -2,6 +2,8 @@ import logging
 import os
 from typing import Optional
 
+from mlflow.utils.string_utils import _backtick_quote
+
 _logger = logging.getLogger(__name__)
 
 
@@ -85,8 +87,9 @@ def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> Opti
 
     try:
         spark = SparkSession.builder.getOrCreate()
+        backticked_table_name = ".".join(map(_backtick_quote, table_name.split(".")))
         j_delta_table = spark._jvm.io.delta.tables.DeltaTable.forName(
-            spark._jsparkSession, table_name
+            spark._jsparkSession, backticked_table_name
         )
         return _get_delta_table_latest_version(j_delta_table)
     except Exception as e:
@@ -103,7 +106,7 @@ def _get_delta_table_latest_version(j_delta_table) -> int:
     """Obtains the latest version of the specified Delta table Java class.
 
     Args:
-        delta_table: A Java DeltaTable class instance.
+        j_delta_table: A Java DeltaTable class instance.
 
     Returns:
         The version of the Delta table.

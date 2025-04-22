@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Dict, Optional, Tuple
+from typing import Optional
 
 _logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ def get_cmd(
     nworkers: Optional[int] = None,
     model_name: Optional[str] = None,
     model_version: Optional[str] = None,
-) -> Tuple[str, Dict[str, str]]:
+) -> tuple[str, dict[str, str]]:
     cmd = f"mlserver start {model_uri}"
 
     cmd_env = os.environ.copy()

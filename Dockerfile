@@ -1,8 +1,8 @@
-FROM python:3.8-bullseye
+FROM python:3.9-bullseye
 
 WORKDIR /home/mlflow
 
-RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - \
+RUN curl -sL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     # java
     openjdk-11-jre-headless \

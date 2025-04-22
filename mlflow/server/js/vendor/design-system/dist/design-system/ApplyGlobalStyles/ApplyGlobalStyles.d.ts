@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import { type SerializedStyles } from '@emotion/react';
 import type { Theme } from '../../theme';
 export declare const getGlobalStyles: (theme: Theme) => SerializedStyles;

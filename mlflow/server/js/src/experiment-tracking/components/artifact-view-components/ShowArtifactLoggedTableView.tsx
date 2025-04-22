@@ -11,12 +11,16 @@ import {
   TableHeader,
   TableRow,
   TableSkeleton,
-  Tooltip,
+  LegacyTooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { isUndefined } from 'lodash';
+import { isArray, isObject, isUndefined } from 'lodash';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import {
+  getArtifactContent,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../../common/utils/ArtifactUtils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SortingState, PaginationState } from '@tanstack/react-table';
 import {
@@ -27,17 +31,28 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import React from 'react';
-import { parseJSONSafe } from 'common/utils/TagUtils';
-import { ArtifactLogTableImageObject } from 'experiment-tracking/types';
-import { LOG_TABLE_IMAGE_COLUMN_TYPE } from 'experiment-tracking/constants';
+import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
+import { ArtifactLogTableImageObject } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { LOG_TABLE_IMAGE_COLUMN_TYPE } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { ImagePlot } from '../runs-charts/components/charts/ImageGridPlot.common';
 import { ToggleIconButton } from '../../../common/components/ToggleIconButton';
 import { ShowArtifactLoggedTableViewDataPreview } from './ShowArtifactLoggedTableViewDataPreview';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 
 const MAX_ROW_HEIGHT = 160;
 const MIN_COLUMN_WIDTH = 100;
 const getDuboisTableHeight = (isCompact?: boolean) => 1 + (isCompact ? 24 : 32);
 const DEFAULT_PAGINATION_COMPONENT_HEIGHT = 48;
+
+/**
+ * This function ensures we have a valid ID for every column in the table.
+ * If the column name is a number, null or undefined we will convert it to a string.
+ * If the column name is an empty string, we will use a fallback name with numbered suffix.
+ * Refer to the corresponding unit test for more context.
+ */
+const sanitizeColumnId = (columnName: string, columnIndex: number) =>
+  columnName === '' ? `column-${columnIndex + 1}` : String(columnName);
 
 const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[][] }; runUuid: string }) => {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -60,7 +75,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
     }
   }, []);
 
-  const columns = useMemo(() => data['columns'], [data]);
+  const columns = useMemo(() => data['columns']?.map(sanitizeColumnId) ?? [], [data]);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<string | undefined>(undefined);
   const rows = useMemo(() => data['data'], [data]);
@@ -133,6 +148,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
                     />
                   );
                 } catch {
+                  Utils.logErrorAndNotifyUser("Error parsing image data in logged table's image column");
                   return row.getValue();
                 }
               },
@@ -176,6 +192,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
 
   const paginationComponent = (
     <Pagination
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_artifact-view-components_showartifactloggedtableview.tsx_181"
       currentPageIndex={pagination.pageIndex + 1}
       numTotal={rows.length}
       onChange={(page, pageSize) => {
@@ -217,12 +234,14 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
                   {headerGroup.headers.map((header, index) => {
                     return (
                       <TableHeader
+                        componentId="codegen_mlflow_app_src_experiment-tracking_components_artifact-view-components_showartifactloggedtableview.tsx_223"
                         key={header.id}
                         sortable
                         sortDirection={header.column.getIsSorted() || 'none'}
                         onToggleSort={header.column.getToggleSortingHandler()}
-                        resizable={header.column.getCanResize()}
-                        resizeHandler={header.getResizeHandler()}
+                        header={header}
+                        column={header.column}
+                        setColumnSizing={table.setColumnSizing}
                         isResizing={header.column.getIsResizing()}
                         style={{ maxWidth: header.column.getSize() }}
                       >
@@ -290,7 +309,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
         }}
       >
         <DropdownMenu.Root modal={false}>
-          <Tooltip
+          <LegacyTooltip
             title={intl.formatMessage({
               defaultMessage: 'Table settings',
               description: 'Run view > artifact view > logged table > table settings tooltip',
@@ -306,10 +325,14 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
             >
               <Button componentId="mlflow.run.artifact_view.table_settings" icon={<GearIcon />} />
             </DropdownMenu.Trigger>
-          </Tooltip>
-          <DropdownMenu.Content side="left">
+          </LegacyTooltip>
+          <DropdownMenu.Content css={{ maxHeight: theme.general.heightSm * 10, overflowY: 'auto' }} side="left">
             <DropdownMenu.Arrow />
-            <DropdownMenu.CheckboxItem checked={isCompactView} onCheckedChange={setIsCompactView}>
+            <DropdownMenu.CheckboxItem
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_artifact-view-components_showartifactloggedtableview.tsx_315"
+              checked={isCompactView}
+              onCheckedChange={setIsCompactView}
+            >
               <DropdownMenu.ItemIndicator />
               <FormattedMessage
                 defaultMessage="Compact view"
@@ -326,6 +349,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
               </DropdownMenu.Label>
               {columns.map((column) => (
                 <DropdownMenu.CheckboxItem
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_artifact-view-components_showartifactloggedtableview.tsx_331"
                   onSelect={(event) => event.preventDefault()}
                   checked={!hiddenColumns.includes(column)}
                   key={column}
@@ -364,79 +388,94 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
 type ShowArtifactLoggedTableViewProps = {
   runUuid: string;
   path: string;
-};
+} & LoggedModelArtifactViewerProps;
 
-export const ShowArtifactLoggedTableView = React.memo(({ runUuid, path }: ShowArtifactLoggedTableViewProps) => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error>();
-  const [curPath, setCurPath] = useState<string | undefined>(undefined);
-  const [text, setText] = useState<string>('');
+export const ShowArtifactLoggedTableView = React.memo(
+  ({ runUuid, path, isLoggedModelsMode, loggedModelId }: ShowArtifactLoggedTableViewProps) => {
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<Error>();
+    const [curPath, setCurPath] = useState<string | undefined>(undefined);
+    const [text, setText] = useState<string>('');
 
-  useEffect(() => {
-    setLoading(true);
-    const artifactLocation = getArtifactLocationUrl(path, runUuid);
-    getArtifactContent(artifactLocation)
-      .then((value) => {
-        setLoading(false);
-        // Check if value is stringified JSON
-        if (value && typeof value === 'string') {
-          setText(value);
-          setError(undefined);
-        } else {
-          setError(Error('Artifact is not a JSON file'));
-        }
-      })
-      .catch((error: Error) => {
-        setError(error);
-        setLoading(false);
-      });
-    setCurPath(path);
-  }, [path, runUuid]);
+    useEffect(() => {
+      setLoading(true);
+      const artifactLocation =
+        isLoggedModelsMode && loggedModelId
+          ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
+          : getArtifactLocationUrl(path, runUuid);
 
-  const data = useMemo(() => parseJSONSafe(text), [text]);
-
-  const { theme } = useDesignSystemTheme();
-
-  const renderErrorState = (description: React.ReactNode) => {
-    return (
-      <div css={{ padding: theme.spacing.md }}>
-        <Empty
-          image={<DangerIcon />}
-          title={
-            <FormattedMessage
-              defaultMessage="Error occurred"
-              description="Run page > artifact view > logged table view > generic error empty state title"
-            />
+      getArtifactContent(artifactLocation)
+        .then((value) => {
+          setLoading(false);
+          // Check if value is stringified JSON
+          if (value && typeof value === 'string') {
+            setText(value);
+            setError(undefined);
+          } else {
+            setError(Error('Artifact is not a JSON file'));
           }
-          description={description}
-        />
-      </div>
-    );
-  };
+        })
+        .catch((error: Error) => {
+          setError(error);
+          setLoading(false);
+        });
+      setCurPath(path);
+    }, [path, runUuid, isLoggedModelsMode, loggedModelId]);
 
-  if (loading || path !== curPath) {
-    return (
-      <div
-        css={{
-          padding: theme.spacing.md,
-        }}
-      >
-        <TableSkeleton lines={5} />
-      </div>
-    );
-  }
-  if (error) {
-    return renderErrorState(error.message);
-  } else if (text) {
-    if (!data) {
-      return renderErrorState(
-        <FormattedMessage
-          defaultMessage="Unable to parse JSON file"
-          description="Run page > artifact view > logged table view > unable to parse JSON file error"
-        />,
+    const data = useMemo<{
+      columns: string[];
+      data: any[][];
+    }>(() => {
+      const parsedJSON = parseJSONSafe(text);
+      if (!parsedJSON || !isArray(parsedJSON?.columns) || !isArray(parsedJSON?.data)) {
+        return undefined;
+      }
+      return parsedJSON;
+    }, [text]);
+
+    const { theme } = useDesignSystemTheme();
+
+    const renderErrorState = (description: React.ReactNode) => {
+      return (
+        <div css={{ padding: theme.spacing.md }}>
+          <Empty
+            image={<DangerIcon />}
+            title={
+              <FormattedMessage
+                defaultMessage="Error occurred"
+                description="Run page > artifact view > logged table view > generic error empty state title"
+              />
+            }
+            description={description}
+          />
+        </div>
+      );
+    };
+
+    if (loading || path !== curPath) {
+      return (
+        <div
+          css={{
+            padding: theme.spacing.md,
+          }}
+        >
+          <TableSkeleton lines={5} />
+        </div>
       );
     }
-    return <LoggedTable data={data} runUuid={runUuid} />;
-  }
-  return renderErrorState(null);
-});
+    if (error) {
+      return renderErrorState(error.message);
+    } else if (text) {
+      if (!data) {
+        return renderErrorState(
+          <FormattedMessage
+            defaultMessage="Unable to parse JSON file. The file should contain an object with 'columns' and 'data' keys."
+            description="An error message displayed when the logged table JSON file is malformed or does not contain 'columns' and 'data' keys"
+          />,
+        );
+      }
+      return <LoggedTable data={data} runUuid={runUuid} />;
+    }
+    return renderErrorState(null);
+  },
+);

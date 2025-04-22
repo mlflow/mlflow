@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { SkeletonProps as AntDSkeletonProps } from 'antd';
 import { Skeleton as AntDSkeleton } from 'antd';
 import type { WithLoadingState } from '../LoadingState/LoadingState';

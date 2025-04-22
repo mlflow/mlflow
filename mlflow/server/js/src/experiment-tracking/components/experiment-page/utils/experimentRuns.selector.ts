@@ -12,6 +12,7 @@ import {
 } from '../../../types';
 import { getLatestMetrics } from '../../../reducers/MetricReducer';
 import { getExperimentTags, getParams, getRunDatasets, getRunInfo, getRunTags } from '../../../reducers/Reducers';
+import { pickBy } from 'lodash';
 
 export type ExperimentRunsSelectorResult = {
   /**
@@ -117,6 +118,7 @@ const extractRunInfos = (
         } else if (modelVersionFilter === MODEL_VERSION_FILTER.WTIHOUT_MODEL_VERSIONS) {
           return !(rInfo.runUuid in modelVersionsByRunUuid);
         } else {
+          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
           console.warn('Invalid input to model version filter - defaulting to showing all runs.');
           return true;
         }
@@ -129,15 +131,8 @@ const extractRunInfos = (
         return datasets.some((datasetWithTags: RunDatasetWithTags) => {
           const datasetName = datasetWithTags.dataset.name;
           const datasetDigest = datasetWithTags.dataset.digest;
-          const datasetTag = datasetWithTags.tags
-            ? datasetWithTags.tags.find((tag) => tag.key === 'mlflow.data.context')
-            : undefined;
-          return datasetsFilter.some(
-            ({ name, digest, context }) =>
-              name === datasetName &&
-              digest === datasetDigest &&
-              (datasetTag ? context === datasetTag.value : context === undefined),
-          );
+
+          return datasetsFilter.some(({ name, digest }) => name === datasetName && digest === datasetDigest);
         });
       })
       .map(([rInfo, _]) => rInfo)
@@ -152,10 +147,16 @@ export const experimentRunsSelector = (
   const experimentIds = params.experimentIds || experiments.map((e) => e.experimentId);
   const comparingExperiments = experimentIds.length > 1;
 
+  // Read the order of runs from array of UUIDs in the store, because otherwise the order when
+  // reading from the object is not guaranteed. This is important when we are trying to sort runs by
+  // metrics and other fields.
+  const runOrder = state.entities.runInfoOrderByUuid || [];
+  const runs = runOrder.map((runUuid) => state.entities.runInfosByUuid[runUuid]);
+
   /**
    * Extract run UUIDs relevant to selected experiments
    */
-  const runUuids = Object.values(state.entities.runInfosByUuid)
+  const runUuids = runs
     .filter(({ experimentId }) => experimentIds.includes(experimentId))
     .map(({ runUuid }) => runUuid);
 
@@ -188,7 +189,9 @@ export const experimentRunsSelector = (
    */
   const metricsList = runInfos.map((runInfo) => {
     const metricsByRunUuid = getLatestMetrics(runInfo.runUuid, state);
-    const metrics = Object.values(metricsByRunUuid || {}) as any[];
+    const metrics = (Object.values(metricsByRunUuid || {}) as any[]).filter(
+      (metric) => metric.key.trim().length > 0, // Filter out metrics that are entirely whitespace
+    );
     metrics.forEach((metric) => {
       metricKeysSet.add(metric.key);
     });
@@ -199,7 +202,9 @@ export const experimentRunsSelector = (
    * Extracting lists of params by run index
    */
   const paramsList = runInfos.map((runInfo) => {
-    const paramValues = Object.values(getParams(runInfo.runUuid, state)) as any[];
+    const paramValues = (Object.values(getParams(runInfo.runUuid, state)) as any[]).filter(
+      (param) => param.key.trim().length > 0, // Filter out params that are entirely whitespace
+    );
     paramValues.forEach((param) => {
       paramKeysSet.add(param.key);
     });
@@ -209,7 +214,12 @@ export const experimentRunsSelector = (
   /**
    * Extracting dictionaries of tags by run index
    */
-  const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.runUuid, state)) as Record<string, KeyValueEntity>[];
+  const tagsList = runInfos.map((runInfo) =>
+    pickBy(
+      getRunTags(runInfo.runUuid, state),
+      (tags) => tags.key.trim().length > 0, // Filter out tags that are entirely whitespace
+    ),
+  ) as Record<string, KeyValueEntity>[];
 
   const firstExperimentId = experimentIds[0];
 

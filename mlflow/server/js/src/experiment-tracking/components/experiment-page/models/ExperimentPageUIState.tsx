@@ -1,15 +1,17 @@
 import { shouldEnableExperimentPageAutoRefresh } from '../../../../common/utils/FeatureUtils';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
-import { SerializedRunsChartsCardConfigCard } from '../../runs-charts/runs-charts.types';
+import type { RunsChartsLineCardConfig, SerializedRunsChartsCardConfigCard } from '../../runs-charts/runs-charts.types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.common-utils';
-import { ChartSectionConfig } from 'experiment-tracking/types';
+import type { ChartSectionConfig } from '@mlflow/mlflow/src/experiment-tracking/types';
 import type { RunsGroupByConfig } from '../utils/experimentPage.group-row-utils';
+import { RunsChartsLineChartXAxisType } from '../../runs-charts/components/RunsCharts.common';
 
 export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'selectedColumns',
   'runsExpanded',
   'runsPinned',
   'runsHidden',
+  'runsVisibilityMap',
   'runsHiddenMode',
   'compareRunCharts',
   'compareRunSections',
@@ -19,6 +21,10 @@ export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'groupBy',
   'groupsExpanded',
   'autoRefreshEnabled',
+  'useGroupedValuesInCharts',
+  'hideEmptyCharts',
+  'globalLineChartConfig',
+  'chartsSearchFilter',
 ];
 
 const getDefaultSelectedColumns = () => {
@@ -39,6 +45,10 @@ export enum RUNS_VISIBILITY_MODE {
   FIRST_20_RUNS = 'FIRST_20_RUNS',
   CUSTOM = 'CUSTOM',
 }
+
+export type RunsChartsGlobalLineChartConfig = Partial<
+  Pick<RunsChartsLineCardConfig, 'selectedXAxisMetricKey' | 'xAxisKey' | 'lineSmoothness'>
+>;
 
 /**
  * An interface describing serializable, persistable configuration for charts displaying
@@ -64,6 +74,16 @@ export interface ExperimentRunsChartsUIConfiguration {
    * Determines if the auto refresh of the chart data is enabled
    */
   autoRefreshEnabled: boolean;
+
+  /**
+   * Global line chart settings that are applied to all line charts
+   */
+  globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
+
+  /**
+   * Regex string used to filter visible charts
+   */
+  chartsSearchFilter?: string;
 }
 
 /**
@@ -88,10 +108,20 @@ export interface ExperimentPageUIState extends ExperimentRunsChartsUIConfigurati
 
   /**
    * List of hidden row UUIDs
+   * @deprecated Use "runsVisibilityMap" field instead which has better control over visibility
    */
   runsHidden: string[];
 
+  /**
+   * Determines default visibility mode for runs which are not explicitly specified by "runsVisibilityMap" field
+   */
   runsHiddenMode: RUNS_VISIBILITY_MODE;
+
+  /**
+   * Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that
+   * a run has been hidden (its child runs are not visible).
+   */
+  runsVisibilityMap?: Record<string, boolean>;
 
   /**
    * Determines if the experiment view is maximized
@@ -109,9 +139,19 @@ export interface ExperimentPageUIState extends ExperimentRunsChartsUIConfigurati
   groupBy: string | RunsGroupByConfig | null;
 
   /**
+   * Determines if the grouped and aggregated values should be displayed in charts
+   */
+  useGroupedValuesInCharts?: boolean;
+
+  /**
    * Map of the currently expanded run groups
    */
   groupsExpanded: Record<string, boolean>;
+
+  /**
+   * Determines if charts with no corresponding data should be hidden
+   */
+  hideEmptyCharts?: boolean;
 }
 
 /**
@@ -122,14 +162,22 @@ export const createExperimentPageUIState = (): ExperimentPageUIState => ({
   runsExpanded: {},
   runsPinned: [],
   runsHidden: [],
+  runsVisibilityMap: {},
   runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
   compareRunCharts: undefined,
   compareRunSections: undefined,
   viewMaximized: false,
   runListHidden: false,
   isAccordionReordered: false,
+  useGroupedValuesInCharts: true,
+  hideEmptyCharts: true,
   groupBy: null,
   groupsExpanded: {},
   // Auto-refresh is enabled by default only if the flag is set
   autoRefreshEnabled: shouldEnableExperimentPageAutoRefresh(),
+  globalLineChartConfig: {
+    xAxisKey: RunsChartsLineChartXAxisType.STEP,
+    lineSmoothness: 0,
+    selectedXAxisMetricKey: '',
+  },
 });

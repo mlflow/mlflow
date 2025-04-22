@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { AutoCompleteProps as AntDAutoCompleteProps } from 'antd';
 import type { OptionType } from 'antd/es/select';
 import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';

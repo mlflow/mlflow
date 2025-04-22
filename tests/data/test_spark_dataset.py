@@ -7,10 +7,10 @@ import pytest
 import mlflow.data
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.spark_dataset import SparkDataset
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 

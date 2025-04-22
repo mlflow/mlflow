@@ -7,12 +7,13 @@ TensorFlow (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 import importlib
 import logging
 import os
 import shutil
 import tempfile
-from typing import Any, Dict, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import numpy as np
 import pandas
@@ -33,10 +34,10 @@ from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCall
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
+from mlflow.tracking.fluent import _shut_down_async_logging
 from mlflow.types.schema import TensorSpec
 from mlflow.utils import is_iterator
 from mlflow.utils.autologging_utils import (
-    PatchFunction,
     autologging_integration,
     get_autologging_config,
     log_fn_args_as_params,
@@ -193,11 +194,11 @@ def log_model(
             :py:func:`mlflow.pyfunc.load_model`.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
+        signature: {{ signature }}
+        input_example: {{ input_example }}
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
-        signature: {{ signature }}
-        input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version to finish
             being created and is in ``READY`` status. By default, the function
             waits for five minutes. Specify 0 or None to skip waiting.
@@ -330,14 +331,24 @@ def save_model(
     import tensorflow as tf
     from tensorflow.keras.models import Model as KerasModel
 
-    if signature is None and input_example is not None:
+    # check if path exists
+    path = os.path.abspath(path)
+    _validate_and_prepare_target_save_path(path)
+
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = None
         if isinstance(model, KerasModel):
             wrapped_model = _KerasModelWrapper(model, signature)
         elif isinstance(model, tf.Module):
             wrapped_model = _TF2ModuleWrapper(model, signature)
         if wrapped_model is not None:
-            signature = _infer_signature_from_input_example(input_example, wrapped_model)
+            signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
@@ -365,18 +376,8 @@ def save_model(
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    # check if path exists
-    path = os.path.abspath(path)
-    _validate_and_prepare_target_save_path(path)
-
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
-
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -762,10 +763,16 @@ class _TF2Wrapper:
         self.model = model
         self.infer = infer
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
+
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -815,10 +822,16 @@ class _TF2ModuleWrapper:
         self.model = model
         self.signature = signature
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
+
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -848,10 +861,16 @@ class _KerasModelWrapper:
         self.keras_model = keras_model
         self.signature = signature
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.keras_model
+
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -1080,12 +1099,12 @@ def autolog(
         checkpoint: Enable automatic model checkpointing.
         checkpoint_monitor: In automatic model checkpointing, the metric name to monitor if
             you set `model_checkpoint_save_best_only` to True.
-        checkpoint_save_best_only: If True, automatic model checkpointing only saves when
-            the model is considered the "best" model according to the quantity
-            monitored and previous checkpoint model is overwritten.
         checkpoint_mode: one of {"min", "max"}. In automatic model checkpointing,
             if save_best_only=True, the decision to overwrite the current save file is made based on
             either the maximization or the minimization of the monitored quantity.
+        checkpoint_save_best_only: If True, automatic model checkpointing only saves when
+            the model is considered the "best" model according to the quantity
+            monitored and previous checkpoint model is overwritten.
         checkpoint_save_weights_only: In automatic model checkpointing, if True, then
             only the model’s weights will be saved. Otherwise, the optimizer states,
             lr-scheduler states, etc are added in the checkpoint too.
@@ -1211,8 +1230,8 @@ def autolog(
         )
 
         log_model(
-            model=history.model,
-            artifact_path="model",
+            history.model,
+            "model",
             input_example=input_example,
             signature=signature,
             registered_model_name=get_autologging_config(
@@ -1222,11 +1241,9 @@ def autolog(
             keras_model_kwargs=keras_model_kwargs,
         )
 
-    class FitPatch(PatchFunction):
-        def __init__(self):
-            self.log_dir = None
-
-        def _patch_implementation(self, original, inst, *args, **kwargs):
+    def _patched_inference(original, inst, *args, **kwargs):
+        log_dir = None
+        try:
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             batch_size = None
@@ -1278,7 +1295,7 @@ def autolog(
                 # modifying their contents for future training invocations. Introduce
                 # TensorBoard & tf.keras callbacks if necessary
                 callbacks = list(args[5])
-                callbacks, self.log_dir = _setup_callbacks(
+                callbacks, log_dir = _setup_callbacks(
                     callbacks,
                     log_every_epoch=log_every_epoch,
                     log_every_n_steps=log_every_n_steps,
@@ -1291,7 +1308,7 @@ def autolog(
                 # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
                 # & tf.keras callbacks if necessary
                 callbacks = list(kwargs.get("callbacks") or [])
-                kwargs["callbacks"], self.log_dir = _setup_callbacks(
+                kwargs["callbacks"], log_dir = _setup_callbacks(
                     callbacks,
                     log_every_epoch=log_every_epoch,
                     log_every_n_steps=log_every_n_steps,
@@ -1325,8 +1342,7 @@ def autolog(
 
                 except Exception as e:
                     _logger.warning(
-                        "Failed to log training dataset information to "
-                        "MLflow Tracking. Reason: %s",
+                        "Failed to log training dataset information to MLflow Tracking. Reason: %s",
                         e,
                     )
 
@@ -1340,30 +1356,35 @@ def autolog(
                 history=history,
             )
             # Ensure all data are logged.
-            mlflow.flush_async_logging()
+            # Shut down the async logging (instead of flushing)
+            # to avoid leaving zombie threads between patchings.
+            _shut_down_async_logging()
 
             mlflow.log_artifacts(
-                local_dir=self.log_dir.location,
+                local_dir=log_dir.location,
                 artifact_path="tensorboard_logs",
             )
-            if self.log_dir.is_temp:
-                shutil.rmtree(self.log_dir.location)
+            if log_dir.is_temp:
+                shutil.rmtree(log_dir.location)
             return history
 
-        def _on_exception(self, exception):
-            if (
-                self.log_dir is not None
-                and self.log_dir.is_temp
-                and os.path.exists(self.log_dir.location)
-            ):
-                shutil.rmtree(self.log_dir.location)
+        except (Exception, KeyboardInterrupt) as e:
+            try:
+                if log_dir is not None and log_dir.is_temp and os.path.exists(log_dir.location):
+                    shutil.rmtree(log_dir.location)
+            finally:
+                # Regardless of what happens during the `_on_exception` callback, reraise
+                # the original implementation exception once the callback completes
+                raise e
 
-    managed = [
-        (tf.keras.Model, "fit", FitPatch),
-    ]
-
-    for p in managed:
-        safe_patch(FLAVOR_NAME, *p, manage_run=True, extra_tags=extra_tags)
+    safe_patch(
+        FLAVOR_NAME,
+        tf.keras.Model,
+        "fit",
+        _patched_inference,
+        manage_run=True,
+        extra_tags=extra_tags,
+    )
 
 
 def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targets=None):

@@ -195,7 +195,7 @@ def test_predict_step_uses_register_step_output(
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
 
 
-def test_predict_model_uri_takes_precendence_over_model_name(
+def test_predict_model_uri_takes_precedence_over_model_name(
     tmp_recipe_root_path: Path,
     predict_step_output_dir: Path,
     spark_session,

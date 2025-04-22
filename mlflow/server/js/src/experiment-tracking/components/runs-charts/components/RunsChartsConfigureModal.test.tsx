@@ -1,19 +1,21 @@
-import { render, screen, waitFor } from '@testing-library/react-for-react-18';
+import { render, screen, waitFor } from '@testing-library/react';
 import { RunsChartsConfigureModal } from './RunsChartsConfigureModal';
 import { RunsChartType, RunsChartsLineCardConfig } from '../runs-charts.types';
 import { IntlProvider } from 'react-intl';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 import { RunsMetricsLinePlot } from './RunsMetricsLinePlot';
 import { last } from 'lodash';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
+import { DesignSystemProvider } from '@databricks/design-system';
+import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
 
 // Larger timeout for integration testing (form rendering)
 jest.setTimeout(15000);
 
 // Mock <RunsMetricsLinePlot> component, it's exact implementation is not important for this test
 jest.mock('./RunsMetricsLinePlot', () => ({
-  RunsMetricsLinePlot: jest.fn().mockImplementation(() => <div>RunsMetricsLinePlot</div>),
+  RunsMetricsLinePlot: jest.fn(() => <div>RunsMetricsLinePlot</div>),
 }));
 
 const sampleChartData = [
@@ -55,15 +57,19 @@ describe('RunsChartsConfigureModal', () => {
       />,
       {
         wrapper: ({ children }) => (
-          <MockedReduxStoreProvider
-            state={{
-              entities: {
-                metricsByRunUuid: {},
-              },
-            }}
-          >
-            <IntlProvider locale="en">{children}</IntlProvider>
-          </MockedReduxStoreProvider>
+          <DesignSystemProvider>
+            <TestApolloProvider>
+              <MockedReduxStoreProvider
+                state={{
+                  entities: {
+                    metricsByRunUuid: {},
+                  },
+                }}
+              >
+                <IntlProvider locale="en">{children}</IntlProvider>
+              </MockedReduxStoreProvider>
+            </TestApolloProvider>
+          </DesignSystemProvider>
         ),
       },
     );

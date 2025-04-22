@@ -1,11 +1,14 @@
 import base64
 import json
+from functools import lru_cache
 
 import requests
 
 from mlflow.environment_variables import (
     _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
     _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT,
+    MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
+    MLFLOW_ENABLE_DB_SDK,
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
     MLFLOW_HTTP_REQUEST_BACKOFF_JITTER,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
@@ -13,6 +16,8 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
 )
 from mlflow.exceptions import (
+    CUSTOMER_UNAUTHORIZED,
+    ERROR_CODE_TO_HTTP_STATUS,
     INVALID_PARAMETER_VALUE,
     InvalidUrlException,
     MlflowException,
@@ -20,7 +25,7 @@ from mlflow.exceptions import (
     get_error_code,
 )
 from mlflow.protos import databricks_pb2
-from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.request_utils import (
     _TRANSIENT_FAILURE_RESPONSE_CODES,
@@ -32,7 +37,9 @@ from mlflow.utils.string_utils import strip_suffix
 
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
+_UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
+_ARMERIA_OK = "200 OK"
 
 
 def http_request(
@@ -47,6 +54,7 @@ def http_request(
     timeout=None,
     raise_on_status=True,
     respect_retry_after_header=None,
+    retry_timeout_seconds=None,
     **kwargs,
 ):
     """Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
@@ -72,11 +80,55 @@ def http_request(
             in retry_codes range and retries have been exhausted.
         respect_retry_after_header: Whether to respect Retry-After header on status codes defined
             as Retry.RETRY_AFTER_STATUS_CODES or not.
+        retry_timeout_seconds: Timeout for retires. Only effective when using Databricks SDK.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
         requests.Response object.
     """
+    cleaned_hostname = strip_suffix(host_creds.host, "/")
+    url = f"{cleaned_hostname}{endpoint}"
+
+    if host_creds.use_databricks_sdk:
+        from databricks.sdk.errors import DatabricksError
+
+        ws_client = get_workspace_client(
+            host_creds.use_secret_scope_token,
+            host_creds.host,
+            host_creds.token,
+            host_creds.databricks_auth_profile,
+            retry_timeout_seconds=retry_timeout_seconds,
+        )
+        try:
+            # Databricks SDK `APIClient.do` API is for making request using
+            # HTTP
+            # https://github.com/databricks/databricks-sdk-py/blob/a714146d9c155dd1e3567475be78623f72028ee0/databricks/sdk/core.py#L134
+            raw_response = ws_client.api_client.do(
+                method=method,
+                path=endpoint,
+                headers=extra_headers,
+                raw=True,
+                query=kwargs.get("params"),
+                body=kwargs.get("json"),
+                files=kwargs.get("files"),
+                data=kwargs.get("data"),
+            )
+            return raw_response["contents"]._response
+        except DatabricksError as e:
+            response = requests.Response()
+            response.url = url
+            response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
+            response.reason = str(e)
+            response.encoding = "UTF-8"
+            response._content = json.dumps(
+                {
+                    "error_code": e.error_code,
+                    "message": str(e),
+                }
+            ).encode("UTF-8")
+
+            return response
+
     max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
     backoff_factor = (
         MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
@@ -93,13 +145,18 @@ def http_request(
     )
 
     timeout = MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout
-    hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
         basic_auth_str = f"{host_creds.username}:{host_creds.password}".encode()
         auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif host_creds.token:
         auth_str = f"Bearer {host_creds.token}"
+    elif host_creds.client_secret:
+        raise MlflowException(
+            "To use OAuth authentication, set environmental variable "
+            f"'{MLFLOW_ENABLE_DB_SDK.name}' to true",
+            error_code=CUSTOMER_UNAUTHORIZED,
+        )
 
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
@@ -123,8 +180,6 @@ def http_request(
 
         kwargs["auth"] = fetch_auth(host_creds.auth)
 
-    cleaned_hostname = strip_suffix(hostname, "/")
-    url = f"{cleaned_hostname}{endpoint}"
     try:
         return _get_http_response_with_retries(
             method,
@@ -152,6 +207,30 @@ def http_request(
         raise MlflowException(f"API request to {url} failed with exception {e}")
 
 
+@lru_cache(maxsize=1)
+def get_workspace_client(
+    use_secret_scope_token,
+    host,
+    token,
+    databricks_auth_profile,
+    retry_timeout_seconds=None,
+):
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.config import Config
+
+    if use_secret_scope_token:
+        kwargs = {"host": host, "token": token}
+    else:
+        kwargs = {"profile": databricks_auth_profile}
+    config = Config(
+        **kwargs,
+        retry_timeout_seconds=retry_timeout_seconds
+        or MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+    )
+    # Note: If we use `config` param, all SDK configurations must be set in `config` object.
+    return WorkspaceClient(config=config)
+
+
 def _can_parse_as_json_object(string):
     try:
         return isinstance(json.loads(string), dict)
@@ -169,6 +248,12 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
 
 def verify_rest_response(response, endpoint):
     """Verify the return code and format, raise exception if the request was not successful."""
+    # Handle Armeria-specific response case where response text is "200 OK"
+    if response.status_code == 200 and response.text.strip() == _ARMERIA_OK:
+        response._content = b"{}"  # Update response content to be an empty JSON dictionary
+        return response
+
+    # Handle non-200 status codes
     if response.status_code != 200:
         if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
@@ -279,13 +364,26 @@ def get_trace_info_endpoint(request_id):
     return f"{get_single_trace_endpoint(request_id)}/info"
 
 
+def get_trace_assessment_endpoint(request_id):
+    # TEMPORARY ENDPOINT: this is currently hosted at /api/2.0/... but will be moved to /api/3.0/...
+    return f"{get_single_trace_endpoint(request_id)}"
+
+
 def get_set_trace_tag_endpoint(request_id):
     return f"{get_single_trace_endpoint(request_id)}/tags"
 
 
+def get_create_assessment_endpoint(trace_id: str):
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
+
+
+def get_single_assessment_endpoint(trace_id: str, assessment_id: str):
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
+
+
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
     # Convert json string to json dictionary, to pass to requests
-    if json_body:
+    if json_body is not None:
         json_body = json.loads(json_body)
     call_kwargs = {
         "host_creds": host_creds,
@@ -302,7 +400,9 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
         response = http_request(**call_kwargs)
 
     response = verify_rest_response(response, endpoint)
-    js_dict = json.loads(response.text)
+    response_to_parse = response.text
+    js_dict = json.loads(response_to_parse)
+
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 
@@ -348,6 +448,12 @@ class MlflowHostCreds:
             Sets the verify param of the ``requests.request``
             function (see https://requests.readthedocs.io/en/master/api/).
             If this is set ``ignore_tls_verification`` must be false.
+        use_databricks_sdk: A boolean value represent whether using Databricks SDK for
+            authentication.
+        databricks_auth_profile: The name of the profile used by Databricks SDK for
+            authentication.
+        client_id: The client ID used by Databricks OAuth
+        client_secret: The client secret used by Databricks OAuth
     """
 
     def __init__(
@@ -361,6 +467,11 @@ class MlflowHostCreds:
         ignore_tls_verification=False,
         client_cert_path=None,
         server_cert_path=None,
+        use_databricks_sdk=False,
+        databricks_auth_profile=None,
+        client_id=None,
+        client_secret=None,
+        use_secret_scope_token=False,
     ):
         if not host:
             raise MlflowException(
@@ -387,6 +498,11 @@ class MlflowHostCreds:
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
         self.server_cert_path = server_cert_path
+        self.use_databricks_sdk = use_databricks_sdk
+        self.databricks_auth_profile = databricks_auth_profile
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.use_secret_scope_token = use_secret_scope_token
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -395,6 +511,9 @@ class MlflowHostCreds:
 
     @property
     def verify(self):
+        if self.use_databricks_sdk:
+            # Let databricks-sdk set HTTP request `verify` param.
+            return None
         if self.server_cert_path is None:
             return not self.ignore_tls_verification
         else:

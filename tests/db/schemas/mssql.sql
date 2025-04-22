@@ -53,7 +53,7 @@ CREATE TABLE datasets (
 	dataset_schema VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	dataset_profile VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
-	CONSTRAINT "FK__datasets__experi__6477ECF3" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_datasets_experiment_id_experiments FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
@@ -179,7 +179,7 @@ CREATE TABLE params (
 
 CREATE TABLE tags (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	value VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT "FK__tags__run_uuid__412EB0B6" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
@@ -198,7 +198,7 @@ CREATE TABLE trace_request_metadata (
 CREATE TABLE trace_tags (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	request_id VARCHAR(50)COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT trace_tag_pk PRIMARY KEY (key, request_id),
-	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id)
+	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )

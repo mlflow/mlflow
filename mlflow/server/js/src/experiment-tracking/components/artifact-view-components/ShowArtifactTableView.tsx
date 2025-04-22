@@ -6,24 +6,25 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import {
+  getArtifactContent,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../../common/utils/ArtifactUtils';
 import { LegacyTable } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'papa... Remove this comment to see the full error message
 import Papa from 'papaparse';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 
-type OwnProps = {
+type Props = {
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
-};
+} & LoggedModelArtifactViewerProps;
 
-// @ts-expect-error TS(2456): Type alias 'Props' circularly references itself.
-type Props = OwnProps & typeof ShowArtifactTableView.defaultProps;
-
-// @ts-expect-error TS(7022): 'ShowArtifactTableView' implicitly has type 'any' ... Remove this comment to see the full error message
-const ShowArtifactTableView = ({ runUuid, path, getArtifact }: Props) => {
+const ShowArtifactTableView = ({ runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId }: Props) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState();
   const [data, setData] = useState();
@@ -34,8 +35,44 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }: Props) => {
 
   useEffect(() => {
     resetState();
-    fetchArtifacts({ path, runUuid, getArtifact });
-  }, [runUuid, path, getArtifact]);
+
+    function fetchArtifacts() {
+      const artifactLocation =
+        isLoggedModelsMode && loggedModelId
+          ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
+          : getArtifactLocationUrl(path, runUuid);
+
+      getArtifact?.(artifactLocation)
+        .then((artifactText: any) => {
+          try {
+            const result = Papa.parse(artifactText, {
+              header: true,
+              preview: MAX_NUM_ROWS,
+              skipEmptyLines: 'greedy',
+              dynamicTyping: true,
+            });
+            const dataPreview = result.data;
+
+            if (result.errors.length > 0) {
+              throw Error(result.errors[0].message);
+            }
+
+            setLoading(false);
+            setHeaders(result.meta.fields);
+            setData(dataPreview);
+          } catch (_) {
+            setLoading(false);
+            setText(artifactText);
+          }
+        })
+        .catch((e: any) => {
+          setError(e);
+          setLoading(false);
+        });
+    }
+
+    fetchArtifacts();
+  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId]);
 
   function resetState() {
     // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
@@ -47,38 +84,6 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }: Props) => {
     // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
     setText();
     setLoading(true);
-  }
-
-  function fetchArtifacts(artifactData: any) {
-    const artifactLocation = getArtifactLocationUrl(artifactData.path, artifactData.runUuid);
-    artifactData
-      .getArtifact(artifactLocation)
-      .then((artifactText: any) => {
-        try {
-          const result = Papa.parse(artifactText, {
-            header: true,
-            preview: MAX_NUM_ROWS,
-            skipEmptyLines: 'greedy',
-            dynamicTyping: true,
-          });
-          const dataPreview = result.data;
-
-          if (result.errors.length > 0) {
-            throw Error(result.errors[0].message);
-          }
-
-          setLoading(false);
-          setHeaders(result.meta.fields);
-          setData(dataPreview);
-        } catch (_) {
-          setLoading(false);
-          setText(artifactText);
-        }
-      })
-      .catch((e: any) => {
-        setError(e);
-        setLoading(false);
-      });
   }
 
   if (loading) {

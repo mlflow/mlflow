@@ -7,10 +7,11 @@ H20 (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 import logging
 import os
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -50,6 +51,8 @@ FLAVOR_NAME = "h2o"
 _MODEL_DATA_SUBPATH = "model.h2o"
 
 _logger = logging.getLogger(__name__)
+
+warnings.warn("h2o flavor is deprecated and will be removed in MLflow 3.0.", FutureWarning)
 
 
 def get_default_pip_requirements():
@@ -93,6 +96,7 @@ def save_model(
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        settings: Settings to pass to ``h2o.init()`` when loading the model.
         signature: {{ signature }}
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
@@ -110,18 +114,18 @@ def save_model(
     os.makedirs(model_data_path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _H2OModelWrapper(h2o_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -273,7 +277,13 @@ class _H2OModelWrapper:
     def __init__(self, h2o_model):
         self.h2o_model = h2o_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.h2o_model
+
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.

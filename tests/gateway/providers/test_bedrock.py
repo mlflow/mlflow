@@ -382,9 +382,12 @@ def test_bedrock_aws_client(provider, config, aws_config):
 async def test_bedrock_request_response(
     provider, config, payload, response, expected, model_request, aws_config
 ):
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "mlflow.gateway.providers.bedrock.AmazonBedrockProvider._request", return_value=response
-    ) as mock_request:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "mlflow.gateway.providers.bedrock.AmazonBedrockProvider._request", return_value=response
+        ) as mock_request,
+    ):
         if not expected:
             pytest.skip("no expected value")
 

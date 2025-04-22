@@ -4,6 +4,10 @@ package mlflow;
 
 import "scalapb/scalapb.proto";
 import "databricks.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "assessments.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
@@ -325,6 +329,7 @@ service MlflowService {
       visibility: PUBLIC,
       rpc_doc_title: "Search Runs",
     };
+    option (graphql) = {};
   }
 
   // List artifacts for a run. Takes an optional ``artifact_path`` prefix which if specified,
@@ -340,6 +345,7 @@ service MlflowService {
       visibility: PUBLIC,
       rpc_doc_title: "List Artifacts",
     };
+    option (graphql) = {};
   }
 
   // Get a list of all values for the specified metric for a given run.
@@ -366,6 +372,7 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
     };
+    option (graphql) = {};
   }
 
   // Log a batch of metrics, params, and tags for a run.
@@ -455,6 +462,18 @@ service MlflowService {
     };
   }
 
+  rpc searchDatasets(SearchDatasets) returns (SearchDatasets.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "mlflow/experiments/search-datasets"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+    option (graphql) = {};
+  }
+
   // Start a new trace within an experiment.
   rpc startTrace(StartTrace) returns (StartTrace.Response) {
     option (rpc) = {
@@ -494,6 +513,21 @@ service MlflowService {
     };
   }
 
+
+  // Get Trace (returning a TraceInfoV3). Differences between TraceV3 and Trace
+  // are assessments and semantics of TraceLocation, which describes where the Trace is stored.
+  rpc getTraceInfoV3 (GetTraceInfoV3) returns (GetTraceInfoV3.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{trace_id}",
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get TraceInfo v3",
+    };
+  }
+
   // Search for traces that satisfy specified filters
   // (e.g. ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``), and retrieve the traces
   // in a specified ordering (e.g. ``["timestamp_ms DESC"]``).
@@ -518,6 +552,56 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Delete Traces",
+    };
+  }
+
+  // Create an assessment associated with a trace.
+  rpc createAssessment(CreateAssessment) returns (CreateAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/{assessment.trace_id}/assessments"
+        since {major: 2, minor: 0},
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        CUSTOMER_UNAUTHORIZED,
+        ALREADY_EXISTS,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create an assessment of a trace or a span within the trace",
+    };
+  }
+
+  // Update an assessment associated with a trace.
+  rpc updateAssessment(UpdateAssessment) returns (UpdateAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
+        since {major: 2, minor: 0},
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        CUSTOMER_UNAUTHORIZED,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Update an existing assessment on a trace.",
+    };
+  }
+
+  // Delete an assessment.
+  rpc deleteAssessment (DeleteAssessment) returns (DeleteAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Assessment",
     };
   }
 }
@@ -730,11 +814,11 @@ message Dataset {
   // within datasets of the same name.
   optional string digest = 2 [(validate_required) = true];
 
-  // Source information for the dataset. Note that the source may not exactly reproduce the
-  // dataset if it was transformed / modified before use with MLflow.
+  // The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
   optional string source_type = 3 [(validate_required) = true];
 
-  // The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+  // Source information for the dataset. Note that the source may not exactly reproduce the
+  // dataset if it was transformed / modified before use with MLflow.
   optional string source = 4 [(validate_required) = true];
 
   // The schema of the dataset. E.g., MLflow ColSpec JSON for a dataframe, MLflow TensorSpec JSON
@@ -1187,7 +1271,6 @@ message MetricWithRunId {
 
 message GetMetricHistoryBulkInterval {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // ID(s) of the run(s) from which to fetch metric values. Must be provided.
   repeated string run_ids = 1;
@@ -1246,7 +1329,6 @@ message LogModel {
 
 message LogInputs {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
   // ID of the run to log under
   optional string run_id = 1 [(validate_required) = true];
 
@@ -1268,6 +1350,73 @@ message GetExperimentByName {
     optional Experiment experiment = 1;
   }
 }
+
+message AssessmentSource {
+  // Type of the assessment source.
+  enum SourceType {
+    SOURCE_TYPE_UNSPECIFIED = 0;
+    // Assessment from a human.
+    HUMAN = 1;
+    // Assessment from an LLM Judge.
+    LLM_JUDGE = 2;
+    // Code-based assessment, (e.g. Python UDF).
+    CODE = 3;
+  }
+  // The type of the source.
+  optional SourceType source_type = 1 [(validate_required) = true];
+
+  // Identifier for the source.
+  // Example: For human -> user name; for LLM judge -> judge source (databricks or custom); for code -> empty.
+  optional string source_id = 2 [(validate_required) = true];
+}
+
+message AssessmentError {
+  // Value of an assessment when an error has occurred.
+  optional string error_code = 1;
+
+  optional string error_message = 2;
+}
+
+message CreateAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The assessment to create.
+  optional assessments.Assessment assessment = 1 [(validate_required) = true];;
+
+  message Response {
+    // The created assessment.
+    optional assessments.Assessment assessment = 1;
+  }
+}
+
+// A request to update an existing assessment.
+message UpdateAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The Assessment containing the fields which should be updated.
+  optional assessments.Assessment assessment = 1 [(validate_required) = true];
+
+  // The list of the assessment fields to update. These should correspond to the values (or lack thereof) present in `assessment`.
+  optional google.protobuf.FieldMask update_mask = 2 [(validate_required) = true];
+
+  message Response {
+    // The Assessment after the update.
+    optional assessments.Assessment assessment = 1;
+  }
+}
+
+// A request to delete an assessment identified by its trace_id and assessment_id.
+// The response is empty on successful deletion.
+message DeleteAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  // The ID of the trace.
+  optional string trace_id = 1 [(validate_required) = true];
+  // The ID of the assessment.
+  optional string assessment_id = 2 [(validate_required) = true];
+
+  message Response {}
+}
+
 
 // TraceInfo. Represents metadata of a trace.
 message TraceInfo {
@@ -1324,7 +1473,6 @@ enum TraceStatus {
 
 message StartTrace {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // ID of the associated experiment.
   optional string experiment_id = 1;
@@ -1346,7 +1494,6 @@ message StartTrace {
 
 message EndTrace {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // ID of the trace to end.
   optional string request_id = 1;
@@ -1371,7 +1518,6 @@ message EndTrace {
 
 message GetTraceInfo {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // ID of the trace to fetch. Must be provided.
   optional string request_id = 1;
@@ -1382,9 +1528,18 @@ message GetTraceInfo {
   }
 }
 
+message GetTraceInfoV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace to fetch. Must be provided.
+  optional string trace_id = 1;
+
+  message Response {
+    optional Trace trace = 1;
+  }
+}
 message SearchTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // List of experiment IDs to search over.
   repeated string experiment_ids = 1;
@@ -1412,7 +1567,6 @@ message SearchTraces {
 
 message DeleteTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // ID of the associated experiment.
   optional string experiment_id = 1 [(validate_required) = true];
@@ -1435,7 +1589,6 @@ message DeleteTraces {
 
 message SetTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // ID of the trace on which to set a tag.
   optional string request_id = 1;
@@ -1454,7 +1607,6 @@ message SetTraceTag {
 
 message DeleteTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // ID of the trace from which to delete the tag.
   optional string request_id = 1;
@@ -1463,5 +1615,122 @@ message DeleteTraceTag {
   optional string key = 2;
 
   message Response {
+  }
+}
+
+message Trace {
+  optional TraceInfoV3 trace_info = 1;
+}
+
+
+// The location where the traces was stored and produced
+message TraceLocation {
+
+  enum TraceLocationType {
+    TRACE_LOCATION_TYPE_UNSPECIFIED = 0;
+    MLFLOW_EXPERIMENT = 1;
+    INFERENCE_TABLE= 2;
+  }
+  optional TraceLocationType type = 1;
+
+  message MlflowExperimentLocation {
+    // MLflow experiment ID which is the ACL container holding the trace.
+    optional string experiment_id = 1;
+  }
+
+  message InferenceTableLocation {
+    // Full inference table name in the form of catalog.schema.table_name
+    optional string full_table_name = 1;
+  }
+
+  oneof identifier {
+    MlflowExperimentLocation mlflow_experiment = 2;
+    InferenceTableLocation inference_table = 3;
+  }
+}
+
+message TraceInfoV3 {
+  // The primary key associated with the trace
+  optional string trace_id = 1;
+
+  // Client supplied request ID associated with the trace. This could be used to identify the trace/request from an
+  // external system that produced the trace.
+  optional string client_request_id = 2;
+
+  optional TraceLocation trace_location = 3;
+
+  // Request to the model/agent.
+  // Equivalent to the input of the root span but added for ease of access.
+  // Represented as a JSON string.
+  optional string request = 4;
+
+  // Response of the model/agent.
+  // Equivalent to the output of the root span but added for ease of access.
+  // Represented as a JSON string.
+  optional string response = 5;
+
+  // Start time of the trace
+  optional google.protobuf.Timestamp request_time = 6;
+
+  // Execution time of the trace
+  optional google.protobuf.Duration execution_duration = 7;
+
+  // Execution state of the trace at the time that it was logged.
+  enum State {
+    STATE_UNSPECIFIED = 0;
+
+    // The operation being traced was successful.
+    OK = 1;
+
+    // The operation being traced failed.
+    ERROR = 2;
+
+    // The operation being traced is still in progress. This is useful for incremental/distributed tracing logging in
+    // contrast with when the full trace is logged only upon its completion.
+    IN_PROGRESS = 3;
+  }
+  optional State state = 8;
+
+  // Metadata associated with the trace.
+  // Examples include:
+  // - run_id: The ID of the mlflow Run (i.e. evaluation job) that produced the trace. May not be
+  //           applicable in certain situations such as if the trace was created via interactive vibe checks)
+  // - model_id: The ID of the associated model that produced the trace.
+  // - dataset_id: The ID of the mlflow Dataset (usually used together with dataset_record_id)
+  // - dataset_record_id: The ID of the mlflow Dataset (usually used together with dataset_record_id)
+  // - session_id: The ID of the session (e.g. chat conversation) where the request came from
+  map<string, string> trace_metadata = 9;
+
+  repeated assessments.Assessment assessments = 10;
+
+  // Mutable, user-defined tags for the trace, e.g. “question_topic”: “DBSQL”
+  map<string, string> tags = 11;
+}
+
+// DatasetSummary. Represents a summary of information about a dataset.
+message DatasetSummary {
+  // Unique identifier for the experiment.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // The name of the dataset. E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  optional string name = 2 [(validate_required) = true];
+
+  // Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it
+  // within datasets of the same name.
+  optional string digest = 3 [(validate_required) = true];
+
+  // Value of "context" tag if set for the given dataset.
+  optional string context = 4;
+}
+
+message SearchDatasets {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // List of experiment IDs to search over.
+  repeated string experiment_ids = 1;
+
+  message Response {
+    // Return the summary for most recently created N datasets, as configured in backend
+    repeated DatasetSummary dataset_summaries = 1;
   }
 }

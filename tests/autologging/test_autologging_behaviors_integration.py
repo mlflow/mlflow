@@ -44,7 +44,7 @@ def import_integration_libraries():
 
 @pytest.fixture(autouse=True)
 def disable_autologging_at_test_end():
-    # The yeild statement is to insure that code below is executed as teardown code.
+    # The yield statement is to insure that code below is executed as teardown code.
     # This will avoid bleeding of an active autologging session from test suite.
     yield
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
@@ -80,9 +80,10 @@ def test_autologging_integrations_expose_configs_and_support_disablement(integra
 
 @pytest.mark.parametrize("integration", AUTOLOGGING_INTEGRATIONS_TO_TEST.keys())
 def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration):
-    with mock.patch("mlflow.utils.gorilla.apply", wraps=gorilla.apply) as gorilla_mock, mock.patch(
-        integration.__name__ + ".safe_patch", wraps=safe_patch
-    ) as safe_patch_mock:
+    with (
+        mock.patch("mlflow.utils.gorilla.apply", wraps=gorilla.apply) as gorilla_mock,
+        mock.patch(integration.__name__ + ".safe_patch", wraps=safe_patch) as safe_patch_mock,
+    ):
         # In `mlflow.xgboost.autolog()` and `mlflow.lightgbm.autolog()`,
         # we enable autologging for XGBoost and LightGBM sklearn models
         # using `mlflow.sklearn._autolog()`. So besides `safe_patch` calls in
@@ -237,7 +238,10 @@ def test_autolog_respects_disable_flag_across_import_orders():
 
 
 @pytest.mark.usefixtures(test_mode_off.__name__)
-def test_autolog_respects_silent_mode(tmp_path):
+def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
+    # disable progress bar as it is not controlled by `silent` flag
+    monkeypatch.setenv("MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", "false")
+
     # Use file-based experiment storage for this test. Otherwise, concurrent experiment creation in
     # multithreaded contexts may fail for other storage backends (e.g. SQLAlchemy)
     mlflow.set_tracking_uri(str(tmp_path))

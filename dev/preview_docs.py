@@ -48,10 +48,13 @@ def main():
     parser.add_argument("--workflow-run-id", required=True)
     args = parser.parse_args()
 
-    token = os.environ.get("GITHUB_TOKEN")
-    headers = {"Authorization": f"token {token}"}
-    session = Session()
-    session.headers.update(headers)
+    github_session = Session()
+    if github_token := os.environ.get("GITHUB_TOKEN"):
+        github_session.headers.update({"Authorization": f"token {github_token}"})
+
+    circle_session = Session()
+    if circle_token := os.environ.get("CIRCLE_TOKEN"):
+        circle_session.headers.update({"Circle-Token": circle_token})
 
     # Get the ID of the build_doc job
     repo = "mlflow/mlflow"
@@ -59,7 +62,7 @@ def main():
     job_id = None
     workflow_run_link = f"https://github.com/{repo}/actions/runs/{args.workflow_run_id}"
     for _ in range(5):
-        status = session.get(
+        status = github_session.get(
             f"https://api.github.com/repos/{repo}/commits/{args.commit_sha}/status"
         )
         build_doc_status = next(
@@ -88,26 +91,50 @@ Failed to find a documentation preview for {args.commit_sha}.
 
 </details>
 """
-        upsert_comment(session, repo, args.pull_number, comment_body)
+        upsert_comment(github_session, repo, args.pull_number, comment_body)
         return
 
     # Get the artifact URL of the top level index.html
-    job = session.get(f"https://circleci.com/api/v2/project/gh/{repo}/job/{job_id}")
-    job_url = job["web_url"]
-    workflow_id = job["latest_workflow"]["id"]
-    workflow = session.get(f"https://circleci.com/api/v2/workflow/{workflow_id}/job")
+    for _ in range(5):
+        try:
+            # Despite using a valid CircleCI token, the request occasionally fails with a 403 error.
+            job = circle_session.get(f"https://circleci.com/api/v2/project/gh/{repo}/job/{job_id}")
+            job_url = job["web_url"]
+            workflow_id = job["latest_workflow"]["id"]
+            workflow = circle_session.get(f"https://circleci.com/api/v2/workflow/{workflow_id}/job")
+            break
+        except requests.HTTPError as e:
+            print(
+                f"Failed to get CircleCI job info: {e.response.status_code, e.response.text}, "
+                f"retrying..."
+            )
+            time.sleep(1)
+            continue
+    else:
+        upsert_comment(
+            github_session,
+            repo,
+            args.pull_number,
+            (
+                f"Failed to find a documentation preview for {args.commit_sha}. "
+                f"See {workflow_run_link} for what went wrong."
+            ),
+        )
+        return
+
     build_doc_job = next(filter(lambda s: s["name"] == build_doc_job_name, workflow["items"]))
     build_doc_job_id = build_doc_job["id"]
-    top_page = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/html/index.html"
-    changed_pages = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/html/diff.html"
+    top_page = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/latest/index.html"
+    changed_pages = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/latest/diff.html"
 
     # Post the artifact URL as a comment
     comment_body = f"""
 Documentation preview for {args.commit_sha} will be available when [this CircleCI job]({job_url})
-completes successfully.
+completes successfully. You may encounter a `{{"message":"not found"}}` error when reloading
+a page. If so, add `/index.html` to the URL.
 
 - [Top page]({top_page})
-- [Changed pages]({changed_pages})
+- [Changed pages]({changed_pages}) (⚠️ only MDX file changes are detected ⚠️)
 
 <details>
 <summary>More info</summary>
@@ -119,7 +146,7 @@ completes successfully.
 
 </details>
 """
-    upsert_comment(session, repo, args.pull_number, comment_body)
+    upsert_comment(github_session, repo, args.pull_number, comment_body)
 
 
 if __name__ == "__main__":

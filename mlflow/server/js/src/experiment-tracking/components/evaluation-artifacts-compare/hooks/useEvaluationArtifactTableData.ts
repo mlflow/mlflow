@@ -13,8 +13,8 @@ import {
   PROMPTLAB_METADATA_COLUMN_LATENCY,
   PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS,
 } from '../../prompt-engineering/PromptEngineering.utils';
-import { LOG_TABLE_IMAGE_COLUMN_TYPE } from 'experiment-tracking/constants';
-import { getArtifactLocationUrl } from 'common/utils/ArtifactUtils';
+import { LOG_TABLE_IMAGE_COLUMN_TYPE } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { getArtifactLocationUrl } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
 
 type ArtifactsByRun = EvaluationDataReduxState['evaluationArtifactsByRunUuid'];
 type PendingDataByRun = EvaluationDataReduxState['evaluationPendingDataByRunUuid'];

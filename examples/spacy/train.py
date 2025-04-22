@@ -2,6 +2,7 @@ import random
 
 import spacy
 from packaging.version import Version
+from spacy.training import Example
 from spacy.util import compounding, minibatch
 
 import mlflow.spacy
@@ -33,17 +34,17 @@ if __name__ == "__main__":
     params = {"n_iter": 100, "drop": 0.5}
     mlflow.log_params(params)
 
-    nlp.begin_training()
+    examples = []
+    for text, annotations in TRAIN_DATA:
+        examples.append(Example.from_dict(nlp.make_doc(text), annotations))
+    nlp.initialize(lambda: examples)
     for itn in range(params["n_iter"]):
         random.shuffle(TRAIN_DATA)
         losses = {}
         # batch up the examples using spaCy's minibatch
-        batches = minibatch(TRAIN_DATA, size=compounding(4.0, 32.0, 1.001))
-        for batch in batches:
-            texts, annotations = zip(*batch)
+        for batch in minibatch(examples, size=compounding(4.0, 32.0, 1.001)):
             nlp.update(
-                texts,  # batch of texts
-                annotations,  # batch of annotations
+                batch,
                 drop=params["drop"],  # dropout - make it harder to memorise data
                 losses=losses,
             )

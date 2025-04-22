@@ -1,24 +1,16 @@
-import { ImageIcon } from '@databricks/design-system';
-import { GenericSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { ImageIcon, Spinner } from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { getArtifactLocationUrl } from 'common/utils/ArtifactUtils';
-import { ImageEntity } from 'experiment-tracking/types';
-import { useState } from 'react';
+import { getArtifactLocationUrl } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
+import { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { useState, useEffect } from 'react';
 import { Typography } from '@databricks/design-system';
 import { ImagePreviewGroup, Image } from '../../../../../shared/building_blocks/Image';
 
-export const MAX_IMAGE_SIZE = 225;
-export const MIN_IMAGE_SIZE = 120;
-export const IMAGE_GAP_SIZE = 10;
-
-export const getImageSize = (numImages: number, width: number) => {
-  // Scale image size based on number of images
-  const maxImagesPerRow = Math.floor(width / MIN_IMAGE_SIZE);
-  if (numImages < maxImagesPerRow) {
-    return Math.min(width / numImages - IMAGE_GAP_SIZE, MAX_IMAGE_SIZE);
-  }
-  return width / maxImagesPerRow - IMAGE_GAP_SIZE;
-};
+/**
+ * Despite image size being dynamic, we want to set a minimum size for the grid images.
+ */
+export const MIN_GRID_IMAGE_SIZE = 200;
 
 type ImagePlotProps = {
   imageUrl: string;
@@ -31,11 +23,36 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
   const [previewVisible, setPreviewVisible] = useState(false);
   const { theme } = useDesignSystemTheme();
 
+  const [imageLoading, setImageLoading] = useState(true);
+
+  useEffect(() => {
+    // Load the image in the memory (should reuse the same request) in order to get the loading state
+    setImageLoading(true);
+    const img = new window.Image();
+    img.onload = () => setImageLoading(false);
+    img.onerror = () => setImageLoading(false);
+    img.src = compressedImageUrl;
+    return () => {
+      img.src = '';
+    };
+  }, [compressedImageUrl]);
+
   return (
-    <div css={{ width: imageSize, height: imageSize || '100%' }}>
-      <div css={{ height: imageSize || '100%' }}>
-        {compressedImageUrl === undefined ? (
-          <GenericSkeleton label="Loading..." css={{ height: imageSize, width: imageSize }} />
+    <div css={{ width: imageSize || '100%', height: imageSize || '100%' }}>
+      <div css={{ display: 'contents' }}>
+        {compressedImageUrl === undefined || imageLoading ? (
+          <div
+            css={{
+              width: '100%',
+              backgroundColor: theme.colors.backgroundSecondary,
+              display: 'flex',
+              aspectRatio: '1',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Spinner />
+          </div>
         ) : (
           <div
             css={{
@@ -43,14 +60,12 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
               alignItems: 'center',
               justifyContent: 'center',
               width: imageSize || '100%',
-              height: imageSize || '100%',
+              aspectRatio: '1',
               maxWidth: maxImageSize,
               maxHeight: maxImageSize,
               backgroundColor: theme.colors.backgroundSecondary,
-              '& .ant-image': {
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
+              '.rc-image': {
+                cursor: 'pointer',
               },
             }}
           >
@@ -91,9 +106,9 @@ export const ImagePlotWithHistory = ({
           justifyContent: 'center',
           textAlign: 'center',
           width: imageSize,
-          height: imageSize,
           backgroundColor: theme.colors.backgroundSecondary,
           padding: theme.spacing.md,
+          aspectRatio: '1',
         }}
       >
         <ImageIcon />

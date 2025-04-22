@@ -26,7 +26,7 @@ async function validateLabeled({ core, context, github }) {
   const { number: issue_number } = context.issue;
 
   // Skip validation on pull requests created by the automation bot
-  if (user.login === "mlflow-automation") {
+  if (user.login === "mlflow-app[bot]") {
     console.log("This pull request was created by the automation bot, skipping");
     return;
   }
@@ -81,7 +81,7 @@ async function postMerge({ context, github }) {
   const { owner, repo } = context.repo;
   const { number: issue_number } = context.issue;
 
-  if (user.login === "mlflow-automation") {
+  if (user.login === "mlflow-app[bot]") {
     console.log("This PR was created by the automation bot, skipping");
     return;
   }

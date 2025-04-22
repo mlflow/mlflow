@@ -9,9 +9,10 @@ spaCy (native) format
     flavor is created only if spaCy's model pipeline has at least one
     `TextCategorizer <https://spacy.io/api/textcategorizer>`_.
 """
+
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pandas as pd
 import yaml
@@ -21,6 +22,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -125,10 +127,13 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+    if signature is None and saved_example is not None:
+        wrapped_model = _SpacyModelWrapper(spacy_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
+
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -273,10 +278,16 @@ class _SpacyModelWrapper:
     def __init__(self, spacy_model):
         self.spacy_model = spacy_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.spacy_model
+
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """Only works for predicting using text categorizer.
         Not suitable for other pipeline components (e.g: parser)

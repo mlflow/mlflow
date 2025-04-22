@@ -170,7 +170,19 @@ class _UnsupportedMultipartUploadException(MlflowException):
         super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)
 
 
-class MlflowTraceDataException(MlflowException):
+class MlflowTracingException(MlflowException):
+    """
+    Exception thrown from tracing logic
+
+    Tracing logic should not block the main execution flow in general, hence this exception
+    is used to distinguish tracing related errors and handle them properly.
+    """
+
+    def __init__(self, message, error_code=INTERNAL_ERROR):
+        super().__init__(message, error_code=error_code)
+
+
+class MlflowTraceDataException(MlflowTracingException):
     """Exception thrown for trace data related error"""
 
     def __init__(

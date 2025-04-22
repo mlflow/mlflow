@@ -1,10 +1,16 @@
 module.exports = async ({ context, github, core }) => {
-  const { body, base } = context.payload.pull_request;
   const { owner, repo } = context.repo;
-
+  const { base, number: pull_number } = context.payload.pull_request;
   if (base.ref.match(/^branch-\d+\.\d+$/)) {
     return;
   }
+
+  const pr = await github.rest.pulls.get({
+    owner,
+    repo,
+    pull_number,
+  });
+  const { body } = pr.data;
 
   // Skip running this check on CD automation PRs
   if (!body) {
@@ -43,13 +49,16 @@ module.exports = async ({ context, github, core }) => {
     return;
   }
 
-  const latestRelease = await github.rest.repos.getLatestRelease({
+  const releases = await github.rest.repos.listReleases({
     owner,
     repo,
   });
-  const version = latestRelease.data.tag_name.replace("v", "");
-  const [major, minor, micro] = version.split(".");
-  const label = `patch-${major}.${minor}.${parseInt(micro) + 1}`;
+  // TODO: Remove this line once MLflow 3.0.0 is released
+  const latest = releases.data.find(({ tag_name }) => !tag_name.startsWith("v3"));
+  const version = latest.tag_name.replace("v", "");
+  const [major, minor, micro] = version.replace(/rc\d+$/, "").split(".");
+  const nextMicro = version.includes("rc") ? micro : (parseInt(micro) + 1).toString();
+  const label = `v${major}.${minor}.${nextMicro}`;
   await github.rest.issues.addLabels({
     owner,
     repo,

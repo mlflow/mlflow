@@ -12,11 +12,12 @@ statsmodels (native) format
     https://www.statsmodels.org/stable/_modules/statsmodels/base/model.html#Results
 
 """
+
 import inspect
 import itertools
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -55,6 +56,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.validation import _is_numeric
 
 FLAVOR_NAME = "statsmodels"
@@ -86,7 +88,8 @@ def get_default_conda_env():
 _model_size_threshold_for_emitting_warning = 100 * 1024 * 1024  # 100 MB
 
 
-_save_model_called_from_autolog = False
+# Thread local variable key for flag indicating `save_model` is called from autologging routine
+_SAVE_MODEL_CALLED_FROM_AUTOLOG = ThreadLocalVariable(default_factory=lambda: False)
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -131,24 +134,24 @@ def save_model(
     model_data_path = os.path.join(path, STATSMODELS_DATA_SUBPATH)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _StatsmodelsModelWrapper(statsmodels_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
     # Save a statsmodels model
     statsmodels_model.save(model_data_path, remove_data)
-    if _save_model_called_from_autolog and not remove_data:
+    if _SAVE_MODEL_CALLED_FROM_AUTOLOG.get() and not remove_data:
         saved_model_size = os.path.getsize(model_data_path)
         if saved_model_size >= _model_size_threshold_for_emitting_warning:
             _logger.warning(
@@ -250,6 +253,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        kwargs: Extra kwargs to pass to ``mlflow.models.Model.log``.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the metadata
@@ -326,10 +330,16 @@ class _StatsmodelsModelWrapper:
     def __init__(self, statsmodels_model):
         self.statsmodels_model = statsmodels_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.statsmodels_model
+
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -545,19 +555,18 @@ def autolog(
             if should_autolog:
                 # Log the model
                 if get_autologging_config(FLAVOR_NAME, "log_models", True):
-                    global _save_model_called_from_autolog
-                    _save_model_called_from_autolog = True
+                    _SAVE_MODEL_CALLED_FROM_AUTOLOG.set(True)
                     registered_model_name = get_autologging_config(
                         FLAVOR_NAME, "registered_model_name", None
                     )
                     try:
                         log_model(
                             model,
-                            artifact_path="model",
+                            "model",
                             registered_model_name=registered_model_name,
                         )
                     finally:
-                        _save_model_called_from_autolog = False
+                        _SAVE_MODEL_CALLED_FROM_AUTOLOG.set(False)
 
                 # Log the most common metrics
                 if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):

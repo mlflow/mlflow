@@ -7,12 +7,15 @@ from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 from json import JSONEncoder
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
+import pydantic
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import MessageToJson, ParseDict
+from google.protobuf.struct_pb2 import NULL_VALUE, Value
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _PROTOBUF_INT64_FIELDS = [
     FieldDescriptor.TYPE_INT64,
@@ -157,6 +160,45 @@ def parse_dict(js_dict, message):
     ParseDict(js_dict=js_dict, message=message, ignore_unknown_fields=True)
 
 
+def set_pb_value(proto: Value, value: Any):
+    """Set a value to the google.protobuf.Value object."""
+    if isinstance(value, dict):
+        for key, val in value.items():
+            set_pb_value(proto.struct_value.fields[key], val)
+    elif isinstance(value, list):
+        for idx, val in enumerate(value):
+            pb = Value()
+            set_pb_value(pb, val)
+            proto.list_value.values.append(pb)
+    elif isinstance(value, bool):
+        proto.bool_value = value
+    elif isinstance(value, (int, float)):
+        proto.number_value = value
+    elif isinstance(value, str):
+        proto.string_value = value
+    elif value is None:
+        proto.null_value = NULL_VALUE
+
+    else:
+        raise ValueError(f"Unsupported value type: {type(value)}")
+
+
+def parse_pb_value(proto: Value) -> Optional[Any]:
+    """Extract a value from the google.protobuf.Value object."""
+    if proto.HasField("struct_value"):
+        return {key: parse_pb_value(val) for key, val in proto.struct_value.fields.items()}
+    elif proto.HasField("list_value"):
+        return [parse_pb_value(val) for val in proto.list_value.values]
+    elif proto.HasField("bool_value"):
+        return proto.bool_value
+    elif proto.HasField("number_value"):
+        return proto.number_value
+    elif proto.HasField("string_value"):
+        return proto.string_value
+
+    return None
+
+
 class NumpyEncoder(JSONEncoder):
     """Special json encoder for numpy types.
     Note that some numpy types doesn't have native python equivalence,
@@ -187,6 +229,8 @@ class NumpyEncoder(JSONEncoder):
             return np.datetime_as_string(o), True
         if isinstance(o, (pd.Timestamp, datetime.date, datetime.datetime, datetime.time)):
             return o.isoformat(), True
+        if isinstance(o, pydantic.BaseModel):
+            return o.model_dump() if IS_PYDANTIC_V2_OR_NEWER else o.dict(), True
         return o, False
 
     def default(self, o):
@@ -214,7 +258,7 @@ def cast_df_types_according_to_schema(pdf, schema):
     import numpy as np
 
     from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
-    from mlflow.types.schema import Array, DataType, Map, Object
+    from mlflow.types.schema import AnyType, Array, DataType, Map, Object
 
     actual_cols = set(pdf.columns)
     if schema.has_input_names():
@@ -224,6 +268,7 @@ def cast_df_types_according_to_schema(pdf, schema):
     else:
         n = min(len(schema.input_types()), len(pdf.columns))
         dtype_list = zip(pdf.columns[:n], schema.input_types()[:n])
+    required_input_names = set(schema.required_input_names())
 
     for col_name, col_type_spec in dtype_list:
         if isinstance(col_type_spec, DataType):
@@ -231,6 +276,7 @@ def cast_df_types_according_to_schema(pdf, schema):
         else:
             col_type = col_type_spec
         if col_name in actual_cols:
+            required = col_name in required_input_names
             try:
                 if isinstance(col_type_spec, DataType) and col_type_spec == DataType.binary:
                     # NB: We expect binary data to be passed base64 encoded
@@ -247,11 +293,19 @@ def cast_df_types_according_to_schema(pdf, schema):
                     # `PyFuncModel.predict` being called.
                     pass
                 elif isinstance(col_type_spec, Array):
-                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_array(x, col_type_spec))
+                    pdf[col_name] = pdf[col_name].map(
+                        lambda x: _enforce_array(x, col_type_spec, required=required)
+                    )
                 elif isinstance(col_type_spec, Object):
-                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_object(x, col_type_spec))
+                    pdf[col_name] = pdf[col_name].map(
+                        lambda x: _enforce_object(x, col_type_spec, required=required)
+                    )
                 elif isinstance(col_type_spec, Map):
-                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_map(x, col_type_spec))
+                    pdf[col_name] = pdf[col_name].map(
+                        lambda x: _enforce_map(x, col_type_spec, required=required)
+                    )
+                elif isinstance(col_type_spec, AnyType):
+                    pass
                 else:
                     pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
             except Exception as ex:
@@ -265,8 +319,8 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
 
     Args:
         decoded_input: Parsed json - either a list or a dictionary.
-        schema: MLflow schema used when parsing the data.
         pandas_orient: pandas data frame convention used to store the data.
+        schema: MLflow schema used when parsing the data.
 
     Returns:
         pandas.DataFrame.
@@ -373,8 +427,6 @@ def convert_data_type(data, spec):
     """
     Convert input data to the type specified in the spec.
 
-    This method converts data into numpy array for backwards compatibility.
-
     Args:
         data: Input data.
         spec: ColSpec or TensorSpec.
@@ -382,7 +434,7 @@ def convert_data_type(data, spec):
     import numpy as np
 
     from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
-    from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, TensorSpec
+    from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, TensorSpec
 
     try:
         if spec is None:
@@ -398,11 +450,13 @@ def convert_data_type(data, spec):
                 )
             elif isinstance(spec.type, Array):
                 # convert to numpy array for backwards compatibility
-                return np.array(_enforce_array(data, spec.type))
+                return np.array(_enforce_array(data, spec.type, required=spec.required))
             elif isinstance(spec.type, Object):
-                return _enforce_object(data, spec.type)
+                return _enforce_object(data, spec.type, required=spec.required)
             elif isinstance(spec.type, Map):
-                return _enforce_map(data, spec.type)
+                return _enforce_map(data, spec.type, required=spec.required)
+            elif isinstance(spec.type, AnyType):
+                return data
     except MlflowException as e:
         raise MlflowInvalidInputException(e.message)
     except Exception as ex:
@@ -414,6 +468,8 @@ def convert_data_type(data, spec):
 
 
 def _cast_schema_type(input_data, schema=None):
+    import numpy as np
+
     input_data = deepcopy(input_data)
     # spec_name -> spec mapping
     types_dict = schema.input_dict() if schema and schema.has_input_names() else {}
@@ -425,12 +481,15 @@ def _cast_schema_type(input_data, schema=None):
         ):
             # for data with a single column (not List[Dict]), match input with column
             input_data = {next(iter(types_dict)): input_data}
-        # Un-named schema should only contain a single column
-        elif not schema.has_input_names() and not isinstance(input_data, list):
+        # Un-named schema should only contain a single column or a single value
+        elif not schema.has_input_names() and not (
+            isinstance(input_data, list) or np.isscalar(input_data)
+        ):
             raise MlflowInvalidInputException(
-                "Failed to parse input data. This model contains an un-named tensor-based"
-                " model signature which expects a single n-dimensional array as input,"
-                f" however, an input of type {type(input_data)} was found."
+                "Failed to parse input data. This model contains an un-named "
+                " model signature which expects a single n-dimensional array or "
+                "a single value as input, however, an input of type "
+                f"{type(input_data)} was found."
             )
     if isinstance(input_data, dict):
         # each key corresponds to a column, values should be
@@ -456,10 +515,8 @@ def _cast_schema_type(input_data, schema=None):
             input_data = convert_data_type(input_data, spec)
         except Exception as e:
             raise MlflowInvalidInputException(
-                "Failed to parse input data. This model contains a tensor-based model "
-                "signature with input names, which suggests a dictionary / a list of "
-                "dictionaries input mapping input name to tensor or a pure list, but "
-                f"an input of `{input_data}` was found."
+                f"Failed to convert data `{input_data}` to type `{spec}` defined "
+                "in the model signature."
             ) from e
     return input_data
 
@@ -510,6 +567,26 @@ def parse_instances_data(data, schema=None):
                     "The length of values for each input/column name are not the same"
                 )
     return data
+
+
+# TODO: Reuse this function for `inputs` key data parsing in serving, and
+# add `convert_to_numpy` param to avoid converting data to numpy arrays for
+# genAI flavors.
+def parse_inputs_data(inputs_data_or_path, schema=None):
+    """
+    Helper function to cast inputs_data based on the schema.
+    Inputs data must be able to pass to the model for pyfunc predict directly.
+
+    Args:
+        inputs_data_or_path: A json-serializable object or path to a json file
+        schema: data schema to cast to. Be of type `mlflow.types.Schema`.
+    """
+    if isinstance(inputs_data_or_path, str) and os.path.exists(inputs_data_or_path):
+        with open(inputs_data_or_path) as handle:
+            inputs_data = json.load(handle)
+    else:
+        inputs_data = inputs_data_or_path
+    return _cast_schema_type(inputs_data, schema)
 
 
 def parse_tf_serving_input(inp_dict, schema=None):
@@ -577,7 +654,7 @@ def get_jsonable_input(name, data):
         raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
 
 
-def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] = None):
+def dump_input_data(data, inputs_key="inputs", params: Optional[dict[str, Any]] = None):
     """
     Args:
         data: Input data.

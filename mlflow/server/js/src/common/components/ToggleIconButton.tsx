@@ -46,14 +46,14 @@ const ToggleIconButton = React.forwardRef<HTMLButtonElement, ToggleIconButtonPro
     return (
       <button
         onClick={(event) => {
-          eventContext.onClick();
+          eventContext.onClick(event);
           onClick?.(event);
         }}
         css={{
           cursor: 'pointer',
           width: theme.general.heightSm,
           height: theme.general.heightSm,
-          borderRadius: theme.borders.borderRadiusMd,
+          borderRadius: theme.legacyBorders.borderRadiusMd,
           lineHeight: theme.typography.lineHeightBase,
           padding: 0,
           border: 0,

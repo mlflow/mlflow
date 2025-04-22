@@ -20,7 +20,7 @@ const EXPERIMENT_TYPE_TAG = 'mlflow.experimentType';
 /**
  * Function that gets the experiment type for a given experiment object
  */
-export const getExperimentType = (experiment: ExperimentEntity) => {
+const getExperimentType = (experiment: ExperimentEntity) => {
   const experimentType = experiment.tags.find((tag) => tag.key === EXPERIMENT_TYPE_TAG);
   if (experimentType) {
     return experimentType.value;
@@ -29,25 +29,6 @@ export const getExperimentType = (experiment: ExperimentEntity) => {
 };
 
 const hasExperimentType = (experiment: ExperimentEntity, type: string) => getExperimentType(experiment) === type;
-
-/**
- * Function returns true if the experiment is of default ("MLFLOW_EXPERIMENT") type
- */
-export const isExperimentTypeDefault = (experiment: ExperimentEntity) =>
-  hasExperimentType(experiment, MLFLOW_EXPERIMENT_TYPE);
-
-/**
- * Function returns true if the experiment is of notebook type
- */
-export const isExperimentTypeNotebook = (experiment: ExperimentEntity) =>
-  hasExperimentType(experiment, MLFLOW_NOTEBOOK_TYPE);
-
-/**
- * Function that checks if experiment's allowed actions include
- * modification. TODO: fix typo in the const name.
- */
-export const canModifyExperiment = (experiment: ExperimentEntity) =>
-  (experiment.allowedActions || []).includes('MODIFIY_PERMISSION');
 
 /**
  * Function used for downloading run data in CSV form.
@@ -128,7 +109,13 @@ export const getStartTimeColumnDisplayName = (intl: IntlShape) => ({
  */
 export const getQualifiedEntityName = (keyType: string, keyName: string) => {
   let replace = '';
-  if (keyName.includes('"') || keyName.includes(' ') || keyName.includes('.')) {
+  if (
+    keyName.includes('"') ||
+    keyName.includes(' ') ||
+    keyName.includes('.') ||
+    keyName.includes('(') ||
+    keyName.includes(')')
+  ) {
     replace = '`';
   }
   if (keyName.includes('`')) {
@@ -137,15 +124,15 @@ export const getQualifiedEntityName = (keyType: string, keyName: string) => {
   return `${keyType}.${replace}${keyName}${replace}`;
 };
 
-export const makeCanonicalSortKey = (keyType: string, keyName: string) => keyType + '.`' + keyName + '`';
 /**
  * Creates canonical sort key name for metrics and params
  */
+export const makeCanonicalSortKey = (keyType: string, keyName: string) => keyType + '.`' + keyName + '`';
 
 export const isCanonicalSortKeyOfType = (canonicalKey: string, keyType: string) => canonicalKey.startsWith(keyType);
+
 /**
  * Extracts param/metric/tag name from the canonical key
  */
-
 export const extractCanonicalSortKey = (canonicalKey: string, keyType: string) =>
   canonicalKey.substring(keyType.length + 2).slice(0, -1);

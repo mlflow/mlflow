@@ -161,7 +161,6 @@ message ArtifactCredentialInfo {
 
 message GetCredentialsForRead {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // The ID of the MLflow Run for which to fetch artifact read credentials
   optional string run_id = 1 [(validate_required) = true];
@@ -189,7 +188,6 @@ message GetCredentialsForRead {
 
 message GetCredentialsForWrite {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // The ID of the MLflow Run for which to fetch artifact write credentials
   optional string run_id = 1 [(validate_required) = true];
@@ -217,7 +215,6 @@ message GetCredentialsForWrite {
 
 message CreateMultipartUpload {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // Run ID
   optional string run_id = 1 [(validate_required) = true];
@@ -252,7 +249,6 @@ message PartEtag {
 
 message CompleteMultipartUpload {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // Run ID
   optional string run_id = 1 [(validate_required) = true];
@@ -271,7 +267,6 @@ message CompleteMultipartUpload {
 
 message GetPresignedUploadPartUrl {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // Run ID
   optional string run_id = 1 [(validate_required) = true];
@@ -293,7 +288,6 @@ message GetPresignedUploadPartUrl {
 
 message GetCredentialsForTraceDataDownload {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   optional string request_id = 1 [(validate_required) = true];
 
@@ -304,7 +298,6 @@ message GetCredentialsForTraceDataDownload {
 
 message GetCredentialsForTraceDataUpload {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   optional string request_id = 1 [(validate_required) = true];
 

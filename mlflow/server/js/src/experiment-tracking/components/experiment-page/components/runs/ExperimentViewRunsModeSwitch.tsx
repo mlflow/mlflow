@@ -1,11 +1,28 @@
-import { Button, Popover, Tabs, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  Popover,
+  LegacyTabs,
+  Tag,
+  LegacyTooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
-import { PreviewBadge } from 'shared/building_blocks/PreviewBadge';
+import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
+import { FeatureBadge } from '@mlflow/mlflow/src/shared/building_blocks/FeatureBadge';
 import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
+import {
+  isExperimentEvalResultsMonitoringUIEnabled,
+  isExperimentLoggedModelsUIEnabled,
+  shouldEnableTracingUI,
+} from '../../../../../common/utils/FeatureUtils';
+import { MONITORING_BETA_EXPIRATION_DATE } from '../../../../constants';
+import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
+import { useExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
 
 const COMPARE_RUNS_TOOLTIP_STORAGE_KEY = 'compareRunsTooltip';
 const COMPARE_RUNS_TOOLTIP_STORAGE_ITEM = 'seenBefore';
@@ -14,6 +31,8 @@ export interface ExperimentViewRunsModeSwitchProps {
   viewState?: ExperimentPageViewState;
   runsAreGrouped?: boolean;
   hideBorder?: boolean;
+  explicitViewMode?: ExperimentViewRunsCompareMode;
+  experimentId?: string;
 }
 
 const ChartViewButtonTooltip: React.FC<{
@@ -44,7 +63,10 @@ const ChartViewButtonTooltip: React.FC<{
 
   return (
     <>
-      <Popover.Root open={isToolTipOpen}>
+      <Popover.Root
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsmodeswitch.tsx_60"
+        open={isToolTipOpen}
+      >
         <Popover.Trigger asChild>
           <div css={{ position: 'absolute', inset: 0 }} />
         </Popover.Trigger>
@@ -74,19 +96,28 @@ const ChartViewButtonTooltip: React.FC<{
 };
 
 /**
- * Allows switching between "table", "chart", "evaluation" and "traces" modes of experiment view
+ * Allows switching between various modes of the experiment page view.
+ * Handles legacy part of the mode switching, based on "compareRunsMode" query parameter.
+ * Modern part of the mode switching is handled by <ExperimentViewRunsModeSwitchV2> which works using route params.
  */
 export const ExperimentViewRunsModeSwitch = ({
   viewState,
   runsAreGrouped,
   hideBorder = true,
 }: ExperimentViewRunsModeSwitchProps) => {
+  const [, experimentIds] = useExperimentPageSearchFacets();
   const [viewMode, setViewModeInURL] = useExperimentPageViewMode();
-  const { classNamePrefix } = useDesignSystemTheme();
-  const activeTab = viewMode || getExperimentPageDefaultViewMode();
+  const { classNamePrefix, theme } = useDesignSystemTheme();
+  const currentViewMode = viewMode || getExperimentPageDefaultViewMode();
+  const showCombinedRuns = useShouldShowCombinedRunsTab();
+  const activeTab = showCombinedRuns && ['TABLE', 'CHART'].includes(currentViewMode) ? 'RUNS' : currentViewMode;
+
+  // Extract experiment ID from the URL but only if it's a single experiment.
+  // In case of multiple experiments (compare mode), the experiment ID is undefined.
+  const singleExperimentId = experimentIds.length === 1 ? experimentIds[0] : undefined;
 
   return (
-    <Tabs
+    <LegacyTabs
       dangerouslyAppendEmotionCSS={{
         [`.${classNamePrefix}-tabs-nav`]: {
           marginBottom: 0,
@@ -97,48 +128,83 @@ export const ExperimentViewRunsModeSwitch = ({
       }}
       activeKey={activeTab}
       onChange={(tabKey) => {
-        const newValue = tabKey as ExperimentViewRunsCompareMode;
+        const newValue = tabKey as ExperimentViewRunsCompareMode | 'RUNS';
 
         if (activeTab === newValue) {
           return;
         }
 
-        setViewModeInURL(newValue);
+        if (newValue === 'RUNS') {
+          return setViewModeInURL('TABLE');
+        }
+
+        setViewModeInURL(newValue, singleExperimentId);
       }}
     >
-      <Tabs.TabPane
-        tab={
-          <span data-testid="experiment-runs-mode-switch-list">
-            <FormattedMessage
-              defaultMessage="Table"
-              description="A button enabling table mode on the experiment page"
-            />
-          </span>
-        }
-        key="TABLE"
-      />
-      <Tabs.TabPane
-        tab={
-          <>
-            <span data-testid="experiment-runs-mode-switch-compare">
+      {/* Display the "Models" tab if we have only one experiment and the feature is enabled. */}
+      {singleExperimentId && isExperimentLoggedModelsUIEnabled() && (
+        <LegacyTabs.TabPane
+          key="MODELS"
+          tab={
+            <span data-testid="experiment-runs-mode-switch-models">
               <FormattedMessage
-                defaultMessage="Chart"
-                description="A button enabling compare runs (chart) mode on the experiment page"
+                defaultMessage="Models"
+                description="A button navigating to logged models table on the experiment page"
+              />
+              <PreviewBadge />
+            </span>
+          }
+        />
+      )}
+      {showCombinedRuns ? (
+        <LegacyTabs.TabPane
+          tab={
+            <span data-testid="experiment-runs-mode-switch-combined">
+              <FormattedMessage
+                defaultMessage="Runs"
+                description="A button enabling combined runs table and charts mode on the experiment page"
               />
             </span>
-            <ChartViewButtonTooltip
-              isTableMode={viewMode === 'TABLE'}
-              multipleRunsSelected={viewState ? Object.keys(viewState.runsSelected).length > 1 : false}
-            />
-          </>
-        }
-        key="CHART"
-      />
+          }
+          key="RUNS"
+        />
+      ) : (
+        <>
+          <LegacyTabs.TabPane
+            tab={
+              <span data-testid="experiment-runs-mode-switch-list">
+                <FormattedMessage
+                  defaultMessage="Table"
+                  description="A button enabling table mode on the experiment page"
+                />
+              </span>
+            }
+            key="TABLE"
+          />
+          <LegacyTabs.TabPane
+            tab={
+              <>
+                <span data-testid="experiment-runs-mode-switch-compare">
+                  <FormattedMessage
+                    defaultMessage="Chart"
+                    description="A button enabling compare runs (chart) mode on the experiment page"
+                  />
+                </span>
+                <ChartViewButtonTooltip
+                  isTableMode={viewMode === 'TABLE'}
+                  multipleRunsSelected={viewState ? Object.keys(viewState.runsSelected).length > 1 : false}
+                />
+              </>
+            }
+            key="CHART"
+          />
+        </>
+      )}
 
-      <Tabs.TabPane
+      <LegacyTabs.TabPane
         disabled={runsAreGrouped}
         tab={
-          <Tooltip
+          <LegacyTooltip
             title={
               runsAreGrouped ? (
                 <FormattedMessage
@@ -155,10 +221,37 @@ export const ExperimentViewRunsModeSwitch = ({
               />
               <PreviewBadge />
             </span>
-          </Tooltip>
+          </LegacyTooltip>
         }
         key="ARTIFACT"
       />
-    </Tabs>
+      {singleExperimentId && isExperimentEvalResultsMonitoringUIEnabled() && (
+        <LegacyTabs.TabPane
+          tab={
+            <span data-testid="experiment-runs-mode-evaluation-results">
+              <FormattedMessage
+                defaultMessage="Monitoring"
+                description="A button enabling evaluation results monitoring mode on the experiment page"
+              />
+              <FeatureBadge type="beta" expirationDate={MONITORING_BETA_EXPIRATION_DATE} />
+            </span>
+          }
+          key="EVAL_RESULTS"
+        />
+      )}
+      {shouldEnableTracingUI() && (
+        <LegacyTabs.TabPane
+          tab={
+            <span data-testid="experiment-runs-mode-switch-traces">
+              <FormattedMessage
+                defaultMessage="Traces"
+                description="A button enabling traces mode on the experiment page"
+              />
+            </span>
+          }
+          key="TRACES"
+        />
+      )}
+    </LegacyTabs>
   );
 };

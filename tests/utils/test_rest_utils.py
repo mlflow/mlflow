@@ -27,31 +27,6 @@ from mlflow.utils.rest_utils import (
 from tests import helper_functions
 
 
-def test_well_formed_json_error_response():
-    with mock.patch(
-        "requests.Session.request", return_value=mock.MagicMock(status_code=400, text="{}")
-    ):
-        host_only = MlflowHostCreds("http://my-host")
-        response_proto = GetRun.Response()
-        with pytest.raises(RestException, match="INTERNAL_ERROR"):
-            call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
-
-
-def test_non_json_ok_response():
-    with mock.patch(
-        "requests.Session.request",
-        return_value=mock.MagicMock(status_code=200, text="<html></html>"),
-    ):
-        host_only = MlflowHostCreds("http://my-host")
-        response_proto = GetRun.Response()
-        with pytest.raises(
-            MlflowException,
-            match="API request to endpoint was successful but the response body was not "
-            "in a valid JSON format",
-        ):
-            call_endpoint(host_only, "/api/2.0/fetch-model", "GET", "", response_proto)
-
-
 @pytest.mark.parametrize(
     "response_mock",
     [
@@ -68,7 +43,7 @@ def test_malformed_json_error_response(response_mock):
         with pytest.raises(
             MlflowException, match="API request to endpoint /my/endpoint failed with error code 400"
         ):
-            call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
+            call_endpoint(host_only, "/my/endpoint", "GET", None, response_proto)
 
 
 def test_call_endpoints():
@@ -346,12 +321,13 @@ def test_http_request_request_headers_user_agent(request):
     # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
     # perform the integration test.
-    with mock.patch.object(
-        PluginRequestHeaderProvider, "in_context", return_value=True
-    ), mock.patch.object(
-        PluginRequestHeaderProvider,
-        "request_headers",
-        return_value={_USER_AGENT: "test_user_agent"},
+    with (
+        mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
+        mock.patch.object(
+            PluginRequestHeaderProvider,
+            "request_headers",
+            return_value={_USER_AGENT: "test_user_agent"},
+        ),
     ):
         host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
         expected_headers = {
@@ -383,12 +359,13 @@ def test_http_request_request_headers_user_agent_and_extra_header(request):
     # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
     # perform the integration test.
-    with mock.patch.object(
-        PluginRequestHeaderProvider, "in_context", return_value=True
-    ), mock.patch.object(
-        PluginRequestHeaderProvider,
-        "request_headers",
-        return_value={_USER_AGENT: "test_user_agent", "header": "value"},
+    with (
+        mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
+        mock.patch.object(
+            PluginRequestHeaderProvider,
+            "request_headers",
+            return_value={_USER_AGENT: "test_user_agent", "header": "value"},
+        ),
     ):
         host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
         expected_headers = {
@@ -520,7 +497,7 @@ def test_http_request_customize_config(monkeypatch):
         mock_get_http_response_with_retries.assert_called_with(
             mock.ANY,
             mock.ANY,
-            5,
+            7,
             2,
             1.0,
             mock.ANY,

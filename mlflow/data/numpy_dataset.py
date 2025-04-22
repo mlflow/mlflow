@@ -1,16 +1,16 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_numpy_digest
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.schema import TensorDatasetSchema
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.utils import _infer_schema
 
 _logger = logging.getLogger(__name__)
@@ -23,9 +23,9 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def __init__(
         self,
-        features: Union[np.ndarray, Dict[str, np.ndarray]],
+        features: Union[np.ndarray, dict[str, np.ndarray]],
         source: DatasetSource,
-        targets: Union[np.ndarray, Dict[str, np.ndarray]] = None,
+        targets: Union[np.ndarray, dict[str, np.ndarray]] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
@@ -51,7 +51,7 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         return compute_numpy_digest(self._features, self._targets)
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """Create config dictionary for the dataset.
 
         Returns a string dictionary containing the following fields: name, digest, source, source
@@ -75,14 +75,14 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
-    def features(self) -> Union[np.ndarray, Dict[str, np.ndarray]]:
+    def features(self) -> Union[np.ndarray, dict[str, np.ndarray]]:
         """
         The features of the dataset.
         """
         return self._features
 
     @property
-    def targets(self) -> Optional[Union[np.ndarray, Dict[str, np.ndarray]]]:
+    def targets(self) -> Optional[Union[np.ndarray, dict[str, np.ndarray]]]:
         """
         The targets of the dataset. May be ``None`` if no targets are available.
         """
@@ -141,7 +141,7 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
         """
         Converts the dataset to an EvaluationDataset for model evaluation. Required
-        for use with mlflow.sklearn.evalute().
+        for use with mlflow.sklearn.evaluate().
         """
         return EvaluationDataset(
             data=self._features,
@@ -152,9 +152,9 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 
 def from_numpy(
-    features: Union[np.ndarray, Dict[str, np.ndarray]],
+    features: Union[np.ndarray, dict[str, np.ndarray]],
     source: Union[str, DatasetSource] = None,
-    targets: Union[np.ndarray, Dict[str, np.ndarray]] = None,
+    targets: Union[np.ndarray, dict[str, np.ndarray]] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> NumpyDataset:

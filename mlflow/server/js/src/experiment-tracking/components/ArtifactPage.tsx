@@ -5,16 +5,17 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import _ from 'lodash';
+import _, { first } from 'lodash';
 import React, { Component } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { WithRouterNextProps, withRouterNext } from '../../common/utils/withRouterNext';
 import { ArtifactView } from './ArtifactView';
 import { Spinner } from '../../common/components/Spinner';
-import { listArtifactsApi } from '../actions';
+import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
 import { searchModelVersionsApi } from '../../model-registry/actions';
+import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
 import { connect } from 'react-redux';
-import { getArtifactRootUri } from '../reducers/Reducers';
+import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../../model-registry/constants';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import Utils from '../../common/utils/Utils';
@@ -23,21 +24,27 @@ import { getLoggedModelPathsFromTags } from '../../common/utils/TagUtils';
 import { ArtifactViewBrowserSkeleton } from './artifact-view-components/ArtifactViewSkeleton';
 import { DangerIcon, Empty } from '@databricks/design-system';
 import { ArtifactViewErrorState } from './artifact-view-components/ArtifactViewErrorState';
+import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { UseGetRunQueryResponseOutputs } from './run-page/hooks/useGetRunQuery';
+import { ReduxState } from '../../redux-types';
 
 type ArtifactPageImplProps = {
-  runUuid: string;
+  runUuid?: string;
   initialSelectedArtifactPath?: string;
-  artifactRootUri: string;
+  artifactRootUri?: string;
   apis: any;
   listArtifactsApi: (...args: any[]) => any;
+  listArtifactsLoggedModelApi: typeof listArtifactsLoggedModelApi;
   searchModelVersionsApi: (...args: any[]) => any;
   runTags?: any;
+  runOutputs?: UseGetRunQueryResponseOutputs;
 
   /**
    * If true, the artifact browser will try to use all available height
    */
   useAutoHeight?: boolean;
-};
+} & LoggedModelArtifactViewerProps;
 
 type ArtifactPageImplState = any;
 
@@ -69,9 +76,13 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
   );
 
   pollModelVersionsForCurrentRun = async () => {
-    const { apis, runUuid } = this.props;
+    const { apis, runUuid, isLoggedModelsMode } = this.props;
     const { activeNodeIsDirectory } = this.state;
     const searchRequest = apis[this.searchRequestId];
+    // Do not poll for run's model versions if we are in the logged models mode
+    if (isLoggedModelsMode && !runUuid) {
+      return;
+    }
     if (activeNodeIsDirectory && !(searchRequest && searchRequest.active)) {
       try {
         // searchModelVersionsApi may be sync or async so we're not using <promise>.catch() syntax
@@ -94,8 +105,16 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
   };
 
   pollArtifactsForCurrentRun = async () => {
-    const { runUuid } = this.props;
-    await this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestIds[0]);
+    const { runUuid, loggedModelId } = this.props;
+
+    const usingLoggedModels = isExperimentLoggedModelsUIEnabled() && this.props.isLoggedModelsMode;
+
+    // In the logged models mode, fetch artifacts for the model instead of the run
+    if (usingLoggedModels && loggedModelId) {
+      await this.props.listArtifactsLoggedModelApi(this.props.loggedModelId, undefined, this.listArtifactRequestIds[0]);
+    } else {
+      await this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestIds[0]);
+    }
     if (this.props.initialSelectedArtifactPath) {
       const parts = this.props.initialSelectedArtifactPath.split('/');
       let pathSoFar = '';
@@ -106,8 +125,17 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
         // directories are listed before their children to construct the correct artifact tree.
         // Index i + 1 because listArtifactRequestIds[0] would have been used up by
         // root-level artifact API call above.
-        // eslint-disable-next-line no-await-in-loop
-        await this.props.listArtifactsApi(runUuid, pathSoFar, this.listArtifactRequestIds[i + 1]);
+
+        // In the logged models mode, fetch artifacts for the model instead of the run
+        if (usingLoggedModels && loggedModelId) {
+          await this.props.listArtifactsLoggedModelApi(
+            this.props.loggedModelId,
+            pathSoFar,
+            this.listArtifactRequestIds[i + 1],
+          );
+        } else {
+          await this.props.listArtifactsApi(runUuid, pathSoFar, this.listArtifactRequestIds[i + 1]);
+        }
         pathSoFar += '/';
       }
     }
@@ -140,19 +168,28 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
   };
 
   renderArtifactView = (isLoading: any, shouldRenderError: any, requests: any) => {
-    if (isLoading) {
+    if (isLoading && !shouldRenderError) {
       return <ArtifactViewBrowserSkeleton />;
     }
     if (this.renderErrorCondition(shouldRenderError)) {
       const failedReq = requests[0];
       if (failedReq && failedReq.error) {
+        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
         console.error(failedReq.error);
       }
+      const errorDescription = (() => {
+        const error = failedReq?.error;
+        if (error instanceof ErrorWrapper) {
+          return error.getMessageField();
+        }
+
+        return this.getFailedtoListArtifactsMsg();
+      })();
       return (
         <ArtifactViewErrorState
           css={{ flex: this.props.useAutoHeight ? 1 : 'unset', height: this.props.useAutoHeight ? 'auto' : undefined }}
           data-testid="artifact-view-error"
-          description={this.getFailedtoListArtifactsMsg()}
+          description={errorDescription}
         />
       );
     }
@@ -180,18 +217,43 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
 type ArtifactPageOwnProps = Omit<
   ArtifactPageImplProps,
   | 'apis'
-  | 'artifactRootUri'
   | 'initialSelectedArtifactPath'
   | 'listArtifactsApi'
+  | 'listArtifactsLoggedModelApi'
   | 'searchModelVersionsApi'
   /* prettier-ignore */
 >;
 
+const validVolumesPrefix = ['/Volumes/', 'dbfs:/Volumes/'];
+
+// Internal utility function to determine if the component should fallback to logged model artifacts
+// if there are no run artifacts available
+const shouldFallbackToLoggedModelArtifacts = (
+  state: ReduxState,
+  ownProps: ArtifactPageOwnProps & WithRouterNextProps,
+): {
+  isFallbackToLoggedModelArtifacts: boolean;
+  fallbackLoggedModelId?: string;
+} => {
+  const isVolumePath = validVolumesPrefix.some((prefix) => ownProps.artifactRootUri?.startsWith(prefix));
+
+  return {
+    isFallbackToLoggedModelArtifacts: false,
+  };
+};
+
 const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouterNextProps) => {
-  const { runUuid, location } = ownProps;
+  const { runUuid, location, runOutputs } = ownProps;
   const currentPathname = location?.pathname || '';
 
   const initialSelectedArtifactPathMatch = currentPathname.match(/\/(?:artifactPath|artifacts)\/(.+)/);
+
+  // Check the conditions to fallback to logged model artifacts
+  const { isFallbackToLoggedModelArtifacts, fallbackLoggedModelId } = shouldFallbackToLoggedModelArtifacts(
+    state,
+    ownProps,
+  );
+
   // The dot ("*") parameter behavior is not stable between implementations
   // so we'll extract the catch-all after /artifactPath, e.g.
   // `/experiments/123/runs/321/artifactPath/models/requirements.txt`
@@ -200,23 +262,34 @@ const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouter
   const initialSelectedArtifactPath = initialSelectedArtifactPathMatch?.[1] || undefined;
 
   const { apis } = state;
-  const artifactRootUri = getArtifactRootUri(runUuid, state);
+  const artifactRootUri = ownProps.artifactRootUri ?? getArtifactRootUri(runUuid, state);
 
   // Autoselect most recently created logged model
   let selectedPath = initialSelectedArtifactPath;
   if (!selectedPath) {
-    const loggedModelPaths = getLoggedModelPathsFromTags(ownProps.runTags);
+    const loggedModelPaths = getLoggedModelPathsFromTags(ownProps.runTags ?? {});
     if (loggedModelPaths.length > 0) {
       selectedPath = _.first(loggedModelPaths);
     }
   }
-  return { artifactRootUri, apis, initialSelectedArtifactPath: selectedPath };
+  return {
+    artifactRootUri,
+    apis,
+    initialSelectedArtifactPath: selectedPath,
+
+    // Use the run outputs if available, otherwise fallback to the run outputs from the Redux store
+    isLoggedModelsMode: isFallbackToLoggedModelArtifacts ? true : ownProps.isLoggedModelsMode,
+    loggedModelId: isFallbackToLoggedModelArtifacts ? fallbackLoggedModelId : ownProps.loggedModelId,
+    isFallbackToLoggedModelArtifacts,
+  };
 };
 
 const mapDispatchToProps = {
   listArtifactsApi,
+  listArtifactsLoggedModelApi,
   searchModelVersionsApi,
 };
 
 export const ConnectedArtifactPage = connect(mapStateToProps, mapDispatchToProps)(ArtifactPageImpl);
+
 export default withRouterNext(ConnectedArtifactPage);

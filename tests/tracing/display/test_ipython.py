@@ -2,8 +2,14 @@ import json
 from collections import defaultdict
 from unittest.mock import Mock
 
+import pytest
+
 import mlflow
-from mlflow.tracing.display import IPythonTraceDisplayHandler, get_display_handler
+from mlflow.tracing.display import (
+    IPythonTraceDisplayHandler,
+    get_display_handler,
+    get_notebook_iframe_html,
+)
 
 from tests.tracing.helper import create_trace
 
@@ -28,6 +34,21 @@ class MockIPython:
         self.events.trigger("post_run_cell")
 
 
+@pytest.fixture
+def _in_databricks(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.x")
+
+
+@pytest.fixture(autouse=True)
+def reset_singleton():
+    IPythonTraceDisplayHandler._instance = None
+    IPythonTraceDisplayHandler.disabled = False
+
+
+in_databricks = pytest.mark.usefixtures(_in_databricks.__name__)
+
+
+@in_databricks
 def test_display_is_not_called_without_ipython(monkeypatch):
     # in an IPython environment, the interactive shell will
     # be returned. however, for test purposes, just mock that
@@ -54,6 +75,7 @@ def test_display_is_not_called_without_ipython(monkeypatch):
     assert mock_display.call_count == 1
 
 
+@in_databricks
 def test_ipython_client_clears_display_after_execution(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
@@ -77,6 +99,7 @@ def test_ipython_client_clears_display_after_execution(monkeypatch):
     assert mock_display.call_count == 1
 
 
+@in_databricks
 def test_display_is_called_in_correct_functions(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
@@ -93,17 +116,8 @@ def test_display_is_called_in_correct_functions(monkeypatch):
     mock_ipython.mock_run_cell()
     assert mock_display.call_count == 1
 
-    class MockMlflowClient:
-        def search_traces(self, *args, **kwargs):
-            return [create_trace("a"), create_trace("b"), create_trace("c")]
 
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
-    mlflow.search_traces(["123"])
-    mock_ipython.mock_run_cell()
-
-    assert mock_display.call_count == 2
-
-
+@in_databricks
 def test_display_deduplicates_traces(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
@@ -128,12 +142,13 @@ def test_display_deduplicates_traces(monkeypatch):
     assert mock_display.call_count == 1
     assert mock_display.call_args[0][0] == {
         "application/databricks.mlflow.trace": json.dumps(
-            [json.loads(t.to_json()) for t in expected]
+            [json.loads(t._serialize_for_mimebundle()) for t in expected]
         ),
-        "text/plain": expected.__repr__(),
+        "text/plain": repr(expected),
     }
 
 
+@in_databricks
 def test_display_respects_max_limit(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
@@ -152,6 +167,110 @@ def test_display_respects_max_limit(monkeypatch):
 
     assert mock_display.call_count == 1
     assert mock_display.call_args[0][0] == {
-        "application/databricks.mlflow.trace": trace_a.to_json(),
-        "text/plain": trace_a.__repr__(),
+        "application/databricks.mlflow.trace": trace_a._serialize_for_mimebundle(),
+        "text/plain": repr(trace_a),
     }
+
+
+@in_databricks
+def test_enable_and_disable_display(monkeypatch):
+    mock_ipython = MockIPython()
+    monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
+    mock_display_handle = Mock()
+    mock_display = Mock(return_value=mock_display_handle)
+    monkeypatch.setattr("IPython.display.display", mock_display)
+    trace_a = create_trace("a")
+
+    # test that disabling the display handler prevents display() from being called
+    mlflow.tracing.disable_notebook_display()
+    handler = get_display_handler()
+    handler.display_traces([trace_a])
+    mock_ipython.mock_run_cell()
+
+    mock_display.assert_not_called()
+
+    # test that re-enabling it will make things display again
+    mlflow.tracing.enable_notebook_display()
+    handler = get_display_handler()
+    handler.display_traces([trace_a])
+    mock_ipython.mock_run_cell()
+
+    assert mock_display.call_count == 1
+    assert mock_display.call_args[0][0] == {
+        "application/databricks.mlflow.trace": trace_a._serialize_for_mimebundle(),
+        "text/plain": repr(trace_a),
+    }
+
+
+@in_databricks
+def test_mimebundle_in_databricks():
+    # by default, it should contain the metadata
+    # necessary for rendering the trace UI
+    trace = create_trace("a")
+    assert trace._repr_mimebundle_() == {
+        "application/databricks.mlflow.trace": trace._serialize_for_mimebundle(),
+        "text/plain": repr(trace),
+    }
+
+    # if trace display is disabled, only "text/plain" should exist
+    mlflow.tracing.disable_notebook_display()
+    assert trace._repr_mimebundle_() == {
+        "text/plain": repr(trace),
+    }
+
+    # re-enabling should bring the metadata back
+    mlflow.tracing.enable_notebook_display()
+    assert trace._repr_mimebundle_() == {
+        "application/databricks.mlflow.trace": trace._serialize_for_mimebundle(),
+        "text/plain": repr(trace),
+    }
+
+
+def test_mimebundle_in_oss():
+    # if the user is not using a tracking server, it should only contain text/plain
+    trace = create_trace("a")
+    assert trace._repr_mimebundle_() == {
+        "text/plain": repr(trace),
+    }
+
+    # if the user is using a tracking server, it
+    # should contain an iframe in the text/html key
+    mlflow.set_tracking_uri("http://localhost:5000")
+    assert trace._repr_mimebundle_() == {
+        "text/plain": repr(trace),
+        "text/html": get_notebook_iframe_html([trace]),
+    }
+
+    # disabling should remove this key, even if tracking server is used
+    mlflow.tracing.disable_notebook_display()
+    assert trace._repr_mimebundle_() == {
+        "text/plain": repr(trace),
+    }
+
+
+def test_display_in_oss(monkeypatch):
+    mock_ipython = MockIPython()
+    monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)
+    mock_display_handle = Mock()
+    mock_display = Mock(return_value=mock_display_handle)
+    monkeypatch.setattr("IPython.display.display", mock_display)
+    monkeypatch.setattr("IPython.display.HTML", Mock(side_effect=lambda html: html))
+
+    handler = get_display_handler()
+    handler.display_traces([create_trace("a")])
+
+    mock_ipython.mock_run_cell()
+
+    # default tracking uri is sqlite, so no display call should be made
+    assert mock_display.call_count == 0
+
+    # after setting an HTTP tracking URI, it should work
+    mlflow.set_tracking_uri("http://localhost:5000")
+
+    handler = get_display_handler()
+    handler.display_traces([create_trace("a")])
+
+    mock_ipython.mock_run_cell()
+
+    assert mock_display.call_count == 1
+    assert "<iframe" in mock_display.call_args[0][0]["text/html"]

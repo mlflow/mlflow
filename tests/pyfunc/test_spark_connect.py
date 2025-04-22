@@ -24,12 +24,13 @@ def spark():
     spark.stop()
 
 
-def test_spark_udf_spark_connect(spark, tmp_path):
+def test_spark_udf_spark_connect(spark):
     X, y = load_iris(return_X_y=True)
     model = LogisticRegression().fit(X, y)
-    mlflow.sklearn.save_model(model, tmp_path)
+    with mlflow.start_run():
+        info = mlflow.sklearn.log_model(model, "model")
     sdf = spark.createDataFrame(pd.DataFrame(X, columns=list("abcd")))
-    udf = mlflow.pyfunc.spark_udf(spark, str(tmp_path), env_manager="local")
+    udf = mlflow.pyfunc.spark_udf(spark, info.model_uri, env_manager="local")
     result = sdf.select(udf(*sdf.columns).alias("preds")).toPandas()
     np.testing.assert_almost_equal(result["preds"].to_numpy(), model.predict(X))
 

@@ -4,12 +4,12 @@ flavors:
     loader_module: mlflow.sklearn
     model_path: model.pkl
     predict_fn: predict
-    python_version: 3.8.12
+    python_version: 3.9.18
   sklearn:
     code: null
     pickled_model: model.pkl
     serialization_format: cloudpickle
-    sklearn_version: 1.1.2
-mlflow_version: 1.30.0
-model_uuid: ad85b47221be4a5f838d481d3fb3de7b
-utc_time_created: '2022-10-27 07:36:59.847638'
+    sklearn_version: 1.5.2
+mlflow_version: 1.30.1
+model_uuid: 4d622e7b02614d1eb71f44eeb927be4f
+utc_time_created: '2024-10-29 07:39:02.032550'

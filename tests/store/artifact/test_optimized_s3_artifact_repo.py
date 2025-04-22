@@ -171,7 +171,7 @@ def test_get_s3_client_region_name_set_correctly_with_non_throwing_response(s3_a
 def test_s3_client_config_set_correctly(s3_artifact_root):
     repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
     s3_client = repo._get_s3_client()
-    assert s3_client.meta.config.s3.get("addressing_style") == "path"
+    assert s3_client.meta.config.s3.get("addressing_style") == "auto"
 
 
 def test_s3_creds_passed_to_client(s3_artifact_root):
@@ -233,14 +233,18 @@ def test_download_file_in_parallel_when_necessary(
     list_artifacts_result = (
         [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
     )
-    with mock.patch(
-        f"{S3_ARTIFACT_REPOSITORY}.list_artifacts",
-        return_value=list_artifacts_result,
-    ), mock.patch(
-        f"{S3_ARTIFACT_REPOSITORY}._download_from_cloud", return_value=None
-    ) as download_mock, mock.patch(
-        f"{S3_ARTIFACT_REPOSITORY}._parallelized_download_from_cloud", return_value=None
-    ) as parallel_download_mock:
+    with (
+        mock.patch(
+            f"{S3_ARTIFACT_REPOSITORY}.list_artifacts",
+            return_value=list_artifacts_result,
+        ),
+        mock.patch(
+            f"{S3_ARTIFACT_REPOSITORY}._download_from_cloud", return_value=None
+        ) as download_mock,
+        mock.patch(
+            f"{S3_ARTIFACT_REPOSITORY}._parallelized_download_from_cloud", return_value=None
+        ) as parallel_download_mock,
+    ):
         repo.download_artifacts("")
         if is_parallel_download:
             parallel_download_mock.assert_called_with(file_size, remote_file_path, ANY)
@@ -249,11 +253,14 @@ def test_download_file_in_parallel_when_necessary(
 
 
 def test_refresh_credentials():
-    with mock.patch(
-        "mlflow.store.artifact.optimized_s3_artifact_repo._get_s3_client"
-    ) as mock_get_s3_client, mock.patch(
-        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository._get_region_name"
-    ) as mock_get_region_name:
+    with (
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo._get_s3_client"
+        ) as mock_get_s3_client,
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository._get_region_name"
+        ) as mock_get_region_name,
+    ):
         s3_client_mock = mock.Mock()
         mock_get_s3_client.return_value = s3_client_mock
         resp = requests.Response()
@@ -267,6 +274,7 @@ def test_refresh_credentials():
                 "access_key_id": "my-id-2",
                 "secret_access_key": "my-key-2",
                 "session_token": "my-session-2",
+                "s3_upload_extra_args": {},
             }
 
         repo = OptimizedS3ArtifactRepository(
@@ -282,7 +290,7 @@ def test_refresh_credentials():
             assert e == err
 
         mock_get_s3_client.assert_any_call(
-            addressing_style="path",
+            addressing_style=None,
             access_key_id="my-id-1",
             secret_access_key="my-key-1",
             session_token="my-session-1",
@@ -291,7 +299,7 @@ def test_refresh_credentials():
         )
 
         mock_get_s3_client.assert_any_call(
-            addressing_style="path",
+            addressing_style=None,
             access_key_id="my-id-2",
             secret_access_key="my-key-2",
             session_token="my-session-2",

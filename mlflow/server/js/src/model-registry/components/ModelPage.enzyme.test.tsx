@@ -15,7 +15,7 @@ import { Provider } from 'react-redux';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { ModelPageImpl, ModelPage } from './ModelPage';
 import Utils from '../../common/utils/Utils';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ModelRegistryRoutes } from '../routes';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 

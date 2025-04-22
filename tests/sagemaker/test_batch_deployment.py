@@ -441,9 +441,10 @@ def test_deploy_in_throw_exception_after_transform_job_creation_fails(
             )
         return result
 
-    with mock.patch(
-        "botocore.client.BaseClient._make_api_call", new=fail_transform_job_creations
-    ), pytest.raises(MlflowException, match="batch transform job failed") as exc:
+    with (
+        mock.patch("botocore.client.BaseClient._make_api_call", new=fail_transform_job_creations),
+        pytest.raises(MlflowException, match="batch transform job failed") as exc,
+    ):
         mfs.deploy_transform_job(
             job_name="test-job",
             model_uri=pretrained_model.model_uri,

@@ -1,6 +1,7 @@
 import json
 import os
 import posixpath
+from typing import Optional
 
 import mlflow.utils.databricks_utils
 from mlflow.entities import FileInfo
@@ -14,7 +15,11 @@ from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service import utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path
-from mlflow.utils.rest_utils import RESOURCE_NON_EXISTENT, http_request, http_request_safe
+from mlflow.utils.rest_utils import (
+    RESOURCE_NON_EXISTENT,
+    http_request,
+    http_request_safe,
+)
 from mlflow.utils.string_utils import strip_prefix
 from mlflow.utils.uri import (
     get_databricks_profile_uri_from_artifact_uri,
@@ -22,6 +27,7 @@ from mlflow.utils.uri import (
     is_databricks_model_registry_artifacts_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
+    strip_scheme,
 )
 
 # The following constants are defined as @developer_stable
@@ -92,8 +98,8 @@ class DbfsRestArtifactRepository(ArtifactRepository):
 
     def _get_dbfs_path(self, artifact_path):
         return "/{}/{}".format(
-            strip_prefix(self.artifact_uri, "dbfs:/"),
-            strip_prefix(artifact_path, "/"),
+            strip_scheme(self.artifact_uri).lstrip("/"),
+            artifact_path.lstrip("/"),
         )
 
     def _get_dbfs_endpoint(self, artifact_path):
@@ -130,7 +136,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
                 file_path = os.path.join(dirpath, name)
                 self.log_artifact(file_path, artifact_subdir)
 
-    def list_artifacts(self, path=None):
+    def list_artifacts(self, path: Optional[str] = None) -> list:
         dbfs_path = self._get_dbfs_path(path) if path else self._get_dbfs_path("")
         dbfs_list_json = {"path": dbfs_path}
         response = self._dbfs_list_api(dbfs_list_json)

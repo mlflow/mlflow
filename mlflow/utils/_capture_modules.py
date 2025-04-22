@@ -1,6 +1,7 @@
 """
 This script should be executed in a fresh python interpreter process using `subprocess`.
 """
+
 import argparse
 import builtins
 import functools
@@ -183,7 +184,7 @@ def store_imported_modules(
             # because `pyfunc_conf[MAIN]` might also be a module loaded from
             # code_paths.
             with cap_cm:
-                # `mlflow.pyfunc.load_model` interanlly invokes
+                # `mlflow.pyfunc.load_model` internally invokes
                 # `importlib.import_module(pyfunc_conf[MAIN])`
                 mlflow.pyfunc.load_model(model_path)
         else:

@@ -5,7 +5,7 @@ import { Provider } from 'react-redux';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { applyMiddleware, compose, createStore } from 'redux';
 import promiseMiddleware from 'redux-promise-middleware';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 // import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';

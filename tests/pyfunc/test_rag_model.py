@@ -21,6 +21,7 @@ class TestRagModel(mlflow.pyfunc.PythonModel):
         return asdict(
             ChatCompletionResponse(
                 choices=[ChainCompletionChoice(message=Message(role="assistant", content=message))]
+                # NB: intentionally validating the default population of the object field
             )
         )
 
@@ -38,10 +39,11 @@ def test_rag_model_works_with_type_hint(tmp_path):
 
     response = loaded_model.predict(input_example)
     assert response["choices"][0]["message"]["content"] == "What is mlflow?"
+    assert response["object"] == "chat.completion"
 
     # confirm the input example is set
     mlflow_model = Model.load(tmp_path)
-    assert mlflow_model.load_input_example(tmp_path).to_dict(orient="records")[0] == input_example
+    assert mlflow_model.load_input_example(tmp_path) == input_example
 
     # test that the model can be served
     response = pyfunc_serve_and_score_model(
@@ -52,4 +54,6 @@ def test_rag_model_works_with_type_hint(tmp_path):
     )
 
     expect_status_code(response, 200)
-    assert json.loads(response.content)["choices"][0]["message"]["content"] == "What is mlflow?"
+    json_response = json.loads(response.content)
+    assert json_response["choices"][0]["message"]["content"] == "What is mlflow?"
+    assert json_response["object"] == "chat.completion"

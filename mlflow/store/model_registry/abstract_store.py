@@ -5,8 +5,10 @@ from time import sleep, time
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import has_prompt_tag
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.utils.annotations import developer_stable
+from mlflow.utils.logging_utils import eprint
 
 _logger = logging.getLogger(__name__)
 
@@ -384,10 +386,15 @@ class AbstractStore:
             the cloned model version.
         """
         try:
-            self.create_registered_model(dst_name)
+            create_model_response = self.create_registered_model(dst_name)
+            eprint(f"Successfully registered model '{create_model_response.name}'.")
         except MlflowException as e:
             if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 raise
+            eprint(
+                f"Registered model '{dst_name}' already exists."
+                f" Creating a new version of this model..."
+            )
 
         try:
             mv_copy = self.create_model_version(
@@ -397,6 +404,10 @@ class AbstractStore:
                 tags=[ModelVersionTag(k, v) for k, v in src_mv.tags.items()],
                 run_link=src_mv.run_link,
                 description=src_mv.description,
+            )
+            eprint(
+                f"Copied version '{src_mv.version}' of model '{src_mv.name}'"
+                f" to version '{mv_copy.version}' of model '{mv_copy.name}'."
             )
         except MlflowException as e:
             raise MlflowException(
@@ -418,9 +429,10 @@ class AbstractStore:
         self._await_model_version_creation_impl(mv, await_creation_for)
 
     def _await_model_version_creation_impl(self, mv, await_creation_for, hint=""):
+        entity_type = "Prompt" if has_prompt_tag(mv.tags) else "Model"
         _logger.info(
-            f"Waiting up to {await_creation_for} seconds for model version to finish creation. "
-            f"Model name: {mv.name}, version {mv.version}",
+            f"Waiting up to {await_creation_for} seconds for {entity_type.lower()} version to "
+            f"finish creation. {entity_type} name: {mv.name}, version {mv.version}",
         )
         max_time = time() + await_creation_for
         pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
@@ -432,9 +444,11 @@ class AbstractStore:
                     f".{hint}"
                 )
             mv = self.get_model_version(mv.name, mv.version)
+            if mv.status != pending_status:
+                break
             sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS)
         if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
             raise MlflowException(
-                f"Model version creation failed for model name: {mv.name} version: "
-                f"{mv.version} with status: {mv.status} and message: {mv.status_message}"
+                f"{entity_type} version creation failed for {entity_type.lower()} name: {mv.name} "
+                f"version: {mv.version} with status: {mv.status} and message: {mv.status_message}"
             )

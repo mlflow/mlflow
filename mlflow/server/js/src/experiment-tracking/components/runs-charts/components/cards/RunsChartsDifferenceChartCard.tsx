@@ -1,3 +1,4 @@
+import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useCallback, useMemo } from 'react';
 import type { RunsChartsRunData } from '../RunsCharts.common';
 import {
@@ -11,51 +12,83 @@ import {
   RunsChartCardWrapper,
   RunsChartsChartsDragGroup,
   RunsChartCardFullScreenProps,
-  ChartRunsCountIndicator,
 } from './ChartCard.common';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
-import { DifferenceViewPlot } from '../charts/DifferenceViewPlot';
 import { useConfirmChartCardConfigurationFn } from '../../hooks/useRunsChartsUIConfiguration';
 import { useIntl, FormattedMessage } from 'react-intl';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
+import { DifferenceViewPlot } from '../charts/DifferenceViewPlot';
 
 export interface RunsChartsDifferenceChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsDifferenceCardConfig;
   chartRunData: RunsChartsRunData[];
+
+  hideEmptyCharts?: boolean;
 
   onDelete: () => void;
   onEdit: () => void;
   groupBy: RunsGroupByConfig | null;
 }
 
+/**
+ * A placeholder component displayed before runs difference chart is being configured by user
+ */
+const NotConfiguredDifferenceChartPlaceholder = ({ onEdit }: { onEdit: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div css={{ display: 'flex', flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: 360 }}>
+        <Typography.Title css={{ marginTop: theme.spacing.md }} color="secondary" level={3}>
+          <FormattedMessage
+            defaultMessage="Compare runs"
+            description="Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > title"
+          />
+        </Typography.Title>
+        <Typography.Text css={{ marginBottom: theme.spacing.md }} color="secondary">
+          <FormattedMessage
+            defaultMessage="Use the runs difference view to compare model and system metrics, parameters, attributes,
+            and tags across runs."
+            description="Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > description"
+          />
+        </Typography.Text>
+        <Button componentId="mlflow.charts.difference_chart_configure_button" type="primary" onClick={onEdit}>
+          <FormattedMessage
+            defaultMessage="Configure chart"
+            description="Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > configure chart button"
+          />
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 export const RunsChartsDifferenceChartCard = ({
   config,
   chartRunData,
   onDelete,
   onEdit,
-  onReorderWith,
-  canMoveDown,
-  canMoveUp,
-  onMoveDown,
-  onMoveUp,
   groupBy,
   fullScreen,
   setFullScreenChart,
+  hideEmptyCharts,
+  ...reorderProps
 }: RunsChartsDifferenceChartCardProps) => {
   const toggleFullScreenChart = () => {
     setFullScreenChart?.({
       config,
       title: config.chartName,
-      subtitle: <ChartRunsCountIndicator runsOrGroups={chartRunData} />,
+      subtitle: null,
     });
   };
 
-  const slicedRuns = useMemo(() => {
-    if (shouldUseNewRunRowsVisibilityModel()) {
-      return chartRunData.filter(({ hidden }) => !hidden).reverse();
-    }
-    return chartRunData.slice(0, config.runsCountToCompare || 10).reverse();
+  const [isConfigured, slicedRuns] = useMemo(() => {
+    const configured = Boolean(config.compareGroups?.length);
+    return [configured, chartRunData.filter(({ hidden }) => !hidden).reverse()];
   }, [chartRunData, config]);
+
+  const isEmptyDataset = useMemo(() => {
+    return !isConfigured;
+  }, [isConfigured]);
 
   const confirmChartCardConfiguration = useConfirmChartCardConfigurationFn();
 
@@ -80,26 +113,19 @@ export const RunsChartsDifferenceChartCard = ({
   const { formatMessage } = useIntl();
 
   const chartBody = (
-    <div
-      css={{
-        display: 'flex',
-        overflow: 'auto hidden',
-        cursor: 'pointer',
-        height: fullScreen ? '100%' : undefined,
-        width: '100%',
-      }}
-    >
-      <div css={{ width: '100%' }}>
+    <>
+      {!isConfigured ? (
+        <NotConfiguredDifferenceChartPlaceholder onEdit={onEdit} />
+      ) : (
         <DifferenceViewPlot
           previewData={slicedRuns}
           groupBy={groupBy}
           cardConfig={config}
           setCardConfig={setCardConfig}
         />
-      </div>
-    </div>
+      )}
+    </>
   );
-
   let showTooltip = undefined;
   if (groupBy && DISABLED_GROUP_WHEN_GROUPBY.some((group) => config.compareGroups.includes(group))) {
     showTooltip = formatMessage({
@@ -112,19 +138,18 @@ export const RunsChartsDifferenceChartCard = ({
     return chartBody;
   }
 
+  // Do not render the card if the chart is empty and the user has enabled hiding empty charts
+  if (hideEmptyCharts && isEmptyDataset) {
+    return null;
+  }
+
   return (
     <RunsChartCardWrapper
       onEdit={onEdit}
       onDelete={onDelete}
       title={config.chartName}
-      subtitle={<ChartRunsCountIndicator runsOrGroups={slicedRuns} />}
       uuid={config.uuid}
       dragGroupKey={RunsChartsChartsDragGroup.GENERAL_AREA}
-      onReorderWith={onReorderWith}
-      canMoveDown={canMoveDown}
-      canMoveUp={canMoveUp}
-      onMoveDown={onMoveDown}
-      onMoveUp={onMoveUp}
       toggleFullScreenChart={toggleFullScreenChart}
       toggles={[
         {
@@ -147,6 +172,7 @@ export const RunsChartsDifferenceChartCard = ({
         },
       ]}
       tooltip={showTooltip}
+      {...reorderProps}
     >
       {chartBody}
     </RunsChartCardWrapper>

@@ -1,5 +1,4 @@
 import time
-from contextlib import contextmanager
 
 import mlflow
 from mlflow.entities import Metric, Param
@@ -9,26 +8,13 @@ from mlflow.utils.autologging_utils.metrics_queue import (
     flush_metrics_queue,
 )
 
-DISABLED = False
-
-
-@contextmanager
-def disable_pytorch_autologging():
-    global DISABLED
-    old_value = DISABLED
-    DISABLED = True
-    try:
-        yield
-    finally:
-        DISABLED = old_value
-
 
 def patched_add_hparams(original, self, hparam_dict, metric_dict, *args, **kwargs):
     """use a synchronous call here since this is going to get called very infrequently."""
 
     run = mlflow.active_run()
 
-    if not DISABLED and run is not None and hparam_dict:
+    if run is not None and hparam_dict:
         run_id = run.info.run_id
         # str() is required by mlflow :(
         params_arr = [Param(key, str(value)) for key, value in hparam_dict.items()]
@@ -42,14 +28,9 @@ def patched_add_hparams(original, self, hparam_dict, metric_dict, *args, **kwarg
 
 def patched_add_event(original, self, event, *args, mlflow_log_every_n_step, **kwargs):
     run = mlflow.active_run()
-    if (
-        not DISABLED
-        and run is not None
-        and event.WhichOneof("what") == "summary"
-        and mlflow_log_every_n_step
-    ):
+    if run is not None and event.WhichOneof("what") == "summary" and mlflow_log_every_n_step:
         summary = event.summary
-        global_step = args[0] if len(args) > 0 else kwargs.get("global_step", None)
+        global_step = args[0] if len(args) > 0 else kwargs.get("global_step")
         global_step = global_step or 0
         for v in summary.value:
             if v.HasField("simple_value") and global_step % mlflow_log_every_n_step == 0:

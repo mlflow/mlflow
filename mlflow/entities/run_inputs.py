@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_input import DatasetInput
@@ -8,7 +8,7 @@ from mlflow.protos.service_pb2 import RunInputs as ProtoRunInputs
 class RunInputs(_MlflowObject):
     """RunInputs object."""
 
-    def __init__(self, dataset_inputs: List[DatasetInput]) -> None:
+    def __init__(self, dataset_inputs: list[DatasetInput]) -> None:
         self._dataset_inputs = dataset_inputs
 
     def __eq__(self, other: _MlflowObject) -> bool:
@@ -17,7 +17,7 @@ class RunInputs(_MlflowObject):
         return False
 
     @property
-    def dataset_inputs(self) -> List[DatasetInput]:
+    def dataset_inputs(self) -> list[DatasetInput]:
         """Array of dataset inputs."""
         return self._dataset_inputs
 
@@ -28,9 +28,9 @@ class RunInputs(_MlflowObject):
         )
         return run_inputs
 
-    def to_dictionary(self) -> Dict[Any, Any]:
+    def to_dictionary(self) -> dict[str, Any]:
         return {
-            "dataset_inputs": self.dataset_inputs,
+            "dataset_inputs": [d.to_dictionary() for d in self.dataset_inputs],
         }
 
     @classmethod

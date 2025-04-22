@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { shallowWithIntl, mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { shallowWithIntl, mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ArtifactPageImpl, ConnectedArtifactPage } from './ArtifactPage';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { Provider } from 'react-redux';

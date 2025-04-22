@@ -1,6 +1,6 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { type DragDropManager, createDragDropManager } from 'dnd-core';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useDrag, useDrop, DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
@@ -40,15 +40,15 @@ export const useDragAndDropElement = ({
   disabled = false,
 }: useDragAndDropElementProps) => {
   const dropListener = useRef(onDrop);
-  useEffect(() => {
-    dropListener.current = onDrop;
-  }, [onDrop]);
+
+  dropListener.current = onDrop;
+
   const [{ isOver, draggedItem }, dropTargetRef] = useDrop<
     DraggedItem,
     never,
     { isOver: boolean; draggedItem: DraggedItem }
   >(
-    () => ({
+    {
       canDrop: () => !disabled,
       accept: `dnd-${dragGroupKey}`,
       drop: ({ key: sourceKey }: { key: string }, monitor) => {
@@ -58,20 +58,20 @@ export const useDragAndDropElement = ({
         dropListener.current(sourceKey, dragKey);
       },
       collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }), draggedItem: monitor.getItem() }),
-    }),
-    [],
+    },
+    [disabled, dragGroupKey, dragKey],
   );
 
   const [{ isDragging }, dragHandleRef, dragPreviewRef] = useDrag(
-    () => ({
+    {
       canDrag: () => !disabled,
       type: `dnd-${dragGroupKey}`,
       item: { key: dragKey, groupKey: dragGroupKey },
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
-    }),
-    [],
+    },
+    [disabled, dragGroupKey, dragKey],
   );
 
   const isDraggingOtherGroup = Boolean(draggedItem && draggedItem.groupKey !== dragGroupKey);

@@ -1,11 +1,25 @@
 from dataclasses import asdict, dataclass, field
-from typing import Dict, Optional
+from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.protos.databricks_trace_server_pb2 import TraceInfo as ProtoTraceInfoV3
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
+from mlflow.protos.service_pb2 import TraceLocation as ProtoTraceLocation
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+
+
+def _truncate_dict_keys_and_values(d: dict[str, Any]) -> dict[str, str]:
+    from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
+
+    return {
+        k[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]: str(v)[
+            :MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
+        ]
+        for k, v in d.items()
+    }
 
 
 @dataclass
@@ -29,8 +43,9 @@ class TraceInfo(_MlflowObject):
     timestamp_ms: int
     execution_time_ms: Optional[int]
     status: TraceStatus
-    request_metadata: Dict[str, str] = field(default_factory=dict)
-    tags: Dict[str, str] = field(default_factory=dict)
+    request_metadata: dict[str, str] = field(default_factory=dict)
+    tags: dict[str, str] = field(default_factory=dict)
+    assessments: list[Assessment] = field(default_factory=list)
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -38,8 +53,6 @@ class TraceInfo(_MlflowObject):
         return False
 
     def to_proto(self):
-        from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
-
         proto = ProtoTraceInfo()
         proto.request_id = self.request_id
         proto.experiment_id = self.experiment_id
@@ -51,25 +64,25 @@ class TraceInfo(_MlflowObject):
         proto.status = self.status.to_proto()
 
         request_metadata = []
-        for key, value in self.request_metadata.items():
+        for key, value in _truncate_dict_keys_and_values(self.request_metadata).items():
             attr = ProtoTraceRequestMetadata()
-            attr.key = key[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
-            attr.value = str(value)[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
+            attr.key = key
+            attr.value = value
             request_metadata.append(attr)
         proto.request_metadata.extend(request_metadata)
 
         tags = []
-        for key, value in self.tags.items():
+        for key, value in _truncate_dict_keys_and_values(self.tags).items():
             tag = ProtoTraceTag()
-            tag.key = key[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
-            tag.value = str(value)[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
+            tag.key = key
+            tag.value = str(value)
             tags.append(tag)
 
         proto.tags.extend(tags)
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto, assessments=None):
         return cls(
             request_id=proto.request_id,
             experiment_id=proto.experiment_id,
@@ -78,6 +91,7 @@ class TraceInfo(_MlflowObject):
             status=TraceStatus.from_proto(proto.status),
             request_metadata={attr.key: attr.value for attr in proto.request_metadata},
             tags={tag.key: tag.value for tag in proto.tags},
+            assessments=assessments or [],
         )
 
     def to_dict(self):
@@ -98,3 +112,27 @@ class TraceInfo(_MlflowObject):
             raise ValueError("status is required in trace info dictionary.")
         trace_info_dict["status"] = TraceStatus(trace_info_dict["status"])
         return cls(**trace_info_dict)
+
+    def to_v3_proto(self, request: Optional[str], response: Optional[str]):
+        """Convert into the V3 TraceInfo proto object."""
+        proto = ProtoTraceInfoV3()
+
+        proto.trace_id = self.request_id
+        proto.trace_location.type = ProtoTraceLocation.MLFLOW_EXPERIMENT
+        proto.trace_location.mlflow_experiment.experiment_id = self.experiment_id
+
+        proto.request = request or ""
+        proto.response = response or ""
+        proto.state = ProtoTraceInfoV3.State.Value(self.status.name)
+
+        proto.request_time.FromMilliseconds(self.timestamp_ms)
+        if self.execution_time_ms is not None:
+            proto.execution_duration.FromMilliseconds(self.execution_time_ms)
+
+        if self.request_metadata:
+            proto.trace_metadata.update(_truncate_dict_keys_and_values(self.request_metadata))
+
+        if self.tags:
+            proto.tags.update(_truncate_dict_keys_and_values(self.tags))
+
+        return proto

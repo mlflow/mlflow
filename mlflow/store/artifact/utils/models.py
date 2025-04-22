@@ -18,9 +18,8 @@ def _improper_model_uri_msg(uri):
         f"Not a proper models:/ URI: {uri}. "
         + "Models URIs must be of the form 'models:/model_name/suffix' "
         + "or 'models:/model_name@alias' where suffix is a model version, stage, "
-        + "or the string '%s' and where alias is a registered model alias. "
-        % _MODELS_URI_SUFFIX_LATEST
-        + "Only one of suffix or alias can be defined at a time."
+        + f"or the string {_MODELS_URI_SUFFIX_LATEST!r} and where alias is a registered model "
+        + "alias. Only one of suffix or alias can be defined at a time."
     )
 
 
@@ -89,6 +88,12 @@ def get_model_name_and_version(client, models_uri):
     (model_name, model_version, model_stage, model_alias) = _parse_model_uri(models_uri)
     if model_version is not None:
         return model_name, model_version
+
+    # NB: Call get_model_version_by_alias of registry client directly to bypass prompt check
+    if isinstance(client, mlflow.MlflowClient):
+        client = client._get_registry_client()
+
     if model_alias is not None:
-        return model_name, client.get_model_version_by_alias(model_name, model_alias).version
+        mv = client.get_model_version_by_alias(model_name, model_alias)
+        return model_name, mv.version
     return model_name, str(_get_latest_model_version(client, model_name, model_stage))

@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import * as RadixToolbar from '@radix-ui/react-toolbar';
 export type ToolbarRootProps = Omit<RadixToolbar.ToolbarProps, 'orientation'>;
 export type ToolbarButtonProps = RadixToolbar.ToolbarButtonProps;

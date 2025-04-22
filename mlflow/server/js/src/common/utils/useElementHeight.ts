@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
  * return <div ref={observeHeight}>Element height: {elementHeight}px</div>
  * ```
  */
-export const useElementHeight = () => {
+export const useElementHeight = (resizeCallback?: (entry: ResizeObserverEntry) => void) => {
   const [hideableElementsContainer, setHideableElementsContainer] = useState<HTMLElement | null>(null);
 
   const [elementHeight, setElementHeight] = useState<number | undefined>(undefined);
@@ -18,13 +18,14 @@ export const useElementHeight = () => {
       return undefined;
     }
     const resizeObserver = new ResizeObserver(([entry]) => {
+      resizeCallback?.(entry);
       if (entry.target.scrollHeight) {
         setElementHeight(entry.target.scrollHeight);
       }
     });
     resizeObserver.observe(hideableElementsContainer);
     return () => resizeObserver.disconnect();
-  }, [hideableElementsContainer]);
+  }, [hideableElementsContainer, resizeCallback]);
 
   return { elementHeight, observeHeight: setHideableElementsContainer };
 };

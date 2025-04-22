@@ -1,7 +1,8 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel
+from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.model_registry import (
@@ -10,7 +11,9 @@ from mlflow.store.model_registry import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.fluent import active_run
 from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 
 
@@ -19,7 +22,7 @@ def register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[Dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
 ) -> ModelVersion:
     """Create a new model version in model registry for the model files specified by ``model_uri``.
 
@@ -84,7 +87,7 @@ def _register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[Dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
     local_model_path=None,
 ) -> ModelVersion:
     client = MlflowClient()
@@ -97,8 +100,7 @@ def _register_model(
             ErrorCode.Name(ALREADY_EXISTS),
         ):
             eprint(
-                "Registered model '%s' already exists. Creating a new version of this model..."
-                % name
+                f"Registered model {name!r} already exists. Creating a new version of this model..."
             )
         else:
             raise e
@@ -127,11 +129,13 @@ def _register_model(
 def search_registered_models(
     max_results: Optional[int] = None,
     filter_string: Optional[str] = None,
-    order_by: Optional[List[str]] = None,
-) -> List[RegisteredModel]:
+    order_by: Optional[list[str]] = None,
+) -> list[RegisteredModel]:
     """Search for registered models that satisfy the filter criteria.
 
     Args:
+        max_results: If passed, specifies the maximum number of models desired. If not
+            passed, all models will be returned.
         filter_string: Filter query string (e.g., "name = 'a_model_name' and tag.key = 'value1'"),
             defaults to searching for all registered models. The following identifiers, comparators,
             and logical operators are supported.
@@ -150,8 +154,6 @@ def search_registered_models(
             Logical operators
               - "AND": Combines two sub-queries and returns True if both of them are True.
 
-        max_results: If passed, specifies the maximum number of models desired. If not
-            passed, all models will be returned.
         order_by: List of column names with ASC|DESC annotation, to be used for ordering
             matching search results.
 
@@ -232,8 +234,8 @@ def search_registered_models(
 def search_model_versions(
     max_results: Optional[int] = None,
     filter_string: Optional[str] = None,
-    order_by: Optional[List[str]] = None,
-) -> List[ModelVersion]:
+    order_by: Optional[list[str]] = None,
+) -> list[ModelVersion]:
     """Search for model versions that satisfy the filter criteria.
 
     .. warning:
@@ -241,6 +243,8 @@ def search_model_versions(
         The model version search results may not have aliases populated for performance reasons.
 
     Args:
+        max_results: If passed, specifies the maximum number of models desired. If not
+            passed, all models will be returned.
         filter_string: Filter query string
             (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
             defaults to searching for all model versions. The following identifiers, comparators,
@@ -263,8 +267,6 @@ def search_model_versions(
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
-        max_results: If passed, specifies the maximum number of models desired. If not
-            passed, all models will be returned.
         order_by: List of column names with ASC|DESC annotation, to be used for ordering
             matching search results.
 
@@ -324,3 +326,206 @@ def search_model_versions(
         max_results_per_page=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
         max_results=max_results,
     )
+
+
+@experimental
+@require_prompt_registry
+def register_prompt(
+    name: str,
+    template: str,
+    commit_message: Optional[str] = None,
+    version_metadata: Optional[dict[str, str]] = None,
+    tags: Optional[dict[str, str]] = None,
+) -> Prompt:
+    """
+    Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
+
+    A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name and
+    template text at minimum. With MLflow Prompt Registry, you can create, manage, and
+    version control prompts with the MLflow's robust model tracking framework.
+
+    If there is no registered prompt with the given name, a new prompt will be created.
+    Otherwise, a new version of the existing prompt will be created.
+
+
+    Args:
+        name: The name of the prompt.
+        template: The template text of the prompt. It can contain variables enclosed in
+            double curly braces, e.g. {variable}, which will be replaced with actual values
+            by the `format` method.
+
+            .. note::
+
+                If you want to use the prompt with a framework that uses single curly braces
+                e.g. LangChain, you can use the `to_single_brace_format` method to convert the
+                loaded prompt to a format that uses single curly braces.
+
+                .. code-block:: python
+
+                    prompt = client.load_prompt("my_prompt")
+                    langchain_format = prompt.to_single_brace_format()
+
+        commit_message: A message describing the changes made to the prompt, similar to a
+            Git commit message. Optional.
+        version_metadata: A dictionary of metadata associated with the **prompt version**.
+            This is useful for storing version-specific information, such as the author of
+            the changes. Optional.
+        tags: A dictionary of tags associated with the entire prompt. This is different from
+            the `version_metadata` as it is not tied to a specific version of the prompt,
+            but to the prompt as a whole. For example, you can use tags to add an application
+            name for which the prompt is created. Since the application uses the prompt in
+            multiple versions, it makes sense to use tags instead of version-specific metadata.
+            Optional.
+
+    Returns:
+        A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+
+        # Register a new prompt
+        mlflow.register_prompt(
+            name="my_prompt",
+            template="Respond to the user's message as a {{style}} AI.",
+            version_metadata={"author": "Alice"},
+        )
+
+        # Load the prompt from the registry
+        prompt = mlflow.load_prompt("my_prompt")
+
+        # Use the prompt in your application
+        import openai
+
+        openai_client = openai.OpenAI()
+        openai_client.chat.completion.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": prompt.format(style="friendly")},
+                {"role": "user", "content": "Hello, how are you?"},
+            ],
+        )
+
+        # Update the prompt with a new version
+        prompt = mlflow.register_prompt(
+            name="my_prompt",
+            template="Respond to the user's message as a {{style}} AI. {{greeting}}",
+            commit_message="Add a greeting to the prompt.",
+            version_metadata={"author": "Bob"},
+        )
+    """
+    return MlflowClient().register_prompt(
+        name=name,
+        template=template,
+        commit_message=commit_message,
+        tags=tags,
+        version_metadata=version_metadata,
+    )
+
+
+@experimental
+@require_prompt_registry
+def load_prompt(
+    name_or_uri: str, version: Optional[int] = None, allow_missing: bool = False
+) -> Prompt:
+    """
+    Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
+
+    The prompt can be specified by name and version, or by URI.
+
+    Args:
+        name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
+        version: The version of the prompt. If not specified, the latest version will be loaded.
+        allow_missing: If True, return None instead of raising Exception if the specified prompt
+            is not found.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+
+        # Load the latest version of the prompt
+        prompt = mlflow.load_prompt("my_prompt")
+
+        # Load a specific version of the prompt
+        prompt = mlflow.load_prompt("my_prompt", version=1)
+
+        # Load a specific version of the prompt by URI
+        prompt = mlflow.load_prompt(uri="prompts:/my_prompt/1")
+
+        # Load a prompt version with an alias "production"
+        prompt = mlflow.load_prompt("prompts:/my_prompt@production")
+
+    """
+    client = MlflowClient()
+    prompt = client.load_prompt(
+        name_or_uri=name_or_uri, version=version, allow_missing=allow_missing
+    )
+
+    # If there is an active MLflow run, associate the prompt with the run
+    if run := active_run():
+        client.log_prompt(run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}")
+
+    return prompt
+
+
+@experimental
+@require_prompt_registry
+def delete_prompt(name: str, version: int) -> Prompt:
+    """
+    Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        version: The version of the prompt to delete.
+    """
+    return MlflowClient().delete_prompt(name=name, version=version)
+
+
+@experimental
+@require_prompt_registry
+def set_prompt_alias(name: str, alias: str, version: int) -> Prompt:
+    """
+    Set an alias for a :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        alias: The alias to set for the prompt.
+        version: The version of the prompt.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+
+        # Set an alias for the prompt
+        mlflow.set_prompt_alias(name="my_prompt", version=1, alias="production")
+
+        # Load the prompt by alias (use "@" to specify the alias)
+        prompt = mlflow.load_prompt("prompts:/my_prompt@production")
+
+        # Switch the alias to a new version of the prompt
+        mlflow.set_prompt_alias(name="my_prompt", version=2, alias="production")
+
+        # Delete the alias
+        mlflow.delete_prompt_alias(name="my_prompt", alias="production")
+    """
+
+    return MlflowClient().set_prompt_alias(name=name, version=version, alias=alias)
+
+
+@experimental
+@require_prompt_registry
+def delete_prompt_alias(name: str, alias: str) -> Prompt:
+    """
+    Delete an alias for a :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        alias: The alias to delete for the prompt.
+    """
+    return MlflowClient().delete_prompt_alias(name=name, alias=alias)

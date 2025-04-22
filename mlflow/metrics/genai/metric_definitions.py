@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.genai.base import EvaluationExample
@@ -14,12 +14,19 @@ from mlflow.utils.class_utils import _get_class_from_string
 def answer_similarity(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
-    examples: Optional[List[EvaluationExample]] = None,
+    examples: Optional[list[EvaluationExample]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
+    parameters: Optional[dict[str, Any]] = None,
+    extra_headers: Optional[dict[str, str]] = None,
+    proxy_url: Optional[str] = None,
+    max_workers: int = 10,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer similarity of an LLM
     using the model provided. Answer similarity will be assessed by the semantic similarity of the
-    output to the ``ground_truth``, which should be specified in the ``targets`` column.
+    output to the ``ground_truth``, which should be specified in the ``targets`` column. High
+    scores mean that your model outputs contain similar information as the ground_truth, while
+    low scores mean that outputs may disagree with the ground_truth.
 
     The ``targets`` eval_arg must be provided as part of the input dataset or output
     predictions. This can be mapped to a column of a different name using ``col_mapping``
@@ -28,15 +35,27 @@ def answer_similarity(
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     Args:
-        model: (Optional) Model uri of an openai or gateway judge model in the format of
-            "openai:/gpt-4" or "gateway:/my-route". Defaults to
-            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-            evaluation may be subject to and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         metric_version: (Optional) The version of the answer similarity metric to use.
             Defaults to the latest version.
         examples: (Optional) Provide a list of examples to help the judge model evaluate the
             answer similarity. It is highly recommended to add examples to be used as a reference to
             evaluate the new results.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
+        parameters: (Optional) Dictionary of parameters to be passed to the judge model,
+            e.g., {"temperature": 0.5}. When specified, these parameters will override
+            the default parameters defined in the metric implementation.
+        extra_headers: (Optional) Dictionary of extra headers to be passed to the judge model.
+        proxy_url: (Optional) Proxy URL to be used for the judge model. This is useful when the
+            judge model is served via a proxy endpoint, not directly via LLM provider services.
+            If not specified, the default URL for the LLM provider will be used
+            (e.g., https://api.openai.com/v1/chat/completions for OpenAI chat models).
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
 
     Returns:
         A metric object
@@ -72,9 +91,13 @@ def answer_similarity(
         version=metric_version,
         model=model,
         grading_context_columns=answer_similarity_class_module.grading_context_columns,
-        parameters=answer_similarity_class_module.parameters,
+        parameters=parameters or answer_similarity_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
+        metric_metadata=metric_metadata,
+        extra_headers=extra_headers,
+        proxy_url=proxy_url,
+        max_workers=max_workers,
     )
 
 
@@ -82,12 +105,21 @@ def answer_similarity(
 def answer_correctness(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
-    examples: Optional[List[EvaluationExample]] = None,
+    examples: Optional[list[EvaluationExample]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
+    parameters: Optional[dict[str, Any]] = None,
+    extra_headers: Optional[dict[str, str]] = None,
+    proxy_url: Optional[str] = None,
+    max_workers: int = 10,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer correctness of an LLM
     using the model provided. Answer correctness will be assessed by the accuracy of the provided
     output based on the ``ground_truth``, which should be specified in the ``targets`` column.
+    High scores mean that your model outputs contain similar information as the ground_truth and
+    that this information is correct, while low scores mean that outputs may disagree with the
+    ground_truth or that the information in the output is incorrect. Note that this builds onto
+    answer_similarity.
 
     The ``targets`` eval_arg must be provided as part of the input dataset or output
     predictions. This can be mapped to a column of a different name using ``col_mapping``
@@ -96,15 +128,27 @@ def answer_correctness(
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     Args:
-        model: Model uri of an openai or gateway judge model in the format of
-            "openai:/gpt-4" or "gateway:/my-route". Defaults to
-            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-            evaluation may be subject to and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         metric_version: The version of the answer correctness metric to use.
             Defaults to the latest version.
         examples: Provide a list of examples to help the judge model evaluate the
             answer correctness. It is highly recommended to add examples to be used as a reference
             to evaluate the new results.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
+        parameters: (Optional) Dictionary of parameters to be passed to the judge model,
+            e.g., {"temperature": 0.5}. When specified, these parameters will override
+            the default parameters defined in the metric implementation.
+        extra_headers: (Optional) Dictionary of extra headers to be passed to the judge model.
+        proxy_url: (Optional) Proxy URL to be used for the judge model. This is useful when the
+            judge model is served via a proxy endpoint, not directly via LLM provider services.
+            If not specified, the default URL for the LLM provider will be used
+            (e.g., https://api.openai.com/v1/chat/completions for OpenAI chat models).
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
 
     Returns:
         A metric object
@@ -139,9 +183,13 @@ def answer_correctness(
         version=metric_version,
         model=model,
         grading_context_columns=answer_correctness_class_module.grading_context_columns,
-        parameters=answer_correctness_class_module.parameters,
+        parameters=parameters or answer_correctness_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
+        metric_metadata=metric_metadata,
+        extra_headers=extra_headers,
+        proxy_url=proxy_url,
+        max_workers=max_workers,
     )
 
 
@@ -149,12 +197,19 @@ def answer_correctness(
 def faithfulness(
     model: Optional[str] = None,
     metric_version: Optional[str] = _get_latest_metric_version(),
-    examples: Optional[List[EvaluationExample]] = None,
+    examples: Optional[list[EvaluationExample]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
+    parameters: Optional[dict[str, Any]] = None,
+    extra_headers: Optional[dict[str, str]] = None,
+    proxy_url: Optional[str] = None,
+    max_workers: int = 10,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the faithfullness of an LLM using the
     model provided. Faithfulness will be assessed based on how factually consistent the output
-    is to the ``context``.
+    is to the ``context``. High scores mean that the outputs contain information that is in
+    line with the context, while low scores mean that outputs may disagree with the context
+    (input is ignored).
 
     The ``context`` eval_arg must be provided as part of the input dataset or output
     predictions. This can be mapped to a column of a different name using ``col_mapping``
@@ -163,15 +218,27 @@ def faithfulness(
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     Args:
-        model: Model uri of an openai or gateway judge model in the format of
-            "openai:/gpt-4" or "gateway:/my-route". Defaults to
-            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-            evaluation may be subject to and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         metric_version: The version of the faithfulness metric to use.
             Defaults to the latest version.
         examples: Provide a list of examples to help the judge model evaluate the
             faithfulness. It is highly recommended to add examples to be used as a reference to
             evaluate the new results.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
+        parameters: (Optional) Dictionary of parameters to be passed to the judge model,
+            e.g., {"temperature": 0.5}. When specified, these parameters will override
+            the default parameters defined in the metric implementation.
+        extra_headers: (Optional) Dictionary of extra headers to be passed to the judge model.
+        proxy_url: (Optional) Proxy URL to be used for the judge model. This is useful when the
+            judge model is served via a proxy endpoint, not directly via LLM provider services.
+            If not specified, the default URL for the LLM provider will be used
+            (e.g., https://api.openai.com/v1/chat/completions for OpenAI chat models).
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
 
     Returns:
         A metric object
@@ -205,9 +272,13 @@ def faithfulness(
         version=metric_version,
         model=model,
         grading_context_columns=faithfulness_class_module.grading_context_columns,
-        parameters=faithfulness_class_module.parameters,
+        parameters=parameters or faithfulness_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
+        metric_metadata=metric_metadata,
+        extra_headers=extra_headers,
+        proxy_url=proxy_url,
+        max_workers=max_workers,
     )
 
 
@@ -215,25 +286,44 @@ def faithfulness(
 def answer_relevance(
     model: Optional[str] = None,
     metric_version: Optional[str] = _get_latest_metric_version(),
-    examples: Optional[List[EvaluationExample]] = None,
+    examples: Optional[list[EvaluationExample]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
+    parameters: Optional[dict[str, Any]] = None,
+    extra_headers: Optional[dict[str, str]] = None,
+    proxy_url: Optional[str] = None,
+    max_workers: int = 10,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer relevance of an LLM
     using the model provided. Answer relevance will be assessed based on the appropriateness and
-    applicability of the output with respect to the input.
+    applicability of the output with respect to the input. High scores mean that your model
+    outputs are about the same subject as the input, while low scores mean that outputs may
+    be non-topical.
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     Args:
-        model: Model uri of an openai or gateway judge model in the format of
-            "openai:/gpt-4" or "gateway:/my-route". Defaults to
-            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-            evaluation may be subject to and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         metric_version: The version of the answer relevance metric to use.
             Defaults to the latest version.
         examples: Provide a list of examples to help the judge model evaluate the
             answer relevance. It is highly recommended to add examples to be used as a reference to
             evaluate the new results.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
+        parameters: (Optional) Dictionary of parameters to be passed to the judge model,
+            e.g., {"temperature": 0.5}. When specified, these parameters will override
+            the default parameters defined in the metric implementation.
+        extra_headers: (Optional) Dictionary of extra headers to be passed to the judge model.
+        proxy_url: (Optional) Proxy URL to be used for the judge model. This is useful when the
+            judge model is served via a proxy endpoint, not directly via LLM provider services.
+            If not specified, the default URL for the LLM provider will be used
+            (e.g., https://api.openai.com/v1/chat/completions for OpenAI chat models).
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
 
     Returns:
         A metric object
@@ -265,21 +355,33 @@ def answer_relevance(
         examples=examples,
         version=metric_version,
         model=model,
-        parameters=answer_relevance_class_module.parameters,
+        parameters=parameters or answer_relevance_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
+        metric_metadata=metric_metadata,
+        extra_headers=extra_headers,
+        proxy_url=proxy_url,
+        max_workers=max_workers,
     )
 
 
 def relevance(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
-    examples: Optional[List[EvaluationExample]] = None,
+    examples: Optional[list[EvaluationExample]] = None,
+    metric_metadata: Optional[dict[str, Any]] = None,
+    parameters: Optional[dict[str, Any]] = None,
+    extra_headers: Optional[dict[str, str]] = None,
+    proxy_url: Optional[str] = None,
+    max_workers: int = 10,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the evaluate the relevance of an
     LLM using the model provided. Relevance will be assessed by the appropriateness, significance,
-    and applicability of the output with respect to the input and ``context``.
+    and applicability of the output with respect to the input and ``context``. High scores mean
+    that the model has understood the context and correct extracted relevant information from
+    the context, while low score mean that output has completely ignored the question and the
+    context and could be hallucinating.
 
     The ``context`` eval_arg must be provided as part of the input dataset or output
     predictions. This can be mapped to a column of a different name using ``col_mapping``
@@ -288,15 +390,27 @@ def relevance(
     An MlflowException will be raised if the specified version for this metric does not exist.
 
     Args:
-        model: (Optional) Model uri of an openai or gateway judge model in the format of
-            "openai:/gpt-4" or "gateway:/my-route". Defaults to
-            "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-            evaluation may be subject to and governed by the LLM service's terms of use.
+        model: (Optional) Model uri of the judge model that will be used to compute the metric,
+            e.g., ``openai:/gpt-4``. Refer to the `LLM-as-a-Judge Metrics <https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-llm-as-judge-model>`_
+            documentation for the supported model types and their URI format.
         metric_version: (Optional) The version of the relevance metric to use.
             Defaults to the latest version.
         examples: (Optional) Provide a list of examples to help the judge model evaluate the
             relevance. It is highly recommended to add examples to be used as a reference to
             evaluate the new results.
+        metric_metadata: (Optional) Dictionary of metadata to be attached to the
+            EvaluationMetric object. Useful for model evaluators that require additional
+            information to determine how to evaluate this metric.
+        parameters: (Optional) Dictionary of parameters to be passed to the judge model,
+            e.g., {"temperature": 0.5}. When specified, these parameters will override
+            the default parameters defined in the metric implementation.
+        extra_headers: (Optional) Dictionary of extra headers to be passed to the judge model.
+        proxy_url: (Optional) Proxy URL to be used for the judge model. This is useful when the
+            judge model is served via a proxy endpoint, not directly via LLM provider services.
+            If not specified, the default URL for the LLM provider will be used
+            (e.g., https://api.openai.com/v1/chat/completions for OpenAI chat models).
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
 
     Returns:
         A metric object
@@ -331,7 +445,11 @@ def relevance(
         version=metric_version,
         model=model,
         grading_context_columns=relevance_class_module.grading_context_columns,
-        parameters=relevance_class_module.parameters,
+        parameters=parameters or relevance_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
+        metric_metadata=metric_metadata,
+        extra_headers=extra_headers,
+        proxy_url=proxy_url,
+        max_workers=max_workers,
     )

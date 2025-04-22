@@ -55,7 +55,7 @@ CREATE TABLE datasets (
 	dataset_schema TEXT,
 	dataset_profile TEXT,
 	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
-	CONSTRAINT datasets_experiment_id_fkey FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_datasets_experiment_id_experiments FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
@@ -184,7 +184,7 @@ CREATE TABLE params (
 
 CREATE TABLE tags (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
+	value VARCHAR(8000),
 	run_uuid VARCHAR(32) NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT tags_run_uuid_fkey FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)

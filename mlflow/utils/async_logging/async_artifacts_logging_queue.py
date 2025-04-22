@@ -8,13 +8,13 @@ import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Callable, Union
 
 from mlflow.utils.async_logging.run_artifact import RunArtifact
 from mlflow.utils.async_logging.run_operations import RunOperations
 
 if TYPE_CHECKING:
-    import PIL
+    import PIL.Image
 
 _logger = logging.getLogger(__name__)
 
@@ -25,14 +25,16 @@ class AsyncArtifactsLoggingQueue:
     worker thread. This class is used to process artifacts saving in async fashion.
 
     Args:
-        logging_func: A callable function that takes in two arguments: a string
-            representing the run_id and a list of artifact paths to log.
+        logging_func: A callable function that takes in three arguments:
+            - filename: The name of the artifact file.
+            - artifact_path: The path to the artifact.
+            - artifact: The artifact to be logged.
     """
 
     def __init__(
-        self, artifact_logging_func: callable([str, str, Union["PIL.Image.Image"]])
+        self, artifact_logging_func: Callable[[str, str, Union["PIL.Image.Image"]], None]
     ) -> None:
-        self._queue = Queue()
+        self._queue: Queue[RunArtifact] = Queue()
         self._lock = threading.RLock()
         self._artifact_logging_func = artifact_logging_func
 
@@ -97,43 +99,42 @@ class AsyncArtifactsLoggingQueue:
         If an exception occurs during processing, the exception is logged and the artifact event
         is set with the exception. If the queue is empty, it is ignored.
         """
-        run_artifacts = None  # type: RunArtifact
         try:
-            run_artifacts = self._queue.get(timeout=1)
+            run_artifact = self._queue.get(timeout=1)
         except Empty:
             # Ignore empty queue exception
             return
 
-        def logging_func(run_artifacts):
+        def logging_func(run_artifact):
             try:
                 self._artifact_logging_func(
-                    filename=run_artifacts.filename,
-                    artifact_path=run_artifacts.artifact_path,
-                    artifact=run_artifacts.artifact,
+                    filename=run_artifact.filename,
+                    artifact_path=run_artifact.artifact_path,
+                    artifact=run_artifact.artifact,
                 )
 
                 # Signal the artifact processing is done.
-                run_artifacts.completion_event.set()
+                run_artifact.completion_event.set()
 
             except Exception as e:
-                _logger.error(f"Failed to log artifact {run_artifacts.filename}. Exception: {e}")
-                run_artifacts.exception = e
-                run_artifacts.completion_event.set()
+                _logger.error(f"Failed to log artifact {run_artifact.filename}. Exception: {e}")
+                run_artifact.exception = e
+                run_artifact.completion_event.set()
 
-        self._artifact_logging_worker_threadpool.submit(logging_func, run_artifacts)
+        self._artifact_logging_worker_threadpool.submit(logging_func, run_artifact)
 
-    def _wait_for_artifact(self, artifacts: RunArtifact) -> None:
+    def _wait_for_artifact(self, artifact: RunArtifact) -> None:
         """Wait for given artifacts to be processed by the logging thread.
 
         Args:
-            artifacts: The artifacts to wait for.
+            artifact: The artifact to wait for.
 
         Raises:
             Exception: If an exception occurred while processing the artifact.
         """
-        artifacts.completion_event.wait()
-        if artifacts.exception:
-            raise artifacts.exception
+        artifact.completion_event.wait()
+        if artifact.exception:
+            raise artifact.exception
 
     def __getstate__(self):
         """Return the state of the object for pickling.
@@ -200,15 +201,15 @@ class AsyncArtifactsLoggingQueue:
 
         if not self._is_activated:
             raise MlflowException("AsyncArtifactsLoggingQueue is not activated.")
-        artifacts = RunArtifact(
+        artifact = RunArtifact(
             filename=filename,
             artifact_path=artifact_path,
             artifact=artifact,
             completion_event=threading.Event(),
         )
-        self._queue.put(artifacts)
+        self._queue.put(artifact)
         operation_future = self._artifact_status_check_threadpool.submit(
-            self._wait_for_artifact, artifacts
+            self._wait_for_artifact, artifact
         )
         return RunOperations(operation_futures=[operation_future])
 

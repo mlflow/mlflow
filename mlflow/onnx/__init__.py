@@ -7,10 +7,11 @@ ONNX (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -310,6 +311,12 @@ class _OnnxModelWrapper:
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
         self.output_names = [outp.name for outp in self.rt.get_outputs()]
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.rt
+
     def _cast_float64_to_float32(self, feeds):
         for input_name, input_type in self.inputs:
             if input_type == "tensor(float)":
@@ -318,7 +325,7 @@ class _OnnxModelWrapper:
                     feeds[input_name] = feed.astype(np.float32)
         return feeds
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: Optional[dict[str, Any]] = None):
         """
         Args:
             data: Either a pandas DataFrame, numpy.ndarray or a dictionary.

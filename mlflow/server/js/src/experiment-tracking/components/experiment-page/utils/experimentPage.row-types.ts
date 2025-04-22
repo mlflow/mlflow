@@ -7,6 +7,24 @@ import type {
 } from '../../../types';
 
 /**
+ * Represents how eye icon should be displayed for a particular row in runs table.
+ */
+export enum RunRowVisibilityControl {
+  /**
+   * Eye icon button is enabled and visible.
+   */
+  Enabled = 0,
+  /**
+   * Eye icon button is disabled but visible.
+   */
+  Disabled = 1,
+  /**
+   * Eye icon button is hidden.
+   */
+  Hidden = 2,
+}
+
+/**
  * Represents a single ag-grid compatible row used in Experiment View runs table.
  */
 export interface RunRowType {
@@ -32,6 +50,7 @@ export interface RunRowType {
   defaultColor?: string;
   tags?: Record<string, { key: string; value: string }>;
   params?: KeyValueEntity[];
+  visibilityControl?: RunRowVisibilityControl;
 
   /**
    * Contains information about run's date, timing and hierarchy. Empty for group rows.
@@ -121,7 +140,11 @@ export interface RunGroupParentInfo {
   groupingValues: RunGroupByGroupingValue[];
   groupId: string;
   expanderOpen?: boolean;
+  allRunsHidden?: boolean;
+  // All run UUIDs in the group
   runUuids: string[];
+  // Run UUIDs in the group selected to be included in the value aggregation
+  runUuidsForAggregation?: string[];
   aggregatedMetricData: Record<string, { key: string; value: number; maxStep: number }>;
   aggregatedParamData: Record<string, { key: string; value: number }>;
   aggregateFunction?: RunGroupingAggregateFunction;
@@ -149,13 +172,18 @@ export interface RowRenderMetadata {
   datasets: RunDatasetWithTags[];
   isGroup?: false;
   rowUuid: string;
+  hidden?: boolean;
+  visibilityControl?: RunRowVisibilityControl;
 }
 
 export interface RowGroupRenderMetadata {
   groupId: string;
   isGroup: true;
   expanderOpen: boolean;
+  // All run UUIDs in the group
   runUuids: string[];
+  // Run UUIDs in the group selected to be included in the value aggregation
+  runUuidsForAggregation?: string[];
   aggregatedMetricEntities: {
     key: string;
     value: number;
@@ -168,4 +196,7 @@ export interface RowGroupRenderMetadata {
   aggregateFunction: RunGroupingAggregateFunction;
   groupingValues: RunGroupByGroupingValue[];
   isRemainingRunsGroup: boolean;
+  hidden?: boolean;
+  allRunsHidden?: boolean;
+  visibilityControl?: RunRowVisibilityControl;
 }

@@ -13,7 +13,7 @@ import os
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.entities.dataset_input import DatasetInput
@@ -83,7 +83,10 @@ class RunOperations:
 # of CPU cores available on the system (whichever is smaller)
 num_cpus = os.cpu_count() or 4
 num_logging_workers = min(num_cpus * 2, 8)
-_AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL = ThreadPoolExecutor(max_workers=num_logging_workers)
+_AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL = ThreadPoolExecutor(
+    max_workers=num_logging_workers,
+    thread_name_prefix="MlflowAutologgingQueueingClient",
+)
 
 
 class MlflowAutologgingQueueingClient:
@@ -138,7 +141,7 @@ class MlflowAutologgingQueueingClient:
         self,
         experiment_id: str,
         start_time: Optional[int] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        tags: Optional[dict[str, Any]] = None,
         run_name: Optional[str] = None,
     ) -> PendingRunId:
         """
@@ -179,7 +182,7 @@ class MlflowAutologgingQueueingClient:
             set_terminated=_PendingSetTerminated(status=status, end_time=end_time)
         )
 
-    def log_params(self, run_id: Union[str, PendingRunId], params: Dict[str, Any]) -> None:
+    def log_params(self, run_id: Union[str, PendingRunId], params: dict[str, Any]) -> None:
         """
         Enqueues a collection of Parameters to be logged to the run specified by `run_id`.
         """
@@ -190,7 +193,7 @@ class MlflowAutologgingQueueingClient:
         self._get_pending_operations(run_id).enqueue(params=params_arr)
 
     def log_inputs(
-        self, run_id: Union[str, PendingRunId], datasets: Optional[List[DatasetInput]]
+        self, run_id: Union[str, PendingRunId], datasets: Optional[list[DatasetInput]]
     ) -> None:
         """
         Enqueues a collection of Dataset to be logged to the run specified by `run_id`.
@@ -202,7 +205,7 @@ class MlflowAutologgingQueueingClient:
     def log_metrics(
         self,
         run_id: Union[str, PendingRunId],
-        metrics: Dict[str, float],
+        metrics: dict[str, float],
         step: Optional[int] = None,
     ) -> None:
         """
@@ -216,7 +219,7 @@ class MlflowAutologgingQueueingClient:
         ]
         self._get_pending_operations(run_id).enqueue(metrics=metrics_arr)
 
-    def set_tags(self, run_id: Union[str, PendingRunId], tags: Dict[str, Any]) -> None:
+    def set_tags(self, run_id: Union[str, PendingRunId], tags: dict[str, Any]) -> None:
         """
         Enqueues a collection of Tags to be logged to the run specified by `run_id`.
         """

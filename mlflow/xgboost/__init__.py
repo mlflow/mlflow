@@ -16,13 +16,16 @@ XGBoost (native) format
 .. _scikit-learn API:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
+
 import functools
+import inspect
 import json
 import logging
 import os
 import tempfile
 from copy import deepcopy
-from typing import Any, Dict, Optional
+from functools import partial
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -144,18 +147,18 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _XGBModelWrapper(xgb_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_data_subpath = f"model.{model_format}"
@@ -341,10 +344,16 @@ class _XGBModelWrapper:
     def __init__(self, xgb_model):
         self.xgb_model = xgb_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying XGBoost model.
+        """
+        return self.xgb_model
+
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -356,10 +365,65 @@ class _XGBModelWrapper:
         """
         import xgboost as xgb
 
-        if isinstance(self.xgb_model, xgb.Booster):
-            return self.xgb_model.predict(xgb.DMatrix(dataframe))
+        predict_fn = _wrapped_xgboost_model_predict_fn(self.xgb_model)
+        params = params or {}
+        # filter is applied inside predict_fn wrapper for xgb.Booster
+        if not isinstance(self.xgb_model, xgb.Booster):
+            # Exclude unrecognized parameters as feature store team has
+            # dependency on this behavior. They might pass additional parameters
+            # that cannot be passed to the model.
+            params = _exclude_unrecognized_kwargs(predict_fn, params)
+        return predict_fn(dataframe, **params)
+
+
+def _exclude_unrecognized_kwargs(predict_fn, kwargs):
+    filtered_kwargs = {}
+    allowed_params = inspect.signature(predict_fn).parameters
+    # avoid excluding kwargs when predict function uses args or kwargs
+    if any(p.kind == p.VAR_POSITIONAL or p.kind == p.VAR_KEYWORD for p in allowed_params.values()):
+        return kwargs
+    invalid_params = set()
+    for key, value in kwargs.items():
+        if key in allowed_params:
+            filtered_kwargs[key] = value
         else:
-            return self.xgb_model.predict(dataframe)
+            invalid_params.add(key)
+    if invalid_params:
+        _logger.warning(
+            f"Params {invalid_params} are not accepted by the xgboost model, "
+            "ignoring them during predict."
+        )
+    return filtered_kwargs
+
+
+def _wrapped_xgboost_model_predict_fn(model, validate_features=True):
+    """
+    Wraps the predict method of the raw model to accept a DataFrame as input.
+    """
+    import xgboost as xgb
+
+    if isinstance(model, xgb.Booster):
+        # we need to wrap the predict function to accept data in pandas format
+        def wrapped_predict_fn(data, *args, **kwargs):
+            filtered_kwargs = _exclude_unrecognized_kwargs(model.predict, kwargs)
+            return model.predict(
+                xgb.DMatrix(data), *args, validate_features=validate_features, **filtered_kwargs
+            )
+
+        return wrapped_predict_fn
+    elif isinstance(model, xgb.XGBModel):
+        return partial(model.predict, validate_features=validate_features)
+    else:
+        return model.predict
+
+
+def _wrapped_xgboost_model_predict_proba_fn(model, validate_features=True):
+    import xgboost as xgb
+
+    predict_proba_fn = getattr(model, "predict_proba", None)
+    if isinstance(model, xgb.XGBModel) and predict_proba_fn is not None:
+        return partial(predict_proba_fn, validate_features=validate_features)
+    return predict_proba_fn
 
 
 @autologging_integration(FLAVOR_NAME)
@@ -717,7 +781,7 @@ def autolog(
             )
             log_model(
                 model,
-                artifact_path="model",
+                "model",
                 signature=signature,
                 input_example=input_example,
                 registered_model_name=registered_model_name,
@@ -807,6 +871,5 @@ def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=
         )
     else:
         _logger.warning(
-            "Unable to log dataset information to MLflow Tracking."
-            "XGBoost version must be >= 1.7.0"
+            "Unable to log dataset information to MLflow Tracking.XGBoost version must be >= 1.7.0"
         )

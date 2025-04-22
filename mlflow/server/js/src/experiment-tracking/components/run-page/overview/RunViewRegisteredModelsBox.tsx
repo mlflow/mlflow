@@ -1,36 +1,34 @@
 import { Overflow, Tag, useDesignSystemTheme } from '@databricks/design-system';
 import { Link } from '../../../../common/utils/RoutingUtils';
-import { ModelVersionInfoEntity, RunInfoEntity } from '../../../types';
-import { ModelRegistryRoutes } from '../../../../model-registry/routes';
 import { ReactComponent as RegisteredModelOkIcon } from '../../../../common/static/registered-model-grey-ok.svg';
-
-const getModelLink = (modelVersion: ModelVersionInfoEntity) => {
-  const { name, version } = modelVersion;
-  return ModelRegistryRoutes.getModelVersionPageRoute(name, version);
-};
+import type { RunPageModelVersionSummary } from '../hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 
 /**
  * Displays list of registered models in run detail overview.
  * TODO: expand with logged models after finalizing design
  */
 export const RunViewRegisteredModelsBox = ({
-  registeredModels,
-  runInfo,
+  registeredModelVersionSummaries,
 }: {
-  runInfo: RunInfoEntity;
-  registeredModels: ModelVersionInfoEntity[];
+  registeredModelVersionSummaries: RunPageModelVersionSummary[];
 }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
     <Overflow>
-      {registeredModels.map((model) => (
+      {registeredModelVersionSummaries?.map((modelSummary) => (
         <Link
-          key={model.name}
-          to={getModelLink(model)}
+          key={modelSummary.displayedName}
+          to={modelSummary.link}
           css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}
         >
-          <RegisteredModelOkIcon /> {model.name} <Tag css={{ cursor: 'pointer' }}>v{model.version}</Tag>
+          <RegisteredModelOkIcon /> {modelSummary.displayedName}{' '}
+          <Tag
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewregisteredmodelsbox.tsx_40"
+            css={{ cursor: 'pointer' }}
+          >
+            v{modelSummary.version}
+          </Tag>
         </Link>
       ))}
     </Overflow>

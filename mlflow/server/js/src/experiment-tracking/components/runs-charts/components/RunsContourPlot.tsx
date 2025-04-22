@@ -3,7 +3,7 @@ import { Data, Datum, Layout, PlotMouseEvent } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
-import { highlightScatterTraces, useRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
+import { highlightScatterTraces, useRenderRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
 import {
   commonRunsChartStyles,
   RunsChartsRunData,
@@ -17,6 +17,7 @@ import {
 } from './RunsCharts.common';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
+import { RunsChartCardLoadingPlaceholder } from './cards/ChartCard.common';
 
 export interface RunsContourPlotProps extends RunsPlotsCommonProps {
   /**
@@ -66,7 +67,7 @@ const DEFAULT_COLOR_SCALE: [number, string][] = [
   [1, 'rgb(220,220,220)'],
 ];
 
-export const createTooltipTemplate = (zAxisTitle: string) =>
+const createTooltipTemplate = (zAxisTitle: string) =>
   '<b>%{customdata[1]}:</b><br>' +
   '<b>%{xaxis.title.text}:</b> %{x:.2f}<br>' +
   '<b>%{yaxis.title.text}:</b> %{y:.2f}<br>' +
@@ -227,7 +228,7 @@ export const RunsContourPlot = React.memo(
       });
     }, [layoutWidth, layoutHeight, margin, xAxis.key, yAxis.key, width, height]);
 
-    const { setHoveredPointIndex } = useRunsChartTraceHighlight(
+    const { setHoveredPointIndex } = useRenderRunsChartTraceHighlight(
       containerDiv,
       selectedRunUuid,
       runsData,
@@ -292,6 +293,7 @@ export const RunsContourPlot = React.memo(
           config={PLOT_CONFIG}
           onHover={mutableHoverCallback}
           onUnhover={unhoverCallback}
+          fallback={<RunsChartCardLoadingPlaceholder />}
         />
       </div>
     );

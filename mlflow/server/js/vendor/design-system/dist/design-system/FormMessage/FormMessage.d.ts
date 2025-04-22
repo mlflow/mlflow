@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { Interpolation, Theme as EmotionTheme } from '@emotion/react';
 import type { ValidationState } from '../types';
 export interface FormMessageProps {
