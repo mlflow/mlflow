@@ -807,7 +807,7 @@ def test_get_trace(mock_get_display_handler):
     mock_get_display_handler.assert_not_called()
 
     # Fetch trace from backend
-    trace_from_backend = mlflow.get_trace(trace_id)
+    trace_from_backend = mlflow.get_trace(trace.info.trace_id)
     assert trace.info.trace_id == trace_from_backend.info.trace_id
     mock_get_display_handler.assert_not_called()
 

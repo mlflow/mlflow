@@ -114,11 +114,11 @@ def test_trace_halted_after_timeout_in_model_serving(
     assert len(_TRACE_BUFFER) == 3
 
     # Long operation should be halted
-    assert pop_trace(request_id="request-id-1")["info"]["state"] == SpanStatusCode.ERROR
-    assert pop_trace(request_id="request-id-2")["info"]["state"] == SpanStatusCode.ERROR
+    assert pop_trace(trace_id="request-id-1")["info"]["state"] == SpanStatusCode.ERROR
+    assert pop_trace(trace_id="request-id-2")["info"]["state"] == SpanStatusCode.ERROR
 
     # Short operation should complete successfully
-    assert pop_trace(request_id="request-id-3")["info"]["state"] == SpanStatusCode.OK
+    assert pop_trace(trace_id="request-id-3")["info"]["state"] == SpanStatusCode.OK
 
 
 def test_handle_timeout_update(monkeypatch):

@@ -87,6 +87,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import exclude_immutable_tags, get_otel_attribute
+from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -851,6 +852,7 @@ class MlflowClient:
             request_ids=trace_ids,
         )
 
+    @request_id_backward_compatible
     def get_trace(self, trace_id: str, display=True) -> Trace:
         """
         Get the trace matching the specified ``trace_id``.
@@ -1067,6 +1069,7 @@ class MlflowClient:
             )
             return NoOpSpan()
 
+    @request_id_backward_compatible
     def end_trace(
         self,
         trace_id: str,
@@ -1161,6 +1164,7 @@ class MlflowClient:
         self._upload_trace_data(new_info, trace.data)
         return new_info.trace_id
 
+    @request_id_backward_compatible
     def start_span(
         self,
         name: str,
@@ -1326,6 +1330,7 @@ class MlflowClient:
             )
             return NoOpSpan()
 
+    @request_id_backward_compatible
     def end_span(
         self,
         trace_id: str,
@@ -1426,6 +1431,7 @@ class MlflowClient:
             tags=trace_info.tags or {},
         )
 
+    @request_id_backward_compatible
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace ID.
@@ -1474,6 +1480,7 @@ class MlflowClient:
         # If the trace is not active, try to set the tag on the trace in the backend
         self._tracking_client.set_trace_tag(trace_id, key, value)
 
+    @request_id_backward_compatible
     def delete_trace_tag(self, trace_id: str, key: str) -> None:
         """
         Delete a tag on the trace with the given trace ID.

@@ -42,6 +42,7 @@ from mlflow.tracing.utils import (
     start_client_span_or_trace,
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
+from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated, experimental
@@ -456,6 +457,7 @@ def start_span(
             _logger.debug(f"Failed to end span {mlflow_span.span_id}.", exc_info=True)
 
 
+@request_id_backward_compatible
 def get_trace(trace_id: str) -> Optional[Trace]:
     """
     Get a trace by the given request ID if it exists.
