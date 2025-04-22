@@ -214,13 +214,17 @@ def pyfunc_serve_and_score_model(
     extra_args=None,
     stdout=sys.stdout,
 ):
-    with pyfunc_scoring_endpoint(
-        model_uri,
-        extra_args=extra_args,
-        activity_polling_timeout_seconds=activity_polling_timeout_seconds,
-        stdout=stdout,
-    ) as endpoint:
-        return endpoint.invoke(data, content_type)
+    try:
+        with pyfunc_scoring_endpoint(
+            model_uri,
+            extra_args=extra_args,
+            activity_polling_timeout_seconds=activity_polling_timeout_seconds,
+            stdout=stdout,
+        ) as endpoint:
+            return endpoint.invoke(data, content_type)
+    except Exception as e:
+        _logger.error(f"The scoring process encountered an issue: {e}")
+        raise
 
 
 @contextmanager
