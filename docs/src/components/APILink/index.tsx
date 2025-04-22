@@ -18,9 +18,11 @@ const getModule = (fn: string) => {
 
 export function APILink({
   fn,
+  baseUrl,
   children,
 }: {
   fn: string;
+  baseUrl?: string;
   children?: React.ReactNode;
 }) {
   const module = getModule(fn);
@@ -29,7 +31,8 @@ export function APILink({
     return <>{children}</>;
   }
 
-  const docLink = useBaseUrl(`/${APIModules[module]}#${fn}`);
+  const relativePath = `${APIModules[module]}#${fn}`;
+  const docLink = baseUrl ? `${baseUrl}/${relativePath}` : useBaseUrl(relativePath);
   return (
     <Link to={docLink} target="_blank">
       {children ?? <code>{fn}()</code>}
