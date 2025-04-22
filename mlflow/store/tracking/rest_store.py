@@ -48,7 +48,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.utils.proto_json_utils import message_to_json, set_pb_value
+from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
@@ -470,7 +470,7 @@ class RestStore(AbstractStore):
             assessment.assessment_name = name
             mask.paths.append("assessment_name")
         if expectation is not None:
-            set_pb_value(assessment.expectation.value, expectation.value)
+            assessment.expectation.CopyFrom(expectation.to_proto())
             mask.paths.append("expectation")
         if feedback is not None:
             assessment.feedback.CopyFrom(feedback.to_proto())
