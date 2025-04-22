@@ -31,8 +31,8 @@ export function APILink({
     return <>{children}</>;
   }
 
-  const relativePath = `${APIModules[module]}#${fn}`;
-  const docLink = baseUrl ? `${baseUrl}/${relativePath}` : useBaseUrl(relativePath);
+  const relativePath = `/${APIModules[module]}#${fn}`;
+  const docLink = baseUrl ? `${baseUrl}${relativePath}` : useBaseUrl(relativePath);
   return (
     <Link to={docLink} target="_blank">
       {children ?? <code>{fn}()</code>}
