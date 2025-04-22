@@ -254,8 +254,9 @@ class BatchMetricsLogger:
     `record_metrics()` or `flush()`.
     """
 
-    def __init__(self, run_id=None, tracking_uri=None):
+    def __init__(self, run_id=None, tracking_uri=None, model_id=None):
         self.run_id = run_id
+        self.model_id = model_id
         self.client = MlflowClient(tracking_uri)
 
         # data is an array of Metric objects
@@ -318,7 +319,9 @@ class BatchMetricsLogger:
             step = 0
 
         for key, value in metrics.items():
-            self.data.append(Metric(key, value, int(current_timestamp * 1000), step))
+            self.data.append(
+                Metric(key, value, int(current_timestamp * 1000), step, model_id=self.model_id)
+            )
 
         if self._should_flush():
             self.flush()
@@ -327,7 +330,7 @@ class BatchMetricsLogger:
 
 
 @contextlib.contextmanager
-def batch_metrics_logger(run_id):
+def batch_metrics_logger(run_id, model_id: Optional[str] = None):
     """
     Context manager that yields a BatchMetricsLogger object, which metrics can be logged against.
     The BatchMetricsLogger keeps metrics in a list until it decides they should be logged, at
@@ -342,9 +345,10 @@ def batch_metrics_logger(run_id):
 
     Args:
         run_id: ID of the run that the metrics will be logged to.
+        model_id: ID of the model that the metrics will be associated with.
     """
 
-    batch_metrics_logger = BatchMetricsLogger(run_id)
+    batch_metrics_logger = BatchMetricsLogger(run_id, model_id=model_id)
     yield batch_metrics_logger
     batch_metrics_logger.flush()
 
