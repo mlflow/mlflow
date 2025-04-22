@@ -48,3 +48,5 @@ opentelemetry-exporter-otlp-proto-http
 scikit-learn<1.6
 # Required for testing mlflow.server.auth
 Flask-WTF<2
+# Required for mlflow requirements tests
+databricks-agents
