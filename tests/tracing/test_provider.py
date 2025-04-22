@@ -27,7 +27,7 @@ from mlflow.tracing.provider import (
     trace_disabled,
 )
 
-from tests.tracing.helper import get_traces, purge_traces
+from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
 
 
 @pytest.fixture
@@ -118,6 +118,7 @@ def test_set_destination_databricks():
     assert isinstance(processors[0].span_exporter, DatabricksSpanExporter)
 
 
+@skip_when_testing_trace_sdk
 def test_set_destination_legacy_databricks_agent():
     @dataclass
     class DatabricksAgentMonitoring(TraceDestination):
