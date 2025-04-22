@@ -282,6 +282,9 @@ typing-extensions-allowlist = [
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette"]
+"mlflow/*" = [
+  "databricks",
+] # Databricks SDK/Agents should not be imported at the top level
 
 # typos
 [tool.typos.default.extend-words]

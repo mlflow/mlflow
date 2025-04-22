@@ -760,7 +760,14 @@ def _iter_pr_files() -> Iterator[str]:
             params={"per_page": per_page, "page": page},
             headers=headers,
         )
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            _logger.warning(
+                f"Failed to fetch PR files: {e}. Skipping the check for Hugging Face Hub health."
+            )
+            return
+
         files = [f["filename"] for f in resp.json()]
         yield from files
         if len(files) < per_page:
