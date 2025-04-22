@@ -2,10 +2,9 @@ import base64
 import json
 import logging
 from functools import lru_cache
-from google.protobuf.json_format import MessageToDict
 from typing import Any, Optional, Union
 
-from google.protobuf.json_format import ParseDict
+from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -228,7 +227,11 @@ class Span:
 
             trace_id = _decode_trace_id_from_byte(data["trace_id"])
             span_id = _decode_span_id_from_byte(data["span_id"])
-            parent_id = _decode_span_id_from_byte(data["parent_span_id"]) if data["parent_span_id"] else None
+            parent_id = (
+                _decode_span_id_from_byte(data["parent_span_id"])
+                if data["parent_span_id"]
+                else None
+            )
 
             end_time_ns = data.get("end_time_unix_nano")
             end_time_ns = int(end_time_ns) if end_time_ns else None
@@ -242,7 +245,7 @@ class Span:
                 attributes=data["attributes"],
                 status=SpanStatus(
                     status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
-                    description=data["status"].get("message")
+                    description=data["status"].get("message"),
                 ).to_otel_status(),
                 events=[
                     OTelEvent(
@@ -254,10 +257,9 @@ class Span:
                 ],
             )
             return cls(otel_span)
-        except Exception as e:
+        except Exception:
             # Fallback to the v2 span deserialization method
             return cls.from_dict_v2(data)
-
 
     @classmethod
     def from_dict_v2(cls, data: dict[str, Any]) -> "Span":
@@ -325,6 +327,7 @@ def _encode_span_id_to_byte(span_id: Optional[int]) -> bytes:
     # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L131
     return span_id.to_bytes(length=8, byteorder="big", signed=False)
 
+
 def _decode_span_id_from_byte(span_id_b64: str) -> int:
     span_id = base64.b64decode(span_id_b64)
     return int.from_bytes(span_id, byteorder="big", signed=False)
@@ -334,9 +337,11 @@ def _encode_trace_id_to_byte(trace_id: int) -> bytes:
     # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L135
     return trace_id.to_bytes(length=16, byteorder="big", signed=False)
 
+
 def _decode_trace_id_from_byte(trace_id: str) -> int:
     trace_id = base64.b64decode(trace_id)
     return int.from_bytes(trace_id, byteorder="big", signed=False)
+
 
 class LiveSpan(Span):
     """

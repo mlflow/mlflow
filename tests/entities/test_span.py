@@ -175,6 +175,7 @@ def test_dict_conversion():
     with pytest.raises(AttributeError, match="set_status"):
         recovered_span.set_status("OK")
 
+
 def test_dict_conversion_with_exception_event():
     with pytest.raises(ValueError, match="Test exception"):
         with mlflow.start_span("test") as span:
@@ -201,32 +202,35 @@ def test_dict_conversion_with_exception_event():
     with pytest.raises(AttributeError, match="set_status"):
         recovered_span.set_status("OK")
 
+
 def test_from_v2_dict():
-    span = Span.from_dict({
-        "name":"test",
-        "context":{
-            "span_id": "8a90fc46e65ea5a4",
-            "trace_id": "0125978dc5c5a9456d7ca9ef1f7cf4af"
-        },
-        "parent_id": None,
-        "start_time": 1738662897576578992,
-        "end_time": 1738662899068969049,
-        "status_code": "OK",
-        "status_message": "",
-        "attributes":{
-            "mlflow.traceRequestId":'"tr-123"',
-            "mlflow.spanType":'"LLM"',
-            "mlflow.spanInputs": '{"input": 1}',
-            "mlflow.spanOutputs": "2",
-            "key": "3",
-        },
-        "events": []
-    })
+    span = Span.from_dict(
+        {
+            "name": "test",
+            "context": {
+                "span_id": "8a90fc46e65ea5a4",
+                "trace_id": "0125978dc5c5a9456d7ca9ef1f7cf4af",
+            },
+            "parent_id": None,
+            "start_time": 1738662897576578992,
+            "end_time": 1738662899068969049,
+            "status_code": "OK",
+            "status_message": "",
+            "attributes": {
+                "mlflow.traceRequestId": '"tr-123"',
+                "mlflow.spanType": '"LLM"',
+                "mlflow.spanInputs": '{"input": 1}',
+                "mlflow.spanOutputs": "2",
+                "key": "3",
+            },
+            "events": [],
+        }
+    )
 
     assert span.request_id == "tr-123"
     assert span.name == "test"
     assert span.span_type == SpanType.LLM
-    assert span.parent_id == None
+    assert span.parent_id is None
     assert span.status == SpanStatus(SpanStatusCode.OK, description="")
     assert span.inputs == {"input": 1}
     assert span.outputs == 2

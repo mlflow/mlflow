@@ -21,9 +21,6 @@ class SpanStatusCode(str, Enum):
     def from_proto_status_code(cls, status_code: str) -> SpanStatusCode:
         """
         Convert a string status code to the corresponding SpanStatusCode enum value.
-
-        :param status_code: The string representation of the status code.
-        :return: The corresponding SpanStatusCode enum value.
         """
         from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
 

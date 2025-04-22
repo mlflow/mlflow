@@ -11,7 +11,7 @@ import pytest
 from opentelemetry.sdk.trace import Event, ReadableSpan
 
 import mlflow
-from mlflow.entities import Trace, TraceData, TraceInfo, trace_state
+from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.tracing.export.inference_table import pop_trace
