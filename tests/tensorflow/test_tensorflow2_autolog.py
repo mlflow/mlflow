@@ -211,11 +211,12 @@ def test_tf_keras_autolog_log_models_configuration(
     assert (mlflow.last_logged_model() is not None) == log_models
 
 
+@pytest.mark.parametrize("log_models", [True, False])
 @pytest.mark.parametrize("log_datasets", [True, False])
 def test_tf_keras_autolog_log_datasets_configuration_with_numpy(
-    random_train_data, random_one_hot_labels, log_datasets
+    random_train_data, random_one_hot_labels, log_datasets, log_models
 ):
-    mlflow.tensorflow.autolog(log_datasets=log_datasets)
+    mlflow.tensorflow.autolog(log_datasets=log_datasets, log_models=log_models)
 
     data = random_train_data
     labels = random_one_hot_labels
@@ -225,7 +226,8 @@ def test_tf_keras_autolog_log_datasets_configuration_with_numpy(
     model.fit(data, labels, epochs=10)
 
     client = MlflowClient()
-    dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
+    run_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs
+    dataset_inputs = run_inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
         feature_schema = _infer_schema(data)
@@ -240,6 +242,18 @@ def test_tf_keras_autolog_log_datasets_configuration_with_numpy(
         )
     else:
         assert len(dataset_inputs) == 0
+    logged_model_inputs = run_inputs.model_inputs
+    logged_model = mlflow.last_logged_model()
+    if log_models:
+        if log_datasets:
+            assert len(logged_model_inputs) == 1
+            assert logged_model_inputs[0].model_id == logged_model.model_id
+        else:
+            assert logged_model is not None
+            assert logged_model.source_run_id == mlflow.last_active_run().info.run_id
+    else:
+        assert len(logged_model_inputs) == 0
+        assert logged_model is None
 
 
 @pytest.mark.parametrize("log_datasets", [True, False])

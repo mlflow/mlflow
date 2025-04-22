@@ -25,9 +25,10 @@ from mlflow import pyfunc
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
+from mlflow.entities import LoggedModelInput
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
-from mlflow.models.model import MLMODEL_FILE_NAME, ModelInfo
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCallback  # noqa: F401
@@ -1213,7 +1214,7 @@ def autolog(
         if metric_key is not None:
             log_metrics(restored_metrics, stopped_epoch + 1, synchronous=False, model_id=model_id)
 
-    def _log_keras_model(history, args) -> ModelInfo:
+    def _log_keras_model(history, args, model_id=None):
         def _infer_model_signature(input_data_slice):
             # In certain TensorFlow versions, calling `predict()` on model may modify
             # the `stop_training` attribute, so we save and restore it accordingly
@@ -1247,7 +1248,7 @@ def autolog(
             _logger,
         )
 
-        return log_model(
+        log_model(
             history.model,
             "model",
             input_example=input_example,
@@ -1257,6 +1258,7 @@ def autolog(
             ),
             saved_model_kwargs=saved_model_kwargs,
             keras_model_kwargs=keras_model_kwargs,
+            model_id=model_id,
         )
 
     def _patched_inference(original, inst, *args, **kwargs):
@@ -1335,6 +1337,10 @@ def autolog(
             early_stop_callback = _get_early_stop_callback(callbacks)
             _log_early_stop_callback_params(early_stop_callback)
 
+            model_id = None
+            if log_models:
+                model_id = mlflow.initialize_logged_model("model").model_id
+
             if log_datasets:
                 try:
                     context_tags = context_registry.resolve_tags()
@@ -1354,9 +1360,9 @@ def autolog(
                         validation_data = args[7]
                     else:
                         validation_data = None
-                    _log_tensorflow_dataset(x, source, "train", targets=y)
+                    _log_tensorflow_dataset(x, source, "train", targets=y, model_id=model_id)
                     if validation_data is not None:
-                        _log_tensorflow_dataset(validation_data, source, "eval")
+                        _log_tensorflow_dataset(validation_data, source, "eval", model_id=model_id)
 
                 except Exception as e:
                     _logger.warning(
@@ -1366,9 +1372,8 @@ def autolog(
 
             history = original(inst, *args, **kwargs)
 
-            model_id = None
             if log_models:
-                model_id = _log_keras_model(history, args).model_id
+                _log_keras_model(history, args, model_id=model_id)
 
             _log_early_stop_callback_metrics(
                 callback=early_stop_callback,
@@ -1407,7 +1412,9 @@ def autolog(
     )
 
 
-def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targets=None):
+def _log_tensorflow_dataset(
+    tensorflow_dataset, source, context, name=None, targets=None, model_id=None
+):
     import tensorflow as tf
 
     # create a dataset
@@ -1433,7 +1440,8 @@ def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targ
         )
         return
 
-    mlflow.log_input(dataset, context)
+    model = None if model_id is None else LoggedModelInput(model_id=model_id)
+    mlflow.log_input(dataset, context, model=model)
 
 
 def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
