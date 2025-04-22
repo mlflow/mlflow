@@ -67,7 +67,7 @@ def test_trace_info_v3():
         "request_preview": "request",
         "response_preview": "response",
         "request_time": "1970-01-15T06:56:07.890Z",
-        "execution_duration": "0.100s",
+        "execution_duration_ms": 100,
         "state": "OK",
         "trace_metadata": {"foo": "bar"},
         "assessments": [
