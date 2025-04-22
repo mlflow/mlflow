@@ -12,13 +12,14 @@ class TraceData:
 
     Args:
         spans: List of spans that are part of the trace.
-        request: Input data for the entire trace. Equivalent to the input of the root span
-            but added for ease of access. Stored as a JSON string.
-        response: Output data for the entire trace. Equivalent to the output of the root span.
-            Stored as a JSON string.
     """
 
     spans: list[Span] = field(default_factory=list)
+
+    # NB: Custom constructor to allow passing additional kwargs for backward compatibility for
+    # DBX agent evaluator. Once they migrates to trace V3 schema, we can remove this.
+    def __init__(self, spans: Optional[list[Span]] = None, **kwargs):
+        self.spans = spans or []
 
     @classmethod
     def from_dict(cls, d):
