@@ -14,7 +14,7 @@ except ImportError:
 
 from pyspark.sql import SparkSession
 
-from mlflow.pyspark.optuna.storage import MlflowStorage
+from mlflow.optuna.storage import MlflowStorage
 
 
 class MLFlowSparkStudy:
@@ -50,12 +50,12 @@ class MLFlowSparkStudy:
             import pandas as pd
 
             import mlflow
-            from mlflow.pyspark.optuna.storage import MLFlowStorage
+            from mlflow.optuna.storage import MlflowStorage
 
             mlflow.set_tracking_uri("databricks")
 
             try:
-                storage = MLFlowStorage(experiment_id=experiment_id)
+                storage = MlflowStorage(experiment_id=experiment_id)
                 study = optuna.load_study(study_name=study_name, storage=storage)
                 _optimize_sequential(
                     study,
