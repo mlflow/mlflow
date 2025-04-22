@@ -2,13 +2,12 @@ from unittest.mock import MagicMock
 
 from mlflow.entities import LiveSpan
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
-from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
 
-def test_export():
+def test_export(async_logging_enabled):
     trace_id = 12345
     request_id = f"tr-{trace_id}"
     otel_span = create_mock_otel_span(
@@ -41,11 +40,21 @@ def test_export():
 
     exporter.export([otel_span, non_root_otel_span, invalid_otel_span])
 
+    if async_logging_enabled:
+        exporter._async_queue.flush(terminate=True)
+
     # Spans should be cleared from the trace manager
     assert len(exporter._trace_manager._traces) == 0
 
-    # Trace should be added to the in-memory buffer and displayed
-    assert len(TRACE_BUFFER) == 1
+    # The last active trace should be recorded
+    from mlflow.tracing.fluent import (
+        _LAST_ACTIVE_TRACE_ID_GLOBAL,
+        _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL,
+    )
+
+    assert _LAST_ACTIVE_TRACE_ID_GLOBAL == request_id
+    assert _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get() == request_id
+
     mock_display.display_traces.assert_called_once()
 
     # Trace should be logged

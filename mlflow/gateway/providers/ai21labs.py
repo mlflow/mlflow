@@ -1,9 +1,7 @@
 import time
 
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-
 from mlflow.gateway.config import AI21LabsConfig, RouteConfig
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
 from mlflow.gateway.schemas import completions
@@ -11,6 +9,7 @@ from mlflow.gateway.schemas import completions
 
 class AI21LabsProvider(BaseProvider):
     NAME = "AI21Labs"
+    CONFIG_TYPE = AI21LabsConfig
 
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
@@ -21,6 +20,8 @@ class AI21LabsProvider(BaseProvider):
         self.base_url = f"https://api.ai21.com/studio/v1/{self.config.model.name}/"
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {
@@ -30,11 +31,11 @@ class AI21LabsProvider(BaseProvider):
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
-                raise HTTPException(
+                raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         if payload.get("stream", False):
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="Setting the 'stream' parameter to 'true' is not supported with the MLflow "
                 "Gateway.",

@@ -5,8 +5,10 @@ Revises: 181f10493468
 Create Date: 2019-07-15 17:46:42.704214
 
 """
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
+
 from mlflow.store.tracking.dbmodels.models import SqlExperimentTag
 
 # revision identifiers, used by Alembic.

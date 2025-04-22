@@ -1,13 +1,10 @@
 ## This file describes extra ML library dependencies that you, as an end user,
 ## must install in order to use various MLflow Python modules.
-##
-# Required by mlflow.gluon
-# TODO: Unpin once https://github.com/apache/incubator-mxnet/issues/20068 is fixed
-mxnet!=1.8.0
 # Required by mlflow.fastai
 fastai>=2.4.1
 # Required by mlflow.spacy
-spacy>=3.3.0
+# TODO: Remove `<3.8` once we bump the minimim supported python version of MLflow to 3.9.
+spacy>=3.3.0,<3.8
 # Required by mlflow.tensorflow
 tensorflow>=2.10.0
 # tensorflow-macos>=2.10.0  # Comment out the line above and uncomment this line if setting up dev
@@ -74,3 +71,19 @@ langchain
 promptflow
 # Required by mlflow.sentence_transformers
 sentence-transformers
+# Required by mlflow.anthropic
+anthropic
+# Required by mlflow.autogen
+autogen
+# Required by mlflow.dspy
+# In dspy 2.6.9, `dspy.__name__` is not 'dspy', but 'dspy.__metadata__',
+# which causes auto-logging tests to fail.
+dspy!=2.6.9
+# Required by mlflow.litellm
+litellm
+# Required by mlflow.gemini
+google-genai
+# Required by mlflow.groq
+groq
+# Required by mlflow.mistral
+mistralai

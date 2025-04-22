@@ -145,7 +145,7 @@ def test_signature_inference(pipeline_name, example, expected_signature, request
     default_signature = infer_or_get_default_signature(pipeline)
     assert default_signature == expected_signature
 
-    signature_from_input_example = infer_or_get_default_signature(pipeline, example)
+    signature_from_input_example = infer_or_get_default_signature(pipeline, example=example)
     assert signature_from_input_example == expected_signature
 
 

@@ -2,7 +2,7 @@ import json
 import logging
 import pathlib
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -11,6 +11,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_pip_requirements
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -70,7 +71,7 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental
-def get_default_pip_requirements() -> List[str]:
+def get_default_pip_requirements() -> list[str]:
     """
     Retrieves the set of minimal dependencies for the ``sentence_transformers`` flavor.
 
@@ -96,8 +97,8 @@ def get_default_conda_env():
 
 @experimental
 def _verify_task_and_update_metadata(
-    task: str, metadata: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
+    task: str, metadata: Optional[dict[str, Any]] = None
+) -> dict[str, Any]:
     if task not in [_LLM_INFERENCE_TASK_EMBEDDING]:
         raise MlflowException.invalid_parameter_value(
             f"Received invalid parameter value for `task` argument {task}. Task type could "
@@ -121,15 +122,15 @@ def save_model(
     model,
     path: str,
     task: Optional[str] = None,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
+    inference_config: Optional[dict[str, Any]] = None,
+    code_paths: Optional[list[str]] = None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    pip_requirements: Optional[Union[list[str], str]] = None,
+    extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
     example_no_conversion: Optional[bool] = None,
 ) -> None:
     """
@@ -259,7 +260,7 @@ def save_model(
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
 
 
-def _get_transformers_model_metadata(model) -> Dict[str, str]:
+def _get_transformers_model_metadata(model) -> dict[str, str]:
     """
     Extract metadata about the underlying Transformers model, such as the model class name
     and the repository id.
@@ -306,17 +307,18 @@ def log_model(
     model,
     artifact_path: str,
     task: Optional[str] = None,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
+    inference_config: Optional[dict[str, Any]] = None,
+    code_paths: Optional[list[str]] = None,
     registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    pip_requirements: Optional[Union[list[str], str]] = None,
+    extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
     example_no_conversion: Optional[bool] = None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
 ):
     """
     .. note::
@@ -377,11 +379,15 @@ def log_model(
             call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
             with valid model inputs and valid model outputs.
         input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
+        prompts: {{ prompts }}
     """
     if task is not None:
         metadata = _verify_task_and_update_metadata(task, metadata)
@@ -401,6 +407,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         example_no_conversion=example_no_conversion,
+        prompts=prompts,
     )
 
 
@@ -418,7 +425,7 @@ def _get_load_kwargs():
     return load_kwargs
 
 
-def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):  # noqa: D417
     """
     Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
 
@@ -498,7 +505,7 @@ class _SentenceTransformerModelWrapper:
         """
         return self.model
 
-    def predict(self, sentences, params: Optional[Dict[str, Any]] = None):
+    def predict(self, sentences, params: Optional[dict[str, Any]] = None):
         """
         Args:
             sentences: Model input data.

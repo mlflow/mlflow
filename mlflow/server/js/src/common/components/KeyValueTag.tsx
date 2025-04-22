@@ -10,7 +10,7 @@ import { Interpolation, Theme } from '@emotion/react';
  * long and should be truncated. We want to avoid short keys or values
  * in a long tag to be truncated
  * */
-export const TRUNCATE_ON_CHARS_LENGTH = 30;
+const TRUNCATE_ON_CHARS_LENGTH = 30;
 
 function getTruncatedStyles(shouldTruncate = true): Interpolation<Theme> {
   return shouldTruncate
@@ -57,7 +57,13 @@ export const KeyValueTag = ({
 
   return (
     <div>
-      <Tag closable={isClosable} onClose={onClose} title={tag.key} className={className}>
+      <Tag
+        componentId="codegen_mlflow_app_src_common_components_keyvaluetag.tsx_60"
+        closable={isClosable}
+        onClose={onClose}
+        title={tag.key}
+        className={className}
+      >
         <LegacyTooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
           <span
             css={{ maxWidth, display: 'inline-flex' }}

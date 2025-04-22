@@ -32,25 +32,33 @@ corresponding environment variable. See https://docs.databricks.com/security/sec
 for how to set up secrets on Databricks.
 """
 
+import importlib.metadata
 import itertools
 import logging
 import os
 import warnings
+from functools import partial
 from string import Formatter
-from typing import Any, Dict, Optional, Set
+from typing import Any, Optional, Union
 
 import yaml
 from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
-from mlflow.openai._openai_autolog import patched_call
+from mlflow.openai._openai_autolog import (
+    async_patched_call,
+    patched_agent_get_chat_completion,
+    patched_call,
+    patched_swarm_run,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -81,15 +89,13 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.openai_utils import (
-    REQUEST_URL_CHAT,
-    REQUEST_URL_COMPLETIONS,
-    REQUEST_URL_EMBEDDINGS,
     _OAITokenHolder,
     _OpenAIApiConfig,
     _OpenAIEnvVar,
     _validate_model_params,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.warnings_utils import color_warning
 
 FLAVOR_NAME = "openai"
 MODEL_FILENAME = "model.yaml"
@@ -120,38 +126,23 @@ def get_default_conda_env():
 
 
 def _get_obj_to_task_mapping():
-    if Version(_get_openai_package_version()).major < 1:
-        from openai import api_resources as ar
+    from openai import resources as r
 
-        return {
-            ar.Audio: ar.Audio.OBJECT_NAME,
-            ar.ChatCompletion: ar.ChatCompletion.OBJECT_NAME,
-            ar.Completion: ar.Completion.OBJECT_NAME,
-            ar.Edit: ar.Edit.OBJECT_NAME,
-            ar.Deployment: ar.Deployment.OBJECT_NAME,
-            ar.Embedding: ar.Embedding.OBJECT_NAME,
-            ar.Engine: ar.Engine.OBJECT_NAME,
-            ar.File: ar.File.OBJECT_NAME,
-            ar.Image: ar.Image.OBJECT_NAME,
-            ar.FineTune: ar.FineTune.OBJECT_NAME,
-            ar.Model: ar.Model.OBJECT_NAME,
-            ar.Moderation: "moderations",
-        }
-    else:
-        from openai import resources as r
-
-        return {
-            r.Audio: "audio",
-            r.chat.Completions: "chat.completions",
-            r.Completions: "completions",
-            r.Images.edit: "images.edit",
-            r.Embeddings: "embeddings",
-            r.Files: "files",
-            r.Images: "images",
-            r.FineTuning: "fine_tuning",
-            r.Moderations: "moderations",
-            r.Models: "models",
-        }
+    return {
+        r.Audio: "audio",
+        r.chat.Completions: "chat.completions",
+        r.Completions: "completions",
+        r.Images.edit: "images.edit",
+        r.Embeddings: "embeddings",
+        r.Files: "files",
+        r.Images: "images",
+        r.FineTuning: "fine_tuning",
+        r.Moderations: "moderations",
+        r.Models: "models",
+        r.chat.AsyncCompletions: "chat.completions",
+        r.AsyncCompletions: "completions",
+        r.AsyncEmbeddings: "embeddings",
+    }
 
 
 def _get_model_name(model):
@@ -195,9 +186,11 @@ def _get_api_config() -> _OpenAIApiConfig:
 
     api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
     api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value, openai.api_version)
-    api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value, None)
-    engine = os.getenv(_OpenAIEnvVar.OPENAI_ENGINE.value, None)
+    api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value) or os.getenv(
+        _OpenAIEnvVar.OPENAI_BASE_URL.value
+    )
     deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
+    organization = os.getenv(_OpenAIEnvVar.OPENAI_ORGANIZATION.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
         batch_size = 16
         max_tokens_per_minute = 60_000
@@ -214,19 +207,13 @@ def _get_api_config() -> _OpenAIApiConfig:
         max_tokens_per_minute=max_tokens_per_minute,
         api_base=api_base,
         api_version=api_version,
-        engine=engine,
         deployment_id=deployment_id,
+        organization=organization,
     )
 
 
 def _get_openai_package_version():
-    import openai
-
-    try:
-        return openai.__version__
-    except AttributeError:
-        # openai < 0.27.5 doesn't have a __version__ attribute
-        return openai.version.VERSION
+    return importlib.metadata.version("openai")
 
 
 def _log_secrets_yaml(local_model_dir, scope):
@@ -234,7 +221,7 @@ def _log_secrets_yaml(local_model_dir, scope):
         yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in _OpenAIEnvVar}, f)
 
 
-def _parse_format_fields(s) -> Set[str]:
+def _parse_format_fields(s) -> set[str]:
     """Parses format fields from a given string, e.g. "Hello {name}" -> ["name"]."""
     return {fn for _, fn, _, _ in Formatter().parse(s) if fn is not None}
 
@@ -332,6 +319,9 @@ def save_model(
             path="model",
         )
     """
+    if Version(_get_openai_package_version()).major < 1:
+        raise MlflowException("Only openai>=1.0 is supported.")
+
     import numpy as np
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -467,6 +457,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     example_no_conversion=None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
     **kwargs,
 ):
     """
@@ -506,6 +497,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
+        prompts: {{ prompts }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
             or ``top_p`` value to use for chat completion.
@@ -557,6 +549,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         example_no_conversion=example_no_conversion,
+        prompts=prompts,
         **kwargs,
     )
 
@@ -653,34 +646,6 @@ class _OpenAIWrapper:
         self.task = task
         self.api_config = _get_api_config()
         self.api_token = _OAITokenHolder(self.api_config.api_type)
-        # If the same parameter exists in self.model & self.api_config,
-        # we use the parameter from self.model
-        self.request_configs = {}
-        for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]:
-            if x in self.model:
-                self.request_configs[x] = self.model.pop(x)
-            elif value := getattr(self.api_config, x):
-                self.request_configs[x] = value
-
-        if self.request_configs.get("api_type") in ("azure", "azure_ad", "azuread"):
-            deployment_id = self.request_configs.get("deployment_id")
-            if self.request_configs.get("engine"):
-                # Avoid using both parameters as they serve the same purpose
-                # Invalid inputs:
-                #   - Wrong engine + correct/wrong deployment_id
-                #   - No engine + wrong deployment_id
-                # Valid inputs:
-                #   - Correct engine + correct/wrong deployment_id
-                #   - No engine + correct deployment_id
-                if deployment_id is not None:
-                    _logger.warning(
-                        "Both engine and deployment_id are set. "
-                        "Using engine as it takes precedence."
-                    )
-            elif deployment_id is None:
-                raise MlflowException(
-                    "Either engine or deployment_id must be set for Azure OpenAI API",
-                )
 
         if self.task != "embeddings":
             self._setup_completions()
@@ -696,109 +661,124 @@ class _OpenAIWrapper:
             self.template = self.model.get("messages", [])
         else:
             self.template = self.model.get("prompt")
-        self.formater = _ContentFormatter(self.task, self.template)
+        self.formatter = _ContentFormatter(self.task, self.template)
 
     def format_completions(self, params_list):
-        return [self.formater.format(**params) for params in params_list]
+        return [self.formatter.format(**params) for params in params_list]
 
     def get_params_list(self, data):
-        if len(self.formater.variables) == 1:
-            variable = self.formater.variables[0]
+        if len(self.formatter.variables) == 1:
+            variable = self.formatter.variables[0]
             if variable in data.columns:
                 return data[[variable]].to_dict(orient="records")
             else:
                 first_string_column = _first_string_column(data)
                 return [{variable: s} for s in data[first_string_column]]
         else:
-            return data[self.formater.variables].to_dict(orient="records")
+            return data[self.formatter.variables].to_dict(orient="records")
 
-    def _construct_request_url(self, task_url, default_url):
-        api_type = self.request_configs.get("api_type")
-        api_base = self.request_configs.get("api_base")
-        if api_type in ("azure", "azure_ad", "azuread"):
-            api_version = self.request_configs.get("api_version")
-            deployment_id = self.request_configs.get("deployment_id")
+    def get_client(self, max_retries: int, timeout: float):
+        # with_option method should not be used before v1.3.8: https://github.com/openai/openai-python/issues/865
+        if self.api_config.api_type in ("azure", "azure_ad", "azuread"):
+            from openai import AzureOpenAI
 
-            return (
-                f"{api_base}/openai/deployments/{deployment_id}/"
-                f"{task_url}?api-version={api_version}"
+            return AzureOpenAI(
+                api_key=self.api_token.token,
+                azure_endpoint=self.api_config.api_base,
+                api_version=self.api_config.api_version,
+                azure_deployment=self.api_config.deployment_id,
+                max_retries=max_retries,
+                timeout=timeout,
             )
+        else:
+            from openai import OpenAI
 
-        return f"{api_base}/{task_url}" if api_base else default_url
+            return OpenAI(
+                api_key=self.api_token.token,
+                base_url=self.api_config.api_base,
+                max_retries=max_retries,
+                timeout=timeout,
+            )
 
     def _predict_chat(self, data, params):
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
-        messages_list = self.format_completions(self.get_params_list(data))
-        requests = [{**self.model, **params, "messages": messages} for messages in messages_list]
-        request_url = self._construct_request_url("chat/completions", REQUEST_URL_CHAT)
+        max_retries = params.pop("max_retries", self.api_config.max_retries)
+        timeout = params.pop("timeout", self.api_config.timeout)
 
-        results = process_api_requests(
-            requests,
-            request_url,
-            api_token=self.api_token,
-            max_requests_per_minute=self.api_config.max_requests_per_minute,
-            max_tokens_per_minute=self.api_config.max_tokens_per_minute,
-        )
-        return [r["choices"][0]["message"]["content"] for r in results]
+        messages_list = self.format_completions(self.get_params_list(data))
+        client = self.get_client(max_retries=max_retries, timeout=timeout)
+
+        requests = [
+            partial(
+                client.chat.completions.create,
+                messages=messages,
+                model=self.model["model"],
+                **params,
+            )
+            for messages in messages_list
+        ]
+
+        results = process_api_requests(request_tasks=requests)
+
+        return [r.choices[0].message.content for r in results]
 
     def _predict_completions(self, data, params):
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
         prompts_list = self.format_completions(self.get_params_list(data))
-
+        max_retries = params.pop("max_retries", self.api_config.max_retries)
+        timeout = params.pop("timeout", self.api_config.timeout)
         batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
+
+        client = self.get_client(max_retries=max_retries, timeout=timeout)
+
         requests = [
-            {
-                **self.model,
+            partial(
+                client.completions.create,
+                prompt=prompts_list[i : i + batch_size],
+                model=self.model["model"],
                 **params,
-                "prompt": prompts_list[i : i + batch_size],
-            }
+            )
             for i in range(0, len(prompts_list), batch_size)
         ]
-        request_url = self._construct_request_url("completions", REQUEST_URL_COMPLETIONS)
 
-        results = process_api_requests(
-            requests,
-            request_url,
-            api_token=self.api_token,
-            max_requests_per_minute=self.api_config.max_requests_per_minute,
-            max_tokens_per_minute=self.api_config.max_tokens_per_minute,
-        )
-        return [row["text"] for batch in results for row in batch["choices"]]
+        results = process_api_requests(request_tasks=requests)
+
+        return [row.text for batch in results for row in batch.choices]
 
     def _predict_embeddings(self, data, params):
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
+        max_retries = params.pop("max_retries", self.api_config.max_retries)
+        timeout = params.pop("timeout", self.api_config.timeout)
         batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
 
         first_string_column = _first_string_column(data)
         texts = data[first_string_column].tolist()
+
+        client = self.get_client(max_retries=max_retries, timeout=timeout)
+
         requests = [
-            {
-                **self.model,
+            partial(
+                client.embeddings.create,
+                input=texts[i : i + batch_size],
+                model=self.model["model"],
                 **params,
-                "input": texts[i : i + batch_size],
-            }
+            )
             for i in range(0, len(texts), batch_size)
         ]
-        request_url = self._construct_request_url("embeddings", REQUEST_URL_EMBEDDINGS)
 
-        results = process_api_requests(
-            requests,
-            request_url,
-            api_token=self.api_token,
-            max_requests_per_minute=self.api_config.max_requests_per_minute,
-            max_tokens_per_minute=self.api_config.max_tokens_per_minute,
-        )
-        return [row["embedding"] for batch in results for row in batch["data"]]
+        results = process_api_requests(request_tasks=requests)
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        return [row.embedding for batch in results for row in batch.data]
+
+    def predict(self, data, params: Optional[dict[str, Any]] = None):
         """
         Args:
             data: Model input data.
@@ -807,7 +787,6 @@ class _OpenAIWrapper:
         Returns:
             Model predictions.
         """
-
         self.api_token.refresh()
         if self.task == "chat.completions":
             return self._predict_chat(data, params or {})
@@ -857,7 +836,6 @@ def load_model(model_uri, dst_path=None):
 
 
 @experimental
-@autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
     log_model_signatures=False,
@@ -913,18 +891,147 @@ def autolog(
         log_traces: If ``True``, traces are logged for OpenAI models. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
-
     if Version(_get_openai_package_version()).major < 1:
         raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
 
+    # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
+    # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
+    _autolog(
+        log_input_examples=log_input_examples,
+        log_model_signatures=log_model_signatures,
+        log_models=log_models,
+        log_datasets=log_datasets,
+        disable=disable,
+        exclusive=exclusive,
+        disable_for_unsupported_versions=disable_for_unsupported_versions,
+        silent=silent,
+        registered_model_name=registered_model_name,
+        extra_tags=extra_tags,
+        log_traces=log_traces,
+    )
+
+    # Tracing OpenAI Agent SDK. This has to be done outside the function annotated with
+    # `@autologging_integration` because the function is not executed when `disable=True`.
+    try:
+        from mlflow.openai._agent_tracer import (
+            add_mlflow_trace_processor,
+            remove_mlflow_trace_processor,
+        )
+
+        if log_traces and not disable:
+            add_mlflow_trace_processor()
+        else:
+            remove_mlflow_trace_processor()
+    except ImportError:
+        pass
+
+
+# This is required by mlflow.autolog()
+autolog.integration_name = FLAVOR_NAME
+
+
+# NB: The @autologging_integration annotation must be applied here, and the callback injection
+# needs to happen outside the annotated function. This is because the annotated function is NOT
+# executed when disable=True is passed. This prevents us from removing our callback and patching
+# when autologging is turned off.
+@autologging_integration(FLAVOR_NAME)
+def _autolog(
+    log_input_examples=False,
+    log_model_signatures=False,
+    log_models=False,
+    log_datasets=False,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
+    registered_model_name=None,
+    extra_tags=None,
+    log_traces=True,
+):
+    if log_models:
+        color_warning(
+            "The `log_models` parameter's behavior will be changed in a future release. "
+            "MLflow no longer logs model artifacts automatically, use `mlflow.openai.log_model` "
+            "to log model artifacts manually if needed.",
+            stacklevel=2,
+            color="red",
+            category=FutureWarning,
+        )
+    else:
+        user_specified_args = {
+            key
+            for key, value in {
+                "log_input_examples": log_input_examples,
+                "log_model_signatures": log_model_signatures,
+                "log_datasets": log_datasets,
+                "registered_model_name": registered_model_name,
+                "extra_tags": extra_tags,
+            }.items()
+            if value not in [False, None]
+        }
+        if user_specified_args:
+            color_warning(
+                "The following parameters are deprecated in OpenAI autologging and will be removed "
+                f"in a future release: `{', '.join(user_specified_args)}`. OpenAI autologging will "
+                "not support automatic model artifacts logging and any related parameters. Please "
+                "log your model manually with `mlflow.openai.log_model` if needed.",
+                stacklevel=2,
+                color="yellow",
+                category=FutureWarning,
+            )
+
+    from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
-    from openai.resources.completions import Completions
-    from openai.resources.embeddings import Embeddings
+    from openai.resources.completions import AsyncCompletions, Completions
+    from openai.resources.embeddings import AsyncEmbeddings, Embeddings
 
     for task in (ChatCompletions, Completions, Embeddings):
+        safe_patch(FLAVOR_NAME, task, "create", patched_call)
+
+    for task in (AsyncChatCompletions, AsyncCompletions, AsyncEmbeddings):
+        safe_patch(FLAVOR_NAME, task, "create", async_patched_call)
+
+    try:
+        from openai.resources.beta.chat.completions import AsyncCompletions, Completions
+    except ImportError:
+        pass
+    else:
+        safe_patch(FLAVOR_NAME, Completions, "parse", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncCompletions, "parse", async_patched_call)
+
+    try:
+        from openai.resources.responses import AsyncResponses, Responses
+    except ImportError:
+        pass
+    else:
+        safe_patch(FLAVOR_NAME, Responses, "create", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncResponses, "create", async_patched_call)
+
+    # Patch Swarm agent to generate traces
+    try:
+        from swarm import Swarm
+
+        warnings.warn(
+            "Autologging for OpenAI Swarm is deprecated and will be removed in a future release. "
+            "OpenAI Agent SDK is drop-in replacement for agent building and is supported by "
+            "MLflow autologging. Please refer to the OpenAI Agent SDK documentation "
+            "(https://github.com/openai/openai-agents-python) for more details.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
+
         safe_patch(
             FLAVOR_NAME,
-            task,
-            "create",
-            patched_call,
+            Swarm,
+            "get_chat_completion",
+            patched_agent_get_chat_completion,
         )
+
+        safe_patch(
+            FLAVOR_NAME,
+            Swarm,
+            "run",
+            patched_swarm_run,
+        )
+    except ImportError:
+        pass

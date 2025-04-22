@@ -1,8 +1,10 @@
 import type { Interpolation, Theme as EmotionTheme } from '@emotion/react';
-import type { EmotionJSX } from '@storybook/theming/dist/ts3.9/_modules/@emotion-react-types-jsx-namespace';
-import React, { type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
+import React from 'react';
 import { type ButtonProps } from '../Button';
-export interface SidebarProps {
+import type { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
+import type { AnalyticsEventProps, HTMLDataAttributes } from '../types';
+export interface SidebarProps extends HTMLDataAttributes {
     /** The layout direction */
     position?: 'left' | 'right';
     /** Contents displayed in the sidebar */
@@ -22,7 +24,7 @@ export interface NavButtonProps extends ButtonProps {
     /** Check if the currrent button in nav bar is being disabled */
     disabled?: boolean;
     /** The icon on the button */
-    icon?: EmotionJSX.Element;
+    icon?: React.ReactNode;
     /** Contents displayed in the nav bar */
     children?: React.ReactNode;
     /** The callback function when nav button is clicked */
@@ -31,7 +33,7 @@ export interface NavButtonProps extends ButtonProps {
     /** Applies emotion styles to the top-level element in the component. Ask in #dubois before using. */
     dangerouslyAppendEmotionCSS?: Interpolation<EmotionTheme>;
 }
-export interface ContentProps {
+export interface ContentProps extends AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
     /** The open panel id */
     openPanelId?: number;
     /** The content width, default is 200px */
@@ -60,6 +62,8 @@ export interface ContentProps {
     enableCompact?: boolean;
     /** Applies styles to the react-resizable container */
     resizeBoxStyle?: CSSProperties;
+    /** Removes side border for cases where Navbar is not used */
+    noSideBorder?: boolean;
 }
 export interface PanelProps {
     /** The panel id */
@@ -71,7 +75,7 @@ export interface PanelProps {
     /** Applies emotion styles to the top-level element in the component. Ask in #dubois before using. */
     dangerouslyAppendEmotionCSS?: Interpolation<EmotionTheme>;
 }
-export interface PanelHeaderProps {
+export interface PanelHeaderProps extends AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
     /** Contents displayed in the header section of the panel */
     children?: React.ReactNode;
     /** Applies emotion styles to the top-level element in the component. Ask in #dubois before using. */
@@ -97,14 +101,14 @@ export interface PanelBodyProps {
 }
 export declare function Nav({ children, dangerouslyAppendEmotionCSS }: NavProps): JSX.Element;
 export declare const NavButton: React.ForwardRefExoticComponent<NavButtonProps & React.RefAttributes<HTMLButtonElement>>;
-export declare function Content({ disableResize, openPanelId, closable, onClose, onResizeStart, onResizeStop, width, minWidth, maxWidth, destroyInactivePanels, children, dangerouslyAppendEmotionCSS, enableCompact, resizeBoxStyle, }: ContentProps): JSX.Element;
+export declare function Content({ disableResize, openPanelId, closable, onClose, onResizeStart, onResizeStop, width, minWidth, maxWidth, destroyInactivePanels, children, dangerouslyAppendEmotionCSS, enableCompact, resizeBoxStyle, noSideBorder, componentId, }: ContentProps): JSX.Element;
 export declare function Panel({ panelId, children, forceRender, dangerouslyAppendEmotionCSS, ...delegated }: PanelProps): JSX.Element | null;
-export declare function PanelHeader({ children, dangerouslyAppendEmotionCSS }: PanelHeaderProps): JSX.Element;
+export declare function PanelHeader({ children, dangerouslyAppendEmotionCSS, componentId }: PanelHeaderProps): JSX.Element;
 export declare function PanelHeaderTitle({ title, dangerouslyAppendEmotionCSS }: PanelHeaderTitleProps): import("@emotion/react/jsx-runtime").JSX.Element;
 export declare function PanelHeaderButtons({ children, dangerouslyAppendEmotionCSS }: PanelHeaderButtonProps): import("@emotion/react/jsx-runtime").JSX.Element;
 export declare function PanelBody({ children, dangerouslyAppendEmotionCSS }: PanelBodyProps): JSX.Element;
 export declare const Sidebar: {
-    ({ position, children, dangerouslyAppendEmotionCSS }: SidebarProps): JSX.Element;
+    ({ position, children, dangerouslyAppendEmotionCSS, ...dataProps }: SidebarProps): JSX.Element;
     Content: typeof Content;
     Nav: typeof Nav;
     NavButton: React.ForwardRefExoticComponent<NavButtonProps & React.RefAttributes<HTMLButtonElement>>;

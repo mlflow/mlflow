@@ -183,7 +183,7 @@ class WheeledModel:
         this is a `wheeled` model.
 
         Args:
-            original_model_file_path: The model metadata stored in the original MLmodel file.
+            original_model_metadata: The model metadata stored in the original MLmodel file.
             mlflow_model: :py:mod:`mlflow.models.Model` configuration of the newly created
                           wheeled model
         """
@@ -234,13 +234,15 @@ class WheeledModel:
                     "-r",
                     pip_requirements_path,
                     "--no-cache-dir",
+                    "--progress-bar=off",
                 ],
                 check=True,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
         except subprocess.CalledProcessError as e:
             raise MlflowException(
-                f"An error occurred while downloading the dependency wheels: {e.stderr}"
+                f"An error occurred while downloading the dependency wheels: {e.stdout}"
             )
 
     def _overwrite_pip_requirements_with_wheels(self, pip_requirements_path, wheels_dir):

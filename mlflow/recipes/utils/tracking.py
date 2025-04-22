@@ -4,7 +4,7 @@ import pathlib
 import shutil
 import tempfile
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_RUN_CONTEXT
@@ -92,7 +92,7 @@ class TrackingConfig:
         self.run_name = run_name
         self.artifact_location = artifact_location
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """
         Obtains a dictionary representation of the MLflow Tracking configuration.
 
@@ -118,7 +118,7 @@ class TrackingConfig:
         return config_dict
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, str]) -> "TrackingConfig":
+    def from_dict(cls, config_dict: dict[str, str]) -> "TrackingConfig":
         """
         Creates a ``TrackingConfig`` instance from a dictionary representation.
 
@@ -138,7 +138,7 @@ class TrackingConfig:
 
 
 def get_recipe_tracking_config(
-    recipe_root_path: str, recipe_config: Dict[str, Any]
+    recipe_root_path: str, recipe_config: dict[str, Any]
 ) -> TrackingConfig:
     """
     Obtains the MLflow Tracking configuration for the specified recipe.
@@ -239,7 +239,7 @@ def apply_recipe_tracking_config(tracking_config: TrackingConfig):
     )
 
 
-def get_run_tags_env_vars(recipe_root_path: str) -> Dict[str, str]:
+def get_run_tags_env_vars(recipe_root_path: str) -> dict[str, str]:
     """
     Returns environment variables that should be set during step execution to ensure that MLflow
     Run Tags from the current context are applied to any MLflow Runs that are created during
@@ -274,13 +274,13 @@ def log_code_snapshot(
     recipe_root: str,
     run_id: str,
     artifact_path: str = "recipe_snapshot",
-    recipe_config: Optional[Dict[str, Any]] = None,
+    recipe_config: Optional[dict[str, Any]] = None,
 ) -> None:
     """
     Logs a recipe code snapshot as mlflow artifacts.
 
     Args:
-        recipe_root_path: String file path to the directory where the recipe is defined.
+        recipe_root: String file path to the directory where the recipe is defined.
         run_id: Run ID to which the code snapshot is logged.
         artifact_path: Directory within the run's artifact director (default: "snapshots").
         recipe_config: Dict containing the full recipe configuration at runtime.

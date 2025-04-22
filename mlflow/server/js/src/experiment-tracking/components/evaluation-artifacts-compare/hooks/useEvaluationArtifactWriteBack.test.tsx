@@ -1,11 +1,10 @@
-import '@testing-library/jest-dom';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
 import userEvent from '@testing-library/user-event';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 
-import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
+import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { EvaluationDataReduxState } from '../../../reducers/EvaluationDataReducer';
 import { useEvaluationArtifactWriteBack } from './useEvaluationArtifactWriteBack';
 import {
@@ -28,7 +27,9 @@ const mockState: EvaluationDataReduxState = {
 };
 
 jest.mock('../../../actions/PromptEngineeringActions', () => ({
-  ...jest.requireActual('../../../actions/PromptEngineeringActions'),
+  ...jest.requireActual<typeof import('../../../actions/PromptEngineeringActions')>(
+    '../../../actions/PromptEngineeringActions',
+  ),
   discardPendingEvaluationData: jest.fn().mockReturnValue({
     type: 'discardPendingEvaluationData',
     payload: Promise.resolve({}),
@@ -90,7 +91,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
   });
 
   afterEach(() => {
-    (Utils.logErrorAndNotifyUser as jest.Mock).mockRestore();
+    jest.mocked(Utils.logErrorAndNotifyUser).mockRestore();
   });
 
   it('properly synchronizes new entries', async () => {
@@ -125,9 +126,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
       },
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(uploadArtifactApi).toBeCalledWith('run_1', MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME, {
       columns: ['question', 'answer'],
@@ -195,9 +194,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
       },
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(Utils.logErrorAndNotifyUser).toBeCalledWith(
       expect.objectContaining({
@@ -214,9 +211,7 @@ describe('useEvaluationArtifactWriteBack + writeBackEvaluationArtifacts action',
       },
     });
 
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Discard' }));
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }));
 
     expect(discardPendingEvaluationData).toBeCalledWith();
   });

@@ -35,7 +35,7 @@ def main():
     args = Args.parse()
     with ProcessPoolExecutor() as pool:
         futures = [
-            pool.submit(lint_file, Path(f))
+            pool.submit(lint_file, Path(f), config)
             for f in args.files
             if not EXCLUDE_REGEX.match(f) and os.path.exists(f)
         ]

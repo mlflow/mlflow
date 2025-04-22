@@ -14,7 +14,16 @@
  *   place these generated objects in the correct location shortly.
  */
 import { ModelTraceInfo, ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
-import { deleteJson, getBigIntJson, getJson, patchJson, postJson } from '../../common/utils/FetchUtils';
+import { type ParsedQs, stringify as queryStringStringify } from 'qs';
+import {
+  deleteJson,
+  fetchEndpoint,
+  getBigIntJson,
+  getJson,
+  patchJson,
+  postBigIntJson,
+  postJson,
+} from '../../common/utils/FetchUtils';
 import { RunInfoEntity } from '../types';
 import {
   transformGetExperimentResponse,
@@ -29,6 +38,17 @@ type CreateRunApiRequest = {
   tags?: any;
   run_name?: string;
 };
+
+type GetCredentialsForLoggedModelArtifactReadResult = {
+  credentials: {
+    credential_info: {
+      type: string;
+      signed_uri: string;
+      path: string;
+    };
+  }[];
+};
+const searchRunsPath = () => 'ajax-api/2.0/mlflow/runs/search';
 
 export class MlflowService {
   /**
@@ -117,12 +137,35 @@ export class MlflowService {
    * Search mlflow experiment runs
    */
   static searchRuns = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/search', data }).then(transformSearchRunsResponse);
+    postJson({ relativeUrl: searchRunsPath(), data }).then(transformSearchRunsResponse);
 
   /**
    * List model artifacts
    */
   static listArtifacts = (data: any) => getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/artifacts/list', data });
+
+  /**
+   * List model artifacts for logged models
+   */
+  static listArtifactsLoggedModel = ({ loggedModelId, path }: { loggedModelId: string; path: string }) =>
+    getBigIntJson({
+      relativeUrl: `ajax-api/2.0/mlflow/logged-models/${loggedModelId}/artifacts/directories`,
+      data: path ? { artifact_directory_path: path } : {},
+    });
+
+  static getCredentialsForLoggedModelArtifactRead = ({
+    loggedModelId,
+    path,
+  }: {
+    loggedModelId: string;
+    path: string;
+  }) =>
+    postBigIntJson({
+      relativeUrl: `ajax-api/2.0/mlflow/logged-models/${loggedModelId}/artifacts/credentials-for-download`,
+      data: {
+        paths: [path],
+      },
+    }) as Promise<GetCredentialsForLoggedModelArtifactReadResult>;
 
   /**
    * Get metric history
@@ -171,6 +214,7 @@ export class MlflowService {
    */
   static gatewayProxyGet = (data: { gateway_path: string; json_data?: any }) =>
     getJson({ relativeUrl: 'ajax-api/2.0/mlflow/gateway-proxy', data });
+
   /**
    * Traces API: get traces list
    */
@@ -181,14 +225,23 @@ export class MlflowService {
       prev_page_token?: string;
     };
 
-    return getJson({
-      relativeUrl: `ajax-api/2.0/mlflow/traces`,
-      data: {
-        experiment_ids: experimentIds.join(','),
+    // usually we send array data via POST request, but since this
+    // is a GET, we need to treat it specially. we use `qs` to
+    // serialize the array into a query string which the backend
+    // can handle. this is similar to the approach taken in the
+    // GetMetricHistoryBulkInterval API.
+    const queryString = queryStringStringify(
+      {
+        experiment_ids: experimentIds,
         order_by: orderBy,
         page_token: pageToken,
         filter: filterString,
       },
+      { arrayFormat: 'repeat' },
+    );
+
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/2.0/mlflow/traces?${queryString}`,
     }) as Promise<GetExperimentTracesResponse>;
   };
 

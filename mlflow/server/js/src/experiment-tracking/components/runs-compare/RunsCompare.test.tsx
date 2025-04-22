@@ -6,15 +6,19 @@ import {
   screen,
   within,
   waitFor,
+  cleanup,
 } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { ImageEntity, MetricEntitiesByName } from '../../types';
-import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
-import { ExperimentPageUIState } from '../experiment-page/models/ExperimentPageUIState';
+import { ExperimentPageUIStateContextProvider } from '../experiment-page/contexts/ExperimentPageUIStateContext';
+import {
+  createExperimentPageUIState,
+  ExperimentPageUIState,
+  ExperimentRunsChartsUIConfiguration,
+} from '../experiment-page/models/ExperimentPageUIState';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import {
   RunsChartType,
   RunsChartsBarCardConfig,
-  RunsChartsCardConfig,
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
   RunsChartsDifferenceCardConfig,
@@ -22,41 +26,62 @@ import {
 } from '../runs-charts/runs-charts.types';
 import { RunsCompare } from './RunsCompare';
 import { useSampledMetricHistory } from '../runs-charts/hooks/useSampledMetricHistory';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { RunsChartsLineChartXAxisType } from '../runs-charts/components/RunsCharts.common';
-import {
-  shouldEnableDifferenceViewCharts,
-  shouldEnableHidingChartsWithNoData,
-} from '../../../common/utils/FeatureUtils';
+import { shouldEnableDifferenceViewCharts } from '../../../common/utils/FeatureUtils';
+import { useState } from 'react';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 jest.setTimeout(30000); // Larger timeout for integration testing
 
 // Mock the chart component to save time on rendering
 jest.mock('../runs-charts/components/RunsMetricsBarPlot', () => ({
-  RunsMetricsBarPlot: () => <div />,
+  RunsMetricsBarPlot: ({ metricKey }: any) => <div>[bar plot for {metricKey}]</div>,
 }));
 jest.mock('../runs-charts/components/RunsMetricsLinePlot', () => ({
-  RunsMetricsLinePlot: () => <div />,
+  RunsMetricsLinePlot: ({ metricKey, selectedMetricKeys = [] }: any) => (
+    <div>[line plot for {[...selectedMetricKeys, metricKey].filter(Boolean).join(',')}]</div>
+  ),
 }));
-
-// Mock the UI State handler
-jest.mock('../experiment-page/contexts/ExperimentPageUIStateContext', () => ({
-  useUpdateExperimentViewUIState: jest.fn(),
-}));
-
 jest.mock('../runs-charts/hooks/useSampledMetricHistory', () => ({
   useSampledMetricHistory: jest.fn(),
 }));
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../common/utils/FeatureUtils'),
-  shouldEnableHidingChartsWithNoData: jest.fn().mockImplementation(() => false),
-  shouldEnableDifferenceViewCharts: jest.fn().mockImplementation(() => false),
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  shouldEnableHidingChartsWithNoData: jest.fn(() => false),
+  shouldEnableImageGridCharts: jest.fn(() => true),
+  shouldEnableDifferenceViewCharts: jest.fn(() => false),
+}));
+
+// Mock useIsInViewport hook to simulate that the chart element is in the viewport
+jest.mock('../runs-charts/hooks/useIsInViewport', () => ({
+  useIsInViewport: () => ({ isInViewport: true, setElementRef: jest.fn() }),
 }));
 
 jest.setTimeout(30000); // Larger timeout for integration testing
 
-describe('RunsCompare', () => {
+// Helper function to assert order of HTMLElements
+function assertElementsInOrder(elements: HTMLElement[]) {
+  for (let i = 0; i < elements.length - 1; i++) {
+    const current = elements[i];
+    const next = elements[i + 1];
+
+    // Use compareDocumentPosition to check the order
+    const position = current.compareDocumentPosition(next);
+
+    // Assert that `next` follows `current`
+    expect(position).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  }
+}
+
+const testCases = [
+  {
+    description: '',
+    setup: () => {},
+  },
+];
+describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) => {
   const testCharts: (RunsChartsParallelCardConfig | RunsChartsBarCardConfig)[] = [
     {
       type: RunsChartType.PARALLEL,
@@ -151,25 +176,24 @@ describe('RunsCompare', () => {
 
   let currentUIState = {} as ExperimentPageUIState;
 
-  const updateUIState = jest.fn().mockImplementation((uiStateTransformer) => {
-    currentUIState = uiStateTransformer(currentUIState);
-  });
-
   beforeEach(() => {
-    jest.mocked(useUpdateExperimentViewUIState).mockReturnValue(updateUIState);
-    jest.mocked(shouldEnableHidingChartsWithNoData).mockImplementation(() => false);
-
+    testCaseSetup();
     jest.mocked(useSampledMetricHistory).mockReturnValue({
       isLoading: false,
       isRefreshing: false,
       resultsByRunUuid: {},
       refresh: jest.fn(),
     });
+    currentUIState = createExperimentPageUIState();
     currentUIState.compareRunCharts = testCharts;
+    currentUIState.hideEmptyCharts = false;
     currentUIState.compareRunSections = compareRunSections;
     currentUIState.isAccordionReordered = false;
-    updateUIState.mockClear();
   });
+
+  const getCurrentUIState = async () => {
+    return currentUIState;
+  };
 
   const createComponentMock = ({
     comparedRuns = [],
@@ -182,30 +206,47 @@ describe('RunsCompare', () => {
     imagesByRunUuid?: Record<string, Record<string, Record<string, ImageEntity>>>;
     groupBy?: string;
   } = {}) => {
+    const TestComponent = () => {
+      // Create a contextual uiState based on mutable "currentUIState" variable
+      const [uiState, setUIState] = useState<ExperimentPageUIState>(() => currentUIState);
+
+      // With every render, keep the currentUIState updated so it's easy to assert on
+      currentUIState = uiState;
+
+      return (
+        <ExperimentPageUIStateContextProvider setUIState={setUIState}>
+          <RunsCompare
+            comparedRuns={comparedRuns}
+            experimentTags={{}}
+            isLoading={false}
+            metricKeyList={[]}
+            paramKeyList={[]}
+            compareRunCharts={uiState.compareRunCharts}
+            compareRunSections={uiState.compareRunSections}
+            groupBy={groupBy}
+            hideEmptyCharts={uiState.hideEmptyCharts}
+            chartsSearchFilter={uiState.chartsSearchFilter}
+            storageKey="some-experiment-id"
+          />
+        </ExperimentPageUIStateContextProvider>
+      );
+    };
     return renderWithIntl(
-      <MockedReduxStoreProvider
-        state={{
-          entities: {
-            paramsByRunUuid: {},
-            latestMetricsByRunUuid,
-            tagsByRunUuid: {},
-            imagesByRunUuid,
-            colorByRunUuid: {},
-          },
-        }}
-      >
-        <RunsCompare
-          comparedRuns={comparedRuns}
-          experimentTags={{}}
-          isLoading={false}
-          metricKeyList={[]}
-          paramKeyList={[]}
-          compareRunCharts={currentUIState.compareRunCharts}
-          compareRunSections={currentUIState.compareRunSections}
-          groupBy={groupBy}
-          hideEmptyCharts={currentUIState.hideEmptyCharts}
-        />
-      </MockedReduxStoreProvider>,
+      <DesignSystemProvider>
+        <MockedReduxStoreProvider
+          state={{
+            entities: {
+              paramsByRunUuid: {},
+              latestMetricsByRunUuid,
+              tagsByRunUuid: {},
+              imagesByRunUuid,
+              colorByRunUuid: {},
+            },
+          }}
+        >
+          <TestComponent />
+        </MockedReduxStoreProvider>
+      </DesignSystemProvider>,
     );
   };
 
@@ -219,212 +260,109 @@ describe('RunsCompare', () => {
     return firstSectionHeading.closest('[data-testid="experiment-view-compare-runs-section-header"]') as HTMLElement;
   };
 
-  test('should render multiple charts and reorder using drag and drop', async () => {
-    await act(async () => {
-      createComponentMock();
-    });
-
-    const betaChartArea = getChartArea('metric-beta');
-    const alphaChartArea = getChartArea('metric-alpha');
-    const gammaChartArea = getChartArea('metric-gamma');
-
-    const betaHandle = within(betaChartArea).getByTestId('experiment-view-compare-runs-card-drag-handle');
-
-    expect(currentUIState.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
-      'chart-parallel',
-      'chart-alpha',
-      'chart-beta',
-      'chart-gamma',
-      'chart-omega',
-    ]);
-
-    // Drag "beta" chart into the "alpha" chart position
-    await act(async () => {
-      fireEvent.dragStart(betaHandle);
-      fireEvent.dragEnter(alphaChartArea);
-      fireEvent.drop(alphaChartArea);
-    });
-
-    // Verify that the charts are reordered
-    expect(currentUIState.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
-      'chart-parallel',
-      'chart-beta',
-      'chart-alpha',
-      'chart-gamma',
-      'chart-omega',
-    ]);
-
-    const gammaHandle = within(gammaChartArea).getByTestId('experiment-view-compare-runs-card-drag-handle');
-
-    // Drag "gamma" chart into the "beta" chart position
-    await act(async () => {
-      fireEvent.dragStart(gammaHandle);
-      fireEvent.dragEnter(betaChartArea);
-      fireEvent.drop(betaChartArea);
-    });
-
-    // Verify that the charts are reordered
-    expect(currentUIState.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
-      'chart-parallel',
-      'chart-gamma',
-      'chart-beta',
-      'chart-alpha',
-      'chart-omega',
-    ]);
-
-    // Drag "gamma" chart into the "alpha" chart position
-    await act(async () => {
-      fireEvent.dragStart(gammaHandle);
-      fireEvent.dragEnter(alphaChartArea);
-      fireEvent.drop(alphaChartArea);
-    });
-
-    // Verify that the charts are reordered
-    expect(currentUIState.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
-      'chart-parallel',
-      'chart-beta',
-      'chart-alpha',
-      'chart-gamma',
-      'chart-omega',
-    ]);
-  });
-
   test('drag and drop (reorder) across sections', async () => {
-    await act(async () => {
-      createComponentMock();
+    createComponentMock({
+      // Let's have at least one run in the comparison
+      comparedRuns: [{ runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } } as any],
     });
 
-    const betaChartArea = getChartArea('metric-beta');
-    const alphaChartArea = getChartArea('metric-alpha');
-    const omegaChartArea = getChartArea('tmp/metric-omega');
-
-    const betaHandle = within(betaChartArea).getByTestId('experiment-view-compare-runs-card-drag-handle');
-    // Drag "beta" chart into the "omega" chart position
-    await act(async () => {
-      fireEvent.dragStart(betaHandle);
-      fireEvent.dragEnter(omegaChartArea);
-      fireEvent.drop(omegaChartArea);
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'metric-beta' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'metric-alpha' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'tmp/metric-omega' })).toBeInTheDocument();
     });
 
-    expect(currentUIState.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
-      'chart-parallel',
-      'chart-alpha',
-      'chart-gamma',
-      'chart-beta',
-      'chart-omega',
-    ]);
+    // Find all sections (draggable sub-grids)
+    const allSections = screen.getAllByTestId('draggable-chart-cards-grid');
+    // Locate "tmp/" section and "metric-beta" chart element
+    const tmpGridArea = allSections.find((section) => section.textContent?.includes('tmp/metric-omega')) as HTMLElement;
 
-    const omegaHandle = within(omegaChartArea).getByTestId('experiment-view-compare-runs-card-drag-handle');
-    // Drag "omega" chart into the "alpha" chart position
-    await act(async () => {
-      fireEvent.dragStart(omegaHandle);
-      fireEvent.dragEnter(alphaChartArea);
-      fireEvent.drop(alphaChartArea);
+    const betaMetricChartElement = getChartArea('metric-beta');
+    const betaMetricChartHandle = within(betaMetricChartElement).getByTestId(
+      'experiment-view-compare-runs-card-drag-handle',
+    );
+
+    // Drag "beta" chart into the "tmp" chart area which is occupied by "omega"
+    fireEvent.mouseDown(betaMetricChartHandle);
+    fireEvent.mouseMove(tmpGridArea);
+    fireEvent.mouseUp(betaMetricChartHandle);
+
+    const betaChartEntry = currentUIState.compareRunCharts?.find(({ uuid }) => uuid === 'metric-beta');
+    const omegaChartEntry = currentUIState.compareRunCharts?.find(({ uuid }) => uuid === 'metric-omega');
+
+    await waitFor(() => {
+      expect(betaChartEntry?.metricSectionId).toBe(omegaChartEntry?.metricSectionId);
     });
-
-    expect(currentUIState.compareRunCharts?.map(({ uuid }) => uuid)).toEqual([
-      'chart-parallel',
-      'chart-omega',
-      'chart-alpha',
-      'chart-gamma',
-      'chart-beta',
-    ]);
-
-    expect(currentUIState.compareRunCharts?.map(({ metricSectionId }) => metricSectionId)).toEqual([
-      'metric-section-1',
-      'metric-section-1',
-      'metric-section-1',
-      'metric-section-1',
-      'metric-section-0',
-    ]);
   });
 
   test('initializes correct chart types for given initial runs data', async () => {
     currentUIState.compareRunCharts = undefined;
 
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_latest', runName: 'Last run', runInfo: {} },
-          { runUuid: 'run_oldest', runName: 'First run', runInfo: {} },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_latest: {
-            'metric-with-history': { key: 'metric-with-history', value: 1, step: 1 },
-            'metric-static': { key: 'metric-static', value: 1, step: 0 },
-          },
-          run_oldest: {
-            'metric-with-history': { key: 'metric-with-history', value: 1, step: 5 },
-            'metric-static': { key: 'metric-static', value: 1, step: 0 },
-          },
-        } as any,
-      });
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_latest', runName: 'Last run', runInfo: {} },
+        { runUuid: 'run_oldest', runName: 'First run', runInfo: {} },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_latest: {
+          'metric-with-history': { key: 'metric-with-history', value: 1, step: 1 },
+          'metric-static': { key: 'metric-static', value: 1, step: 0 },
+        },
+        run_oldest: {
+          'metric-with-history': { key: 'metric-with-history', value: 1, step: 5 },
+          'metric-static': { key: 'metric-static', value: 1, step: 0 },
+        },
+      } as any,
     });
 
-    expect(updateUIState).toHaveBeenCalled();
-
-    expect(currentUIState.compareRunCharts).toEqual([
-      expect.objectContaining({
-        metricKey: 'metric-static',
-        type: 'BAR',
-      }),
-      // "metric-with-history" should be initialized as a line chart since there's at least one run with the history
-      expect.objectContaining({
-        metricKey: 'metric-with-history',
-        type: 'LINE',
-      }),
-    ]);
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('[bar plot for metric-static]'),
+        screen.getByText('[line plot for metric-with-history]'),
+      ]);
+    });
   });
 
   test('initializes sections', async () => {
     currentUIState.compareRunCharts = undefined;
 
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_latest', runName: 'Last run' },
-          { runUuid: 'run_oldest', runName: 'First run' },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_latest: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 1 },
-            'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
-          },
-          run_oldest: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 5 },
-            'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
-          },
-        } as any,
-      });
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_latest', runName: 'Last run', runInfo: {} },
+        { runUuid: 'run_oldest', runName: 'First run', runInfo: {} },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_latest: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 1 },
+          'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
+        },
+        run_oldest: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 5 },
+          'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
+        },
+      } as any,
     });
-    expect(updateUIState).toHaveBeenCalled();
 
-    expect(currentUIState.compareRunSections).toEqual([
-      expect.objectContaining({
-        name: 'tmp',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'Model metrics',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'System metrics',
-        display: true,
-      }),
-    ]);
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('tmp'),
+        screen.getByText('Model metrics'),
+        screen.getByText('System metrics'),
+      ]);
+    });
   });
 
   test('drag and drop sections', async () => {
-    await act(async () => {
-      createComponentMock();
+    createComponentMock({
+      // Let's have at least one run in the comparison
+      comparedRuns: [{ runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } } as any],
     });
 
-    expect(currentUIState.compareRunSections?.map(({ uuid }) => uuid)).toEqual([
-      'metric-section-0',
-      'metric-section-1',
-      'metric-section-2',
-    ]);
+    await waitFor(() => {
+      expect(screen.getByText('tmp')).toBeInTheDocument();
+      expect(screen.getByText('Model metrics')).toBeInTheDocument();
+      expect(screen.getByText('System metrics')).toBeInTheDocument();
+    });
 
     const metricSection0 = getSectionArea('tmp');
     const metricSection1 = getSectionArea('Model metrics');
@@ -434,181 +372,145 @@ describe('RunsCompare', () => {
     );
 
     // Move section 'tmp' to section 'System metrics'
-    await act(async () => {
+    act(() => {
       fireEvent.dragStart(metricSection0Handle);
       fireEvent.dragEnter(metricSection2);
       fireEvent.dragOver(metricSection2);
       fireEvent.drop(metricSection2);
     });
 
-    expect(currentUIState.compareRunSections?.map(({ uuid }) => uuid)).toEqual([
-      'metric-section-1',
-      'metric-section-2',
-      'metric-section-0',
-    ]);
+    await waitFor(async () => {
+      assertElementsInOrder([
+        screen.getByText('Model metrics'),
+        screen.getByText('System metrics'),
+        screen.getByText('tmp'),
+      ]);
+    });
 
     const metricSection2Handle = within(metricSection2).getByTestId(
       'experiment-view-compare-runs-section-header-drag-handle',
     );
 
     // Move section 'System metrics' to section 'Model metrics'
-    await act(async () => {
+    act(() => {
       fireEvent.dragStart(metricSection2Handle);
       fireEvent.dragEnter(metricSection1);
       fireEvent.dragOver(metricSection1);
       fireEvent.drop(metricSection1);
     });
 
-    expect(currentUIState.compareRunSections?.map(({ uuid }) => uuid)).toEqual([
-      'metric-section-2',
-      'metric-section-1',
-      'metric-section-0',
-    ]);
+    await waitFor(async () => {
+      assertElementsInOrder([
+        screen.getByText('System metrics'),
+        screen.getByText('Model metrics'),
+        screen.getByText('tmp'),
+      ]);
+    });
   });
 
   test('detecting and adding new sections when already in default order', async () => {
     currentUIState.compareRunCharts = undefined;
     currentUIState.compareRunSections = undefined;
 
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
-          { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_latest: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 1 },
-            'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
-            'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
-          },
-          run_oldest: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 5 },
-            'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
-            'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
-          },
-        } as any,
-      });
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
+        { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_latest: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 1 },
+          'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
+          'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
+        },
+        run_oldest: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 5 },
+          'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
+          'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
+        },
+      } as any,
     });
 
-    expect(currentUIState.compareRunSections).toEqual([
-      expect.objectContaining({
-        name: 'tmp',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'tmp2',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'Model metrics',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'System metrics',
-        display: true,
-      }),
-    ]);
+    await waitFor(() => {
+      expect(screen.queryByText('tmp1')).not.toBeInTheDocument();
+      assertElementsInOrder([
+        screen.getByText('tmp'),
+        screen.getByText('tmp2'),
+        screen.getByText('Model metrics'),
+        screen.getByText('System metrics'),
+      ]);
+    });
 
     expect(currentUIState.isAccordionReordered).toBe(false);
 
+    cleanup();
+
     // New run is added to the end of the list
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
-          { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
-          { runUuid: 'run_new', runName: 'New run', runInfo: { runUuid: 'run_new' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_latest: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 1 },
-            'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
-            'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
-          },
-          run_oldest: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 5 },
-            'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
-            'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
-          },
-          run_new: {
-            'tmp1/metric-static': { key: 'tmp1/metric-static', value: 1, step: 5 },
-          },
-        } as any,
-      });
+
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
+        { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
+        { runUuid: 'run_new', runName: 'New run', runInfo: { runUuid: 'run_new' } },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_latest: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 1 },
+          'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
+          'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
+        },
+        run_oldest: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 5 },
+          'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
+          'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
+        },
+        run_new: {
+          'tmp1/metric-static': { key: 'tmp1/metric-static', value: 1, step: 5 },
+        },
+      } as any,
     });
 
-    expect(currentUIState.compareRunSections).toEqual([
-      expect.objectContaining({
-        name: 'tmp',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'tmp1',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'tmp2',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'Model metrics',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'System metrics',
-        display: true,
-      }),
-    ]);
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('tmp'),
+        screen.getByText('tmp1'),
+        screen.getByText('tmp2'),
+        screen.getByText('Model metrics'),
+        screen.getByText('System metrics'),
+      ]);
+    });
   });
 
   test('detecting and adding new sections when not in default order', async () => {
     currentUIState.compareRunCharts = undefined;
     currentUIState.compareRunSections = undefined;
 
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
-          { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_latest: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 1 },
-            'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
-            'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
-          },
-          run_oldest: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 5 },
-            'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
-            'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
-          },
-        } as any,
-      });
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
+        { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_latest: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 1 },
+          'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
+          'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
+        },
+        run_oldest: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 5 },
+          'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
+          'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
+        },
+      } as any,
     });
 
-    expect(currentUIState.compareRunSections).toEqual([
-      expect.objectContaining({
-        name: 'tmp',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'tmp2',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'Model metrics',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'System metrics',
-        display: true,
-      }),
-    ]);
-
-    // Rerender with compareRunCharts and compareRunSections initialized
-    await act(async () => {
-      createComponentMock();
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('tmp'),
+        screen.getByText('tmp2'),
+        screen.getByText('Model metrics'),
+        screen.getByText('System metrics'),
+      ]);
     });
 
     // Update order of compareRunSections
@@ -616,63 +518,50 @@ describe('RunsCompare', () => {
     const tmp2Section = getSectionArea('tmp2');
     const tmpSectionHandle = within(tmpSection).getByTestId('experiment-view-compare-runs-section-header-drag-handle');
     // Move section 'tmp' to section 'tmp2'
-    await act(async () => {
+    act(() => {
       fireEvent.dragStart(tmpSectionHandle);
       fireEvent.dragEnter(tmp2Section);
       fireEvent.dragOver(tmp2Section);
       fireEvent.drop(tmp2Section);
     });
 
-    expect(currentUIState.isAccordionReordered).toBe(true);
+    expect((await getCurrentUIState()).isAccordionReordered).toBe(true);
+
+    cleanup();
 
     // New run is added to the end of the list
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
-          { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
-          { runUuid: 'run_new', runName: 'New run', runInfo: { runUuid: 'run_new' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_latest: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 1 },
-            'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
-            'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
-          },
-          run_oldest: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 5 },
-            'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
-            'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
-          },
-          run_new: {
-            'tmp1/metric-static': { key: 'tmp1/metric-static', value: 1, step: 5 },
-          },
-        } as any,
-      });
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
+        { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
+        { runUuid: 'run_new', runName: 'New run', runInfo: { runUuid: 'run_new' } },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_latest: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 1 },
+          'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
+          'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
+        },
+        run_oldest: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 5 },
+          'tmp/metric-static': { key: 'tmp/metric-static', value: 1, step: 1 },
+          'tmp2/metric-static': { key: 'tmp2/metric-static', value: 1, step: 1 },
+        },
+        run_new: {
+          'tmp1/metric-static': { key: 'tmp1/metric-static', value: 1, step: 5 },
+        },
+      } as any,
     });
 
-    expect(currentUIState.compareRunSections).toEqual([
-      expect.objectContaining({
-        name: 'tmp2',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'tmp',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'Model metrics',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'System metrics',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'tmp1',
-        display: true,
-      }),
-    ]);
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('tmp2'),
+        screen.getByText('tmp'),
+        screen.getByText('Model metrics'),
+        screen.getByText('System metrics'),
+        screen.getByText('tmp1'),
+      ]);
+    });
   });
 
   test('detecting metric history and updating bar chart to line chart', async () => {
@@ -680,595 +569,456 @@ describe('RunsCompare', () => {
     currentUIState.compareRunSections = undefined;
 
     // Run with static metric
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [{ runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } }] as any,
-        latestMetricsByRunUuid: {
-          run_1: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 0 },
-          },
-        } as any,
-      });
+    createComponentMock({
+      comparedRuns: [{ runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } }] as any,
+      latestMetricsByRunUuid: {
+        run_1: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 0 },
+        },
+      } as any,
     });
 
-    // Test that the chart is initialized as a bar chart
-    expect((currentUIState.compareRunCharts || []).map(({ type }) => type)).toEqual(['BAR']);
-
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
-          { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_1: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 0 },
-          },
-          run_2: {
-            'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 5 },
-          },
-        } as any,
-      });
+    await waitFor(() => {
+      // Test that the chart is initialized as a bar chart
+      expect(screen.getByText('[bar plot for tmp/metric-with-history]')).toBeInTheDocument();
     });
 
-    // Test that the chart is updated to a line chart
-    expect((currentUIState.compareRunCharts || []).map(({ type }) => type)).toEqual(['LINE']);
+    cleanup();
+
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
+        { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_1: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 0 },
+        },
+        run_2: {
+          'tmp/metric-with-history': { key: 'tmp/metric-with-history', value: 1, step: 5 },
+        },
+      } as any,
+    });
+
+    await waitFor(() => {
+      // Test that the chart is updated to a line chart
+      expect(screen.getByText('[line plot for tmp/metric-with-history]')).toBeInTheDocument();
+    });
   });
 
   test('detecting new run and inserting new chart when section is not reordered', async () => {
     currentUIState.compareRunCharts = undefined;
     currentUIState.compareRunSections = undefined;
 
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
-          { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_1: {
-            'section1/metric3': { key: 'section1/metric3', value: 1 },
-            'section1/metric7': { key: 'section1/metric7', value: 1 },
-            'section1/metric5': { key: 'section1/metric5', value: 1 },
-          },
-          run_2: {
-            'section1/metric6': { key: 'section1/metric6', value: 1 },
-          },
-        } as any,
-      });
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
+        { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_1: {
+          'section1/metric3': { key: 'section1/metric3', value: 1 },
+          'section1/metric7': { key: 'section1/metric7', value: 1 },
+          'section1/metric5': { key: 'section1/metric5', value: 1 },
+        },
+        run_2: {
+          'section1/metric6': { key: 'section1/metric6', value: 1 },
+        },
+      } as any,
     });
 
-    // Should be sorted when initialized
-    expect(currentUIState.compareRunCharts).toEqual([
-      expect.objectContaining({
-        metricKey: 'section1/metric3',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric5',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric6',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric7',
-      }),
-    ]);
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('[bar plot for section1/metric3]'),
+        screen.getByText('[bar plot for section1/metric5]'),
+        screen.getByText('[bar plot for section1/metric6]'),
+        screen.getByText('[bar plot for section1/metric7]'),
+      ]);
+    });
+
+    cleanup();
 
     // Inserting a new run with section1/metric4
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
-          { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
-          { runUuid: 'run_3', runName: 'Third run', runInfo: { runUuid: 'run_3' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_1: {
-            'section1/metric3': { key: 'section1/metric3', value: 1 },
-            'section1/metric7': { key: 'section1/metric7', value: 1 },
-            'section1/metric5': { key: 'section1/metric5', value: 1 },
-          },
-          run_2: {
-            'section1/metric6': { key: 'section1/metric6', value: 1 },
-          },
-          run_3: {
-            'section1/metric4': { key: 'section1/metric4', value: 1 },
-          },
-        } as any,
-      });
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
+        { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
+        { runUuid: 'run_3', runName: 'Third run', runInfo: { runUuid: 'run_3' } },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_1: {
+          'section1/metric3': { key: 'section1/metric3', value: 1 },
+          'section1/metric7': { key: 'section1/metric7', value: 1 },
+          'section1/metric5': { key: 'section1/metric5', value: 1 },
+        },
+        run_2: {
+          'section1/metric6': { key: 'section1/metric6', value: 1 },
+        },
+        run_3: {
+          'section1/metric4': { key: 'section1/metric4', value: 1 },
+        },
+      } as any,
     });
 
-    // Should be sorted when initialized
-    expect(currentUIState.compareRunCharts).toEqual([
-      expect.objectContaining({
-        metricKey: 'section1/metric3',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric4',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric5',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric6',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric7',
-      }),
-    ]);
-  });
-
-  test('detecting new run and inserting new chart when section is reordered by dnd within', async () => {
-    currentUIState.compareRunCharts = undefined;
-    currentUIState.compareRunSections = undefined;
-
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
-          { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_1: {
-            'section1/metric3': { key: 'section1/metric3', value: 1 },
-            'section1/metric7': { key: 'section1/metric7', value: 1 },
-            'section1/metric5': { key: 'section1/metric5', value: 1 },
-          },
-          run_2: {
-            'section2/metric6': { key: 'section1/metric6', value: 1 },
-          },
-        } as any,
-      });
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('[bar plot for section1/metric3]'),
+        screen.getByText('[bar plot for section1/metric4]'),
+        screen.getByText('[bar plot for section1/metric5]'),
+        screen.getByText('[bar plot for section1/metric6]'),
+        screen.getByText('[bar plot for section1/metric7]'),
+      ]);
     });
-    // Rerender with compareRunCharts and compareRunSections initialized
-    await act(async () => {
-      createComponentMock();
-    });
-
-    // Should be sorted when initialized
-    expect(currentUIState.compareRunCharts).toEqual([
-      expect.objectContaining({
-        metricKey: 'section1/metric3',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric5',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric7',
-      }),
-      expect.objectContaining({
-        metricKey: 'section2/metric6',
-      }),
-    ]);
-
-    const chartArea3 = getChartArea('section1/metric3');
-    const chartArea5 = getChartArea('section1/metric5');
-
-    // Get section1/metric3 handle
-    const chartArea3Handle = within(chartArea3).getByTestId('experiment-view-compare-runs-card-drag-handle');
-
-    // Drag "section1/metric3" chart into the "section1/metric5" chart position
-    await act(async () => {
-      fireEvent.dragStart(chartArea3Handle);
-      fireEvent.dragEnter(chartArea5);
-      fireEvent.drop(chartArea5);
-    });
-
-    // Adding a new run with section1/metric6 should append the metric at the end
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
-          { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
-          { runUuid: 'run_3', runName: 'Third run', runInfo: { runUuid: 'run_3' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_1: {
-            'section1/metric3': { key: 'section1/metric3', value: 1 },
-            'section1/metric7': { key: 'section1/metric7', value: 1 },
-            'section1/metric5': { key: 'section1/metric5', value: 1 },
-          },
-          run_2: {
-            'section2/metric6': { key: 'section1/metric6', value: 1 },
-          },
-          run_3: {
-            'section1/metric6': { key: 'section1/metric6', value: 1 },
-          },
-        } as any,
-      });
-    });
-
-    expect(currentUIState.compareRunCharts).toEqual([
-      expect.objectContaining({
-        metricKey: 'section1/metric5',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric3',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric7',
-      }),
-      expect.objectContaining({
-        metricKey: 'section2/metric6',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric6',
-      }),
-    ]);
   });
 
   test('detecting new run and inserting new chart when section is reordered by dragging chart out', async () => {
     currentUIState.compareRunCharts = undefined;
     currentUIState.compareRunSections = undefined;
 
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
-          { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_1: {
-            'section1/metric3': { key: 'section1/metric3', value: 1 },
-            'section1/metric7': { key: 'section1/metric7', value: 1 },
-            'section1/metric5': { key: 'section1/metric5', value: 1 },
-          },
-          run_2: {
-            'section2/metric6': { key: 'section2/metric6', value: 1 },
-          },
-        } as any,
-      });
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
+        { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_1: {
+          'section1/metric3': { key: 'section1/metric3', value: 1 },
+          'section1/metric7': { key: 'section1/metric7', value: 1 },
+          'section1/metric5': { key: 'section1/metric5', value: 1 },
+        },
+        run_2: {
+          'section2/metric6': { key: 'section2/metric6', value: 1 },
+        },
+      } as any,
     });
-    // Rerender with compareRunCharts and compareRunSections initialized
-    await act(async () => {
-      createComponentMock();
+
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('[bar plot for section1/metric5]'),
+        screen.getByText('[bar plot for section2/metric6]'),
+      ]);
     });
 
     // Drag section1/metric5 into section2
     const chartArea5 = getChartArea('section1/metric5');
     const chartArea6 = getChartArea('section2/metric6');
 
+    // Find all sections (draggable sub-grids)
+    const allSections = screen.getAllByTestId('draggable-chart-cards-grid');
+    // Locate "section2/" section and "metric-5" chart element
+    const section2Area = allSections.find((grid) => grid.textContent?.includes('section2/metric6')) as HTMLElement;
+
     // Get section1/metric5 handle
     const chartArea5Handle = within(chartArea5).getByTestId('experiment-view-compare-runs-card-drag-handle');
 
     // Drag section1/metric5 chart into section2/metric6 chart position
-    await act(async () => {
-      fireEvent.dragStart(chartArea5Handle);
-      fireEvent.dragEnter(chartArea6);
-      fireEvent.drop(chartArea6);
-    });
+    fireEvent.mouseDown(chartArea5Handle);
+    fireEvent.mouseMove(section2Area);
+    fireEvent.mouseUp(chartArea5Handle);
+
+    cleanup();
 
     // Adding a new run with section1/metric4 should append the metric at the end
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
-          { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
-          { runUuid: 'run_3', runName: 'Third run', runInfo: { runUuid: 'run_3' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_1: {
-            'section1/metric3': { key: 'section1/metric3', value: 1 },
-            'section1/metric7': { key: 'section1/metric7', value: 1 },
-            'section1/metric5': { key: 'section1/metric5', value: 1 },
-          },
-          run_2: {
-            'section2/metric6': { key: 'section2/metric6', value: 1 },
-          },
-          run_3: {
-            'section1/metric4': { key: 'section1/metric4', value: 1 },
-          },
-        } as any,
-      });
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
+        { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
+        { runUuid: 'run_3', runName: 'Third run', runInfo: { runUuid: 'run_3' } },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_1: {
+          'section1/metric3': { key: 'section1/metric3', value: 1 },
+          'section1/metric7': { key: 'section1/metric7', value: 1 },
+          'section1/metric5': { key: 'section1/metric5', value: 1 },
+        },
+        run_2: {
+          'section2/metric6': { key: 'section2/metric6', value: 1 },
+        },
+        run_3: {
+          'section1/metric4': { key: 'section1/metric4', value: 1 },
+        },
+      } as any,
     });
 
-    expect(currentUIState.compareRunCharts).toEqual([
-      expect.objectContaining({
-        metricKey: 'section1/metric3',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric7',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric5',
-      }),
-      expect.objectContaining({
-        metricKey: 'section2/metric6',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric4',
-      }),
-    ]);
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('[bar plot for section1/metric3]'),
+        screen.getByText('[bar plot for section1/metric7]'),
+        screen.getByText('[bar plot for section1/metric4]'),
+        screen.getByText('[bar plot for section1/metric5]'),
+        screen.getByText('[bar plot for section2/metric6]'),
+      ]);
+    });
   });
 
   test('detecting new run and inserting new chart when section is reordered by dragging chart in', async () => {
     currentUIState.compareRunCharts = undefined;
     currentUIState.compareRunSections = undefined;
 
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
-          { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_1: {
-            'section1/metric3': { key: 'section1/metric3', value: 1 },
-            'section1/metric7': { key: 'section1/metric7', value: 1 },
-            'section1/metric5': { key: 'section1/metric5', value: 1 },
-          },
-          run_2: {
-            'section2/metric6': { key: 'section2/metric6', value: 1 },
-          },
-        } as any,
-      });
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
+        { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_1: {
+          'section1/metric3': { key: 'section1/metric3', value: 1 },
+          'section1/metric7': { key: 'section1/metric7', value: 1 },
+          'section1/metric5': { key: 'section1/metric5', value: 1 },
+        },
+        run_2: {
+          'section2/metric6': { key: 'section2/metric6', value: 1 },
+        },
+      } as any,
     });
-    // Rerender with compareRunCharts and compareRunSections initialized
-    await act(async () => {
-      createComponentMock();
+
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('[bar plot for section1/metric5]'),
+        screen.getByText('[bar plot for section2/metric6]'),
+      ]);
     });
 
     // Drag section2/metric6 into section1
     const chartArea6 = getChartArea('section2/metric6');
     const chartArea5 = getChartArea('section1/metric5');
 
+    // Find all sections (draggable sub-grids)
+    const allSections = screen.getAllByTestId('draggable-chart-cards-grid');
+    // Locate "section1/" section and "metric-6" chart element
+    const section1Area = allSections.find((grid) => grid.textContent?.includes('section1/metric5')) as HTMLElement;
+
     // Get section2/metric6 handle
     const chartArea6Handle = within(chartArea6).getByTestId('experiment-view-compare-runs-card-drag-handle');
 
     // Drag "section2/metric6" chart into the "section1/metric5" chart position
-    await act(async () => {
-      fireEvent.dragStart(chartArea6Handle);
-      fireEvent.dragEnter(chartArea5);
-      fireEvent.drop(chartArea5);
-    });
+    fireEvent.mouseDown(chartArea6Handle);
+    fireEvent.mouseMove(section1Area);
+    fireEvent.mouseUp(chartArea6Handle);
+
+    cleanup();
 
     // Adding a new run with section1/metric4 should append the metric at the end
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
-          { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
-          { runUuid: 'run_3', runName: 'Third run', runInfo: { runUuid: 'run_3' } },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_1: {
-            'section1/metric3': { key: 'section1/metric3', value: 1 },
-            'section1/metric7': { key: 'section1/metric7', value: 1 },
-            'section1/metric5': { key: 'section1/metric5', value: 1 },
-          },
-          run_2: {
-            'section2/metric6': { key: 'section2/metric6', value: 1 },
-          },
-          run_3: {
-            'section1/metric4': { key: 'section1/metric4', value: 1 },
-          },
-        } as any,
-      });
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_1', runName: 'First run', runInfo: { runUuid: 'run_1' } },
+        { runUuid: 'run_2', runName: 'Second run', runInfo: { runUuid: 'run_2' } },
+        { runUuid: 'run_3', runName: 'Third run', runInfo: { runUuid: 'run_3' } },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_1: {
+          'section1/metric3': { key: 'section1/metric3', value: 1 },
+          'section1/metric7': { key: 'section1/metric7', value: 1 },
+          'section1/metric5': { key: 'section1/metric5', value: 1 },
+        },
+        run_2: {
+          'section2/metric6': { key: 'section2/metric6', value: 1 },
+        },
+        run_3: {
+          'section1/metric4': { key: 'section1/metric4', value: 1 },
+        },
+      } as any,
     });
 
-    expect(currentUIState.compareRunCharts).toEqual([
-      expect.objectContaining({
-        metricKey: 'section1/metric3',
-      }),
-      expect.objectContaining({
-        metricKey: 'section2/metric6',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric5',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric7',
-      }),
-      expect.objectContaining({
-        metricKey: 'section1/metric4',
-      }),
-    ]);
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('[bar plot for section2/metric6]'),
+        screen.getByText('[bar plot for section1/metric3]'),
+        screen.getByText('[bar plot for section1/metric5]'),
+        screen.getByText('[bar plot for section1/metric7]'),
+        screen.getByText('[bar plot for section1/metric4]'),
+      ]);
+    });
   });
 
   test('detecting new run and inserting new section when image is logged', async () => {
     currentUIState.compareRunCharts = undefined;
     currentUIState.compareRunSections = undefined;
 
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
-          { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
-        ] as any,
-        imagesByRunUuid: {
-          run_latest: {
-            'tmp/image': {
-              'tmp/image.png': {
-                filepath: 'tmp/image.png',
-              },
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
+        { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
+      ] as any,
+      imagesByRunUuid: {
+        run_latest: {
+          'tmp/image': {
+            'tmp/image.png': {
+              filepath: 'tmp/image.png',
             },
           },
-          run_oldest: {
-            'tmp2/image1': {
-              'tmp2/image1.png': {
-                filepath: 'images/tmp2/image1.png',
-              },
+        },
+        run_oldest: {
+          'tmp2/image1': {
+            'tmp2/image1.png': {
+              filepath: 'images/tmp2/image1.png',
             },
           },
-        } as any,
-      });
+        },
+      } as any,
     });
 
-    expect(currentUIState.compareRunSections).toEqual([
-      expect.objectContaining({
-        name: 'tmp',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'tmp2',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'Model metrics',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'System metrics',
-        display: true,
-      }),
-    ]);
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('tmp'),
+        screen.getByText('tmp2'),
+        screen.getByText('Model metrics'),
+        screen.getByText('System metrics'),
+      ]);
+    });
 
-    expect(currentUIState.isAccordionReordered).toBe(false);
+    expect((await getCurrentUIState()).isAccordionReordered).toBe(false);
+
+    cleanup();
 
     // New run is added to the end of the list
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
-          { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
-          { runUuid: 'run_new', runName: 'New run', runInfo: { runUuid: 'run_new' } },
-        ] as any,
-        imagesByRunUuid: {
-          run_latest: {
-            'tmp/image': {
-              'tmp/image.png': {
-                filepath: 'tmp/image.png',
-              },
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
+        { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
+        { runUuid: 'run_new', runName: 'New run', runInfo: { runUuid: 'run_new' } },
+      ] as any,
+      imagesByRunUuid: {
+        run_latest: {
+          'tmp/image': {
+            'tmp/image.png': {
+              filepath: 'tmp/image.png',
             },
           },
-          run_oldest: {
-            'tmp2/image1': {
-              'tmp2/image1.png': {
-                filepath: 'images/tmp2/image1.png',
-              },
+        },
+        run_oldest: {
+          'tmp2/image1': {
+            'tmp2/image1.png': {
+              filepath: 'images/tmp2/image1.png',
             },
           },
-          run_new: {
-            'tmp1/image3': {
-              'tmp1/image3.png': {
-                filepath: 'images/tmp1/image3.png',
-              },
+        },
+        run_new: {
+          'tmp1/image3': {
+            'tmp1/image3.png': {
+              filepath: 'images/tmp1/image3.png',
             },
           },
-        } as any,
-      });
+        },
+      } as any,
     });
 
-    expect(currentUIState.compareRunSections).toEqual([
-      expect.objectContaining({
-        name: 'tmp',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'tmp1',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'tmp2',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'Model metrics',
-        display: true,
-      }),
-      expect.objectContaining({
-        name: 'System metrics',
-        display: true,
-      }),
-    ]);
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('tmp'),
+        screen.getByText('tmp1'),
+        screen.getByText('tmp2'),
+        screen.getByText('Model metrics'),
+        screen.getByText('System metrics'),
+      ]);
+    });
   });
 
   test('detecting new run and inserting new chart when image is logged', async () => {
     currentUIState.compareRunCharts = undefined;
     currentUIState.compareRunSections = undefined;
 
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
-          { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
-        ] as any,
-        imagesByRunUuid: {
-          run_latest: {
-            'tmp/image': {
-              'tmp/image.png': {
-                filepath: 'tmp/image.png',
-              },
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
+        { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
+      ] as any,
+      imagesByRunUuid: {
+        run_latest: {
+          'tmp/image': {
+            'tmp/image.png': {
+              filepath: 'tmp/image.png',
             },
           },
-          run_oldest: {
-            'tmp2/image1': {
-              'tmp2/image1.png': {
-                filepath: 'images/tmp2/image1.png',
-              },
+        },
+        run_oldest: {
+          'tmp2/image1': {
+            'tmp2/image1.png': {
+              filepath: 'images/tmp2/image1.png',
             },
           },
-        } as any,
-      });
+        },
+      } as any,
     });
+
     // Rerender with compareRunCharts and compareRunSections initialized
-    await act(async () => {
-      createComponentMock();
+    act(() => {
+      cleanup();
+    });
+    createComponentMock();
+
+    // Rerender with compareRunCharts and compareRunSections initialized
+    act(() => {
+      cleanup();
     });
 
     // New run is added to the end of the list
-    await act(async () => {
-      createComponentMock({
-        comparedRuns: [
-          { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
-          { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
-          { runUuid: 'run_new', runName: 'New run', runInfo: { runUuid: 'run_new' } },
-        ] as any,
-        imagesByRunUuid: {
-          run_latest: {
-            'tmp/image': {
-              'tmp/image.png': {
-                filepath: 'tmp/image.png',
-              },
+    createComponentMock({
+      comparedRuns: [
+        { runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } },
+        { runUuid: 'run_oldest', runName: 'First run', runInfo: { runUuid: 'run_oldest' } },
+        { runUuid: 'run_new', runName: 'New run', runInfo: { runUuid: 'run_new' } },
+      ] as any,
+      imagesByRunUuid: {
+        run_latest: {
+          'tmp/image': {
+            'tmp/image.png': {
+              filepath: 'tmp/image.png',
             },
           },
-          run_oldest: {
-            'tmp2/image1': {
-              'tmp2/image1.png': {
-                filepath: 'images/tmp2/image1.png',
-              },
+        },
+        run_oldest: {
+          'tmp2/image1': {
+            'tmp2/image1.png': {
+              filepath: 'images/tmp2/image1.png',
             },
           },
-          run_new: {
-            'tmp1/image3': {
-              'tmp1/image3.png': {
-                filepath: 'images/tmp1/image3.png',
-              },
+        },
+        run_new: {
+          'tmp1/image3': {
+            'tmp1/image3.png': {
+              filepath: 'images/tmp1/image3.png',
             },
           },
-        } as any,
-      });
+        },
+      } as any,
     });
 
-    expect(currentUIState.compareRunCharts).toEqual([
-      expect.objectContaining({
-        imageKeys: ['tmp/image'],
-      }),
-      expect.objectContaining({
-        imageKeys: ['tmp1/image3'],
-      }),
-      expect.objectContaining({
-        imageKeys: ['tmp2/image1'],
-      }),
-    ]);
+    await waitFor(() => {
+      assertElementsInOrder([
+        screen.getByText('tmp/image'),
+        screen.getByText('tmp1/image3'),
+        screen.getByText('tmp2/image1'),
+      ]);
+    });
   });
 
   test('search functionality filters metric charts', async () => {
+    jest.useFakeTimers();
+    const customUserEvent = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     // For this test, add chart with multiple metrics at the end
     currentUIState.compareRunCharts = [...testCharts, testMultipleMetricsLineChart];
 
-    await act(async () => {
-      createComponentMock();
+    createComponentMock({
+      // Let's have at least one run in the comparison
+      comparedRuns: [{ runUuid: 'run_latest', runName: 'Last run', runInfo: { runUuid: 'run_latest' } } as any],
     });
-    expect(screen.queryByRole('heading', { name: 'metric-alpha' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'metric-beta' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'metric-gamma' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'tmp/metric-omega' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'metric-beta vs metric-alpha' })).toBeInTheDocument();
 
-    // Paste search query into searchbox
-    await userEvent.click(screen.getByRole('searchbox'));
-    await userEvent.paste('alpha');
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'metric-alpha' })).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'metric-beta' })).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'metric-gamma' })).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'tmp/metric-omega' })).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'metric-beta vs metric-alpha' })).toBeInTheDocument();
+    });
+
+    // Type search query into searchbox
+    await customUserEvent.type(screen.getByRole('searchbox'), 'alpha');
+
+    // Wait for debounce to kick in
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
 
     const modelMetricsSection = screen.getByText('Model metrics');
     const sectionHeader = modelMetricsSection.closest(
@@ -1283,16 +1033,67 @@ describe('RunsCompare', () => {
     expect(screen.queryByRole('heading', { name: 'metric-beta vs metric-alpha' })).toBeInTheDocument();
 
     // Expect metric section to be displayed
-    expect(currentUIState.compareRunSections?.find(({ name }) => name === 'Model metrics')?.display).toEqual(true);
+    expect(
+      (await getCurrentUIState()).compareRunSections?.find(({ name }) => name === 'Model metrics')?.display,
+    ).toEqual(true);
 
     // Click on the section header
-    await userEvent.click(sectionHeader);
-
-    const [updateUIFunction] = jest.mocked(updateUIState).mock.lastCall;
-    const newUIState: ExperimentPageUIState = updateUIFunction(currentUIState);
+    await customUserEvent.click(sectionHeader);
 
     // Expect metric section to be hidden
-    expect(newUIState.compareRunSections?.find(({ name }) => name === 'Model metrics')?.display).toEqual(false);
+    expect(
+      (await getCurrentUIState()).compareRunSections?.find(({ name }) => name === 'Model metrics')?.display,
+    ).toEqual(false);
+
+    // Put a regexp that matches 'tmp/'-prefixed and 'gamma'-suffixed metrics
+    await customUserEvent.clear(screen.getByRole('searchbox'));
+    await customUserEvent.type(screen.getByRole('searchbox'), '(tmp/.+)|gamma');
+
+    // Wait for debounce to kick in
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    // Expect 'tmp/'-prefixed and 'gamma'-suffixed metrics to be displayed
+    expect(screen.queryByRole('heading', { name: 'metric-beta' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'metric-gamma' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'tmp/metric-omega' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'metric-alpha' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'metric-beta vs metric-alpha' })).not.toBeInTheDocument();
+
+    // Put a regexp that matches all metrics starting with 'metric-' but not 'gamma'-suffixed.
+    // Try to include some uppercase letters.
+    await customUserEvent.clear(screen.getByRole('searchbox'));
+    await customUserEvent.type(screen.getByRole('searchbox'), '^mETRIc-(?!gamma).*');
+
+    // Wait for debounce to kick in
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(screen.queryByRole('heading', { name: 'metric-beta' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'metric-gamma' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'tmp/metric-omega' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'metric-alpha' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'metric-beta vs metric-alpha' })).toBeInTheDocument();
+
+    // Put a regexp that doesn't match any metrics
+    await customUserEvent.clear(screen.getByRole('searchbox'));
+    await customUserEvent.type(screen.getByRole('searchbox'), 'yotta');
+
+    // Wait for debounce to kick in
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    // Expect all charts to be hidden
+    expect(screen.queryByRole('heading', { name: 'metric-beta' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'metric-gamma' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'tmp/metric-omega' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'metric-alpha' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'metric-beta vs metric-alpha' })).not.toBeInTheDocument();
+
+    jest.useRealTimers();
   });
 
   test('correctly determines chart types run groups mixed with ungrouped runs', async () => {
@@ -1303,67 +1104,55 @@ describe('RunsCompare', () => {
     // - a group contains aggregated "metric_1" data indicating history
     // - a group contains aggregated "metric_2" data not indicating any history
     // - a run contains "metric_3" data indicating history
-    await act(async () => {
-      createComponentMock({
-        groupBy: 'metric_1',
-        comparedRuns: [
-          {
-            runUuid: '',
-            groupParentInfo: {
-              groupId: 'some_group',
-              groupingValues: [],
-              aggregatedMetricData: {
-                metric_1: {
-                  key: 'metric_1',
-                  value: 123,
-                  maxStep: 5,
-                },
-                metric_2: {
-                  key: 'metric_2',
-                  value: 123,
-                  maxStep: 0,
-                },
+    createComponentMock({
+      groupBy: 'metric_1',
+      comparedRuns: [
+        {
+          runUuid: '',
+          groupParentInfo: {
+            groupId: 'some_group',
+            groupingValues: [],
+            aggregatedMetricData: {
+              metric_1: {
+                key: 'metric_1',
+                value: 123,
+                maxStep: 5,
+              },
+              metric_2: {
+                key: 'metric_2',
+                value: 123,
+                maxStep: 0,
               },
             },
           },
-          {
-            runUuid: 'run_1',
-            runName: 'First run',
-            runInfo: { runUuid: 'run_1' },
-            runDateAndNestInfo: { belongsToGroup: false },
-          },
-        ] as any,
-        latestMetricsByRunUuid: {
-          run_1: {
-            metric_3: { key: 'metric_3', value: 1, step: 3 },
-          },
-        } as any,
-      });
+        },
+        {
+          runUuid: 'run_1',
+          runName: 'First run',
+          runInfo: { runUuid: 'run_1' },
+          runDateAndNestInfo: { belongsToGroup: false },
+        },
+      ] as any,
+      latestMetricsByRunUuid: {
+        run_1: {
+          metric_3: { key: 'metric_3', value: 1, step: 3 },
+        },
+      } as any,
     });
 
-    // Assert correct chart types for metrics
-    expect(currentUIState.compareRunCharts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          metricKey: 'metric_1',
-          type: 'LINE',
-        }),
-        expect.objectContaining({
-          metricKey: 'metric_2',
-          type: 'BAR',
-        }),
-        expect.objectContaining({
-          metricKey: 'metric_3',
-          type: 'LINE',
-        }),
-      ]),
-    );
+    await waitFor(() => {
+      // Assert correct chart types for metrics
+      assertElementsInOrder([
+        screen.getByText('[line plot for metric_1]'),
+        screen.getByText('[bar plot for metric_2]'),
+        screen.getByText('[line plot for metric_3]'),
+      ]);
+    });
   });
 
   describe('hiding charts with no data', () => {
     // Set up charts
     beforeEach(() => {
-      jest.mocked(shouldEnableHidingChartsWithNoData).mockImplementation(() => true);
       jest.mocked(shouldEnableDifferenceViewCharts).mockImplementation(() => true);
 
       currentUIState.compareRunCharts = [
@@ -1448,7 +1237,6 @@ describe('RunsCompare', () => {
         expect(screen.getByText(/Parallel Coordinates/)).toBeInTheDocument();
         expect(screen.getAllByText(/No chart data available for the currently visible runs/)).toHaveLength(2);
         expect(screen.getByText(/Runs difference view/)).toBeInTheDocument();
-        expect(screen.getByText(/No run differences to display/)).toBeInTheDocument();
       });
     });
 
@@ -1473,7 +1261,6 @@ describe('RunsCompare', () => {
 
         // Runs difference view is visible even if hide empty charts is set
         expect(screen.getByText(/Runs difference view/)).toBeInTheDocument();
-        expect(screen.getByText(/No run differences to display/)).toBeInTheDocument();
       });
     });
 

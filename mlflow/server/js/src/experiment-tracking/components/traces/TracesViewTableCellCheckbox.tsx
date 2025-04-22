@@ -10,6 +10,7 @@ type TracesViewCellCheckboxProps = {
 export const TracesViewTableCellCheckbox = ({ row }: TracesViewCellCheckboxProps) => {
   return (
     <Checkbox
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracesviewtablecellcheckbox.tsx_12"
       data-testid={`trace-table-cell-checkbox-${row.id}`}
       disabled={!row.getCanSelect()}
       isChecked={row.getIsSelected()}

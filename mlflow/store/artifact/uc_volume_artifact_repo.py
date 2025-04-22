@@ -62,7 +62,7 @@ class UCVolumesArtifactRepository(ArtifactRepository):
         creds = get_databricks_host_creds(self.databricks_profile_uri)
         return http_request(host_creds=creds, endpoint=endpoint, method=method, **kwargs)
 
-    def _list_directory_contents(self, directory_path: str, page_token: Optional[str] = None):
+    def _list_directory_contents(self, directory_path: str, page_token: Optional[str] = None):  # noqa: D417
         """
         Lists the contents of a directory.
 

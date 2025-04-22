@@ -7,17 +7,9 @@
  */
 export const shouldDisableLegacyRunCompareCharts = () => false;
 
-/**
- * Enables features related to deep learning: Phase 3
- * Includes improved runs visibility controls, reworked hover tooltip and improved handling of charts on run details page.
- */
-export const shouldEnableDeepLearningUIPhase3 = () => true;
+export const shouldEnableExperimentPageAutoRefresh = () => true;
 
-export const shouldUseUnifiedRunCharts = () => false;
-
-export const shouldEnableExperimentPageAutoRefresh = () => false;
-
-export const shouldEnableRunDetailsPageAutoRefresh = () => false;
+export const shouldEnableRunDetailsPageAutoRefresh = () => true;
 /**
  * UI feature preview: enables prompt lab
  */
@@ -28,20 +20,8 @@ export const shouldUseExperimentPageChartViewAsDefault = () => false;
 /**
  * Difference view charts feature
  */
-export const shouldEnableDifferenceViewCharts = () => false;
+export const shouldEnableDifferenceViewCharts = () => true;
 
-/**
- * Image grid charts feature
- */
-export const shouldEnableImageGridCharts = () => false;
-/**
- * Log table images feature
- */
-export const shouldEnableLogTableImages = () => false;
-/**
- * Manual range controls feature
- */
-export const shouldEnableManualRangeControls = () => false;
 /**
  * Keeping original lines when smoothing.
  */
@@ -61,20 +41,35 @@ export const shouldEnableChartExpressions = () => false;
 export const shouldEnableToggleIndividualRunsInGroups = () => false;
 
 /**
- * Enables toggle controls for hiding charts with no data
- */
-export const shouldEnableHidingChartsWithNoData = () => false;
-
-/**
  * Update relative time axis to use date
  */
 export const shouldEnableRelativeTimeDateAxis = () => false;
 
 export const shouldEnableTracingUI = () => true;
-export const shouldEnableRunDetailsPageTracesTab = () => false;
+export const shouldEnableRunDetailsPageTracesTab = () => true;
 export const shouldUseCompressedExperimentViewSharedState = () => true;
 export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
-export const shouldDeferLineChartRendering = () => true;
+export const shouldUseRegexpBasedAutoRunsSearchFilter = () => true;
+export const shouldUseRunRowsVisibilityMap = () => true;
+export const isUnstableNestedComponentsMigrated = () => true;
+
+/**
+ * Determines if logged models UI (part of model-centric IA shift) is enabled
+ */
+export const isExperimentLoggedModelsUIEnabled = () => false;
+export const isRunPageLoggedModelsTableEnabled = () => isExperimentLoggedModelsUIEnabled();
+
+/**
+ * Determines if evaluation results online monitoring UI is enabled
+ */
+export const isExperimentEvalResultsMonitoringUIEnabled = () => false;
+
+/**
+ * Flags enabling fetching data via GraphQL for particular views:
+ */
+export const shouldEnableGraphQLRunDetailsPage = () => false;
+export const shouldEnableGraphQLSampledMetrics = () => false;
+export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
 
 /**
  * A flag determining if we should display the new models UI.
@@ -82,9 +77,3 @@ export const shouldDeferLineChartRendering = () => true;
 export const shouldShowModelsNextUI = () => {
   return true;
 };
-
-// Determines if a new run rows visibility model in the experiment runs table should be used.
-export const shouldUseNewRunRowsVisibilityModel = () => shouldEnableDeepLearningUIPhase3();
-
-// Determines if improved sort selector should be enabled on the experiment page.
-export const shouldUseNewExperimentPageSortSelector = () => shouldEnableDeepLearningUIPhase3();

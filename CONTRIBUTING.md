@@ -66,6 +66,7 @@ MLflow is currently maintained by the following core members with significant co
 - [Serena Ruan](https://github.com/serena-ruan)
 - [Yuki Watanabe](https://github.com/B-Step62)
 - [Daniel Lok](https://github.com/daniellok-db)
+- [Tomu Hirata](https://github.com/TomeHirata)
 - [Gabriel Fu](https://github.com/gabrielfu)
 
 ## Contribution process
@@ -418,7 +419,7 @@ Distributable Artifact](#building-a-distributable-artifact).
 
 #### Running the Javascript Dev Server
 
-[Install Node Modules](#install-node-modules), then run the following:
+[Install Node Modules](#install-node-modules), then run the following in two separate shells:
 
 In one shell:
 
@@ -426,7 +427,7 @@ In one shell:
 mlflow ui
 ```
 
-In another shell:
+And in another shell:
 
 ```bash
 cd mlflow/server/js
@@ -828,89 +829,39 @@ python -m build
 
 We use [taplo](https://taplo.tamasfe.dev/) to enforce consistent TOML formatting. You can install it by following the instructions [here](https://taplo.tamasfe.dev/cli/introduction.html).
 
+### Excluding Symlinks from IDE Searches
+
+The `mlflow/skinny` symlink points to `../mlflow` and may cause duplicate entries in search results. To exclude it from searches, follow these steps:
+
+**VSCode:**
+
+1. Open `Settings`.
+2. Search for `search.followSymlinks` and set it to `false`.
+
+**PyCharm:**
+
+1. Right-click `skinny/mlflow`.
+2. Select `Mark Directory as` -> `Excluded`.
+
 ### Writing Docs
 
-First, install dependencies for building docs as described in [Environment Setup and Python configuration](#environment-setup-and-python-configuration).
+There are two separate build systems for the MLflow documentation:
 
-Building documentation requires [Pandoc](https://pandoc.org/index.html). It should have already been
-installed if you used the automated env setup script
-([dev-env-setup.sh](https://github.com/mlflow/mlflow/blob/master/dev/dev-env-setup.sh)),
-but if you are manually installing dependencies, please follow [the official instruction](https://pandoc.org/installing.html).
+#### API Docs
 
-Also, check the version of your installation via `pandoc --version` and ensure it is 2.2.1 or above.
-If you are using Mac OSX, be aware that the Homebrew installation of Pandoc may be outdated. If you are using Linux,
-you should use a deb installer or install from the source, instead of running `apt` / `apt-get` commands. Pandoc package available on official
-repositories is an older version and contains several bugs. You can find newer versions at <https://github.com/jgm/pandoc/releases>.
+The [API reference](https://mlflow.org/docs/latest/api_reference/) is managed by [Sphinx](https://www.sphinx-doc.org/en/master/). The content is primarily populated by our Python docstrings, which are written in reStructuredText (RST).
 
-To generate a live preview of Python & other rst documentation, run the
-following snippet. Note that R & Java API docs must be regenerated
-separately after each change and are not live-updated; see subsequent
-sections for instructions on generating R and Java docs.
+For instructions on how to build the API docs, please check the [README.md](https://github.com/mlflow/mlflow/blob/master/docs/api_reference/README.md) in the `docs/api_reference/` subfolder.
 
-```bash
-cd docs
-make livehtml
-```
+#### Main Docs
 
-Generate R API rst doc files via:
+The main MLflow docs (e.g. feature docs, tutorials, etc) are written using [Docusaurus](https://docusaurus.io/). The only prerequisite for building these docs is NodeJS >= 18.0. Please check out the [official NodeJS docs](https://nodejs.org/en/download) for platform-specific installation instructions.
 
-```bash
-cd docs
-make rdocs
-```
+To get started, simply run `yarn && yarn start` from the [`docs/`](https://github.com/mlflow/mlflow/blob/master/docs/) folder. This will spin up a development server that can be viewed at `http://localhost:3000/` (by default). The source files (primarily `.MDX`) are located in the [`docs/docs/`](https://github.com/mlflow/mlflow/blob/master/docs/docs/) subfolder. Changes to these files should be automatically reflected in the development server!
 
----
+There are also some `.ipynb` files which serve as the source for some of our tutorials. These are converted to MDX via a custom script (`yarn convert-notebooks`). If you want to make changes to these, you will need to install the `nbconvert` Python package in order to preview your changes.
 
-**NOTE**
-
-If you attempt to build the R documentation on an ARM-based platform (Apple silicon M1, M2, etc.)
-you will likely get an error when trying to execute the Docker build process for the make command.
-To address this, set the default docker platform environment variable as follows:
-
-```bash
-export DOCKER_DEFAULT_PLATFORM=linux/amd64
-```
-
----
-
-Generate Java API rst doc files via:
-
-```bash
-cd docs
-make javadocs
-```
-
-Generate API docs for all languages via:
-
-```bash
-cd docs
-make html
-```
-
-Generate only the main .rst based documentation:
-
-```bash
-cd docs
-make rsthtml
-```
-
-If changing existing Python APIs or adding new APIs under existing
-modules, ensure that references to the modified APIs are updated in
-existing docs under `docs/source`. Note that the Python doc generation
-process will automatically produce updated API docs, but you should
-still audit for usages of the modified APIs in guides and examples.
-
-If adding a new public Python module, create a corresponding doc file
-for the module under `docs/source/python_api` - [see
-here](https://github.com/mlflow/mlflow/blob/v0.9.1/docs/source/python_api/mlflow.tracking.rst#mlflowtracking)
-for an example.
-
-> Note: If you are experiencing issues with rstcheck warning of failures in files that you did not modify, try:
-
-```bash
-cd docs
-make clean; make html
-```
+For more detailed information, please check the [README.md](https://github.com/mlflow/mlflow/blob/master/docs/README.md) in the `docs/` folder. We're looking forward to your contributions!
 
 ### Sign your work
 

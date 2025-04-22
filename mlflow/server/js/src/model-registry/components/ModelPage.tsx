@@ -24,7 +24,7 @@ import { ModelRegistryRoutes } from '../routes';
 import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { injectIntl } from 'react-intl';
-import { ErrorWrapper } from './../../common/utils/ErrorWrapper';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
@@ -99,6 +99,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
           this.props.deleteRegisteredModelApi(modelName, undefined, true);
           navigate(ModelRegistryRoutes.modelListPageRoute);
         } else {
+          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
           console.error(e);
         }
         this.hasUnfilledRequests = false;
@@ -108,6 +109,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
   };
 
   componentDidMount() {
+    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
     this.loadData(true).catch(console.error);
     this.hasUnfilledRequests = false;
     this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);

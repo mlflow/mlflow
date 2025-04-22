@@ -1,19 +1,35 @@
 import { useDispatch, useSelector } from 'react-redux';
-import { KeyValueEntity } from '../../../types';
 import { ReduxState, ThunkDispatch } from '../../../../redux-types';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { getRunApi } from '../../../actions';
 import { ParagraphSkeleton } from '@databricks/design-system';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { FormattedMessage } from 'react-intl';
+import { shouldEnableGraphQLRunDetailsPage } from '../../../../common/utils/FeatureUtils';
+import { useGetRunQuery } from '../hooks/useGetRunQuery';
 
 export const RunViewParentRunBox = ({ parentRunUuid }: { parentRunUuid: string }) => {
-  const parentRunInfo = useSelector(({ entities }: ReduxState) => {
+  const dispatch = useDispatch<ThunkDispatch>();
+
+  const parentRunInfoRedux = useSelector(({ entities }: ReduxState) => {
     return entities.runInfosByUuid[parentRunUuid];
   });
-  const dispatch = useDispatch<ThunkDispatch>();
+
+  const parentRunInfoGraphql = useGetRunQuery({
+    runUuid: parentRunUuid,
+    disabled: !shouldEnableGraphQLRunDetailsPage(),
+  });
+
+  const parentRunInfo = useMemo(() => {
+    return shouldEnableGraphQLRunDetailsPage() ? parentRunInfoGraphql?.data?.info : parentRunInfoRedux;
+  }, [parentRunInfoGraphql, parentRunInfoRedux]);
+
   useEffect(() => {
+    // Don't call REST API if GraphQL is enabled
+    if (shouldEnableGraphQLRunDetailsPage()) {
+      return;
+    }
     if (!parentRunInfo) {
       dispatch(getRunApi(parentRunUuid));
     }
@@ -32,6 +48,11 @@ export const RunViewParentRunBox = ({ parentRunUuid }: { parentRunUuid: string }
       />
     );
   }
+
+  if (!parentRunInfo.experimentId || !parentRunInfo.runUuid) {
+    return null;
+  }
+
   return (
     <Link to={Routes.getRunPageRoute(parentRunInfo.experimentId, parentRunInfo.runUuid)}>{parentRunInfo.runName}</Link>
   );

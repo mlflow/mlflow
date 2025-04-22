@@ -26,7 +26,8 @@ from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_
 from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.os import get_entry_points, is_windows
+from mlflow.utils.os import is_windows
+from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,
@@ -250,8 +251,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     if sys.platform == "win32":
         if gunicorn_opts is not None or workers is not None:
             raise NotImplementedError(
-                "waitress replaces gunicorn on Windows, "
-                "cannot specify --gunicorn-opts or --workers"
+                "waitress replaces gunicorn on Windows, cannot specify --gunicorn-opts or --workers"
             )
     else:
         if waitress_opts is not None:
@@ -500,6 +500,14 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
     This command deletes all artifacts and metadata associated with the specified runs.
     If the provided artifact URL is invalid, the artifact deletion will be bypassed,
     and the gc process will continue.
+
+    .. attention::
+
+        If you are running an MLflow tracking server with artifact proxying enabled,
+        you **must** set the ``MLFLOW_TRACKING_URI`` environment variable before running
+        this command. Otherwise, the ``gc`` command will not be able to resolve
+        artifact URIs and will not be able to delete the associated artifacts.
+
     """
     from mlflow.utils.time import get_current_time_millis
 
@@ -597,8 +605,8 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
         run = backend_store.get_run(run_id)
         if run.info.lifecycle_stage != LifecycleStage.DELETED:
             raise MlflowException(
-                "Run % is not in `deleted` lifecycle stage. Only runs in"
-                " `deleted` lifecycle stage can be deleted." % run_id
+                f"Run {run_id} is not in `deleted` lifecycle stage. Only runs in"
+                " `deleted` lifecycle stage can be deleted."
             )
         # raise MlflowException if run_id is newer than older_than parameter
         if older_than and run_id not in deleted_run_ids_older_than:

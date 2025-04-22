@@ -7,16 +7,27 @@
 
 import React, { useState, useEffect } from 'react';
 import { LegacySkeleton } from '@databricks/design-system';
-import { getArtifactBytesContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import {
+  getArtifactBytesContent,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../../common/utils/ArtifactUtils';
 import { ImagePreviewGroup, Image } from '../../../shared/building_blocks/Image';
+import { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 
 type Props = {
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
-};
+} & LoggedModelArtifactViewerProps;
 
-const ShowArtifactImageView = ({ runUuid, path, getArtifact = getArtifactBytesContent }: Props) => {
+const ShowArtifactImageView = ({
+  runUuid,
+  path,
+  getArtifact = getArtifactBytesContent,
+  isLoggedModelsMode,
+  loggedModelId,
+}: Props) => {
   const [isLoading, setIsLoading] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [imageUrl, setImageUrl] = useState(null);
@@ -24,15 +35,20 @@ const ShowArtifactImageView = ({ runUuid, path, getArtifact = getArtifactBytesCo
   useEffect(() => {
     setIsLoading(true);
 
+    const artifactLocationUrl =
+      isLoggedModelsMode && loggedModelId
+        ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
+        : getArtifactLocationUrl(path, runUuid);
+
     // Download image contents using XHR so all necessary
     // HTTP headers will be automatically added
-    getArtifact(getArtifactLocationUrl(path, runUuid)).then((result: any) => {
+    getArtifact(artifactLocationUrl).then((result: any) => {
       const options = path.toLowerCase().endsWith('.svg') ? { type: 'image/svg+xml' } : undefined;
       // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
       setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)], options)));
       setIsLoading(false);
     });
-  }, [runUuid, path, getArtifact]);
+  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId]);
 
   return (
     imageUrl && (

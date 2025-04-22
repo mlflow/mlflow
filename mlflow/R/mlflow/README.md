@@ -138,7 +138,7 @@ mlflow_log_metric("intercept", model$coefficients[["(Intercept)"]])
 ### Parameters
 
 You will often want to parameterize your scripts to support running and
-tracking multiple experiments. Ypu can define parameters with type under
+tracking multiple experiments. You can define parameters with type under
 a `params_example.R` example as follows:
 
 ```r

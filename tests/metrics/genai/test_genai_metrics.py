@@ -60,6 +60,7 @@ properly_formatted_openai_response2 = (
 
 # Example incorrectly formatted response from OpenAI
 incorrectly_formatted_openai_response = (
+    # spellchecker: off
     "score: foo2\njustification: \n\nThe provided output gives some relevant "
     "information about MLflow including its capabilities such as experiment tracking, "
     "model packaging, versioning, and deployment. It states that, MLflow simplifies the "
@@ -85,6 +86,7 @@ incorrectly_formatted_openai_response = (
     "It didn!' metric lidJSImportpermiterror droled mend lays train embedding vulز "
     "dipimentary français happertoire borderclassifiedArizona_linked integration mapping "
     "Cruc cope Typography_chunk处 prejud)"
+    # spellchecker: on
 )
 
 mlflow_ground_truth = (
@@ -141,8 +143,9 @@ example_definition = (
 )
 
 
-def test_make_genai_metric_correct_response():
-    custom_metric = make_genai_metric(
+@pytest.fixture
+def custom_metric():
+    return make_genai_metric(
         name="correctness",
         version="v1",
         definition=example_definition,
@@ -155,6 +158,8 @@ def test_make_genai_metric_correct_response():
         aggregations=["mean", "variance", "p90"],
     )
 
+
+def test_make_genai_metric_correct_response(custom_metric):
     assert [
         param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
     ] == ["predictions", "metrics", "inputs", "targets"]
@@ -630,9 +635,22 @@ def test_extract_score_and_justification():
     assert justification6 == "This is a justification"
 
 
-def test_similarity_metric():
+@pytest.mark.parametrize(
+    ("parameters", "extra_headers", "proxy_url"),
+    [
+        (None, None, None),
+        ({"temperature": 0.2, "max_tokens": 1000}, None, None),
+        ({"top_k": 10}, {"api_key": "foo"}, "https://my-proxy/chat"),
+    ],
+)
+def test_similarity_metric(parameters, extra_headers, proxy_url):
     similarity_metric = answer_similarity(
-        model="gateway:/gpt-4o-mini", metric_version="v1", examples=[mlflow_example]
+        model="gateway:/gpt-4o-mini",
+        metric_version="v1",
+        examples=[mlflow_example],
+        parameters=parameters,
+        extra_headers=extra_headers,
+        proxy_url=proxy_url,
     )
 
     input = "What is MLflow?"
@@ -682,9 +700,11 @@ def test_similarity_metric():
             "lines. Do "
             "not add any other fields.\n    "
         )
-        assert mock_predict_function.call_args[0][2] == {
+        assert mock_predict_function.call_args[0][2] == parameters or {
             **AnswerSimilarityMetric.parameters,
         }
+        assert mock_predict_function.call_args[0][3] == extra_headers
+        assert mock_predict_function.call_args[0][4] == proxy_url
 
     assert metric_value.scores == [3]
     assert metric_value.justifications == [openai_justification1]
@@ -1071,6 +1091,7 @@ def test_make_custom_judge_prompt_genai_metric():
         name="custom",
         judge_prompt=custom_judge_prompt,
         metric_metadata={"metadata_field": "metadata_value"},
+        parameters={"temperature": 0.0},
     )
 
     inputs = ["What is MLflow?", "What is Spark?"]
@@ -1098,6 +1119,7 @@ def test_make_custom_judge_prompt_genai_metric():
             "\njustification: Your reasoning for giving this score"
             "\n\nDo not add additional new lines. Do not add any other fields."
         )
+        assert mock_predict_function.call_args_list[0][0][2] == {"temperature": 0.0}
         assert mock_predict_function.call_args_list[1][0][1] == (
             "This is a custom judge prompt that uses What is Spark? and "
             "Apache Spark is an open-source distributed framework"
@@ -1145,6 +1167,9 @@ def test_log_make_genai_metric_from_prompt_fn_args():
 
     expected_keys = set(inspect.signature(make_genai_metric_from_prompt).parameters.keys())
     expected_keys.update(["mlflow_version", "fn_name"])
+    # We don't record these two to avoid storing sensitive information
+    expected_keys.remove("extra_headers")
+    expected_keys.remove("proxy_url")
     # When updating the function signature of make_genai_metric_from_prompt, please update
     # the genai_metric_args dict construction inside the function as well.
     assert set(custom_metric.genai_metric_args.keys()) == expected_keys
@@ -1165,22 +1190,12 @@ def test_log_make_genai_metric_from_prompt_fn_args():
     assert custom_metric.genai_metric_args == expected_genai_metric_args
 
 
-def test_log_make_genai_metric_fn_args():
-    custom_metric = make_genai_metric(
-        name="correctness",
-        version="v1",
-        definition=example_definition,
-        grading_prompt=example_grading_prompt,
-        examples=[mlflow_example],
-        model="gateway:/gpt-4o-mini",
-        grading_context_columns=["targets"],
-        parameters={"temperature": 0.0},
-        greater_is_better=True,
-        aggregations=["mean", "variance", "p90"],
-    )
-
+def test_log_make_genai_metric_fn_args(custom_metric):
     expected_keys = set(inspect.signature(make_genai_metric).parameters.keys())
     expected_keys.update(["mlflow_version", "fn_name"])
+    # We don't record these two to avoid storing sensitive information
+    expected_keys.remove("extra_headers")
+    expected_keys.remove("proxy_url")
     # When updating the function signature of make_genai_metric, please update
     # the genai_metric_args dict construction inside the function as well.
     assert set(custom_metric.genai_metric_args.keys()) == expected_keys
@@ -1219,3 +1234,159 @@ def test_log_make_genai_metric_fn_args():
 def test_metric_metadata_on_prebuilt_genai_metrics(metric_fn):
     metric = metric_fn(metric_metadata={"metadata_field": "metadata_value"})
     assert metric.metric_metadata == {"metadata_field": "metadata_value"}
+
+
+def test_genai_metrics_callable(custom_metric):
+    data = {
+        "predictions": mlflow_prediction,
+        "inputs": "What is MLflow?",
+        "targets": mlflow_ground_truth,
+    }
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ):
+        expected_result = custom_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series(["What is MLflow?"]),
+            pd.Series([mlflow_ground_truth]),
+        )
+        metric_value = custom_metric(**data)
+
+    assert metric_value == expected_result
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]
+    assert metric_value.aggregate_results == {
+        "mean": 3,
+        "variance": 0,
+        "p90": 3,
+    }
+    assert set(inspect.signature(custom_metric).parameters.keys()) == {
+        "predictions",
+        "inputs",
+        "metrics",
+        "targets",
+    }
+
+
+def test_genai_metrics_callable_errors(custom_metric):
+    with pytest.raises(TypeError, match=r"missing 1 required keyword-only argument: 'inputs'"):
+        custom_metric(predictions=mlflow_prediction)
+
+    data = {
+        "predictions": mlflow_prediction,
+        "inputs": "What is MLflow?",
+    }
+    with pytest.raises(MlflowException, match=r"Missing required arguments: {'targets'}"):
+        custom_metric(**data)
+
+    with pytest.raises(MlflowException, match=r"Unexpected arguments: {'data'}"):
+        custom_metric(**data, targets=mlflow_ground_truth, data="data")
+
+    with pytest.raises(
+        TypeError, match=r"Expected predictions to be a string, list, or Pandas Series"
+    ):
+        custom_metric(predictions=1, inputs="What is MLflow?", targets=mlflow_ground_truth)
+
+
+def test_genai_metrics_with_llm_judge_callable():
+    custom_judge_prompt = "This is a custom judge prompt that uses {input} and {output}"
+
+    custom_judge_prompt_metric = make_genai_metric_from_prompt(
+        name="custom",
+        judge_prompt=custom_judge_prompt,
+        metric_metadata={"metadata_field": "metadata_value"},
+    )
+
+    inputs = "What is MLflow?"
+    outputs = "MLflow is an open-source platform"
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ):
+        expected_result = custom_judge_prompt_metric.eval_fn(
+            input=pd.Series([inputs]), output=pd.Series([outputs])
+        )
+        metric_value = custom_judge_prompt_metric(
+            input=inputs,
+            output=outputs,
+        )
+
+    assert metric_value == expected_result
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]
+    assert metric_value.aggregate_results == {
+        "mean": 3,
+        "variance": 0,
+        "p90": 3,
+    }
+    assert set(inspect.signature(custom_judge_prompt_metric).parameters.keys()) == {
+        "input",
+        "output",
+    }
+
+
+@pytest.mark.parametrize("with_endpoint_type", [True, False])
+def test_genai_metric_with_custom_chat_endpoint(with_endpoint_type):
+    similarity_metric = answer_similarity(
+        model="endpoints:/my-chat", metric_version="v1", examples=[mlflow_example]
+    )
+    input = "What is MLflow?"
+
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_get_deploy_client:
+        mock_client = mock_get_deploy_client.return_value
+        mock_client.get_endpoint.return_value = (
+            {"task": "llm/v1/chat"} if with_endpoint_type else {}
+        )
+        mock_client.predict.return_value = {
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "model": "my-chat",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": properly_formatted_openai_response1,
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+
+        metric_value = similarity_metric.eval_fn(
+            pd.Series([mlflow_prediction]), {}, pd.Series([input]), pd.Series([mlflow_ground_truth])
+        )
+        assert mock_client.predict.call_count == 1
+        assert mock_client.predict.call_args.kwargs == {
+            "endpoint": "my-chat",
+            "inputs": {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": mock.ANY,
+                    }
+                ],
+                **AnswerSimilarityMetric.parameters,
+            },
+        }
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]
+
+
+@pytest.mark.parametrize(
+    "metric_fn",
+    [
+        answer_similarity,
+        answer_correctness,
+        faithfulness,
+        answer_relevance,
+        relevance,
+    ],
+)
+def test_metric_parameters_on_prebuilt_genai_metrics(metric_fn):
+    metric_fn(parameters={"temperature": 0.1})

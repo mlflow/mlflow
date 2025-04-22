@@ -46,6 +46,7 @@ export const EvaluationArtifactViewEmptyState = ({
           values={{
             link: (chunks) => (
               <Typography.Link
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactviewemptystate.tsx_48"
                 openInNewTab
                 href="https://mlflow.org/docs/latest/python_api/mlflow.html?highlight=log_table#mlflow.log_table"
                 target="_blank"

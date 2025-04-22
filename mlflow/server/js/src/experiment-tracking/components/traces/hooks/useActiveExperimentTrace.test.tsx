@@ -1,4 +1,4 @@
-import { renderHook, act } from '@testing-library/react-for-react-18';
+import { renderHook, act } from '@testing-library/react';
 import { useActiveExperimentTrace } from './useActiveExperimentTrace';
 import { useSearchParams } from '../../../../common/utils/RoutingUtils';
 
@@ -8,7 +8,7 @@ jest.mock('../../../../common/utils/RoutingUtils', () => ({
 
 describe('useActiveExperimentTrace', () => {
   let mockSearchParams = new URLSearchParams();
-  const mockSetSearchParams = jest.fn().mockImplementation((setter) => {
+  const mockSetSearchParams = jest.fn((setter) => {
     mockSearchParams = setter(mockSearchParams);
   });
 

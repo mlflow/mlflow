@@ -5,7 +5,7 @@ import math
 import operator
 import re
 import shlex
-from typing import Any, Dict
+from typing import Any
 
 import sqlparse
 from packaging.version import Version
@@ -22,6 +22,7 @@ from sqlparse.tokens import Token as TokenType
 
 from mlflow.entities import RunInfo
 from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
@@ -297,8 +298,8 @@ class SearchUtils:
         elif expect_quoted_value:
             raise MlflowException(
                 "Parameter value is either not quoted or unidentified quote "
-                "types used for string value %s. Use either single or double "
-                "quotes." % value,
+                f"types used for string value {value}. Use either single or double "
+                "quotes.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         else:
@@ -338,9 +339,9 @@ class SearchUtils:
                 entity_type, key = tokens
         except ValueError:
             raise MlflowException(
-                "Invalid identifier '%s'. Columns should be specified as "
+                f"Invalid identifier {identifier!r}. Columns should be specified as "
                 "'attribute.<key>', 'metric.<key>', 'tag.<key>', 'dataset.<key>', or "
-                "'param.'." % identifier,
+                "'param.'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         identifier = cls._valid_entity_type(entity_type)
@@ -507,8 +508,8 @@ class SearchUtils:
             )
         elif len(parsed) > 1:
             raise MlflowException(
-                "Search filter contained multiple expression '%s'. "
-                "Provide AND-ed expression list." % filter_string,
+                f"Search filter contained multiple expression {filter_string!r}. "
+                "Provide AND-ed expression list.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return cls._process_statement(parsed[0])
@@ -518,8 +519,7 @@ class SearchUtils:
         if key_type == cls._METRIC_IDENTIFIER:
             if comparator not in cls.VALID_METRIC_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' "
-                    f"not one of '{cls.VALID_METRIC_COMPARATORS}",
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_METRIC_COMPARATORS}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -530,8 +530,7 @@ class SearchUtils:
         if key_type == cls._PARAM_IDENTIFIER:
             if comparator not in cls.VALID_PARAM_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' "
-                    f"not one of '{cls.VALID_PARAM_COMPARATORS}'",
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_PARAM_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -1099,12 +1098,28 @@ class SearchModelUtils(SearchUtils):
             lhs = getattr(model, key)
             value = int(value)
         elif cls.is_tag(key_type, comparator):
-            # if the filter doesn't apply, do we return False or?
-            lhs = model.tags.get(key, None)
+            # NB: We should use the private attribute `_tags` instead of the `tags` property
+            # to consider all tags including reserved ones.
+            lhs = model._tags.get(key, None)
         else:
             raise MlflowException(
                 f"Invalid search expression type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
             )
+
+        # NB: Handling the special `mlflow.prompt.is_prompt` tag. This tag is used for
+        #   distinguishing between prompt models and normal models. For example, we want to
+        #   search for models only by the following filter string:
+        #
+        #     tags.`mlflow.prompt.is_prompt` != 'true'
+        #     tags.`mlflow.prompt.is_prompt` = 'false'
+        #
+        #   However, models do not have this tag, so lhs is None in this case. Instead of returning
+        #   False like normal tag filter, we need to return True here.
+        if key == IS_PROMPT_TAG_KEY and lhs is None:
+            return (comparator == "=" and value == "false") or (
+                comparator == "!=" and value == "true"
+            )
+
         if lhs is None:
             return False
 
@@ -1284,6 +1299,21 @@ class SearchModelVersionUtils(SearchUtils):
             raise MlflowException(
                 f"Invalid search expression type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
             )
+
+        # NB: Handling the special `mlflow.prompt.is_prompt` tag. This tag is used for
+        #   distinguishing between prompt models and normal models. For example, we want to
+        #   search for models only by the following filter string:
+        #
+        #     tags.`mlflow.prompt.is_prompt` != 'true'
+        #     tags.`mlflow.prompt.is_prompt` = 'false'
+        #
+        #   However, models do not have this tag, so lhs is None in this case. Instead of returning
+        #   False like normal tag filter, we need to return True here.
+        if key == IS_PROMPT_TAG_KEY and lhs is None:
+            return (comparator == "=" and value == "false") or (
+                comparator == "!=" and value == "true"
+            )
+
         if lhs is None:
             return False
 
@@ -1461,8 +1491,8 @@ class SearchModelVersionUtils(SearchUtils):
             )
         elif len(parsed) > 1:
             raise MlflowException(
-                "Search filter contained multiple expression '%s'. "
-                "Provide AND-ed expression list." % filter_string,
+                f"Search filter contained multiple expression {filter_string!r}. "
+                "Provide AND-ed expression list.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return cls._process_statement(parsed[0])
@@ -1595,7 +1625,7 @@ class SearchTraceUtils(SearchUtils):
         return [cls._replace_key_to_tag_or_metadata(p) for p in parsed]
 
     @classmethod
-    def _replace_key_to_tag_or_metadata(cls, parsed: Dict[str, Any]):
+    def _replace_key_to_tag_or_metadata(cls, parsed: dict[str, Any]):
         """
         Replace search key to tag or metadata key if it is in the mapping.
         """

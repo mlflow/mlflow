@@ -8,15 +8,27 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from mlflow.entities.file_info import FileInfo
-from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
-from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.entities.multipart_upload import (
+    CreateMultipartUploadResponse,
+    MultipartUploadPart,
+)
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowTraceDataCorrupted,
+    MlflowTraceDataNotFound,
+)
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.tracing.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.annotations import developer_stable
-from mlflow.utils.async_logging.async_artifacts_logging_queue import AsyncArtifactsLoggingQueue
+from mlflow.utils.async_logging.async_artifacts_logging_queue import (
+    AsyncArtifactsLoggingQueue,
+)
 from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
 from mlflow.utils.validation import bad_path_message, path_not_unique
 
@@ -37,6 +49,24 @@ def _truncate_error(err: str, max_length: int = 10_000) -> str:
         return err
     half = max_length // 2
     return err[:half] + "\n\n*** Error message is too long, truncated ***\n\n" + err[-half:]
+
+
+def _retry_with_new_creds(try_func, creds_func, orig_creds=None):
+    """
+    Attempt the try_func with the original credentials (og_creds) if provided, or by generating the
+    credentials using creds_func. If the try_func throws, then try again with new credentials
+    provided by creds_func.
+    """
+    try:
+        first_creds = creds_func() if orig_creds is None else orig_creds
+        return try_func(first_creds)
+    except Exception as e:
+        _logger.info(
+            f"Failed to complete request, possibly due to credential expiration (Error: {e})."
+            " Refreshing credentials and trying again..."
+        )
+        new_creds = creds_func()
+        return try_func(new_creds)
 
 
 @developer_stable
@@ -67,6 +97,9 @@ class ArtifactRepository:
                 self.log_artifact(tmp_path, artifact_path)
 
         self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(artifact_uri={self.artifact_uri!r})"
 
     def _create_thread_pool(self):
         return ThreadPoolExecutor(
@@ -133,7 +166,7 @@ class ArtifactRepository:
         """
 
     @abstractmethod
-    def list_artifacts(self, path):
+    def list_artifacts(self, path: Optional[str] = None) -> list:
         """
         Return all the artifacts for this run_id directly under path. If path is a file, returns
         an empty list. Will error if path is neither a file nor directory.
@@ -318,7 +351,7 @@ class ArtifactRepository:
         num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
         return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
 
-    def download_trace_data(self) -> Dict[str, Any]:
+    def download_trace_data(self) -> dict[str, Any]:
         """
         Download the trace data.
 
@@ -354,14 +387,14 @@ class ArtifactRepository:
 def write_local_temp_trace_data_file(trace_data: str):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_file = Path(temp_dir, TRACE_DATA_FILE_NAME)
-        temp_file.write_text(trace_data)
+        temp_file.write_text(trace_data, encoding="utf-8")
         yield temp_file
 
 
 def try_read_trace_data(trace_data_path):
     if not os.path.exists(trace_data_path):
         raise MlflowTraceDataNotFound(artifact_path=trace_data_path)
-    with open(trace_data_path) as f:
+    with open(trace_data_path, encoding="utf-8") as f:
         data = f.read()
     if not data:
         raise MlflowTraceDataNotFound(artifact_path=trace_data_path)
@@ -392,7 +425,7 @@ class MultipartUploadMixin(ABC):
         self,
         local_file: str,
         upload_id: str,
-        parts: List[MultipartUploadPart],
+        parts: list[MultipartUploadPart],
         artifact_path: Optional[str] = None,
     ) -> None:
         """

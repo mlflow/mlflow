@@ -45,5 +45,3 @@ export const ExperimentPage = () => {
     </PageWrapper>
   );
 };
-
-export default ExperimentPage;

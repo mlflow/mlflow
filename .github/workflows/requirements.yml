@@ -15,9 +15,6 @@ on:
   schedule:
     - cron: "0 13 * * *"
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -26,7 +23,7 @@ env:
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
-  PYTHON_VERSION: "3.8"
+  PYTHON_VERSION: "3.10" # mininum supported version + 1
 
 defaults:
   run:
@@ -36,9 +33,10 @@ jobs:
   skinny:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions: {}
     if: (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
@@ -60,9 +58,10 @@ jobs:
   core:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions: {}
     if: (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
@@ -81,6 +80,8 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh --ml
           pip install '.[gateway]'
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
       - name: Run tests
         run: |
           source dev/setup-ssh.sh

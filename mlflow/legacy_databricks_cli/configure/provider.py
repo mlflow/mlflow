@@ -109,6 +109,7 @@ def update_and_persist_config(profile, databricks_config):
     same profile.
 
     Args:
+        profile: str
         databricks_config: DatabricksConfig
     """
     profile = profile if profile else DEFAULT_SECTION
@@ -132,13 +133,12 @@ def get_config():
 
     If no DatabricksConfig can be found, an InvalidConfigurationError will be raised.
     """
-    global _config_provider
     if _config_provider:
         config = _config_provider.get_config()
         if config:
             return config
         raise InvalidConfigurationError(
-            "Custom provider returned no DatabricksConfig: %s" % _config_provider
+            f"Custom provider returned no DatabricksConfig: {_config_provider}"
         )
 
     config = DefaultConfigProvider().get_config()
@@ -182,7 +182,7 @@ def set_config_provider(provider):
     """
     global _config_provider
     if provider and not isinstance(provider, DatabricksConfigProvider):
-        raise Exception("Must be instance of DatabricksConfigProvider: %s" % _config_provider)
+        raise Exception(f"Must be instance of DatabricksConfigProvider: {_config_provider}")
     _config_provider = provider
 
 
@@ -191,7 +191,6 @@ def get_config_provider():
     Returns the current DatabricksConfigProvider.
     If None, the DefaultConfigProvider will be used.
     """
-    global _config_provider
     return _config_provider
 
 
@@ -469,10 +468,15 @@ class DatabricksConfig:
         return self.auth_type == "databricks-cli"
 
     @property
+    def is_azure_cli_auth_type(self):
+        return self.auth_type == "azure-cli"
+
+    @property
     def is_valid(self):
         return (
             self.is_valid_with_token
             or self.is_valid_with_password
             or self.is_valid_with_client_id_secret
             or self.is_databricks_cli_auth_type
+            or self.is_azure_cli_auth_type
         )

@@ -1,28 +1,34 @@
 import { KeyValueEntity, RunInfoEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { DifferenceCardConfigCompareGroup, RunsChartType, RunsChartsDifferenceCardConfig } from '../runs-charts.types';
-import { getFixedPointValue, differenceView, isDifferent, getDifferenceViewDataGroups } from './differenceView';
+import {
+  getDifferenceChartDisplayedValue,
+  differenceView,
+  isDifferent,
+  getDifferenceViewDataGroups,
+  DifferenceChartCellDirection,
+} from './differenceView';
 
 describe('getFixedPointValue correctly rounds numbers and parses strings', () => {
   test('should convert number to 2 decimal points', () => {
-    expect(getFixedPointValue(3.33333333)).toEqual('3.33');
+    expect(getDifferenceChartDisplayedValue(3.33333333)).toEqual('3.33');
   });
 
   test('should convert number to 5 decimal points', () => {
-    expect(getFixedPointValue(3.123456, 5)).toEqual('3.12346');
+    expect(getDifferenceChartDisplayedValue(3.123456, 5)).toEqual('3.12346');
   });
 
   test('should not change strings', () => {
-    expect(getFixedPointValue('this is a string', 5)).toEqual('this is a string');
+    expect(getDifferenceChartDisplayedValue('this is a string', 5)).toEqual('this is a string');
   });
 });
 
 describe('differenceView correctly displays text indicating a positive or negative difference', () => {
   test('should display positive text with +', () => {
-    expect(differenceView(3.33333333, 1)).toEqual('+2.33');
+    expect(differenceView(3.33333333, 1)).toEqual({ label: '+2.33', direction: DifferenceChartCellDirection.POSITIVE });
   });
 
   test('should display negative text with -', () => {
-    expect(differenceView(1, 3.12345)).toEqual('-2.12');
+    expect(differenceView(1, 3.12345)).toEqual({ label: '-2.12', direction: DifferenceChartCellDirection.NEGATIVE });
   });
 
   test('should ignore strings', () => {

@@ -12,7 +12,6 @@ import { PromoteModelButton } from './PromoteModelButton';
 import { SchemaTable } from './SchemaTable';
 import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import { message } from 'antd';
 import { Descriptions } from '../../common/components/Descriptions';
 import { modelStagesMigrationGuideLink } from '../../common/constants';
 import { Alert, Modal, Button, InfoIcon, LegacyTooltip, Typography } from '@databricks/design-system';
@@ -23,6 +22,8 @@ import {
   ModelVersionStatusIcons,
   DefaultModelVersionStatusMessages,
   ACTIVE_STAGES,
+  type ModelVersionActivity,
+  type PendingModelVersionActivity,
 } from '../constants';
 import Routers from '../../experiment-tracking/routes';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
@@ -39,20 +40,25 @@ import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelVersionViewAliasEditor } from './aliases/ModelVersionViewAliasEditor';
 import type { ModelEntity, RunInfoEntity } from '../../experiment-tracking/types';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 type ModelVersionViewImplProps = {
   modelName?: string;
   modelVersion?: any;
   modelEntity?: ModelEntity;
   schema?: any;
-  activities?: Record<string, unknown>[];
+  activities?: ModelVersionActivity[];
   transitionRequests?: Record<string, unknown>[];
   onCreateComment: (...args: any[]) => any;
   onEditComment: (...args: any[]) => any;
   onDeleteComment: (...args: any[]) => any;
   runInfo?: RunInfoEntity;
   runDisplayName?: string;
-  handleStageTransitionDropdownSelect: (...args: any[]) => any;
+  handleStageTransitionDropdownSelect: (
+    activity: PendingModelVersionActivity,
+    comment?: string,
+    archiveExistingVersions?: boolean,
+  ) => void;
   deleteModelVersionApi: (...args: any[]) => any;
   handleEditDescription: (...args: any[]) => any;
   onAliasesModified: () => void;
@@ -138,17 +144,21 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
         this.setState({ isTagsRequestPending: false });
         (form as any).resetFields();
       })
-      .catch((ex: any) => {
+      .catch((ex: ErrorWrapper | Error) => {
         this.setState({ isTagsRequestPending: false });
+        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
         console.error(ex);
-        message.error(
+
+        const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
+
+        Utils.displayGlobalErrorNotification(
           this.props.intl.formatMessage(
             {
               defaultMessage: 'Failed to add tag. Error: {userVisibleError}',
               description: 'Text for user visible error when adding tag in model version view',
             },
             {
-              userVisibleError: ex.getUserVisibleError(),
+              userVisibleError,
             },
           ),
         );
@@ -158,16 +168,20 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
   handleSaveEdit = ({ name, value }: any) => {
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
-    return this.props.setModelVersionTagApi(modelName, version, name, value).catch((ex: any) => {
+    return this.props.setModelVersionTagApi(modelName, version, name, value).catch((ex: ErrorWrapper | Error) => {
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       console.error(ex);
-      message.error(
+
+      const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
+
+      Utils.displayGlobalErrorNotification(
         this.props.intl.formatMessage(
           {
             defaultMessage: 'Failed to set tag. Error: {userVisibleError}',
             description: 'Text for user visible error when setting tag in model version view',
           },
           {
-            userVisibleError: ex.getUserVisibleError(),
+            userVisibleError,
           },
         ),
       );
@@ -177,16 +191,20 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
   handleDeleteTag = ({ name }: any) => {
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
-    return this.props.deleteModelVersionTagApi(modelName, version, name).catch((ex: any) => {
+    return this.props.deleteModelVersionTagApi(modelName, version, name).catch((ex: ErrorWrapper | Error) => {
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       console.error(ex);
-      message.error(
+
+      const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
+
+      Utils.displayGlobalErrorNotification(
         this.props.intl.formatMessage(
           {
             defaultMessage: 'Failed to delete tag. Error: {userVisibleError}',
             description: 'Text for user visible error when deleting tag in model version view',
           },
           {
-            userVisibleError: ex.getUserVisibleError(),
+            userVisibleError,
           },
         ),
       );
@@ -223,12 +241,16 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
   renderDisabledStage(modelVersion: any) {
     const tooltipContent = (
       <FormattedMessage
-        defaultMessage="Stages have been deprecated in the new Model Registry UI. Learn how to 
+        defaultMessage="Stages have been deprecated in the new Model Registry UI. Learn how to
       migrate models <link>here</link>."
         description="Tooltip content for the disabled stage metadata in model version page"
         values={{
           link: (chunks: any) => (
-            <Typography.Link href={modelStagesMigrationGuideLink} openInNewTab>
+            <Typography.Link
+              componentId="codegen_mlflow_app_src_model-registry_components_modelversionview.tsx_301"
+              href={modelStagesMigrationGuideLink}
+              openInNewTab
+            >
               {chunks}
             </Typography.Link>
           ),
@@ -262,7 +284,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
           description: 'Label name for registered timestamp metadata in model version page',
         })}
       >
-        {Utils.formatTimestamp(creation_timestamp)}
+        {Utils.formatTimestamp(creation_timestamp, this.props.intl)}
       </Descriptions.Item>
     );
   }
@@ -292,12 +314,16 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
           description: 'Label name for last modified timestamp metadata in model version page',
         })}
       >
-        {Utils.formatTimestamp(last_updated_timestamp)}
+        {Utils.formatTimestamp(last_updated_timestamp, this.props.intl)}
       </Descriptions.Item>
     );
   }
 
   renderSourceRunDescription() {
+    // We don't show the source run link if the model version is not created from a run
+    if (!this.props.modelVersion?.run_id) {
+      return null;
+    }
     return (
       <Descriptions.Item
         key="description-key-source-run"

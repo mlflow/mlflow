@@ -1,8 +1,10 @@
+import os
 import random
 from collections import namedtuple
 from unittest import mock
 
 import numpy as np
+import pandas as pd
 import pytest
 import sklearn.neighbors as knn
 from sklearn import datasets
@@ -14,11 +16,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import add_libraries_to_model
 from mlflow.models.utils import (
     _config_context,
+    _convert_llm_input_data,
     _enforce_array,
     _enforce_datatype,
     _enforce_object,
     _enforce_property,
     _flatten_nested_params,
+    _validate_and_get_model_code_path,
     _validate_model_code_from_notebook,
     get_model_version_from_model_uri,
 )
@@ -52,8 +56,8 @@ def test_adding_libraries_to_model_default(sklearn_knn_model):
     with mlflow.start_run():
         run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
 
@@ -76,8 +80,8 @@ def test_adding_libraries_to_model_new_run(sklearn_knn_model):
     with mlflow.start_run():
         original_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
 
@@ -103,8 +107,8 @@ def test_adding_libraries_to_model_run_id_passed(sklearn_knn_model):
     with mlflow.start_run():
         original_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
 
@@ -131,8 +135,8 @@ def test_adding_libraries_to_model_new_model_name(sklearn_knn_model):
     # Log a model
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
 
@@ -159,8 +163,8 @@ def test_adding_libraries_to_model_when_version_source_None(sklearn_knn_model):
     with mlflow.start_run():
         original_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            artifact_path=artifact_path,
+            sklearn_knn_model.model,
+            artifact_path,
             registered_model_name=model_name,
         )
 
@@ -266,7 +270,7 @@ def test_enforce_property():
     assert _enforce_property(data, prop) == data
 
     prop = Property("a", Array(DataType.binary))
-    assert _enforce_property(data, prop) == data
+    assert _enforce_property(data, prop) == [b"some_sentence1", b"some_sentence2"]
 
     data = np.array([np.int32(1), np.int32(2)])
     prop = Property("a", Array(DataType.integer))
@@ -392,15 +396,11 @@ def test_enforce_array_with_errors():
     with pytest.raises(MlflowException, match=r"Expected data to be list or numpy array, got str"):
         _enforce_array("abc", Array(DataType.string))
 
-    with pytest.raises(
-        MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
-    ):
+    with pytest.raises(MlflowException, match=r"Incompatible input types"):
         _enforce_array([123, 456, 789], Array(DataType.string))
 
     # Nested array with mixed type elements
-    with pytest.raises(
-        MlflowException, match=r"Failed to enforce schema of data `1` with dtype `string`"
-    ):
+    with pytest.raises(MlflowException, match=r"Incompatible input types"):
         _enforce_array([["a", "b"], [1, 2]], Array(Array(DataType.string)))
 
     # Nested array with different nest level
@@ -570,3 +570,49 @@ def test_flatten_nested_params():
     }
 
     assert _flatten_nested_params(rag_params) == expected_rag_flattened_params
+
+
+@pytest.mark.parametrize(
+    ("data", "target", "target_type"),
+    [
+        (pd.DataFrame([{"a": [1, 2, 3]}]), [{"a": [1, 2, 3]}], list),
+        (pd.DataFrame([{"a": np.array([1, 2, 3])}]), [{"a": [1, 2, 3]}], list),
+        (pd.DataFrame([{0: np.array(["abc"])[0]}]), ["abc"], list),
+        (np.array([1, 2, 3]), [1, 2, 3], list),
+        (np.array([123])[0], 123, int),
+        (np.array(["abc"])[0], "abc", str),
+    ],
+)
+def test_convert_llm_input_data(data, target, target_type):
+    result = _convert_llm_input_data(data)
+    assert result == target
+    assert type(result) == target_type
+
+
+@pytest.mark.parametrize(
+    ("model_path", "error_message"),
+    [
+        (
+            "model.py",
+            f"The provided model path '{os.getcwd()}/model.py' does not exist. "
+            "Ensure the file path is valid and try again.",
+        ),
+        (
+            "model",
+            f"The provided model path '{os.getcwd()}/model' does not exist. "
+            "Ensure the file path is valid and try again. "
+            f"Perhaps you meant '{os.getcwd()}/model.py'?",
+        ),
+    ],
+)
+def test_validate_and_get_model_code_path_not_found(model_path, error_message, tmp_path):
+    with pytest.raises(MlflowException, match=error_message):
+        _validate_and_get_model_code_path(model_path, tmp_path)
+
+
+def test_validate_and_get_model_code_path_success(tmp_path):
+    # if the model file exists, return the path as is
+    model_path = os.path.abspath(__file__)
+    actual = _validate_and_get_model_code_path(model_path, tmp_path)
+
+    assert actual == model_path

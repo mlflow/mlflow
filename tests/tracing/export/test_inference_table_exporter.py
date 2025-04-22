@@ -25,7 +25,7 @@ def test_export():
         span_id=1,
         parent_id=None,
         start_time=0,
-        end_time=1_000_000,  # 1 milisecond
+        end_time=1_000_000,  # 1 millisecond
     )
     span = LiveSpan(otel_span, request_id=_REQUEST_ID)
     span.set_inputs({"input1": "very long input" * 100})
@@ -63,6 +63,9 @@ def test_export():
         "span_id": encode_span_id(1),
     }
     assert isinstance(spans[0]["attributes"], dict)
+
+    # Last active trace ID should be set
+    assert mlflow.get_last_active_trace_id() == _REQUEST_ID
 
 
 def test_export_warn_invalid_attributes():

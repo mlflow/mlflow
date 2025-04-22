@@ -2,17 +2,11 @@ import json
 import time
 from enum import Enum
 
-import boto3
-import botocore.config
-import botocore.exceptions
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-
 from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
 )
-from mlflow.gateway.exceptions import AIGatewayConfigException
+from mlflow.gateway.exceptions import AIGatewayConfigException, AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicAdapter
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.cohere import CohereAdapter
@@ -24,6 +18,13 @@ AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
 
 class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
     @classmethod
+    def chat_to_model(cls, payload, config):
+        payload = super().chat_to_model(payload, config)
+        # "model" keys are not supported in Bedrock"
+        payload.pop("model", None)
+        return payload
+
+    @classmethod
     def completions_to_model(cls, payload, config):
         payload = super().completions_to_model(payload, config)
 
@@ -34,6 +35,9 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
             payload.get("max_tokens_to_sample", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS),
             AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS,
         )
+
+        # "model" keys are not supported in Bedrock"
+        payload.pop("model", None)
         return payload
 
     @classmethod
@@ -48,7 +52,7 @@ class AWSTitanAdapter(ProviderAdapter):
     def completions_to_model(cls, payload, config):
         n = payload.pop("n", 1)
         if n != 1:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail=f"'n' must be '1' for AWS Titan models. Received value: '{n}'.",
             )
@@ -143,7 +147,7 @@ class AmazonBedrockModelProvider(Enum):
     ANTHROPIC = "anthropic"
 
     @property
-    def adapter(self):
+    def adapter_class(self) -> type[ProviderAdapter]:
         return AWS_MODEL_PROVIDER_TO_ADAPTER.get(self)
 
     @classmethod
@@ -165,6 +169,7 @@ AWS_MODEL_PROVIDER_TO_ADAPTER = {
 
 class AmazonBedrockProvider(BaseProvider):
     NAME = "Amazon Bedrock"
+    CONFIG_TYPE = AmazonBedrockConfig
 
     def __init__(self, config: RouteConfig):
         super().__init__(config)
@@ -185,6 +190,9 @@ class AmazonBedrockProvider(BaseProvider):
         )
 
     def get_bedrock_client(self):
+        import boto3
+        import botocore.exceptions
+
         if self._client is not None and not self._client_expired():
             return self._client
 
@@ -245,22 +253,24 @@ class AmazonBedrockProvider(BaseProvider):
         return AmazonBedrockModelProvider.of_str(provider)
 
     @property
-    def underlying_provider_adapter(self) -> ProviderAdapter:
+    def adapter_class(self) -> type[ProviderAdapter]:
         provider = self._underlying_provider
         if not provider:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail=f"Unknown Amazon Bedrock model type {self._underlying_provider}",
             )
-        adapter = provider.adapter
+        adapter = provider.adapter_class
         if not adapter:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail=f"Don't know how to handle {self._underlying_provider} for Amazon Bedrock",
             )
         return adapter
 
     def _request(self, body):
+        import botocore.exceptions
+
         try:
             response = self.get_bedrock_client().invoke_model(
                 body=json.dumps(body).encode(),
@@ -277,11 +287,13 @@ class AmazonBedrockProvider(BaseProvider):
         #     raise HTTPException(status_code=422, detail=str(e)) from e
 
         except botocore.exceptions.ReadTimeoutError as e:
-            raise HTTPException(status_code=408) from e
+            raise AIGatewayException(status_code=408) from e
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         self.check_for_model_field(payload)
         payload = jsonable_encoder(payload, exclude_none=True, exclude_defaults=True)
-        payload = self.underlying_provider_adapter.completions_to_model(payload, self.config)
+        payload = self.adapter_class.completions_to_model(payload, self.config)
         response = self._request(payload)
-        return self.underlying_provider_adapter.model_to_completions(response, self.config)
+        return self.adapter_class.model_to_completions(response, self.config)

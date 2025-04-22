@@ -2,6 +2,7 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
+
 import json
 import logging
 import math
@@ -11,7 +12,6 @@ import posixpath
 import sys
 import time
 import urllib.parse
-from typing import Dict
 from unittest import mock
 
 import flask
@@ -154,7 +154,7 @@ def test_create_experiment_validation(mlflow_client):
         },
         "Invalid value 123 for parameter 'name'",
     )
-    assert_bad_request({}, "Missing value for required parameter 'name'")
+    assert_bad_request({}, "Missing value for required parameter 'name'.")
     assert_bad_request(
         {
             "name": "experiment name",
@@ -661,8 +661,7 @@ def test_log_batch_validation(mlflow_client):
     ## Should 400 if missing timestamp
     assert_bad_request(
         {"run_id": run_id, "metrics": [{"key": "mae", "value": 2.5}]},
-        """Invalid value [{\\"key\\":\\"mae\\",\\"value\\":2.5}] """
-        + "for parameter 'metrics' supplied",
+        "Missing value for required parameter 'metrics[0].timestamp'",
     )
 
     ## Should 200 if timestamp provided but step is not
@@ -697,7 +696,7 @@ def test_log_model(mlflow_client):
 
                 history_model_meta = models[i].copy()
                 original_model_uuid = history_model_meta.pop("model_uuid")
-                model_meta = model.to_dict().copy()
+                model_meta = model.get_tags_dict().copy()
                 new_model_uuid = model_meta.pop("model_uuid")
                 assert history_model_meta == model_meta
                 assert original_model_uuid != new_model_uuid
@@ -1032,9 +1031,10 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
         def get(self, key, default=None):
             return self.args_dict.get(key, default)
 
-    with mock.patch(
-        "mlflow.server.handlers._get_tracking_store", return_value=mock_store
-    ), flask_app.test_request_context() as mock_context:
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=mock_store),
+        flask_app.test_request_context() as mock_context,
+    ):
         run_ids = [str(i) for i in range(10)]
         mock_context.request.args = MockRequestArgs(
             {
@@ -1483,6 +1483,17 @@ def test_create_model_version_with_non_local_source(mlflow_client):
     assert response.status_code == 400
     assert "If supplying a source as an http, https," in response.json()["message"]
 
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": f"dbfs:/{run.info.run_id}/artifacts/a%3f/../../../../../../../../../../",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "Invalid model version source" in response.json()["message"]
+
 
 def test_create_model_version_with_file_uri(mlflow_client):
     name = "test"
@@ -1658,7 +1669,9 @@ def test_log_inputs_validation(mlflow_client):
         source="source1",
     )
     tags = [InputTag(key="tag1", value="value1")]
-    dataset_inputs = [message_to_json(DatasetInput(dataset=dataset, tags=tags).to_proto())]
+    dataset_inputs = [
+        json.loads(message_to_json(DatasetInput(dataset=dataset, tags=tags).to_proto()))
+    ]
     assert_bad_request(
         {
             "datasets": dataset_inputs,
@@ -1986,7 +1999,7 @@ def test_start_and_end_trace(mlflow_client):
     client = mlflow_client._tracking_client
 
     # Helper function to remove auto-added system tags (mlflow.xxx) from testing
-    def _exclude_system_tags(tags: Dict[str, str]):
+    def _exclude_system_tags(tags: dict[str, str]):
         return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
 
     trace_info = client.start_trace(

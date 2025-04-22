@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { ReduxState, type ThunkDispatch } from '../../redux-types';
 import { getExperimentApi, searchExperimentsApi, setCompareExperiments, setExperimentTagApi } from '../actions';
-import { Navigate } from '../../common/utils/RoutingUtils';
+import { Navigate, useParams } from '../../common/utils/RoutingUtils';
 import { getUUID } from '../../common/utils/ActionUtils';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import ExperimentListView from './ExperimentListView';
@@ -17,6 +17,8 @@ import Utils from '../../common/utils/Utils';
 import { ExperimentEntity } from '../types';
 import Routes from '../routes';
 import { ExperimentPage } from './experiment-page/ExperimentPage';
+import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
+import ExperimentPageTabs from '../pages/experiment-page-tabs/ExperimentPageTabs';
 
 const getExperimentActions = {
   setExperimentTagApi,
@@ -33,6 +35,9 @@ const HomePage = () => {
   const dispatch = useDispatch<ThunkDispatch>();
   const { theme } = useDesignSystemTheme();
   const searchRequestId = useRef(getUUID());
+
+  const { tabName } = useParams();
+  const shouldRenderTabbedView = isExperimentLoggedModelsUIEnabled() && Boolean(tabName);
 
   const experimentIds = useExperimentIds();
   const experiments = useSelector((state: ReduxState) => values(state.entities.experimentsById));
@@ -65,20 +70,15 @@ const HomePage = () => {
           <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
         </div>
 
-        {/* Main content with the experiment view */}
-        <div
-          css={{
-            height: '100%',
-            flex: 1,
-            padding: theme.spacing.md,
-            paddingTop: theme.spacing.lg,
-            minWidth: 0,
-          }}
-        >
-          <GetExperimentsContextProvider actions={getExperimentActions}>
-            {hasExperiments ? <ExperimentView /> : <NoExperimentView />}
-          </GetExperimentsContextProvider>
-        </div>
+        {shouldRenderTabbedView && <ExperimentPageTabs />}
+        {!shouldRenderTabbedView && (
+          // Main content with the experiment view
+          <div css={{ height: '100%', flex: 1, padding: theme.spacing.md, paddingTop: theme.spacing.lg }}>
+            <GetExperimentsContextProvider actions={getExperimentActions}>
+              {hasExperiments ? <ExperimentView /> : <NoExperimentView />}
+            </GetExperimentsContextProvider>
+          </div>
+        )}
       </div>
     </RequestStateWrapper>
   );

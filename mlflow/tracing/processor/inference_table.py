@@ -56,8 +56,12 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
         """
         request_id = maybe_get_request_id()
         if request_id is None:
-            # If this is invoked outside of a flask request, it raises error about
-            # outside of request context. We should avoid this by skipping the trace processing
+            # NB: This is currently used for streaming inference in Databricks Model Serving.
+            # In normal prediction, serving logic pass the request ID using the
+            # `with set_prediction_context` context manager that wraps `model.predict`
+            # call. However, in streaming case, the context manager is not applicable
+            # so we still need to rely on Flask request context (which is set to the
+            # stream response via flask.stream_with_context()
             if flask_request := _get_flask_request():
                 request_id = flask_request.headers.get(_HEADER_REQUEST_ID_KEY)
                 if not request_id:
@@ -71,10 +75,11 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                     "request context is not available. Skipping trace processing."
                 )
                 return
+
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
         tags = {}
-        if depedencies_schema := maybe_get_dependencies_schemas():
-            tags.update(depedencies_schema)
+        if dependencies_schema := maybe_get_dependencies_schemas():
+            tags.update(dependencies_schema)
 
         if span._parent is None:
             trace_info = TraceInfo(

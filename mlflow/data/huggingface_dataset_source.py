@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
 
 from mlflow.data.dataset_source import DatasetSource
 
@@ -24,7 +24,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         """Create a `HuggingFaceDatasetSource` instance.
 
         Arguments in `__init__` match arguments of the same name in
-        [`datasets.load_dataset()`](https://huggingface.co/docs/datasets/v2.14.5/en/package_reference/loading_methods#datasets.load_dataset).
+        `datasets.load_dataset() <https://huggingface.co/docs/datasets/v2.14.5/en/package_reference/loading_methods#datasets.load_dataset>`_.
         The only exception is `config_name` matches `name` in `datasets.load_dataset()`, because
         we need to differentiate from `mlflow.data.Dataset` `name` attribute.
 
@@ -96,7 +96,7 @@ class HuggingFaceDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: str) -> "HuggingFaceDatasetSource":
         raise NotImplementedError
 
-    def to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> dict[Any, Any]:
         return {
             "path": self.path,
             "config_name": self.config_name,
@@ -107,7 +107,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         }
 
     @classmethod
-    def from_dict(cls, source_dict: Dict[Any, Any]) -> "HuggingFaceDatasetSource":
+    def from_dict(cls, source_dict: dict[Any, Any]) -> "HuggingFaceDatasetSource":
         return cls(
             path=source_dict.get("path"),
             config_name=source_dict.get("config_name"),

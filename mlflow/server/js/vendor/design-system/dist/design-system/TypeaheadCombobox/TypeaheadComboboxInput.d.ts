@@ -1,7 +1,7 @@
-import type { UseComboboxReturnValue } from 'downshift';
+import type { ComboboxStateAnalyticsReturnValue } from './hooks';
 import type { InputProps } from '../Input';
 export interface TypeaheadComboboxInputProps<T> extends Omit<InputProps, 'componentId' | 'analyticsEvents'> {
-    comboboxState: UseComboboxReturnValue<T>;
+    comboboxState: ComboboxStateAnalyticsReturnValue<T>;
     allowClear?: boolean;
     showComboboxToggleButton?: boolean;
     formOnChange?: (value: T) => void;

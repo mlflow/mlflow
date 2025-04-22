@@ -1,13 +1,12 @@
 import warnings
-from typing import Any, List, Optional
-
-import entrypoints
+from typing import Any, Optional
 
 from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.utils.plugins import get_entry_points
 
 
 class DatasetSourceRegistry:
@@ -27,7 +26,7 @@ class DatasetSourceRegistry:
         Registers dataset sources defined as Python entrypoints. For reference, see
         https://mlflow.org/docs/latest/plugins.html#defining-a-plugin.
         """
-        for entrypoint in entrypoints.get_group_all("mlflow.dataset_source"):
+        for entrypoint in get_entry_points("mlflow.dataset_source"):
             try:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:
@@ -38,7 +37,7 @@ class DatasetSourceRegistry:
                 )
 
     def resolve(
-        self, raw_source: Any, candidate_sources: Optional[List[DatasetSource]] = None
+        self, raw_source: Any, candidate_sources: Optional[list[DatasetSource]] = None
     ) -> DatasetSource:
         """Resolves a raw source object, such as a string URI, to a DatasetSource for use with
         MLflow Tracking.
@@ -128,7 +127,7 @@ def register_dataset_source(source: DatasetSource):
 
 
 def resolve_dataset_source(
-    raw_source: Any, candidate_sources: Optional[List[DatasetSource]] = None
+    raw_source: Any, candidate_sources: Optional[list[DatasetSource]] = None
 ) -> DatasetSource:
     """Resolves a raw source object, such as a string URI, to a DatasetSource for use with
     MLflow Tracking.
@@ -165,7 +164,7 @@ def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetS
     )
 
 
-def get_registered_sources() -> List[DatasetSource]:
+def get_registered_sources() -> list[DatasetSource]:
     """Obtains the registered dataset sources.
 
     Returns:

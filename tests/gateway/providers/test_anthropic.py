@@ -2,7 +2,6 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
@@ -12,6 +11,7 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -68,9 +68,10 @@ def parsed_completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = AnthropicProvider(RouteConfig(**config))
         payload = {
             "prompt": "How does a car work?",
@@ -97,9 +98,10 @@ async def test_completions():
 async def test_completions_with_default_max_tokens():
     resp = completions_response()
     config = completions_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = AnthropicProvider(RouteConfig(**config))
         payload = {"prompt": "How does a car work?"}
         response = await provider.completions(completions.RequestPayload(**payload))
@@ -121,7 +123,7 @@ async def test_completions_throws_with_invalid_max_tokens_too_large():
     config = completions_config()
     provider = AnthropicProvider(RouteConfig(**config))
     payload = {"prompt": "Would Fozzie or Kermet win in a fight?", "max_tokens": 1000001}
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert (
         "Invalid value for max_tokens: cannot exceed "
@@ -139,7 +141,7 @@ async def test_completions_throws_with_unsupported_n():
         "n": 5,
         "max_tokens": 10,
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "'n' must be '1' for the Anthropic provider" in e.value.detail
     assert e.value.status_code == 422
@@ -150,7 +152,7 @@ async def test_completions_throws_with_top_p_defined():
     config = completions_config()
     provider = AnthropicProvider(RouteConfig(**config))
     payload = {"prompt": "Would Fozzie or Kermet win in a fight?", "max_tokens": 500, "top_p": 0.6}
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "Cannot set both 'temperature' and 'top_p' parameters. Please" in e.value.detail
     assert e.value.status_code == 422
@@ -165,7 +167,7 @@ async def test_completions_throws_with_stream_set_to_true():
         "max_tokens": 5000,
         "stream": "true",
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "Setting the 'stream' parameter to 'true' is not supported" in e.value.detail
     assert e.value.status_code == 422
@@ -252,9 +254,10 @@ def chat_stream_response():
 async def test_chat():
     resp = chat_response()
     config = chat_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = AnthropicProvider(RouteConfig(**config))
         payload = chat_payload()
         response = await provider.chat(chat.RequestPayload(**payload))
@@ -267,8 +270,9 @@ async def test_chat():
                 {
                     "message": {
                         "role": "assistant",
-                        "content": "Response message",
+                        "content": [{"text": "Response message", "type": "text"}],
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": "stop",
                     "index": 0,
@@ -302,9 +306,12 @@ async def test_chat_stream():
     resp = chat_stream_response()
     config = chat_config()
 
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+        ) as mock_post,
+    ):
         provider = AnthropicProvider(RouteConfig(**config))
         payload = chat_payload(stream=True)
         response = provider.chat_stream(chat.RequestPayload(**payload))
@@ -389,7 +396,7 @@ async def test_embeddings_are_not_supported_for_anthropic():
     provider = AnthropicProvider(RouteConfig(**config))
     payload = {"input": "give me that sweet, sweet vector, please."}
 
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.embeddings(embeddings.RequestPayload(**payload))
     assert "The embeddings route is not implemented for Anthropic models" in e.value.detail
     assert e.value.status_code == 501
@@ -404,7 +411,7 @@ async def test_param_model_is_not_permitted():
         "max_tokens": 5000,
         "model": "something-else",
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422

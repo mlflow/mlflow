@@ -1,16 +1,17 @@
+import json
+import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 from mlflow.utils.annotations import experimental
 
-_RETRIEVER_PRIMARY_KEY = "__retriever_primary_key__"
-_RETRIEVER_TEXT_COLUMN = "__retriever_text_column__"
-_RETRIEVER_DOC_URI = "__retriever_doc_uri__"
-_RETRIEVER_OTHER_COLUMNS = "__retriever_other_columns__"
-_RETRIEVER_NAME = "__retriever_name__"
+if TYPE_CHECKING:
+    from mlflow.models.model import Model
+
+_logger = logging.getLogger(__name__)
 
 
 class DependenciesSchemasType(Enum):
@@ -27,14 +28,24 @@ def set_retriever_schema(
     primary_key: str,
     text_column: str,
     doc_uri: Optional[str] = None,
-    other_columns: Optional[List[str]] = None,
+    other_columns: Optional[list[str]] = None,
     name: Optional[str] = "retriever",
 ):
     """
-    After defining your vector store in a Python file or notebook, call
-    set_retriever_schema() so that, when MLflow retrieves documents during
-    model inference, MLflow can interpret the fields in each retrieved document and
-    determine which fields correspond to the document text, document URI, etc.
+    Specify the return schema of a retriever span within your agent or generative AI app code.
+
+    **Note**: MLflow recommends that your retriever return the default MLflow retriever output
+    schema described in https://mlflow.org/docs/latest/tracing/tracing-schema#retriever-spans,
+    in which case you do not need to call `set_retriever_schema`. APIs that read MLflow traces
+    and look for retriever spans, such as MLflow evaluation, will automatically detect retriever
+    spans that match MLflow's default retriever schema.
+
+    If your retriever does not return the default MLflow retriever output schema, call this API to
+    specify which fields in each retrieved document correspond to the page content, document
+    URI, document ID, etc. This enables downstream features like MLflow evaluation to properly
+    identify these fields. Note that `set_retriever_schema` assumes that your retriever span
+    returns a list of objects.
+
 
     Args:
         primary_key: The primary key of the retriever or vector index.
@@ -42,25 +53,76 @@ def set_retriever_schema(
         doc_uri: The name of the column that contains the document URI.
         other_columns: A list of other columns that are part of the vector index
                           that need to be retrieved during trace logging.
-        name: The name of the retriever or vector store.
+        name: The name of the retriever tool or vector store index.
 
     .. code-block:: Python
             :caption: Example
 
             from mlflow.models import set_retriever_schema
 
+            # The following call sets the schema for a custom retriever that retrieves content from
+            # MLflow documentation, with an output schema like:
+            # [
+            #     {
+            #         'document_id': '9a8292da3a9d4005a988bf0bfdd0024c',
+            #         'chunk_text': 'MLflow is an open-source platform, purpose-built to assist...',
+            #         'doc_uri': 'https://mlflow.org/docs/latest/index.html',
+            #         'title': 'MLflow: A Tool for Managing the Machine Learning Lifecycle'
+            #     },
+            #     {
+            #         'document_id': '7537fe93c97f4fdb9867412e9c1f9e5b',
+            #         'chunk_text': 'A great way to get started with MLflow is...',
+            #         'doc_uri': 'https://mlflow.org/docs/latest/getting-started/',
+            #         'title': 'Getting Started with MLflow'
+            #     },
+            # ...
+            # ]
             set_retriever_schema(
                 primary_key="chunk_id",
                 text_column="chunk_text",
                 doc_uri="doc_uri",
                 other_columns=["title"],
+                name="my_custom_retriever",
             )
     """
-    globals()[_RETRIEVER_PRIMARY_KEY] = primary_key
-    globals()[_RETRIEVER_TEXT_COLUMN] = text_column
-    globals()[_RETRIEVER_DOC_URI] = doc_uri
-    globals()[_RETRIEVER_OTHER_COLUMNS] = other_columns or []
-    globals()[_RETRIEVER_NAME] = name
+    retriever_schemas = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
+
+    # Check if a retriever schema with the same name already exists
+    existing_schema = next((schema for schema in retriever_schemas if schema["name"] == name), None)
+
+    if existing_schema is not None:
+        # Compare all relevant fields
+        if (
+            existing_schema["primary_key"] == primary_key
+            and existing_schema["text_column"] == text_column
+            and existing_schema["doc_uri"] == doc_uri
+            and existing_schema["other_columns"] == (other_columns or [])
+        ):
+            # No difference, no need to warn or update
+            return
+        else:
+            # Differences found, issue a warning
+            _logger.warning(
+                f"A retriever schema with the name '{name}' already exists. "
+                "Overriding the existing schema."
+            )
+            # Override the fields of the existing schema
+            existing_schema["primary_key"] = primary_key
+            existing_schema["text_column"] = text_column
+            existing_schema["doc_uri"] = doc_uri
+            existing_schema["other_columns"] = other_columns or []
+    else:
+        retriever_schemas.append(
+            {
+                "primary_key": primary_key,
+                "text_column": text_column,
+                "doc_uri": doc_uri,
+                "other_columns": other_columns or [],
+                "name": name,
+            }
+        )
+
+    globals()[DependenciesSchemasType.RETRIEVERS.value] = retriever_schemas
 
 
 def _get_retriever_schema():
@@ -70,19 +132,19 @@ def _get_retriever_schema():
     Returns:
         VectorSearchIndex: The vector search index schema.
     """
-    if not globals().get(_RETRIEVER_PRIMARY_KEY, None) or not globals().get(
-        _RETRIEVER_TEXT_COLUMN, None
-    ):
+    retriever_schemas = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
+    if not retriever_schemas:
         return []
 
     return [
         RetrieverSchema(
-            name=globals().get(_RETRIEVER_NAME, None),
-            primary_key=globals().get(_RETRIEVER_PRIMARY_KEY, None),
-            text_column=globals().get(_RETRIEVER_TEXT_COLUMN, None),
-            doc_uri=globals().get(_RETRIEVER_DOC_URI, None),
-            other_columns=globals().get(_RETRIEVER_OTHER_COLUMNS, None),
+            name=retriever.get("name"),
+            primary_key=retriever.get("primary_key"),
+            text_column=retriever.get("text_column"),
+            doc_uri=retriever.get("doc_uri"),
+            other_columns=retriever.get("other_columns"),
         )
+        for retriever in retriever_schemas
     ]
 
 
@@ -90,11 +152,7 @@ def _clear_retriever_schema():
     """
     Clear the vector search schema defined by the user.
     """
-    globals().pop(_RETRIEVER_PRIMARY_KEY, None)
-    globals().pop(_RETRIEVER_TEXT_COLUMN, None)
-    globals().pop(_RETRIEVER_DOC_URI, None)
-    globals().pop(_RETRIEVER_OTHER_COLUMNS, None)
-    globals().pop(_RETRIEVER_NAME, None)
+    globals().pop(DependenciesSchemasType.RETRIEVERS.value, None)
 
 
 def _clear_dependencies_schemas():
@@ -112,6 +170,24 @@ def _get_dependencies_schemas():
         yield dependencies_schemas
     finally:
         _clear_dependencies_schemas()
+
+
+def _get_dependencies_schema_from_model(model: "Model") -> Optional[dict]:
+    """
+    Get the dependencies schema from the logged model metadata.
+
+    `dependencies_schemas` is a dictionary that defines the dependencies schemas, such as
+    the retriever schemas. This code is now only useful for Databricks integration.
+    """
+    if model.metadata and "dependencies_schemas" in model.metadata:
+        dependencies_schemas = model.metadata["dependencies_schemas"]
+        return {
+            "dependencies_schemas": {
+                dependency: json.dumps(schema)
+                for dependency, schema in dependencies_schemas.items()
+            }
+        }
+    return None
 
 
 @dataclass
@@ -134,7 +210,7 @@ class Schema(ABC):
 
     @classmethod
     @abstractmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         """
         Convert the dictionary to a Resource.
         Subclasses must implement this method.
@@ -160,7 +236,7 @@ class RetrieverSchema(Schema):
         primary_key: str,
         text_column: str,
         doc_uri: Optional[str] = None,
-        other_columns: Optional[List[str]] = None,
+        other_columns: Optional[list[str]] = None,
     ):
         super().__init__(type=DependenciesSchemasType.RETRIEVERS)
         self.name = name
@@ -183,7 +259,7 @@ class RetrieverSchema(Schema):
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]):
+    def from_dict(cls, data: dict[str, str]):
         return cls(
             name=data["name"],
             primary_key=data["primary_key"],
@@ -195,9 +271,9 @@ class RetrieverSchema(Schema):
 
 @dataclass
 class DependenciesSchemas:
-    retriever_schemas: List[RetrieverSchema] = field(default_factory=list)
+    retriever_schemas: list[RetrieverSchema] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Dict[DependenciesSchemasType, List[Dict]]]:
+    def to_dict(self) -> dict[str, dict[DependenciesSchemasType, list[dict]]]:
         if not self.retriever_schemas:
             return None
 

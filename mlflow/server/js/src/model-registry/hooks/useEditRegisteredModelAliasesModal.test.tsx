@@ -1,4 +1,4 @@
-import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event-14';
+import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 
 import { useEditRegisteredModelAliasesModal } from './useEditRegisteredModelAliasesModal';
 import { ModelEntity } from '../../experiment-tracking/types';

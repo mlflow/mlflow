@@ -190,11 +190,12 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):
     ],
 )
 def test_dbfs_path_exists_error_response_handling(response_mock):
-    with mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_host_creds"
-    ) as get_databricks_host_creds_mock, mock.patch(
-        "mlflow.utils.rest_utils.http_request"
-    ) as http_request_mock:
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds"
+        ) as get_databricks_host_creds_mock,
+        mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock,
+    ):
         # given a well formed DatabricksJobRunner
         # note: databricks_profile is None needed because clients using profile are mocked
         job_runner = DatabricksJobRunner(databricks_profile_uri=None)

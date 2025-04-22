@@ -1,77 +1,63 @@
-from typing import Any, Dict, Optional
+import warnings
+from dataclasses import asdict, dataclass
+from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
+from mlflow.protos.assessments_pb2 import AssessmentSource as ProtoAssessmentSource
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import experimental
 
 
+@experimental
+@dataclass
 class AssessmentSource(_MlflowObject):
     """
     Source of an assessment (human, LLM as a judge with GPT-4, etc).
+
+    Args:
+        source_type: The type of the assessment source. Must be one of the values in
+            the AssessmentSourceType enum.
+        source_id: An identifier for the source, e.g. user ID or LLM judge ID.
     """
 
-    def __init__(self, source_type: str, source_id: str, metadata: Optional[Dict[str, Any]] = None):
-        """Construct a new mlflow.entities.AssessmentSource instance.
+    source_type: str
+    source_id: Optional[str] = None
 
-        Args:
-            source_type: The type of the assessment source (AssessmentSourceType).
-            source_id: An identifier for the source, e.g. user ID or LLM judge ID.
-            metadata: Additional metadata about the source, e.g. human-readable name, inlined LLM
-                judge parameters, etc.
-        """
-        self._source_type = AssessmentSourceType._standardize(source_type)
-        self._source_id = source_id
-        self._metadata = metadata or {}
+    def __post_init__(self):
+        # Perform the standardization on source_type after initialization
+        self.source_type = AssessmentSourceType._standardize(self.source_type)
 
-    @property
-    def source_type(self) -> str:
-        """The type of the assessment source."""
-        return self._source_type
-
-    @property
-    def source_id(self) -> str:
-        """The identifier for the source."""
-        return self._source_id
-
-    @property
-    def metadata(self) -> Dict[str, Any]:
-        """The additional metadata about the source."""
-        return self._metadata
-
-    def __eq__(self, __o):
-        if isinstance(__o, self.__class__):
-            return self.to_dictionary() == __o.to_dictionary()
-
-        return False
-
-    def to_dictionary(self) -> Dict[str, Any]:
-        return {
-            "source_type": self.source_type,
-            "source_id": self.source_id,
-            "metadata": self.metadata,
-        }
+    def to_dictionary(self) -> dict[str, Any]:
+        return asdict(self)
 
     @classmethod
-    def from_dictionary(cls, source_dict: Dict[str, Any]) -> "AssessmentSource":
-        """
-        Create a AssessmentSource object from a dictionary.
+    def from_dictionary(cls, source_dict: dict[str, Any]) -> "AssessmentSource":
+        return cls(**source_dict)
 
-        Args:
-            source_dict (dict): Dictionary containing assessment source information.
+    def to_proto(self):
+        source = ProtoAssessmentSource()
+        source.source_type = ProtoAssessmentSource.SourceType.Value(self.source_type)
+        if self.source_id is not None:
+            source.source_id = self.source_id
+        return source
 
-        Returns:
-            AssessmentSource: The AssessmentSource object created from the dictionary.
-        """
-        source_type = source_dict["source_type"]
-        source_id = source_dict["source_id"]
-        metadata = source_dict.get("metadata")
-        return cls(source_type=source_type, source_id=source_id, metadata=metadata)
+    @classmethod
+    def from_proto(cls, proto):
+        return AssessmentSource(
+            source_type=AssessmentSourceType.from_proto(proto.source_type),
+            source_id=proto.source_id if proto.source_id else None,
+        )
 
 
+@experimental
 class AssessmentSourceType:
-    AI_JUDGE = "AI_JUDGE"
+    SOURCE_TYPE_UNSPECIFIED = "SOURCE_TYPE_UNSPECIFIED"
+    LLM_JUDGE = "LLM_JUDGE"
+    AI_JUDGE = "AI_JUDGE"  # Deprecated, use LLM_JUDGE instead
     HUMAN = "HUMAN"
-    _SOURCE_TYPES = [AI_JUDGE, HUMAN]
+    CODE = "CODE"
+    _SOURCE_TYPES = [SOURCE_TYPE_UNSPECIFIED, LLM_JUDGE, HUMAN, CODE]
 
     def __init__(self, source_type: str):
         self._source_type = AssessmentSourceType._parse(source_type)
@@ -79,6 +65,15 @@ class AssessmentSourceType:
     @staticmethod
     def _parse(source_type: str) -> str:
         source_type = source_type.upper()
+
+        # Backwards compatibility shim for mlflow.evaluations.AssessmentSourceType
+        if source_type == AssessmentSourceType.AI_JUDGE:
+            warnings.warn(
+                "AI_JUDGE is deprecated. Use LLM_JUDGE instead.",
+                DeprecationWarning,
+            )
+            source_type = AssessmentSourceType.LLM_JUDGE
+
         if source_type not in AssessmentSourceType._SOURCE_TYPES:
             raise MlflowException(
                 message=(
@@ -95,3 +90,7 @@ class AssessmentSourceType:
     @staticmethod
     def _standardize(source_type: str) -> str:
         return str(AssessmentSourceType(source_type))
+
+    @classmethod
+    def from_proto(cls, proto_source_type) -> str:
+        return ProtoAssessmentSource.SourceType.Name(proto_source_type)

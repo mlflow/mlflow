@@ -1,14 +1,13 @@
 import inspect
 import warnings
 from contextlib import suppress
-from typing import Dict, Optional
-
-import entrypoints
+from typing import Callable, Optional
 
 import mlflow.data
 from mlflow.data.dataset import Dataset
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.plugins import get_entry_points
 
 
 class DatasetRegistry:
@@ -16,7 +15,7 @@ class DatasetRegistry:
         self.constructors = {}
 
     def register_constructor(
-        self, constructor_fn: callable, constructor_name: Optional[str] = None
+        self, constructor_fn: Callable, constructor_name: Optional[str] = None
     ) -> str:
         """Registers a dataset constructor.
 
@@ -48,7 +47,7 @@ class DatasetRegistry:
         Registers dataset sources defined as Python entrypoints. For reference, see
         https://mlflow.org/docs/latest/plugins.html#defining-a-plugin.
         """
-        for entrypoint in entrypoints.get_group_all("mlflow.dataset_constructor"):
+        for entrypoint in get_entry_points("mlflow.dataset_constructor"):
             try:
                 self.register_constructor(
                     constructor_fn=entrypoint.load(), constructor_name=entrypoint.name
@@ -61,7 +60,7 @@ class DatasetRegistry:
                 )
 
     @staticmethod
-    def _validate_constructor(constructor_fn: callable, constructor_name: str):
+    def _validate_constructor(constructor_fn: Callable, constructor_name: str):
         if not constructor_name.startswith("load_") and not constructor_name.startswith("from_"):
             raise MlflowException(
                 f"Invalid dataset constructor name: {constructor_name}."
@@ -91,7 +90,7 @@ class DatasetRegistry:
             )
 
 
-def register_constructor(constructor_fn: callable, constructor_name: Optional[str] = None) -> str:
+def register_constructor(constructor_fn: Callable, constructor_name: Optional[str] = None) -> str:
     """Registers a dataset constructor.
 
     Args:
@@ -120,7 +119,7 @@ def register_constructor(constructor_fn: callable, constructor_name: Optional[st
     return registered_constructor_name
 
 
-def get_registered_constructors() -> Dict[str, callable]:
+def get_registered_constructors() -> dict[str, Callable]:
     """Obtains the registered dataset constructors.
 
     Returns:

@@ -256,7 +256,8 @@ export const EvaluationCreatePromptRunModal = ({
             errorMessage,
           },
         );
-        Utils.logErrorAndNotifyUser(wrappedMessage);
+        // We treat is as a user error and we're not logging the error upstream
+        Utils.displayGlobalErrorNotification(wrappedMessage);
         setIsEvaluating(false);
         setLastEvaluationError(wrappedMessage);
         // NB: Not using .finally() due to issues with promise implementation in the Jest
@@ -427,6 +428,7 @@ export const EvaluationCreatePromptRunModal = ({
 
   return (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_541"
       verticalSizing="maxed_out"
       visible={isOpen}
       onCancel={closeModal}
@@ -483,6 +485,7 @@ export const EvaluationCreatePromptRunModal = ({
           </FormUI.Label>
           <div css={{ marginBottom: theme.spacing.lg, display: 'flex', alignItems: 'center' }}>
             <DialogCombobox
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_597"
               label={selectModelLabel}
               modal={false}
               value={selectedModel ? [formatVisibleRouteName(selectedModel)] : undefined}
@@ -524,6 +527,7 @@ export const EvaluationCreatePromptRunModal = ({
                 )}
               </FormUI.Label>
               <Input
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_638"
                 id="new_run_name"
                 data-testid="run-name-input"
                 required
@@ -564,6 +568,7 @@ export const EvaluationCreatePromptRunModal = ({
             </>
 
             <TextArea
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_678"
               id="prompt_template"
               autoSize={{ minRows: 3 }}
               data-testid="prompt-template-input"
@@ -580,6 +585,7 @@ export const EvaluationCreatePromptRunModal = ({
                   <span>{inputVariable}</span>
                 </FormUI.Label>
                 <TextArea
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_694"
                   id={inputVariable}
                   autoSize
                   value={inputVariableValues[inputVariable] ? inputVariableValues[inputVariable] : ''}

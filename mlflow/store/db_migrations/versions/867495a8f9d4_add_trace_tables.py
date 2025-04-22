@@ -5,14 +5,15 @@ Revises: acf3f17fdcc7
 Create Date: 2024-04-27 12:29:25.178685
 
 """
-from alembic import op
-from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceRequestMetadata, SqlTraceTag
-import sqlalchemy as sa
 
+import sqlalchemy as sa
+from alembic import op
+
+from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceRequestMetadata, SqlTraceTag
 
 # revision identifiers, used by Alembic.
-revision = '867495a8f9d4'
-down_revision = 'acf3f17fdcc7'
+revision = "867495a8f9d4"
+down_revision = "acf3f17fdcc7"
 branch_labels = None
 depends_on = None
 

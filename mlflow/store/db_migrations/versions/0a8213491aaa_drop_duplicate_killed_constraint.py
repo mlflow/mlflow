@@ -8,7 +8,9 @@ This migration drops a duplicate constraint on the `runs.status` column that was
 of an erroneous implementation of the `cfd24bdc0731_update_run_status_constraint_with_killed`
 migration in MLflow 1.5. The implementation of this migration has since been fixed.
 """
+
 import logging
+
 from alembic import op
 
 _logger = logging.getLogger(__name__)

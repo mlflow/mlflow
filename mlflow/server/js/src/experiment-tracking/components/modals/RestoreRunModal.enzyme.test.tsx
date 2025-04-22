@@ -49,8 +49,8 @@ describe('RestoreRunModal', () => {
         new Promise((resolve, reject) => {
           window.setTimeout(() => {
             reject(
-              // @ts-expect-error TS(2554): Expected 0-1 arguments, but got 2.
               new Error('Limit exceeded', {
+                // @ts-expect-error TS(2554): Object literal may only specify known properties, and 'textJson' does not exist in type 'ErrorOptions'.
                 textJson: { error_code: 'RESOURCE_LIMIT_EXCEEDED', message: 'Limit exceeded' },
               }),
             );

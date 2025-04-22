@@ -20,12 +20,14 @@ import {
   MAP_EXTENSIONS,
   HTML_EXTENSIONS,
   DATA_EXTENSIONS,
+  AUDIO_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { RunTag } from '../../sdk/MlflowMessages';
+import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
 
 // Mock these methods because js-dom doesn't implement window.Request
 jest.mock('../../../common/utils/ArtifactUtils', () => ({
-  ...jest.requireActual('../../../common/utils/ArtifactUtils'),
+  ...jest.requireActual<typeof import('../../../common/utils/ArtifactUtils')>('../../../common/utils/ArtifactUtils'),
   // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
   getArtifactContent: jest.fn().mockResolvedValue(),
   // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
@@ -142,6 +144,12 @@ describe('ShowArtifactPage', () => {
     DATA_EXTENSIONS.forEach((ext) => {
       wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
       expect(wrapper.find(LazyShowArtifactTableView).length).toBe(1);
+    });
+  });
+  test('should render audio view for common audio data extensions', () => {
+    AUDIO_EXTENSIONS.forEach((ext) => {
+      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
+      expect(wrapper.find(LazyShowArtifactAudioView).length).toBe(1);
     });
   });
 });

@@ -1,5 +1,5 @@
 from operator import itemgetter
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from langchain.agents import AgentExecutor, tool
 from langchain.agents.output_parsers.tools import ToolsAgentOutputParser
@@ -42,8 +42,8 @@ class FakeChatModel(SimpleChatModel):
 
     def _call(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
+        messages: list[BaseMessage],
+        stop: Optional[list[str]] = None,
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> str:

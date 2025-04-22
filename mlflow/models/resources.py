@@ -1,8 +1,7 @@
 import os
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List
+from typing import Any, Optional
 
 import yaml
 
@@ -14,11 +13,15 @@ class ResourceType(Enum):
     Enum to define the different types of resources needed to serve a model.
     """
 
+    UC_CONNECTION = "uc_connection"
     VECTOR_SEARCH_INDEX = "vector_search_index"
     SERVING_ENDPOINT = "serving_endpoint"
+    SQL_WAREHOUSE = "sql_warehouse"
+    FUNCTION = "function"
+    GENIE_SPACE = "genie_space"
+    TABLE = "table"
 
 
-@dataclass
 class Resource(ABC):
     """
     Base class for defining the resources needed to serve a model.
@@ -28,8 +31,19 @@ class Resource(ABC):
         target_uri (str): The target URI where these resources are hosted.
     """
 
-    type: ResourceType
-    target_uri: str
+    @property
+    @abstractmethod
+    def type(self) -> ResourceType:
+        """
+        The resource type (must be defined by subclasses).
+        """
+
+    @property
+    @abstractmethod
+    def target_uri(self) -> str:
+        """
+        The target URI where the resource is hosted (must be defined by subclasses).
+        """
 
     @abstractmethod
     def to_dict(self):
@@ -39,68 +53,196 @@ class Resource(ABC):
         """
 
     @classmethod
-    def from_dict(cls, data):
+    @abstractmethod
+    def from_dict(cls, data: dict[str, str]):
         """
         Convert the dictionary to a Resource.
         Subclasses must implement this method.
         """
 
+    def __eq__(self, other: Any):
+        if not isinstance(other, Resource):
+            return False
+        return self.to_dict() == other.to_dict()
 
-@dataclass
+
 class DatabricksResource(Resource, ABC):
     """
     Base class to define all the Databricks resources to serve a model.
+
+    Example usage: https://docs.databricks.com/en/generative-ai/log-agent.html#specify-resources-for-pyfunc-or-langchain-agent
     """
 
-    target_uri: str = "databricks"
+    @property
+    def target_uri(self) -> str:
+        return "databricks"
+
+    @property
+    def type(self) -> ResourceType:
+        raise NotImplementedError("Subclasses must implement the 'type' property.")
+
+    def __init__(self, name: str, on_behalf_of_user: Optional[bool] = None):
+        self.name = name
+        self.on_behalf_of_user = on_behalf_of_user
+
+    def to_dict(self):
+        result = {self.type.value: [{"name": self.name}]}
+        if self.on_behalf_of_user is not None:
+            result[self.type.value][0]["on_behalf_of_user"] = self.on_behalf_of_user
+        return result
+
+    @classmethod
+    def from_dict(cls, data: dict[str, str]):
+        return cls(data["name"], data.get("on_behalf_of_user"))
 
 
-@dataclass
+class DatabricksUCConnection(DatabricksResource):
+    """
+    Define a Databricks UC Connection used to serve a model.
+
+    Args:
+        connection_name (str): The name of the databricks UC connection
+        used to create the tool which was used to build the model.
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
+    """
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.UC_CONNECTION
+
+    def __init__(self, connection_name: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(connection_name, on_behalf_of_user)
+
+
 class DatabricksServingEndpoint(DatabricksResource):
     """
     Define Databricks LLM endpoint resource to serve a model.
 
     Args:
         endpoint_name (str): The name of all the databricks endpoints used by the model.
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
     """
 
-    type: ResourceType = ResourceType.SERVING_ENDPOINT
-    endpoint_name: str = None
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.SERVING_ENDPOINT
 
-    def to_dict(self):
-        return {self.type.value: [{"name": self.endpoint_name}]} if self.endpoint_name else {}
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, str]):
-        return cls(endpoint_name=data["name"])
+    def __init__(self, endpoint_name: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(endpoint_name, on_behalf_of_user)
 
 
-@dataclass
 class DatabricksVectorSearchIndex(DatabricksResource):
     """
     Define Databricks vector search index name resource to serve a model.
 
     Args:
-        index_name (str): The name of all the databricks vector search index names
-        used by the model.
+        index_name (str): The name of the databricks vector search index
+        used by the model
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
     """
 
-    type: ResourceType = ResourceType.VECTOR_SEARCH_INDEX
-    index_name: str = None
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.VECTOR_SEARCH_INDEX
 
-    def to_dict(self):
-        return {self.type.value: [{"name": self.index_name}]} if self.index_name else {}
+    def __init__(self, index_name: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(index_name, on_behalf_of_user)
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, str]):
-        return cls(index_name=data["name"])
+
+class DatabricksSQLWarehouse(DatabricksResource):
+    """
+    Define Databricks sql warehouse resource to serve a model.
+
+    Args:
+        warehouse_id (str): The id of the sql warehouse used by the model
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
+    """
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.SQL_WAREHOUSE
+
+    def __init__(self, warehouse_id: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(warehouse_id, on_behalf_of_user)
+
+
+class DatabricksFunction(DatabricksResource):
+    """
+    Define Databricks UC Function to serve a model.
+
+    Args:
+        function_name (str): The name of the function used by the model
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
+    """
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.FUNCTION
+
+    def __init__(self, function_name: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(function_name, on_behalf_of_user)
+
+
+class DatabricksGenieSpace(DatabricksResource):
+    """
+    Define a Databricks Genie Space to serve a model.
+
+    Args:
+        genie_space_id (str): The genie space id
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
+    """
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.GENIE_SPACE
+
+    def __init__(self, genie_space_id: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(genie_space_id, on_behalf_of_user)
+
+
+class DatabricksTable(DatabricksResource):
+    """
+    Defines a Databricks Unity Catalog (UC) Table, which establishes table dependencies
+    for Model Serving. This table will be referenced in Agent Model Serving endpoints,
+    where an agent queries a SQL table via either Genie or UC Functions.
+
+     Args:
+         table_name (str): The name of the table used by the model
+         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resources is accesssed with the permissions of the creator
+    """
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.TABLE
+
+    def __init__(self, table_name: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(table_name, on_behalf_of_user)
 
 
 def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
     resource_classes = {
         "databricks": {
+            ResourceType.UC_CONNECTION.value: DatabricksUCConnection,
             ResourceType.SERVING_ENDPOINT.value: DatabricksServingEndpoint,
             ResourceType.VECTOR_SEARCH_INDEX.value: DatabricksVectorSearchIndex,
+            ResourceType.SQL_WAREHOUSE.value: DatabricksSQLWarehouse,
+            ResourceType.FUNCTION.value: DatabricksFunction,
+            ResourceType.GENIE_SPACE.value: DatabricksGenieSpace,
+            ResourceType.TABLE.value: DatabricksTable,
         }
     }
     resource = resource_classes.get(target_uri)
@@ -116,8 +258,8 @@ class _ResourceBuilder:
 
     @staticmethod
     def from_resources(
-        resources: List[Resource], api_version: str = DEFAULT_API_VERSION
-    ) -> Dict[str, Dict[ResourceType, List[Dict]]]:
+        resources: list[Resource], api_version: str = DEFAULT_API_VERSION
+    ) -> dict[str, dict[ResourceType, list[dict]]]:
         resource_dict = {}
         for resource in resources:
             resource_data = resource.to_dict()
@@ -130,7 +272,7 @@ class _ResourceBuilder:
         return resource_dict
 
     @staticmethod
-    def from_dict(data) -> Dict[str, Dict[ResourceType, List[Dict]]]:
+    def from_dict(data) -> dict[str, dict[ResourceType, list[dict]]]:
         resources = []
         api_version = data.pop("api_version")
         if api_version == "1":
@@ -147,7 +289,7 @@ class _ResourceBuilder:
         return _ResourceBuilder.from_resources(resources, api_version)
 
     @staticmethod
-    def from_yaml_file(path: str) -> Dict[str, Dict[ResourceType, List[Dict]]]:
+    def from_yaml_file(path: str) -> dict[str, dict[ResourceType, list[dict]]]:
         if not os.path.exists(path):
             raise OSError(f"No such file or directory: '{path}'")
         path = os.path.abspath(path)

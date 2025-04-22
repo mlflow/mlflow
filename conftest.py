@@ -6,7 +6,6 @@ import shutil
 import subprocess
 import sys
 import threading
-import traceback
 
 import click
 import pytest
@@ -164,18 +163,27 @@ def pytest_ignore_collect(collection_path, config):
         # Ignored files and directories must be included in dev/run-python-flavor-tests.sh
         model_flavors = [
             # Tests of flavor modules.
+            "tests/anthropic",
+            "tests/autogen",
             "tests/azureml",
+            "tests/bedrock",
             "tests/catboost",
+            "tests/crewai",
             "tests/diviner",
+            "tests/dspy",
             "tests/fastai",
-            "tests/gluon",
+            "tests/gemini",
+            "tests/groq",
             "tests/h2o",
             "tests/johnsnowlabs",
             "tests/keras",
             "tests/keras_core",
             "tests/llama_index",
             "tests/langchain",
+            "tests/langgraph",
             "tests/lightgbm",
+            "tests/litellm",
+            "tests/mistral",
             "tests/mleap",
             "tests/models",
             "tests/onnx",
@@ -272,14 +280,15 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         for idx, thread in enumerate(threads, start=1):
             terminalreporter.write(f"{idx}: {thread}\n")
 
-        if non_daemon_threads := [t for t in threads if not t.daemon]:
-            frames = sys._current_frames()
-            terminalreporter.section("Tracebacks of non-daemon threads", yellow=True)
-            for thread in non_daemon_threads:
-                thread.join(timeout=1)
-                if thread.is_alive() and (frame := frames.get(thread.ident)):
-                    terminalreporter.section(repr(thread), sep="~")
-                    terminalreporter.write("".join(traceback.format_stack(frame)))
+        # Uncomment this block to print tracebacks of non-daemon threads
+        # if non_daemon_threads := [t for t in threads if not t.daemon]:
+        #     frames = sys._current_frames()
+        #     terminalreporter.section("Tracebacks of non-daemon threads", yellow=True)
+        #     for thread in non_daemon_threads:
+        #         thread.join(timeout=1)
+        #         if thread.is_alive() and (frame := frames.get(thread.ident)):
+        #             terminalreporter.section(repr(thread), sep="~")
+        #             terminalreporter.write("".join(traceback.format_stack(frame)))
 
     try:
         import psutil
@@ -380,7 +389,9 @@ def serve_wheel(request, tmp_path_factory):
             if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
                 url = f"{existing_url} {url}"
             os.environ["PIP_EXTRA_INDEX_URL"] = url
-
+            # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
+            # url when using `uv` as environment manager
+            os.environ["UV_INDEX"] = f"mlflow={url}"
             yield
         finally:
             prc.terminate()

@@ -1,6 +1,5 @@
 import uuid
 from collections import namedtuple
-from typing import Dict, List
 from unittest import mock
 
 import pandas as pd
@@ -51,13 +50,13 @@ class DummyTokenizer:
             tensor = tensor.tolist()
         return " ".join([str(x) for x in tensor])
 
-    def convert_tokens_to_ids(self, tokens: List[str]):
+    def convert_tokens_to_ids(self, tokens: list[str]):
         return [int(x) for x in tokens]
 
     def _tokenize(self, text: str):
         return [x for x in text.split(" ") if x]
 
-    def apply_chat_template(self, messages: List[Dict[str, str]], **kwargs):
+    def apply_chat_template(self, messages: list[dict[str, str]], **kwargs):
         return " ".join(message["content"] for message in messages)
 
 

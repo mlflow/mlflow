@@ -5,7 +5,7 @@ export const COLUMN_TYPES = {
   TAGS: 'tags',
 };
 export const MLMODEL_FILE_NAME = 'MLmodel';
-export const SERVING_INPUT_FILE_NAME = 'serving_input_example.json';
+export const SERVING_INPUT_FILE_NAME = 'serving_input_payload.json';
 export const ONE_MB = 1024 * 1024;
 
 export const ATTRIBUTE_COLUMN_LABELS = {
@@ -57,7 +57,6 @@ export enum MODEL_VERSION_FILTER {
 export const DEFAULT_ORDER_BY_KEY = ATTRIBUTE_COLUMN_SORT_KEY.DATE;
 export const DEFAULT_ORDER_BY_ASC = false;
 export const DEFAULT_START_TIME = 'ALL';
-export const DEFAULT_EXPANDED_VALUE = false;
 export const DEFAULT_CATEGORIZED_UNCHECKED_KEYS = {
   [COLUMN_TYPES.ATTRIBUTES]: [],
   [COLUMN_TYPES.PARAMS]: [],
@@ -68,20 +67,13 @@ export const DEFAULT_DIFF_SWITCH_SELECTED = false;
 export const DEFAULT_LIFECYCLE_FILTER = LIFECYCLE_FILTER.ACTIVE;
 export const DEFAULT_MODEL_VERSION_FILTER = MODEL_VERSION_FILTER.ALL_RUNS;
 
-export const PAGINATION_DEFAULT_STATE = {
-  nextPageToken: null,
-  numRunsFromLatestSearch: null, // number of runs returned from the most recent search request
-  loadingMore: false,
-};
-
 export const MAX_DETECT_NEW_RUNS_RESULTS = 26; // so the refresh button badge can be 25+
 export const POLL_INTERVAL = 15000;
 
-export const AUTOML_TAG_PREFIX = '_databricks_automl';
+const AUTOML_TAG_PREFIX = '_databricks_automl';
 export const AUTOML_EVALUATION_METRIC_TAG = `${AUTOML_TAG_PREFIX}.evaluation_metric`;
 
 export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = 'mlflow.experiment.primaryMetric.name';
-export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = 'mlflow.experiment.primaryMetric.greaterIsBetter';
 export const MLFLOW_RUN_DATASET_CONTEXT_TAG = 'mlflow.data.context';
 export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
 export const EXPERIMENT_PAGE_FEEDBACK_URL = 'https://github.com/mlflow/mlflow/issues/6348';
@@ -92,6 +84,8 @@ export const MLFLOW_RUN_SOURCE_TYPE_TAG = 'mlflow.runSourceType';
 export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
+
+export const MONITORING_BETA_EXPIRATION_DATE = new Date('2025-06-24T00:00:00');
 
 export enum MLflowRunSourceType {
   PROMPT_ENGINEERING = 'PROMPT_ENGINEERING',
@@ -138,3 +132,10 @@ export const NUM_RUNS_TO_SUPPORT_FOR_LOG_IMAGE = 10;
 export const EPOCH_RELATIVE_TIME = 28800000;
 export const LINE_CHART_RELATIVE_TIME_THRESHOLD = 1000 * 60 * 60 * 24; // 1 day
 export const HOUR_IN_MILLISECONDS = 1000 * 60 * 60; // 1 hour
+
+export enum ExperimentPageTabName {
+  Models = 'models',
+  EvaluationMonitoring = 'evaluation-monitoring',
+  Datasets = 'datasets',
+  LabelingSessions = 'labeling-sessions',
+}

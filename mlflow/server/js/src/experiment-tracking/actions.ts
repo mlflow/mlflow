@@ -19,6 +19,7 @@ import type { EvaluationDataReduxState } from './reducers/EvaluationDataReducer'
 import { ArtifactListFilesResponse, EvaluationArtifactTable, KeyValueEntity } from './types';
 import { MLFLOW_PUBLISHED_VERSION } from '../common/mlflow-published-version';
 import { MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from './constants';
+import { ErrorWrapper } from '../common/utils/ErrorWrapper';
 export const RUNS_SEARCH_MAX_RESULTS = 100;
 
 export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
@@ -41,7 +42,7 @@ export const getExperimentApi = (experimentId: any, id = getUUID()) => {
   };
 };
 
-export const CREATE_EXPERIMENT_API = 'CREATE_EXPERIMENT_API';
+const CREATE_EXPERIMENT_API = 'CREATE_EXPERIMENT_API';
 export const createExperimentApi = (experimentName: any, artifactPath = undefined, id = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const createResponse = dispatch({
@@ -56,7 +57,7 @@ export const createExperimentApi = (experimentName: any, artifactPath = undefine
   };
 };
 
-export const DELETE_EXPERIMENT_API = 'DELETE_EXPERIMENT_API';
+const DELETE_EXPERIMENT_API = 'DELETE_EXPERIMENT_API';
 export const deleteExperimentApi = (experimentId: any, id = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const deleteResponse = dispatch({
@@ -68,7 +69,7 @@ export const deleteExperimentApi = (experimentId: any, id = getUUID()) => {
   };
 };
 
-export const UPDATE_EXPERIMENT_API = 'UPDATE_EXPERIMENT_API';
+const UPDATE_EXPERIMENT_API = 'UPDATE_EXPERIMENT_API';
 export const updateExperimentApi = (experimentId: any, newExperimentName: any, id = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const updateResponse = dispatch({
@@ -83,8 +84,8 @@ export const updateExperimentApi = (experimentId: any, newExperimentName: any, i
   };
 };
 
-export const UPDATE_RUN_API = 'UPDATE_RUN_API';
-export const updateRunApi = (runId: any, newName: any, id = getUUID()) => {
+const UPDATE_RUN_API = 'UPDATE_RUN_API';
+export const updateRunApi = (runId: string, newName: string, id: string = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const updateResponse = dispatch({
       type: UPDATE_RUN_API,
@@ -107,8 +108,8 @@ export const getRunApi = (runId: any, id = getUUID()) => {
   };
 };
 
-export const CREATE_RUN_API = 'CREATE_RUN_API';
-export const createRunApi = (experimentId: string, tags?: any, run_name?: string) => {
+const CREATE_RUN_API = 'CREATE_RUN_API';
+const createRunApi = (experimentId: string, tags?: any, run_name?: string) => {
   return (dispatch: ThunkDispatch) => {
     const createResponse = dispatch({
       type: CREATE_RUN_API,
@@ -164,7 +165,7 @@ export const uploadArtifactApi = (runUuid: any, filePath: any, fileContent: any)
   };
 };
 
-export const DELETE_RUN_API = 'DELETE_RUN_API';
+const DELETE_RUN_API = 'DELETE_RUN_API';
 export const deleteRunApi = (runUuid: any, id = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const deleteResponse = dispatch({
@@ -175,7 +176,7 @@ export const deleteRunApi = (runUuid: any, id = getUUID()) => {
     return deleteResponse.then(() => dispatch(getRunApi(runUuid, id)));
   };
 };
-export const RESTORE_RUN_API = 'RESTORE_RUN_API';
+const RESTORE_RUN_API = 'RESTORE_RUN_API';
 export const restoreRunApi = (runUuid: any, id = getUUID()) => {
   return (dispatch: ThunkDispatch) => {
     const restoreResponse = dispatch({
@@ -216,7 +217,10 @@ export const getParentRunIdsToFetch = (runs: any) => {
   return Array.from(parentsToFetch);
 };
 
-// this function takes a response of runs and returns them along with their missing parents
+/**
+ * This function takes a response of runs and returns them along with their missing parents.
+ * @deprecated Use fetchMissingParentsWithSearchRuns instead
+ */
 export const fetchMissingParents = (searchRunsResponse: any) =>
   searchRunsResponse.runs && searchRunsResponse.runs.length
     ? Promise.all(
@@ -228,6 +232,45 @@ export const fetchMissingParents = (searchRunsResponse: any) =>
               // marked as those matching filter
               if (searchRunsResponse.runsMatchingFilter) {
                 searchRunsResponse.runsMatchingFilter.push(value.run);
+              }
+            })
+            .catch((error) => {
+              if (error.getErrorCode() !== ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
+                // NB: The parent run may have been deleted, in which case attempting to fetch the
+                // run fails with the `RESOURCE_DOES_NOT_EXIST` error code. Because this is
+                // expected behavior, we swallow such exceptions. We re-raise all other exceptions
+                // encountered when fetching parent runs because they are unexpected
+                throw error;
+              }
+            }),
+        ),
+      ).then((_) => {
+        return searchRunsResponse;
+      })
+    : searchRunsResponse;
+
+/**
+ * Fetches missing parent runs for the given search runs response in a set of experimentIds. Returns
+ * the original runs along with their parents.
+ */
+export const fetchMissingParentsWithSearchRuns = (searchRunsResponse: any, experimentIds: any) =>
+  searchRunsResponse.runs && searchRunsResponse.runs.length
+    ? Promise.all(
+        getParentRunIdsToFetch(searchRunsResponse.runs).map((parentRunId) =>
+          MlflowService.searchRuns({
+            experiment_ids: experimentIds,
+            filter: `run_id = '${parentRunId}'`,
+            max_results: 1,
+          })
+            .then((parentSearchRunsResponse) => {
+              const parentRun = parentSearchRunsResponse.runs?.[0];
+              if (parentRun) {
+                searchRunsResponse.runs.push(parentRun);
+                // Additional parent runs should be always visible
+                // marked as those matching filter
+                if (searchRunsResponse.runsMatchingFilter) {
+                  searchRunsResponse.runsMatchingFilter.push(parentRun);
+                }
               }
             })
             .catch((error) => {
@@ -319,7 +362,7 @@ export const searchRunsPayload = ({
       throw new Error(`Invalid format of the runs search response: ${String(response)}`);
     }
 
-    // Place aside ans save runs that matched filter naturally (not the pinned ones):
+    // Place aside and save runs that matched filter naturally (not the pinned ones):
     (response as any).runsMatchingFilter = (baseSearchResponse as any).runs?.slice() || [];
 
     // If we get pinned rows from the additional response, merge them into the base run list:
@@ -332,7 +375,8 @@ export const searchRunsPayload = ({
     }
 
     // If there are any pending parents to fetch, do it before returning the response
-    return shouldFetchParents ? fetchMissingParents(response) : response;
+    const fetchParents = () => fetchMissingParents(response);
+    return shouldFetchParents ? fetchParents() : response;
   });
 };
 
@@ -361,6 +405,22 @@ export const listArtifactsApi = (runUuid: any, path?: any, id = getUUID()) => {
       ...(path && { path: path }),
     }),
     meta: { id: id, runUuid: runUuid, path: path },
+  };
+};
+
+/**
+ * Redux action to list artifacts for a logged model.
+ * TODO: discard redux, refactor into hooks
+ */
+export const LIST_ARTIFACTS_LOGGED_MODEL_API = 'LIST_ARTIFACTS_LOGGED_MODEL_API';
+export const listArtifactsLoggedModelApi = (loggedModelId: any, path?: any, id = getUUID()) => {
+  return {
+    type: LIST_ARTIFACTS_API,
+    payload: MlflowService.listArtifactsLoggedModel({
+      loggedModelId,
+      path,
+    }),
+    meta: { id: id, loggedModelId, path: path },
   };
 };
 
@@ -466,18 +526,7 @@ export const setTagApi = (runUuid: any, tagName: any, tagValue: any, id = getUUI
 
 // TODO: run_uuid is deprecated, use run_id instead
 export const DELETE_TAG_API = 'DELETE_TAG_API';
-export const deleteTagApi = (runUuid: any, tagName: any, id = getUUID()) => {
-  return {
-    type: DELETE_TAG_API,
-    payload: MlflowService.deleteTag({
-      run_id: runUuid,
-      key: tagName,
-    }),
-    meta: { id: id, runUuid: runUuid, key: tagName },
-  };
-};
-
-export const SET_RUN_TAGS_BULK = 'SET_RUN_TAGS_BULK';
+const SET_RUN_TAGS_BULK = 'SET_RUN_TAGS_BULK';
 /**
  * Given lists of existing and new tags, creates and calls
  * multiple requests for setting/deleting tags in a experiment run
@@ -635,4 +684,4 @@ export const createPromptLabRunApi = ({
     meta: { payload },
   };
 };
-export const CREATE_PROMPT_LAB_RUN = 'CREATE_PROMPT_LAB_RUN';
+const CREATE_PROMPT_LAB_RUN = 'CREATE_PROMPT_LAB_RUN';

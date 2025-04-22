@@ -1,5 +1,6 @@
 import logging
 import urllib
+from typing import Any, Union
 
 import sqlalchemy
 from sqlalchemy.future import select
@@ -12,7 +13,9 @@ from mlflow.entities.model_registry.model_version_stages import (
     STAGE_DELETED_INTERNAL,
     get_canonical_stage,
 )
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import handle_resource_already_exist_error, has_prompt_tag
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
@@ -41,6 +44,7 @@ from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
     _validate_model_alias_name,
     _validate_model_name,
+    _validate_model_renaming,
     _validate_model_version,
     _validate_model_version_tag,
     _validate_registered_model_tag,
@@ -186,14 +190,14 @@ class SqlAlchemyStore(AbstractStore):
                 session.add(registered_model)
                 session.flush()
                 return registered_model.to_mlflow_entity()
-            except sqlalchemy.exc.IntegrityError as e:
-                raise MlflowException(
-                    f"Registered Model (name={name}) already exists. Error: {e}",
-                    RESOURCE_ALREADY_EXISTS,
+            except sqlalchemy.exc.IntegrityError:
+                existing_model = self.get_registered_model(name)
+                handle_resource_already_exist_error(
+                    name, has_prompt_tag(existing_model._tags), has_prompt_tag(tags)
                 )
 
     @classmethod
-    def _get_registered_model(cls, session, name, eager=False):
+    def _get_registered_model(cls, session, name, eager=False):  # noqa: D417
         """
         Args:
             eager: If ``True``, eagerly loads the registered model's tags. If ``False``, these
@@ -253,7 +257,7 @@ class SqlAlchemyStore(AbstractStore):
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
 
         """
-        _validate_model_name(new_name)
+        _validate_model_renaming(new_name)
         with self.ManagedSessionMaker() as session:
             sql_registered_model = self._get_registered_model(session, name)
             try:
@@ -394,6 +398,12 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
         rm_query = select(SqlRegisteredModel).filter(*attribute_filters)
+
+        if not cls._is_querying_prompt(parsed_filters):
+            rm_query = cls._update_query_to_exclude_prompts(
+                rm_query, tag_filters, dialect, SqlRegisteredModel, SqlRegisteredModelTag
+            )
+
         if tag_filters:
             sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
             tag_filter_query = (
@@ -480,6 +490,12 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
         mv_query = select(SqlModelVersion).filter(*attribute_filters)
+
+        if not cls._is_querying_prompt(parsed_filters):
+            mv_query = cls._update_query_to_exclude_prompts(
+                mv_query, tag_filters, dialect, SqlModelVersion, SqlModelVersionTag
+            )
+
         if tag_filters:
             sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
             tag_filter_query = (
@@ -498,6 +514,59 @@ class SqlAlchemyStore(AbstractStore):
             )
         else:
             return mv_query
+
+    @classmethod
+    def _update_query_to_exclude_prompts(
+        cls,
+        query: Any,
+        tag_filters: dict[str, list[Any]],
+        dialect: str,
+        main_db_model: Union[SqlModelVersion, SqlRegisteredModel],
+        tag_db_model: Union[SqlModelVersionTag, SqlRegisteredModelTag],
+    ):
+        """
+        Update query to exclude all prompt rows and return only normal model or model versions.
+
+        Prompts and normal models are distinguished by the `mlflow.prompt.is_prompt` tag.
+        The search API should only return normal models by default. However, simply filtering
+        rows using the tag like this does not work because models do not have the prompt tag.
+
+            tags.`mlflow.prompt.is_prompt` != 'true'
+            tags.`mlflow.prompt.is_prompt` = 'false'
+
+        To workaround this, we need to use a subquery to get all prompt rows and then use an
+        anti-join for excluding prompts.
+        """
+        # If the tag filter contains the prompt tag, remove it
+        tag_filters.pop(IS_PROMPT_TAG_KEY, [])
+
+        # Filter to get all prompt rows
+        equal = SearchUtils.get_sql_comparison_func("=", dialect)
+        prompts_subquery = (
+            select(tag_db_model.name)
+            .filter(
+                equal(tag_db_model.key, IS_PROMPT_TAG_KEY),
+                equal(tag_db_model.value, "true"),
+            )
+            .group_by(tag_db_model.name)
+            .subquery()
+        )
+        return query.join(
+            prompts_subquery, main_db_model.name == prompts_subquery.c.name, isouter=True
+        ).filter(prompts_subquery.c.name.is_(None))
+
+    @classmethod
+    def _is_querying_prompt(cls, parsed_filters: list[dict[str, Any]]) -> bool:
+        for f in parsed_filters:
+            if f["type"] != "tag" or f["key"] != IS_PROMPT_TAG_KEY:
+                continue
+
+            return (f["comparator"] == "=" and f["value"].lower() == "true") or (
+                f["comparator"] == "!=" and f["value"].lower() == "false"
+            )
+
+        # Query should return only normal models by default
+        return False
 
     @classmethod
     def _parse_search_registered_models_order_by(cls, order_by_list):
@@ -570,7 +639,14 @@ class SqlAlchemyStore(AbstractStore):
                 expected_stages = {get_canonical_stage(stage) for stage in ALL_STAGES}
             else:
                 expected_stages = {get_canonical_stage(stage) for stage in stages}
-            return [mv for mv in latest_versions if mv.current_stage in expected_stages]
+            mvs = [mv for mv in latest_versions if mv.current_stage in expected_stages]
+
+            # Populate aliases for each model version
+            for mv in mvs:
+                model_aliases = sql_registered_model.registered_model_aliases
+                mv.aliases = [alias.alias for alias in model_aliases if alias.version == mv.version]
+
+            return mvs
 
     @classmethod
     def _get_registered_model_tag(cls, session, name, key):
@@ -650,6 +726,7 @@ class SqlAlchemyStore(AbstractStore):
                 instances associated with this model version.
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
+            local_model_path: Unused.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -748,7 +825,7 @@ class SqlAlchemyStore(AbstractStore):
         return versions[0]
 
     @classmethod
-    def _get_sql_model_version(cls, session, name, version, eager=False):
+    def _get_sql_model_version(cls, session, name, version, eager=False):  # noqa: D417
         """
         Args:
             eager: If ``True``, eagerly loads the model version's tags.

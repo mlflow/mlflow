@@ -12,11 +12,13 @@ fastai (native) format
 .. _fastai.Learner.export:
     https://docs.fast.ai/basic_train.html#Learner.export
 """
+
 import logging
 import os
 import tempfile
+import warnings
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -62,6 +64,8 @@ FLAVOR_NAME = "fastai"
 _MODEL_DATA_SUBPATH = "model.fastai"
 
 _logger = logging.getLogger(__name__)
+
+warnings.warn("fastai flavor is deprecated and will be removed in MLflow 3.0.", FutureWarning)
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
@@ -275,13 +279,13 @@ def log_model(
               signature = infer_signature(train, predictions)
 
         input_example: {{ input_example }}
-        kwargs: kwargs to pass to `fastai.Learner.export`_ method.
         await_registration_for: Number of seconds to wait for the model version to finish
             being created and is in ``READY`` status. By default, the function
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        kwargs: kwargs to pass to `fastai.Learner.export`_ method.
 
     Returns:
         A ModelInfo instance that contains the metadata of the logged model.
@@ -358,7 +362,7 @@ class _FastaiModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:

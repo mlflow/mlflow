@@ -1,5 +1,11 @@
-import { ApolloClient, ApolloLink, InMemoryCache, Operation, createHttpLink } from '@apollo/client';
-import { RetryLink } from '@apollo/client/link/retry';
+import {
+  ApolloClient,
+  ApolloLink,
+  InMemoryCache,
+  Operation,
+  createHttpLink,
+} from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import { RetryLink } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 
 function containsMutation(op: Operation): boolean {
   const definitions = (op.query && op.query.definitions) || [];
@@ -39,7 +45,8 @@ export function createApolloClient() {
     attempts: { retryIf: (_, op) => !containsMutation(op) },
   });
 
-  const combinedLinks = ApolloLink.from([
+  // eslint-disable-next-line prefer-const
+  let combinedLinks = ApolloLink.from([
     // This link retries queries that fail due to network errors
     retryLink,
     httpLink,

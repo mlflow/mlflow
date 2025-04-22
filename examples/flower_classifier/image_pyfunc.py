@@ -2,11 +2,12 @@
 Example of a custom python function implementing image classifier with image preprocessing embedded
 in the model.
 """
+
 import base64
 import importlib.metadata
 import os
 from io import BytesIO
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import keras
 import numpy as np
@@ -61,7 +62,7 @@ class KerasImageClassifierPyfunc:
     def predict(
         self,
         input,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Generate predictions for the data.
@@ -121,6 +122,7 @@ def log_model(keras_model, signature, artifact_path, image_dims, domain):
 
     Args:
         keras_model: Keras model to be saved.
+        signature: Model signature.
         artifact_path: Run-relative artifact path this model is to be saved to.
         image_dims: Image dimensions the Keras model expects.
         domain: Labels for the classes this model can predict.

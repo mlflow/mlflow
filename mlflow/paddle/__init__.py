@@ -13,7 +13,7 @@ Paddle (native) format
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -376,12 +376,10 @@ def log_model(
         import mlflow.paddle
 
 
-        def load_data():
-            ...
+        def load_data(): ...
 
 
-        class Regressor:
-            ...
+        class Regressor: ...
 
 
         model = Regressor()
@@ -442,7 +440,7 @@ class _PaddleWrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:

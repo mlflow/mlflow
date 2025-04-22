@@ -4,6 +4,7 @@ Initialize the environment and start model serving in a Docker container.
 To be executed only during the model deployment.
 
 """
+
 import logging
 import multiprocessing
 import os
@@ -12,7 +13,6 @@ import signal
 import sys
 from pathlib import Path
 from subprocess import Popen, check_call
-from typing import List
 
 import mlflow
 import mlflow.version
@@ -47,7 +47,7 @@ SERVING_ENVIRONMENT = "SERVING_ENVIRONMENT"
 _logger = logging.getLogger(__name__)
 
 
-def _init(cmd, env_manager):
+def _init(cmd, env_manager):  # noqa: D417
     """
     Initialize the container and execute command.
 
@@ -123,7 +123,7 @@ def _install_pyfunc_deps(
     return activate_cmd
 
 
-def _install_model_dependencies_to_env(model_path, env_manager) -> List[str]:
+def _install_model_dependencies_to_env(model_path, env_manager) -> list[str]:
     """:
     Installs model dependencies to the specified environment, which can be either a local
     environment, a conda environment, or a virtualenv.
@@ -166,7 +166,7 @@ def _install_model_dependencies_to_env(model_path, env_manager) -> List[str]:
         activate_cmd = ["source /miniconda/bin/activate custom_env"]
 
     elif env_manager == em.VIRTUALENV:
-        env_activate_cmd = _get_or_create_virtualenv(model_path)
+        env_activate_cmd = _get_or_create_virtualenv(model_path, env_manager=env_manager)
         path = env_activate_cmd.split(" ")[-1]
         os.symlink(path, "/opt/activate")
         activate_cmd = [env_activate_cmd]
@@ -240,7 +240,6 @@ def _serve_pyfunc(model, env_manager):
         }
     else:
         inference_server = scoring_server
-        # users can use GUNICORN_CMD_ARGS="--workers=3" var env to override the number of workers
         nworkers = cpu_count
         port = DEFAULT_INFERENCE_SERVER_PORT
 

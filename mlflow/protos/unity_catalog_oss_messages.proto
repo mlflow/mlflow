@@ -1,0 +1,334 @@
+syntax = "proto2";
+
+package mlflow.unitycatalog;
+
+import "scalapb/scalapb.proto";
+import "databricks.proto";
+
+option java_package = "com.databricks.api.proto.managedcatalog";
+option java_generate_equals_and_hash = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+// Registered Model Management API
+message RegisteredModelInfo {
+  // Input fields:
+
+  // [Create:REQ Update:OPT] Name of Model, relative to parent Schema.
+  optional string name = 1;
+  // [Create:REQ Update:IGN] Name of parent Catalog.
+  optional string catalog_name = 2;
+  // [Create:REQ Update:IGN] Name of parent Schema relative to its parent Catalog.
+  optional string schema_name = 3;
+  // [Create,Update:OPT] User-provided free-form text description.
+  optional string comment = 5;
+
+  // Output-only fields:
+
+  // [Create,Update:IGN] Storage root URL for model
+  optional string storage_location = 6;
+  // [Create,Update:IGN] Full name of Model, in form of <catalog_name>.<schema_name>.<model_name>
+  optional string full_name = 9;
+  // [Create,Update:IGN] Time at which this Model was created, in epoch milliseconds.
+  optional int64 created_at = 11;
+  // [Create,Update:IGN] Username of Model creator.
+  optional string created_by = 12;
+  // [Create,Update:IGN] Time at which this Model was last modified, in epoch milliseconds.
+  optional int64 updated_at = 13;
+  // [Create,Update:IGN] Username of user who last modified the Model.
+  optional string updated_by = 14;
+  // [Create,Update:IGN] ID of the securable that can be used in paging tokens
+  optional string id = 18;
+  // [Create,Update:IGN] Indicate if current model info contains only browsable metadata
+  optional bool browse_only = 21;
+  // [Create,Update:IGN] Encryption options to use when accessing cloud storage.
+  //  optional EncryptionDetails encryption_details = 22;
+}
+
+message CreateRegisteredModel {
+  // [Create:REQ Update:OPT] Name of Model, relative to parent Schema.
+  optional string name = 1;
+  // [Create:REQ Update:IGN] Name of parent Catalog.
+  optional string catalog_name = 2;
+  // [Create:REQ Update:IGN] Name of parent Schema relative to its parent Catalog.
+  optional string schema_name = 3;
+  // [Create,Update:OPT] User-provided free-form text description.
+  optional string comment = 5;
+  // [Create,Update:IGN] Storage root URL for model
+  optional string storage_location = 6;
+
+  message Response {
+    optional RegisteredModelInfo registered_model_info = 1;
+  }
+}
+
+message DeleteRegisteredModel {
+  // Required. Full name of the model.
+  optional string full_name = 1;
+  // Optional. Force deletion even if the registered model is not empty. Default is false.
+  optional bool force = 2;
+
+  message Response {}
+}
+
+message GetRegisteredModel {
+
+  // Required. Full name of the Model.
+  optional string full_name = 1 [(validate_required) = true];
+
+  message Response {
+    optional RegisteredModelInfo registered_model_info = 1;
+  }
+}
+
+message UpdateRegisteredModel {
+
+  // Required. Full name of the Model.
+  optional string full_name = 1;
+
+  // Optional. New name of registered model (replaces registered_model_info.name for specifying new name).
+  optional string new_name = 3;
+
+  // Optional. New comment for registered model. (replaces registered_model_info.comment).
+  optional string comment = 2;
+
+  message Response {
+    optional RegisteredModelInfo registered_model_info = 1;
+  }
+}
+
+message ListRegisteredModels {
+
+  // Optional. Name of parent catalog for models of interest.
+  optional string catalog_name = 1;
+  // Optional. Parent schema of models.
+  optional string schema_name = 2;
+
+  // If catalog and schema are unspecified, max_results must be specified.
+  // If max_results is unspecified, we return all results, starting from the page specified by page_token
+  // Maximum number of models to return (page length).
+  optional int64 max_results = 5;
+
+  // If page_token is unspecified, results begin from the first page of db results
+  // Optional. Opaque token to send for the next page of results (pagination).
+  optional string page_token = 6;
+
+  message Response {
+    repeated RegisteredModelInfo registered_models = 1;
+    // Optional. Opaque token for pagination.
+    optional string next_page_token = 2;
+  }
+}
+
+message ModelVersionInfo {
+
+  // [Create:REQ Update:IGN] Name of parent model, relative to parent Schema.
+  optional string model_name = 1;
+  // [Create:REQ Update:IGN] Name of parent Catalog.
+  optional string catalog_name = 2;
+  // [Create:REQ Update:IGN] Name of parent Schema relative to its parent Catalog.
+  optional string schema_name = 3;
+  // [Create:REQ Update:IGN] URI indicating the location of the source model artifacts, used
+  // when creating ``model_version``
+  optional string source = 5;
+
+  // OPTIONAL input fields (for Create and/or Update):
+
+  // [Create,Update:OPT] User-provided free-form text description.
+  optional string comment = 4;
+  // [Create:OPT Update:IGN] MLflow run ID used when creating ``model_version``, if ``source``
+  // was generated by an experiment run stored in MLflow tracking server.
+  optional string run_id = 6;
+  // [Create:OPT Update:IGN] ID of the workspace containing the MLflow run that
+  // generated this model version
+
+  // Output-only fields:
+
+  // [Create,Update:IGN] Current status of ``model_version``
+  optional ModelVersionStatus status = 8;
+  // [Create,Update:IGN] Numeric model version Id
+  optional int64 version = 9;
+  // [Create,Update:IGN] Storage root URL for model version
+  optional string storage_location = 10;
+  // [Create,Update:IGN] Unique identifier of parent Metastore.
+  optional int64 created_at = 12;
+  // [Create,Update:IGN] Username of model version creator.
+  optional string created_by = 13;
+  // [Create,Update:IGN] Time at which this model version was last modified, in epoch milliseconds.
+  optional int64 updated_at = 14;
+  // [Create,Update:IGN] Username of user who last modified the model version.
+  optional string updated_by = 15;
+  // [Create,Update:IGN] Unique identifier of model version.
+  optional string id = 16;
+}
+
+message CreateModelVersion {
+
+  // Name of Model, relative to parent Schema.
+  optional string model_name = 1;
+  // Name of parent Catalog.
+  optional string catalog_name = 2;
+  // Name of parent Schema relative to its parent Catalog.
+  optional string schema_name = 3;
+  // URI indicating the location of the source model artifacts, used
+  // when creating ``model_version``
+  optional string source = 4;
+  // MLflow run ID used when creating ``model_version``, if ``source``
+  // was generated by an experiment run stored in MLflow tracking server.
+  optional string run_id = 5;
+  // User-provided free-form text description.
+  optional string comment = 6;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1;
+  }
+}
+
+message DeleteModelVersion {
+  
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1;
+
+  // Required. Integer model version number (from URL).
+  optional int64 version = 2;
+
+  message Response {}
+}
+
+message FinalizeModelVersion {
+
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1;
+
+  // Required. Integer model version number (from URL).
+  optional int64 version = 2;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1;
+  }
+}
+
+message GetModelVersion {
+
+  // Required. Full name of the parent registered model (from URL)..
+  optional string full_name = 1;
+
+  // Required. Integer model version number (from URL).
+  optional int64 version = 2;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1;
+  }
+}
+
+message UpdateModelVersion {
+
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1;
+
+  // Required. Integer model version number (from URL).
+  optional int64 version = 2;
+
+  // Required. Partial ModelVersionInfo with fields to change.
+  optional string comment = 3;
+
+  message Response {
+    optional ModelVersionInfo model_version_info = 1;
+  }
+}
+
+message ListModelVersions {
+
+  // Required. Full name of the parent registered model (from URL).
+  optional string full_name = 1;
+
+  // Maximum number of model versions to return (i.e., the page length). Defaults to 100.
+  // Maximum allowed value is 1000.
+  optional int64 max_results = 4;
+
+  // Optional. Opaque token to send for the next page of results (pagination).
+  optional string page_token = 5;
+
+  message Response {
+    repeated ModelVersionInfo model_versions = 1;
+    // Opaque token for pagination.
+    optional string next_page_token = 2;
+  }
+}
+
+enum ModelVersionStatus {
+  MODEL_VERSION_STATUS_UNKNOWN = 0;
+  // Request to register a new model version is pending as client uploads model files.
+  PENDING_REGISTRATION = 1;
+  // Request to register a new model version has failed.
+  FAILED_REGISTRATION = 2;
+  // Model version is ready for use.
+  READY = 3;
+}
+
+// Credentials Related Protos 
+
+message TemporaryCredentials {
+
+  optional AwsCredentials aws_temp_credentials = 2;
+  optional AzureUserDelegationSAS azure_user_delegation_sas = 3;
+  optional GcpOauthToken gcp_oauth_token = 4;
+  
+  // Server time when the credential will expire, in epoch milliseconds.
+  // The API client is advised to cache the credential given this expiration time.
+  optional int64 expiration_time = 1;
+}
+
+// AWS temporary credentials for API authentication.
+// Read more at https://docs.aws.amazon.com/STS/latest/APIReference/API_Credentials.html.
+message AwsCredentials {
+  // The access key ID that identifies the temporary credentials.
+  optional string access_key_id = 1;
+
+  // The secret access key that can be used to sign AWS API requests.
+  optional string secret_access_key = 2;
+
+  // The token that users must pass to AWS API to use the temporary credentials.
+  optional string session_token = 3;
+}
+
+// Azure temporary credentials for API authentication.
+// Read more at https://docs.microsoft.com/en-us/rest/api/storageservices/create-user-delegation-sas
+message AzureUserDelegationSAS {
+  // The signed URI (SAS Token) used to access blob services for a given path
+  optional string sas_token = 1;
+}
+
+// GCP temporary credentials for API authentication.
+// Read more at https://developers.google.com/identity/protocols/oauth2/service-account
+message GcpOauthToken {
+  optional string oauth_token = 1;
+}
+
+message GenerateTemporaryModelVersionCredential {
+
+  // Required. Name of parent catalog for model version of interest.
+  optional string catalog_name = 1;
+  // Required. Name of parent schema of model version.
+  optional string schema_name = 2;
+  // Required. Name of parent registered model of model version.
+  optional string model_name = 3;
+  // Required. Numeric model version Id
+  optional int64 version = 4;
+
+  // Required. Type of operation (read or write) to perform on the model version
+  // Note that model version files can only be written at creation time
+  optional ModelVersionOperation operation = 5;
+
+  message Response {
+    // Temporary credentials for model version read/write
+    optional TemporaryCredentials credentials = 1;
+  }
+}
+
+enum ModelVersionOperation {
+  UNKNOWN_MODEL_VERSION_OPERATION = 0;
+  READ_MODEL_VERSION = 1;
+  READ_WRITE_MODEL_VERSION = 2;
+}

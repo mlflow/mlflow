@@ -1,4 +1,4 @@
-import { compact, throttle } from 'lodash';
+import { intersection, throttle, uniq } from 'lodash';
 import { Dash, Layout, Margin } from 'plotly.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PlotParams } from 'react-plotly.js';
@@ -18,6 +18,20 @@ import { defineMessages } from 'react-intl';
 import type { ExperimentChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
 import { quantile } from 'd3-array';
 import type { UseGetRunQueryResponseRunInfo } from '../../run-page/hooks/useGetRunQuery';
+import { shouldEnableChartExpressions } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import {
+  type RunsChartsLineChartExpression,
+  RunsChartsLineChartYAxisType,
+  RunsChartsBarCardConfig,
+  RunsChartsCardConfig,
+  RunsChartsContourCardConfig,
+  RunsChartsDifferenceCardConfig,
+  RunsChartsLineCardConfig,
+  RunsChartsScatterCardConfig,
+  RunsChartType,
+  RunsChartsParallelCardConfig,
+} from '../runs-charts.types';
+import { isParallelChartConfigured, processParallelCoordinateData } from '../utils/parallelCoordinatesPlot.utils';
 
 /**
  * Common props for all charts used in experiment runs
@@ -90,6 +104,8 @@ export interface RunsPlotsCommonProps {
 export interface RunsChartAxisDef {
   key: string;
   type: 'METRIC' | 'PARAM';
+  dataAccessKey?: string;
+  datasetName?: string;
 }
 
 export interface RunsChartsRunData {
@@ -361,6 +377,7 @@ export const getLegendDataFromRuns = (
   runsData.map(
     (run): LegendLabelData => ({
       label: run.displayName,
+      uuid: run.uuid,
       color: run.color ?? '',
     }),
   );
@@ -369,10 +386,22 @@ export const getLineChartLegendData = (
   runsData: Pick<RunsChartsRunData, 'runInfo' | 'color' | 'metricsHistory' | 'displayName' | 'uuid'>[],
   selectedMetricKeys: string[] | undefined,
   metricKey: string,
+  yAxisKey: RunsChartsLineChartYAxisType,
+  yAxisExpressions: RunsChartsLineChartExpression[],
 ): LegendLabelData[] =>
   runsData.flatMap((runEntry): LegendLabelData[] => {
     if (!runEntry.metricsHistory) {
       return [];
+    }
+
+    if (shouldEnableChartExpressions() && yAxisKey === RunsChartsLineChartYAxisType.EXPRESSION) {
+      return yAxisExpressions.map((expression, idx) => ({
+        label: `${runEntry.displayName} (${expression.expression})`,
+        color: runEntry.color ?? '',
+        dashStyle: lineDashStyles[idx % lineDashStyles.length],
+        metricKey: expression.expression,
+        uuid: runEntry.uuid,
+      }));
     }
 
     const metricKeys = selectedMetricKeys ?? [metricKey];
@@ -453,4 +482,67 @@ export const removeOutliersFromMetricHistory = (metricHistory: MetricEntity[]): 
   const lowerBound = quantile(values, 0.05) ?? -Infinity;
   const upperBound = quantile(values, 0.95) ?? Infinity;
   return metricHistory.filter((metric) => metric.value >= lowerBound && metric.value <= upperBound);
+};
+
+const isContourChartCard = (card: RunsChartsCardConfig): card is RunsChartsContourCardConfig =>
+  card.type === RunsChartType.CONTOUR;
+const isBarChartCard = (card: RunsChartsCardConfig): card is RunsChartsBarCardConfig => card.type === RunsChartType.BAR;
+const isScatterChartCard = (card: RunsChartsCardConfig): card is RunsChartsScatterCardConfig =>
+  card.type === RunsChartType.SCATTER;
+const isDifferenceChartCard = (card: RunsChartsCardConfig): card is RunsChartsDifferenceCardConfig =>
+  card.type === RunsChartType.DIFFERENCE;
+const isLineChartCard = (card: RunsChartsCardConfig): card is RunsChartsLineCardConfig =>
+  card.type === RunsChartType.LINE;
+const isParallelChartCard = (card: RunsChartsCardConfig): card is RunsChartsParallelCardConfig =>
+  card.type === RunsChartType.PARALLEL;
+
+export const isEmptyChartCard = (chartRunData: RunsChartsRunData[], chartCardConfig: RunsChartsCardConfig) => {
+  const visibleChartRunData = chartRunData.filter((trace) => !trace.hidden);
+
+  if (isContourChartCard(chartCardConfig)) {
+    const metricKeys = [chartCardConfig.xaxis.key, chartCardConfig.yaxis.key, chartCardConfig.zaxis.key];
+    const metricsInRuns = visibleChartRunData.flatMap(({ metrics }) => Object.keys(metrics));
+    return intersection(metricKeys, uniq(metricsInRuns)).length === 0;
+  }
+
+  if (isBarChartCard(chartCardConfig)) {
+    const metricsInRuns = visibleChartRunData.flatMap(({ metrics }) => Object.keys(metrics));
+    return !metricsInRuns.includes(chartCardConfig.metricKey);
+  }
+
+  if (isScatterChartCard(chartCardConfig)) {
+    const metricKeys = [
+      chartCardConfig.xaxis.dataAccessKey ?? chartCardConfig.xaxis.key,
+      chartCardConfig.yaxis.dataAccessKey ?? chartCardConfig.yaxis.key,
+    ];
+    const metricsInRuns = visibleChartRunData.flatMap(({ metrics }) => Object.keys(metrics));
+    return intersection(metricKeys, uniq(metricsInRuns)).length === 0;
+  }
+
+  if (isDifferenceChartCard(chartCardConfig)) {
+    return chartCardConfig.compareGroups?.length === 0;
+  }
+
+  if (isLineChartCard(chartCardConfig)) {
+    const metricKeys = chartCardConfig.selectedMetricKeys ?? [chartCardConfig.metricKey];
+    const metricsInRuns = visibleChartRunData.flatMap(({ metrics }) => Object.keys(metrics));
+    return intersection(metricKeys, uniq(metricsInRuns)).length === 0;
+  }
+
+  if (isParallelChartCard(chartCardConfig)) {
+    const isConfigured = isParallelChartConfigured(chartCardConfig);
+
+    const relevantChartRunData = chartCardConfig?.showAllRuns ? chartRunData : visibleChartRunData;
+
+    const data = isConfigured
+      ? processParallelCoordinateData(
+          relevantChartRunData,
+          chartCardConfig.selectedParams,
+          chartCardConfig.selectedMetrics,
+        )
+      : [];
+    return data.length === 0;
+  }
+
+  return false;
 };

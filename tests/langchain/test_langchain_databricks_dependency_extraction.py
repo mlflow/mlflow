@@ -1,9 +1,9 @@
-import sys
-from contextlib import contextmanager
-from unittest.mock import MagicMock
+from collections import Counter, defaultdict
+from unittest import mock
 
 import langchain
 import pytest
+from databricks.vector_search.client import VectorSearchIndex
 from packaging.version import Version
 
 from mlflow.langchain.databricks_dependencies import (
@@ -11,9 +11,14 @@ from mlflow.langchain.databricks_dependencies import (
     _extract_databricks_dependencies_from_chat_model,
     _extract_databricks_dependencies_from_llm,
     _extract_databricks_dependencies_from_retriever,
+    _extract_dependency_list_from_lc_model,
 )
-from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
-from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
+from mlflow.models.resources import (
+    DatabricksFunction,
+    DatabricksServingEndpoint,
+    DatabricksSQLWarehouse,
+    DatabricksVectorSearchIndex,
+)
 
 
 class MockDatabricksServingEndpointClient:
@@ -32,8 +37,31 @@ class MockDatabricksServingEndpointClient:
         self.task = task
 
 
+def _is_partner_package_installed():
+    try:
+        import langchain_databricks  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+def remove_langchain_community(monkeypatch):
+    # Simulate the environment where langchain_community is not installed
+    original_import = __import__
+
+    def mock_import(name, *args, **kwargs):
+        if name.startswith("langchain_community"):
+            raise ImportError("No module named 'langchain_community'")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
+
+
 def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch):
-    from langchain.llms import Databricks
+    from langchain_community.llms import Databricks
+
+    from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
 
     monkeypatch.setattr(
         "langchain_community.llms.databricks._DatabricksServingEndpointClient",
@@ -53,7 +81,7 @@ def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch)
     ]
 
 
-class MockVectorSearchIndex:
+class MockVectorSearchIndex(VectorSearchIndex):
     def __init__(self, endpoint_name, index_name, has_embedding_endpoint=False) -> None:
         self.endpoint_name = endpoint_name
         self.name = index_name
@@ -107,46 +135,69 @@ class MockVectorSearchIndex:
             }
 
 
-class MockVectorSearchClient:
-    def get_index(self, endpoint_name, index_name, has_embedding_endpoint=False):
-        return MockVectorSearchIndex(endpoint_name, index_name, has_embedding_endpoint)
+def get_vector_search(
+    use_partner_package: bool,
+    endpoint_name: str,
+    index_name: str,
+    has_embedding_endpoint=False,
+    **kwargs,
+):
+    index = MockVectorSearchIndex(endpoint_name, index_name, has_embedding_endpoint)
 
+    if use_partner_package:
+        from langchain_databricks import DatabricksVectorSearch
 
-@pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
-def test_parsing_dependency_from_databricks_retriever(module_name, monkeypatch: pytest.MonkeyPatch):
-    if module_name == "langchain":
-        from langchain.embeddings import DatabricksEmbeddings
-        from langchain.vectorstores import DatabricksVectorSearch
-    elif module_name == "langchain_community":
-        from langchain_community.embeddings import DatabricksEmbeddings
+        with mock.patch("databricks.vector_search.client.VectorSearchClient") as mock_client:
+            mock_client().get_index.return_value = index
+            vectorstore = DatabricksVectorSearch(
+                endpoint=endpoint_name,
+                index_name=index_name,
+                **kwargs,
+            )
+    else:
         from langchain_community.vectorstores import DatabricksVectorSearch
 
-    vsc = MockVectorSearchClient()
-    vs_index_1 = vsc.get_index(endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_1")
-    vs_index_2 = vsc.get_index(
-        endpoint_name="vs_endpoint", index_name="mlflow.rag.vs_index_2", has_embedding_endpoint=True
-    )
-    mock_get_deploy_client = MagicMock()
+        vectorstore = DatabricksVectorSearch(index, **kwargs)
 
-    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
+    return vectorstore
+
+
+@pytest.mark.parametrize("use_partner_package", [True, False])
+def test_parsing_dependency_from_databricks_retriever(monkeypatch, use_partner_package):
+    if use_partner_package and not _is_partner_package_installed():
+        pytest.skip("`langchain-databricks` is not installed")
+
+    if use_partner_package:
+        from langchain_databricks import DatabricksEmbeddings
+        from langchain_openai import ChatOpenAI
+
+        remove_langchain_community(monkeypatch)
+        with pytest.raises(ImportError, match="No module named 'langchain_community"):
+            from langchain_community.embeddings import DatabricksEmbeddings
+    else:
+        from langchain_community.chat_models import ChatOpenAI
+        from langchain_community.embeddings import DatabricksEmbeddings
+
     embedding_model = DatabricksEmbeddings(endpoint="databricks-bge-large-en")
 
-    mock_module = MagicMock()
-    mock_module.VectorSearchIndex = MockVectorSearchIndex
-
-    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
-
-    # set embedding model
-    vectorstore_1 = DatabricksVectorSearch(
-        vs_index_1, text_column="content", embedding=embedding_model
+    # vs_index_1 is a direct access index
+    vectorstore_1 = get_vector_search(
+        use_partner_package=use_partner_package,
+        endpoint_name="vs_endpoint",
+        index_name="mlflow.rag.vs_index_1",
+        text_column="content",
+        embedding=embedding_model,
     )
     retriever_1 = vectorstore_1.as_retriever()
 
     # vs_index_2 has builtin embedding endpoint "embedding-model"
-    vectorstore_2 = DatabricksVectorSearch(vs_index_2, text_column="content")
+    vectorstore_2 = get_vector_search(
+        use_partner_package=use_partner_package,
+        endpoint_name="vs_endpoint",
+        index_name="mlflow.rag.vs_index_2",
+        has_embedding_endpoint=True,
+    )
     retriever_2 = vectorstore_2.as_retriever()
-
-    from langchain.chat_models import ChatOpenAI
 
     llm = ChatOpenAI(temperature=0)
 
@@ -203,32 +254,17 @@ def test_parsing_dependency_from_databricks_retriever(module_name, monkeypatch: 
     ]
 
 
-@pytest.mark.parametrize("module_name", ["langchain", "langchain_community"])
-def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in_index(
-    module_name,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    if module_name == "langchain":
-        from langchain.vectorstores import DatabricksVectorSearch
-    elif module_name == "langchain_community":
-        from langchain_community.vectorstores import DatabricksVectorSearch
+@pytest.mark.parametrize("use_partner_package", [True, False])
+def test_parsing_dependency_from_retriever_with_embedding_endpoint_in_index(use_partner_package):
+    if use_partner_package and not _is_partner_package_installed():
+        pytest.skip("`langchain-databricks` is not installed")
 
-    vsc = MockVectorSearchClient()
-    vs_index = vsc.get_index(
+    vectorstore = get_vector_search(
+        use_partner_package=use_partner_package,
         endpoint_name="dbdemos_vs_endpoint",
         index_name="mlflow.rag.vs_index",
         has_embedding_endpoint=True,
     )
-    mock_get_deploy_client = MagicMock()
-
-    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
-
-    mock_module = MagicMock()
-    mock_module.VectorSearchIndex = MockVectorSearchIndex
-
-    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
-
-    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
     retriever = vectorstore.as_retriever()
     resources = list(_extract_databricks_dependencies_from_retriever(retriever))
     assert resources == [
@@ -237,39 +273,234 @@ def test_parsing_dependency_from_databricks_retriever_with_embedding_endpoint_in
     ]
 
 
-def test_parsing_dependency_from_databricks_chat(monkeypatch: pytest.MonkeyPatch):
-    from langchain_community.chat_models import ChatDatabricks
+def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
+    from databricks.sdk.service.catalog import FunctionInfo
+    from langchain.agents import initialize_agent
+    from langchain_openai.llms import OpenAI
 
-    mock_get_deploy_client = MagicMock()
+    try:
+        from langchain_community.tools.databricks import UCFunctionToolkit
+    except Exception:
+        return
 
-    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
+    # When get is called return a function
+    def mock_function_get(self, function_name):
+        components = function_name.split(".")
+        # Initialize agent used below requires functions to take in exactly one parameter
+        param_dict = {
+            "parameters": [
+                {
+                    "name": "param",
+                    "parameter_type": "PARAM",
+                    "position": 0,
+                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "type_text": "string",
+                }
+            ]
+        }
+        # Add the catalog, schema and name to the function Info followed by the parameter
+        return FunctionInfo.from_dict(
+            {
+                "catalog_name": components[0],
+                "schema_name": components[1],
+                "name": components[2],
+                "input_params": param_dict,
+            }
+        )
+
+    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
+
+    toolkit = UCFunctionToolkit(warehouse_id="testId1").include("rag.test.test_function")
+    llm = OpenAI(temperature=0)
+    agent = initialize_agent(
+        toolkit.get_tools(),
+        llm,
+        verbose=True,
+    )
+
+    resources = list(_extract_dependency_list_from_lc_model(agent))
+    assert resources == [
+        DatabricksFunction(function_name="rag.test.test_function"),
+        DatabricksSQLWarehouse(warehouse_id="testId1"),
+    ]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.1.0"),
+    reason="Tools are not supported the way we want in earlier versions",
+)
+@pytest.mark.parametrize("use_partner_package", [True, False])
+def test_parsing_multiple_dependency_from_agent(monkeypatch, use_partner_package):
+    if use_partner_package and not _is_partner_package_installed():
+        pytest.skip("`langchain-databricks` is not installed")
+
+    from databricks.sdk.service.catalog import FunctionInfo
+    from langchain.agents import initialize_agent
+    from langchain.tools.retriever import create_retriever_tool
+
+    if use_partner_package:
+        from langchain_databricks import ChatDatabricks
+
+        remove_langchain_community(monkeypatch)
+        with pytest.raises(ImportError, match="No module named 'langchain_community"):
+            from langchain_community.chat_models import ChatDatabricks
+    else:
+        from langchain_community.chat_models import ChatDatabricks
+
+    def mock_function_get(self, function_name):
+        components = function_name.split(".")
+        param_dict = {
+            "parameters": [
+                {
+                    "name": "param",
+                    "parameter_type": "PARAM",
+                    "position": 0,
+                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "type_text": "string",
+                }
+            ]
+        }
+        return FunctionInfo.from_dict(
+            {
+                "catalog_name": components[0],
+                "schema_name": components[1],
+                "name": components[2],
+                "input_params": param_dict,
+            }
+        )
+
+    # In addition to above now handle the case where a '*' is passed in and list all the functions
+    def mock_function_list(self, catalog_name, schema_name):
+        assert catalog_name == "rag"
+        assert schema_name == "test"
+        return [
+            FunctionInfo(full_name="rag.test.test_function"),
+            FunctionInfo(full_name="rag.test.test_function_2"),
+            FunctionInfo(full_name="rag.test.test_function_3"),
+        ]
+
+    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.list", mock_function_list)
+
+    include_uc_function_tools = False
+    try:
+        from langchain_community.tools.databricks import UCFunctionToolkit
+
+        include_uc_function_tools = True
+    except Exception:
+        include_uc_function_tools = False
+
+    uc_function_tools = (
+        (UCFunctionToolkit(warehouse_id="testId1").include("rag.test.*").get_tools())
+        if include_uc_function_tools
+        else []
+    )
+    chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
+
+    vectorstore = get_vector_search(
+        use_partner_package=use_partner_package,
+        endpoint_name="dbdemos_vs_endpoint",
+        index_name="mlflow.rag.vs_index",
+        has_embedding_endpoint=True,
+    )
+    retriever = vectorstore.as_retriever()
+
+    retriever_tool = create_retriever_tool(retriever, "vs_index_name", "vs_index_desc")
+
+    agent = initialize_agent(
+        uc_function_tools + [retriever_tool],
+        chat_model,
+        verbose=True,
+    )
+    resources = list(_extract_dependency_list_from_lc_model(agent))
+    # Ensure all resources are added in
+    expected = [
+        DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
+        DatabricksServingEndpoint(endpoint_name="embedding-model"),
+        DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
+    ]
+    if include_uc_function_tools:
+        expected = [
+            DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat"),
+            DatabricksFunction(function_name="rag.test.test_function"),
+            DatabricksFunction(function_name="rag.test.test_function_2"),
+            DatabricksFunction(function_name="rag.test.test_function_3"),
+            DatabricksVectorSearchIndex(index_name="mlflow.rag.vs_index"),
+            DatabricksServingEndpoint(endpoint_name="embedding-model"),
+            DatabricksSQLWarehouse(warehouse_id="testId1"),
+        ]
+
+    def build_resource_map(resources):
+        resource_map = defaultdict(list)
+
+        for resource in resources:
+            resource_type = resource.type.value
+            resource_name = resource.to_dict()[resource_type][0]["name"]
+            resource_map[resource_type].append(resource_name)
+
+        return dict(resource_map)
+
+    # Build maps for resources and expected resources
+    resource_maps = build_resource_map(resources)
+    expected_maps = build_resource_map(expected)
+
+    assert len(resource_maps) == len(expected_maps)
+
+    for resource_type in resource_maps:
+        assert Counter(resource_maps[resource_type]) == Counter(
+            expected_maps.get(resource_type, [])
+        )
+
+
+@pytest.mark.parametrize("use_partner_package", [True, False])
+def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_package):
+    if use_partner_package and not _is_partner_package_installed():
+        pytest.skip("`langchain-databricks` is not installed")
+
+    if use_partner_package:
+        from langchain_databricks import ChatDatabricks
+
+        remove_langchain_community(monkeypatch)
+        with pytest.raises(ImportError, match="No module named 'langchain_community"):
+            from langchain_community.chat_models import ChatDatabricks
+    else:
+        from langchain_community.chat_models import ChatDatabricks
 
     chat_model = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
     resources = list(_extract_databricks_dependencies_from_chat_model(chat_model))
     assert resources == [DatabricksServingEndpoint(endpoint_name="databricks-llama-2-70b-chat")]
 
 
-def test_parsing_dependency_from_databricks(monkeypatch: pytest.MonkeyPatch):
-    from langchain_community.chat_models import ChatDatabricks
-    from langchain_community.vectorstores import DatabricksVectorSearch
+@pytest.mark.parametrize("use_partner_package", [True, False])
+def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
+    if use_partner_package and not _is_partner_package_installed():
+        pytest.skip("`langchain-databricks` is not installed")
 
-    mock_get_deploy_client = MagicMock()
+    if use_partner_package:
+        from langchain_databricks import ChatDatabricks
 
-    monkeypatch.setattr("mlflow.deployments.get_deploy_client", mock_get_deploy_client)
+        remove_langchain_community(monkeypatch)
+        with pytest.raises(ImportError, match="No module named 'langchain_community"):
+            from langchain_community.chat_models import ChatDatabricks
+    else:
+        from langchain_community.chat_models import ChatDatabricks
 
-    vsc = MockVectorSearchClient()
-    vs_index = vsc.get_index(
+    vectorstore = get_vector_search(
+        use_partner_package=use_partner_package,
         endpoint_name="dbdemos_vs_endpoint",
         index_name="mlflow.rag.vs_index",
         has_embedding_endpoint=True,
     )
-
-    mock_module = MagicMock()
-    mock_module.VectorSearchIndex = MockVectorSearchIndex
-
-    monkeypatch.setitem(sys.modules, "databricks.vector_search.client", mock_module)
-
-    vectorstore = DatabricksVectorSearch(vs_index, text_column="content")
     retriever = vectorstore.as_retriever()
     llm = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
     llm2 = ChatDatabricks(endpoint="databricks-llama-2-70b-chat", max_tokens=500)
@@ -283,82 +514,62 @@ def test_parsing_dependency_from_databricks(monkeypatch: pytest.MonkeyPatch):
     ]
 
 
-@contextmanager
-def remove_langchain_modules():
-    prefixes_to_remove = [
-        "langchain",
-        "langchain_community",
-    ]
-    exceptions = ["langchain_core", "langchain_community.llms.databricks"]
-
-    saved_modules = {}
-    for mod in list(sys.modules):
-        if any(mod.startswith(prefix) for prefix in prefixes_to_remove) and not any(
-            mod.startswith(exc) for exc in exceptions
-        ):
-            saved_modules[mod] = sys.modules.pop(mod)
-
-    try:
-        yield
-    finally:
-        sys.modules.update(saved_modules)  # Restore all removed modules safely
-
-
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"), reason="feature not existing"
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="unitycatalog-langchain depends on langchain>=0.2.0",
 )
-def test_parsing_dependency_correct_loads_langchain_modules():
-    with remove_langchain_modules():
-        import langchain_community
+def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch):
+    from databricks.sdk.service.catalog import FunctionInfo
+    from langchain.agents import initialize_agent
+    from langchain_openai.llms import OpenAI
+    from unitycatalog.ai.core.databricks import DatabricksFunctionClient
+    from unitycatalog.ai.langchain.toolkit import UCFunctionToolkit
 
-        with pytest.raises(
-            AttributeError, match="module 'langchain_community' has no attribute 'llms'"
-        ):
-            langchain_community.llms.Databricks
-        list(_extract_databricks_dependencies_from_llm(""))
+    # When get is called return a function
+    def mock_function_get(self, function_name):
+        components = function_name.split(".")
+        # Initialize agent used below requires functions to take in exactly one parameter
+        param_dict = {
+            "parameters": [
+                {
+                    "name": "param",
+                    "parameter_type": "PARAM",
+                    "position": 0,
+                    "type_json": '{"name":"param","type":"string","nullable":true,"metadata":{}}',
+                    "type_name": "STRING",
+                    "type_precision": 0,
+                    "type_scale": 0,
+                    "type_text": "string",
+                }
+            ]
+        }
+        # Add the catalog, schema and name to the function Info followed by the parameter
+        return FunctionInfo.from_dict(
+            {
+                "catalog_name": components[0],
+                "schema_name": components[1],
+                "name": components[2],
+                "input_params": param_dict,
+            }
+        )
 
-        # import works as expected after _extract_databricks_dependencies_from_llm
-        langchain_community.llms.Databricks
+    monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
+    monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
 
-    with remove_langchain_modules():
-        import langchain_community
+    # TODO: remove this mock after unitycatalog-ai release a new version to avoid setting
+    # spark session during initialization
+    with mock.patch("unitycatalog.ai.core.databricks.DatabricksFunctionClient.set_spark_session"):
+        client = DatabricksFunctionClient()
+    toolkit = UCFunctionToolkit(function_names=["rag.test.test_function"], client=client)
+    llm = OpenAI(temperature=0)
+    agent = initialize_agent(
+        toolkit.tools,
+        llm,
+        verbose=True,
+    )
 
-        with pytest.raises(
-            AttributeError, match="module 'langchain_community' has no attribute 'embeddings'"
-        ):
-            langchain_community.embeddings.DatabricksEmbeddings
-
-        with pytest.raises(
-            AttributeError, match="module 'langchain_community' has no attribute 'vectorstores'"
-        ):
-            langchain_community.vectorstores.DatabricksVectorSearch
-
-        list(_extract_databricks_dependencies_from_retriever(""))
-        # import works as expected after _extract_databricks_dependencies_from_retriever
-        langchain_community.vectorstores.DatabricksVectorSearch
-        langchain_community.embeddings.DatabricksEmbeddings
-
-    with remove_langchain_modules():
-        import langchain_community
-
-        with pytest.raises(
-            AttributeError, match="module 'langchain_community' has no attribute 'chat_models'"
-        ):
-            langchain_community.chat_models.ChatDatabricks
-
-        list(_extract_databricks_dependencies_from_chat_model(""))
-        # import works as expected after _extract_databricks_dependencies_from_chat_model
-        langchain_community.chat_models.ChatDatabricks
-
-
-def test_module_removal():
-    import langchain_community.llms
-
-    langchain_community.llms.Databricks
-    with remove_langchain_modules():
-        import langchain_community
-
-        with pytest.raises(
-            AttributeError, match="module 'langchain_community' has no attribute 'llms'"
-        ):
-            langchain_community.llms.Databricks
+    resources = list(_extract_dependency_list_from_lc_model(agent))
+    assert resources == [
+        DatabricksFunction(function_name="rag.test.test_function"),
+    ]

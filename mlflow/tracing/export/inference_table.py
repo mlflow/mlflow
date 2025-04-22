@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from cachetools import TTLCache
 from opentelemetry.sdk.trace import ReadableSpan
@@ -9,12 +9,13 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
+from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 _logger = logging.getLogger(__name__)
 
 
-def pop_trace(request_id: str) -> Optional[Dict[str, Any]]:
+def pop_trace(request_id: str) -> Optional[dict[str, Any]]:
     """
     Pop the completed trace data from the buffer. This method is used in
     the Databricks model serving so please be careful when modifying it.
@@ -49,15 +50,15 @@ class InferenceTableSpanExporter(SpanExporter):
     def __init__(self):
         self._trace_manager = InMemoryTraceManager.get_instance()
 
-    def export(self, root_spans: Sequence[ReadableSpan]):
+    def export(self, spans: Sequence[ReadableSpan]):
         """
-        Export the spans to MLflow backend.
+        Export the spans to Inference Table via the TTLCache buffer.
 
         Args:
-            root_spans: A sequence of OpenTelemetry ReadableSpan objects to be exported.
-                Only root spans for each trace are passed to this method.
+            spans: A sequence of OpenTelemetry ReadableSpan objects passed from
+                a span processor. Only root spans for each trace should be exported.
         """
-        for span in root_spans:
+        for span in spans:
             if span._parent is not None:
                 _logger.debug("Received a non-root span. Skipping export.")
                 continue
@@ -66,6 +67,8 @@ class InferenceTableSpanExporter(SpanExporter):
             if trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
+
+            _set_last_active_trace_id(trace.info.request_id)
 
             # Add the trace to the in-memory buffer so it can be retrieved by upstream
             _TRACE_BUFFER[trace.info.request_id] = trace.to_dict()

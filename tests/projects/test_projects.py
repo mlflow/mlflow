@@ -524,8 +524,9 @@ def test_credential_propagation(synchronous, monkeypatch):
             "DATABRICKS_TOKEN": "mytoken",
         }
     )
-    with mock.patch("subprocess.Popen", return_value=DummyProcess()) as popen_mock, mock.patch(
-        "mlflow.utils.uri.is_databricks_uri", return_value=True
+    with (
+        mock.patch("subprocess.Popen", return_value=DummyProcess()) as popen_mock,
+        mock.patch("mlflow.utils.uri.is_databricks_uri", return_value=True),
     ):
         mlflow.projects.run(
             TEST_PROJECT_DIR,

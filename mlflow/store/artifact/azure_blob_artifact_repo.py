@@ -197,7 +197,23 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             blob.readinto(file)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException("Not implemented yet")
+        from azure.core.exceptions import ResourceNotFoundError
+
+        (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
+        container_client = self.client.get_container_client(container)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+
+        try:
+            blobs = container_client.list_blobs(name_starts_with=dest_path)
+            blob_list = list(blobs)
+            if not blob_list:
+                raise MlflowException(f"No such file or directory: '{dest_path}'")
+
+            for blob in blob_list:
+                container_client.delete_blob(blob.name)
+        except ResourceNotFoundError:
+            raise MlflowException(f"No such file or directory: '{dest_path}'")
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         from azure.storage.blob import BlobSasPermissions, generate_blob_sas

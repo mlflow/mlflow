@@ -29,7 +29,11 @@ export const DarkThemeSwitch = ({
       paddingTop: 4,
     }}
   >
-    <Switch checked={isDarkTheme} onChange={setIsDarkTheme} />
+    <Switch
+      componentId="codegen_mlflow_app_src_common_components_darkthemeswitch.tsx_32"
+      checked={isDarkTheme}
+      onChange={setIsDarkTheme}
+    />
     {isDarkTheme ? <MoonIcon /> : <SunIcon />}
   </span>
 );

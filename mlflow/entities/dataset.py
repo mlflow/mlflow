@@ -73,5 +73,20 @@ class Dataset(_MlflowObject):
     @classmethod
     def from_proto(cls, proto):
         return cls(
-            proto.name, proto.digest, proto.source_type, proto.source, proto.schema, proto.profile
+            proto.name,
+            proto.digest,
+            proto.source_type,
+            proto.source,
+            proto.schema if proto.HasField("schema") else None,
+            proto.profile if proto.HasField("profile") else None,
         )
+
+    def to_dictionary(self):
+        return {
+            "name": self.name,
+            "digest": self.digest,
+            "source_type": self.source_type,
+            "source": self.source,
+            "schema": self.schema,
+            "profile": self.profile,
+        }

@@ -12,15 +12,14 @@ LangChain (native) format
     https://python.langchain.com/en/latest/index.html
 """
 
-import contextlib
 import functools
+import importlib
 import inspect
-import json
 import logging
 import os
 import tempfile
 import warnings
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Iterator, Optional, Union
 
 import cloudpickle
 import pandas as pd
@@ -29,7 +28,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
@@ -47,10 +46,11 @@ from mlflow.langchain.utils import (
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.dependencies_schemas import (
     _clear_dependencies_schemas,
+    _get_dependencies_schema_from_model,
     _get_dependencies_schemas,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
-from mlflow.models.resources import _ResourceBuilder
+from mlflow.models.resources import DatabricksFunction, Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
     _convert_llm_input_data,
@@ -58,7 +58,6 @@ from mlflow.models.utils import (
     _save_example,
 )
 from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
-from mlflow.pyfunc.context import get_prediction_context
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -70,7 +69,9 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
 )
 from mlflow.utils.databricks_utils import (
+    _get_databricks_serverless_env_vars,
     is_in_databricks_model_serving_environment,
+    is_in_databricks_serverless_runtime,
     is_mlflow_tracing_enabled_in_model_serving,
 )
 from mlflow.utils.docstring_utils import (
@@ -99,6 +100,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.warnings_utils import color_warning
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -359,10 +361,23 @@ def save_model(
         **model_data_kwargs,
     )
 
-    if Version(langchain.__version__) >= Version("0.0.311"):
+    needs_databricks_auth = False
+    if Version(langchain.__version__) >= Version("0.0.311") and mlflow_model.resources is None:
         if databricks_resources := _detect_databricks_dependencies(lc_model):
+            logger.info(
+                "Attempting to auto-detect Databricks resource dependencies for the "
+                "current langchain model. Dependency auto-detection is "
+                "best-effort and may not capture all dependencies of your langchain "
+                "model, resulting in authorization errors when serving or querying "
+                "your model. We recommend that you explicitly pass `resources` "
+                "to mlflow.langchain.log_model() to ensure authorization to "
+                "dependent resources succeeds when the model is deployed."
+            )
             serialized_databricks_resources = _ResourceBuilder.from_resources(databricks_resources)
             mlflow_model.resources = serialized_databricks_resources
+            needs_databricks_auth = any(
+                isinstance(r, DatabricksFunction) for r in databricks_resources
+            )
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -378,8 +393,13 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
+            extra_env_vars = (
+                _get_databricks_serverless_env_vars()
+                if needs_databricks_auth and is_in_databricks_serverless_runtime()
+                else None
+            )
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                str(path), FLAVOR_NAME, fallback=default_reqs
+                str(path), FLAVOR_NAME, fallback=default_reqs, extra_env_vars=extra_env_vars
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -423,6 +443,8 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
+    resources: Optional[Union[list[Resource], str]] = None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -542,6 +564,12 @@ def log_model(
         streamable: A boolean value indicating if the model supports streaming prediction. If
             True, the model must implement `stream` method. If None, If None, streamable is
             set to True if the model implements `stream` method. Default to `None`.
+        resources: A list of model resources or a resources.yaml file containing a list of
+            resources required to serve the model. If logging a LangChain model with dependencies
+            (e.g. on LLM model serving endpoints), we encourage explicitly passing dependencies
+            via this parameter. Otherwise, ``log_model`` will attempt to infer dependencies,
+            but dependency auto-inference is best-effort and may miss some dependencies.
+        prompts: {{ prompts }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -566,9 +594,14 @@ def log_model(
         run_id=run_id,
         model_config=model_config,
         streamable=streamable,
+        resources=resources,
+        prompts=prompts,
     )
 
 
+# patch_langchain_type_to_cls_dict here as we attempt to load model
+# if it's saved by `dict` method
+@patch_langchain_type_to_cls_dict
 def _save_model(model, path, loader_fn, persist_dir):
     if Version(cloudpickle.__version__) < Version("2.1.0"):
         warnings.warn(
@@ -577,15 +610,15 @@ def _save_model(model, path, loader_fn, persist_dir):
             "using `pip install cloudpickle>=2.1.0` "
             "to ensure the model can be loaded correctly."
         )
-    # patch_langchain_type_to_cls_dict here as we attempt to load model
-    # if it's saved by `dict` method
-    with register_pydantic_v1_serializer_cm(), patch_langchain_type_to_cls_dict():
+
+    with register_pydantic_v1_serializer_cm():
         if isinstance(model, lc_runnables_types()):
             return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
         else:
             return _save_base_lcs(model, path, loader_fn, persist_dir)
 
 
+@patch_langchain_type_to_cls_dict
 def _load_model(local_model_path, flavor_conf):
     from mlflow.langchain._langchain_autolog import _update_langchain_model_config
 
@@ -625,9 +658,9 @@ class _LangChainModelWrapper:
 
     def predict(
         self,
-        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
-        params: Optional[Dict[str, Any]] = None,
-    ) -> List[Union[str, Dict[str, Any]]]:
+        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]], Any],
+        params: Optional[dict[str, Any]] = None,
+    ) -> list[Union[str, dict[str, Any]]]:
         """
         Args:
             data: Model input data.
@@ -653,13 +686,6 @@ class _LangChainModelWrapper:
             from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
             callbacks = [MlflowLangchainTracer()]
-        elif (context := get_prediction_context()) and context.is_evaluate:
-            # NB: We enable traces automatically for the model evaluation. Note that we have to
-            #   manually pass the context instance to callback, because LangChain callback may be
-            #   invoked asynchronously and it doesn't correctly propagate the thread-local context.
-            from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
-
-            callbacks = [MlflowLangchainTracer(prediction_context=context)]
         else:
             callbacks = None
 
@@ -679,23 +705,17 @@ class _LangChainModelWrapper:
         ):
             model = Model.load(self.model_path)
             context = tracer._prediction_context
-            if model.metadata and context:
-                dependencies_schemas = model.metadata.get("dependencies_schemas", {})
-                context.update(
-                    dependencies_schemas={
-                        dependency: json.dumps(schema)
-                        for dependency, schema in dependencies_schemas.items()
-                    }
-                )
+            if schema := _get_dependencies_schema_from_model(model):
+                context.update(**schema)
 
     @experimental
     def _predict_with_callbacks(
         self,
-        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
-        params: Optional[Dict[str, Any]] = None,
+        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]], Any],
+        params: Optional[dict[str, Any]] = None,
         callback_handlers=None,
         convert_chat_responses=False,
-    ) -> List[Union[str, Dict[str, Any]]]:
+    ) -> list[Union[str, dict[str, Any]]]:
         """
         Args:
             data: Model input data.
@@ -716,6 +736,7 @@ class _LangChainModelWrapper:
             requests=messages,
             callback_handlers=callback_handlers,
             convert_chat_responses=convert_chat_responses,
+            params=params or {},
         )
         return results[0] if return_first_element else results
 
@@ -760,8 +781,8 @@ class _LangChainModelWrapper:
     def predict_stream(
         self,
         data: Any,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Iterator[Union[str, Dict[str, Any]]]:
+        params: Optional[dict[str, Any]] = None,
+    ) -> Iterator[Union[str, dict[str, Any]]]:
         """
         Args:
             data: Model input data, only single input is allowed.
@@ -778,15 +799,16 @@ class _LangChainModelWrapper:
         return process_stream_request(
             lc_model=self.lc_model,
             request_json=data,
+            params=params or {},
         )
 
     def _predict_stream_with_callbacks(
         self,
         data: Any,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
         callback_handlers=None,
         convert_chat_responses=False,
-    ) -> Iterator[Union[str, Dict[str, Any]]]:
+    ) -> Iterator[Union[str, dict[str, Any]]]:
         """
         Args:
             data: Model input data, only single input is allowed.
@@ -809,80 +831,17 @@ class _LangChainModelWrapper:
             request_json=data,
             callback_handlers=callback_handlers,
             convert_chat_responses=convert_chat_responses,
+            params=params or {},
         )
 
 
-class _TestLangChainWrapper(_LangChainModelWrapper):
-    """
-    A wrapper class that should be used for testing purposes only.
-    """
-
-    def predict(
-        self,
-        data,
-        params: Optional[Dict[str, Any]] = None,
-    ):
-        """
-        Model input data and additional parameters.
-
-        Args:
-            data: Model input data.
-            params: Additional parameters to pass to the model for inference.
-
-        Returns:
-            Model predictions.
-        """
-        import langchain
-        from langchain.schema.retriever import BaseRetriever
-
-        from mlflow.utils.openai_utils import (
-            TEST_CONTENT,
-            TEST_INTERMEDIATE_STEPS,
-            TEST_SOURCE_DOCUMENTS,
-        )
-
-        from tests.langchain.test_langchain_model_export import _mock_async_request
-
-        if isinstance(
-            self.lc_model,
-            (
-                langchain.chains.llm.LLMChain,
-                langchain.chains.RetrievalQA,
-                BaseRetriever,
-            ),
-        ):
-            mockContent = TEST_CONTENT
-        elif isinstance(self.lc_model, langchain.agents.agent.AgentExecutor):
-            mockContent = f"Final Answer: {TEST_CONTENT}"
-        else:
-            mockContent = TEST_CONTENT
-
-        with _mock_async_request(mockContent):
-            result = super().predict(data)
-        if (
-            hasattr(self.lc_model, "return_source_documents")
-            and self.lc_model.return_source_documents
-        ):
-            for res in result:
-                res["source_documents"] = TEST_SOURCE_DOCUMENTS
-        if (
-            hasattr(self.lc_model, "return_intermediate_steps")
-            and self.lc_model.return_intermediate_steps
-        ):
-            for res in result:
-                res["intermediate_steps"] = TEST_INTERMEDIATE_STEPS
-
-        return result
-
-
-def _load_pyfunc(path: str, model_config: Optional[Dict[str, Any]] = None):
+def _load_pyfunc(path: str, model_config: Optional[dict[str, Any]] = None):  # noqa: D417
     """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
 
     Args:
         path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
-    wrapper_cls = _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
-    return wrapper_cls(_load_model_from_local_fs(path, model_config), path)
+    return _LangChainModelWrapper(_load_model_from_local_fs(path, model_config), path)
 
 
 def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
@@ -890,6 +849,8 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
     pyfunc_flavor_conf = _get_flavor_configuration(
         model_path=local_model_path, flavor_name=PYFUNC_FLAVOR_NAME
     )
+    # Add code from the langchain flavor to the system path
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     # The model_code_path and the model_config were previously saved langchain flavor but now we
     # also save them inside the pyfunc flavor. For backwards compatibility of previous models,
     # we need to check both places.
@@ -905,25 +866,21 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
         flavor_code_path = pyfunc_flavor_conf.get(
             MODEL_CODE_PATH, flavor_conf.get(MODEL_CODE_PATH, None)
         )
-        code_path = os.path.join(
+        model_code_path = os.path.join(
             local_model_path,
             os.path.basename(flavor_code_path),
         )
-
         try:
             model = _load_model_code_path(
-                code_path, {**(model_config or {}), **(model_config_overrides or {})}
+                model_code_path, {**(model_config or {}), **(model_config_overrides or {})}
             )
         finally:
             # We would like to clean up the dependencies schema which is set to global
             # after loading the mode to avoid the schema being used in the next model loading
             _clear_dependencies_schemas()
-
         return model
     else:
-        _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-        with patch_langchain_type_to_cls_dict():
-            return _load_model(local_model_path, flavor_conf)
+        return _load_model(local_model_path, flavor_conf)
 
 
 @experimental
@@ -976,25 +933,31 @@ def _patch_runnable_cls(cls):
             )
 
 
-def _inspect_module_and_patch_cls(module, inspected_modules, patched_classes):
+def _inspect_module_and_patch_cls(module_name, inspected_modules, patched_classes):
     """
     Internal method to inspect the module and patch classes that are
     subclasses of Runnable for autologging.
     """
-    from langchain.schema.runnable import Runnable
+    from langchain_core.runnables import Runnable
 
-    if module.__name__ not in inspected_modules:
-        inspected_modules.add(module.__name__)
-        for _, obj in inspect.getmembers(module):
-            if inspect.ismodule(obj) and (obj.__name__.startswith("langchain")):
-                _inspect_module_and_patch_cls(obj, inspected_modules, patched_classes)
-            elif (
-                inspect.isclass(obj)
-                and obj.__name__ not in patched_classes
-                and issubclass(obj, Runnable)
-            ):
-                _patch_runnable_cls(obj)
-                patched_classes.add(obj.__name__)
+    if module_name not in inspected_modules:
+        inspected_modules.add(module_name)
+
+        try:
+            for _, obj in inspect.getmembers(importlib.import_module(module_name)):
+                if inspect.ismodule(obj) and (
+                    obj.__name__.startswith("langchain") or obj.__name__.startswith("langgraph")
+                ):
+                    _inspect_module_and_patch_cls(obj.__name__, inspected_modules, patched_classes)
+                elif (
+                    inspect.isclass(obj)
+                    and obj.__name__ not in patched_classes
+                    and issubclass(obj, Runnable)
+                ):
+                    _patch_runnable_cls(obj)
+                    patched_classes.add(obj.__name__)
+        except Exception as e:
+            logger.debug(f"Failed to patch module {module_name}. Error: {e}", exc_info=True)
 
 
 @experimental
@@ -1004,7 +967,6 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
-    log_inputs_outputs=None,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -1036,14 +998,6 @@ def autolog(
             are also omitted when ``log_models`` is ``False``.
         log_datasets: If ``True``, dataset information is logged to MLflow Tracking
             if applicable. If ``False``, dataset information is not logged.
-        log_inputs_outputs: **Deprecated** The legacy parameter used for logging inference
-            inputs and outputs. This argument will be removed in a future version of MLflow.
-            The alternative is to use ``log_traces`` which logs traces for Langchain models,
-            including inputs and outputs for each stage.
-            If ``True``, inference data and results are combined into a single
-            pandas DataFrame and logged to MLflow Tracking as an artifact.
-            If ``False``, inference data and results are not logged.
-            Default to ``False``.
         disable: If ``True``, disables the Langchain autologging integration. If ``False``,
             enables the Langchain autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1067,51 +1021,115 @@ def autolog(
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
     """
-    with contextlib.suppress(ImportError):
-        import langchain
-        import langchain_community
-        from langchain.agents.agent import AgentExecutor
-        from langchain.chains.base import Chain
-        from langchain.schema import BaseRetriever
-        from langchain.schema.runnable import Runnable
-
-        from mlflow.langchain._langchain_autolog import patched_inference
-
-        # avoid duplicate patching
-        patched_classes = set()
-        # avoid infinite recursion
-        inspected_modules = set()
-
-        for module in [langchain, langchain_community]:
-            _inspect_module_and_patch_cls(module, inspected_modules, patched_classes)
-
-        if extra_model_classes:
-            unsupported_classes = []
-            for cls in extra_model_classes:
-                if cls.__name__ in patched_classes:
-                    continue
-                elif inspect.isclass(cls) and issubclass(cls, Runnable):
-                    _patch_runnable_cls(cls)
-                    patched_classes.add(cls.__name__)
-                else:
-                    unsupported_classes.append(cls.__name__)
-            if unsupported_classes:
-                logger.warning(
-                    f"Unsupported classes found in extra_model_classes: {unsupported_classes}. "
-                    "Only subclasses of Runnable are supported."
-                )
-
-        for cls in [AgentExecutor, Chain]:
-            safe_patch(
-                FLAVOR_NAME,
-                cls,
-                "__call__",
-                functools.partial(patched_inference, "__call__"),
+    if log_models:
+        color_warning(
+            "The `log_models` parameter's behavior will be changed in a future release. "
+            "MLflow no longer logs model artifacts automatically, use `mlflow.langchain.log_model` "
+            "to log model artifacts manually if needed.",
+            stacklevel=2,
+            color="red",
+            category=FutureWarning,
+        )
+    else:
+        user_specified_args = {
+            key
+            for key, value in {
+                "log_input_examples": log_input_examples,
+                "log_model_signatures": log_model_signatures,
+                "log_datasets": log_datasets,
+                "registered_model_name": registered_model_name,
+                "extra_tags": extra_tags,
+                "extra_model_classes": extra_model_classes,
+            }.items()
+            if value not in [False, None]
+        }
+        if user_specified_args:
+            color_warning(
+                "The following parameters are deprecated in langchain autologging and will be "
+                f"removed in a future release: `{', '.join(user_specified_args)}`. Langchain "
+                "autologging will not support automatic model artifacts logging and any "
+                "related parameters. Please log your model manually with "
+                "`mlflow.langchain.log_model` if needed.",
+                stacklevel=2,
+                color="yellow",
+                category=FutureWarning,
             )
+
+    from mlflow.langchain.langchain_tracer import (
+        patched_callback_manager_init,
+        patched_callback_manager_merge,
+        patched_runnable_sequence_batch,
+    )
+
+    # avoid duplicate patching
+    patched_classes = set()
+    # avoid infinite recursion
+    inspected_modules = set()
+
+    # Get all installed LangChain packages
+    for pkg in importlib.metadata.distributions():
+        if pkg.metadata["Name"].startswith("langchain"):
+            module_name = pkg.metadata["Name"].replace("-", "_")
+            _inspect_module_and_patch_cls(module_name, inspected_modules, patched_classes)
+
+        # If LangGraph is installed, patch the classes. LangGraph does not define members
+        # under the top level module, so we need to hardcode the submodules to patch.
+        if pkg.metadata["Name"] == "langgraph":
+            langgraph_submodules = [
+                "langgraph.graph",
+                "langgraph.prebuilt",
+                "langgraph.pregel",
+            ]
+            for submodule in langgraph_submodules:
+                _inspect_module_and_patch_cls(submodule, inspected_modules, patched_classes)
+
+    if extra_model_classes:
+        from langchain_core.runnables import Runnable
+
+        unsupported_classes = []
+        for cls in extra_model_classes:
+            if cls.__name__ in patched_classes:
+                continue
+            elif inspect.isclass(cls) and issubclass(cls, Runnable):
+                _patch_runnable_cls(cls)
+                patched_classes.add(cls.__name__)
+            else:
+                unsupported_classes.append(cls.__name__)
+        if unsupported_classes:
+            logger.warning(
+                f"Unsupported classes found in extra_model_classes: {unsupported_classes}. "
+                "Only subclasses of Runnable are supported."
+            )
+
+    try:
+        from langchain_core.callbacks import BaseCallbackManager
 
         safe_patch(
             FLAVOR_NAME,
-            BaseRetriever,
-            "get_relevant_documents",
-            functools.partial(patched_inference, "get_relevant_documents"),
+            BaseCallbackManager,
+            "__init__",
+            patched_callback_manager_init,
         )
+    except Exception as e:
+        logger.warning(f"Failed to enable tracing for LangChain. Error: {e}")
+
+    # Special handlings for edge cases.
+    try:
+        from langchain_core.callbacks import BaseCallbackManager
+        from langchain_core.runnables import RunnableSequence
+
+        safe_patch(
+            FLAVOR_NAME,
+            RunnableSequence,
+            "batch",
+            patched_runnable_sequence_batch,
+        )
+
+        safe_patch(
+            FLAVOR_NAME,
+            BaseCallbackManager,
+            "merge",
+            patched_callback_manager_merge,
+        )
+    except Exception:
+        logger.debug("Failed to patch RunnableSequence or BaseCallbackManager.", exc_info=True)

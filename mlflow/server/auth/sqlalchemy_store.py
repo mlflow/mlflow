@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 from sqlalchemy.orm import sessionmaker
@@ -20,7 +20,7 @@ from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPer
 from mlflow.server.auth.permissions import _validate_permission
 from mlflow.store.db.utils import _get_managed_session_maker, create_sqlalchemy_engine_with_retry
 from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.utils.validation import _validate_username
+from mlflow.utils.validation import _validate_password, _validate_username
 
 
 class SqlAlchemyStore:
@@ -42,6 +42,7 @@ class SqlAlchemyStore:
 
     def create_user(self, username: str, password: str, is_admin: bool = False) -> User:
         _validate_username(username)
+        _validate_password(password)
         pwhash = generate_password_hash(password)
         with self.ManagedSessionMaker() as session:
             try:
@@ -78,7 +79,7 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             return self._get_user(session, username).to_mlflow_entity()
 
-    def list_users(self) -> List[User]:
+    def list_users(self) -> list[User]:
         with self.ManagedSessionMaker() as session:
             users = session.query(SqlUser).all()
             return [u.to_mlflow_entity() for u in users]
@@ -152,7 +153,7 @@ class SqlAlchemyStore:
                 session, experiment_id, username
             ).to_mlflow_entity()
 
-    def list_experiment_permissions(self, username: str) -> List[ExperimentPermission]:
+    def list_experiment_permissions(self, username: str) -> list[ExperimentPermission]:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             perms = (
@@ -227,7 +228,7 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             return self._get_registered_model_permission(session, name, username).to_mlflow_entity()
 
-    def list_registered_model_permissions(self, username: str) -> List[RegisteredModelPermission]:
+    def list_registered_model_permissions(self, username: str) -> list[RegisteredModelPermission]:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             perms = (
@@ -250,3 +251,13 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             perm = self._get_registered_model_permission(session, name, username)
             session.delete(perm)
+
+    def rename_registered_model_permissions(self, old_name: str, new_name: str):
+        with self.ManagedSessionMaker() as session:
+            perms = (
+                session.query(SqlRegisteredModelPermission)
+                .filter(SqlRegisteredModelPermission.name == old_name)
+                .all()
+            )
+            for perm in perms:
+                perm.name = new_name

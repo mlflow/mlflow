@@ -15,5 +15,5 @@ if __name__ == "__main__":
     mlflow.log_metric("score", score)
     predictions = lr.predict(X)
     signature = infer_signature(X, predictions)
-    mlflow.sklearn.log_model(lr, "model", signature=signature)
+    mlflow.sklearn.log_model(lr, "model", signature=signature, input_example=X)
     print(f"Model saved in run {mlflow.active_run().info.run_uuid}")

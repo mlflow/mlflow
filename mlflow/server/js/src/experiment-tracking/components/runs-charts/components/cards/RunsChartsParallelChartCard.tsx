@@ -2,7 +2,8 @@ import { Button, DropdownMenu, Typography, useDesignSystemTheme } from '@databri
 import { useCallback, useMemo } from 'react';
 import { ReactComponent as ParallelChartSvg } from '../../../../../common/static/parallel-chart-placeholder.svg';
 import type { RunsChartsRunData } from '../RunsCharts.common';
-import LazyParallelCoordinatesPlot, { processParallelCoordinateData } from '../charts/LazyParallelCoordinatesPlot';
+import LazyParallelCoordinatesPlot from '../charts/LazyParallelCoordinatesPlot';
+import { isParallelChartConfigured, processParallelCoordinateData } from '../../utils/parallelCoordinatesPlot.utils';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import type { RunsChartsParallelCardConfig } from '../../runs-charts.types';
 import {
@@ -10,19 +11,19 @@ import {
   RunsChartCardWrapper,
   RunsChartsChartsDragGroup,
   RunsChartCardFullScreenProps,
+  RunsChartCardVisibilityProps,
+  RunsChartCardLoadingPlaceholder,
 } from './ChartCard.common';
-import { useIsInViewport } from '../../hooks/useIsInViewport';
-import {
-  shouldEnableHidingChartsWithNoData,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../common/utils/FeatureUtils';
 import { FormattedMessage } from 'react-intl';
 import { useUpdateExperimentViewUIState } from '../../../experiment-page/contexts/ExperimentPageUIStateContext';
 import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsNoDataFoundIndicator } from '../RunsChartsNoDataFoundIndicator';
 
-export interface RunsChartsParallelChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
+export interface RunsChartsParallelChartCardProps
+  extends RunsChartCardReorderProps,
+    RunsChartCardFullScreenProps,
+    RunsChartCardVisibilityProps {
   config: RunsChartsParallelCardConfig;
   chartRunData: RunsChartsRunData[];
 
@@ -102,6 +103,7 @@ export const RunsChartsParallelChartCard = ({
   fullScreen,
   setFullScreenChart,
   hideEmptyCharts,
+  isInViewport: isInViewportProp,
   ...reorderProps
 }: RunsChartsParallelChartCardProps) => {
   const updateUIState = useUpdateExperimentViewUIState();
@@ -115,7 +117,7 @@ export const RunsChartsParallelChartCard = ({
   };
 
   const configuredChartRunData = useMemo(() => {
-    if (!shouldUseNewRunRowsVisibilityModel() || config?.showAllRuns) {
+    if (config?.showAllRuns) {
       return chartRunData;
     }
     return chartRunData?.filter(({ hidden }) => !hidden);
@@ -148,10 +150,7 @@ export const RunsChartsParallelChartCard = ({
   );
 
   const [isConfigured, parallelCoordsData] = useMemo(() => {
-    const selectedParamsCount = config.selectedParams?.length || 0;
-    const selectedMetricsCount = config.selectedMetrics?.length || 0;
-
-    const configured = selectedParamsCount + selectedMetricsCount >= 2;
+    const configured = isParallelChartConfigured(config);
 
     // Prepare the data in the parcoord-es format
     const data = configured
@@ -162,17 +161,19 @@ export const RunsChartsParallelChartCard = ({
   }, [config, configuredChartRunData]);
 
   const isEmptyDataset = useMemo(() => {
-    return shouldEnableHidingChartsWithNoData() && parallelCoordsData.length === 0;
+    return parallelCoordsData.length === 0;
   }, [parallelCoordsData]);
 
-  const { elementRef, isInViewport } = useIsInViewport();
+  // If the chart is in fullscreen mode, we always render its body.
+  // Otherwise, we only render the chart if it is in the viewport.
+  const isInViewport = fullScreen || isInViewportProp;
 
   const { setTooltip, resetTooltip, selectedRunUuid, closeContextMenu } = useRunsChartsTooltip(config);
 
   const containsUnsupportedValues = containsStringValues && groupBy;
   const displaySubtitle = isConfigured && !containsUnsupportedValues;
 
-  const subtitle = shouldUseNewRunRowsVisibilityModel() ? (
+  const subtitle = (
     <>
       {config.showAllRuns ? (
         <FormattedMessage
@@ -186,8 +187,6 @@ export const RunsChartsParallelChartCard = ({
         />
       )}
     </>
-  ) : (
-    <>Comparing {parallelCoordsData.length} runs</>
   );
 
   const chartBody = (
@@ -207,7 +206,6 @@ export const RunsChartsParallelChartCard = ({
               height: fullScreen ? '100%' : undefined,
             },
           ]}
-          ref={elementRef}
         >
           {isInViewport ? (
             <LazyParallelCoordinatesPlot
@@ -219,6 +217,7 @@ export const RunsChartsParallelChartCard = ({
               axesRotateThreshold={8}
               selectedRunUuid={selectedRunUuid}
               closeContextMenu={closeContextMenu}
+              fallback={<RunsChartCardLoadingPlaceholder css={{ flex: 1 }} />}
             />
           ) : null}
         </div>
@@ -244,30 +243,41 @@ export const RunsChartsParallelChartCard = ({
       title="Parallel Coordinates"
       subtitle={displaySubtitle ? subtitle : null}
       uuid={config.uuid}
-      tooltip="The Parallel Coordinates Chart now only shows runs with columns that are either numbers or strings. If a column has string entries, the runs corresponding to the 30 most recent unique values will be shown."
+      tooltip={
+        <FormattedMessage
+          defaultMessage="The parallel coordinates chart shows runs with columns that are either numbers or strings. If a column has string entries, the runs corresponding to the 30 most recent unique values will be shown. Only runs with all relevant metrics and/or parameters will be displayed."
+          description="Experiment page > charts > parallel coordinates chart > tooltip explaining what data is expected to be rendered"
+        />
+      }
       dragGroupKey={RunsChartsChartsDragGroup.PARALLEL_CHARTS_AREA}
       // Disable fullscreen button if the chart is empty
       toggleFullScreenChart={fullScreenEnabled ? toggleFullScreenChart : undefined}
       additionalMenuContent={
-        shouldUseNewRunRowsVisibilityModel() ? (
-          <>
-            <DropdownMenu.Separator />
-            <DropdownMenu.CheckboxItem checked={!config.showAllRuns} onClick={() => updateVisibleOnlySetting(false)}>
-              <DropdownMenu.ItemIndicator />
-              <FormattedMessage
-                defaultMessage="Show only visible"
-                description="Experiment page > compare runs tab > chart header > move down option"
-              />
-            </DropdownMenu.CheckboxItem>
-            <DropdownMenu.CheckboxItem checked={config.showAllRuns} onClick={() => updateVisibleOnlySetting(true)}>
-              <DropdownMenu.ItemIndicator />
-              <FormattedMessage
-                defaultMessage="Show all runs"
-                description="Experiment page > compare runs tab > chart header > move down option"
-              />
-            </DropdownMenu.CheckboxItem>
-          </>
-        ) : null
+        <>
+          <DropdownMenu.Separator />
+          <DropdownMenu.CheckboxItem
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_runschartsparallelchartcard.tsx_293"
+            checked={!config.showAllRuns}
+            onClick={() => updateVisibleOnlySetting(false)}
+          >
+            <DropdownMenu.ItemIndicator />
+            <FormattedMessage
+              defaultMessage="Show only visible"
+              description="Experiment page > compare runs tab > chart header > move down option"
+            />
+          </DropdownMenu.CheckboxItem>
+          <DropdownMenu.CheckboxItem
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_runschartsparallelchartcard.tsx_300"
+            checked={config.showAllRuns}
+            onClick={() => updateVisibleOnlySetting(true)}
+          >
+            <DropdownMenu.ItemIndicator />
+            <FormattedMessage
+              defaultMessage="Show all runs"
+              description="Experiment page > compare runs tab > chart header > move down option"
+            />
+          </DropdownMenu.CheckboxItem>
+        </>
       }
       supportedDownloadFormats={['csv']}
       onClickDownload={(format) => {

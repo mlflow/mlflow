@@ -11,16 +11,24 @@ import functools
 import importlib
 import logging
 import re
-import uuid
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import sqlalchemy
-from flask import Flask, Response, flash, jsonify, make_response, render_template_string, request
+from flask import (
+    Flask,
+    Response,
+    flash,
+    jsonify,
+    make_response,
+    render_template_string,
+    request,
+)
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.model_registry import RegisteredModel
+from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -81,6 +89,7 @@ from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_REGISTERED_MODEL_PERMISSION,
     CREATE_USER,
+    CREATE_USER_UI,
     DELETE_EXPERIMENT_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_USER,
@@ -106,6 +115,14 @@ from mlflow.store.entities import PagedList
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
+
+try:
+    from flask_wtf.csrf import CSRFProtect
+except ImportError as e:
+    raise ImportError(
+        "The MLflow basic auth app requires the Flask-WTF package to perform CSRF "
+        "validation. Please run `pip install mlflow[auth]` to install it."
+    ) from e
 
 _logger = logging.getLogger(__name__)
 
@@ -412,7 +429,7 @@ def _is_proxy_artifact_path(path: str) -> bool:
 
 
 def _get_proxy_artifact_validator(
-    method: str, view_args: Optional[Dict[str, Any]]
+    method: str, view_args: Optional[dict[str, Any]]
 ) -> Optional[Callable[[], bool]]:
     if view_args is None:
         return validate_can_read_experiment_artifact_proxy  # List
@@ -592,13 +609,13 @@ def filter_search_registered_models(resp: Response):
         len(response_message.registered_models) < request_message.max_results
         and response_message.next_page_token != ""
     ):
-        refetched: PagedList[
-            RegisteredModel
-        ] = _get_model_registry_store().search_registered_models(
-            filter_string=request_message.filter,
-            max_results=request_message.max_results,
-            order_by=request_message.order_by,
-            page_token=response_message.next_page_token,
+        refetched: PagedList[RegisteredModel] = (
+            _get_model_registry_store().search_registered_models(
+                filter_string=request_message.filter,
+                max_results=request_message.max_results,
+                order_by=request_message.order_by,
+                page_token=response_message.next_page_token,
+            )
         )
         refetched = refetched[
             : request_message.max_results - len(response_message.registered_models)
@@ -622,12 +639,24 @@ def filter_search_registered_models(resp: Response):
     resp.data = message_to_json(response_message)
 
 
+def rename_registered_model_permission(resp: Response):
+    """
+    A model registry can be assigned to multiple users with different permissions.
+
+    Changing the model registry name must be propagated to all users.
+    """
+    # get registry model name before update
+    data = request.get_json(force=True, silent=True)
+    store.rename_registered_model_permissions(data.get("name"), data.get("new_name"))
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
     SearchRegisteredModels: filter_search_registered_models,
+    RenameRegisteredModel: rename_registered_model_permission,
 }
 
 
@@ -741,6 +770,7 @@ def signup():
 </style>
 
 <form action="{{ users_route }}" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
   <div class="logo-container">
     {% autoescape false %}
     {{ mlflow_logo }}
@@ -748,27 +778,32 @@ def signup():
   </div>
   <label for="username">Username:</label>
   <br>
-  <input type="text" id="username" name="username">
+  <input type="text" id="username" name="username" minlength="4">
   <br>
   <label for="password">Password:</label>
   <br>
-  <input type="password" id="password" name="password">
+  <input type="password" id="password" name="password" minlength="12">
   <br>
   <br>
   <input type="submit" value="Sign up">
 </form>
 """,
         mlflow_logo=MLFLOW_LOGO,
-        users_route=CREATE_USER,
+        users_route=CREATE_USER_UI,
     )
 
 
 @catch_mlflow_exception
-def create_user():
+def create_user_ui(csrf):
+    csrf.protect()
     content_type = request.headers.get("Content-Type")
     if content_type == "application/x-www-form-urlencoded":
         username = request.form["username"]
         password = request.form["password"]
+
+        if not username or not password:
+            message = "Username and password cannot be empty."
+            return make_response(message, 400)
 
         if store.has_user(username):
             flash(f"Username has already been taken: {username}")
@@ -777,17 +812,26 @@ def create_user():
         store.create_user(username, password)
         flash(f"Successfully signed up user: {username}")
         return alert(href=HOME)
-    elif content_type == "application/json":
+    else:
+        message = "Invalid content type. Must be application/x-www-form-urlencoded"
+        return make_response(message, 400)
+
+
+@catch_mlflow_exception
+def create_user():
+    content_type = request.headers.get("Content-Type")
+    if content_type == "application/json":
         username = _get_request_param("username")
         password = _get_request_param("password")
+
+        if not username or not password:
+            message = "Username and password cannot be empty."
+            return make_response(message, 400)
 
         user = store.create_user(username, password)
         return jsonify({"user": user.to_json()})
     else:
-        message = (
-            "Invalid content type. Must be one of: "
-            "application/x-www-form-urlencoded, application/json"
-        )
+        message = "Invalid content type. Must be application/json"
         return make_response(message, 400)
 
 
@@ -902,9 +946,28 @@ def create_app(app: Flask = app):
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"
     )
-    # secret key required for flashing
-    if not app.secret_key:
-        app.secret_key = str(uuid.uuid4())
+
+    # a secret key is required for flashing, and also for
+    # CSRF protection. it's important that this is a static key,
+    # otherwise CSRF validation won't work across workers.
+    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
+    if not secret_key:
+        raise MlflowException(
+            "A static secret key needs to be set for CSRF protection. Please set the "
+            "`MLFLOW_FLASK_SERVER_SECRET_KEY` environment variable before starting the "
+            "server. For example:\n\n"
+            "export MLFLOW_FLASK_SERVER_SECRET_KEY='my-secret-key'\n\n"
+            "If you are using multiple servers, please ensure this key is consistent between "
+            "them, in order to prevent validation issues."
+        )
+    app.secret_key = secret_key
+
+    # we only need to protect the CREATE_USER_UI route, since that's
+    # the only browser-accessible route. the rest are client / REST
+    # APIs that do not have access to the CSRF token for validation
+    app.config["WTF_CSRF_CHECK_DEFAULT"] = False
+    csrf = CSRFProtect()
+    csrf.init_app(app)
 
     store.init_db(auth_config.database_uri)
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
@@ -913,6 +976,11 @@ def create_app(app: Flask = app):
         rule=SIGNUP,
         view_func=signup,
         methods=["GET"],
+    )
+    app.add_url_rule(
+        rule=CREATE_USER_UI,
+        view_func=lambda: create_user_ui(csrf),
+        methods=["POST"],
     )
     app.add_url_rule(
         rule=CREATE_USER,

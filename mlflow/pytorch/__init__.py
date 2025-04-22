@@ -7,6 +7,7 @@ PyTorch (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+
 import atexit
 import importlib
 import logging
@@ -15,7 +16,7 @@ import posixpath
 import shutil
 import warnings
 from functools import partial
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -575,6 +576,7 @@ def _load_model(path, device=None, **kwargs):
     """
     Args:
         path: The path to a serialized PyTorch model.
+        device: If specified, load the model on the specified device.
         kwargs: Additional kwargs to pass to the PyTorch ``torch.load`` function.
     """
     import torch
@@ -693,7 +695,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
-def _load_pyfunc(path, model_config=None):
+def _load_pyfunc(path, model_config=None, weights_only=False):  # noqa: D417
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
@@ -715,6 +717,15 @@ def _load_pyfunc(path, model_config=None):
         else:
             device = _TORCH_CPU_DEVICE_NAME
 
+    # in pytorch >= 2.6.0, the `weights_only` kwarg default has been changed from
+    # `False` to `True`. this can cause pickle deserialization errors when loading
+    # models, unless the model classes have been explicitly marked as safe using
+    # `torch.serialization.add_safe_globals()`
+    if Version(torch.__version__) >= Version("2.6.0"):
+        return _PyTorchWrapper(
+            _load_model(path, device=device, weights_only=weights_only), device=device
+        )
+
     return _PyTorchWrapper(_load_model(path, device=device), device=device)
 
 
@@ -734,7 +745,7 @@ class _PyTorchWrapper:
         """
         return self.pytorch_model
 
-    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: Optional[dict[str, Any]] = None):
         """
         Args:
             data: Model input data.
@@ -960,12 +971,12 @@ def autolog(
             pytorch-lightning >= 1.6.0.
         checkpoint_monitor: In automatic model checkpointing, the metric name to monitor if
             you set `model_checkpoint_save_best_only` to True.
-        checkpoint_save_best_only: If True, automatic model checkpointing only saves when
-            the model is considered the "best" model according to the quantity
-            monitored and previous checkpoint model is overwritten.
         checkpoint_mode: one of {"min", "max"}. In automatic model checkpointing,
             if save_best_only=True, the decision to overwrite the current save file is made based on
             either the maximization or the minimization of the monitored quantity.
+        checkpoint_save_best_only: If True, automatic model checkpointing only saves when
+            the model is considered the "best" model according to the quantity
+            monitored and previous checkpoint model is overwritten.
         checkpoint_save_weights_only: In automatic model checkpointing, if True, then
             only the model’s weights will be saved. Otherwise, the optimizer states,
             lr-scheduler states, etc are added in the checkpoint too.

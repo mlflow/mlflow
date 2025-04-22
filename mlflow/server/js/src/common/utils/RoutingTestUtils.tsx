@@ -42,7 +42,7 @@ interface TestRouterProps {
   initialEntries?: string[];
 }
 
-export const testRoute = (element: React.ReactElement, path = '*', pageId = ''): TestRouteReturnValue => {
+export const testRoute = (element: React.ReactNode, path = '*', pageId = ''): TestRouteReturnValue => {
   return { element, path, pageId } as any;
 };
 

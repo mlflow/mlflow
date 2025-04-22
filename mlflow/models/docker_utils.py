@@ -1,3 +1,4 @@
+import logging
 import os
 from subprocess import Popen
 from typing import Optional, Union
@@ -7,6 +8,8 @@ from mlflow.environment_variables import MLFLOW_DOCKER_OPENJDK_VERSION
 from mlflow.utils import env_manager as em
 from mlflow.utils.file_utils import _copy_project
 from mlflow.version import VERSION
+
+_logger = logging.getLogger(__name__)
 
 UBUNTU_BASE_IMAGE = "ubuntu:20.04"
 PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
@@ -22,8 +25,8 @@ RUN git clone \
     https://github.com/pyenv/pyenv.git /root/.pyenv
 ENV PYENV_ROOT="/root/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PATH"
-RUN apt install -y python3.8 python3.8-distutils \
-    && ln -s -f $(which python3.8) /usr/bin/python \
+RUN apt install -y python3.9 python3.9-distutils \
+    && ln -s -f $(which python3.9) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
 RUN pip install virtualenv
@@ -44,7 +47,6 @@ WORKDIR /opt/mlflow
 
 ENV MLFLOW_DISABLE_ENV_CREATION={disable_env_creation}
 ENV ENABLE_MLSERVER={enable_mlserver}
-ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
 
 # granting read/write access and conditional execution authority to all child directories
 # and files to allow for deployment to AWS Sagemaker Serverless Endpoints
@@ -74,6 +76,7 @@ def generate_dockerfile(
     mlflow_home: Optional[str] = None,
     enable_mlserver: bool = False,
     disable_env_creation_at_runtime: bool = True,
+    install_java: Optional[bool] = None,
 ):
     """
     Generates a Dockerfile that can be used to build a docker image, that serves ML model
@@ -85,6 +88,11 @@ def generate_dockerfile(
     install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)
 
     if base_image.startswith("python:"):
+        if install_java:
+            _logger.warning(
+                "`install_java` option is not supported when using python base image, "
+                "switch to UBUNTU_BASE_IMAGE to enable java installation."
+            )
         setup_python_venv_steps = (
             "RUN apt-get -y update && apt-get install -y --no-install-recommends nginx"
         )
@@ -98,15 +106,15 @@ def generate_dockerfile(
         setup_python_venv_steps += (
             SETUP_MINICONDA if env_manager == em.CONDA else SETUP_PYENV_AND_VIRTUALENV
         )
+        if install_java is not False:
+            jdk_ver = MLFLOW_DOCKER_OPENJDK_VERSION.get()
+            setup_java_steps = (
+                "# Setup Java\n"
+                f"RUN apt-get install -y --no-install-recommends openjdk-{jdk_ver}-jdk maven\n"
+                f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
+            )
 
-        jdk_ver = MLFLOW_DOCKER_OPENJDK_VERSION.get()
-        setup_java_steps = (
-            "# Setup Java\n"
-            f"RUN apt-get install -y --no-install-recommends openjdk-{jdk_ver}-jdk maven\n"
-            f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
-        )
-
-        install_mlflow_steps += "\n\n" + _java_mlflow_install_step(mlflow_home)
+            install_mlflow_steps += "\n\n" + _java_mlflow_install_step(mlflow_home)
 
     with open(os.path.join(output_dir, "Dockerfile"), "w") as f:
         f.write(

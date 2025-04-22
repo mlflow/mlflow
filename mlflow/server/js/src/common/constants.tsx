@@ -9,7 +9,7 @@ export const ErrorCodes = {
   RESOURCE_CONFLICT: 'RESOURCE_CONFLICT',
 };
 
-export const Version = '2.15.2.dev0';
+export const Version = '2.21.4.dev0';
 
 const DOCS_VERSION = 'latest';
 
@@ -32,8 +32,6 @@ export const ExperimentCliDocUrl = `${DOCS_ROOT}/cli.html#mlflow-experiments`;
 
 export const ExperimentSearchSyntaxDocUrl = `${DOCS_ROOT}/search-runs.html`;
 
-export const ExperimentTrackingDocUrl = `${DOCS_ROOT}/tracking.html`;
-
 export const PyfuncDocUrl = `${DOCS_ROOT}/python_api/mlflow.pyfunc.html`;
 export const CustomPyfuncModelsDocUrl = DOCS_ROOT + '/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models';
 
@@ -46,7 +44,5 @@ export const SupportPageUrl = 'https://github.com/mlflow/mlflow/issues';
 export const ModelSignatureUrl = `${DOCS_ROOT}/models.html#model-signature`;
 
 export const LogModelWithSignatureUrl = DOCS_ROOT + '/models.html#how-to-log-models-with-signatures';
-
-export const mlflowAliasesLearnMoreLink = `${DOCS_ROOT}/model-registry.html#using-registered-model-aliases`;
 
 export const modelStagesMigrationGuideLink = `${DOCS_ROOT}/model-registry.html#migrating-from-stages`;

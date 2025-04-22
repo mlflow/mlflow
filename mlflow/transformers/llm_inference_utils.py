@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -81,7 +81,7 @@ def infer_signature_from_llm_inference_task(
     return inferred_signature
 
 
-def convert_messages_to_prompt(messages: List[Dict], tokenizer) -> str:
+def convert_messages_to_prompt(messages: list[dict], tokenizer) -> str:
     """For the Chat inference task, apply chat template to messages to create prompt.
 
     Args:
@@ -104,10 +104,10 @@ def convert_messages_to_prompt(messages: List[Dict], tokenizer) -> str:
 
 
 def preprocess_llm_inference_input(
-    data: Union[pd.DataFrame, Dict],
-    params: Optional[Dict[str, Any]] = None,
-    flavor_config: Optional[Dict[str, Any]] = None,
-) -> Tuple[List[Any], Dict[str, Any]]:
+    data: Union[pd.DataFrame, dict],
+    params: Optional[dict[str, Any]] = None,
+    flavor_config: Optional[dict[str, Any]] = None,
+) -> tuple[list[Any], dict[str, Any]]:
     """
     When a MLflow inference task is given, return updated `data` and `params` that
     - Extract the parameters from the input data (from the first row if passed multiple rows)
@@ -162,7 +162,7 @@ def preprocess_llm_inference_input(
     return update_data, params
 
 
-def _get_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Optional[str] = None):
+def _get_stopping_criteria(stop: Optional[Union[str, list[str]]], model_name: Optional[str] = None):
     """Return a list of Hugging Face stopping criteria objects for the given stop sequences."""
     from transformers import AutoTokenizer, StoppingCriteria
 
@@ -205,8 +205,8 @@ def _get_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Op
 
 
 def postprocess_output_for_llm_inference_task(
-    data: List[str],
-    output_tensors: List[List[int]],
+    data: list[str],
+    output_tensors: list[list[int]],
     pipeline,
     flavor_config,
     model_config,
@@ -268,7 +268,7 @@ def postprocess_output_for_llm_inference_task(
 
 
 def _get_output_and_usage_from_tensor(
-    prompt: str, output_tensor: List[int], pipeline, flavor_config, model_config, inference_task
+    prompt: str, output_tensor: list[int], pipeline, flavor_config, model_config, inference_task
 ):
     """
     Decode the output tensor and return the output text and usage information as a dictionary
@@ -303,7 +303,7 @@ def _get_output_and_usage_from_tensor(
     return output_dict
 
 
-def _get_completions_text(prompt: str, output_tensor: List[int], pipeline):
+def _get_completions_text(prompt: str, output_tensor: list[int], pipeline):
     """Decode generated text from output tensor and remove the input prompt."""
     generated_text = pipeline.tokenizer.decode(
         output_tensor,
@@ -328,7 +328,7 @@ def _get_completions_text(prompt: str, output_tensor: List[int], pipeline):
     return generated_text[prompt_length:].lstrip()
 
 
-def _get_token_usage(prompt: str, output_tensor: List[int], pipeline, model_config):
+def _get_token_usage(prompt: str, output_tensor: list[int], pipeline, model_config):
     """Return the prompt tokens, completion tokens, and the total tokens as dict."""
     inputs = pipeline.tokenizer(
         prompt,
@@ -374,8 +374,8 @@ def _get_default_task_for_llm_inference_task(llm_inference_task: Optional[str]) 
 
 
 def preprocess_llm_embedding_params(
-    data: Union[pd.DataFrame, Dict[str, Any]],
-) -> Tuple[List[str], Dict[str, Any]]:
+    data: Union[pd.DataFrame, dict[str, Any]],
+) -> tuple[list[str], dict[str, Any]]:
     """
     When `llm/v1/embeddings` task is given, extract the input data (with "input" key) and
     parameters, and format the input data into the unified format for easier downstream handling.
@@ -416,8 +416,8 @@ def preprocess_llm_embedding_params(
 
 
 def postprocess_output_for_llm_v1_embedding_task(
-    input_prompts: List[str],
-    output_tensors: List[List[float]],
+    input_prompts: list[str],
+    output_tensors: list[list[float]],
     tokenizer,
 ):
     """
@@ -446,7 +446,7 @@ def postprocess_output_for_llm_v1_embedding_task(
 
     Args:
         input_prompts: text input prompts
-        output_tensers: List of output tensors that contain the generated embeddings
+        output_tensors: List of output tensors that contain the generated embeddings
         tokenizer: The tokenizer object used for inference.
 
     Returns:

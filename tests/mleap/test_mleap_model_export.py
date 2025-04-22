@@ -147,9 +147,9 @@ def test_mleap_model_log(spark_model_iris):
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         model_info = mlflow.spark.log_model(
-            spark_model=spark_model_iris.model,
+            spark_model_iris.model,
+            artifact_path,
             sample_input=spark_model_iris.spark_df,
-            artifact_path=artifact_path,
             registered_model_name="Model1",
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -227,9 +227,9 @@ def test_model_log_with_metadata(spark_model_iris):
 
     with mlflow.start_run():
         mlflow.mleap.log_model(
-            spark_model=spark_model_iris.model,
-            artifact_path=artifact_path,
-            sample_input=spark_model_iris.spark_df,
+            spark_model_iris.model,
+            spark_model_iris.spark_df,
+            artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)

@@ -27,7 +27,7 @@ services:
     entrypoint: >
       bash -c "
       mc alias set minio http://minio:9000 user password &&
-      if ! mc ls minio | grep --quiet bucket; then
+      if ! mc ls minio/bucket; then
         mc mb minio/bucket
       else
         echo 'bucket already exists'

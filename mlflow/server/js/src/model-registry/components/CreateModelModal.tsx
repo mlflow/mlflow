@@ -28,7 +28,7 @@ type Props = WithRouterNextProps & {
   intl: IntlShape;
 };
 
-export class CreateModelModalImpl extends React.Component<Props> {
+class CreateModelModalImpl extends React.Component<Props> {
   createRegisteredModelRequestId = getUUID();
 
   handleCreateRegisteredModel = async (values: any) => {

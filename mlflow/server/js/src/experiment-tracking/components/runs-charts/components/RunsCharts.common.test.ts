@@ -1,5 +1,7 @@
 import { MetricEntity } from '../../../types';
-import { removeOutliersFromMetricHistory } from './RunsCharts.common';
+import { RunsChartsParallelCardConfig, RunsChartType } from '../runs-charts.types';
+import { RunsChartsParallelChartCard } from './cards/RunsChartsParallelChartCard';
+import { isEmptyChartCard, removeOutliersFromMetricHistory, RunsChartsRunData } from './RunsCharts.common';
 
 describe('removeOutliersFromMetricHistory', () => {
   it.each([
@@ -21,5 +23,27 @@ describe('removeOutliersFromMetricHistory', () => {
   ])('should remove outliers correctly ($label)', ({ label, makeData, predicate }) => {
     const result = removeOutliersFromMetricHistory(makeData());
     expect(result.every(predicate)).toBeTruthy();
+  });
+});
+
+describe('isEmptyChartCard', () => {
+  test('should consider parallel chart with no params/metrics set an empty one', () => {
+    const chartConfig: RunsChartsParallelCardConfig = {
+      deleted: false,
+      isGenerated: false,
+      selectedMetrics: [],
+      selectedParams: [],
+      type: RunsChartType.PARALLEL,
+    };
+    const isEmpty = isEmptyChartCard(
+      [
+        {
+          uuid: 'some-run-uuid',
+        } as RunsChartsRunData,
+      ],
+      chartConfig,
+    );
+
+    expect(isEmpty).toEqual(true);
   });
 });

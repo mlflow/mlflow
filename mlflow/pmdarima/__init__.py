@@ -60,7 +60,7 @@ import logging
 import os
 import pickle
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pandas as pd
 import yaml
@@ -519,7 +519,7 @@ class _PmdarimaModelWrapper:
         """
         return self.pmdarima_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None) -> pd.DataFrame:
         """
         Args:
             dataframe: Model input data.

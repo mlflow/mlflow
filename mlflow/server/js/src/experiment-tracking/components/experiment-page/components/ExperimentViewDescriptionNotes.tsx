@@ -12,7 +12,6 @@ import { useCallback, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getExperimentTags } from '../../../reducers/Reducers';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
-import { useFetchExperiments } from '../hooks/useFetchExperiments';
 import { ThunkDispatch } from '../../../../redux-types';
 import React from 'react';
 import ReactMde, { SvgIcon } from 'react-mde';
@@ -22,6 +21,7 @@ import {
   sanitizeConvertedHtml,
 } from '../../../../common/utils/MarkdownUtils';
 import { FormattedMessage } from 'react-intl';
+import { setExperimentTagApi } from '../../../actions';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
   Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value || undefined;
@@ -47,11 +47,15 @@ export const ExperimentViewDescriptionNotes = ({
   editing,
   setEditing,
   setShowAddDescriptionButton,
+  onNoteUpdated,
+  defaultValue,
 }: {
   experiment: ExperimentEntity;
   editing: boolean;
   setEditing: (editing: boolean) => void;
   setShowAddDescriptionButton: (show: boolean) => void;
+  onNoteUpdated?: () => void;
+  defaultValue?: string;
 }) => {
   const storedNote = useSelector((state) => {
     const tags = getExperimentTags(experiment.experimentId, state);
@@ -71,29 +75,25 @@ export const ExperimentViewDescriptionNotes = ({
   const MAX_EDITOR_HEIGHT = 500;
   const MIN_PREVIEW_HEIGHT = 20;
 
-  const {
-    actions: { setExperimentTagApi },
-  } = useFetchExperiments();
-
   const dispatch = useDispatch<ThunkDispatch>();
 
   const handleSubmitEditNote = useCallback(
-    (updatedNote: any) => {
+    (updatedNote?: string) => {
       setEditing(false);
       setShowAddDescriptionButton(!updatedNote);
       const action = setExperimentTagApi(experiment.experimentId, NOTE_CONTENT_TAG, updatedNote);
-      dispatch(action);
+      dispatch(action).then(onNoteUpdated);
     },
-    [experiment.experimentId, setExperimentTagApi, dispatch, setEditing, setShowAddDescriptionButton],
+    [experiment.experimentId, dispatch, setEditing, setShowAddDescriptionButton, onNoteUpdated],
   );
 
   return (
     <div>
-      {tmpNote && (
+      {(tmpNote ?? defaultValue) && (
         <div
           style={{
-            whiteSpace: isExpanded ? 'normal' : 'pre',
-            lineHeight: theme.typography.lineHeightSm,
+            whiteSpace: isExpanded ? 'normal' : 'pre-wrap',
+            lineHeight: theme.typography.lineHeightLg,
             background: theme.colors.backgroundSecondary,
             display: 'flex',
             alignItems: 'flex-start',
@@ -108,11 +108,12 @@ export const ExperimentViewDescriptionNotes = ({
               overflowWrap: isExpanded ? 'break-word' : undefined,
               padding: `${theme.spacing.sm}px ${PADDING_HORIZONTAL}px`,
               maxHeight: isExpanded ? 'none' : COLLAPSE_MAX_HEIGHT + 'px',
+              wordBreak: 'break-word',
             }}
           >
             <div
               // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(tmpNote) }}
+              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(tmpNote ?? defaultValue) }}
             />
           </div>
           <Button
@@ -139,6 +140,7 @@ export const ExperimentViewDescriptionNotes = ({
         </div>
       )}
       <Modal
+        componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_experimentviewdescriptionnotes.tsx_141"
         title={
           <FormattedMessage
             defaultMessage="Add description"

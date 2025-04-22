@@ -16,14 +16,16 @@ XGBoost (native) format
 .. _scikit-learn API:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
+
 import functools
+import inspect
 import json
 import logging
 import os
 import tempfile
 from copy import deepcopy
 from functools import partial
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -351,7 +353,7 @@ class _XGBModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
@@ -361,8 +363,37 @@ class _XGBModelWrapper:
         Returns:
             Model predictions.
         """
+        import xgboost as xgb
+
         predict_fn = _wrapped_xgboost_model_predict_fn(self.xgb_model)
-        return predict_fn(dataframe, **(params or {}))
+        params = params or {}
+        # filter is applied inside predict_fn wrapper for xgb.Booster
+        if not isinstance(self.xgb_model, xgb.Booster):
+            # Exclude unrecognized parameters as feature store team has
+            # dependency on this behavior. They might pass additional parameters
+            # that cannot be passed to the model.
+            params = _exclude_unrecognized_kwargs(predict_fn, params)
+        return predict_fn(dataframe, **params)
+
+
+def _exclude_unrecognized_kwargs(predict_fn, kwargs):
+    filtered_kwargs = {}
+    allowed_params = inspect.signature(predict_fn).parameters
+    # avoid excluding kwargs when predict function uses args or kwargs
+    if any(p.kind == p.VAR_POSITIONAL or p.kind == p.VAR_KEYWORD for p in allowed_params.values()):
+        return kwargs
+    invalid_params = set()
+    for key, value in kwargs.items():
+        if key in allowed_params:
+            filtered_kwargs[key] = value
+        else:
+            invalid_params.add(key)
+    if invalid_params:
+        _logger.warning(
+            f"Params {invalid_params} are not accepted by the xgboost model, "
+            "ignoring them during predict."
+        )
+    return filtered_kwargs
 
 
 def _wrapped_xgboost_model_predict_fn(model, validate_features=True):
@@ -374,8 +405,9 @@ def _wrapped_xgboost_model_predict_fn(model, validate_features=True):
     if isinstance(model, xgb.Booster):
         # we need to wrap the predict function to accept data in pandas format
         def wrapped_predict_fn(data, *args, **kwargs):
+            filtered_kwargs = _exclude_unrecognized_kwargs(model.predict, kwargs)
             return model.predict(
-                xgb.DMatrix(data), *args, validate_features=validate_features, **kwargs
+                xgb.DMatrix(data), *args, validate_features=validate_features, **filtered_kwargs
             )
 
         return wrapped_predict_fn
@@ -749,7 +781,7 @@ def autolog(
             )
             log_model(
                 model,
-                artifact_path="model",
+                "model",
                 signature=signature,
                 input_example=input_example,
                 registered_model_name=registered_model_name,
@@ -839,6 +871,5 @@ def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=
         )
     else:
         _logger.warning(
-            "Unable to log dataset information to MLflow Tracking."
-            "XGBoost version must be >= 1.7.0"
+            "Unable to log dataset information to MLflow Tracking.XGBoost version must be >= 1.7.0"
         )

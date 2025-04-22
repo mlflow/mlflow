@@ -7,9 +7,9 @@ import { Provider } from 'react-redux';
 import { EXPERIMENT_RUNS_MOCK_STORE } from './experiment-page/fixtures/experiment-runs.fixtures';
 import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { RoutePaths } from '../routes';
-import { useRunDetailsPageData } from './run-page/useRunDetailsPageData';
+import { useRunDetailsPageData } from './run-page/hooks/useRunDetailsPageData';
 
 // Mock tab contents
 jest.mock('./run-page/RunViewMetricCharts', () => ({
@@ -24,7 +24,7 @@ jest.mock('./run-page/RunViewArtifactTab', () => ({
 jest.mock('./run-page/RunViewHeaderRegisterModelButton', () => ({
   RunViewHeaderRegisterModelButton: jest.fn(() => <div>register model</div>),
 }));
-jest.mock('./run-page/useRunDetailsPageData', () => ({
+jest.mock('./run-page/hooks/useRunDetailsPageData', () => ({
   useRunDetailsPageData: jest.fn(),
 }));
 
@@ -53,14 +53,12 @@ describe('RunView navigation integration test', () => {
     jest.mocked(useRunDetailsPageData).mockImplementation(
       () =>
         ({
-          data: {
-            experiment: EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'],
-            runInfo: EXPERIMENT_RUNS_MOCK_STORE.entities.runInfosByUuid['experiment123456789_run1'],
-            latestMetrics: {},
-            tags: {},
-            params: {},
-          },
-          errors: {},
+          experiment: EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'],
+          runInfo: EXPERIMENT_RUNS_MOCK_STORE.entities.runInfosByUuid['experiment123456789_run1'],
+          latestMetrics: {},
+          tags: {},
+          params: {},
+          error: null,
           loading: false,
         } as any),
     );

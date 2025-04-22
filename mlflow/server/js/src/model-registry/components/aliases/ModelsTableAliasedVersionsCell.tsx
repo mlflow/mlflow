@@ -54,7 +54,10 @@ export const ModelsTableAliasedVersionsCell = ({ model }: ModelsTableAliasedVers
           </DropdownMenu.Trigger>
           <DropdownMenu.Content align="start">
             {otherAliases.map(({ alias, version }) => (
-              <DropdownMenu.Item key={alias}>
+              <DropdownMenu.Item
+                componentId="codegen_mlflow_app_src_model-registry_components_aliases_modelstablealiasedversionscell.tsx_57"
+                key={alias}
+              >
                 <Link to={ModelRegistryRoutes.getModelVersionPageRoute(model.name, version)}>
                   <ModelVersionAliasTag value={alias} css={{ marginRight: 0, cursor: 'pointer' }} />:{' '}
                   <span css={{ color: theme.colors.actionTertiaryTextDefault }}>

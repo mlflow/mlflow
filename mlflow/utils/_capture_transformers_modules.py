@@ -1,6 +1,7 @@
 """
 This script should be executed in a fresh python interpreter process using `subprocess`.
 """
+
 import json
 import os
 import sys

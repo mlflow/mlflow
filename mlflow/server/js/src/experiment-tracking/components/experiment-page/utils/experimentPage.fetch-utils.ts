@@ -15,6 +15,7 @@ import { ThunkDispatch } from '../../../../redux-types';
 import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { RUNS_SEARCH_MAX_RESULTS } from '../../../actions';
 import { getUUID } from '../../../../common/utils/ActionUtils';
+import { shouldUseRegexpBasedAutoRunsSearchFilter } from '../../../../common/utils/FeatureUtils';
 
 const START_TIME_COLUMN_OFFSET = {
   ALL: null,
@@ -25,24 +26,27 @@ const START_TIME_COLUMN_OFFSET = {
   LAST_YEAR: 12 * 30 * 24 * 60 * 60 * 1000,
 };
 
-export const RUNS_AUTO_REFRESH_INTERVAL = 30000;
+const VALID_TABLE_ALIASES = [
+  'attribute',
+  'attributes',
+  'attr',
+  'run',
+  'metric',
+  'metrics',
+  'param',
+  'params',
+  'parameter',
+  'tag',
+  'tags',
+  'dataset',
+  'datasets',
+];
+const SQL_SYNTAX_PATTERN = new RegExp(
+  `(${VALID_TABLE_ALIASES.join('|')})\\.\\S+\\s*(>|<|>=|<=|=|!=| like| ilike| rlike| in)`,
+  'i',
+);
 
-/**
- * This function checks if the sort+model state update has
- * been updated enough and if the change should invoke re-fetching
- * the runs from the back-end. This enables differentiation between
- * front-end and back-end filtering.
- */
-export const shouldRefetchRuns = (
-  currentSearchFacetsState: ExperimentPageSearchFacetsState,
-  newSearchFacetsState: ExperimentPageSearchFacetsState,
-) =>
-  !isEqual(currentSearchFacetsState.searchFilter, newSearchFacetsState.searchFilter) ||
-  !isEqual(currentSearchFacetsState.orderByAsc, newSearchFacetsState.orderByAsc) ||
-  !isEqual(currentSearchFacetsState.orderByKey, newSearchFacetsState.orderByKey) ||
-  !isEqual(currentSearchFacetsState.lifecycleFilter, newSearchFacetsState.lifecycleFilter) ||
-  !isEqual(currentSearchFacetsState.startTime, newSearchFacetsState.startTime) ||
-  !isEqual(currentSearchFacetsState.datasetsFilter, newSearchFacetsState.datasetsFilter);
+export const RUNS_AUTO_REFRESH_INTERVAL = 30000;
 
 /**
  * Creates "order by" SQL expression
@@ -80,6 +84,13 @@ const createDatasetsFilterExpression = ({ datasetsFilter }: ExperimentPageSearch
   return `dataset.name IN (${datasetNames}) AND dataset.digest IN (${datasetDigests})`;
 };
 
+export const detectSqlSyntaxInSearchQuery = (searchFilter: string) => {
+  return SQL_SYNTAX_PATTERN.test(searchFilter);
+};
+
+export const createQuickRegexpSearchFilter = (searchFilter: string) =>
+  `attributes.run_name RLIKE '${searchFilter.replace(/'/g, "\\'")}'`;
+
 /**
  * Combines search filter and start time SQL expressions
  */
@@ -88,6 +99,14 @@ const createFilterExpression = (
   startTimeExpression: string | null,
   datasetsFilterExpression: string | null,
 ) => {
+  if (
+    shouldUseRegexpBasedAutoRunsSearchFilter() &&
+    searchFilter.length > 0 &&
+    !detectSqlSyntaxInSearchQuery(searchFilter)
+  ) {
+    return createQuickRegexpSearchFilter(searchFilter);
+  }
+
   const activeFilters = [];
   if (searchFilter) activeFilters.push(searchFilter);
   if (startTimeExpression) activeFilters.push(startTimeExpression);
@@ -173,7 +192,7 @@ export const fetchModelVersionsForRuns = (
     run.data.tags.some((t) => t.key === EXPERIMENT_LOG_MODEL_HISTORY_TAG),
   );
 
-  chunk(runsWithLogModelHistory, MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER).forEach((runsChunk) => {
+  const promises = chunk(runsWithLogModelHistory, MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER).map((runsChunk) => {
     // eslint-disable-next-line prefer-const
     let maxResults = undefined;
     const action = actionCreator(
@@ -183,8 +202,10 @@ export const fetchModelVersionsForRuns = (
       getUUID(),
       maxResults,
     );
-    dispatch(action);
+    return dispatch(action);
   });
+
+  return Promise.all(promises);
 };
 
 /**

@@ -4,7 +4,7 @@ import posixpath
 import re
 import urllib.parse
 import uuid
-from typing import Any, Tuple
+from typing import Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -20,8 +20,10 @@ _INVALID_DB_URI_MSG = (
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 _uc_volume_URI_PREFIX = "/Volumes/"
+_uc_model_URI_PREFIX = "/Models/"
 _UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
+_OSS_UNITY_CATALOG_SCHEME = "uc"
 
 
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
@@ -29,8 +31,8 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
 
     Args:
         uri: The URI.
-        is_tracking_uri: Whether or not the specified URI is an MLflow Tracking or MLflow
-            Model Registry URI. Examples of other URIs are MLflow artifact URIs,
+        is_tracking_or_registry_uri: Whether or not the specified URI is an MLflow Tracking or
+            MLflow Model Registry URI. Examples of other URIs are MLflow artifact URIs,
             filesystem paths, etc.
     """
     if uri == "databricks" and is_tracking_or_registry_uri:
@@ -100,6 +102,7 @@ def is_fuse_or_uc_volumes_uri(uri):
             _DBFS_FUSE_PREFIX,
             _DBFS_HDFS_URI_PREFIX,
             _uc_volume_URI_PREFIX,
+            _uc_model_URI_PREFIX,
             _UC_DBFS_SYMLINK_PREFIX,
         ]
     )
@@ -126,6 +129,11 @@ def is_databricks_unity_catalog_uri(uri):
     return scheme == _DATABRICKS_UNITY_CATALOG_SCHEME or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
 
 
+def is_oss_unity_catalog_uri(uri):
+    scheme = urllib.parse.urlparse(uri).scheme
+    return scheme == "uc"
+
+
 def construct_db_uri_from_profile(profile):
     if profile:
         return "databricks://" + profile
@@ -137,8 +145,7 @@ def validate_db_scope_prefix_info(scope, prefix):
     for c in ["/", ":", " "]:
         if c in scope:
             raise MlflowException(
-                f"Unsupported Databricks profile name: {scope}."
-                f" Profile names cannot contain '{c}'."
+                f"Unsupported Databricks profile name: {scope}. Profile names cannot contain '{c}'."
             )
         if prefix and c in prefix:
             raise MlflowException(
@@ -147,8 +154,7 @@ def validate_db_scope_prefix_info(scope, prefix):
             )
     if prefix is not None and prefix.strip() == "":
         raise MlflowException(
-            f"Unsupported Databricks profile key prefix: '{prefix}'."
-            " Key prefixes cannot be empty."
+            f"Unsupported Databricks profile key prefix: '{prefix}'. Key prefixes cannot be empty."
         )
 
 
@@ -291,7 +297,7 @@ def append_to_uri_path(uri, *paths):
 
     parsed_uri = urllib.parse.urlparse(uri)
 
-    # Validate query string not to contain any traveral path (../) before appending
+    # Validate query string not to contain any traversal path (../) before appending
     # to the end of the path, otherwise they will be resolved as part of the path.
     validate_query_string(parsed_uri.query)
 
@@ -314,7 +320,7 @@ def append_to_uri_path(uri, *paths):
     return prefix + urllib.parse.urlunparse(new_parsed_uri)
 
 
-def append_to_uri_query_params(uri, *query_params: Tuple[str, Any]) -> str:
+def append_to_uri_query_params(uri, *query_params: tuple[str, Any]) -> str:
     """Appends the specified query parameters to an existing URI.
 
     Args:
@@ -471,6 +477,8 @@ def validate_path_is_safe(path):
 
     # We must decode path before validating it
     path = _decode(path)
+    # If control characters are included in the path, escape them.
+    path = _escape_control_characters(path)
 
     exc = MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
     if "#" in path:
@@ -490,9 +498,22 @@ def validate_path_is_safe(path):
     return path
 
 
+def _escape_control_characters(text: str) -> str:
+    # Method to escape control characters (e.g. \u0017)
+    def escape_char(c):
+        code_point = ord(c)
+
+        # If it's a control character (ASCII 0-31 or 127), escape it
+        if (0 <= code_point <= 31) or (code_point == 127):
+            return f"%{code_point:02x}"
+        return c
+
+    return "".join(escape_char(c) for c in text)
+
+
 def validate_query_string(query):
     query = _decode(query)
-    # Block query strings contain any traveral path (../) because they
+    # Block query strings contain any traversal path (../) because they
     # could be resolved as part of the path and allow path traversal.
     if ".." in query:
         raise MlflowException("Invalid query string", error_code=INVALID_PARAMETER_VALUE)

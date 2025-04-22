@@ -91,5 +91,10 @@ export interface WizardStep {
      * The wizard must have property `enableClickingToSteps` set to true for this to work
      */
     clickEnabled?: boolean;
+    /**
+     * Will display as a tooltip when the next button is hovered over
+     * This is useful for providing additional context on the next button action
+     */
+    tooltipContent?: string;
 }
 //# sourceMappingURL=WizardStep.d.ts.map

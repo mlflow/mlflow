@@ -12,6 +12,7 @@ from mlflow.entities.model_registry import (
     RegisteredModel,
     RegisteredModelTag,
 )
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
@@ -216,7 +217,7 @@ def test_can_parse_post_json_with_content_type_params():
 def test_can_parse_get_json_with_unknown_fields():
     request = mock.MagicMock()
     request.method = "GET"
-    request.query_string = b"name=hello&superDuperUnknown=field"
+    request.args = {"name": "hello", "superDuperUnknown": "field"}
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello"
 
@@ -896,3 +897,44 @@ def test_get_trace_artifact_repo(location, expected_class, expected_uri, monkeyp
     repo = _get_trace_artifact_repo(trace_info)
     assert isinstance(repo, expected_class)
     assert repo.artifact_uri == expected_uri
+
+
+### Prompt Registry Tests ###
+def test_create_prompt_as_registered_model(mock_get_request_message, mock_model_registry_store):
+    tags = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    mock_get_request_message.return_value = CreateRegisteredModel(
+        name="model_1", tags=[tag.to_proto() for tag in tags]
+    )
+    rm = RegisteredModel("model_1", tags=tags)
+    mock_model_registry_store.create_registered_model.return_value = rm
+    resp = _create_registered_model()
+    _, args = mock_model_registry_store.create_registered_model.call_args
+    assert args["name"] == "model_1"
+    assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
+    assert json.loads(resp.get_data()) == {"registered_model": jsonify(rm)}
+
+
+def test_create_prompt_as_model_version(mock_get_request_message, mock_model_registry_store):
+    tags = [
+        ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+        ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value="some prompt text"),
+    ]
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        tags=[tag.to_proto() for tag in tags],
+        source=None,
+        run_id=None,
+        run_link=None,
+    )
+    mv = ModelVersion(
+        name="prompt_1", version="12", creation_timestamp=123, tags=tags, run_link=None
+    )
+    mock_model_registry_store.create_model_version.return_value = mv
+    resp = _create_model_version()
+    _, args = mock_model_registry_store.create_model_version.call_args
+    assert args["name"] == "model_1"
+    assert args["source"] == ""
+    assert args["run_id"] == ""
+    assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
+    assert args["run_link"] == ""
+    assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
