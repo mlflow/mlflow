@@ -9,6 +9,7 @@ import mlflow
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
+from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.exceptions import MlflowException
 from mlflow.keras.callback import MlflowCallback
 from mlflow.keras.save import log_model
@@ -37,7 +38,7 @@ def _check_existing_mlflow_callback(callbacks):
             )
 
 
-def _log_dataset(dataset, source, context, name=None, targets=None):
+def _log_dataset(dataset, source, context, name=None, targets=None, model_id=None):
     """Helper function to log the dataset information to MLflow."""
     try:
         import tensorflow as tf
@@ -65,7 +66,8 @@ def _log_dataset(dataset, source, context, name=None, targets=None):
         _logger.warning(f"Unrecognized dataset type {type(dataset)}. Dataset logging skipped.")
         return
 
-    mlflow.log_input(dataset, context)
+    model = LoggedModelInput(model_id=model_id) if model_id else None
+    mlflow.log_input(dataset, context, model=model)
 
 
 def _parse_dataset(*keras_fit_args, **keras_fit_kwargs):
@@ -86,6 +88,7 @@ def _log_keras_model(
     save_exported_model,
     log_model_signatures=True,
     save_model_kwargs=None,
+    model_id=None,
 ):
     """Helper function to log the Keras model to MLflow."""
     if log_model_signatures:
@@ -104,6 +107,7 @@ def _log_keras_model(
         signature=signature,
         registered_model_name=get_autologging_config("keras", "registered_model_name", None),
         save_model_kwargs=save_model_kwargs,
+        model_id=model_id,
     )
 
 
@@ -205,16 +209,19 @@ def autolog(
             unlogged_params.append("batch_size")
 
         log_fn_args_as_params(original, [], kwargs, unlogged_params)
+        model_id = None
+        if log_models:
+            model_id = mlflow.initialize_logged_model("model").model_id
 
         if log_datasets:
             try:
                 context_tags = context_registry.resolve_tags()
                 source = CodeDatasetSource(tags=context_tags)
                 x, y = _parse_dataset(*args, **kwargs)
-                _log_dataset(x, source, "train", targets=y)
+                _log_dataset(x, source, "train", targets=y, model_id=model_id)
 
                 if "validation_data" in kwargs:
-                    _log_dataset(kwargs["validation_data"], source, "eval")
+                    _log_dataset(kwargs["validation_data"], source, "eval", model_id=model_id)
 
             except Exception as e:
                 _logger.warning(f"Failed to log dataset information to MLflow. Reason: {e}")
@@ -224,6 +231,7 @@ def autolog(
         mlflow_callback = MlflowCallback(
             log_every_epoch=log_every_epoch,
             log_every_n_steps=log_every_n_steps,
+            model_id=model_id,
         )
         _check_existing_mlflow_callback(callbacks)
         callbacks.append(mlflow_callback)
@@ -231,7 +239,13 @@ def autolog(
         history = original(inst, *args, **kwargs)
 
         if log_models:
-            _log_keras_model(inst, save_exported_model, log_model_signatures, save_model_kwargs)
+            _log_keras_model(
+                inst,
+                save_exported_model,
+                log_model_signatures,
+                save_model_kwargs,
+                model_id=model_id,
+            )
         return history
 
     safe_patch(
