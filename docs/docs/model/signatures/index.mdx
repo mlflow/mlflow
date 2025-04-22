@@ -360,7 +360,7 @@ Tensor-based schemas support [numpy data types](https://numpy.org/devdocs/user/b
 
   </tbody>
 </table>
- 
+
 :::note
   Tensor-based schemas do not support optional inputs. You can pass an array with _None_ or _np.nan_ values,
   but the schema doesn't flag them as optional.
@@ -523,7 +523,7 @@ call to either the log_model or save_model functions, such as with <APILink fn="
 automatically infer the model's signature based on this input example and the model's predicted output for the given example.
 
 :::tip
-Starting MLflow 2.20.0, model signature is automatically inferred when logging a PythonModel with type hints. Check 
+Starting MLflow 2.20.0, model signature is automatically inferred when logging a PythonModel with type hints. Check
 [PythonModel with type hints guidance](../python_model#model-signature-inference-based-on-type-hints) for more details.
 :::
 

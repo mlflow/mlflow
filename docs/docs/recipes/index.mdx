@@ -35,7 +35,7 @@ Compared to ad-hoc ML workflows, MLflow Recipes offers several major benefits:
 
 ### Prerequisites
 
-<Link id="recipes-installation" class="anchor-with-sticky-navbar" /> 
+<Link id="recipes-installation" class="anchor-with-sticky-navbar" />
 
 MLflow Recipes is available as an extension of the
 [MLflow Python library](https://pypi.org/project/mlflow/). You can install MLflow Recipes
@@ -90,14 +90,14 @@ To build and score models for your own use cases, we recommend using the
 
 ## Key concepts
 
-<Link id="steps-key-concept" class="anchor-with-sticky-navbar" /> 
+<Link id="steps-key-concept" class="anchor-with-sticky-navbar" />
 
 - **Steps**: A Step represents an individual ML operation, such as ingesting data,
   fitting an estimator, evaluating a model against test data, or deploying a model
   for real-time scoring. Each Step accepts a collection of well-defined inputs and
   produce well-defined outputs according to user-defined configurations and code.
 
-<Link id="recipes-key-concept" class="anchor-with-sticky-navbar" /> 
+<Link id="recipes-key-concept" class="anchor-with-sticky-navbar" />
 
 - **Recipes**: A Recipe is an ordered composition of [Steps](#steps-key-concept)
   used to solve an ML problem or perform an MLOps task, such as developing a
@@ -105,7 +105,7 @@ To build and score models for your own use cases, we recommend using the
   MLflow Recipes provides <APILink fn="mlflow.recipes.Recipe">API</APILink>
   and a <Link to="/api_reference/cli.html" target="_blank">CLI</Link> for running recipes and inspecting their results.
 
-<Link id="recipe-templates-key-concept" class="anchor-with-sticky-navbar" /> 
+<Link id="recipe-templates-key-concept" class="anchor-with-sticky-navbar" />
 
 - **Templates**: A Recipe Template is a git repository with a [standardized, modular layout](#recipe-template-structure)
   containing all of the customizable code and configurations for a [Recipe](#recipes-key-concept).
@@ -115,7 +115,7 @@ To build and score models for your own use cases, we recommend using the
   includes [predefined templates](#recipe-templates) for a variety of model development and
   MLOps tasks.
 
-<Link id="profiles-key-concept" class="anchor-with-sticky-navbar" /> 
+<Link id="profiles-key-concept" class="anchor-with-sticky-navbar" />
 
 - **Profiles**: Profiles contain user-specific or environment-specific configurations for a
   [Recipe](#recipes-key-concept), such as the particular set of hyperparameters being
@@ -125,7 +125,7 @@ To build and score models for your own use cases, we recommend using the
   [local.yaml](https://github.com/mlflow/recipes-examples/blob/main/regression/profiles/local.yaml)
   and [databricks.yaml](https://github.com/mlflow/recipes-examples/blob/main/regression/profiles/databricks.yaml)).
 
-<Link id="step-cards-key-concept" class="anchor-with-sticky-navbar" /> 
+<Link id="step-cards-key-concept" class="anchor-with-sticky-navbar" />
 
 - **Step Cards**: Step Cards display the results produced by running a
   [Step](#steps-key-concept), including dataset profiles, model performance & explainability
@@ -343,7 +343,7 @@ to develop and deploy high-quality, production-ready models for your use cases:
 - **MLflow Recipes Regression Template**: The MLflow Recipes Regression Template is designed for developing and scoring
   regression models. For more information, see the [Regression Template reference guide](https://github.com/mlflow/recipes-regression-template/blob/main/README.md).
 
-<Link id="classification-template" class="anchor-with-sticky-navbar" /> 
+<Link id="classification-template" class="anchor-with-sticky-navbar" />
 
 - **MLflow Recipes Classification Template**: The MLflow Recipes Classification Template is designed for developing and scoring
   classification models. For more information, see the [Classification Template reference guide](https://github.com/mlflow/recipes-classification-template/blob/main/README.md).
@@ -394,7 +394,7 @@ The main components of the Recipe Template layout, which are common across all r
   and defines custom metric computations in
   [steps/custom_metrics.py](https://github.com/mlflow/recipes-regression-template/blob/main/steps/custom_metrics.py).
 
-  <Link id="profiles-directory" class="anchor-with-sticky-navbar" /> 
+  <Link id="profiles-directory" class="anchor-with-sticky-navbar" />
 
 - `profiles`: A directory containing [Profile](#profiles-key-concept) customizations for
   the configurations defined in `recipe.yaml`. For example, the
