@@ -1,7 +1,7 @@
 import datetime
-import importlib
 import json
 import os
+import subprocess
 import sys
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from unittest import mock
@@ -1098,10 +1098,6 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
     _FunctionPythonModel.__init_subclass__()
     assert mock_warning.call_count == 0
 
-    # Check import does not trigger any warning (from builtin sub-classes)
-    importlib.reload(mlflow.pyfunc.model)
-    assert mock_warning.call_count == 0
-
     # Subclass of ChatModel should not warn (exception to the rule)
     class ChatModelSubclass(ChatModel):
         def predict(self, model_input: list[ChatMessage], params: Optional[ChatParams] = None):
@@ -1120,6 +1116,20 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
             pass
 
     assert mock_warning.call_count == 0
+
+    # Check import does not trigger any warning (from builtin sub-classes)
+    # Note: DO NOT USE importlib.reload as classes in the reloaded
+    # module are different than original ones, which could cause unintended
+    # side effects in other tests.
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-W",
+            "error::UserWarning:mlflow.pyfunc.model",
+            "-c",
+            "import mlflow.pyfunc.model",
+        ]
+    )
 
 
 def test_load_context_type_hint():

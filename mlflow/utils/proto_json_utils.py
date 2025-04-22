@@ -161,7 +161,11 @@ def parse_dict(js_dict, message):
 
 
 def set_pb_value(proto: Value, value: Any):
-    """Set a value to the google.protobuf.Value object."""
+    """
+    DO NOT USE THIS FUNCTION. Preserved for backwards compatibility.
+
+    Set a value to the google.protobuf.Value object.
+    """
     if isinstance(value, dict):
         for key, val in value.items():
             set_pb_value(proto.struct_value.fields[key], val)
@@ -184,7 +188,11 @@ def set_pb_value(proto: Value, value: Any):
 
 
 def parse_pb_value(proto: Value) -> Optional[Any]:
-    """Extract a value from the google.protobuf.Value object."""
+    """
+    DO NOT USE THIS FUNCTION. Preserved for backwards compatibility.
+
+    Extract a value from the google.protobuf.Value object.
+    """
     if proto.HasField("struct_value"):
         return {key: parse_pb_value(val) for key, val in proto.struct_value.fields.items()}
     elif proto.HasField("list_value"):

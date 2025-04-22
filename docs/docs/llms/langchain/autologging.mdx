@@ -304,14 +304,14 @@ There are a few type of models that MLflow LangChain autologging does not suppor
 - **Model contains langchain retrievers**
 
     LangChain retrievers are not supported by MLflow autologging. If your model contains a retriever, you will need to manually log the model using the `mlflow.langchain.log_model` API.
-    As loading those models requires specifying `loader_fn` and `persist_dir` parameters, please check examples in 
+    As loading those models requires specifying `loader_fn` and `persist_dir` parameters, please check examples in
     [retriever_chain](https://github.com/mlflow/mlflow/blob/master/examples/langchain/retriever_chain.py).
 
 - **Can't pickle certain objects**
 
-    For certain models that LangChain does not support native saving or loading, we will pickle the object when saving it. Due to this functionality, your cloudpickle version must be 
+    For certain models that LangChain does not support native saving or loading, we will pickle the object when saving it. Due to this functionality, your cloudpickle version must be
     consistent between the saving and loading environments to ensure that object references resolve properly. For further guarantees of correct object representation, you should ensure that your
-    environment has `pydantic` installed with at least version 2. 
+    environment has `pydantic` installed with at least version 2.
 
 
 ### How to customize span names in the traces?
