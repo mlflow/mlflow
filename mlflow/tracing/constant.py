@@ -36,7 +36,7 @@ class SpanAttributeKey:
 MAX_CHARS_IN_TRACE_INFO_METADATA = 250
 # All storage backends are guaranteed to support tag keys up to 250 characters,
 # values up to 4096 characters
-MAX_CHARS_IN_TRACE_INFO_TAGS_KEY = 259
+MAX_CHARS_IN_TRACE_INFO_TAGS_KEY = 250
 MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE = 4096
 TRUNCATION_SUFFIX = "..."
 
