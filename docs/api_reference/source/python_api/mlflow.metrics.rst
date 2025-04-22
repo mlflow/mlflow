@@ -1,7 +1,7 @@
 mlflow.metrics
 ==============
 
-The ``mlflow.metrics`` module helps you quantitatively and qualitatively measure your models.
+The ``mlflow.metrics`` module helps you quantitatively and qualitatively measure your models. 
 
 .. autoclass:: mlflow.metrics.EvaluationMetric
 
@@ -123,18 +123,18 @@ Includes all of the above **Text Metrics** as well as the following:
 Retriever Metrics
 -----------------
 
-The following metrics are built-in metrics for the ``'retriever'`` model type, meaning they will be
-automatically calculated with a default ``retriever_k`` value of 3.
+The following metrics are built-in metrics for the ``'retriever'`` model type, meaning they will be 
+automatically calculated with a default ``retriever_k`` value of 3. 
 
-To evaluate document retrieval models, it is recommended to use a dataset with the following
+To evaluate document retrieval models, it is recommended to use a dataset with the following 
 columns:
 
 - Input queries
 - Retrieved relevant doc IDs
 - Ground-truth doc IDs
 
-Alternatively, you can also provide a function through the ``model`` parameter to represent
-your retrieval model. The function should take a Pandas DataFrame containing input queries and
+Alternatively, you can also provide a function through the ``model`` parameter to represent 
+your retrieval model. The function should take a Pandas DataFrame containing input queries and 
 ground-truth relevant doc IDs, and return a DataFrame with a column of retrieved relevant doc IDs.
 
 A "doc ID" is a string or integer that uniquely identifies a document. Each row of the retrieved and
@@ -143,10 +143,10 @@ ground-truth doc ID columns should consist of a list or numpy array of doc IDs.
 Parameters:
 
 - ``targets``: A string specifying the column name of the ground-truth relevant doc IDs
-- ``predictions``: A string specifying the column name of the retrieved relevant doc IDs in either
+- ``predictions``: A string specifying the column name of the retrieved relevant doc IDs in either 
   the static dataset or the Dataframe returned by the ``model`` function
-- ``retriever_k``: A positive integer specifying the number of retrieved docs IDs to consider for
-  each input query. ``retriever_k`` defaults to 3. You can change ``retriever_k`` by using the
+- ``retriever_k``: A positive integer specifying the number of retrieved docs IDs to consider for 
+  each input query. ``retriever_k`` defaults to 3. You can change ``retriever_k`` by using the 
   :py:func:`mlflow.evaluate` API:
 
     1. .. code-block:: python
@@ -173,11 +173,11 @@ Parameters:
                 mlflow.metrics.precision_at_k(6),
                 mlflow.metrics.recall_at_k(5),
                 mlflow.metrics.ndcg_at_k(5)
-            ]
+            ]   
         )
-
-    NOTE: In the 2nd method, it is recommended to omit the ``model_type`` as well, or else
-    ``precision@3`` and ``recall@3`` will be  calculated in  addition to ``precision@5``,
+    
+    NOTE: In the 2nd method, it is recommended to omit the ``model_type`` as well, or else 
+    ``precision@3`` and ``recall@3`` will be  calculated in  addition to ``precision@5``, 
     ``precision@6``, ``recall@5``, and ``ndcg_at_k@5``.
 
 .. autofunction:: mlflow.metrics.precision_at_k
@@ -215,9 +215,9 @@ When using generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationM
 
 .. autoclass:: mlflow.metrics.genai.EvaluationExample
 
-Users must set the appropriate environment variables for the LLM service they are using for
-evaluation. For example, if you are using OpenAI's API, you must set the ``OPENAI_API_KEY``
-environment variable. If using Azure OpenAI, you must also set the ``OPENAI_API_TYPE``,
-``OPENAI_API_VERSION``, ``OPENAI_API_BASE``, and ``OPENAI_DEPLOYMENT_NAME`` environment variables.
+Users must set the appropriate environment variables for the LLM service they are using for 
+evaluation. For example, if you are using OpenAI's API, you must set the ``OPENAI_API_KEY`` 
+environment variable. If using Azure OpenAI, you must also set the ``OPENAI_API_TYPE``, 
+``OPENAI_API_VERSION``, ``OPENAI_API_BASE``, and ``OPENAI_DEPLOYMENT_NAME`` environment variables. 
 See `Azure OpenAI documentation <https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/switching-endpoints>`_
 Users do not need to set these environment variables if they are using a gateway route.

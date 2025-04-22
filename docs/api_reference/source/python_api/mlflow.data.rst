@@ -107,7 +107,7 @@ Spark
     :exclude-members: to_pyfunc, to_evaluation_dataset
 
 
-Hugging Face
+Hugging Face 
 ~~~~~~~~~~~~
 
 .. autofunction:: mlflow.data.huggingface_dataset.from_huggingface
@@ -118,7 +118,7 @@ Hugging Face
     :exclude-members: to_pyfunc
 
 
-TensorFlow
+TensorFlow 
 ~~~~~~~~~~~~
 
 .. autofunction:: mlflow.data.tensorflow_dataset.from_tensorflow
@@ -126,14 +126,14 @@ TensorFlow
 .. autoclass:: mlflow.data.tensorflow_dataset.TensorFlowDataset()
     :members:
     :undoc-members:
-    :exclude-members: to_pyfunc,
+    :exclude-members: to_pyfunc, 
 
 .. autoclass:: mlflow.data.evaluation_dataset.EvaluationDataset()
     :members:
     :undoc-members:
 
 
-Dataset Sources
+Dataset Sources 
 ~~~~~~~~~~~~~~~~
 
 .. autoclass:: mlflow.data.filesystem_dataset_source.FileSystemDatasetSource()
@@ -143,7 +143,7 @@ Dataset Sources
 .. autoclass:: mlflow.data.http_dataset_source.HTTPDatasetSource()
     :members:
     :undoc-members:
-
+    
 .. autoclass:: mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource()
     :members:
     :undoc-members:

@@ -4,7 +4,7 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
-        files: \.rst
+        files: \.mdx
       - id: end-of-file-fixer
         files: \.(proto|txt|sh|rst)$
         exclude: ^examples/

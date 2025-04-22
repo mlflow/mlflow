@@ -6,7 +6,7 @@ MLflow Authentication REST API
 ==============================
 
 
-The MLflow Authentication REST API allows you to create, get, update and delete users,
+The MLflow Authentication REST API allows you to create, get, update and delete users, 
 experiment permissions and registered model permissions.
 The API is hosted under the ``/api`` route on the MLflow tracking server. For example, to list
 experiments on a tracking server hosted at ``http://localhost:5000``, access
