@@ -1012,7 +1012,6 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
 
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    every_n_iter=1,
     log_models=True,
     log_datasets=True,
     disable=False,
@@ -1074,8 +1073,6 @@ def autolog(
     autologging by calling `mlflow.tensorflow.autolog(disable=True)`.
 
     Args:
-        every_n_iter: deprecated, please use ``log_every_epoch`` instead. Per ``every_n_iter``
-            steps, metrics will be logged.
         log_models: If ``True``, trained models are logged as MLflow model artifacts.
             If ``False``, trained models are not logged.
         log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
@@ -1134,14 +1131,6 @@ def autolog(
             every epoch). Defaults to `"epoch"`.
     """
     import tensorflow as tf
-
-    if every_n_iter != 1:
-        _logger.warning(
-            "The `every_n_iter` parameter is deprecated, please use `log_every_epoch` and "
-            "`log_every_n_steps` instead. Automatically set `log_every_n_steps` to `every_n_iter`."
-        )
-        log_every_epoch = False
-        log_every_n_steps = every_n_iter
 
     if Version(tf.__version__) < Version("2.3"):
         _logger.error(

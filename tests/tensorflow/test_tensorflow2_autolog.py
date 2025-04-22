@@ -731,7 +731,7 @@ def get_tf_keras_random_data_run_with_callback(
     initial_epoch,
     log_models,
 ):
-    mlflow.tensorflow.autolog(every_n_iter=1, log_models=log_models)
+    mlflow.tensorflow.autolog(log_models=log_models)
 
     data = random_train_data
     labels = random_one_hot_labels
