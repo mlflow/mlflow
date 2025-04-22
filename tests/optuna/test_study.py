@@ -18,11 +18,11 @@ import pytest
 import mlflow
 from mlflow.entities import Metric, Param, RunTag
 
-from mlflow.pyspark.optuna.storage import MlflowStorage
-from mlflow.pyspark.optuna.study import MLFlowSparkStudy
+from mlflow.optuna.storage import MlflowStorage
+from mlflow.optuna.study import MLFlowSparkStudy
 
 from tests.pyfunc.test_spark import get_spark_session
-from tests.pyspark.optuna.test_storage import setup_storage
+from tests.optuna.test_storage import setup_storage
 
 _logger = logging.getLogger(__name__)
 
