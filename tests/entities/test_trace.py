@@ -15,7 +15,6 @@ from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_K
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import (
-    milliseconds_to_proto_duration,
     milliseconds_to_proto_timestamp,
 )
 
@@ -68,7 +67,7 @@ def test_json_deserialization(monkeypatch):
                 "type": "MLFLOW_EXPERIMENT",
             },
             "request_time": milliseconds_to_proto_timestamp(trace.info.timestamp_ms),
-            "execution_duration": milliseconds_to_proto_duration(trace.info.execution_time_ms),
+            "execution_duration_ms": trace.info.execution_time_ms,
             "state": "OK",
             "request_preview": '{"x": 2, "y": 5}',
             "response_preview": "8",
@@ -85,8 +84,6 @@ def test_json_deserialization(monkeypatch):
             },
         },
         "data": {
-            "request": '{"x": 2, "y": 5}',
-            "response": "8",
             "spans": [
                 {
                     "name": "predict",

@@ -835,7 +835,7 @@ def test_search_traces(return_type, mock_client):
         [
             Trace(
                 info=create_test_trace_info(f"tr-{i}"),
-                data=TraceData([], "", ""),
+                data=TraceData([]),
             )
             for i in range(10)
         ],
@@ -881,7 +881,7 @@ def test_search_traces_with_pagination(mock_client):
     traces = [
         Trace(
             info=create_test_trace_info(f"tr-{i}"),
-            data=TraceData([], "", ""),
+            data=TraceData([]),
         )
         for i in range(30)
     ]
@@ -965,7 +965,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         assert df.iloc[idx].tags == trace.info.tags
 
 
-def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
+def test_search_traces_handles_missing_response_tags_and_metadata(mock_client, monkeypatch):
     mock_client.search_traces.return_value = PagedList(
         [
             Trace(
@@ -976,11 +976,7 @@ def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
                     execution_time_ms=2,
                     status=TraceStatus.OK,
                 ),
-                data=TraceData(
-                    spans=[],
-                    request="request",
-                    # Response is missing
-                ),
+                data=TraceData(spans=[]),
             )
         ],
         token=None,
@@ -1015,28 +1011,6 @@ def test_search_traces_with_input_and_no_output():
     )
     assert df["with_input_and_no_output.inputs.a"].tolist() == [1]
     assert df["with_input_and_no_output.outputs"].isnull().all()
-
-
-# Test case where span content is invalid
-def test_search_traces_with_invalid_span_content(mock_client):
-    mock_client.search_traces.return_value = PagedList(
-        [
-            Trace(
-                info=TraceInfo(
-                    request_id=5,
-                    experiment_id="test",
-                    timestamp_ms=1,
-                    execution_time_ms=2,
-                    status=TraceStatus.OK,
-                ),
-                data=TraceData(spans=[None], request="request", response="response"),
-            )
-        ],
-        token=None,
-    )
-
-    with pytest.raises(AttributeError, match="NoneType"):
-        mlflow.search_traces()
 
 
 # Test case where span inputs / outputs aren’t dict

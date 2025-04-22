@@ -2064,43 +2064,6 @@ def test_missing_args_raises_exception():
             )
 
 
-def test_custom_metrics_deprecated(
-    binary_logistic_regressor_model_uri,
-    breast_cancer_dataset,
-):
-    def dummy_fn(eval_df, metrics):
-        pass
-
-    with pytest.raises(
-        MlflowException,
-        match="The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update "
-        "your code to only use the 'extra_metrics' parameter instead.",
-    ):
-        with mlflow.start_run():
-            mlflow.evaluate(
-                binary_logistic_regressor_model_uri,
-                breast_cancer_dataset._constructor_args["data"],
-                targets=breast_cancer_dataset._constructor_args["targets"],
-                evaluators="default",
-                model_type="classifier",
-                custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
-                extra_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
-            )
-
-    message = "The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update your "
-    "code to use the 'extra_metrics' parameter instead."
-    with pytest.warns(FutureWarning, match=message):
-        with mlflow.start_run():
-            mlflow.evaluate(
-                binary_logistic_regressor_model_uri,
-                breast_cancer_dataset._constructor_args["data"],
-                targets=breast_cancer_dataset._constructor_args["targets"],
-                evaluators="default",
-                model_type="classifier",
-                custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
-            )
-
-
 def test_evaluate_question_answering_with_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(

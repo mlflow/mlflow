@@ -28,7 +28,11 @@ class TraceInfoV3(_MlflowObject):
     assessments: list[Assessment] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
+        res = MessageToDict(self.to_proto(), preserving_proto_field_name=True)
+        if self.execution_duration is not None:
+            res.pop("execution_duration", None)
+            res["execution_duration_ms"] = self.execution_duration
+        return res
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "TraceInfoV3":
@@ -52,10 +56,8 @@ class TraceInfoV3(_MlflowObject):
             timestamp.FromJsonString(request_time)
             d["request_time"] = timestamp.ToMilliseconds()
 
-        if execution_duration := d.get("execution_duration"):
-            duration = Duration()
-            duration.FromJsonString(execution_duration)
-            d["execution_duration"] = duration.ToMilliseconds()
+        if (execution_duration := d.pop("execution_duration_ms", None)) is not None:
+            d["execution_duration"] = execution_duration
 
         return cls(**d)
 
