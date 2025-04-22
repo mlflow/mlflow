@@ -119,7 +119,7 @@ def safety():
 
 
 # === Shorthand for all builtin RAG scorers ===
-def rag_scorers(global_guideline: str) -> list[BuiltInScorer]:
+def rag_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of built-in scorers for evaluating RAG models. Contains scorers
     chunk_relevance, context_sufficiency, document_recall, global_guideline_adherence,
@@ -129,7 +129,6 @@ def rag_scorers(global_guideline: str) -> list[BuiltInScorer]:
         chunk_relevance(),
         context_sufficiency(),
         document_recall(),
-        global_guideline_adherence(global_guideline),
         groundedness(),
         relevance_to_query(),
     ]
