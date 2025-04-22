@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import ShowArtifactPage from './artifact-view-components/ShowArtifactPage';
 import { RunInfoEntity } from '../types';
 import { useRunsArtifacts } from './experiment-page/hooks/useRunsArtifacts';
@@ -107,27 +107,26 @@ export const CompareRunArtifactView = ({
                 >
                   Run: {runUuid}
                 </div>
-  
-                  <div
-                    css={{
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <ShowArtifactPage
-                      runUuid={runUuid}
-                      artifactRootUri={runInfos[index].artifactUri}
-                      path={artifactPath}
-                    />
-                  </div>
+                <div
+                  css={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <ShowArtifactPage
+                    runUuid={runUuid}
+                    artifactRootUri={runInfos[index].artifactUri}
+                    path={artifactPath}
+                  />
                 </div>
+              </div>
             );
           })}
         </div>
       </div>
     </div>
-  );  
+  );
 };
