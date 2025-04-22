@@ -225,7 +225,7 @@ def pyfunc_serve_and_score_model(
             return endpoint.invoke(data, content_type)
     except Exception as e:
         _logger.error(f"Error serving and scoring model: {e}")
-        return {"error": str(e)}
+        raise
 
 @contextmanager
 def pyfunc_scoring_endpoint(
