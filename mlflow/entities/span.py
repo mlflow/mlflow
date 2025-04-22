@@ -546,7 +546,7 @@ class LiveSpan(Span):
         return clone_span
 
 
-NO_OP_SPAN_REQUEST_ID = "MLFLOW_NO_OP_SPAN_TRACE_ID"
+NO_OP_SPAN_TRACE_ID = "MLFLOW_NO_OP_SPAN_TRACE_ID"
 
 
 class NoOpSpan(Span):
@@ -577,7 +577,7 @@ class NoOpSpan(Span):
         """
         No-op span returns a special trace ID to distinguish it from the real spans.
         """
-        return NO_OP_SPAN_REQUEST_ID
+        return NO_OP_SPAN_TRACE_ID
 
     @property
     def span_id(self):

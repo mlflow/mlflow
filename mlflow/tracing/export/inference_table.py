@@ -15,12 +15,12 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 _logger = logging.getLogger(__name__)
 
 
-def pop_trace(trace_id: str) -> Optional[dict[str, Any]]:
+def pop_trace(request_id: str) -> Optional[dict[str, Any]]:
     """
     Pop the completed trace data from the buffer. This method is used in
     the Databricks model serving so please be careful when modifying it.
     """
-    return _TRACE_BUFFER.pop(trace_id, None)
+    return _TRACE_BUFFER.pop(request_id, None)
 
 
 # For Inference Table, we use special TTLCache to store the finished traces

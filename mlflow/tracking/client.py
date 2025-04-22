@@ -50,7 +50,7 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_span
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan, create_mlflow_span
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
@@ -1102,7 +1102,7 @@ class MlflowClient:
         # NB: If the specified request ID is of no-op span, this means something went wrong in
         #     the span start logic. We should simply ignore it as the upstream should already
         #     have logged the error.
-        if trace_id == NO_OP_SPAN_REQUEST_ID:
+        if trace_id == NO_OP_SPAN_TRACE_ID:
             return
 
         trace_manager = InMemoryTraceManager.get_instance()
@@ -1286,7 +1286,7 @@ class MlflowClient:
             client.end_trace(span.trace_id)
         """
         # If parent span is no-op span, the child should also be no-op too
-        if trace_id == NO_OP_SPAN_REQUEST_ID:
+        if trace_id == NO_OP_SPAN_TRACE_ID:
             return NoOpSpan()
 
         if not parent_id:
@@ -1358,7 +1358,7 @@ class MlflowClient:
             end_time_ns: The end time of the span in nano seconds since the UNIX epoch.
                 If not provided, the current time will be used.
         """
-        if trace_id == NO_OP_SPAN_REQUEST_ID:
+        if trace_id == NO_OP_SPAN_TRACE_ID:
             return
 
         trace_manager = InMemoryTraceManager.get_instance()
