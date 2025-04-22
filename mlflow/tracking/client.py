@@ -9,7 +9,9 @@ import json
 import logging
 import os
 import posixpath
+import random
 import re
+import string
 import sys
 import tempfile
 import urllib
@@ -2808,9 +2810,11 @@ class MlflowClient:
 
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
-            filename_uuid = uuid.uuid4()
+            filename_uuid = str(uuid.uuid4())
             # TODO: reconsider the separator used here since % has special meaning in URL encoding.
             # See https://github.com/mlflow/mlflow/issues/14136 for more details.
+            # Construct a filename uuid that does not start with hex digits
+            filename_uuid = f"{random.choice(string.ascii_lowercase[6:])}{filename_uuid[1:]}"
             uncompressed_filename = (
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )
