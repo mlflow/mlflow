@@ -166,7 +166,7 @@ def _install_model_dependencies_to_env(model_path, env_manager) -> list[str]:
         activate_cmd = ["source /miniconda/bin/activate custom_env"]
 
     elif env_manager == em.VIRTUALENV:
-        env_activate_cmd = _get_or_create_virtualenv(model_path)
+        env_activate_cmd = _get_or_create_virtualenv(model_path, env_manager=env_manager)
         path = env_activate_cmd.split(" ")[-1]
         os.symlink(path, "/opt/activate")
         activate_cmd = [env_activate_cmd]
@@ -240,7 +240,6 @@ def _serve_pyfunc(model, env_manager):
         }
     else:
         inference_server = scoring_server
-        # users can use GUNICORN_CMD_ARGS="--workers=3" var env to override the number of workers
         nworkers = cpu_count
         port = DEFAULT_INFERENCE_SERVER_PORT
 

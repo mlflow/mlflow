@@ -12,6 +12,7 @@ from mlflow.models.evaluation import evaluate
 from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
 from mlflow.tracing.constant import TraceMetadataKey
 
+from tests.openai.test_openai_evaluate import purge_traces
 from tests.tracing.helper import get_traces, reset_autolog_state  # noqa: F401
 
 _EVAL_DATA = pd.DataFrame(
@@ -37,18 +38,20 @@ def create_fake_chain():
 
 
 @pytest.mark.parametrize(
-    "original_autolog_config",
+    "config",
     [
         None,
         {"log_traces": False},
-        {"log_models": True},
-        {"log_traces": False, "log_models": False},
     ],
 )
 @pytest.mark.usefixtures("reset_autolog_state")
-def test_langchain_evaluate(original_autolog_config):
-    if original_autolog_config:
-        mlflow.langchain.autolog(**original_autolog_config)
+def test_langchain_evaluate(config):
+    if config:
+        mlflow.langchain.autolog(**config)
+        mlflow.openai.autolog(**config)  # Our chain contains OpenAI call as well
+
+    is_trace_disabled = config and not config.get("log_traces", True)
+    is_trace_enabled = config and config.get("log_traces", True)
 
     chain = create_fake_chain()
 
@@ -66,36 +69,31 @@ def test_langchain_evaluate(original_autolog_config):
             )
         log_model_mock.assert_not_called()
 
-    assert len(get_traces()) == 2
-    for trace in get_traces():
-        assert len(trace.data.spans) == 5
-    assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+    # Traces should not be logged when disabled explicitly
+    if is_trace_disabled:
+        assert len(get_traces()) == 0
+    else:
+        assert len(get_traces()) == 2
+        for trace in get_traces():
+            assert len(trace.data.spans) == 5
+        assert run.info.run_id == get_traces()[0].info.request_metadata[TraceMetadataKey.SOURCE_RUN]
+
+    purge_traces()
 
     # Test original langchain autolog configs is restored
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        chain.invoke({"question": "text"})
-
-        if original_autolog_config and original_autolog_config.get("log_models", False):
-            log_model_mock.assert_called_once()
-
-        if original_autolog_config and original_autolog_config.get("log_traces", True):
-            assert len(get_traces()) == 3
-        else:
-            assert len(get_traces()) == 2
+    chain.invoke({"question": "text"})
+    assert len(get_traces()) == (1 if is_trace_enabled else 0)
 
 
 @pytest.mark.usefixtures("reset_autolog_state")
 def test_langchain_evaluate_fails_with_an_exception():
     # Check langchain autolog parameters are restored after evaluation
-    mlflow.langchain.autolog(log_models=True)
+    mlflow.langchain.autolog()
 
     chain = create_fake_chain()
 
-    with (
-        mock.patch("mlflow.langchain.log_model") as log_model_mock,
-        mock.patch.object(
-            DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
-        ),
+    with mock.patch.object(
+        DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
     ):
 
         def model(inputs):
@@ -109,16 +107,12 @@ def test_langchain_evaluate_fails_with_an_exception():
                     targets="ground_truth",
                     extra_metrics=[mlflow.metrics.exact_match()],
                 )
-            log_model_mock.assert_not_called()
 
     assert len(get_traces()) == 0
 
     # Test original langchain autolog configs is restored
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        chain.invoke({"question": "text"})
-
-        log_model_mock.assert_called_once()
-        assert len(get_traces()) == 1
+    chain.invoke({"question": "text"})
+    assert len(get_traces()) == 1
 
 
 @pytest.mark.usefixtures("reset_autolog_state")

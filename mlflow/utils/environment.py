@@ -16,12 +16,14 @@ from packaging.version import Version
 
 from mlflow.environment_variables import (
     _MLFLOW_TESTING,
+    MLFLOW_EXPERIMENT_ID,
     MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking import get_tracking_uri
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
@@ -565,6 +567,7 @@ def _process_pip_requirements(
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
     sanitized_pip_reqs = _deduplicate_requirements(pip_reqs)
+    sanitized_pip_reqs = _remove_incompatible_requirements(sanitized_pip_reqs)
 
     # Check if pip requirements contain incompatible version with the current environment
     warn_dependency_requirement_mismatches(sanitized_pip_reqs)
@@ -662,6 +665,28 @@ def _deduplicate_requirements(requirements):
             if req not in deduped_reqs:
                 deduped_reqs[req] = req
     return [str(req) for req in deduped_reqs.values()]
+
+
+def _parse_requirement_name(req: str) -> str:
+    try:
+        return Requirement(req).name
+    except InvalidRequirement:
+        return req
+
+
+def _remove_incompatible_requirements(requirements: list[str]) -> list[str]:
+    req_names = {_parse_requirement_name(req) for req in requirements}
+    if "databricks-connect" in req_names and req_names.intersection({"pyspark", "pyspark-connect"}):
+        _logger.debug(
+            "Found incompatible requirements: 'databricks-connect' with 'pyspark' or "
+            "'pyspark-connect'. Removing 'pyspark' or 'pyspark-connect' from the requirements."
+        )
+        requirements = [
+            req
+            for req in requirements
+            if _parse_requirement_name(req) not in ["pyspark", "pyspark-connect"]
+        ]
+    return requirements
 
 
 def _validate_version_constraints(requirements):
@@ -840,6 +865,8 @@ class Environment:
             command_env.update(get_databricks_env_vars(get_tracking_uri()))
         if is_databricks_connect():
             command_env.update(_get_databricks_serverless_env_vars())
+        if exp_id := _get_experiment_id():
+            command_env[MLFLOW_EXPERIMENT_ID.name] = exp_id
         command_env.update(self._extra_env)
         if not isinstance(command, list):
             command = [command]

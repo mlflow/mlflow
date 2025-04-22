@@ -8,10 +8,7 @@ import { RunRowType } from '../../../utils/experimentPage.row-types';
 import { GroupParentCellRenderer } from './GroupParentCellRenderer';
 import invariant from 'invariant';
 import { RunColorPill } from '../../RunColorPill';
-import {
-  shouldEnableToggleIndividualRunsInGroups,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../../common/utils/FeatureUtils';
+import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../../common/utils/FeatureUtils';
 import { useGetExperimentRunColor, useSaveExperimentRunColor } from '../../../hooks/useExperimentRunColor';
 import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 
@@ -81,7 +78,7 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
         ) : (
           <RunColorPill
             color={getRunColor(runUuid)}
-            hidden={shouldUseNewRunRowsVisibilityModel() && props.isComparingRuns && hidden}
+            hidden={props.isComparingRuns && hidden}
             data-testid="experiment-view-table-run-color"
             onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
           />

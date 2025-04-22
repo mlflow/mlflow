@@ -396,10 +396,14 @@ class ChatParams(_BaseDataclass):
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
-            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
-            are not supported).
+            to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
+
+    .. warning::
+
+        In an upcoming MLflow release, default values for `temperature`, `n` and `stream` will be
+        removed. Please provide these values explicitly in your code if needed.
     """
 
     temperature: float = 1.0
@@ -481,11 +485,15 @@ class ChatCompletionRequest(ChatParams):
         presence_penalty: (float): An optional param of positive or negative value,
             positive values penalize new tokens based on whether they appear in the text so far,
             increasing the model's likelihood to talk about new topics.
-        custom_inputs (Dict[str, str]): An optional param to provide arbitrary additional context
-            to the model. Both the keys and the values must be strings (i.e. nested dictionaries
-            are not supported).
+        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            to the model. The dictionary values must be JSON-serializable.
         tools (List[:py:class:`ToolDefinition`]): An optional list of tools that can be called by
             the model.
+
+    .. warning::
+
+        In an upcoming MLflow release, default values for `temperature`, `n` and `stream` will be
+        removed. Please provide these values explicitly in your code if needed.
     """
 
     messages: list[ChatMessage] = field(default_factory=list)
@@ -606,7 +614,7 @@ class ChatChunkChoice(_BaseDataclass):
     Args:
         index (int): The index of the response in the list of responses.
             defaults to ``0``
-        message (:py:class:`ChatChoiceDelta`): The streaming chunk message that was generated.
+        delta (:py:class:`ChatChoiceDelta`): The streaming chunk message that was generated.
         finish_reason (str): The reason why generation stopped.
             **Optional**, defaults to ``None``
         logprobs (:py:class:`ChatChoiceLogProbs`): Log probability information for the choice.
@@ -665,6 +673,7 @@ class ChatCompletionResponse(_BaseDataclass):
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
         custom_outputs (Dict[str, Any]): An field that can contain arbitrary additional context.
+            The dictionary values must be JSON-serializable.
             **Optional**, defaults to ``None``
     """
 
@@ -701,7 +710,8 @@ class ChatCompletionChunk(_BaseDataclass):
         object (str): The object type. Defaults to 'chat.completion.chunk'
         created (int): The time the response was created.
             **Optional**, defaults to the current time.
-        custom_outputs (Dict[str, str]): An field that can contain arbitrary additional context.
+        custom_outputs (Dict[str, Any]): An field that can contain arbitrary additional context.
+            The dictionary values must be JSON-serializable.
             **Optional**, defaults to ``None``
     """
 
@@ -724,6 +734,21 @@ class ChatCompletionChunk(_BaseDataclass):
 
 # turn off formatting for the model signatures to preserve readability
 # fmt: off
+
+_token_usage_stats_col_spec = ColSpec(
+    name="usage",
+    type=Object(
+        [
+            Property("prompt_tokens", DataType.long),
+            Property("completion_tokens", DataType.long),
+            Property("total_tokens", DataType.long),
+        ]
+    ),
+    required=False,
+)
+_custom_inputs_col_spec = ColSpec(name="custom_inputs", type=Map(AnyType()), required=False)
+_custom_outputs_col_spec = ColSpec(name="custom_outputs", type=Map(AnyType()), required=False)
+
 CHAT_MODEL_INPUT_SCHEMA = Schema(
     [
         ColSpec(
@@ -782,7 +807,7 @@ CHAT_MODEL_INPUT_SCHEMA = Schema(
             ),
             required=False,
         ),
-        ColSpec(name="custom_inputs", type=Map(AnyType()), required=False),
+        _custom_inputs_col_spec,
     ]
 )
 
@@ -814,24 +839,13 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                 Property("finish_reason", DataType.string),
             ])),
         ),
-        ColSpec(
-            name="usage",
-            type=Object(
-                [
-                    Property("prompt_tokens", DataType.long),
-                    Property("completion_tokens", DataType.long),
-                    Property("total_tokens", DataType.long),
-                ]
-            ),
-            required=False,
-        ),
-        ColSpec(name="custom_outputs", type=Map(AnyType()), required=False),
+        _token_usage_stats_col_spec,
+        _custom_outputs_col_spec
     ]
 )
 
 CHAT_MODEL_INPUT_EXAMPLE = {
     "messages": [
-        {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello!"},
     ],
     "temperature": 1.0,

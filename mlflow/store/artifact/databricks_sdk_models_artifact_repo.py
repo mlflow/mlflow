@@ -1,4 +1,7 @@
 import posixpath
+from typing import Optional
+
+from databricks.sdk.errors.platform import NotFound
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
@@ -25,12 +28,17 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
         self.client = _get_databricks_workspace_client()
         super().__init__(self.model_base_path)
 
-    def list_artifacts(self, path=None):
+    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         dest_path = self.model_base_path
         if path:
             dest_path = posixpath.join(dest_path, path)
 
         file_infos = []
+
+        # check if dest_path is file, if so return empty dir
+        if not self._is_dir(dest_path):
+            return file_infos
+
         resp = self.client.files.list_directory_contents(dest_path)
         for directory_entry in resp:
             relative_path = posixpath.relpath(directory_entry.path, self.model_base_path)
@@ -43,6 +51,13 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
             )
 
         return sorted(file_infos, key=lambda f: f.path)
+
+    def _is_dir(self, artifact_path):
+        try:
+            self.client.files.get_directory_metadata(artifact_path)
+        except NotFound:
+            return False
+        return True
 
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path=None):
         dest_path = self.model_base_path

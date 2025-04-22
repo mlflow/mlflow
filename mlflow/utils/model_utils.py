@@ -226,7 +226,7 @@ def _validate_path_exists(path, name):
         raise MlflowException(
             message=(
                 f"Failed to copy the specified {name} path '{path}' into the model "
-                f"artifacts. The specified {name }path does not exist. Please specify a valid "
+                f"artifacts. The specified {name}path does not exist. Please specify a valid "
                 f"{name} path and try again."
             ),
             error_code=INVALID_PARAMETER_VALUE,

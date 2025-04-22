@@ -6,6 +6,7 @@ import warnings
 from packaging.version import Version
 
 import mlflow
+from mlflow.crewai.chat import set_span_chat_attributes
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -19,14 +20,17 @@ def patched_class_call(original, self, *args, **kwargs):
 
     if config.log_traces:
         fullname = f"{self.__class__.__name__}.{original.__name__}"
-        with mlflow.start_span(
-            name=fullname,
-            span_type=_get_span_type(self),
-        ) as span:
+        span_type = _get_span_type(self)
+        with mlflow.start_span(name=fullname, span_type=span_type) as span:
             inputs = _construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
             _set_span_attributes(span=span, instance=self)
             result = original(self, *args, **kwargs)
+
+            if span_type == SpanType.LLM:
+                set_span_chat_attributes(
+                    span=span, messages=inputs.get("messages", []), output=result
+                )
             # Need to convert the response of generate_content for better visualization
             outputs = result.__dict__ if hasattr(result, "__dict__") else result
             span.set_outputs(outputs)

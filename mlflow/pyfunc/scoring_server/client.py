@@ -10,6 +10,7 @@ from typing import Any, Optional
 import requests
 
 from mlflow.deployments import PredictionsResponse
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc import scoring_server
 from mlflow.utils.proto_json_utils import dump_input_data
@@ -140,6 +141,6 @@ class StdinScoringServerClient(BaseScoringServerClient):
                         return resp
             except Exception as e:
                 _logger.debug("Exception while waiting for scoring to complete: %s", e)
-            if time.time() - begin_time > 60:
+            if time.time() - begin_time > MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get():
                 raise MlflowException("Scoring timeout")
             time.sleep(1)

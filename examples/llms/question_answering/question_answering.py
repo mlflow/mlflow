@@ -5,9 +5,9 @@ import pandas as pd
 
 import mlflow
 
-assert (
-    "OPENAI_API_KEY" in os.environ
-), "Please set the OPENAI_API_KEY environment variable to run this example."
+assert "OPENAI_API_KEY" in os.environ, (
+    "Please set the OPENAI_API_KEY environment variable to run this example."
+)
 
 
 def build_and_evaluate_model_with_prompt(system_prompt):

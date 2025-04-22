@@ -22,7 +22,13 @@ export const RunsChartsFullScreenModal = <TContext,>({
   isMetricHistoryLoading?: boolean;
   groupBy: RunsGroupByConfig | null;
   autoRefreshEnabled?: boolean;
-  fullScreenChart: { config: RunsChartsCardConfig; title: string; subtitle: ReactNode } | undefined;
+  fullScreenChart:
+    | {
+        config: RunsChartsCardConfig;
+        title: string | ReactNode;
+        subtitle: ReactNode;
+      }
+    | undefined;
   onCancel: () => void;
   tooltipContextValue: TContext;
   tooltipComponent: React.ComponentType<RunsChartsTooltipBodyProps<TContext>>;

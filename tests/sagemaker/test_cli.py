@@ -20,8 +20,10 @@ _TEST_IMAGE_NAME = "test-sagemaker-image"
 _docker_client = docker.from_env()
 
 
-@pytest.mark.parametrize("env_manager", ["conda", "virtualenv"])
-def test_build_and_push_container(tmp_path, env_manager):
+@pytest.mark.parametrize(
+    ("env_manager", "install_java"), [("conda", None), ("virtualenv", None), ("virtualenv", False)]
+)
+def test_build_and_push_container(tmp_path, env_manager, install_java):
     dst_dir = tmp_path / "context"
 
     # Copy the context dir to a temp dir so we can verify the generated Dockerfile
@@ -50,13 +52,17 @@ def test_build_and_push_container(tmp_path, env_manager):
                 env_manager,
                 "--container",
                 _TEST_IMAGE_NAME,
-            ],
+            ]
+            + ([f"--install-java={install_java}"] if install_java is not None else []),
             catch_exceptions=False,
         )
         assert res.exit_code == 0
 
     actual = dst_dir / "Dockerfile"
-    expected = Path(_RESOURCE_DIR) / f"Dockerfile_sagemaker_{env_manager}"
+    expected = (
+        Path(_RESOURCE_DIR)
+        / f"Dockerfile_sagemaker_{env_manager}{'_no_java' if install_java is False else ''}"
+    )
     assert_dockerfiles_equal(actual, expected)
 
     # Clean up generated image

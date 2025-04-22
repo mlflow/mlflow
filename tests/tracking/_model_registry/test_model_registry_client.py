@@ -123,8 +123,9 @@ def test_search_registered_models(mock_store):
         [RegisteredModel("Model 1"), RegisteredModel("Model 2")], ""
     )
     result = newModelRegistryClient().search_registered_models(filter_string="test filter")
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
     mock_store.search_registered_models.assert_called_with(
-        "test filter", SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, None, None
+        f"test filter AND {prompt_filter}", SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, None, None
     )
     assert len(result) == 2
     assert result.token == ""
@@ -136,7 +137,7 @@ def test_search_registered_models(mock_store):
         page_token="next one",
     )
     mock_store.search_registered_models.assert_called_with(
-        "another filter", 12, ["A", "B DESC"], "next one"
+        f"another filter AND {prompt_filter}", 12, ["A", "B DESC"], "next one"
     )
     assert len(result) == 2
     assert result.token == ""
@@ -146,7 +147,7 @@ def test_search_registered_models(mock_store):
         "page 2 token",
     )
     result = newModelRegistryClient().search_registered_models(max_results=5)
-    mock_store.search_registered_models.assert_called_with(None, 5, None, None)
+    mock_store.search_registered_models.assert_called_with(prompt_filter, 5, None, None)
     assert [rm.name for rm in result] == ["model A", "Model zz", "Model b"]
     assert result.token == "page 2 token"
 

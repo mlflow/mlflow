@@ -20,7 +20,7 @@ from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPer
 from mlflow.server.auth.permissions import _validate_permission
 from mlflow.store.db.utils import _get_managed_session_maker, create_sqlalchemy_engine_with_retry
 from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.utils.validation import _validate_username
+from mlflow.utils.validation import _validate_password, _validate_username
 
 
 class SqlAlchemyStore:
@@ -42,6 +42,7 @@ class SqlAlchemyStore:
 
     def create_user(self, username: str, password: str, is_admin: bool = False) -> User:
         _validate_username(username)
+        _validate_password(password)
         pwhash = generate_password_hash(password)
         with self.ManagedSessionMaker() as session:
             try:
@@ -250,3 +251,13 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             perm = self._get_registered_model_permission(session, name, username)
             session.delete(perm)
+
+    def rename_registered_model_permissions(self, old_name: str, new_name: str):
+        with self.ManagedSessionMaker() as session:
+            perms = (
+                session.query(SqlRegisteredModelPermission)
+                .filter(SqlRegisteredModelPermission.name == old_name)
+                .all()
+            )
+            for perm in perms:
+                perm.name = new_name

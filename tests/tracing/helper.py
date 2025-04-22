@@ -1,15 +1,20 @@
+import os
 import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Optional
+from unittest import mock
 
 import opentelemetry.trace as trace_api
 import pytest
-from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace import Event, ReadableSpan
 
 import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
+from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
@@ -67,8 +72,8 @@ def create_mock_otel_span(
         def set_status(self, status):
             self._status = status
 
-        def add_event():
-            pass
+        def add_event(self, name, attributes=None, timestamp=None):
+            self._events.append(Event(name, attributes, timestamp))
 
         def get_span_context(self):
             return self._context
@@ -79,7 +84,7 @@ def create_mock_otel_span(
         def update_name(self, name):
             self.name = name
 
-        def end(self):
+        def end(self, end_time=None):
             pass
 
         def record_exception():
@@ -123,6 +128,13 @@ def get_traces(experiment_id=DEFAULT_EXPERIMENT_ID) -> list[Trace]:
     return mlflow.MlflowClient().search_traces(experiment_ids=[experiment_id])
 
 
+def purge_traces(experiment_id=DEFAULT_EXPERIMENT_ID):
+    # Delete all traces from the backend
+    mlflow.tracking.MlflowClient().delete_traces(
+        experiment_id=experiment_id, max_traces=1000, max_timestamp_millis=0
+    )
+
+
 def get_tracer_tracking_uri() -> Optional[str]:
     """Get current tracking URI configured as the trace export destination."""
     from opentelemetry import trace
@@ -145,6 +157,7 @@ def reset_autolog_state():
         # 1. Remove post-import hooks (registered by global mlflow.autolog() function)
         mlflow.utils.import_hooks._post_import_hooks.pop(flavor, None)
 
+    for flavor in AUTOLOGGING_INTEGRATIONS.keys():
         # 2. Disable autologging for the flavor. This is necessary because some autologging
         #    update global settings (e.g. callbacks) and we need to revert them.
         try:
@@ -156,8 +169,37 @@ def reset_autolog_state():
         # 3. Revert any patches applied by autologging
         revert_patches(flavor)
 
-        # 4. Reset autologging state
-        AUTOLOGGING_INTEGRATIONS.pop(flavor, None)
+    AUTOLOGGING_INTEGRATIONS.clear()
 
-    # 4. Reset global autologging state
-    AUTOLOGGING_INTEGRATIONS["mlflow"] = {}
+
+def score_in_model_serving(model_uri: str, model_input: dict):
+    """
+    A helper function to emulate model prediction inside a Databricks model serving environment.
+
+    This is highly simplified version, but captures important aspects for testing tracing:
+      1. Setting env vars that users set for enable tracing in model serving
+      2. Load the model in a background thread
+    """
+    from mlflow.pyfunc.context import Context, set_prediction_context
+
+    with mock.patch.dict(
+        "os.environ",
+        os.environ | {"IS_IN_DB_MODEL_SERVING_ENV": "true", "ENABLE_MLFLOW_TRACING": "true"},
+        clear=True,
+    ):
+        # Reset tracing setup to start fresh w/ model serving environment
+        mlflow.tracing.reset()
+
+        def _load_model():
+            return mlflow.pyfunc.load_model(model_uri)
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            model = executor.submit(_load_model).result()
+
+        # Score the model
+        request_id = uuid.uuid4().hex
+        with set_prediction_context(Context(request_id=request_id)):
+            predictions = model.predict(model_input)
+
+        trace = pop_trace(request_id)
+        return (request_id, predictions, trace)

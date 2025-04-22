@@ -4,18 +4,30 @@ import logging
 import os
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Any, Iterator
+from typing import Any, AsyncIterator, Iterator, Optional
 
 from packaging.version import Version
 
 import mlflow
 from mlflow import MlflowException
 from mlflow.entities import RunTag, SpanType
+from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.openai.utils.chat_schema import set_span_chat_attributes
+from mlflow.tracing.assessment import MlflowClient
+from mlflow.tracing.constant import (
+    STREAM_CHUNK_EVENT_NAME_FORMAT,
+    STREAM_CHUNK_EVENT_VALUE_KEY,
+    TraceMetadataKey,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import (
+    TraceJSONEncoder,
+    end_client_span_or_trace,
+    start_client_span_or_trace,
+)
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import disable_autologging, get_autologging_config
@@ -71,24 +83,42 @@ def _set_api_key_env_var(client):
         os.environ.pop("OPENAI_API_KEY")
 
 
-class _OpenAIJsonEncoder(json.JSONEncoder):
-    def default(self, o):
-        try:
-            return super().default(o)
-        except TypeError:
-            return str(o)
-
-
-def _get_span_type(task) -> str:
+def _get_span_type(task: type) -> str:
+    from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
-    from openai.resources.completions import Completions
-    from openai.resources.embeddings import Embeddings
+    from openai.resources.completions import AsyncCompletions, Completions
+    from openai.resources.embeddings import AsyncEmbeddings, Embeddings
 
     span_type_mapping = {
         ChatCompletions: SpanType.CHAT_MODEL,
+        AsyncChatCompletions: SpanType.CHAT_MODEL,
         Completions: SpanType.LLM,
+        AsyncCompletions: SpanType.LLM,
         Embeddings: SpanType.EMBEDDING,
+        AsyncEmbeddings: SpanType.EMBEDDING,
     }
+
+    try:
+        # Only available in openai>=1.40.0
+        from openai.resources.beta.chat.completions import (
+            AsyncCompletions as BetaAsyncChatCompletions,
+        )
+        from openai.resources.beta.chat.completions import Completions as BetaChatCompletions
+
+        span_type_mapping[BetaChatCompletions] = SpanType.CHAT_MODEL
+        span_type_mapping[BetaAsyncChatCompletions] = SpanType.CHAT_MODEL
+    except ImportError:
+        pass
+
+    try:
+        # Responses API only available in openai>=1.66.0
+        from openai.resources.responses import AsyncResponses, Responses
+
+        span_type_mapping[Responses] = SpanType.CHAT_MODEL
+        span_type_mapping[AsyncResponses] = SpanType.CHAT_MODEL
+    except ImportError:
+        pass
+
     return span_type_mapping.get(task, SpanType.UNKNOWN)
 
 
@@ -103,7 +133,6 @@ def _try_parse_raw_response(response: Any) -> Any:
     except ImportError:
         _logger.debug("Failed to import `LegacyAPIResponse` from `openai._legacy_response`")
         return response
-
     if isinstance(response, LegacyAPIResponse):
         try:
             # `parse` returns either a `pydantic.BaseModel` or a `openai.Stream` object
@@ -116,153 +145,31 @@ def _try_parse_raw_response(response: Any) -> Any:
 
 
 def patched_call(original, self, *args, **kwargs):
-    from openai import Stream
-    from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
-    from openai.types.completion import Completion
-
     config = AutoLoggingConfig.init(flavor_name=mlflow.openai.FLAVOR_NAME)
     active_run = mlflow.active_run()
-
-    # Active run should always take precedence over the run_id stored in the model
-    run_id = active_run.info.run_id if active_run else getattr(self, "_mlflow_run_id", None)
-
+    run_id = _get_autolog_run_id(self, active_run)
     mlflow_client = mlflow.MlflowClient()
-    request_id = None
 
     # If optional artifacts logging are enabled e.g. log_models, we need to create a run
     if config.should_log_optional_artifacts():
-        # include run context tags
-        resolved_tags = context_registry.resolve_tags(config.extra_tags)
-        tags = _resolve_extra_tags(mlflow.openai.FLAVOR_NAME, resolved_tags)
-        if run_id is not None:
-            mlflow_client.log_batch(
-                run_id=run_id,
-                tags=[RunTag(key, str(value)) for key, value in tags.items()],
-            )
-        else:
-            run = mlflow_client.create_run(
-                experiment_id=_get_experiment_id(),
-                tags=tags,
-            )
-            run_id = run.info.run_id
+        run_id = _start_run_or_log_tag(mlflow_client, config, run_id)
 
     if config.log_traces:
-        # Record input parameters to attributes
-        attributes = {k: v for k, v in kwargs.items() if k != "messages"}
-
-        # If there is an active span, create a child span under it, otherwise create a new trace
-        if active_span := mlflow.get_current_active_span():
-            span = mlflow_client.start_span(
-                name=self.__class__.__name__,
-                request_id=active_span.request_id,
-                parent_id=active_span.span_id,
-                span_type=_get_span_type(self.__class__),
-                inputs=kwargs,
-                attributes=attributes,
-            )
-        else:
-            span = mlflow_client.start_trace(
-                name=self.__class__.__name__,
-                span_type=_get_span_type(self.__class__),
-                inputs=kwargs,
-                attributes=attributes,
-            )
-
-        request_id = span.request_id
-        # Associate run ID to the trace manually, because if a new run is created by
-        # autologging, it is not set as the active run thus not automatically
-        # associated with the trace.
-        if run_id is not None:
-            tm = InMemoryTraceManager().get_instance()
-            tm.set_request_metadata(request_id, TraceMetadataKey.SOURCE_RUN, run_id)
+        span = _start_span(mlflow_client, self, kwargs, run_id)
 
     # Execute the original function
     try:
         raw_result = original(self, *args, **kwargs)
     except Exception as e:
-        # We have to end the trace even the exception is raised
-        if config.log_traces and request_id:
-            try:
-                span.add_event(SpanEvent.from_exception(e))
-                mlflow_client.end_trace(request_id=request_id, status=SpanStatusCode.ERROR)
-            except Exception as inner_e:
-                _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
-        raise e
+        if config.log_traces:
+            _end_span_on_exception(mlflow_client, span, e)
+        raise
 
-    result = _try_parse_raw_response(raw_result)
+    if config.log_traces:
+        _end_span_on_success(mlflow_client, span, kwargs, raw_result)
 
-    if isinstance(result, Stream):
-        # If the output is a stream, we add a hook to store the intermediate chunks
-        # and then log the outputs as a single artifact when the stream ends
-        def _stream_output_logging_hook(stream: Iterator) -> Iterator:
-            chunks = []
-            output = []
-            for chunk in stream:
-                # `chunk.choices` can be empty: https://github.com/mlflow/mlflow/issues/13361
-                if isinstance(chunk, Completion) and chunk.choices:
-                    output.append(chunk.choices[0].text or "")
-                elif isinstance(chunk, ChatCompletionChunk) and chunk.choices:
-                    output.append(chunk.choices[0].delta.content or "")
-                chunks.append(chunk)
-                yield chunk
-
-            try:
-                chunk_dicts = [chunk.to_dict() for chunk in chunks]
-                if config.log_traces and request_id:
-                    mlflow_client.end_trace(
-                        request_id=request_id,
-                        attributes={"events": chunk_dicts},
-                        outputs="".join(output),
-                    )
-            except Exception as e:
-                _logger.warning(f"Encountered unexpected error during openai autologging: {e}")
-
-        result._iterator = _stream_output_logging_hook(result._iterator)
-    else:
-        if config.log_traces and request_id:
-            try:
-                if span.parent_id is None:
-                    mlflow_client.end_trace(request_id=request_id, outputs=result)
-                else:
-                    mlflow_client.end_span(
-                        request_id=request_id, span_id=span.span_id, outputs=result
-                    )
-            except Exception as e:
-                _logger.warning(f"Encountered unexpected error when ending trace: {e}")
-
-    input_example = None
-    if config.log_models and not hasattr(self, "_mlflow_model_logged"):
-        if config.log_input_examples:
-            input_example = deepcopy(_get_input_from_model(self, kwargs))
-            if not config.log_model_signatures:
-                _logger.info(
-                    "Signature is automatically generated for logged model if "
-                    "input_example is provided. To disable log_model_signatures, "
-                    "please also disable log_input_examples."
-                )
-
-        registered_model_name = get_autologging_config(
-            mlflow.openai.FLAVOR_NAME, "registered_model_name", None
-        )
-        try:
-            task = mlflow.openai._get_task_name(self.__class__)
-            with disable_autologging():
-                # If the user is using `openai.OpenAI()` client,
-                # they do not need to set the "OPENAI_API_KEY" environment variable.
-                # This temporarily sets the API key as an environment variable
-                # so that the model can be logged.
-                with _set_api_key_env_var(self._client):
-                    mlflow.openai.log_model(
-                        kwargs.get("model"),
-                        task,
-                        "model",
-                        input_example=input_example,
-                        registered_model_name=registered_model_name,
-                        run_id=run_id,
-                    )
-        except Exception as e:
-            _logger.warning(f"Failed to log model due to error: {e}")
-        self._mlflow_model_logged = True
+    if config.should_log_optional_artifacts():
+        _log_optional_artifacts(config, run_id, self, kwargs)
 
     # Even if the model is not logged, we keep a single run per model
     self._mlflow_run_id = run_id
@@ -272,6 +179,221 @@ def patched_call(original, self, *args, **kwargs):
         mlflow_client.set_terminated(run_id)
 
     return raw_result
+
+
+async def async_patched_call(original, self, *args, **kwargs):
+    config = AutoLoggingConfig.init(flavor_name=mlflow.openai.FLAVOR_NAME)
+    active_run = mlflow.active_run()
+    run_id = _get_autolog_run_id(self, active_run)
+    mlflow_client = mlflow.MlflowClient()
+
+    # If optional artifacts logging are enabled e.g. log_models, we need to create a run
+    if config.should_log_optional_artifacts():
+        run_id = _start_run_or_log_tag(mlflow_client, config, run_id)
+
+    if config.log_traces:
+        span = _start_span(mlflow_client, self, kwargs, run_id)
+
+    # Execute the original function
+    try:
+        raw_result = await original(self, *args, **kwargs)
+    except Exception as e:
+        if config.log_traces:
+            _end_span_on_exception(mlflow_client, span, e)
+        raise
+
+    if config.log_traces:
+        _end_span_on_success(mlflow_client, span, kwargs, raw_result)
+
+    if config.should_log_optional_artifacts():
+        _log_optional_artifacts(config, run_id, self, kwargs)
+
+    # Even if the model is not logged, we keep a single run per model
+    self._mlflow_run_id = run_id
+
+    # Terminate the run if it is not managed by the user
+    if run_id is not None and (active_run is None or active_run.info.run_id != run_id):
+        mlflow_client.set_terminated(run_id)
+
+    return raw_result
+
+
+def _get_autolog_run_id(instance, active_run):
+    """
+    Get the run ID to use for logging artifacts and associate with the trace.
+
+    The run ID is determined as follows:
+    - If there is an active run (created by a user), use its run ID.
+    - If the model has a `_mlflow_run_id` attribute, use it. This is the run ID created
+        by autologging in a previous call to the same model.
+    """
+    return active_run.info.run_id if active_run else getattr(instance, "_mlflow_run_id", None)
+
+
+def _start_run_or_log_tag(
+    mlflow_client: MlflowClient, config: AutoLoggingConfig, run_id: Optional[str]
+) -> str:
+    """Start a new run or log models, or log extra tags if a run is already active."""
+    # include run context tags
+    resolved_tags = context_registry.resolve_tags(config.extra_tags)
+    tags = _resolve_extra_tags(mlflow.openai.FLAVOR_NAME, resolved_tags)
+    if run_id is not None:
+        mlflow_client.log_batch(
+            run_id=run_id,
+            tags=[RunTag(key, str(value)) for key, value in tags.items()],
+        )
+    else:
+        run = mlflow_client.create_run(
+            experiment_id=_get_experiment_id(),
+            tags=tags,
+        )
+        run_id = run.info.run_id
+    return run_id
+
+
+def _log_optional_artifacts(
+    config: AutoLoggingConfig, run_id: str, instance: Any, kwargs: dict[str, Any]
+):
+    if hasattr(instance, "_mlflow_model_logged"):
+        # Model is already logged for this instance, no need to log again
+        return
+
+    input_example = None
+    if config.log_input_examples:
+        input_example = deepcopy(_get_input_from_model(instance, kwargs))
+        if not config.log_model_signatures:
+            _logger.info(
+                "Signature is automatically generated for logged model if "
+                "input_example is provided. To disable log_model_signatures, "
+                "please also disable log_input_examples."
+            )
+
+    registered_model_name = get_autologging_config(
+        mlflow.openai.FLAVOR_NAME, "registered_model_name", None
+    )
+    try:
+        task = mlflow.openai._get_task_name(instance.__class__)
+        with disable_autologging():
+            # If the user is using `openai.OpenAI()` client,
+            # they do not need to set the "OPENAI_API_KEY" environment variable.
+            # This temporarily sets the API key as an environment variable
+            # so that the model can be logged.
+            with _set_api_key_env_var(instance._client):
+                mlflow.openai.log_model(
+                    kwargs.get("model"),
+                    task,
+                    "model",
+                    input_example=input_example,
+                    registered_model_name=registered_model_name,
+                    run_id=run_id,
+                )
+    except Exception as e:
+        _logger.warning(f"Failed to log model due to error: {e}")
+
+    # Even if the model is not logged, we keep a single run per model
+    instance._mlflow_model_logged = True
+
+
+def _start_span(mlflow_client: MlflowClient, instance: Any, inputs: dict[str, Any], run_id: str):
+    # Record input parameters to attributes
+    attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
+
+    # If there is an active span, create a child span under it, otherwise create a new trace
+    span = start_client_span_or_trace(
+        mlflow_client,
+        name=instance.__class__.__name__,
+        span_type=_get_span_type(instance.__class__),
+        inputs=inputs,
+        attributes=attributes,
+    )
+
+    # Associate run ID to the trace manually, because if a new run is created by
+    # autologging, it is not set as the active run thus not automatically
+    # associated with the trace.
+    if run_id is not None:
+        tm = InMemoryTraceManager().get_instance()
+        tm.set_request_metadata(span.request_id, TraceMetadataKey.SOURCE_RUN, run_id)
+
+    return span
+
+
+def _end_span_on_success(
+    mlflow_client: MlflowClient, span: LiveSpan, inputs: dict[str, Any], raw_result: Any
+):
+    from openai import AsyncStream, Stream
+
+    result = _try_parse_raw_response(raw_result)
+
+    if isinstance(result, Stream):
+        # If the output is a stream, we add a hook to store the intermediate chunks
+        # and then log the outputs as a single artifact when the stream ends
+        def _stream_output_logging_hook(stream: Iterator) -> Iterator:
+            output = []
+            for i, chunk in enumerate(stream):
+                output.append(_process_chunk(span, i, chunk))
+                yield chunk
+            output = chunk.response if _is_responses_final_event(chunk) else "".join(output)
+            _end_span_on_success(mlflow_client, span, inputs, output)
+
+        result._iterator = _stream_output_logging_hook(result._iterator)
+    elif isinstance(result, AsyncStream):
+
+        async def _stream_output_logging_hook(stream: AsyncIterator) -> AsyncIterator:
+            output = []
+            async for chunk in stream:
+                output.append(_process_chunk(span, len(output), chunk))
+                yield chunk
+            output = chunk.response if _is_responses_final_event(chunk) else "".join(output)
+            _end_span_on_success(mlflow_client, span, inputs, output)
+
+        result._iterator = _stream_output_logging_hook(result._iterator)
+    else:
+        try:
+            set_span_chat_attributes(span, inputs, result)
+            end_client_span_or_trace(mlflow_client, span, outputs=result)
+        except Exception as e:
+            _logger.warning(f"Encountered unexpected error when ending trace: {e}", exc_info=True)
+
+
+def _is_responses_final_event(chunk: Any) -> bool:
+    try:
+        from openai.types.responses import ResponseCompletedEvent
+
+        return isinstance(chunk, ResponseCompletedEvent)
+    except ImportError:
+        return False
+
+
+def _end_span_on_exception(mlflow_client: MlflowClient, span: LiveSpan, e: Exception):
+    try:
+        span.add_event(SpanEvent.from_exception(e))
+        mlflow_client.end_span(span.request_id, span.span_id, status=SpanStatusCode.ERROR)
+    except Exception as inner_e:
+        _logger.warning(f"Encountered unexpected error when ending trace: {inner_e}")
+
+
+def _process_chunk(span: LiveSpan, index: int, chunk: Any) -> str:
+    """Parse the chunk and log it as a span event in the trace."""
+    from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+    from openai.types.completion import Completion
+
+    # `chunk.choices` can be empty: https://github.com/mlflow/mlflow/issues/13361
+    if isinstance(chunk, Completion) and chunk.choices:
+        parsed = chunk.choices[0].text or ""
+    elif isinstance(chunk, ChatCompletionChunk) and chunk.choices:
+        choice = chunk.choices[0]
+        parsed = (choice.delta and choice.delta.content) or ""
+    else:
+        parsed = ""
+
+    span.add_event(
+        SpanEvent(
+            name=STREAM_CHUNK_EVENT_NAME_FORMAT.format(index=index),
+            # OpenTelemetry SpanEvent only support str-str key-value pairs for attributes
+            attributes={STREAM_CHUNK_EVENT_VALUE_KEY: json.dumps(chunk, cls=TraceJSONEncoder)},
+        )
+    )
+    return parsed
 
 
 def patched_agent_get_chat_completion(original, self, *args, **kwargs):

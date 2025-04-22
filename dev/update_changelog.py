@@ -102,7 +102,7 @@ def main(prev_version, release_version, remote):
         )
     release_tag = f"v{prev_version}"
     ver = Version(release_version)
-    branch = "master" if ver.micro == 0 else f"branch-{ver.major}.{ver.minor}"
+    branch = f"branch-{ver.major}.{ver.minor}"
     subprocess.check_call(["git", "fetch", remote, "tag", release_tag])
     subprocess.check_call(["git", "fetch", remote, branch])
     git_log_output = subprocess.check_output(
@@ -126,7 +126,7 @@ def main(prev_version, release_version, remote):
         print(f"Fetching PR #{pr_num}...")
         resp = requests.get(
             f"https://api.github.com/repos/mlflow/mlflow/pulls/{pr_num}",
-            auth=("mlflow-automation", os.getenv("GITHUB_TOKEN")),
+            auth=("mlflow-app[bot]", os.getenv("GITHUB_TOKEN")),
         )
         resp.raise_for_status()
         pr = resp.json()
@@ -143,7 +143,7 @@ def main(prev_version, release_version, remote):
     author_to_prs = defaultdict(list)
     unlabelled_prs = []
     for pr in prs:
-        if pr.author == "mlflow-automation":
+        if pr.author == "mlflow-app[bot]":
             continue
 
         if len(pr.release_note_labels) == 0:
@@ -168,7 +168,7 @@ def main(prev_version, release_version, remote):
     }
     assert len(unknown_labels) == 0, f"Unknown labels: {unknown_labels}"
 
-    breaking_changes = Section("Breaking changes:", label_to_prs.get("rn/breaking_change", []))
+    breaking_changes = Section("Breaking changes:", label_to_prs.get("rn/breaking-change", []))
     features = Section("Features:", label_to_prs.get("rn/feature", []))
     bug_fixes = Section("Bug fixes:", label_to_prs.get("rn/bug-fix", []))
     doc_updates = Section("Documentation updates:", label_to_prs.get("rn/documentation", []))

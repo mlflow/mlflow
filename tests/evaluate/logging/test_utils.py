@@ -1,14 +1,13 @@
 from mlflow.entities import Metric
-from mlflow.entities.assessment import Assessment
-from mlflow.entities.assessment_source import AssessmentSource
-from mlflow.entities.evaluation import Evaluation
-from mlflow.entities.evaluation_tag import EvaluationTag
+from mlflow.evaluation.assessment import AssessmentEntity, AssessmentSource
+from mlflow.evaluation.evaluation import EvaluationEntity
+from mlflow.evaluation.evaluation_tag import EvaluationTag
 from mlflow.evaluation.utils import evaluations_to_dataframes
 
 
 def test_evaluations_to_dataframes_basic():
     # Setup an evaluation with minimal data
-    evaluation = Evaluation(
+    evaluation = EvaluationEntity(
         evaluation_id="eval1",
         run_id="run1",
         inputs_id="inputs1",
@@ -33,7 +32,7 @@ def test_evaluations_to_dataframes_basic():
 def test_evaluations_to_dataframes_full_data():
     # Setup an evaluation with full data
     source = AssessmentSource(source_type="HUMAN", source_id="user_1")
-    assessment = Assessment(
+    assessment = AssessmentEntity(
         evaluation_id="eval1",
         name="accuracy",
         source=source,
@@ -44,7 +43,7 @@ def test_evaluations_to_dataframes_full_data():
     metric = Metric(key="metric1", value=0.9, timestamp=1234567890, step=0)
     tag = EvaluationTag(key="tag1", value="value1")
 
-    evaluation = Evaluation(
+    evaluation = EvaluationEntity(
         evaluation_id="eval1",
         run_id="run1",
         inputs_id="inputs1",
@@ -134,6 +133,7 @@ def test_evaluations_to_dataframes_empty():
         "metadata",
         "error_code",
         "error_message",
+        "span_id",
     ]
     expected_tags_columns = ["evaluation_id", "key", "value"]
 
@@ -145,7 +145,7 @@ def test_evaluations_to_dataframes_empty():
 
 def test_evaluations_to_dataframes_basic():
     # Setup an evaluation with minimal data
-    evaluation = Evaluation(
+    evaluation = EvaluationEntity(
         evaluation_id="eval1",
         run_id="run1",
         inputs_id="inputs1",
@@ -167,7 +167,7 @@ def test_evaluations_to_dataframes_basic():
 def test_evaluations_to_dataframes_different_assessments():
     # Different types of assessments in evaluations
     source = AssessmentSource(source_type="HUMAN", source_id="user_1")
-    assessment_1 = Assessment(
+    assessment_1 = AssessmentEntity(
         evaluation_id="eval1",
         name="accuracy",
         source=source,
@@ -175,7 +175,7 @@ def test_evaluations_to_dataframes_different_assessments():
         numeric_value=0.95,
         rationale="Good performance",
     )
-    assessment_2 = Assessment(
+    assessment_2 = AssessmentEntity(
         evaluation_id="eval1",
         name="precision",
         source=source,
@@ -184,7 +184,7 @@ def test_evaluations_to_dataframes_different_assessments():
         rationale="Reasonable performance",
     )
 
-    evaluation = Evaluation(
+    evaluation = EvaluationEntity(
         evaluation_id="eval1",
         run_id="run1",
         inputs_id="inputs1",
@@ -210,7 +210,7 @@ def test_evaluations_to_dataframes_different_metrics():
     metric_1 = Metric(key="metric1", value=0.9, timestamp=1234567890, step=0)
     metric_2 = Metric(key="metric2", value=0.8, timestamp=1234567891, step=0)
 
-    evaluation = Evaluation(
+    evaluation = EvaluationEntity(
         evaluation_id="eval1",
         run_id="run1",
         inputs_id="inputs1",
@@ -238,7 +238,7 @@ def test_evaluations_to_dataframes_different_tags():
     tag1 = EvaluationTag(key="tag1", value="value1")
     tag2 = EvaluationTag(key="tag2", value="value2")
 
-    evaluation = Evaluation(
+    evaluation = EvaluationEntity(
         evaluation_id="eval1",
         run_id="run1",
         inputs_id="inputs1",

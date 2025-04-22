@@ -7,6 +7,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.llama_index.pyfunc_wrapper import create_pyfunc_wrapper
 from mlflow.models import Model, ModelInputExample, ModelSignature
@@ -324,6 +325,7 @@ def log_model(
     extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
     **kwargs,
 ):
     """
@@ -434,6 +436,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        prompts: {{ prompts }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
 
@@ -452,6 +455,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        prompts=prompts,
         **kwargs,
     )
 

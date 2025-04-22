@@ -212,6 +212,7 @@ async def test_uc_functions(monkeypatch):
 
 1 + 2 = 3""".lstrip(),
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": "stop",
                 }
@@ -407,6 +408,7 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
                                 },
                             },
                         ],
+                        "refusal": None,
                     },
                     "finish_reason": None,
                 }

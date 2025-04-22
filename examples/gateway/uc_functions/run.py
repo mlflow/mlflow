@@ -68,9 +68,7 @@ def main():
     msg = {
         "role": "user",
         "content": (
-            "What is the result of 1 + 2? "
-            "What is the result of 3 + 4? "
-            "What is the result of 5 * 6?"
+            "What is the result of 1 + 2? What is the result of 3 + 4? What is the result of 5 * 6?"
         ),
     }
     resp = client.chat.completions.create(

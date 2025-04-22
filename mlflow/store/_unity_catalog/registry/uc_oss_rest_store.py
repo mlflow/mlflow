@@ -297,6 +297,7 @@ class UnityCatalogOssStore(BaseRestStore):
 
     def update_model_version(self, name, version, description):
         full_name = get_full_name_from_sc(name, None)
+        version = int(version)
         req_body = message_to_json(
             UpdateModelVersion(
                 full_name=full_name,
@@ -320,6 +321,7 @@ class UnityCatalogOssStore(BaseRestStore):
 
     def delete_model_version(self, name, version):
         full_name = get_full_name_from_sc(name, None)
+        version = int(version)
         req_body = message_to_json(DeleteModelVersion(full_name=full_name, version=version))
         endpoint, method = _METHOD_TO_INFO[DeleteModelVersion]
         return self._edit_endpoint_and_call(
@@ -335,6 +337,7 @@ class UnityCatalogOssStore(BaseRestStore):
     # which contains the storage location
     def _get_model_version_endpoint_response(self, name, version):
         full_name = get_full_name_from_sc(name, None)
+        version = int(version)
         req_body = message_to_json(GetModelVersion(full_name=full_name, version=version))
         endpoint, method = _METHOD_TO_INFO[GetModelVersion]
         return self._edit_endpoint_and_call(

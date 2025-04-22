@@ -11,7 +11,7 @@ import { MLFLOW_LOGGED_ARTIFACTS_TAG, MLFLOW_RUN_SOURCE_TYPE_TAG, MLflowRunSourc
 import { EvaluationArtifactCompareTableProps } from './components/EvaluationArtifactCompareTable';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
-import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event-14';
+import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 import { useState } from 'react';
 
 // Disable pointer events check for DialogCombobox which masks the elements we want to click

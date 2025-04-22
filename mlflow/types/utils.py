@@ -1,10 +1,12 @@
 import logging
 import warnings
 from collections import defaultdict
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+import pydantic
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -113,6 +115,11 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object, AnyType]:
     return dtype
 
 
+class InvalidDataForSignatureInferenceError(MlflowException):
+    def __init__(self, message):
+        super().__init__(message=message, error_code=INVALID_PARAMETER_VALUE)
+
+
 def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyType]]:
     """
     Infer the datatype of input data.
@@ -130,6 +137,16 @@ def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyTyp
         While empty lists are inferred as AnyType instead of None after the support of AnyType.
         e.g. [] -> AnyType, [[], []] -> Array(Any)
     """
+    if isinstance(data, pydantic.BaseModel):
+        raise InvalidDataForSignatureInferenceError(
+            message="MLflow does not support inferring model signature from input example "
+            "with Pydantic objects. To use Pydantic objects, define your PythonModel's "
+            "`predict` method with a Pydantic type hint, and model signature will be automatically "
+            "inferred when logging the model. e.g. "
+            "`def predict(self, model_input: list[PydanticType])`. Check "
+            "https://mlflow.org/docs/latest/model/python_model.html#type-hint-usage-in-pythonmodel "
+            "for more details."
+        )
 
     if _is_none_or_nan(data) or (isinstance(data, (list, dict)) and not data):
         return AnyType()
@@ -490,7 +507,8 @@ def _infer_numpy_dtype(dtype) -> DataType:
 def _is_none_or_nan(x):
     if isinstance(x, float):
         return np.isnan(x)
-    return x is None
+    # NB: We can't use pd.isna() because the input can be a series.
+    return x is None or x is pd.NA or x is pd.NaT
 
 
 def _infer_required(col) -> bool:
@@ -654,104 +672,6 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
         )
 
 
-def _is_all_string(x):
-    return all(isinstance(v, str) for v in x)
-
-
-def _validate_is_all_string(x):
-    if not _is_all_string(x):
-        raise MlflowException(f"Expected all values to be string, got {x}", INVALID_PARAMETER_VALUE)
-
-
-def _validate_all_keys_string(d):
-    keys = list(d.keys())
-    if not _is_all_string(keys):
-        raise MlflowException(
-            f"Expected example to be dict with string keys, got {keys}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_all_values_string(d):
-    values = list(d.values())
-    if not _is_all_string(values):
-        raise MlflowException(
-            f"Expected example to be dict with string values, got {values}", INVALID_PARAMETER_VALUE
-        )
-
-
-def _validate_keys_match(d, expected_keys):
-    if d.keys() != expected_keys:
-        raise MlflowException(
-            f"Expected example to be dict with keys {list(expected_keys)}, got {list(d.keys())}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_num_items(d, num_items):
-    actual_num_items = len(d)
-    if actual_num_items != num_items:
-        raise MlflowException(
-            f"Expected example to be dict with {num_items} items, got {actual_num_items}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_has_items(d):
-    num_items = len(d)
-    if num_items == 0:
-        raise MlflowException(
-            f"Expected example to be dict with at least one item, got {num_items}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_is_dict(d):
-    if not isinstance(d, dict):
-        raise MlflowException(
-            f"Expected each item in example to be dict, got {type(d).__name__}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_non_empty(examples):
-    num_items = len(examples)
-    if num_items == 0:
-        raise MlflowException(
-            f"Expected examples to be non-empty list, got {num_items}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_is_list(examples):
-    if not isinstance(examples, list):
-        raise MlflowException(
-            f"Expected examples to be list, got {type(examples).__name__}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_dict_examples(examples, num_items=None):
-    examples_iter = iter(examples)
-    first_example = next(examples_iter)
-    _validate_is_dict(first_example)
-    _validate_has_items(first_example)
-    if num_items is not None:
-        _validate_num_items(first_example, num_items)
-    _validate_all_keys_string(first_example)
-    _validate_all_values_string(first_example)
-    first_keys = first_example.keys()
-
-    for example in examples_iter:
-        _validate_is_dict(example)
-        _validate_has_items(example)
-        if num_items is not None:
-            _validate_num_items(example, num_items)
-        _validate_all_keys_string(example)
-        _validate_all_values_string(example)
-        _validate_keys_match(example, first_keys)
-
-
 def _is_list_str(type_hint: Any) -> bool:
     return type_hint in [
         List[str],  # noqa: UP006
@@ -766,29 +686,6 @@ def _is_list_dict_str(type_hint: Any) -> bool:
         List[dict[str, str]],  # noqa: UP006
         list[dict[str, str]],
     ]
-
-
-def _infer_schema_from_type_hint(type_hint, examples=None):
-    has_examples = examples is not None
-    if has_examples:
-        _validate_non_empty(examples)
-
-    if _is_list_str(type_hint):
-        if has_examples:
-            _validate_is_list(examples)
-            _validate_is_all_string(examples)
-        return Schema([ColSpec(type="string", name=None)])
-    elif _is_list_dict_str(type_hint):
-        if has_examples:
-            _validate_is_list(examples)
-            _validate_dict_examples(examples)
-            return Schema([ColSpec(type="string", name=name) for name in examples[0]])
-        else:
-            _logger.warning(f"Could not infer schema for {type_hint} because example is missing")
-            return Schema([ColSpec(type="string", name=None)])
-    else:
-        _logger.info("Unsupported type hint: %s, skipping schema inference", type_hint)
-        return None
 
 
 def _get_array_depth(l: Any) -> int:
@@ -820,6 +717,12 @@ def _infer_type_and_shape(value):
             raise MlflowException.invalid_parameter_value(
                 f"Failed to infer schema for parameter {value}: {e!r}"
             )
+    elif isinstance(value, dict):
+        # reuse _infer_schema to infer schema for dict, wrapping it in a dictionary is
+        # necessary to make sure value is inferred as Object
+        schema = _infer_schema({"value": value})
+        object_type = schema.inputs[0].type
+        return object_type, None
     raise MlflowException.invalid_parameter_value(
         f"Expected parameters to be 1D array or scalar, got {type(value).__name__}",
     )
@@ -836,7 +739,9 @@ def _infer_param_schema(parameters: dict[str, Any]):
     for name, value in parameters.items():
         try:
             value_type, shape = _infer_type_and_shape(value)
-            param_specs.append(ParamSpec(name=name, dtype=value_type, default=value, shape=shape))
+            param_specs.append(
+                ParamSpec(name=name, dtype=value_type, default=deepcopy(value), shape=shape)
+            )
         except Exception as e:
             invalid_params.append((name, value, e))
 

@@ -14,6 +14,7 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
@@ -22,6 +23,7 @@ from mlflow.tracing.utils import (
     encode_span_id,
     encode_trace_id,
 )
+from mlflow.utils.proto_json_utils import set_pb_value
 
 _logger = logging.getLogger(__name__)
 
@@ -264,6 +266,43 @@ class Span:
                 INVALID_PARAMETER_VALUE,
             ) from e
 
+    def to_proto(self):
+        """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
+        otel_status = self._span.status
+        status = ProtoSpan.Status(
+            code=otel_status.status_code.value,
+            message=otel_status.description,
+        )
+        parent = _encode_span_id_to_byte(self._span.parent.span_id) if self._span.parent else b""
+
+        proto = ProtoSpan(
+            trace_id=_encode_trace_id_to_byte(self._span.context.trace_id),
+            span_id=_encode_span_id_to_byte(self._span.context.span_id),
+            trace_state=self._span.context.trace_state or "",
+            parent_span_id=parent,
+            name=self.name,
+            start_time_unix_nano=self._span.start_time,
+            end_time_unix_nano=self._span.end_time,
+            events=[event.to_proto() for event in self.events],
+            status=status,
+        )
+
+        # Trace server's proto uses map<string, google.protobuf.Value> for attributes
+        for key, value in self._span.attributes.items():
+            set_pb_value(proto.attributes[key], value)
+
+        return proto
+
+
+def _encode_span_id_to_byte(span_id: Optional[int]) -> bytes:
+    # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L131
+    return span_id.to_bytes(length=8, byteorder="big", signed=False)
+
+
+def _encode_trace_id_to_byte(trace_id: int) -> bytes:
+    # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L135
+    return trace_id.to_bytes(length=16, byteorder="big", signed=False)
+
 
 class LiveSpan(Span):
     """
@@ -299,6 +338,10 @@ class LiveSpan(Span):
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, request_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
+
+    def set_span_type(self, span_type: str):
+        """Set the type of the span."""
+        self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""

@@ -7,9 +7,9 @@ export type RunsChartsUIConfigurationSetter = (
   state: ExperimentRunsChartsUIConfiguration,
 ) => ExperimentRunsChartsUIConfiguration;
 
-const RunsChartsUIConfigurationContext = React.createContext<(stateSetter: RunsChartsUIConfigurationSetter) => void>(
-  () => {},
-);
+const RunsChartsUIConfigurationContext = React.createContext<
+  (stateSetter: RunsChartsUIConfigurationSetter, isSeeding?: boolean) => void
+>(() => {});
 
 /**
  * Creates a localized context to manage the UI state of the runs charts.
@@ -20,7 +20,7 @@ export const RunsChartsUIConfigurationContextProvider = ({
   updateChartsUIState,
 }: {
   children: React.ReactNode;
-  updateChartsUIState: (stateSetter: RunsChartsUIConfigurationSetter) => void;
+  updateChartsUIState: (stateSetter: RunsChartsUIConfigurationSetter, isSeeding?: boolean) => void;
 }) => (
   <RunsChartsUIConfigurationContext.Provider value={updateChartsUIState}>
     {children}
@@ -112,7 +112,7 @@ export const useConfirmChartCardConfigurationFn = () => {
         ...current,
         compareRunCharts: current.compareRunCharts?.map((existingChartCard) => {
           if (existingChartCard.uuid === configuredCard.uuid) {
-            return serializedCard;
+            return { ...serializedCard, uuid: existingChartCard.uuid };
           }
           return existingChartCard;
         }),

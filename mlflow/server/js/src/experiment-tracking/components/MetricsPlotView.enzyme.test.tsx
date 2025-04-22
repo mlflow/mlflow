@@ -596,8 +596,6 @@ describe('unit tests', () => {
   test('getXValuesForLineChart()', () => {
     const timestamp = 1556662044000;
     const anotherTimestamp = timestamp + 5000;
-    const timestampStr = Utils.formatTimestamp(timestamp);
-    const anotherTimestampStr = Utils.formatTimestamp(anotherTimestamp);
     const history = [
       { step: 0, timestamp },
       { step: 1, timestamp: anotherTimestamp },
@@ -607,7 +605,7 @@ describe('unit tests', () => {
     // convert to relative time in seconds when axis is Time (Relative)
     expect(MetricsPlotView.getXValuesForLineChart(history, X_AXIS_RELATIVE)).toEqual([0, 5]);
     // convert to date time string when axis is Time (Wall)
-    expect(MetricsPlotView.getXValuesForLineChart(history, X_AXIS_WALL)).toEqual([timestampStr, anotherTimestampStr]);
+    expect(MetricsPlotView.getXValuesForLineChart(history, X_AXIS_WALL)).toEqual([timestamp, anotherTimestamp]);
   });
   test('should disable both plotly logo and the link to plotly studio', () => {
     wrapper = shallow(<MetricsPlotView {...minimalPropsForBarChart} />);

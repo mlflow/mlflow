@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ApolloProvider } from '@apollo/client';
+import { ApolloProvider } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { RawIntlProvider } from 'react-intl';
 import './index.css';
 import { ApplyGlobalStyles } from '@databricks/design-system';
@@ -9,7 +9,7 @@ import { Provider } from 'react-redux';
 import store from './store';
 import { useI18nInit } from './i18n/I18nUtils';
 import { DesignSystemContainer } from './common/components/DesignSystemContainer';
-import { ConfigProvider } from 'antd';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { createApolloClient } from './graphql/client';
 import { LegacySkeleton } from '@databricks/design-system';
 // eslint-disable-next-line no-useless-rename
@@ -21,6 +21,8 @@ export function MLFlowRoot() {
   const intl = useI18nInit();
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const apolloClient = useMemo(() => createApolloClient(), []);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const queryClient = useMemo(() => new QueryClient(), []);
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [isDarkTheme, setIsDarkTheme, MlflowThemeGlobalStyles] = useMLflowDarkTheme();
@@ -40,9 +42,9 @@ export function MLFlowRoot() {
           <DesignSystemContainer isDarkTheme={isDarkTheme}>
             <ApplyGlobalStyles />
             <MlflowThemeGlobalStyles />
-            <ConfigProvider prefixCls="ant">
+            <QueryClientProvider client={queryClient}>
               <MlflowRouter isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
-            </ConfigProvider>
+            </QueryClientProvider>
           </DesignSystemContainer>
         </Provider>
       </RawIntlProvider>

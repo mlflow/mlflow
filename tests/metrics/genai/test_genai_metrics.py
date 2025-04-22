@@ -1376,3 +1376,17 @@ def test_genai_metric_with_custom_chat_endpoint(with_endpoint_type):
         }
     assert metric_value.scores == [3]
     assert metric_value.justifications == [openai_justification1]
+
+
+@pytest.mark.parametrize(
+    "metric_fn",
+    [
+        answer_similarity,
+        answer_correctness,
+        faithfulness,
+        answer_relevance,
+        relevance,
+    ],
+)
+def test_metric_parameters_on_prebuilt_genai_metrics(metric_fn):
+    metric_fn(parameters={"temperature": 0.1})

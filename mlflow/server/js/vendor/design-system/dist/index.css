@@ -5959,6 +5959,8 @@ _:-ms-fullscreen .du-bois-light-picker-range-wrapper .du-bois-light-picker-year-
   font-size: 13px;
   line-height: 20px;
   transition: color 0.3s cubic-bezier(0.215, 0.61, 0.355, 1);
+  margin-top: -118px;
+  margin-bottom: -118px;
 }
 .du-bois-light-form-item .du-bois-light-input-textarea-show-count::after {
   margin-bottom: -22px;

@@ -7,7 +7,7 @@ import { Provider } from 'react-redux';
 import { EXPERIMENT_RUNS_MOCK_STORE } from './experiment-page/fixtures/experiment-runs.fixtures';
 import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { RoutePaths } from '../routes';
 import { useRunDetailsPageData } from './run-page/hooks/useRunDetailsPageData';
 

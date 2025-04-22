@@ -26,7 +26,7 @@ pyyaml:
 protobuf:
   pip_release: protobuf
   minimum: "3.12.0"
-  max_major_version: 5
+  max_major_version: 6
 
 requests:
   pip_release: requests
@@ -73,4 +73,22 @@ opentelemetry-sdk:
 databricks-sdk:
   pip_release: databricks-sdk
   minimum: "0.20.0"
+  max_major_version: 0
+
+pydantic:
+  pip_release: pydantic
+  minimum: "1.10.8"
+  max_major_version: 2
+
+typing-extensions:
+  pip_release: typing-extensions
+  minimum: "4.0.0"
+  max_major_version: 4
+
+fastapi:
+  pip_release: fastapi
+  max_major_version: 0
+
+uvicorn:
+  pip_release: uvicorn
   max_major_version: 0

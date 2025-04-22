@@ -24,6 +24,7 @@ import { ModelRegistryRoutes } from '../../routes';
 import { CreateModelButton } from '../CreateModelButton';
 import { ModelsTableAliasedVersionsCell } from '../aliases/ModelsTableAliasedVersionsCell';
 import { useNextModelsUIContext } from '../../hooks/useNextModelsUI';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 
 const getLatestVersionNumberByStage = (latestVersions: ModelVersionInfoEntity[], stage: string) => {
   const modelVersion = latestVersions && latestVersions.find((v) => v.current_stage === stage);
@@ -187,7 +188,7 @@ export const ModelListTable = ({
           description: 'Column title for last modified timestamp for a model in the registered model page',
         }),
         accessorKey: 'last_updated_timestamp',
-        cell: ({ getValue }) => <span>{Utils.formatTimestamp(getValue())}</span>,
+        cell: ({ getValue }) => <span>{Utils.formatTimestamp(getValue(), intl)}</span>,
         meta: { styles: { flex: 1, maxWidth: 150 } },
       },
       {
@@ -234,7 +235,7 @@ export const ModelListTable = ({
   const emptyComponent = error ? (
     <Empty
       image={<WarningIcon />}
-      description={error.message}
+      description={error instanceof ErrorWrapper ? error.getMessageField() : error.message}
       title={
         <FormattedMessage
           defaultMessage="Error fetching models"

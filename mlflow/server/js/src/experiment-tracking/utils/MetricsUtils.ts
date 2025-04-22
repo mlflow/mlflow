@@ -1,5 +1,6 @@
 import { defineMessages, MessageDescriptor } from 'react-intl';
-import Utils from '../../common/utils/Utils';
+// @ts-expect-error TS(7016): Could not find a declaration file for module 'date... Remove this comment to see the full error message
+import dateFormat from 'dateformat';
 import { MLFLOW_SYSTEM_METRIC_PREFIX } from '../constants';
 
 interface MetricHistoryEntry {
@@ -163,7 +164,8 @@ export const getAveragedPositionOnXAxis = (
     const d2msecs = new Date(date2).getTime(); // get milliseconds
 
     const avgTime = (d1msecs + d2msecs) / 2;
-    return Utils.formatTimestamp(new Date(avgTime).getTime(), 'yyyy-mm-dd HH:MM:ss.l');
+
+    return dateFormat(new Date(avgTime), 'yyyy-mm-dd HH:MM:ss.l');
   }
 
   return ((xValues[startIndex] as number) + (xValues[endIndex] as number)) / 2;
@@ -350,7 +352,6 @@ export const truncateChartMetricString = (fullStr: string, strLen: number) => {
 };
 
 const systemMetricPrefix = new RegExp(`^${MLFLOW_SYSTEM_METRIC_PREFIX}`);
-export const normalizeChartMetricKey = (metricKey: string) => metricKey.replace(systemMetricPrefix, '');
 
 export const isSystemMetricKey = (metricKey: string) => metricKey.match(systemMetricPrefix);
 

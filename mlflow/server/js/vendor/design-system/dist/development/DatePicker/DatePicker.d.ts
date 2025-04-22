@@ -35,6 +35,14 @@ export interface DatePickerProps extends Omit<InputProps, 'type' | 'suffix' | 'o
     quickActions?: DatePickerQuickActionProps[];
     onOkPress?: () => void;
     okButtonLabel?: string;
+    /**
+     * DO NOT USE THIS PROP. This is only for internal use.
+     */
+    showTimeZone?: boolean;
+    /**
+     * Custom timezone label, this has no functional impact, converting to the correct timezone must be done outside this component
+     */
+    customTimeZoneLabel?: string;
 }
 interface DatePickerQuickActionProps {
     label: string;
@@ -77,7 +85,7 @@ export interface RangePickerProps extends Omit<DayPickerRangeProps, 'mode'>, Dat
 }
 export interface DateRange extends DayPickerDateRange {
 }
-interface RangePickerQuickActionProps extends DatePickerQuickActionProps {
+export interface RangePickerQuickActionProps extends DatePickerQuickActionProps {
 }
 export declare const getRangeQuickActionsBasic: ({ today, yesterday, lastWeek, }: {
     today?: Partial<RangePickerQuickActionProps>;

@@ -320,3 +320,15 @@ def test_tracing_composite_agent(llm_config):
         "agent_2",
         "chat_completion_2",
     }
+
+
+def test_autogen_logger_catch_exception(llm_config):
+    # Error from the logger should not affect the main execution
+    mlflow.autogen.autolog()
+
+    with patch("mlflow.MlflowClient.start_span", side_effect=Exception("error")) as mock_start_span:
+        with mock_user_input(["Hi", "exit"]):
+            assistant, user_proxy = get_simple_agent(llm_config)
+            assistant.initiate_chat(user_proxy, message="foo")
+
+    assert mock_start_span.call_count == 3

@@ -10,7 +10,7 @@ repos:
     rev: "v2.7.1"
     hooks:
       - id: prettier
-        files: '^(?!CHANGELOG.md|mlflow/pypi_package_index.json|docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
+        files: '^(?!mlflow/pypi_package_index.json|docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
         require_serial: true
   - repo: local
@@ -19,7 +19,7 @@ repos:
         name: ruff
         entry: python dev/ruff.py
         language: system
-        types_or: [python, jupyter]
+        files: '\.(py|ipynb)$'
         stages: [pre-commit]
         require_serial: true
 
@@ -27,7 +27,7 @@ repos:
         name: format
         entry: python dev/format.py
         language: system
-        types_or: [python, jupyter]
+        files: '\.(py|ipynb)$'
         stages: [pre-commit]
         require_serial: true
 
@@ -35,7 +35,7 @@ repos:
         name: taplo
         entry: dev/taplo.sh
         language: system
-        types: [toml]
+        files: '\.toml$'
         stages: [pre-commit]
         require_serial: true
 
@@ -43,7 +43,15 @@ repos:
         name: blacken-docs
         entry: blacken-docs
         language: system
-        types_or: [rst, markdown]
+        files: '\.(rst|md|mdx)$'
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: check-notebooks
+        name: check-notebooks
+        entry: dev/check-notebooks.sh
+        language: system
+        files: '\.ipynb$'
         stages: [pre-commit]
         require_serial: true
 
@@ -51,7 +59,7 @@ repos:
         name: custom-python-lint
         entry: clint
         language: system
-        types_or: [python, jupyter]
+        files: '\.(py|ipynb)$'
         stages: [pre-commit]
         require_serial: true
 
@@ -133,8 +141,15 @@ repos:
       - id: typos
         name: typos
         entry: dev/typos.sh
-        # TODO: Add more file types
-        files: '\.py$'
+        files: '\.(py$|mdx?$)'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: conftest
+        name: conftest
+        entry: conftest test --policy .github/policy.rego
+        files: '^\.github/workflows/.*\.yml$'
         language: system
         stages: [pre-commit]
         require_serial: true

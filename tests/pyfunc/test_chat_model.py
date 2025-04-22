@@ -18,6 +18,8 @@ from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
     ChatChoice,
+    ChatChoiceDelta,
+    ChatChunkChoice,
     ChatCompletionChunk,
     ChatCompletionResponse,
     ChatMessage,
@@ -423,6 +425,35 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
     }
 
 
+def test_chat_model_logs_default_metadata_task(tmp_path):
+    model = SimpleChatModel()
+    params_subset = {
+        "max_tokens": 100,
+    }
+    input_example = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is Retrieval-augmented Generation?",
+            }
+        ],
+        **params_subset,
+    }
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example
+        )
+    assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
+    assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
+    assert model_info.metadata["task"] == "agent/v1/chat"
+
+    with mlflow.start_run():
+        model_info_with_override = mlflow.pyfunc.log_model(
+            "model", python_model=model, input_example=input_example, metadata={"task": None}
+        )
+    assert model_info_with_override.metadata["task"] is None
+
+
 def test_chat_model_works_with_chat_message_input_example(tmp_path):
     model = SimpleChatModel()
     input_example = [
@@ -598,3 +629,31 @@ def test_chat_model_can_use_tool_calls():
         "city": "some_value",
         "unit": "some_value",
     }
+
+
+def test_chat_model_without_context_in_predict():
+    response = ChatCompletionResponse(
+        choices=[ChatChoice(message=ChatMessage(role="assistant", content="hi"))]
+    )
+    chunk_response = ChatCompletionChunk(
+        choices=[ChatChunkChoice(delta=ChatChoiceDelta(role="assistant", content="hi"))]
+    )
+
+    class Model(mlflow.pyfunc.ChatModel):
+        def predict(self, messages: list[ChatMessage], params: ChatParams):
+            return response
+
+        def predict_stream(self, messages: list[ChatMessage], params: ChatParams):
+            yield chunk_response
+
+    model = Model()
+    messages = [ChatMessage(role="user", content="hello?", name="chat")]
+    assert model.predict(messages, ChatParams()) == response
+    assert next(iter(model.predict_stream(messages, ChatParams()))) == chunk_response
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=model, input_example=messages)
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    input_data = {"messages": [{"role": "user", "content": "hello"}]}
+    assert pyfunc_model.predict(input_data) == response.to_dict()
+    assert next(iter(pyfunc_model.predict_stream(input_data))) == chunk_response.to_dict()

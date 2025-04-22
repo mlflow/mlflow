@@ -194,16 +194,15 @@ def test_log_model_calls_register_model(tmp_path, basic_model):
         _mlflow_conda_env(
             conda_env, additional_pip_deps=["transformers", "torch", "sentence-transformers"]
         )
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             basic_model,
             artifact_path,
             conda_env=str(conda_env),
             registered_model_name="My super cool encoder",
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
-            model_uri=model_uri,
+            model_uri=model_info.model_uri,
             registered_model_name="My super cool encoder",
         )
 
@@ -230,33 +229,33 @@ def test_log_with_pip_requirements(tmp_path, basic_model):
     requirements_file = tmp_path.joinpath("requirements.txt")
     requirements_file.write_text("some-clever-package")
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             basic_model, "model", pip_requirements=str(requirements_file)
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "some-clever-package"],
             strict=True,
         )
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             basic_model,
             "model",
             pip_requirements=[f"-r {requirements_file}", "a-hopefully-useful-package"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "some-clever-package", "a-hopefully-useful-package"],
             strict=True,
         )
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             basic_model,
             "model",
             pip_requirements=[f"-c {requirements_file}", "i-dunno-maybe-its-good"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "i-dunno-maybe-its-good", "-c constraints.txt"],
             ["some-clever-package"],
             strict=True,
@@ -269,31 +268,31 @@ def test_log_with_extra_pip_requirements(basic_model, tmp_path):
     requirements_file = tmp_path.joinpath("requirements.txt")
     requirements_file.write_text("effective-package")
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             basic_model, "model", extra_pip_requirements=str(requirements_file)
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_requirements, "effective-package"],
         )
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             basic_model,
             "model",
             extra_pip_requirements=[f"-r {requirements_file}", "useful-package"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_requirements, "effective-package", "useful-package"],
         )
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(
+        model_info = mlflow.sentence_transformers.log_model(
             basic_model,
             "model",
             extra_pip_requirements=[f"-c {requirements_file}", "constrained-pkg"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [
                 expected_mlflow_version,
                 *default_requirements,
@@ -318,9 +317,10 @@ def test_model_log_without_conda_env_uses_default_env_with_expected_dependencies
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(basic_model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-    _assert_pip_requirements(model_uri, mlflow.sentence_transformers.get_default_pip_requirements())
+        model_info = mlflow.sentence_transformers.log_model(basic_model, artifact_path)
+    _assert_pip_requirements(
+        model_info.model_uri, mlflow.sentence_transformers.get_default_pip_requirements()
+    )
 
 
 def test_log_model_with_code_paths(basic_model):
@@ -329,10 +329,13 @@ def test_log_model_with_code_paths(basic_model):
         mlflow.start_run(),
         mock.patch("mlflow.sentence_transformers._add_code_from_conf_to_system_path") as add_mock,
     ):
-        mlflow.sentence_transformers.log_model(basic_model, artifact_path, code_paths=[__file__])
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.sentence_transformers.FLAVOR_NAME)
-        mlflow.sentence_transformers.load_model(model_uri)
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model, artifact_path, code_paths=[__file__]
+        )
+        _compare_logged_code_paths(
+            __file__, model_info.model_uri, mlflow.sentence_transformers.FLAVOR_NAME
+        )
+        mlflow.sentence_transformers.load_model(model_info.model_uri)
         add_mock.assert_called()
 
 
@@ -383,7 +386,7 @@ def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
     emb0 = loaded_pyfunc.predict(sentence, params)
     assert emb0.shape == (1, embedding_dim)
 
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'batch_size'"):
+    with pytest.raises(MlflowException, match=r"Invalid parameters found"):
         loaded_pyfunc.predict(sentence, {"batch_size": "16"})
 
     model_path = tmp_path / "model3"
@@ -535,11 +538,12 @@ def test_model_log_with_signature_inference(basic_model):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.sentence_transformers.log_model(basic_model, artifact_path, input_example=SENTENCES)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model, artifact_path, input_example=SENTENCES
+        )
 
-    model_info = Model.load(model_uri)
-    assert model_info.signature == SIGNATURE
+    loaded_model_info = Model.load(model_info.model_uri)
+    assert loaded_model_info.signature == SIGNATURE
 
 
 def test_verify_task_and_update_metadata():

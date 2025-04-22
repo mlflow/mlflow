@@ -80,6 +80,7 @@ async def test_chat():
                         "role": "assistant",
                         "content": "\n\nThis is a test!",
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": "stop",
                     "index": 0,
@@ -245,12 +246,12 @@ async def test_completions():
             }
         )
         mock_client.post.assert_called_once_with(
-            "https://api.openai.com/v1/chat/completions",
+            "https://api.openai.com/v1/completions",
             json={
                 "model": "gpt-4-32k",
                 "temperature": 0,
                 "n": 1,
-                "messages": [{"role": "user", "content": "This is a test"}],
+                "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
@@ -319,7 +320,7 @@ async def test_completions_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": ""},
+                        "text": "",
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -331,7 +332,11 @@ async def test_completions_stream(resp):
             },
             {
                 "choices": [
-                    {"delta": {"role": None, "content": "test"}, "finish_reason": None, "index": 0}
+                    {
+                        "text": "test",
+                        "finish_reason": None,
+                        "index": 0,
+                    }
                 ],
                 "created": 1,
                 "id": "test-id",
@@ -341,7 +346,7 @@ async def test_completions_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": None},
+                        "text": None,
                         "finish_reason": "length",
                         "index": 0,
                     }
@@ -360,12 +365,12 @@ async def test_completions_stream(resp):
             }
         )
         mock_client.post.assert_called_once_with(
-            "https://api.openai.com/v1/chat/completions",
+            "https://api.openai.com/v1/completions",
             json={
                 "model": "gpt-4-32k",
                 "temperature": 0,
                 "n": 1,
-                "messages": [{"role": "user", "content": "This is a test"}],
+                "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
@@ -561,12 +566,12 @@ async def test_azure_openai():
         mock_client.post.assert_called_once_with(
             (
                 "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
-                "/chat/completions?api-version=2023-05-15"
+                "/completions?api-version=2023-05-15"
             ),
             json={
                 "temperature": 0,
                 "n": 1,
-                "messages": [{"role": "user", "content": "This is a test"}],
+                "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
@@ -600,12 +605,12 @@ async def test_azuread_openai():
         mock_client.post.assert_called_once_with(
             (
                 "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
-                "/chat/completions?api-version=2023-05-15"
+                "/completions?api-version=2023-05-15"
             ),
             json={
                 "temperature": 0,
                 "n": 1,
-                "messages": [{"role": "user", "content": "This is a test"}],
+                "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )

@@ -55,5 +55,5 @@ Once the server starts running, run the example script:
 
 ```bash
 # Replace `my.uc_func.add` if your UC function has a different name
-python examples/deployments/uc_functions/run.py  --uc-function-name my.uc_func.add
+python examples/gateway/uc_functions/run.py  --uc-function-name my.uc_func.add
 ```

@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 import json
+import logging
+import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_trace_server_pb2 import Trace as ProtoTrace
+from mlflow.protos.databricks_trace_server_pb2 import TraceData as ProtoTraceData
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -77,12 +84,20 @@ class Trace(_MlflowObject):
         which contains a JSON representation of the Trace object. This object is deserialized
         in Databricks notebooks to display the Trace object in a nicer UI.
         """
-        from mlflow.tracing.display import get_display_handler
+        from mlflow.tracing.display import (
+            get_display_handler,
+            get_notebook_iframe_html,
+            is_using_tracking_server,
+        )
+        from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
         bundle = {"text/plain": repr(self)}
 
         if not get_display_handler().disabled:
-            bundle["application/databricks.mlflow.trace"] = self._serialize_for_mimebundle()
+            if is_in_databricks_runtime():
+                bundle["application/databricks.mlflow.trace"] = self._serialize_for_mimebundle()
+            elif is_using_tracking_server():
+                bundle["text/html"] = get_notebook_iframe_html([self])
 
         return bundle
 
@@ -93,12 +108,118 @@ class Trace(_MlflowObject):
             "timestamp_ms": self.info.timestamp_ms,
             "status": self.info.status,
             "execution_time_ms": self.info.execution_time_ms,
-            "request": self.data.request,
-            "response": self.data.response,
+            "request": self._deserialize_json_attr(self.data.request),
+            "response": self._deserialize_json_attr(self.data.response),
             "request_metadata": self.info.request_metadata,
             "spans": [span.to_dict() for span in self.data.spans],
             "tags": self.info.tags,
+            "assessments": self.info.assessments,
         }
+
+    def _deserialize_json_attr(self, value: str):
+        try:
+            return json.loads(value)
+        except Exception:
+            _logger.debug(f"Failed to deserialize JSON attribute: {value}", exc_info=True)
+            return value
+
+    def search_spans(
+        self, span_type: Optional[SpanType] = None, name: Optional[Union[str, re.Pattern]] = None
+    ) -> list[Span]:
+        """
+        Search for spans that match the given criteria within the trace.
+
+        Args:
+            span_type: The type of the span to search for.
+            name: The name of the span to search for. This can be a string or a regular expression.
+
+        Returns:
+            A list of spans that match the given criteria.
+            If there is no match, an empty list is returned.
+
+        .. code-block:: python
+
+            import mlflow
+            import re
+            from mlflow.entities import SpanType
+
+
+            @mlflow.trace(span_type=SpanType.CHAIN)
+            def run(x: int) -> int:
+                x = add_one(x)
+                x = add_two(x)
+                x = multiply_by_two(x)
+                return x
+
+
+            @mlflow.trace(span_type=SpanType.TOOL)
+            def add_one(x: int) -> int:
+                return x + 1
+
+
+            @mlflow.trace(span_type=SpanType.TOOL)
+            def add_two(x: int) -> int:
+                return x + 2
+
+
+            @mlflow.trace(span_type=SpanType.TOOL)
+            def multiply_by_two(x: int) -> int:
+                return x * 2
+
+
+            # Run the function and get the trace
+            y = run(2)
+            trace_id = mlflow.get_last_active_trace_id()
+            trace = mlflow.get_trace(trace_id)
+
+            # 1. Search spans by name (exact match)
+            spans = trace.search_spans(name="add_one")
+            print(spans)
+            # Output: [Span(name='add_one', ...)]
+
+            # 2. Search spans by name (regular expression)
+            pattern = re.compile(r"add.*")
+            spans = trace.search_spans(name=pattern)
+            print(spans)
+            # Output: [Span(name='add_one', ...), Span(name='add_two', ...)]
+
+            # 3. Search spans by type
+            spans = trace.search_spans(span_type=SpanType.LLM)
+            print(spans)
+            # Output: [Span(name='run', ...)]
+
+            # 4. Search spans by name and type
+            spans = trace.search_spans(name="add_one", span_type=SpanType.TOOL)
+            print(spans)
+            # Output: [Span(name='add_one', ...)]
+        """
+
+        def _match_name(span: Span) -> bool:
+            if isinstance(name, str):
+                return span.name == name
+            elif isinstance(name, re.Pattern):
+                return name.search(span.name) is not None
+            elif name is None:
+                return True
+            else:
+                raise MlflowException(
+                    f"Invalid type for 'name'. Expected str or re.Pattern. Got: {type(name)}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        def _match_type(span: Span) -> bool:
+            if isinstance(span_type, str):
+                return span.span_type == span_type
+            elif span_type is None:
+                return True
+            else:
+                raise MlflowException(
+                    "Invalid type for 'span_type'. Expected str or mlflow.entities.SpanType. "
+                    f"Got: {type(span_type)}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        return [span for span in self.data.spans if _match_name(span) and _match_type(span)]
 
     @staticmethod
     def pandas_dataframe_columns() -> list[str]:
@@ -113,4 +234,13 @@ class Trace(_MlflowObject):
             "request_metadata",
             "spans",
             "tags",
+            "assessments",
         ]
+
+    def to_proto(self):
+        """Convert into a proto object to sent to the Databricks Trace Server."""
+        return ProtoTrace(
+            # Convert MLflow's TraceInfoV3 to Databricks Trace Server's TraceInfo
+            info=self.info.to_v3_proto(self.data.request, self.data.response),
+            data=ProtoTraceData(spans=[span.to_proto() for span in self.data.spans]),
+        )

@@ -238,7 +238,9 @@ def _prune_packages(packages):
     requires = {req for req in requires if not req.startswith("llama-index-")}
 
     # Do not exclude mlflow's dependencies
-    return packages - (requires - set(_get_requires("mlflow")))
+    # Do not exclude databricks-connect since it conflicts with pyspark during execution time,
+    # and we need to determine if pyspark needs to be stripped based on the inferred packages
+    return packages - (requires - set(_get_requires("mlflow")) - {"databricks-connect"})
 
 
 def _run_command(cmd, timeout_seconds, env=None):
@@ -267,11 +269,16 @@ def _run_command(cmd, timeout_seconds, env=None):
             timer.cancel()
 
 
-def _get_installed_version(package, module=None):
+def _get_installed_version(package: str, module: Optional[str] = None) -> str:
     """
     Obtains the installed package version using `importlib_metadata.version`. If it fails, use
     `__import__(module or package).__version__`.
     """
+    if package == "mlflow":
+        # `importlib.metadata.version` may return an incorrect version of MLflow when it's
+        # installed in editable mode (e.g. `pip install -e .`).
+        return mlflow.__version__
+
     try:
         version = importlib_metadata.version(package)
     except importlib_metadata.PackageNotFoundError:
@@ -672,11 +679,7 @@ def _check_requirement_satisfied(requirement_str):
                 requirement=requirement_str,
             )
 
-    if (
-        pkg_name == "mlflow"
-        and installed_version == mlflow.__version__
-        and Version(installed_version).is_devrelease
-    ):
+    if pkg_name == "mlflow" and Version(installed_version).is_devrelease:
         return None
 
     if len(req.specifier) > 0 and not req.specifier.contains(installed_version):

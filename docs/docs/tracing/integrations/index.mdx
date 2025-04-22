@@ -1,0 +1,134 @@
+---
+sidebar_position: 4
+sidebar_label: Integrations
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+
+# Auto Tracing Integrations
+
+[MLflow Tracing](../) is integrated with various GenAI libraries and provide one-line automatic tracing experience for each library (and the combination of them!). Click on the icon below to see detailed examples to integrate MLflow with your favorite library.
+
+<CardGroup isSmall>
+  <SmallLogoCard link="/tracing/integrations/langchain">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/langgraph">
+    <span>![LangGraph Logo](/images/logos/langgraph-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/llama_index">
+    <span>![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/dspy">
+    <span>![DSPy Logo](/images/logos/dspy-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/openai">
+    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/openai-agent">
+    <span>![OpenAI Logo](/images/logos/openai-agent-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/swarm">
+    <span>![OpenAI Swarm Logo](/images/logos/openai-swarm-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/deepseek">
+    <span>![DeepSeek Logo](/images/logos/deepseek-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/bedrock">
+    <span>![Bedrock Logo](/images/logos/bedrock-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/autogen">
+    <span>![AutoGen Logo](/images/logos/autogen-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/gemini">
+    <span>![Gemini Logo](/images/logos/google-gemini-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/litellm">
+    <span>![LiteLLM Logo](/images/logos/litellm-logo.jpg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/anthropic">
+    <span>![Anthropic Logo](/images/logos/anthropic-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/crewai">
+    <span>![CrewAI Logo](/images/logos/crewai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/ollama">
+    <span>![Ollama Logo](/images/logos/ollama-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/groq">
+    <span>![Groq Logo](/images/logos/groq-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/mistral">
+    <span>![Groq Logo](/images/logos/mistral-ai-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/instructor">
+    <span>![Instructor Logo](/images/logos/instructor-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/instructor">
+    <span>![txtai Logo](/images/logos/txtai-logo.png)</span>
+  </SmallLogoCard>
+</CardGroup>
+<br />
+
+
+:::info Hint
+Is your favorite library missing from the list? Consider [contributing to MLflow Tracing](./contribute) or [submitting a feature request](https://github.com/mlflow/mlflow/issues/new?assignees=&labels=enhancement&projects=&template=feature_request_template.yaml&title=%5BFR%5D) to our Github repository.
+:::
+
+
+# Enabling Multiple Auto Tracing Integrations
+
+As the GenAI tool ecosystem grows, it becomes common to combine multiple libraries to build a compound AI system. With MLflow Tracing, you can enable auto-tracing for such multi-framework models and get unified tracing experience.
+
+For example, the following example enables both LangChain and OpenAI automatic tracing:
+
+```python
+import mlflow
+
+from langchain.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_openai import ChatOpenAI
+
+# Enable MLflow Tracing for both LangChain and OpenAI
+mlflow.langchain.autolog()
+mlflow.openai.autolog()
+
+
+# Optional: Set a tracking URI and an experiment
+mlflow.set_experiment("LangChain")
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# Define a chain that uses OpenAI as an LLM provider
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, max_tokens=1000)
+
+prompt_template = PromptTemplate.from_template(
+    "Answer the question as if you are {person}, fully embodying their style, wit, personality, and habits of speech. "
+    "Emulate their quirks and mannerisms to the best of your ability, embracing their traits—even if they aren't entirely "
+    "constructive or inoffensive. The question is: {question}"
+)
+
+chain = prompt_template | llm | StrOutputParser()
+
+chain.invoke(
+    {
+        "person": "Linus Torvalds",
+        "question": "Can I just set everyone's access to sudo to make things easier?",
+    }
+)
+```
+
+MLflow will generates a single trace that combines LangChain steps and OpenAI LLM call, allowing you to inspect the raw input and output passed to the OpenAI LLM.
+
+![OpenAI LangChain Trace](/images/llms/tracing/langchain-openai-tracing.png)
+
+
+
+
+# Disabling Auto Tracing
+
+Auto tracing for each library can be disabled by calling `mlflow.<library>.autolog(disable=True)`. Moreover, you can disable tracing for all integrations using or `mlflow.autolog(disable=True)`.

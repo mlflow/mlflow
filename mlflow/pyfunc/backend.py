@@ -25,7 +25,7 @@ from mlflow.pyfunc import (
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import env_manager as em
 from mlflow.utils.conda import get_conda_bin_executable, get_or_create_conda_env
-from mlflow.utils.environment import Environment, _PythonEnv
+from mlflow.utils.environment import Environment, _get_pip_install_mlflow, _PythonEnv
 from mlflow.utils.file_utils import (
     TempDir,
     get_or_create_nfs_tmp_dir,
@@ -36,10 +36,7 @@ from mlflow.utils.model_utils import _get_all_flavor_configurations
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import ShellCommandException, cache_return_value_per_process
-from mlflow.utils.virtualenv import (
-    _get_or_create_virtualenv,
-    _get_pip_install_mlflow,
-)
+from mlflow.utils.virtualenv import _get_or_create_virtualenv
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -135,13 +132,14 @@ class PyFuncBackend(FlavorBackend):
         else:
             env_root_dir = self._env_root_dir
 
-        if self._env_manager == em.VIRTUALENV:
+        if self._env_manager in {em.VIRTUALENV, em.UV}:
             activate_cmd = _get_or_create_virtualenv(
                 local_path,
                 self._env_id,
                 env_root_dir=env_root_dir,
                 capture_output=capture_output,
                 pip_requirements_override=pip_requirements_override,
+                env_manager=self._env_manager,
             )
             self._environment = Environment(activate_cmd, extra_env=extra_envs)
         elif self._env_manager == em.CONDA:

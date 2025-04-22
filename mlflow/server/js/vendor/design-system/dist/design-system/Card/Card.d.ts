@@ -2,7 +2,7 @@ import type { HTMLAttributes, HTMLProps, PropsWithChildren } from 'react';
 import React from 'react';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
 import type { AnalyticsEventPropsWithStartInteraction, DangerousGeneralProps, HTMLDataAttributes } from '../types';
-export interface CardProps extends DangerousGeneralProps, HTMLDataAttributes, HTMLAttributes<HTMLDivElement>, AnalyticsEventPropsWithStartInteraction<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
+export interface CardProps extends DangerousGeneralProps, HTMLDataAttributes, HTMLAttributes<HTMLDivElement>, AnalyticsEventPropsWithStartInteraction<DesignSystemEventProviderAnalyticsEventTypes.OnClick | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /**
      * disable the default hover style effects (border, box-shadow)
      *
@@ -30,7 +30,7 @@ export interface CardProps extends DangerousGeneralProps, HTMLDataAttributes, HT
     /**
      * Width of the card, used when displaying a list of cards with matching widths
      *
-     * @default fit-content
+     * @default 300
      */
     width?: string | number;
     /**

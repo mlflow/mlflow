@@ -80,3 +80,13 @@ class Dataset(_MlflowObject):
             proto.schema if proto.HasField("schema") else None,
             proto.profile if proto.HasField("profile") else None,
         )
+
+    def to_dictionary(self):
+        return {
+            "name": self.name,
+            "digest": self.digest,
+            "source_type": self.source_type,
+            "source": self.source,
+            "schema": self.schema,
+            "profile": self.profile,
+        }

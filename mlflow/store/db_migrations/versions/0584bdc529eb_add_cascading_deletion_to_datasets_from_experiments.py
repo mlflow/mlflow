@@ -5,24 +5,51 @@ Revises: f5a4f2784254
 Create Date: 2024-11-11 15:27:53.189685
 
 """
-from alembic import op
-import sqlalchemy as sa
 
+import sqlalchemy as sa
+from alembic import op
+
+from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import SqlDataset, SqlExperiment
 
-
 # revision identifiers, used by Alembic.
-revision = '0584bdc529eb'
-down_revision = 'f5a4f2784254'
+revision = "0584bdc529eb"
+down_revision = "f5a4f2784254"
 branch_labels = None
 depends_on = None
+
+
+def get_datasets_experiment_fk_name():
+    conn = op.get_bind()
+    metadata = sa.MetaData()
+    metadata.bind = conn
+    datasets_table = sa.Table(
+        SqlDataset.__tablename__,
+        metadata,
+        autoload_with=conn,
+    )
+
+    for constraint in datasets_table.foreign_key_constraints:
+        if (
+            constraint.referred_table.name == SqlExperiment.__tablename__
+            and constraint.column_keys[0] == "experiment_id"
+        ):
+            return constraint.name
+
+    raise MlflowException(
+        "Unable to find the foreign key constraint name from datasets to experiments. "
+        "All foreign key constraints in datasets table: \n"
+        f"{datasets_table.foreign_key_constraints}"
+    )
 
 
 def upgrade():
     dialect_name = op.get_context().dialect.name
 
     # standardize the constraint to sqlite naming convention
-    new_fk_constraint_name = f"fk_{SqlDataset.__tablename__}_experiment_id_{SqlExperiment.__tablename__}"
+    new_fk_constraint_name = (
+        f"fk_{SqlDataset.__tablename__}_experiment_id_{SqlExperiment.__tablename__}"
+    )
 
     if dialect_name == "sqlite":
         # Only way to drop unnamed fk constraint in sqllite
@@ -34,6 +61,7 @@ def upgrade():
                 "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
             },
         ) as batch_op:
+            # in SQLite, constraint.name is None, so we have to hardcode it
             batch_op.drop_constraint(new_fk_constraint_name, type_="foreignkey")
             # Need to explicitly name the fk constraint with batch alter table
             batch_op.create_foreign_key(
@@ -44,15 +72,8 @@ def upgrade():
                 ondelete="CASCADE",
             )
     else:
-        if dialect_name == "postgresql":
-            fk_constraint_name = f"{SqlDataset.__tablename__}_experiment_id_fkey"
-        elif dialect_name == "mysql":
-            fk_constraint_name = f"{SqlDataset.__tablename__}_ibfk_1"
-        elif dialect_name == "mssql":
-            # mssql fk constraint name at f5a4f2784254
-            fk_constraint_name = f"FK__{SqlDataset.__tablename__}__experi__6477ECF3"
-
-        op.drop_constraint(fk_constraint_name, SqlDataset.__tablename__, type_="foreignkey")
+        old_fk_constraint_name = get_datasets_experiment_fk_name()
+        op.drop_constraint(old_fk_constraint_name, SqlDataset.__tablename__, type_="foreignkey")
         op.create_foreign_key(
             new_fk_constraint_name,
             SqlDataset.__tablename__,

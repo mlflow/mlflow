@@ -26,7 +26,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 
 
 class SimpleModel(mlflow.pyfunc.PythonModel):
-    def predict(self, _, model_input):
+    def predict(self, context, model_input):
         return model_input.applymap(lambda x: x * 2)
 
 

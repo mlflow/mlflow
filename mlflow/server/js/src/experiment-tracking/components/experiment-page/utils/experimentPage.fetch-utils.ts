@@ -49,23 +49,6 @@ const SQL_SYNTAX_PATTERN = new RegExp(
 export const RUNS_AUTO_REFRESH_INTERVAL = 30000;
 
 /**
- * This function checks if the sort+model state update has
- * been updated enough and if the change should invoke re-fetching
- * the runs from the back-end. This enables differentiation between
- * front-end and back-end filtering.
- */
-export const shouldRefetchRuns = (
-  currentSearchFacetsState: ExperimentPageSearchFacetsState,
-  newSearchFacetsState: ExperimentPageSearchFacetsState,
-) =>
-  !isEqual(currentSearchFacetsState.searchFilter, newSearchFacetsState.searchFilter) ||
-  !isEqual(currentSearchFacetsState.orderByAsc, newSearchFacetsState.orderByAsc) ||
-  !isEqual(currentSearchFacetsState.orderByKey, newSearchFacetsState.orderByKey) ||
-  !isEqual(currentSearchFacetsState.lifecycleFilter, newSearchFacetsState.lifecycleFilter) ||
-  !isEqual(currentSearchFacetsState.startTime, newSearchFacetsState.startTime) ||
-  !isEqual(currentSearchFacetsState.datasetsFilter, newSearchFacetsState.datasetsFilter);
-
-/**
  * Creates "order by" SQL expression
  */
 const createOrderByExpression = ({ orderByKey, orderByAsc }: ExperimentPageSearchFacetsState) => {
@@ -209,7 +192,7 @@ export const fetchModelVersionsForRuns = (
     run.data.tags.some((t) => t.key === EXPERIMENT_LOG_MODEL_HISTORY_TAG),
   );
 
-  chunk(runsWithLogModelHistory, MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER).forEach((runsChunk) => {
+  const promises = chunk(runsWithLogModelHistory, MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER).map((runsChunk) => {
     // eslint-disable-next-line prefer-const
     let maxResults = undefined;
     const action = actionCreator(
@@ -219,8 +202,10 @@ export const fetchModelVersionsForRuns = (
       getUUID(),
       maxResults,
     );
-    dispatch(action);
+    return dispatch(action);
   });
+
+  return Promise.all(promises);
 };
 
 /**

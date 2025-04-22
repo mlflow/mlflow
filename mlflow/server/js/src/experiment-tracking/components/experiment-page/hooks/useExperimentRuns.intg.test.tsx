@@ -31,17 +31,26 @@ import {
 } from '../../../../common/utils/FeatureUtils';
 import type { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
 import { useMemo } from 'react';
+import { searchModelVersionsApi } from '../../../../model-registry/actions';
+import { ErrorBoundary } from 'react-error-boundary';
 
 jest.mock('../../../actions', () => ({
-  ...jest.requireActual('../../../actions'),
+  ...jest.requireActual<typeof import('../../../actions')>('../../../actions'),
   searchRunsApi: jest.fn(),
   loadMoreRunsApi: jest.fn(),
 }));
 
+jest.mock('../../../../model-registry/actions', () => ({
+  ...jest.requireActual<typeof import('../../../../model-registry/actions')>('../../../../model-registry/actions'),
+  searchModelVersionsApi: jest.fn(),
+}));
+
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
+    '../../../../common/utils/FeatureUtils',
+  ),
   shouldEnableExperimentPageAutoRefresh: jest.fn(),
-  shouldUseRegexpBasedAutoRunsSearchFilter: jest.fn().mockImplementation(() => false),
+  shouldUseRegexpBasedAutoRunsSearchFilter: jest.fn(() => false),
 }));
 
 const MOCK_RESPONSE_DELAY = 1000;
@@ -165,6 +174,8 @@ const testSearchFacets = createExperimentPageSearchFacetsState();
 
 // This suite tests useExperimentRuns hook, related reducers, actions and selectors.
 describe('useExperimentRuns - integration test', () => {
+  const errorBoundaryFn = jest.fn();
+
   beforeEach(() => {
     jest.useFakeTimers();
     jest.mocked(searchRunsApi).mockClear();
@@ -198,7 +209,11 @@ describe('useExperimentRuns - integration test', () => {
           experimentIds: string[];
         }) => useExperimentRuns(uiState, searchFacets, experimentIds),
         {
-          wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+          wrapper: ({ children }) => (
+            <ErrorBoundary onError={errorBoundaryFn} fallback={<div />}>
+              <Provider store={store}>{children}</Provider>
+            </ErrorBoundary>
+          ),
           initialProps: {
             uiState: initialUiState,
             searchFacets: initialSearchFacets,
@@ -388,7 +403,8 @@ describe('useExperimentRuns - integration test', () => {
     });
     jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
     const { result } = await renderTestHook();
-    expect(result.current.requestError?.getMessageField()).toEqual('request failure');
+    expect(result.current.requestError).toBeInstanceOf(ErrorWrapper);
+    expect((result.current.requestError as ErrorWrapper).getMessageField()).toEqual('request failure');
     expect(Utils.logErrorAndNotifyUser).toHaveBeenCalled();
   });
 
@@ -662,6 +678,36 @@ describe('useExperimentRuns - integration test', () => {
 
       // We should not have any new calls
       expect(searchRunsApi).toBeCalledTimes(3);
+    });
+
+    test('should autorefresh even if initial list is empty', async () => {
+      const uiState = {
+        ...testUiState,
+        autoRefreshEnabled: true,
+      };
+
+      jest.mocked(searchRunsApi).mockImplementation(() => ({
+        type: 'SEARCH_RUNS_API',
+        // Return empty list at first
+        payload: Promise.resolve({}),
+        meta: { id: 0 },
+      }));
+
+      // Render the hook
+      await renderTestHook(uiState);
+
+      // The initial call for runs should go through
+      expect(searchRunsApi).toBeCalledTimes(1);
+
+      // Wait for the refresh interval to pass
+      act(() => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+
+      await waitFor(() => {
+        // We should get another call
+        expect(searchRunsApi).toBeCalledTimes(2);
+      });
     });
 
     test("should sequentially call for more auto-refresh results if one call won't suffice", async () => {

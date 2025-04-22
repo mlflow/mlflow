@@ -27,7 +27,7 @@ type RenameExperimentModalImplProps = {
   getExperimentApi: (...args: any[]) => any;
 };
 
-export class RenameExperimentModalImpl extends Component<RenameExperimentModalImplProps> {
+class RenameExperimentModalImpl extends Component<RenameExperimentModalImplProps> {
   handleRenameExperiment = (values: any) => {
     // get value of input field
     const newExperimentName = values[NEW_NAME_FIELD];

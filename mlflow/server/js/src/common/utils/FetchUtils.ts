@@ -51,7 +51,7 @@ export const getDefaultHeaders = (cookieStr: any) => {
   };
 };
 
-export const getAjaxUrl = (relativeUrl: any) => {
+const getAjaxUrl = (relativeUrl: any) => {
   // @ts-expect-error TS(4111): Property 'MLFLOW_USE_ABSOLUTE_AJAX_URLS' comes from an in... Remove this comment to see the full error message
   if (process.env.MLFLOW_USE_ABSOLUTE_AJAX_URLS === 'true' && !relativeUrl.startsWith('/')) {
     return '/' + relativeUrl;
@@ -86,7 +86,7 @@ export const jsonBigIntResponseParser = ({ resolve, response }: any) =>
 export const yamlResponseParser = ({ resolve, response }: any) =>
   parseResponse({ resolve, response, parser: yaml.safeLoad });
 
-export const defaultError = ({ reject, response, err }: any) => {
+const defaultError = ({ reject, response, err }: any) => {
   // eslint-disable-next-line no-console -- TODO(FEINF-3587)
   console.error('Fetch failed: ', response || err);
   if (response) {

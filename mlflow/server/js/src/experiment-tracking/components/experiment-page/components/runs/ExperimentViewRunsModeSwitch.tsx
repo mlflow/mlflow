@@ -13,8 +13,14 @@ import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
+import { FeatureBadge } from '@mlflow/mlflow/src/shared/building_blocks/FeatureBadge';
 import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
-import { isExperimentLoggedModelsUIEnabled, shouldEnableTracingUI } from '../../../../../common/utils/FeatureUtils';
+import {
+  isExperimentEvalResultsMonitoringUIEnabled,
+  isExperimentLoggedModelsUIEnabled,
+  shouldEnableTracingUI,
+} from '../../../../../common/utils/FeatureUtils';
+import { MONITORING_BETA_EXPIRATION_DATE } from '../../../../constants';
 import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
 import { useExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
 
@@ -90,7 +96,9 @@ const ChartViewButtonTooltip: React.FC<{
 };
 
 /**
- * Allows switching between "table", "chart", "evaluation" and "traces" modes of experiment view
+ * Allows switching between various modes of the experiment page view.
+ * Handles legacy part of the mode switching, based on "compareRunsMode" query parameter.
+ * Modern part of the mode switching is handled by <ExperimentViewRunsModeSwitchV2> which works using route params.
  */
 export const ExperimentViewRunsModeSwitch = ({
   viewState,
@@ -99,7 +107,7 @@ export const ExperimentViewRunsModeSwitch = ({
 }: ExperimentViewRunsModeSwitchProps) => {
   const [, experimentIds] = useExperimentPageSearchFacets();
   const [viewMode, setViewModeInURL] = useExperimentPageViewMode();
-  const { classNamePrefix } = useDesignSystemTheme();
+  const { classNamePrefix, theme } = useDesignSystemTheme();
   const currentViewMode = viewMode || getExperimentPageDefaultViewMode();
   const showCombinedRuns = useShouldShowCombinedRunsTab();
   const activeTab = showCombinedRuns && ['TABLE', 'CHART'].includes(currentViewMode) ? 'RUNS' : currentViewMode;
@@ -133,6 +141,21 @@ export const ExperimentViewRunsModeSwitch = ({
         setViewModeInURL(newValue, singleExperimentId);
       }}
     >
+      {/* Display the "Models" tab if we have only one experiment and the feature is enabled. */}
+      {singleExperimentId && isExperimentLoggedModelsUIEnabled() && (
+        <LegacyTabs.TabPane
+          key="MODELS"
+          tab={
+            <span data-testid="experiment-runs-mode-switch-models">
+              <FormattedMessage
+                defaultMessage="Models"
+                description="A button navigating to logged models table on the experiment page"
+              />
+              <PreviewBadge />
+            </span>
+          }
+        />
+      )}
       {showCombinedRuns ? (
         <LegacyTabs.TabPane
           tab={
@@ -202,6 +225,20 @@ export const ExperimentViewRunsModeSwitch = ({
         }
         key="ARTIFACT"
       />
+      {singleExperimentId && isExperimentEvalResultsMonitoringUIEnabled() && (
+        <LegacyTabs.TabPane
+          tab={
+            <span data-testid="experiment-runs-mode-evaluation-results">
+              <FormattedMessage
+                defaultMessage="Monitoring"
+                description="A button enabling evaluation results monitoring mode on the experiment page"
+              />
+              <FeatureBadge type="beta" expirationDate={MONITORING_BETA_EXPIRATION_DATE} />
+            </span>
+          }
+          key="EVAL_RESULTS"
+        />
+      )}
       {shouldEnableTracingUI() && (
         <LegacyTabs.TabPane
           tab={
@@ -210,7 +247,6 @@ export const ExperimentViewRunsModeSwitch = ({
                 defaultMessage="Traces"
                 description="A button enabling traces mode on the experiment page"
               />
-              <PreviewBadge />
             </span>
           }
           key="TRACES"

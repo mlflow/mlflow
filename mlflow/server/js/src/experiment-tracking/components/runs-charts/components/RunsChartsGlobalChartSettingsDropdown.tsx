@@ -159,7 +159,7 @@ export const RunsChartsGlobalChartSettingsDropdown = ({
               min={0}
               max={100}
               onChange={(lineSmoothness) => updateGlobalLineChartSettings({ lineSmoothness })}
-              defaultValue={lineSmoothness ? lineSmoothness : 0}
+              value={lineSmoothness ? lineSmoothness : 0}
             />
           </div>
         </DropdownMenu.Group>

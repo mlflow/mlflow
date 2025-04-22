@@ -12,6 +12,7 @@ from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
 from mlflow.store.artifact.unity_catalog_oss_models_artifact_repo import (
     UnityCatalogOSSModelsArtifactRepository,
 )
+from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.utils.os import is_windows
 
 from tests.store.artifact.constants import (
@@ -125,7 +126,7 @@ def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_regis
         "run12345",
     )
     get_latest_versions_patch = mock.patch.object(
-        MlflowClient, "get_latest_versions", return_value=[model_version_detailed]
+        ModelRegistryClient, "get_latest_versions", return_value=[model_version_detailed]
     )
     get_model_version_download_uri_patch = mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
@@ -251,13 +252,28 @@ def test_models_artifact_repo_does_not_add_meta_for_directory_without_mlmodel(tm
         add_meta_mock.assert_not_called()
 
 
-def test_split_models_uri():
-    assert ModelsArtifactRepository.split_models_uri("models:/model/1") == ("models:/model/1", "")
-    assert ModelsArtifactRepository.split_models_uri("models:/model/1/path") == (
-        "models:/model/1",
-        "path",
-    )
-    assert ModelsArtifactRepository.split_models_uri("models:/model/1/path/to/artifact") == (
-        "models:/model/1",
-        "path/to/artifact",
-    )
+@pytest.mark.parametrize(
+    ("model_uri", "expected_uri", "expected_path"),
+    [
+        ("models:/model/1", "models:/model/1", ""),
+        ("models:/model/1/", "models:/model/1", ""),
+        ("models:/model/1/path", "models:/model/1", "path"),
+        ("models:/model/1/path/to/artifact", "models:/model/1", "path/to/artifact"),
+        ("models:/model@alias", "models:/model@alias", ""),
+        ("models:/model@alias/", "models:/model@alias", ""),
+        ("models:/model@alias/path", "models:/model@alias", "path"),
+        ("models:/model@alias/path/to/artifact", "models:/model@alias", "path/to/artifact"),
+        (
+            "models://scope:prefix@databricks/model/1",
+            "models://scope:prefix@databricks/model/1",
+            "",
+        ),
+        (
+            "models://scope:prefix@databricks/model/1/path/to/artifact",
+            "models://scope:prefix@databricks/model/1",
+            "path/to/artifact",
+        ),
+    ],
+)
+def test_split_models_uri(model_uri, expected_uri, expected_path):
+    assert ModelsArtifactRepository.split_models_uri(model_uri) == (expected_uri, expected_path)

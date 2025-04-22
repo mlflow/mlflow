@@ -1,7 +1,40 @@
 import { createLazyRouteElement } from '../common/utils/RoutingUtils';
 
 import { RoutePaths } from './routes';
+
+const getPromptPagesRouteDefs = () => {
+  return [
+    {
+      path: RoutePaths.promptsPage,
+      element: createLazyRouteElement(() => import('./pages/prompts/PromptsPage')),
+      pageId: 'mlflow.prompts',
+    },
+    {
+      path: RoutePaths.promptDetailsPage,
+      element: createLazyRouteElement(() => import('./pages/prompts/PromptsDetailsPage')),
+      pageId: 'mlflow.prompts.details',
+    },
+  ];
+};
+
 export const getRouteDefs = () => [
+  {
+    path: RoutePaths.experimentPageTabbed,
+    element: createLazyRouteElement(() => {
+      return import(/* webpackChunkName: "experimentPage" */ './components/HomePage');
+    }),
+    pageId: 'mlflow.experiment.details.tab',
+  },
+  {
+    path: RoutePaths.experimentLoggedModelDetailsPageTab,
+    element: createLazyRouteElement(() => import('./pages/experiment-logged-models/ExperimentLoggedModelDetailsPage')),
+    pageId: 'mlflow.logged-model.details.tab',
+  },
+  {
+    path: RoutePaths.experimentLoggedModelDetailsPage,
+    element: createLazyRouteElement(() => import('./pages/experiment-logged-models/ExperimentLoggedModelDetailsPage')),
+    pageId: 'mlflow.logged-model.details',
+  },
   {
     path: RoutePaths.experimentPage,
     element: createLazyRouteElement(() => import(/* webpackChunkName: "experimentPage" */ './components/HomePage')),
@@ -37,4 +70,5 @@ export const getRouteDefs = () => [
     element: createLazyRouteElement(() => import('./components/MetricPage')),
     pageId: 'mlflow.metric.details',
   },
+  ...getPromptPagesRouteDefs(),
 ];

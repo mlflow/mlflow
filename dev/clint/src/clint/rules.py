@@ -302,3 +302,47 @@ class IncorrectTypeAnnotation(Rule):
         raise ValueError(
             f"Unexpected type: {self.type_hint}. It must be one of {list(self.MAPPING)}."
         )
+
+
+class TypingExtensions(Rule):
+    def __init__(self, *, full_name: str, allowlist: list[str]) -> None:
+        self.full_name = full_name
+        self.allowlist = allowlist
+
+    def _id(self) -> str:
+        return "MLF0017"
+
+    def _message(self) -> str:
+        return (
+            f"`{self.full_name}` is not allowed to use. Only {self.allowlist} are allowed. "
+            "You can extend `tool.clint.typing-extensions-allowlist` in `pyproject.toml` if needed "
+            "but make sure that the version requirement for `typing-extensions` is compatible with "
+            "the added types."
+        )
+
+
+class MarkdownLink(Rule):
+    def _id(self) -> str:
+        return "MLF0018"
+
+    def _message(self) -> str:
+        return (
+            "Markdown link is not supported in docstring. "
+            "Use reST link instead (e.g., `Link text <link URL>`_)."
+        )
+
+
+class LazyModule(Rule):
+    def _id(self) -> str:
+        return "MLF0019"
+
+    def _message(self) -> str:
+        return "Module loaded by `LazyLoader` must be imported in `TYPE_CHECKING` block."
+
+
+class EmptyNotebookCell(Rule):
+    def _id(self) -> str:
+        return "MLF0020"
+
+    def _message(self) -> str:
+        return "Empty notebook cell. Remove it or add some content."

@@ -348,7 +348,7 @@ describe('getEvaluationArtifact', () => {
   const mockStoreFactory = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    (fetchEvaluationTableArtifact as jest.Mock).mockClear();
+    jest.mocked(fetchEvaluationTableArtifact).mockClear();
   });
 
   it('should invoke downloading single artifact', () => {

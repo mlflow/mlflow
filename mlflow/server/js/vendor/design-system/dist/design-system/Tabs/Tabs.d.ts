@@ -5,7 +5,7 @@ import type { ButtonProps } from '..';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '..';
 import type { Theme } from '../../theme';
 import type { AnalyticsEventValueChangeNoPiiFlagProps, DangerousGeneralProps } from '../types';
-interface RootProps extends Omit<RadixTabs.TabsProps, 'asChild' | 'orientation' | 'dir' | 'activationMode'>, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+interface RootProps extends Omit<RadixTabs.TabsProps, 'asChild' | 'orientation' | 'dir'>, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
 }
 export declare const Root: React.ForwardRefExoticComponent<RootProps & React.RefAttributes<HTMLDivElement>>;
 interface AddButtonProps extends DangerousGeneralProps, Pick<ButtonProps, 'onClick' | 'className'> {
@@ -21,9 +21,13 @@ interface ListProps extends DangerousGeneralProps, Omit<RadixTabs.TabsListProps,
      *  Customizing the scrollbar height is not recommended. Ask in #dubois before using.
      */
     scrollbarHeight?: number;
+    /** Optional callback to get access to the viewport element. */
+    getScrollAreaViewportRef?: (element: HTMLDivElement | null) => void;
+    /** Optional CSS to append to the tab list container */
+    tabListCss?: Interpolation<Theme>;
 }
 export declare const List: React.ForwardRefExoticComponent<ListProps & React.RefAttributes<HTMLDivElement>>;
-interface TriggerProps extends Omit<RadixTabs.TabsTriggerProps, 'asChild'> {
+export interface TriggerProps extends Omit<RadixTabs.TabsTriggerProps, 'asChild'> {
     /** Called when the close tab icon is clicked. The close icon is only displayed when this prop is passed */
     onClose?: (value: string) => void;
 }

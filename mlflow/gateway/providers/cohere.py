@@ -94,10 +94,7 @@ class CohereAdapter(ProviderAdapter):
                 completions.StreamChoice(
                     index=resp.get("index", 0),
                     finish_reason=resp.get("finish_reason"),
-                    delta=completions.StreamDelta(
-                        role=None,
-                        content=resp.get("text"),
-                    ),
+                    text=resp.get("text"),
                 )
             ],
             usage=completions.CompletionsUsage(

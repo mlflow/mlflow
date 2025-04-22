@@ -187,6 +187,7 @@ async def test_chat(payload, expected_llm_input):
                         "role": "1",
                         "content": "Hi there! How can I help you today?",
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": None,
                     "index": 0,
@@ -240,22 +241,26 @@ def embeddings_response():
 def embeddings_batch_response():
     return {
         "embeddings": [
-            [
-                3.25,
-                0.7685547,
-                2.65625,
-                -0.30126953,
-                -2.3554688,
-                1.2597656,
-            ],
-            [
-                7.25,
-                0.7685547,
-                4.65625,
-                -0.30126953,
-                -2.3554688,
-                8.2597656,
-            ],
+            {
+                "value": [
+                    3.25,
+                    0.7685547,
+                    2.65625,
+                    -0.30126953,
+                    -2.3554688,
+                    1.2597656,
+                ]
+            },
+            {
+                "value": [
+                    7.25,
+                    0.7685547,
+                    4.65625,
+                    -0.30126953,
+                    -2.3554688,
+                    8.2597656,
+                ]
+            },
         ],
         "headers": {"Content-Type": "application/json"},
     }
@@ -293,6 +298,7 @@ async def test_embeddings(prompt):
         mock_post.assert_called_once()
 
 
+@pytest.mark.asyncio
 async def test_embeddings_batch():
     config = embeddings_config()
     with mock.patch(

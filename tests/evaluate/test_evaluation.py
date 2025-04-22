@@ -239,9 +239,9 @@ def get_linear_regressor_model_uri():
     reg = sklearn.linear_model.LinearRegression()
     reg.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(reg, "reg_model")
-        return get_artifact_uri(run.info.run_id, "reg_model")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(reg, "reg_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -254,9 +254,9 @@ def get_spark_linear_regressor_model_uri():
     reg = SparkLinearRegression()
     spark_reg_model = reg.fit(spark_df)
 
-    with mlflow.start_run() as run:
-        mlflow.spark.log_model(spark_reg_model, "spark_reg_model")
-        return get_artifact_uri(run.info.run_id, "spark_reg_model")
+    with mlflow.start_run():
+        model_info = mlflow.spark.log_model(spark_reg_model, "spark_reg_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -269,9 +269,9 @@ def multiclass_logistic_regressor_model_uri_by_max_iter(max_iter):
     clf = sklearn.linear_model.LogisticRegression(max_iter=max_iter)
     clf.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, f"clf_model_{max_iter}_iters")
-        return get_artifact_uri(run.info.run_id, f"clf_model_{max_iter}_iters")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(clf, f"clf_model_{max_iter}_iters")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -284,9 +284,9 @@ def get_binary_logistic_regressor_model_uri():
     clf = sklearn.linear_model.LogisticRegression()
     clf.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, "bin_clf_model")
-        return get_artifact_uri(run.info.run_id, "bin_clf_model")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(clf, "bin_clf_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -299,9 +299,9 @@ def get_svm_model_url():
     clf = sklearn.svm.LinearSVC()
     clf.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, "svm_model")
-        return get_artifact_uri(run.info.run_id, "svm_model")
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(clf, "svm_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
@@ -361,8 +361,8 @@ def test_mlflow_evaluate_logs_traces():
 def test_pyfunc_evaluate_logs_traces():
     class Model(mlflow.pyfunc.PythonModel):
         @mlflow.trace()
-        def predict(self, _, inputs):
-            return self.add(inputs, inputs)
+        def predict(self, context, model_input):
+            return self.add(model_input, model_input)
 
         @mlflow.trace()
         def add(self, x, y):
@@ -1679,7 +1679,15 @@ def test_binary_classification_missing_minority_class_exception_override(
         )
     _, saved_metrics, _, _ = get_run_data(run.info.run_id)
 
-    assert saved_metrics == eval_result.metrics
+    for key, saved_val in saved_metrics.items():
+        eval_val = eval_result.metrics[key]
+        # some nan fields are due to the class imbalance.
+        # for example, the roc_auc_score metric will return
+        # nan since we override all classes to `1` here
+        if np.isnan(saved_val):
+            assert np.isnan(eval_val)
+        else:
+            assert eval_val == saved_val
 
 
 def test_multiclass_classification_missing_minority_class_exception_override(

@@ -4,7 +4,6 @@ import { RunsChartsCardConfig } from '../runs-charts.types';
 import { DragAndDropProvider } from '../../../../common/hooks/useDragAndDropElement';
 import { useUpdateRunsChartsUIConfiguration } from '../hooks/useRunsChartsUIConfiguration';
 import { indexOf, sortBy } from 'lodash';
-import { shouldEnableDraggableChartsGridLayout } from '../../../../common/utils/FeatureUtils';
 
 const RunsChartsDraggableGridStateContext = createContext<{
   draggedCardUuid: string | null;
@@ -40,11 +39,6 @@ export const RunsChartsDraggableCardsGridContextProvider = ({
   children?: React.ReactNode;
   visibleChartCards?: RunsChartsCardConfig[];
 }) => {
-  // If the feature flag is off, return the children wrapped with legacy react-dnd based provider
-  if (!shouldEnableDraggableChartsGridLayout()) {
-    return <DragAndDropProvider>{children}</DragAndDropProvider>;
-  }
-
   // Stateful values: dragged card ID and target section ID
   const [draggedCardUuid, setDraggedCardUuid] = useState<string | null>(null);
   const [targetSectionUuid, setTargetSectionUuid] = useState<string | null>(null);
@@ -184,6 +178,12 @@ export const RunsChartsDraggableCardsGridContextProvider = ({
               return chart;
             },
           ),
+          compareRunSections: current.compareRunSections?.map((section) => {
+            if (section.uuid === sourceSection?.uuid || section.uuid === targetSection?.uuid) {
+              return { ...section, isReordered: true };
+            }
+            return section;
+          }),
         };
       }
     });

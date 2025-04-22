@@ -2,7 +2,6 @@ import { isUndefined, pick } from 'lodash';
 import type { RunsChartsLineCardConfig } from '../../runs-charts.types';
 import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 import { useMemo } from 'react';
-import { shouldEnableGlobalLineChartConfig } from '../../../../../common/utils/FeatureUtils';
 import { RunsChartsLineChartXAxisType } from '../RunsCharts.common';
 
 /**
@@ -16,7 +15,7 @@ export const useLineChartGlobalConfig = (
   useMemo(() => {
     const result = pick(originalCardConfig, ['xAxisKey', 'selectedXAxisMetricKey', 'lineSmoothness']);
 
-    if (!shouldEnableGlobalLineChartConfig() || !globalLineChartConfig) {
+    if (!globalLineChartConfig) {
       return result;
     }
 

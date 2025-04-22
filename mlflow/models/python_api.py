@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 from io import StringIO
 from typing import ForwardRef, get_args, get_origin
 
@@ -7,12 +8,14 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import (
-    is_databricks_connect,
-)
+from mlflow.utils.databricks_utils import is_databricks_connect, is_in_databricks_runtime
 from mlflow.utils.file_utils import TempDir
 
 _logger = logging.getLogger(__name__)
+UV_INSTALLATION_INSTRUCTIONS = (
+    "Run `pip install uv` to install uv. See "
+    "https://docs.astral.sh/uv/getting-started/installation for other installation methods."
+)
 
 
 def build_docker(
@@ -113,6 +116,25 @@ def predict(
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
 
+    .. note::
+
+        To increase verbosity for debugging purposes (in order to inspect the full dependency
+        resolver operations when processing transient dependencies), consider setting the following
+        environment variables:
+
+        .. code-block:: bash
+
+            # For virtualenv
+            export PIP_VERBOSE=1
+
+            # For uv
+            export RUST_LOG=uv=debug
+
+        See also:
+
+        - https://pip.pypa.io/en/stable/topics/configuration/#environment-variables
+        - https://docs.astral.sh/uv/configuration/environment
+
     Args:
         model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
         input_data: Input data for prediction. Must be valid input for the PyFunc model. Refer
@@ -128,6 +150,7 @@ def predict(
         env_manager: Specify a way to create an environment for MLmodel inference:
 
             - "virtualenv" (default): use virtualenv (and pyenv for Python version management)
+            - "uv": use uv
             - "local": use the local environment
             - "conda": use conda
 
@@ -149,8 +172,8 @@ def predict(
             current os.environ are passed, and this parameter can be used to override them.
 
             .. note::
-                This parameter is only supported when `env_manager` is set to "virtualenv"
-                or "conda".
+                This parameter is only supported when `env_manager` is set to "virtualenv",
+                "conda" or "uv".
 
     Code example:
 
@@ -166,7 +189,14 @@ def predict(
             content_type="json",
         )
 
-        # Run prediction with additional pip dependencies
+        # Run prediction with "uv" as the environment manager
+        mlflow.models.predict(
+            model_uri=f"runs:/{run_id}/model",
+            input_data={"x": 1, "y": 2},
+            env_manager="uv",
+        )
+
+        # Run prediction with additional pip dependencies and extra environment variables
         mlflow.models.predict(
             model_uri=f"runs:/{run_id}/model",
             input_data={"x": 1, "y": 2},
@@ -183,18 +213,36 @@ def predict(
         raise MlflowException.invalid_parameter_value(
             f"Content type must be one of {_CONTENT_TYPE_JSON} or {_CONTENT_TYPE_CSV}."
         )
-    if extra_envs and env_manager not in (_EnvManager.VIRTUALENV, _EnvManager.CONDA):
+    if extra_envs and env_manager not in (
+        _EnvManager.VIRTUALENV,
+        _EnvManager.CONDA,
+        _EnvManager.UV,
+    ):
         raise MlflowException.invalid_parameter_value(
             "Extra environment variables are only supported when env_manager is "
-            f"set to '{_EnvManager.VIRTUALENV}' or '{_EnvManager.CONDA}'."
+            f"set to '{_EnvManager.VIRTUALENV}', '{_EnvManager.CONDA}' or '{_EnvManager.UV}'."
+        )
+    if env_manager == _EnvManager.UV:
+        if not shutil.which("uv"):
+            raise MlflowException(
+                f"Found '{env_manager}' as env_manager, but the 'uv' command is not found in the "
+                f"PATH. {UV_INSTALLATION_INSTRUCTIONS} Alternatively, you can use 'virtualenv' or "
+                "'conda' as the environment manager, but note their performances are not "
+                "as good as 'uv'."
+            )
+    else:
+        _logger.info(
+            f"It is highly recommended to use `{_EnvManager.UV}` as the environment manager for "
+            "predicting with MLflow models as its performance is significantly better than other "
+            f"environment managers. {UV_INSTALLATION_INSTRUCTIONS}"
         )
 
     is_dbconnect_mode = is_databricks_connect()
     if is_dbconnect_mode:
-        if env_manager != _EnvManager.VIRTUALENV:
+        if env_manager not in (_EnvManager.VIRTUALENV, _EnvManager.UV):
             raise MlflowException(
-                "Databricks Connect only supports virtualenv as the environment manager. "
-                f"Got {env_manager}."
+                f"Databricks Connect only supports '{_EnvManager.VIRTUALENV}' or '{_EnvManager.UV}'"
+                f" as the environment manager. Got {env_manager}."
             )
         pyfunc_backend_env_root_config = {
             "create_env_root_dir": False,
@@ -204,19 +252,28 @@ def predict(
         pyfunc_backend_env_root_config = {"create_env_root_dir": True}
 
     def _predict(_input_path: str):
-        return get_flavor_backend(
-            model_uri,
-            env_manager=env_manager,
-            install_mlflow=install_mlflow,
-            **pyfunc_backend_env_root_config,
-        ).predict(
-            model_uri=model_uri,
-            input_path=_input_path,
-            output_path=output_path,
-            content_type=content_type,
-            pip_requirements_override=pip_requirements_override,
-            extra_envs=extra_envs,
-        )
+        try:
+            return get_flavor_backend(
+                model_uri,
+                env_manager=env_manager,
+                install_mlflow=install_mlflow,
+                **pyfunc_backend_env_root_config,
+            ).predict(
+                model_uri=model_uri,
+                input_path=_input_path,
+                output_path=output_path,
+                content_type=content_type,
+                pip_requirements_override=pip_requirements_override,
+                extra_envs=extra_envs,
+            )
+        except Exception as e:
+            if is_in_databricks_runtime() and "Permission denied" in str(e):
+                raise MlflowException(
+                    "The virtual environment cannot be retrieved. To resolve this issue, either "
+                    "detach your notebook from your running environment and reattach, or restart "
+                    "your compute resource to build a new environment."
+                ) from e
+            raise
 
     if input_data is not None and input_path is not None:
         raise MlflowException.invalid_parameter_value(

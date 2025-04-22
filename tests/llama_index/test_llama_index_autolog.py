@@ -7,7 +7,7 @@ from llama_index.llms.openai import OpenAI
 
 import mlflow
 
-from tests.llama_index.test_llama_index_tracer import _get_all_traces
+from tests.tracing.helper import get_traces
 
 
 def test_autolog_enable_tracing(multi_index):
@@ -18,7 +18,7 @@ def test_autolog_enable_tracing(multi_index):
     query_engine.query("Hello")
     query_engine.query("Hola")
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 2
 
     # Enabling autolog multiple times should not create duplicate spans
@@ -28,13 +28,13 @@ def test_autolog_enable_tracing(multi_index):
     chat_engine = multi_index.as_chat_engine()
     chat_engine.chat("Hello again!")
 
-    assert len(_get_all_traces()) == 3
+    assert len(get_traces()) == 3
 
     mlflow.llama_index.autolog(disable=True)
     query_engine.query("Hello again!")
 
-    traces = _get_all_traces()
-    assert len(_get_all_traces()) == 3
+    traces = get_traces()
+    assert len(get_traces()) == 3
 
 
 def test_autolog_preserve_user_provided_handlers():
@@ -56,7 +56,7 @@ def test_autolog_preserve_user_provided_handlers():
     user_span_handler.span_exit.assert_called_once()
     assert user_event_handler.handle.call_count == 2  # LLM start + end
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
 
     user_span_handler.reset_mock()
@@ -73,7 +73,7 @@ def test_autolog_preserve_user_provided_handlers():
     user_span_handler.span_exit.assert_called_once()
     assert user_event_handler.handle.call_count == 2
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
 
 
@@ -86,7 +86,7 @@ def test_autolog_should_not_generate_traces_during_logging_loading(single_index)
         )
     loaded = mlflow.pyfunc.load_model(model_info.model_uri)
 
-    assert len(_get_all_traces()) == 0
+    assert len(get_traces()) == 0
 
     loaded.predict("Hello")
-    assert len(_get_all_traces()) == 1
+    assert len(get_traces()) == 1
