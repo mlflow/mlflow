@@ -42,7 +42,7 @@ TRUNCATION_SUFFIX = "..."
 TRACE_REQUEST_ID_PREFIX = "tr-"
 
 # Schema version of traces and spans.
-TRACE_SCHEMA_VERSION = 2
+TRACE_SCHEMA_VERSION = 3
 
 # Key for the trace schema version in the trace. This key is also used in
 # Databricks model serving to be careful when modifying it.

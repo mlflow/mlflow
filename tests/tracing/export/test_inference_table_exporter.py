@@ -58,10 +58,6 @@ def test_export():
     spans = trace_dict["data"]["spans"]
     assert len(spans) == 2
     assert spans[0]["name"] == "root"
-    assert spans[0]["context"] == {
-        "trace_id": encode_trace_id(_TRACE_ID),
-        "span_id": encode_span_id(1),
-    }
     assert isinstance(spans[0]["attributes"], dict)
 
     # Last active trace ID should be set

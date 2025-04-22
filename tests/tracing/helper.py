@@ -11,7 +11,7 @@ import pytest
 from opentelemetry.sdk.trace import Event, ReadableSpan
 
 import mlflow
-from mlflow.entities import Trace, TraceData, TraceInfo
+from mlflow.entities import Trace, TraceData, TraceInfo, trace_state
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.tracing.export.inference_table import pop_trace
@@ -42,6 +42,7 @@ def create_mock_otel_span(
         trace_id: str
         span_id: str
         trace_flags: trace_api.TraceFlags = trace_api.TraceFlags(1)
+        trace_state: trace_api.TraceState = trace_api.TraceState()
 
     class _MockOTelSpan(trace_api.Span, ReadableSpan):
         def __init__(
