@@ -37,8 +37,8 @@ ALL_SCORERS = [
     [
         ALL_SCORERS,
         [*ALL_SCORERS] + [*ALL_SCORERS],  # duplicate scorers
-        rag_scorers(global_guideline="Be polite") + [guideline_adherence(), safety()],
-        [*rag_scorers(global_guideline="Be polite")] + [guideline_adherence(), safety()],
+        rag_scorers() + [global_guideline_adherence("By polite"), guideline_adherence(), safety()],
+        [*rag_scorers()] + [global_guideline_adherence("By polite"), guideline_adherence(), safety()],
     ],
 )
 def test_scorers_and_rag_scorers_config(scorers):
