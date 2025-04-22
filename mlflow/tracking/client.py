@@ -1398,13 +1398,16 @@ class MlflowClient:
         """
         Start a trace using the V3 API format.
 
+        NB: This method is named "Start" for internal reason in the backend, but actually
+        should be called at the end of the trace. We will migrate this to "CreateTrace"
+        API in the future to avoid confusion.
+
         Args:
             trace: The Trace object to create.
 
         Returns:
             The created Trace object.
         """
-        assert False, "this should not be called"
         return self._tracking_client.start_trace_v3(trace=trace)
 
     def _upload_ended_trace_info(

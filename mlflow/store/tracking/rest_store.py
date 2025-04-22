@@ -296,6 +296,10 @@ class RestStore(AbstractStore):
         """
         Start a trace using the V3 API format.
 
+        NB: This method is named "Start" for internal reason in the backend, but actually
+        should be called at the end of the trace. We will migrate this to "CreateTrace"
+        API in the future to avoid confusion.
+
         Args:
             trace: The Trace object to create.
 

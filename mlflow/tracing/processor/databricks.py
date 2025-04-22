@@ -16,7 +16,6 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
     maybe_get_dependencies_schemas,
 )
-from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
 
 _logger = logging.getLogger(__name__)
@@ -33,11 +32,9 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
     def __init__(
         self,
         span_exporter: SpanExporter,
-        client: Optional[MlflowClient] = None,
         experiment_id: Optional[str] = None,
     ):
         self.span_exporter = span_exporter
-        self._client = client or MlflowClient()
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._experiment_id = experiment_id
 
@@ -93,9 +90,8 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
                     _logger.debug(f"Trace data with request ID {request_id} not found.")
                     return
 
-                # Update in-memory trace info
                 trace.info.execution_time_ms = (span.end_time - span.start_time) // 1_000_000
                 trace.info.status = TraceStatus.from_otel_status(span.status)
                 deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
-            super().on_end(span)
+        super().on_end(span)
