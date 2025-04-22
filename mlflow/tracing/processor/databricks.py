@@ -98,4 +98,4 @@ class DatabricksSpanProcessor(SimpleSpanProcessor):
                 trace.info.status = TraceStatus.from_otel_status(span.status)
                 deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
-                super().on_end(span)
+            super().on_end(span)

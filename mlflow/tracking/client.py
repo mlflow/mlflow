@@ -1393,17 +1393,18 @@ class MlflowClient:
             request_metadata=request_metadata or {},
             tags=tags or {},
         )
-        
+
     def _start_trace_v3(self, trace):
         """
         Start a trace using the V3 API format.
-        
+
         Args:
             trace: The Trace object to create.
-            
+
         Returns:
             The created Trace object.
         """
+        assert False, "this should not be called"
         return self._tracking_client.start_trace_v3(trace=trace)
 
     def _upload_ended_trace_info(

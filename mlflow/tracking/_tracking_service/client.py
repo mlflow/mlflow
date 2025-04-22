@@ -209,7 +209,7 @@ class TrackingServiceClient:
             request_metadata=request_metadata,
             tags=tags,
         )
-        
+
     def start_trace_v3(self, trace):
         """
         Start a trace using the V3 API format.

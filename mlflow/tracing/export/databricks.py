@@ -1,7 +1,6 @@
 import logging
 from typing import Sequence
 
-
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
@@ -10,11 +9,10 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
 from mlflow.protos.databricks_trace_server_pb2 import DatabricksTracingServerService
-from mlflow.tracking import MlflowClient
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-
+from mlflow.tracking import MlflowClient
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     extract_api_info_for_service,
@@ -70,7 +68,6 @@ class DatabricksSpanExporter(SpanExporter):
                 )
             else:
                 self._log_trace(trace)
-
 
     def _log_trace(self, trace: Trace):
         """
