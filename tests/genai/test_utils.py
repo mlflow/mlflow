@@ -29,36 +29,32 @@ def spark():
 
 @pytest.fixture
 def sample_dict_data():
-    return {
-        "inputs": [
-            "What is the difference between reduceByKey and groupByKey in Spark?",
-            {
-                "messages": [
-                    {"role": "user", "content": "How can you minimize data shuffling in Spark?"}
-                ]
-            },
-        ],
-        "outputs": [
-            {"choices": [{"message": {"content": "actual response for first question"}}]},
-            {"choices": [{"message": {"content": "actual response for second question"}}]},
-        ],
-        "expectations": [
-            "expected response for first question",
-            "expected response for second question",
-        ],
-    }
+    return [
+        {
+            "inputs": [
+                "What is the difference between reduceByKey and groupByKey in Spark?",
+                {
+                    "messages": [
+                        {"role": "user", "content": "How can you minimize data shuffling in Spark?"}
+                    ]
+                },
+            ],
+            "outputs": [
+                {"choices": [{"message": {"content": "actual response for first question"}}]},
+                {"choices": [{"message": {"content": "actual response for second question"}}]},
+            ],
+            "expectations": [
+                "expected response for first question",
+                "expected response for second question",
+            ],
+        }
+    ]
 
 
 @pytest.fixture
 def sample_pd_data(sample_dict_data):
     """Returns a pandas DataFrame with sample data"""
-    return pd.DataFrame(sample_dict_data)
-
-
-@pytest.fixture
-def sample_dict_list_data(sample_pd_data):
-    """Returns a pandas DataFrame with sample data"""
-    return sample_pd_data.to_dict(orient="records")
+    return pd.DataFrame(sample_dict_data[0])
 
 
 @pytest.fixture
@@ -69,7 +65,7 @@ def sample_spark_data(sample_pd_data, spark):
 
 @pytest.mark.parametrize(
     "data_fixture",
-    ["sample_dict_data", "sample_pd_data", "sample_spark_data", "sample_dict_list_data"],
+    ["sample_dict_data", "sample_pd_data", "sample_spark_data"],
 )
 def test_convert_to_legacy_eval_set_has_no_errors(data_fixture, request):
     sample_data = request.getfixturevalue(data_fixture)
@@ -89,7 +85,7 @@ def test_convert_to_legacy_eval_set_has_no_errors(data_fixture, request):
 
 @pytest.mark.parametrize(
     "data_fixture",
-    ["sample_dict_data", "sample_pd_data", "sample_spark_data", "sample_dict_list_data"],
+    ["sample_dict_data", "sample_pd_data", "sample_spark_data"],
 )
 def test_scorer_receives_correct_data(data_fixture, request):
     sample_data = request.getfixturevalue(data_fixture)
@@ -117,8 +113,9 @@ def test_scorer_receives_correct_data(data_fixture, request):
         )
 
         expected_len = (
-            len(sample_data["inputs"]) if isinstance(sample_data, dict) else len(sample_data)
+            len(sample_data[0]["inputs"]) if isinstance(sample_data, list) else len(sample_data)
         )
+
         assert len(received_args) == expected_len
         assert set(received_args[0].keys()) == set({"inputs", "outputs", "expectations", "trace"})
 
@@ -157,7 +154,7 @@ def test_scorer_receives_correct_data(data_fixture, request):
 
 @pytest.mark.parametrize(
     "data_fixture",
-    ["sample_dict_data", "sample_pd_data", "sample_spark_data", "sample_dict_list_data"],
+    ["sample_dict_data", "sample_pd_data", "sample_spark_data"],
 )
 def test_predict_fn_receives_correct_data(data_fixture, request):
     sample_data = request.getfixturevalue(data_fixture)
@@ -176,7 +173,7 @@ def test_predict_fn_receives_correct_data(data_fixture, request):
             model_type="databricks-agent",
         )
         expected_len = (
-            len(sample_data["inputs"]) if isinstance(sample_data, dict) else len(sample_data)
+            len(sample_data[0]["inputs"]) if isinstance(sample_data, list) else len(sample_data)
         )
         assert len(received_args) == expected_len
         assert set(

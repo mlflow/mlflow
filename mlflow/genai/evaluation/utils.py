@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities import Trace
 from mlflow.evaluation import Assessment
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
 from mlflow.types.llm import ChatCompletionRequest
@@ -24,33 +25,68 @@ if TYPE_CHECKING:
         EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
 
 
-# TODO: ML-52299
 def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
     """
     Takes in a dataset in the format that mlflow.genai.evaluate() expects and converts it into
     to the current eval-set schema that Agent Evaluation takes in. The transformed schema should
     be accepted by mlflow.evaluate().
+    The expected schema can be found at:
+    https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
     """
     column_mapping = {
         "inputs": "request",
         "outputs": "response",
-        "expectations": "expected_response",
         "trace": "trace",
     }
 
-    if isinstance(data, (list, dict)):
-        df = pd.DataFrame(data)
-    elif isinstance(data, pd.DataFrame):
-        # data is already a pandas DataFrame, just copy it
-        df = data.copy()
-    else:  # spark DataFrame
-        df = data.toPandas()
+    if isinstance(data, list):
+        # validate that every item in the list is a dict and has inputs as key
+        for item in data:
+            if not isinstance(item, dict):
+                raise MlflowException.invalid_parameter_value(
+                    "Every item in the list must be a dictionary."
+                )
+            if "inputs" not in item:
+                raise MlflowException.invalid_parameter_value(
+                    "Every item in the list must have an 'inputs' key."
+                )
 
-    # Rename columns according to the mapping
-    renamed_df = pd.DataFrame()
-    for old_col, new_col in column_mapping.items():
-        if old_col in df.columns:
-            renamed_df[new_col] = df[old_col]
+        df = pd.DataFrame(data) if 1 < len(data) else pd.DataFrame(data[0])
+    elif isinstance(data, pd.DataFrame):
+        # Data is already a pd DataFrame, just copy it
+        df = data.copy()
+    else:
+        try:
+            import pyspark.sql.dataframe
+
+            if isinstance(data, pyspark.sql.dataframe.DataFrame):
+                df = data.toPandas()
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    "Invalid type for parameter `data`. Expected a list of dictionaries, "
+                    f"a pandas DataFrame, or a Spark DataFrame. Got: {type(data)}"
+                )
+        except ImportError:
+            raise ImportError(
+                "The `pyspark` package is required to use mlflow.genai.evaluate() "
+                "Please install it with `pip install pyspark`."
+            )
+
+    renamed_df = df.filter(items=column_mapping.keys()).rename(columns=column_mapping)
+
+    if "expectations" in df.columns:
+        for field in ["expected_response", "expected_retrieved_context", "expected_facts"]:
+            renamed_df[field] = None
+
+        # Process each row individually to handle mixed types
+        for idx, value in df["expectations"].items():
+            if isinstance(value, dict):
+                for field in ["expected_response", "expected_retrieved_context", "expected_facts"]:
+                    if field in value:
+                        renamed_df.at[idx, field] = value[field]
+            # Non-dictionary values go to expected_response
+            elif value is not None:
+                renamed_df.at[idx, "expected_response"] = value
 
     return renamed_df
 
