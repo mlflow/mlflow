@@ -278,7 +278,6 @@ def save_model(
     task: Optional[str] = None,
     torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
-    inference_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
@@ -386,9 +385,6 @@ def save_model(
             .. Note:: In order for a ModelCard to be fetched (if not provided),
                         the huggingface_hub package must be installed and the version
                         must be >=0.10.0
-        inference_config:
-
-            .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
 
         code_paths: {{ code_paths }}
         mlflow_model: An MLflow model object that specifies the flavor that this model is being
@@ -674,15 +670,6 @@ def save_model(
             "will be logged instead."
         )
 
-    if inference_config:
-        _logger.warning(
-            "Indicating `inference_config` is deprecated and will be removed in a future version "
-            "of MLflow. Use `model_config` instead."
-        )
-        path.joinpath(_INFERENCE_CONFIG_BINARY_KEY).write_text(
-            json.dumps(inference_config, indent=2)
-        )
-
     model_name = built_pipeline.model.name_or_path
 
     # Get the model card from either the argument or the HuggingFace marketplace
@@ -706,7 +693,7 @@ def save_model(
             mlflow_model.signature = infer_or_get_default_signature(
                 pipeline=built_pipeline,
                 example=input_example,
-                model_config=model_config or inference_config,
+                model_config=model_config,
                 flavor_config=flavor_conf,
             )
 
@@ -796,7 +783,6 @@ def log_model(
     task: Optional[str] = None,
     torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
-    inference_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
     registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
@@ -910,9 +896,6 @@ def log_model(
                 .. Note:: In order for a ModelCard to be fetched (if not provided),
                     the huggingface_hub package must be installed and the version
                     must be >=0.10.0
-        inference_config:
-
-            .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
 
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
@@ -1039,7 +1022,6 @@ def log_model(
         task=task,
         torch_dtype=torch_dtype,
         model_card=model_card,
-        inference_config=inference_config,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
