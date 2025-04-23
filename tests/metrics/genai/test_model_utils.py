@@ -5,7 +5,8 @@ from unittest import mock
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import Route, RouteModelInfo
+from mlflow.gateway.config import RouteModelInfo
+from mlflow.deployments.server.config import Endpoint
 from mlflow.metrics.genai.model_utils import (
     _parse_model_uri,
     call_deployments_api,
@@ -367,15 +368,16 @@ def test_score_model_gateway_completions():
     }
 
     with mock.patch(
-        "mlflow.gateway.get_route",
-        return_value=Route(
+        "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
+        return_value=Endpoint(
             name="my-route",
-            route_type="llm/v1/completions",
+            endpoint_type="llm/v1/completions",
             model=RouteModelInfo(provider="openai"),
-            route_url="my-route",
-        ).to_endpoint(),
+            endpoint_url="my-route",
+            limit=None,
+        ),
     ):
-        with mock.patch("mlflow.gateway.query", return_value=expected_output):
+        with mock.patch("mlflow.deployments.MlflowDeploymentClient.predict", return_value=expected_output):
             response = score_model_on_payload("gateway:/my-route", "")
             assert response == expected_output["choices"][0]["text"]
 
@@ -402,13 +404,14 @@ def test_score_model_gateway_chat():
     }
 
     with mock.patch(
-        "mlflow.gateway.get_route",
-        return_value=Route(
+        "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
+        return_value=Endpoint(
             name="my-route",
-            route_type="llm/v1/chat",
+            endpoint_type="llm/v1/chat",
             model=RouteModelInfo(provider="openai"),
-            route_url="my-route",
-        ).to_endpoint(),
+            endpoint_url="my-route",
+            limit=None,
+        ),
     ):
         with mock.patch("mlflow.gateway.query", return_value=expected_output):
             response = score_model_on_payload("gateway:/my-route", "")

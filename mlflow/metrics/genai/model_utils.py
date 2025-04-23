@@ -303,6 +303,7 @@ def call_deployments_api(
 
     if isinstance(input_data, str):
         if endpoint_type is None:
+            breakpoint()
             endpoint_type = client.get_endpoint(deployment_uri).dict()["endpoint_type"]
         payload = _construct_payload_from_str(input_data, endpoint_type)
     elif isinstance(input_data, dict):
