@@ -60,12 +60,18 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
+    # Routes for logged models
+    CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
+    DeleteLoggedModel,
+    DeleteLoggedModelTag,
     DeleteRun,
     DeleteTag,
+    FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
+    GetLoggedModel,
     GetMetricHistory,
     GetRun,
     ListArtifacts,
@@ -77,16 +83,10 @@ from mlflow.protos.service_pb2 import (
     RestoreRun,
     SearchExperiments,
     SetExperimentTag,
+    SetLoggedModelTags,
     SetTag,
     UpdateExperiment,
     UpdateRun,
-    # Routes for logged models
-    # CreateLoggedModel,
-    # GetLoggedModel,
-    # FinalizeLoggedModel,
-    # DeleteLoggedModel,
-    # DeleteLoggedModelTag,
-    # SetLoggedModelTags,
 )
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
@@ -249,6 +249,18 @@ def _get_permission_from_run_id() -> Permission:
     )
 
 
+def _get_permission_from_model_id() -> Permission:
+    # run permissions inherit from parent resource (experiment)
+    # so we just get the experiment permission
+    model_id = _get_request_param("model_id")
+    model = _get_tracking_store().get_logged_model(model_id)
+    experiment_id = model.experiment_id
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
 def _get_permission_from_registered_model_name() -> Permission:
     name = _get_request_param("name")
     username = authenticate_request().username
@@ -289,6 +301,7 @@ def validate_can_delete_experiment_artifact_proxy():
     return _get_permission_from_experiment_id_artifact_proxy().can_manage
 
 
+# Runs
 def validate_can_read_run():
     return _get_permission_from_run_id().can_read
 
@@ -305,6 +318,24 @@ def validate_can_manage_run():
     return _get_permission_from_run_id().can_manage
 
 
+# Logged models
+def validate_can_read_logged_model():
+    return _get_permission_from_model_id().can_read
+
+
+def validate_can_update_logged_model():
+    return _get_permission_from_model_id().can_update
+
+
+def validate_can_delete_logged_model():
+    return _get_permission_from_model_id().can_delete
+
+
+def validate_can_manage_logged_model():
+    return _get_permission_from_model_id().can_manage
+
+
+# Registered models
 def validate_can_read_registered_model():
     return _get_permission_from_registered_model_name().can_read
 
@@ -399,6 +430,12 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteRegisteredModelAlias: validate_can_delete_registered_model,
     GetModelVersionByAlias: validate_can_read_registered_model,
     # Routes for logged models
+    CreateLoggedModel: validate_can_update_logged_model,
+    GetLoggedModel: validate_can_read_logged_model,
+    DeleteLoggedModel: validate_can_delete_logged_model,
+    FinalizeLoggedModel: validate_can_update_logged_model,
+    DeleteLoggedModelTag: validate_can_delete_logged_model,
+    SetLoggedModelTags: validate_can_update_logged_model,
 }
 
 
