@@ -252,7 +252,7 @@ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '[
 
 ## Serving Frameworks
 
-By default, MLflow uses [FastAPI](https://fastapi.tiangolo.com/), a modern ASGI web application framework for Python, to serve the inference endpoint.
+By default, MLflow uses [FastAPI](https://fastapi.tiangolo.com/), a modern ASGI web application framework for Python, to serve the inference endpoint. 
 FastAPI handles requests asynchronously and is recognized as one of the fastest Python frameworks. This production-ready framework works well for most use cases.
 Additionally, MLflow also integrates with [MLServer](https://mlserver.readthedocs.io/en/latest) as an alternative serving engine. MLServer achieves
 higher performance and scalability by leveraging asynchronous request/response paradigm and workload offloading. Also MLServer is used as the core Python

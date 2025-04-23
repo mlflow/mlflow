@@ -10,7 +10,6 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import (
-    MAX_CHARS_IN_TRACE_INFO_METADATA,
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
@@ -249,10 +248,10 @@ def test_on_end():
     assert trace_info.status == TraceStatus.OK
     assert trace_info.execution_time_ms == 4
     trace_input = trace_info.request_metadata.get(TraceMetadataKey.INPUTS)
-    assert len(trace_input) == MAX_CHARS_IN_TRACE_INFO_METADATA
+    assert len(trace_input) == 250
     assert trace_input.startswith('{"input1": "very long input')
     trace_output = trace_info.request_metadata.get(TraceMetadataKey.OUTPUTS)
-    assert len(trace_output) == MAX_CHARS_IN_TRACE_INFO_METADATA
+    assert len(trace_output) == 250
     assert trace_output.startswith('{"output": "very long output')
     assert trace_info.tags == {}
 

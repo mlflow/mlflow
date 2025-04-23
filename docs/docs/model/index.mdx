@@ -3133,7 +3133,7 @@ module to create custom Python models. For additional information about model cu
 #### Example: Creating a model with type hints
 
 This example demonstrates how to create a custom Python model with type hints, enabling MLflow to perform data
-validation based on the type hints specified for the model input. For additional information about
+validation based on the type hints specified for the model input. For additional information about 
 PythonModel type hints support, see the [PythonModel Type Hints Guide](../model/python_model#type-hint-usage-in-pythonmodel).
 
 :::note
@@ -4048,9 +4048,9 @@ This information is moved to [MLflow Deployment](/deployment) page.
 ## Export a `python_function` model as an Apache Spark UDF
 
 :::note
-If you are using a model that has a very long running inference latency (i.e., a
-`transformers` model) that could take longer than the default timeout of 60 seconds,
-you can utilize the `extra_env` argument when defining the `spark_udf` instance for your
+If you are using a model that has a very long running inference latency (i.e., a 
+`transformers` model) that could take longer than the default timeout of 60 seconds, 
+you can utilize the `extra_env` argument when defining the `spark_udf` instance for your 
 MLflow model, specifying an override to the environment variable `MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT`.
 For further guidance, please see :py:func:`mlflow.pyfunc.spark_udf`.
 :::

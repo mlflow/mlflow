@@ -5,7 +5,7 @@ import { APILink } from "@site/src/components/APILink";
 A [DSPy optimizer](https://dspy.ai/learn/optimization/optimizers/) is an algorithm that tunes the parameters of a DSPy program (i.e., the prompts and/or the LM weights) to maximize the metrics you specify.
 However, optimizers have the following challenges due to its black box nature:
 
-1. **Parameters and Score of individual trial**: Program parameters (e.g. proposed instructions and selected demonstrations) and performance of each trial during optimization are not saved.
+1. **Parameters and Score of individual trial**: Program parameters (e.g. proposed instructions and selected demonstrations) and performance of each trial during optimization are not saved. 
 2. **Intermediate Artifacts**: Prompts and model responses for the intermediate programs are not available. While some of them are printed out, there is no easy way to store the information in a structured manner.
 3. **Optimization Trajectory**: It is hard to understand the overview of the optimization trajectory from log texts (e.g. score progress over time).
 
@@ -115,7 +115,7 @@ MLflow optimizer autologging logs the following information:
 - **Intermediate Program States and Metric**: The states of the program and the performance metric at each evaluation are captured in an evaluation run.
 - **Traces**: The traces of each intermediate program are captured in an evaluation run.
 
-When both `log_compiles` and `log_evals` are set to `True`, MLflow creates a run for `Teleprompter.compile` with child runs for `Evaluate.__call__` calls.
+When both `log_compiles` and `log_evals` are set to `True`, MLflow creates a run for `Teleprompter.compile` with child runs for `Evaluate.__call__` calls. 
 In the MLflow UI, they are displayed hierarchically as shown below:
 <img src="https://i.imgur.com/eD0lA6V.png" alt="Experiment Page" width="700px"/>
 

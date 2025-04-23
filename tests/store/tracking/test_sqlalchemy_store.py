@@ -77,7 +77,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
-from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
@@ -4466,10 +4466,6 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
 
     store.delete_trace_tag(request_id, "tag1")
     assert store.get_trace_info(request_id).tags == {"tag2": "orange"}
-
-    # test value length
-    store.set_trace_tag(request_id, "key", "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE)
-    assert store.get_trace_info(request_id).tags["key"] == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
 
     with pytest.raises(MlflowException, match="No trace tag with key 'tag1'"):
         store.delete_trace_tag(request_id, "tag1")
