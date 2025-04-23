@@ -191,7 +191,7 @@ API will always return a Pandas DataFrame. To get a list of Trace objects, you c
 
 When using `return_type="pandas"` (default), the returned DataFrame includes these columns:
 
-- **request_id**: A primary identifier of a trace
+- **trace_id**: A primary identifier of a trace
 - **trace**: A trace object
 - **timestamp_ms**: The start time of the trace in milliseconds
 - **status**: The status of the trace
@@ -241,7 +241,7 @@ print(traces)
 The output Pandas DataFrame will contain additional columns for the extracted span fields:
 
 ```text
-    request_id                              ...     morning_greeting.inputs.name   morning_greeting.outputs
+    trace_id                              ...     morning_greeting.inputs.name   morning_greeting.outputs
 0   053adf2f5f5e4ad68d432e06e254c8a4        ...     'Tom'                          'Good morning Tom.'
 ```
 
@@ -288,7 +288,7 @@ while True:
     # Process the current page of results
     for trace in results:
         # Do something with each trace
-        print(trace.request_id)
+        print(trace.trace_id)
 
     # Check if there are more pages
     if not results.token:

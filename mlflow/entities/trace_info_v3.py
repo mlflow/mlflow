@@ -62,7 +62,7 @@ class TraceInfoV3(_MlflowObject):
         return cls(**d)
 
     def to_proto(self):
-        from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
+        from mlflow.entities.trace_info import _truncate_request_metadata, _truncate_tags
 
         request_time = Timestamp()
         request_time.FromMilliseconds(self.request_time)
@@ -79,20 +79,8 @@ class TraceInfoV3(_MlflowObject):
             request_time=request_time,
             execution_duration=execution_duration,
             state=self.state.to_proto(),
-            trace_metadata={
-                # Truncate both key and value to avoid exceeding the max length
-                k[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]: str(v)[
-                    :MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
-                ]
-                for k, v in self.trace_metadata.items()
-            },
-            tags={
-                # Truncate both key and value to avoid exceeding the max length
-                k[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]: str(v)[
-                    :MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
-                ]
-                for k, v in self.tags.items()
-            },
+            trace_metadata=_truncate_request_metadata(self.trace_metadata),
+            tags=_truncate_tags(self.tags),
             assessments=[a.to_proto() for a in self.assessments],
         )
 

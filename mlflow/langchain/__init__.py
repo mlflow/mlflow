@@ -146,7 +146,6 @@ def save_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
-    example_no_conversion=None,
     model_config=None,
     streamable: Optional[bool] = None,
 ):
@@ -246,9 +245,6 @@ def save_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: This parameter is deprecated and will be removed in a future
-                release. It's no longer used and can be safely removed. Input examples are
-                not converted anymore.
         model_config: The model configuration to apply to the model if saving model from code. This
             configuration is available during model loading.
 
@@ -288,7 +284,7 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+    saved_example = _save_example(mlflow_model, input_example, path)
 
     if signature is None:
         if saved_example is not None:
@@ -440,7 +436,6 @@ def log_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
-    example_no_conversion=None,
     run_id=None,
     model_config=None,
     streamable=None,
@@ -557,9 +552,6 @@ def log_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: This parameter is deprecated and will be removed in a future
-                release. It's no longer used and can be safely removed. Input examples are
-                not converted anymore.
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.
@@ -605,7 +597,6 @@ def log_model(
         metadata=metadata,
         loader_fn=loader_fn,
         persist_dir=persist_dir,
-        example_no_conversion=example_no_conversion,
         run_id=run_id,
         model_config=model_config,
         streamable=streamable,

@@ -8,27 +8,27 @@ from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
 
 def test_export(async_logging_enabled):
-    trace_id = 12345
-    request_id = f"tr-{trace_id}"
+    otel_trace_id = 12345
+    trace_id = f"tr-{otel_trace_id}"
     otel_span = create_mock_otel_span(
-        trace_id=trace_id,
+        trace_id=otel_trace_id,
         span_id=1,
         parent_id=None,
         start_time=0,
         end_time=1_000_000,  # nano seconds
     )
-    span = LiveSpan(otel_span, request_id=request_id)
+    span = LiveSpan(otel_span, trace_id)
     span.set_inputs({"input1": "very long input" * 100})
     span.set_outputs({"output": "very long output" * 100})
 
-    trace_info = create_test_trace_info(request_id, 0)
+    trace_info = create_test_trace_info(trace_id, 0)
     trace_manager = InMemoryTraceManager.get_instance()
-    trace_manager.register_trace(trace_id, trace_info)
+    trace_manager.register_trace(otel_trace_id, trace_info)
     trace_manager.register_span(span)
 
     # Non-root span should be ignored
-    non_root_otel_span = create_mock_otel_span(trace_id=trace_id, span_id=2, parent_id=1)
-    child_span = LiveSpan(non_root_otel_span, request_id=request_id)
+    non_root_otel_span = create_mock_otel_span(trace_id=otel_trace_id, span_id=2, parent_id=1)
+    child_span = LiveSpan(non_root_otel_span, trace_id)
     trace_manager.register_span(child_span)
 
     # Invalid span should be also ignored
@@ -52,8 +52,8 @@ def test_export(async_logging_enabled):
         _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL,
     )
 
-    assert _LAST_ACTIVE_TRACE_ID_GLOBAL == request_id
-    assert _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get() == request_id
+    assert _LAST_ACTIVE_TRACE_ID_GLOBAL == trace_id
+    assert _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get() == trace_id
 
     mock_display.display_traces.assert_called_once()
 

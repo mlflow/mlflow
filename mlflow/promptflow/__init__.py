@@ -109,7 +109,6 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[dict[str, Any]] = None,
-    example_no_conversion=None,
     prompts: Optional[list[Union[str, Prompt]]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
@@ -178,7 +177,6 @@ def log_model(
                     logged_model = mlflow.promptflow.log_model(
                         flow, artifact_path="promptflow_model", model_config=model_config
                     )
-        example_no_conversion: {{ example_no_conversion }}
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -206,7 +204,6 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         model_config=model_config,
-        example_no_conversion=example_no_conversion,
         prompts=prompts,
         params=params,
         tags=tags,
@@ -230,7 +227,6 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[dict[str, Any]] = None,
-    example_no_conversion=None,
 ):
     """
     Save a Promptflow model to a path on the local file system.
@@ -287,7 +283,6 @@ def save_model(
                     logged_model = mlflow.promptflow.log_model(
                         flow, artifact_path="promptflow_model", model_config=model_config
                     )
-        example_no_conversion: {{ example_no_conversion }}
     """
     import promptflow
     from promptflow._sdk._mlflow import (
@@ -328,7 +323,7 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+    saved_example = _save_example(mlflow_model, input_example, path)
 
     if signature is None and saved_example is not None:
         wrapped_model = _PromptflowModelWrapper(model)

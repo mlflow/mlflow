@@ -34,15 +34,19 @@ class SpanAttributeKey:
     MODEL_ID = "mlflow.modelId"
 
 
-# All storage backends are guaranteed to support key values up to 250 characters
-MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS = 250
+# All storage backends are guaranteed to support request_metadata key/value up to 250 characters
+MAX_CHARS_IN_TRACE_INFO_METADATA = 250
+# All storage backends are guaranteed to support tag keys up to 250 characters,
+# values up to 4096 characters
+MAX_CHARS_IN_TRACE_INFO_TAGS_KEY = 250
+MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE = 4096
 TRUNCATION_SUFFIX = "..."
 
 # Trace request ID must have the prefix "tr-" appended to the OpenTelemetry trace ID
 TRACE_REQUEST_ID_PREFIX = "tr-"
 
 # Schema version of traces and spans.
-TRACE_SCHEMA_VERSION = 2
+TRACE_SCHEMA_VERSION = 3
 
 # Key for the trace schema version in the trace. This key is also used in
 # Databricks model serving to be careful when modifying it.

@@ -11,13 +11,23 @@ from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestM
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 
 
-def _truncate_dict_keys_and_values(d: dict[str, Any]) -> dict[str, str]:
-    from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
+def _truncate_request_metadata(d: dict[str, Any]) -> dict[str, str]:
+    from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA
 
     return {
-        k[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]: str(v)[
-            :MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
-        ]
+        k[:MAX_CHARS_IN_TRACE_INFO_METADATA]: str(v)[:MAX_CHARS_IN_TRACE_INFO_METADATA]
+        for k, v in d.items()
+    }
+
+
+def _truncate_tags(d: dict[str, Any]) -> dict[str, str]:
+    from mlflow.tracing.constant import (
+        MAX_CHARS_IN_TRACE_INFO_TAGS_KEY,
+        MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    )
+
+    return {
+        k[:MAX_CHARS_IN_TRACE_INFO_TAGS_KEY]: str(v)[:MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE]
         for k, v in d.items()
     }
 
@@ -52,6 +62,11 @@ class TraceInfo(_MlflowObject):
             return self.__dict__ == other.__dict__
         return False
 
+    @property
+    def trace_id(self) -> str:
+        """Returns the trace ID of the trace info."""
+        return self.request_id
+
     def to_proto(self):
         proto = ProtoTraceInfo()
         proto.request_id = self.request_id
@@ -64,7 +79,7 @@ class TraceInfo(_MlflowObject):
         proto.status = self.status.to_proto()
 
         request_metadata = []
-        for key, value in _truncate_dict_keys_and_values(self.request_metadata).items():
+        for key, value in _truncate_request_metadata(self.request_metadata).items():
             attr = ProtoTraceRequestMetadata()
             attr.key = key
             attr.value = value
@@ -72,7 +87,7 @@ class TraceInfo(_MlflowObject):
         proto.request_metadata.extend(request_metadata)
 
         tags = []
-        for key, value in _truncate_dict_keys_and_values(self.tags).items():
+        for key, value in _truncate_tags(self.tags).items():
             tag = ProtoTraceTag()
             tag.key = key
             tag.value = str(value)

@@ -13,6 +13,12 @@ import TabItem from "@theme/TabItem";
 This document provides a detailed view of the schema for traces and its ingredients. MLflow traces are **compatible to OpenTelemetry specs**,
 but we also define a few additional layers of structure upon the OpenTelemetry Spans to provide additional metadata about the trace.
 
+:::note
+
+    The `request_id` field was renamed to `trace_id` in MLflow 3.
+
+:::
+
 ## Structure of Traces
 
 **TL;DR**: `Trace = TraceInfo + TraceData` where `TraceData = List[Span]`
@@ -20,11 +26,11 @@ but we also define a few additional layers of structure upon the OpenTelemetry S
 <Tabs>
   <TabItem value="trace" label="Trace" default>
     #### Trace Structure
-    
-    A <APILink fn="mlflow.entities.Trace">`Trace`</APILink> in MLflow consists of two components: 
-    <APILink fn="mlflow.entities.TraceInfo">`Trace Info`</APILink> and 
+
+    A <APILink fn="mlflow.entities.Trace">`Trace`</APILink> in MLflow consists of two components:
+    <APILink fn="mlflow.entities.TraceInfo">`Trace Info`</APILink> and
     <APILink fn="mlflow.entities.TraceData">`Trace Data`</APILink>.
-        
+
     The metadata that aids in explaining the origination
     of the trace, the status of the trace, and the information about the total execution time is stored within the Trace Info. The Trace
     Data is comprised entirely of the instrumented <APILink fn="mlflow.entities.Span">`Span`</APILink>
@@ -111,7 +117,7 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
   </thead>
   <tbody>
     <tr>
-      <td>**request_id**</td>
+      <td>**trace_id**</td>
       <td>
         A unique identifier for the trace. The identifier is used within MLflow
         and integrated system to resolve the event being captured and to provide
@@ -364,12 +370,12 @@ The sections below provide a detailed view of the structure of a span.
       <td>A `span_id` is set when a span is created and is immutable.</td>
     </tr>
     <tr>
-      <td>**request_id**</td>
+      <td>**trace_id**</td>
       <td>
-        The `request_id` property is a unique identifier that is generated for
+        The `trace_id` property is a unique identifier that is generated for
         each **trace** and is propagated to each span that is a member of that trace.
       </td>
-      <td>The `request_id` is a system-generated property and is immutable.</td>
+      <td>The `trace_id` is a system-generated property and is immutable.</td>
     </tr>
     <tr>
       <td>**name**</td>
@@ -605,8 +611,8 @@ custom attributes for standardized chat messages and tool definitions:
       <td>
         This attribute represents the system/user/assistant messages involved in the
         conversation with the chat model. It enables rich conversation rendering in the UI,
-        and will also be used in MLflow evaluation in the future. 
-        
+        and will also be used in MLflow evaluation in the future.
+
         The type must be `List[` <APILink fn="mlflow.types.chat.ChatMessage">ChatMessage</APILink> `]`
       </td>
       <td>
@@ -620,7 +626,7 @@ custom attributes for standardized chat messages and tool definitions:
       </td>
       <td>
         This attribute represents the tools that were available for the chat model to call. In the OpenAI
-        context, this would be equivalent to the [tools](https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools>) 
+        context, this would be equivalent to the [tools](https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools>)
         param in the Chat Completions API.
 
         The type must be `List[` <APILink fn="mlflow.types.chat.ChatTool">ChatTool</APILink> `]`

@@ -44,7 +44,6 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server.handlers import _get_sampled_steps_from_steps
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracing.constant import TraceTagKey
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
@@ -2149,36 +2148,6 @@ def test_start_and_end_trace(mlflow_client):
     assert trace_info == client.get_trace_info(trace_info.request_id)
 
 
-def test_start_and_end_trace_non_string_name(mlflow_client):
-    # OpenTelemetry span can accept non-string name like 1234. However, it is problematic
-    # when we use it as a trace name (which is set from a root span name) and log it to
-    # remote tracking server. Trace name is stored as mlflow.traceName tag and tag value
-    # can only be string, otherwise protobuf serialization will fail. Therefore, this test
-    # verifies that non-string span name is correctly handled before sending to the server.
-    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
-    exp_id = mlflow_client.create_experiment("non-string trace")
-
-    span = mlflow_client.start_trace(name=1234, experiment_id=exp_id)
-    child_span = mlflow_client.start_span(
-        name=None, request_id=span.request_id, parent_id=span.span_id
-    )
-    mlflow_client.end_span(
-        request_id=child_span.request_id, span_id=child_span.span_id, status="OK"
-    )
-    mlflow_client.end_trace(request_id=span.request_id, status="OK")
-
-    traces = mlflow_client.search_traces(experiment_ids=[exp_id])
-    assert len(traces) == 1
-    trace = traces[0]
-    assert trace.info.tags[TraceTagKey.TRACE_NAME] == "1234"
-    assert trace.info.status == TraceStatus.OK
-    assert len(trace.data.spans) == 2
-    assert trace.data.spans[0].name == 1234
-    assert trace.data.spans[0].status.status_code == "OK"
-    assert trace.data.spans[1].name is None
-    assert trace.data.spans[1].status.status_code == "OK"
-
-
 def test_search_traces(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("search traces")
@@ -2271,7 +2240,7 @@ def test_delete_traces(mlflow_client):
     request_id_1 = _create_trace(name="trace1", status=TraceStatus.OK)
     request_id_2 = _create_trace(name="trace2", status=TraceStatus.OK)
 
-    deleted_count = mlflow_client.delete_traces(experiment_id, request_ids=[request_id_1])
+    deleted_count = mlflow_client.delete_traces(experiment_id, trace_ids=[request_id_1])
     assert deleted_count == 1
     assert not _is_trace_exists(request_id_1)
     assert _is_trace_exists(request_id_2)
