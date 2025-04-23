@@ -212,6 +212,7 @@ select = [
   "PT026",   # pytest-use-fixtures-without-parameters
   "PT027",   # pytest-unittest-raises-assertion
   "RET504",  # unnecessary-assign
+  "RUF003",  # ambiguous-unicode-character-comment
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
   "RUF100",  # unused-noqa
