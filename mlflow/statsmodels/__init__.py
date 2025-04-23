@@ -572,24 +572,25 @@ def autolog(
 
             if should_autolog:
                 # Log the model
+                model_id = None
                 if get_autologging_config(FLAVOR_NAME, "log_models", True):
                     _SAVE_MODEL_CALLED_FROM_AUTOLOG.set(True)
                     registered_model_name = get_autologging_config(
                         FLAVOR_NAME, "registered_model_name", None
                     )
                     try:
-                        log_model(
+                        model_id = log_model(
                             model,
                             "model",
                             registered_model_name=registered_model_name,
-                        )
+                        ).model_id
                     finally:
                         _SAVE_MODEL_CALLED_FROM_AUTOLOG.set(False)
 
                 # Log the most common metrics
                 if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
                     metrics_dict = _get_autolog_metrics(model)
-                    mlflow.log_metrics(metrics_dict)
+                    mlflow.log_metrics(metrics_dict, model_id=model_id)
 
                     model_summary = model.summary().as_text()
                     mlflow.log_text(model_summary, "model_summary.txt")
