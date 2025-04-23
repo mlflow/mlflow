@@ -1125,19 +1125,9 @@ def load_model(
 
         lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
 
-    try:
-        local_path = _download_artifact_from_uri(
-            artifact_uri=model_uri, output_path=dst_path, lineage_header_info=lineage_header_info
-        )
-    except Exception as e:
-        error_message = f"Invalid identifier `{model_uri}` is passed."
-        if model_uri.startswith("m-"):
-            # When a Model ID like string is passed, suggest using 'models:/{model_uri}' instead.
-            error_message += f" Maybe you meant 'models:/{model_uri}'?"
-            raise MlflowException(
-                error_message,
-                BAD_REQUEST,
-            ) from e
+    local_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=dst_path, lineage_header_info=lineage_header_info
+    )
 
     if not suppress_warnings:
         model_requirements = _get_pip_requirements_from_model_path(local_path)
