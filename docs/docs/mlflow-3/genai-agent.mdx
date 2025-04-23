@@ -58,7 +58,7 @@ Switch to the **Prompts** tab to view the registered prompt and its details:
 
 ## Test the model with tracing observability
 
-In this section, we manually test the model with example queries and leverage MLflow Tracing to analyze the outputs and debug potential issues. 
+In this section, we manually test the model with example queries and leverage MLflow Tracing to analyze the outputs and debug potential issues.
 With autologging enabled, MLflow automatically creates a LoggedModel and links the generated traces to it, ensuring seamless observability.
 
 ```python
@@ -114,7 +114,7 @@ Navigating to the **Traces** tab of the model's page, you can view the traces th
 
 ## Evaluate the agent's performance
 
-Finally, we use <APILink fn="mlflow.evaluate" /> to assess the performance of the logged model on an evaluation dataset. 
+Finally, we use <APILink fn="mlflow.evaluate" /> to assess the performance of the logged model on an evaluation dataset.
 This step involves calculating additional metrics, such as latency and answer correctness, to gain deeper insights into the model's behavior and accuracy.
 
 ```python

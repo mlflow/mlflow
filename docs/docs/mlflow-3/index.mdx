@@ -19,20 +19,20 @@ With MLflow 3.0, it's now easier than ever to:
 - Centrally track and analyze the performance of your models, agents, and generative AI applications **across all environments**, from interactive queries in a development notebook through production batch or real-time serving deployments.
 - Select the best models, agents, and generative AI applications for production with an **enhanced performance comparison experience** powered by MLflow's tracing and evaluation capabilities.
 
-MLflow 3.0's enhanced model tracking helps you manage and evaluate different model, agent, and generative AI application configurations in your experiments. 
-Improved comparison workflows with the new <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> enable you to quickly identify the best candidates for production, 
+MLflow 3.0's enhanced model tracking helps you manage and evaluate different model, agent, and generative AI application configurations in your experiments.
+Improved comparison workflows with the new <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> enable you to quickly identify the best candidates for production,
 and MLflow tracing provides rich observability everywhere that your models, agents, and generative AI applications are deployed.
 
 ## Enhanced Model Tracking
 
-In MLflow 3.0, we introduce a refined architecture along with revamped APIs and UI, tailored to enhance generative AI and deep learning workflows. 
+In MLflow 3.0, we introduce a refined architecture along with revamped APIs and UI, tailored to enhance generative AI and deep learning workflows.
 With GenAI agents, there are multiple rounds of offline evaluation via batch jobs and interactive queries from human beta testers.
-In deep learning, training often generates multiple model checkpoints, where the best candidates are further evaluated before production deployment. 
+In deep learning, training often generates multiple model checkpoints, where the best candidates are further evaluated before production deployment.
 
-We are introducing a new first-class object, the <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> entity, into MLflow Tracking to streamline these processes. As you define and evaluate your GenAI agents in code, 
-or your deep learning jobs create and evaluate models, they will be automatically stored as MLflow Logged Models in your MLflow Experiment. 
+We are introducing a new first-class object, the <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> entity, into MLflow Tracking to streamline these processes. As you define and evaluate your GenAI agents in code,
+or your deep learning jobs create and evaluate models, they will be automatically stored as MLflow Logged Models in your MLflow Experiment.
 
-When developing a new version of a GenAI agent or application, you can group all of the traces and metrics from interactive queries and automated evaluation jobs using MLflow's <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> API. 
+When developing a new version of a GenAI agent or application, you can group all of the traces and metrics from interactive queries and automated evaluation jobs using MLflow's <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> API.
 This enables rich, comprehensive comparisons across versions.
 Similarly, every deep learning checkpoint is stored as a <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> with its own metrics and parameters, simplifying the process of identifying the best checkpoint for deployment or continued training.
 
@@ -45,7 +45,7 @@ pip install --upgrade 'mlflow>=3.0.0rc0' --pre
 pip install openai
 ```
 
-This quickstart demonstrates how to create a generative AI application with prompt engineering and evaluate it using MLflow 3.0. 
+This quickstart demonstrates how to create a generative AI application with prompt engineering and evaluate it using MLflow 3.0.
 It highlights the integration of the LoggedModel lineage feature with runs and traces, showcasing seamless tracking and observability for GenAI workflows.
 
 
@@ -196,7 +196,7 @@ MLflow 3.0 introduces some key API changes while also removes some outdated feat
     </TabItem>
 </Tabs>
 
-- Model artifacts storage location change: In MLflow 2.x, [model artifacts](../model/#storage-format) are stored as run artifacts. 
+- Model artifacts storage location change: In MLflow 2.x, [model artifacts](../model/#storage-format) are stored as run artifacts.
 Since MLflow 3.0, those artifacts will be stored into models artifacts location. Note: this impacts the behavior of <APILink fn="mlflow.client.MlflowClient.list_artifacts">``list_artifacts``</APILink> API.
 
 ### Removed Features
