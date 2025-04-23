@@ -47,6 +47,7 @@ def score_model_on_payload(
     endpoint_type=None,
 ):
     """Call the model identified by the given uri with the given string prompt."""
+    from mlflow.deployments import get_deploy_client
 
     eval_parameters = eval_parameters or {}
     extra_headers = extra_headers or {}
@@ -54,6 +55,9 @@ def score_model_on_payload(
     prefix, suffix = _parse_model_uri(model_uri)
 
     if prefix in ["gateway", "endpoints"]:
+        if isinstance(payload, str) and endpoint_type is None:
+            client = get_deploy_client()
+            endpoint_type = client.get_endpoint(suffix).endpoint_type
         return call_deployments_api(suffix, payload, eval_parameters, endpoint_type)
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
@@ -302,9 +306,6 @@ def call_deployments_api(
     client = get_deploy_client()
 
     if isinstance(input_data, str):
-        if endpoint_type is None:
-            breakpoint()
-            endpoint_type = client.get_endpoint(deployment_uri).dict()["endpoint_type"]
         payload = _construct_payload_from_str(input_data, endpoint_type)
     elif isinstance(input_data, dict):
         # If the input is a dictionary, we assume it is already in the correct format
