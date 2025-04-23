@@ -162,10 +162,12 @@ def make_forbidden_response() -> Response:
 
 
 def _get_request_param(param: str) -> str:
-    if request.method in ("GET", "DELETE"):
+    if request.method == "GET":
         args = request.args
     elif request.method in ("POST", "PATCH"):
         args = request.json
+    elif request.method == "DELETE":
+        args = request.json if request.is_json else request.args
     else:
         raise MlflowException(
             f"Unsupported HTTP method '{request.method}'",
