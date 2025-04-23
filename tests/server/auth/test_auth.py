@@ -16,6 +16,7 @@ import requests
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_TRACKING_PASSWORD,
@@ -472,3 +473,32 @@ def test_create_user_ui(client):
         )
 
         assert "Successfully signed up user" in response.text
+
+
+def test_logged_models(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("exp")
+        model = client.create_logged_model(experiment_id=exp_id)
+        client.finalize_logged_model(model_id=model.model_id, status=LoggedModelStatus.READY)
+        client.set_logged_model_tags(model_id=model.model_id, tags={"key": "value"})
+        client.delete_logged_model_tag(model_id=model.model_id, key="key")
+
+    with User(username2, password2, monkeypatch):
+        loaded_model = client.get_logged_model(model.model_id)
+        assert loaded_model.model_id == model.model_id
+
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.finalize_logged_model(model_id=model.model_id, status=LoggedModelStatus.READY)
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.set_logged_model_tags(model_id=model.model_id, tags={"key": "value"})
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.delete_logged_model_tag(model_id=model.model_id, key="key")
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.delete_logged_model(model_id=model.model_id)

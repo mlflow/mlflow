@@ -160,9 +160,9 @@ def make_forbidden_response() -> Response:
 
 
 def _get_request_param(param: str) -> str:
-    if request.method == "GET":
+    if request.method in ("GET", "DELETE"):
         args = request.args
-    elif request.method in ("POST", "PATCH", "DELETE"):
+    elif request.method in ("POST", "PATCH"):
         args = request.json
     else:
         raise MlflowException(
@@ -431,7 +431,7 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteRegisteredModelAlias: validate_can_delete_registered_model,
     GetModelVersionByAlias: validate_can_read_registered_model,
     # Routes for logged models
-    CreateLoggedModel: validate_can_update_logged_model,
+    CreateLoggedModel: validate_can_update_experiment,
     GetLoggedModel: validate_can_read_logged_model,
     DeleteLoggedModel: validate_can_delete_logged_model,
     FinalizeLoggedModel: validate_can_update_logged_model,
