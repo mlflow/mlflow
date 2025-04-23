@@ -53,9 +53,7 @@ def score_model_on_payload(
 
     prefix, suffix = _parse_model_uri(model_uri)
 
-    if prefix == "gateway":
-        return _call_gateway_api(suffix, payload, eval_parameters)
-    elif prefix == "endpoints":
+    if prefix in ["gateway", "endpoints"]:
         return call_deployments_api(suffix, payload, eval_parameters, endpoint_type)
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
@@ -304,6 +302,8 @@ def call_deployments_api(
     client = get_deploy_client()
 
     if isinstance(input_data, str):
+        if endpoint_type is None:
+            endpoint_type = client.get_endpoint(deployment_uri).dict()["endpoint_type"]
         payload = _construct_payload_from_str(input_data, endpoint_type)
     elif isinstance(input_data, dict):
         # If the input is a dictionary, we assume it is already in the correct format
