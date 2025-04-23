@@ -878,6 +878,8 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
             if not any(key.startswith(prefix) for prefix in excluded_metric_prefixes)
             and isinstance(value, Number)
         }
+        # Only log metrics to the best_estimator_model when the child run's
+        # parameters match the best_estimator's parameters.
         model_id = (
             best_estimator_model_id
             if best_estimator_params
