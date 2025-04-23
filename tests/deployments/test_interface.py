@@ -7,10 +7,12 @@ mlflow.deployments.utils._deployments_target = None
 
 
 def test_get_deploy_client_no_args():
+    breakpoint()
     assert get_deploy_client() is None
 
 
 def test_get_deploy_client_none():
+    breakpoint()
     assert get_deploy_client(None) is None
 
 
