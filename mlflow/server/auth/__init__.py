@@ -699,53 +699,53 @@ def filter_search_logged_models(resp: Response) -> None:
             response_proto.models.remove(m)
 
     request_proto = _get_request_message(SearchLoggedModels())
-    experiment_ids = list(request_proto.experiment_ids)
-    filter_string = request_proto.filter or None
-    order_by = (
-        [
-            {
-                "field_name": ob.field_name,
-                "ascending": ob.ascending,
-                "dataset_name": ob.dataset_name,
-                "dataset_digest": ob.dataset_digest,
-            }
-            for ob in request_proto.order_by
-        ]
-        if request_proto.order_by
-        else None
-    )
     max_results = request_proto.max_results
-    while len(response_proto.models) < max_results and response_proto.next_page_token != "":
-        new_models: PagedList[LoggedModel] = _get_tracking_store().search_logged_models(
-            experiment_ids=experiment_ids,
-            filter_string=filter_string,
-            order_by=order_by,
-            max_results=max_results,
-            page_token=response_proto.next_page_token or None,
+    # These parameters won't change in the loop
+    params = {
+        "experiment_ids": list(request_proto.experiment_ids),
+        "filter_string": request_proto.filter or None,
+        "order_by": (
+            [
+                {
+                    "field_name": ob.field_name,
+                    "ascending": ob.ascending,
+                    "dataset_name": ob.dataset_name,
+                    "dataset_digest": ob.dataset_digest,
+                }
+                for ob in request_proto.order_by
+            ]
+            if request_proto.order_by
+            else None
+        ),
+    }
+    next_page_token = response_proto.next_page_token or None
+    tracking_store = _get_tracking_store()
+    while len(response_proto.models) < max_results and next_page_token is not None:
+        batch: PagedList[LoggedModel] = tracking_store.search_logged_models(
+            max_results=max_results, page_token=next_page_token, **params
         )
-        if not new_models:
-            response_proto.next_page_token = ""
-            break
+        is_last_page = batch.token is None
+        offset = Token.decode(next_page_token).offset if next_page_token else 0
+        last_index = len(batch) - 1
+        for index, model in enumerate(batch):
+            if not can_read.get(model.experiment_id, default_can_read):
+                continue
+            response_proto.models.append(model.to_proto())
+            if len(response_proto.models) >= max_results:
+                next_page_token = (
+                    None
+                    if is_last_page and index == last_index
+                    else Token(offset=offset + index + 1, **params).encode()
+                )
+                break
+        else:
+            # If we reach here, that means
+            next_page_token = (
+                None if is_last_page else Token(offset=offset + max_results, **params).encode()
+            )
 
-        readable_models = [
-            m.to_proto() for m in new_models if can_read.get(m.experiment_id, default_can_read)
-        ]
-        response_proto.models.extend(readable_models[: max_results - len(response_proto.models)])
-
-        # Recompute the next page token
-        offset = (
-            Token.decode(response_proto.next_page_token).offset
-            if response_proto.next_page_token
-            else 0
-        )
-        token = Token(
-            offset=offset + max_results,
-            experiment_ids=experiment_ids,
-            filter_string=filter_string,
-            order_by=order_by,
-        )
-        response_proto.next_page_token = token.encode()
-
+    if next_page_token:
+        response_proto.next_page_token = next_page_token
     resp.data = message_to_json(response_proto)
 
 
