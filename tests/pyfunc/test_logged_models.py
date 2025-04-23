@@ -158,6 +158,6 @@ def test_external_logged_model_cannot_be_loaded_with_pyfunc():
 def test_load_model_invalid_uri_model_id():
     with pytest.raises(
         MlflowException,
-        match="Invalid identifier is passed. Maybe you meant 'models:/m-dummy'?",
+        match="Invalid identifier `m-dummy` is passed. Maybe you meant 'models:/m-dummy'?",
     ):
         mlflow.pyfunc.load_model("m-dummy")

@@ -1130,7 +1130,7 @@ def load_model(
             artifact_uri=model_uri, output_path=dst_path, lineage_header_info=lineage_header_info
         )
     except Exception as e:
-        error_message = "Invalid identifier is passed."
+        error_message = f"Invalid identifier `{model_uri}` is passed."
         if model_uri.startswith("m-"):
             # When a Model ID like string is passed, suggest using 'models:/{model_uri}' instead.
             error_message += f" Maybe you meant 'models:/{model_uri}'?"
