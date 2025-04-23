@@ -16,6 +16,7 @@ from typing import Any, Callable, Optional, Union
 import sqlalchemy
 from flask import (
     Flask,
+    Request,
     Response,
     flash,
     jsonify,
@@ -169,6 +170,7 @@ def _get_request_param(param: str) -> str:
             BAD_REQUEST,
         )
 
+    args = args | (request.view_args or {})
     if param not in args:
         # Special handling for run_id
         if param == "run_id":
@@ -442,8 +444,16 @@ def get_before_request_handler(request_class):
     return BEFORE_REQUEST_HANDLERS.get(request_class)
 
 
+def _re_compile_path(path: str) -> re.Pattern:
+    """
+    Convert a path with angle brackets to a regex pattern. For example,
+    "/api/2.0/experiments/<experiment_id>" becomes "/api/2.0/experiments/([^/]+)".
+    """
+    return re.compile(re.sub(r"<([^>]+)>", r"([^/]+)", path))
+
+
 BEFORE_REQUEST_VALIDATORS = {
-    (http_path, method): handler
+    (_re_compile_path(http_path), method): handler
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
     for method in methods
 }
@@ -518,6 +528,17 @@ def authenticate_request_basic_auth() -> Union[Authorization, Response]:
         return make_basic_auth_response()
 
 
+def _find_validator(req: Request) -> Optional[Callable[[], bool]]:
+    """
+    Finds the validator matching the request path and method.
+    """
+    return next(
+        v
+        for (pat, method), v in BEFORE_REQUEST_VALIDATORS.items()
+        if pat.fullmatch(req.path) and method == req.method
+    )
+
+
 @catch_mlflow_exception
 def _before_request():
     if is_unprotected_route(request.path):
@@ -538,7 +559,7 @@ def _before_request():
         return
 
     # authorization
-    if validator := BEFORE_REQUEST_VALIDATORS.get((request.path, request.method)):
+    if validator := _find_validator(request):
         if not validator():
             return make_forbidden_response()
     elif _is_proxy_artifact_path(request.path):
