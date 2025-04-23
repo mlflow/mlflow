@@ -76,7 +76,7 @@ class PackageInfo(BaseModel, extra="forbid"):
 class TestConfig(BaseModel, extra="forbid"):
     minimum: Version
     maximum: Version
-    unsupported: Optional[list[Version]] = None
+    unsupported: Optional[list[SpecifierSet]] = None
     requirements: Optional[dict[str, list[str]]] = None
     python: Optional[dict[str, str]] = None
     runs_on: Optional[dict[str, str]] = None
@@ -99,7 +99,7 @@ class TestConfig(BaseModel, extra="forbid"):
 
     @validator("unsupported", pre=True)
     def validate_unsupported(cls, v):
-        return [Version(v) for v in v] if v else None
+        return [SpecifierSet(x) for x in v] if v else None
 
 
 class FlavorConfig(BaseModel, extra="forbid"):
@@ -205,7 +205,12 @@ def get_latest_micro_versions(versions):
 
 
 def filter_versions(
-    flavor, versions, min_ver, max_ver, unsupported=None, allow_unreleased_max_version=False
+    flavor: str,
+    versions: list[Version],
+    min_ver: Version,
+    max_ver: Version,
+    unsupported: list[SpecifierSet],
+    allow_unreleased_max_version: bool = False,
 ):
     """
     Returns the versions that satisfy the following conditions:
@@ -213,7 +218,6 @@ def filter_versions(
     2. Older than or equal to `max_ver.major`.
     3. Not in `unsupported`.
     """
-    unsupported = unsupported or []
     # Prevent specifying non-existent versions
     assert min_ver in versions, (
         f"Minimum version {min_ver} is not in the list of versions for {flavor}"
@@ -221,12 +225,12 @@ def filter_versions(
     assert max_ver in versions or allow_unreleased_max_version, (
         f"Minimum version {max_ver} is not in the list of versions for {flavor}"
     )
-    assert all(v in versions for v in unsupported), (
-        f"Unsupported versions {unsupported} are not in the list of versions for {flavor}"
-    )
 
-    def _is_not_unsupported(v):
-        return v not in unsupported
+    def _is_supported(v):
+        for specified_set in unsupported:
+            if v in specified_set:
+                return False
+        return True
 
     def _is_older_than_or_equal_to_max_major_version(v):
         return v.major <= max_ver.major
@@ -238,7 +242,7 @@ def filter_versions(
         functools.reduce(
             lambda vers, f: filter(f, vers),
             [
-                _is_not_unsupported,
+                _is_supported,
                 _is_older_than_or_equal_to_max_major_version,
                 _is_newer_than_or_equal_to_min_version,
             ],

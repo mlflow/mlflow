@@ -52,8 +52,8 @@ def test_export():
     assert len(_TRACE_BUFFER) == 1
     trace_dict = pop_trace(_REQUEST_ID)
     trace_info = trace_dict["info"]
-    assert trace_info["timestamp_ms"] == 0
-    assert trace_info["execution_time_ms"] == 1
+    assert trace_info["request_time"] == "1970-01-01T00:00:00Z"
+    assert trace_info["execution_duration_ms"] == 1
 
     spans = trace_dict["data"]["spans"]
     assert len(spans) == 2
@@ -127,6 +127,6 @@ def test_export_trace_buffer_not_exceeds_max_size(monkeypatch):
 def _register_span_and_trace(span: LiveSpan):
     trace_manager = InMemoryTraceManager.get_instance()
     if span.parent_id is None:
-        trace_info = create_test_trace_info(span.request_id, 0)
+        trace_info = create_test_trace_info(span.request_id, "0")
         trace_manager.register_trace(span._span.context.trace_id, trace_info)
     trace_manager.register_span(span)

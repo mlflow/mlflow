@@ -14,6 +14,7 @@ logger = logging.getLogger()
 def main():
     ml_packages = {
         "catboost",
+        "h2o",
         "lightgbm",
         "onnx",
         "pytorch_lightning",

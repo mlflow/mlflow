@@ -10,10 +10,10 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_trace_server_pb2 import Trace as ProtoTrace
-from mlflow.protos.databricks_trace_server_pb2 import TraceData as ProtoTraceData
 
 _logger = logging.getLogger(__name__)
 
@@ -27,8 +27,12 @@ class Trace(_MlflowObject):
         data: A container object that holds the spans data of a trace.
     """
 
-    info: TraceInfo
+    info: TraceInfoV3
     data: TraceData
+
+    def __post_init__(self):
+        if isinstance(self.info, TraceInfo):
+            self.info = self.info.to_v3(request=self.data.request, response=self.data.response)
 
     def __repr__(self) -> str:
         return f"Trace(request_id={self.info.request_id})"
@@ -53,7 +57,7 @@ class Trace(_MlflowObject):
             )
 
         return cls(
-            info=TraceInfo.from_dict(info),
+            info=TraceInfoV3.from_dict(info),
             data=TraceData.from_dict(data),
         )
 
@@ -241,6 +245,6 @@ class Trace(_MlflowObject):
         """Convert into a proto object to sent to the Databricks Trace Server."""
         return ProtoTrace(
             # Convert MLflow's TraceInfoV3 to Databricks Trace Server's TraceInfo
-            info=self.info.to_v3_proto(self.data.request, self.data.response),
-            data=ProtoTraceData(spans=[span.to_proto() for span in self.data.spans]),
+            info=self.info.to_proto(),
+            data=self.data.to_proto(),
         )

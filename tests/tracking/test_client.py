@@ -28,6 +28,7 @@ from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
+from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
@@ -755,7 +756,7 @@ def test_end_trace_works_for_trace_in_pending_status(status):
     client = mlflow.tracking.MlflowClient()
     mock_tracking_client = mock.MagicMock()
     mock_tracking_client.get_trace.return_value = Trace(
-        info=create_test_trace_info("test", status=status), data=None
+        info=create_test_trace_info("test", status=status), data=TraceData()
     )
     client._tracking_client = mock_tracking_client
     client.end_span = lambda *args: None
@@ -768,7 +769,7 @@ def test_end_trace_raise_error_for_trace_in_end_status(status):
     client = mlflow.tracking.MlflowClient()
     mock_tracking_client = mock.MagicMock()
     mock_tracking_client.get_trace.return_value = Trace(
-        info=create_test_trace_info("test", status=status), data=None
+        info=create_test_trace_info("test", status=status), data=TraceData()
     )
     client._tracking_client = mock_tracking_client
 
@@ -1747,6 +1748,9 @@ def test_crud_prompts(tracking_uri):
     with pytest.raises(MlflowException, match=r"Prompt \(name=prompt_1, version=2\) not found"):
         client.load_prompt("prompt_1", version=2)
 
+    assert mlflow.load_prompt("prompt_1", version=2, allow_missing=True) is None
+    assert mlflow.load_prompt("does_not_exist", allow_missing=True) is None
+
     client.delete_prompt("prompt_1", version=1)
 
 
@@ -1860,6 +1864,9 @@ def test_load_prompt_error(tracking_uri):
     with pytest.raises(MlflowException, match=error_msg):
         client.load_prompt("test", version=2)
 
+    with pytest.raises(MlflowException, match=error_msg):
+        client.load_prompt("test", version=2, allow_missing=False)
+
     # Load prompt with a model name
     client.create_registered_model("model")
     client.create_model_version("model", "source")
@@ -1869,6 +1876,12 @@ def test_load_prompt_error(tracking_uri):
 
     with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
         client.load_prompt("model", version=1)
+
+    with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
+        client.load_prompt("model", allow_missing=False)
+
+    with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
+        client.load_prompt("model", version=1, allow_missing=False)
 
 
 def test_delete_prompt_error(tracking_uri):

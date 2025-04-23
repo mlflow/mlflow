@@ -31,4 +31,4 @@ def test_export(mock_get_deploy_client):
     call_args = mock_deploy_client.predict.call_args
     assert call_args.kwargs["endpoint"] == "dummy-model-endpoint"
     trace = json.loads(call_args.kwargs["inputs"]["inputs"][0])
-    assert trace["info"]["request_id"] == str(otel_trace_id)
+    assert trace["info"]["trace_id"] == str(otel_trace_id)

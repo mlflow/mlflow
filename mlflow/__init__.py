@@ -65,6 +65,7 @@ diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
 groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
+h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
 keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
@@ -113,6 +114,7 @@ if TYPE_CHECKING:
         dspy,
         gemini,
         groq,
+        h2o,
         johnsnowlabs,
         keras,
         langchain,
@@ -197,6 +199,7 @@ from mlflow.tracking._model_registry.fluent import (
     set_prompt_alias,
 )
 from mlflow.tracking.fluent import (
+    ActiveModel,
     ActiveRun,
     active_run,
     autolog,
@@ -211,6 +214,7 @@ from mlflow.tracking.fluent import (
     flush_artifact_async_logging,
     flush_async_logging,
     flush_trace_async_logging,
+    get_active_model_id,
     get_artifact_uri,
     get_experiment,
     get_experiment_by_name,
@@ -238,6 +242,7 @@ from mlflow.tracking.fluent import (
     search_experiments,
     search_logged_models,
     search_runs,
+    set_active_model,
     set_experiment,
     set_experiment_tag,
     set_experiment_tags,
@@ -253,6 +258,7 @@ from mlflow.utils.doctor import doctor
 
 __all__ = [
     "ActiveRun",
+    "ActiveModel",
     "MlflowClient",
     "MlflowException",
     "active_run",
@@ -271,6 +277,7 @@ __all__ = [
     "flush_async_logging",
     "flush_artifact_async_logging",
     "flush_trace_async_logging",
+    "get_active_model_id",
     "get_artifact_uri",
     "get_experiment",
     "get_experiment_by_name",
@@ -309,6 +316,7 @@ __all__ = [
     "search_model_versions",
     "search_registered_models",
     "search_runs",
+    "set_active_model",
     "set_experiment",
     "set_experiment_tag",
     "set_experiment_tags",

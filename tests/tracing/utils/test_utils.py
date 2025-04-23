@@ -2,11 +2,16 @@ import pytest
 from pydantic import ValidationError
 
 import mlflow
-from mlflow.entities import LiveSpan
+from mlflow.entities import (
+    LiveSpan,
+    SpanType,
+)
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import (
+    SpanAttributeKey,
+)
 from mlflow.tracing.utils import (
     construct_full_inputs,
     deduplicate_span_names_in_place,

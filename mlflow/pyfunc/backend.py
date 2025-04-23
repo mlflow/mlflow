@@ -44,7 +44,7 @@ _logger = logging.getLogger(__name__)
 _STDIN_SERVER_SCRIPT = Path(__file__).parent.joinpath("stdin_server.py")
 
 # Flavors that require Java to be installed in the environment
-JAVA_FLAVORS = {"johnsnowlabs", "spark"}
+JAVA_FLAVORS = {"johnsnowlabs", "h2o", "spark"}
 
 # Some flavor requires additional packages to be installed in the environment
 FLAVOR_SPECIFIC_APT_PACKAGES = {
