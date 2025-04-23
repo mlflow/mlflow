@@ -330,7 +330,7 @@ class BatchMetricsLogger:
 
 
 @contextlib.contextmanager
-def batch_metrics_logger(run_id, model_id: Optional[str] = None):
+def batch_metrics_logger(run_id: Optional[str] = None, model_id: Optional[str] = None):
     """
     Context manager that yields a BatchMetricsLogger object, which metrics can be logged against.
     The BatchMetricsLogger keeps metrics in a list until it decides they should be logged, at
