@@ -14,7 +14,6 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
-from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 
 
@@ -141,13 +140,13 @@ def test_upload_trace_data(tmp_path, mock_store):
         attributes={SpanAttributeKey.FUNCTION_NAME: "function_name", SpanAttributeKey.OUTPUTS: obj},
     )
     trace_data = TraceData([span])
-    trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder)
     with mock.patch(
         "mlflow.store.artifact.artifact_repo.ArtifactRepository.upload_trace_data",
     ) as mock_upload_trace_data:
         client = TrackingServiceClient(tmp_path.as_uri())
         client._upload_trace_data(trace_info=trace_info, trace_data=trace_data)
-        mock_upload_trace_data.assert_called_once_with(trace_data_json)
+        uploaded_trace_data = json.loads(mock_upload_trace_data.call_args[0][0])
+        assert uploaded_trace_data == trace_data.to_dict()
 
 
 def test_search_traces(tmp_path):

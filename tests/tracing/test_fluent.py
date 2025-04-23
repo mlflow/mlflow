@@ -386,7 +386,7 @@ def test_trace_in_databricks_model_serving(
     trace_dict = response.json["trace"]
     trace = Trace.from_dict(trace_dict)
     assert trace.info.request_id == databricks_request_id
-    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
+    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
     assert len(trace.data.spans) == 3
 
     span_name_to_span = {span.name: span for span in trace.data.spans}

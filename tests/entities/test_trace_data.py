@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 
 import pytest
 
@@ -33,58 +34,78 @@ def test_json_deserialization():
     trace_data = trace.data
 
     # Compare events separately as it includes exception stacktrace which is hard to hardcode
-    trace_data_dict_copy = trace_data.to_dict().copy()
-    span_to_events = {span["name"]: span.pop("events") for span in trace_data_dict_copy["spans"]}
+    trace_data_dict = trace_data.to_dict()
+    span_to_events = {span["name"]: span.get("events") for span in trace_data_dict["spans"]}
 
-    assert trace_data_dict_copy == {
+    assert trace_data_dict == {
         "spans": [
             {
                 "name": "predict",
-                "context": {
-                    "trace_id": trace.data.spans[0]._trace_id,
-                    "span_id": trace.data.spans[0].span_id,
+                "trace_id": mock.ANY,
+                "span_id": mock.ANY,
+                "parent_span_id": "",
+                "start_time_unix_nano": trace.data.spans[0].start_time_ns,
+                "end_time_unix_nano": trace.data.spans[0].end_time_ns,
+                "status": {
+                    "code": "STATUS_CODE_ERROR",
+                    "message": "Exception: Error!",
                 },
-                "parent_id": None,
-                "start_time": trace.data.spans[0].start_time_ns,
-                "end_time": trace.data.spans[0].end_time_ns,
-                "status_code": "ERROR",
-                "status_message": "Exception: Error!",
+                "trace_state": "",
                 "attributes": {
                     "mlflow.traceRequestId": json.dumps(trace.info.request_id),
                     "mlflow.spanType": '"UNKNOWN"',
                     "mlflow.spanFunctionName": '"predict"',
                     "mlflow.spanInputs": '{"x": 2, "y": 5}',
                 },
-                # "events": ...,
+                "events": [
+                    {
+                        "name": "exception",
+                        "time_unix_nano": trace.data.spans[0].events[0].timestamp,
+                        "attributes": {
+                            "exception.message": "Error!",
+                            "exception.type": "Exception",
+                            "exception.stacktrace": mock.ANY,
+                            "exception.escaped": "False",
+                        },
+                    }
+                ],
             },
             {
                 "name": "with_ok_event",
-                "context": {
-                    "trace_id": trace.data.spans[1]._trace_id,
-                    "span_id": trace.data.spans[1].span_id,
+                "trace_id": mock.ANY,
+                "span_id": mock.ANY,
+                "parent_span_id": mock.ANY,
+                "start_time_unix_nano": trace.data.spans[1].start_time_ns,
+                "end_time_unix_nano": trace.data.spans[1].end_time_ns,
+                "status": {
+                    "code": "STATUS_CODE_OK",
+                    "message": "",
                 },
-                "parent_id": trace.data.spans[0].span_id,
-                "start_time": trace.data.spans[1].start_time_ns,
-                "end_time": trace.data.spans[1].end_time_ns,
-                "status_code": "OK",
-                "status_message": "",
+                "trace_state": "",
                 "attributes": {
                     "mlflow.traceRequestId": json.dumps(trace.info.request_id),
                     "mlflow.spanType": '"UNKNOWN"',
                 },
-                # "events": ...,
+                "events": [
+                    {
+                        "name": "ok_event",
+                        "time_unix_nano": trace.data.spans[1].events[0].timestamp,
+                        "attributes": {"foo": "bar"},
+                    }
+                ],
             },
             {
                 "name": "always_fail_name",
-                "context": {
-                    "trace_id": trace.data.spans[2]._trace_id,
-                    "span_id": trace.data.spans[2].span_id,
+                "trace_id": mock.ANY,
+                "span_id": mock.ANY,
+                "parent_span_id": mock.ANY,
+                "start_time_unix_nano": trace.data.spans[2].start_time_ns,
+                "end_time_unix_nano": trace.data.spans[2].end_time_ns,
+                "status": {
+                    "code": "STATUS_CODE_ERROR",
+                    "message": "Exception: Error!",
                 },
-                "parent_id": trace.data.spans[0].span_id,
-                "start_time": trace.data.spans[2].start_time_ns,
-                "end_time": trace.data.spans[2].end_time_ns,
-                "status_code": "ERROR",
-                "status_message": "Exception: Error!",
+                "trace_state": "",
                 "attributes": {
                     "delta": "1",
                     "mlflow.traceRequestId": json.dumps(trace.info.request_id),
@@ -92,7 +113,18 @@ def test_json_deserialization():
                     "mlflow.spanFunctionName": '"always_fail"',
                     "mlflow.spanInputs": "{}",
                 },
-                # "events": ...,
+                "events": [
+                    {
+                        "name": "exception",
+                        "time_unix_nano": trace.data.spans[2].events[0].timestamp,
+                        "attributes": {
+                            "exception.message": "Error!",
+                            "exception.type": "Exception",
+                            "exception.stacktrace": mock.ANY,
+                            "exception.escaped": "False",
+                        },
+                    }
+                ],
             },
         ],
     }
@@ -119,7 +151,7 @@ def test_json_deserialization():
     assert "self.always_fail()" in parent_events[0]["attributes"]["exception.stacktrace"]
 
     # Convert back from dict to TraceData and compare
-    trace_data_from_dict = TraceData.from_dict(trace_data.to_dict())
+    trace_data_from_dict = TraceData.from_dict(trace_data_dict)
     assert trace_data.to_dict() == trace_data_from_dict.to_dict()
 
 

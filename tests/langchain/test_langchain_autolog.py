@@ -972,7 +972,7 @@ def test_langchain_auto_tracing_in_serving_runnable():
     assert predictions == [expected_output]
     trace = Trace.from_dict(trace)
     assert trace.info.request_id == request_id
-    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
+    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
     spans = trace.data.spans
     assert len(spans) == 4
 
