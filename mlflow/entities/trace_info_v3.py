@@ -15,6 +15,31 @@ from mlflow.protos import databricks_trace_server_pb2 as pb
 
 @dataclass
 class TraceInfoV3(_MlflowObject):
+    """Metadata about a trace, such as its ID, location, timestamp, etc.
+
+    Args:
+        trace_id: The primary identifier for the trace.
+        trace_location: The location where the trace is stored, represented as
+            a :py:class:`~mlflow.entities.TraceLocation>` object. MLflow currently
+            support MLflow Experiment or Databricks Inference Table as a trace location.
+        request_time: Start time of the trace, in milliseconds.
+        state: State of the trace, represented as a :py:class:`~mlflow.entities.TraceState>`
+            enum. Can be one of [`OK`, `ERROR`, `IN_PROGRESS`, `STATE_UNSPECIFIED`].
+        request_preview: Request to the model/agent, equivalent to the input of the root,
+            span but JSON-encoded and can be truncated.
+        request_preview: REsponse from the model/agent, equivalent to the output of the
+            root span but JSON-encoded and can be truncated.
+        client_request_id: Client supplied request ID associated with the trace. This
+            could be used to identify the trace/request from an external system that
+            produced the trace, e.g., a session ID in a web application.
+        execution_duration: Duration of the trace, in milliseconds.
+        trace_metadata: Key-value pairs associated with the trace. They are designed
+            for immutable values like run ID associated with the trace.
+        tags: Tags associated with the trace. They are designed for mutable values,
+            that can be updated after the trace is created via MLflow UI or API.
+        assessments: List of assessments associated with the trace.
+    """
+
     trace_id: str
     trace_location: TraceLocation
     request_time: int
@@ -28,6 +53,7 @@ class TraceInfoV3(_MlflowObject):
     assessments: list[Assessment] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert the TraceInfoV3 object to a dictionary."""
         res = MessageToDict(self.to_proto(), preserving_proto_field_name=True)
         if self.execution_duration is not None:
             res.pop("execution_duration", None)
@@ -36,6 +62,7 @@ class TraceInfoV3(_MlflowObject):
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "TraceInfoV3":
+        """Create a TraceInfoV3 object from a dictionary."""
         if "request_id" in d:
             from mlflow.entities.trace_info import TraceInfo as TraceInfoV2
 
@@ -108,10 +135,15 @@ class TraceInfoV3(_MlflowObject):
     # Aliases for backward compatibility with V2 format
     @property
     def request_id(self) -> str:
+        """Deprecated: Use `trace_id` instead."""
         return self.trace_id
 
     @property
     def experiment_id(self) -> Optional[str]:
+        """
+        An MLflow experiment ID associated with the trace, if the trace is stored
+        in MLflow tracking server. Otherwise, None.
+        """
         return (
             self.trace_location.mlflow_experiment
             and self.trace_location.mlflow_experiment.experiment_id
@@ -123,6 +155,7 @@ class TraceInfoV3(_MlflowObject):
 
     @property
     def request_metadata(self) -> dict[str, str]:
+        """Deprecated: Use `trace_metadata` instead."""
         return self.trace_metadata
 
     @property
@@ -143,6 +176,7 @@ class TraceInfoV3(_MlflowObject):
 
     @property
     def status(self) -> TraceStatus:
+        """Deprecated. Use `state` instead."""
         return TraceStatus.from_state(self.state)
 
     @status.setter

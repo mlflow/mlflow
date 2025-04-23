@@ -6,6 +6,14 @@ from mlflow.protos import databricks_trace_server_pb2 as pb
 
 
 class TraceState(str, Enum):
+    """Enum representing the state of a trace.
+
+    - ``STATE_UNSPECIFIED``: Unspecified trace state.
+    - ``OK``: Trace successfully completed.
+    - ``ERROR``: Trace encountered an error.
+    - ``IN_PROGRESS``: Trace is currently in progress.
+    """
+
     STATE_UNSPECIFIED = "STATE_UNSPECIFIED"
     OK = "OK"
     ERROR = "ERROR"
@@ -20,17 +28,8 @@ class TraceState(str, Enum):
 
     @staticmethod
     def from_otel_status(otel_status: trace_api.Status):
+        """Convert OpenTelemetry status code to MLflow TraceState."""
         return _OTEL_STATUS_CODE_TO_MLFLOW[otel_status.status_code]
-
-    @classmethod
-    def pending_states(cls):
-        """Traces in pending statuses can be updated to any statuses."""
-        return {cls.IN_PROGRESS}
-
-    @classmethod
-    def end_states(cls):
-        """Traces in end statuses cannot be updated to any statuses."""
-        return {cls.UNSPECIFIED, cls.OK, cls.ERROR}
 
 
 _OTEL_STATUS_CODE_TO_MLFLOW = {
