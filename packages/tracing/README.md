@@ -35,7 +35,7 @@ The MLflow Trace package is designed to work with te remote hosted MLflow server
 To install the MLflow Python package, run the following command:
 
 ```bash
-pip install mlflow-trace
+pip install mlflow-tracing
 ```
 
 ### Connect to the MLflow Server

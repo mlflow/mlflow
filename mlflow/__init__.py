@@ -150,7 +150,7 @@ if TYPE_CHECKING:
 if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
 
-# Core modules required for mlflow-trace
+# Core modules required for mlflow-tracing
 from mlflow.tracing.assessment import (
     delete_expectation,
     delete_feedback,
@@ -180,8 +180,8 @@ from mlflow.tracking import (
 )
 from mlflow.tracking.fluent import flush_trace_async_logging, set_experiment
 
-# These are minimal set of APIs to be exposed via `mlflow-trace` package.
-# APIs listed here must not depend on dependencies that are not part of `mlflow-trace` package.
+# These are minimal set of APIs to be exposed via `mlflow-tracing` package.
+# APIs listed here must not depend on dependencies that are not part of `mlflow-tracing` package.
 __all__ = [
     "MlflowException",
     # Minimal tracking APIs required for tracing core functionality
@@ -213,7 +213,7 @@ __all__ = [
 ]
 
 # Only import these modules when mlflow or mlflow-skinny is installed i.e. not importing them
-# when only mlflow-trace is installed.
+# when only mlflow-tracing is installed.
 if not IS_TRACING_SDK_ONLY:
     from mlflow.client import MlflowClient
 
