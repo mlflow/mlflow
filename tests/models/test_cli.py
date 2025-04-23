@@ -595,19 +595,11 @@ def test_prepare_env_fails(sk_model):
         assert prc.returncode != 0
 
 
-@pytest.mark.parametrize("enable_mlserver", [True, False])
-def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
+def test_generate_dockerfile(sk_model, tmp_path):
     with mlflow.start_run() as active_run:
-        if enable_mlserver:
-            mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
-            )
-        else:
-            mlflow.sklearn.log_model(sk_model, "model")
+        mlflow.sklearn.log_model(sk_model, "model")
         model_uri = f"runs:/{active_run.info.run_id}/model"
     extra_args = ["--install-mlflow"]
-    if enable_mlserver:
-        extra_args.append("--enable-mlserver")
 
     output_directory = tmp_path.joinpath("output_directory")
     pyfunc_generate_dockerfile(
@@ -623,23 +615,15 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     assert output_directory.joinpath("Dockerfile").stat().st_size != 0
 
 
-@pytest.mark.parametrize("enable_mlserver", [True, False])
-def test_build_docker(iris_data, sk_model, enable_mlserver):
+def test_build_docker(iris_data, sk_model):
     with mlflow.start_run() as active_run:
-        if enable_mlserver:
-            mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
-            )
-        else:
-            mlflow.sklearn.log_model(sk_model, "model", extra_pip_requirements=["/opt/mlflow"])
+        mlflow.sklearn.log_model(sk_model, "model", extra_pip_requirements=["/opt/mlflow"])
         model_uri = f"runs:/{active_run.info.run_id}/model"
 
     x, _ = iris_data
     df = pd.DataFrame(x)
 
     extra_args = ["--install-mlflow"]
-    if enable_mlserver:
-        extra_args.append("--enable-mlserver")
 
     image_name = pyfunc_build_image(
         model_uri,
@@ -648,7 +632,7 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
     )
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
-    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver)
+    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
 def test_build_docker_virtualenv(iris_data, sk_model):
@@ -671,22 +655,14 @@ def test_build_docker_virtualenv(iris_data, sk_model):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
-@pytest.mark.parametrize("enable_mlserver", [True, False])
-def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
+def test_build_docker_with_env_override(iris_data, sk_model):
     with mlflow.start_run() as active_run:
-        if enable_mlserver:
-            mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
-            )
-        else:
-            mlflow.sklearn.log_model(sk_model, "model", extra_pip_requirements=["/opt/mlflow"])
+        mlflow.sklearn.log_model(sk_model, "model", extra_pip_requirements=["/opt/mlflow"])
         model_uri = f"runs:/{active_run.info.run_id}/model"
     x, _ = iris_data
     df = pd.DataFrame(x)
 
     extra_args = ["--install-mlflow"]
-    if enable_mlserver:
-        extra_args.append("--enable-mlserver")
 
     image_name = pyfunc_build_image(
         model_uri,
@@ -695,7 +671,7 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     )
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image_with_env_override(image_name, host_port)
-    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver)
+    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
 def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
@@ -713,7 +689,7 @@ def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
-def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver=False):
+def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model):
     with RestEndpoint(proc=scoring_proc, port=host_port, validate_version=False) as endpoint:
         for content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV]:
             scoring_response = endpoint.invoke(df, content_type)
@@ -726,18 +702,12 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
         # Try examples of bad input, verify we get a non-200 status code
         for content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(data="", content_type=content_type)
-            expected_status_code = 500 if enable_mlserver else 400
+            expected_status_code = 400
             assert scoring_response.status_code == expected_status_code, (
                 f"Expected server failure with error code {expected_status_code}, "
                 f"got response with status code {scoring_response.status_code} "
                 f"and body {scoring_response.text}"
             )
-
-            if enable_mlserver:
-                # MLServer returns a different set of errors.
-                # Skip these assertions until this issue gets tackled:
-                # https://github.com/SeldonIO/MLServer/issues/360)
-                continue
 
             scoring_response_dict = json.loads(scoring_response.content)
             assert "error_code" in scoring_response_dict
