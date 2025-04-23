@@ -28,6 +28,7 @@ from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
 from mlflow.entities import Experiment
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.protos.databricks_pb2 import (
@@ -83,6 +84,7 @@ from mlflow.protos.service_pb2 import (
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
+    SearchLoggedModels,
     SetExperimentTag,
     SetLoggedModelTags,
     SetTag,
@@ -430,13 +432,6 @@ BEFORE_REQUEST_HANDLERS = {
     SetRegisteredModelAlias: validate_can_update_registered_model,
     DeleteRegisteredModelAlias: validate_can_delete_registered_model,
     GetModelVersionByAlias: validate_can_read_registered_model,
-    # Routes for logged models
-    CreateLoggedModel: validate_can_update_experiment,
-    GetLoggedModel: validate_can_read_logged_model,
-    DeleteLoggedModel: validate_can_delete_logged_model,
-    FinalizeLoggedModel: validate_can_update_logged_model,
-    DeleteLoggedModelTag: validate_can_delete_logged_model,
-    SetLoggedModelTags: validate_can_update_logged_model,
 }
 
 
@@ -453,7 +448,7 @@ def _re_compile_path(path: str) -> re.Pattern:
 
 
 BEFORE_REQUEST_VALIDATORS = {
-    (_re_compile_path(http_path), method): handler
+    (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
     for method in methods
 }
@@ -476,6 +471,28 @@ BEFORE_REQUEST_VALIDATORS.update(
         (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
     }
 )
+
+
+LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
+    CreateLoggedModel: validate_can_update_experiment,
+    GetLoggedModel: validate_can_read_logged_model,
+    DeleteLoggedModel: validate_can_delete_logged_model,
+    FinalizeLoggedModel: validate_can_update_logged_model,
+    DeleteLoggedModelTag: validate_can_delete_logged_model,
+    SetLoggedModelTags: validate_can_update_logged_model,
+}
+
+
+def get_logged_model_before_request_handler(request_class):
+    return LOGGED_MODEL_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS = {
+    # Paths for logged models contains path parameters (e.g. /mlflow/logged-models/<model_id>)
+    (_re_compile_path(http_path), method): handler
+    for http_path, handler, methods in get_endpoints(get_logged_model_before_request_handler)
+    for method in methods
+}
 
 
 def _is_proxy_artifact_path(path: str) -> bool:
@@ -532,11 +549,19 @@ def _find_validator(req: Request) -> Optional[Callable[[], bool]]:
     """
     Finds the validator matching the request path and method.
     """
-    return next(
-        v
-        for (pat, method), v in BEFORE_REQUEST_VALIDATORS.items()
-        if pat.fullmatch(req.path) and method == req.method
-    )
+    if "/mlflow/logged-models" in req.path:
+        # logged model routes are not registered in the app
+        # so we need to check them manually
+        return next(
+            (
+                v
+                for (pat, method), v in LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+    else:
+        return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
 
 
 @catch_mlflow_exception
@@ -650,6 +675,80 @@ def filter_search_experiments(resp: Response):
     resp.data = message_to_json(response_message)
 
 
+def filter_search_logged_models(resp: Response) -> None:
+    """
+    Filter out unreadable logged models from the search results.
+    """
+    from mlflow.utils.search_utils import SearchLoggedModelsPaginationToken as Token
+
+    if sender_is_admin():
+        return
+
+    response_proto = SearchLoggedModels.Response()
+    parse_dict(resp.json, response_proto)
+
+    # fetch permissions
+    username = authenticate_request().username
+    perms = store.list_experiment_permissions(username)
+    can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
+    default_can_read = get_permission(auth_config.default_permission).can_read
+
+    # Remove unreadable models
+    for m in list(response_proto.models):
+        if not can_read.get(m.info.experiment_id, default_can_read):
+            response_proto.models.remove(m)
+
+    request_proto = _get_request_message(SearchLoggedModels())
+    experiment_ids = list(request_proto.experiment_ids)
+    filter_string = request_proto.filter or None
+    order_by = (
+        [
+            {
+                "field_name": ob.field_name,
+                "ascending": ob.ascending,
+                "dataset_name": ob.dataset_name,
+                "dataset_digest": ob.dataset_digest,
+            }
+            for ob in request_proto.order_by
+        ]
+        if request_proto.order_by
+        else None
+    )
+    max_results = request_proto.max_results
+    while len(response_proto.models) < max_results and response_proto.next_page_token != "":
+        new_models: PagedList[LoggedModel] = _get_tracking_store().search_logged_models(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            order_by=order_by,
+            max_results=max_results,
+            page_token=response_proto.next_page_token or None,
+        )
+        if not new_models:
+            response_proto.next_page_token = ""
+            break
+
+        readable_models = [
+            m.to_proto() for m in new_models if can_read.get(m.experiment_id, default_can_read)
+        ]
+        response_proto.models.extend(readable_models[: max_results - len(response_proto.models)])
+
+        # Recompute the next page token
+        offset = (
+            Token.decode(response_proto.next_page_token).offset
+            if response_proto.next_page_token
+            else 0
+        )
+        token = Token(
+            offset=offset + max_results,
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            order_by=order_by,
+        )
+        response_proto.next_page_token = token.encode()
+
+    resp.data = message_to_json(response_proto)
+
+
 def filter_search_registered_models(resp: Response):
     if sender_is_admin():
         return
@@ -720,6 +819,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     CreateRegisteredModel: set_can_manage_registered_model_permission,
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
+    SearchLoggedModels: filter_search_logged_models,
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
 }
