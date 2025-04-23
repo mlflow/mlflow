@@ -116,11 +116,12 @@ def _download_artifact_from_uri(artifact_uri, output_path=None, lineage_header_i
             )
         return repo.download_artifacts(artifact_path=artifact_path, dst_path=output_path)
     except Exception as e:
-        error_message = f"Invalid uri `{artifact_uri}` is passed."
         if artifact_uri.startswith("m-"):
             # When a Model ID like string is passed, suggest using 'models:/{artifact_uri}' instead.
-            error_message += f" Maybe you meant 'models:/{artifact_uri}'?"
-            raise MlflowException(error_message) from e
+            raise MlflowException(
+                f"Invalid uri `{artifact_uri}` is passed. Maybe you meant 'models:/{artifact_uri}'?"
+            ) from e
+        raise
 
 
 def _upload_artifact_to_uri(local_path, artifact_uri):
