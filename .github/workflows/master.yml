@@ -89,8 +89,6 @@ jobs:
         run: |
           source .venv/bin/activate
           python tests/check_mlflow_lazily_imports_ml_packages.py
-      - name: Setup upterm session
-        uses: lhotari/action-upterm@v1
       - name: Run tests
         run: |
           source .venv/bin/activate

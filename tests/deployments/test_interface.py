@@ -1,9 +1,9 @@
 import pytest
 
-import mlflow.deployments.interface
 from mlflow.deployments.interface import get_deploy_client
+import mlflow.deployments.utils
 
-mlflow.deployments.interface._deployments_target = None
+mlflow.deployments.utils._deployments_target = None
 
 
 def test_get_deploy_client_no_args():
