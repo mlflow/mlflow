@@ -37,7 +37,7 @@ from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.os import is_windows
-from mlflow.version import IS_FULL_MLFLOW_INSTALLED
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import (
     create_test_trace_info,
@@ -45,10 +45,6 @@ from tests.tracing.helper import (
     purge_traces,
     skip_when_testing_trace_sdk,
 )
-
-# NB: mlflow.search_traces() depends on Pandas by default.
-#   If mlflow-skinny is not installed, we will use list format for testing.
-_SEARCH_RETURN_TYPE = "pandas" if IS_FULL_MLFLOW_INSTALLED else "list"
 
 
 class DefaultTestModel:
@@ -185,7 +181,7 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
     model = DefaultTestModel() if wrap_sync_func else DefaultAsyncTestModel()
 
     if with_active_run:
-        if not IS_FULL_MLFLOW_INSTALLED:
+        if IS_TRACING_SDK_ONLY:
             pytest.skip("Skipping test because mlflow or mlflow-skinny is not installed.")
 
         with mlflow.start_run() as run:
@@ -835,10 +831,10 @@ def test_get_trace(mock_get_display_handler):
 def test_test_search_traces_empty(mock_client):
     mock_client.search_traces.return_value = PagedList([], token=None)
 
-    traces = mlflow.search_traces(return_type=_SEARCH_RETURN_TYPE)
+    traces = mlflow.search_traces()
     assert len(traces) == 0
 
-    if IS_FULL_MLFLOW_INSTALLED:
+    if not IS_TRACING_SDK_ONLY:
         default_columns = Trace.pandas_dataframe_columns()
         assert traces.columns.tolist() == default_columns
 
@@ -850,7 +846,7 @@ def test_test_search_traces_empty(mock_client):
 
 @pytest.mark.parametrize("return_type", ["pandas", "list"])
 def test_search_traces(return_type, mock_client):
-    if return_type == "pandas" and not IS_FULL_MLFLOW_INSTALLED:
+    if return_type == "pandas" and IS_TRACING_SDK_ONLY:
         pytest.skip("Skipping test because mlflow or mlflow-skinny is not installed.")
 
     mock_client.search_traces.return_value = PagedList(
@@ -916,7 +912,7 @@ def test_search_traces_with_pagination(mock_client):
         PagedList(traces[20:], token=None),
     ]
 
-    traces = mlflow.search_traces(experiment_ids=["1"], return_type=_SEARCH_RETURN_TYPE)
+    traces = mlflow.search_traces(experiment_ids=["1"])
 
     assert len(traces) == 30
     common_args = {
@@ -938,7 +934,7 @@ def test_search_traces_with_pagination(mock_client):
 def test_search_traces_with_default_experiment_id(mock_client):
     mock_client.search_traces.return_value = PagedList([], token=None)
     with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"):
-        mlflow.search_traces(return_type=_SEARCH_RETURN_TYPE)
+        mlflow.search_traces()
 
     mock_client.search_traces.assert_called_once_with(
         experiment_ids=["123"],

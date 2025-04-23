@@ -30,7 +30,7 @@ For a lower level API, see the :py:mod:`mlflow.client` module.
 import contextlib
 from typing import TYPE_CHECKING
 
-from mlflow.version import IS_FULL_MLFLOW_INSTALLED, VERSION
+from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
 __version__ = VERSION
 
@@ -40,7 +40,7 @@ import mlflow.mismatch
 with contextlib.suppress(Exception):
     mlflow.mismatch._check_version_mismatch()
 
-if IS_FULL_MLFLOW_INSTALLED:
+if not IS_TRACING_SDK_ONLY:
     from mlflow import (
         artifacts,  # noqa: F401
         client,  # noqa: F401
@@ -214,7 +214,7 @@ __all__ = [
 
 # Only import these modules when mlflow or mlflow-skinny is installed i.e. not importing them
 # when only mlflow-trace is installed.
-if IS_FULL_MLFLOW_INSTALLED:
+if not IS_TRACING_SDK_ONLY:
     from mlflow.client import MlflowClient
 
     # For backward compatibility, we expose the following functions and classes at the top level in

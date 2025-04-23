@@ -2,7 +2,7 @@ import os
 import pathlib
 from mimetypes import guess_type
 
-from mlflow.version import IS_FULL_MLFLOW_INSTALLED
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 
 # TODO: Create a module to define constants to avoid circular imports
@@ -34,7 +34,7 @@ def get_text_extensions():
         "rst",
     ]
 
-    if IS_FULL_MLFLOW_INSTALLED:
+    if not IS_TRACING_SDK_ONLY:
         from mlflow.models.model import MLMODEL_FILE_NAME
         from mlflow.projects._project_spec import MLPROJECT_FILE_NAME
 
