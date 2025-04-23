@@ -64,6 +64,9 @@ def test_export():
     }
     assert isinstance(spans[0]["attributes"], dict)
 
+    # Last active trace ID should be set
+    assert mlflow.get_last_active_trace_id() == _REQUEST_ID
+
 
 def test_export_warn_invalid_attributes():
     otel_span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1)

@@ -6,6 +6,7 @@ from typing import Any, Optional
 from unittest.mock import MagicMock
 
 import langchain
+import pydantic
 import pytest
 from langchain.chains.llm import LLMChain
 from langchain.prompts import PromptTemplate
@@ -33,6 +34,7 @@ from mlflow.langchain import _LangChainModelWrapper
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import trace_disabled
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 from tests.tracing.helper import get_traces
 
@@ -103,7 +105,7 @@ def test_llm_success():
     callback.on_llm_new_token("test", run_id=run_id)
 
     callback.on_llm_end(LLMResult(generations=[[{"text": "generated text"}]]), run_id=run_id)
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     llm_span = trace.data.spans[0]
 
@@ -142,7 +144,7 @@ def test_llm_error():
     mock_error = Exception("mock exception")
     callback.on_llm_error(error=mock_error, run_id=run_id)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     error_event = SpanEvent.from_exception(mock_error)
     assert len(trace.data.spans) == 1
     llm_span = trace.data.spans[0]
@@ -197,7 +199,7 @@ def test_chat_model():
         run_id=run_id,
     )
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.name == "test_chat_model"
@@ -255,7 +257,7 @@ def test_chat_model_with_tool():
         run_id=run_id,
     )
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.status.status_code == SpanStatusCode.OK
@@ -303,7 +305,7 @@ def test_chat_model_with_non_openai_tool():
         run_id=run_id,
     )
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.status.status_code == SpanStatusCode.OK
@@ -349,7 +351,7 @@ def test_retriever_success():
         ),
     ]
     callback.on_retriever_end(documents, run_id=run_id)
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
 
@@ -377,7 +379,7 @@ def test_retriever_error():
     )
     mock_error = Exception("mock exception")
     callback.on_retriever_error(error=mock_error, run_id=run_id)
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
     assert retriever_span.inputs == "test query"
@@ -464,7 +466,7 @@ def test_multiple_components():
         outputs={"output": "test output"},
         run_id=chain_run_id,
     )
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 5
     chain_span = trace.data.spans[0]
     assert chain_span.start_time_ns is not None
@@ -518,7 +520,7 @@ def test_tool_success():
     response = chain_tool.invoke(tool_input, config={"callbacks": [callback]})
 
     # str output is converted to _ChatResponse
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     spans = trace.data.spans
     assert len(spans) == 5
 
@@ -679,7 +681,7 @@ def test_tracer_with_manual_traces():
     expected_response = "What is the complementary color of green?"
     assert response == expected_response
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     spans = trace.data.spans
     assert spans[0].name == "parent"
@@ -693,3 +695,60 @@ def test_tracer_with_manual_traces():
     assert spans[4].parent_id == spans[3].span_id
     assert spans[5].name == "PromptTemplate"
     assert spans[5].parent_id == spans[1].span_id
+
+
+def test_serialize_invocation_params_success():
+    class DummyModel(pydantic.BaseModel):
+        field: str
+
+    callback = MlflowLangchainTracer()
+    attributes = {"invocation_params": {"response_format": DummyModel, "other_param": "preserved"}}
+    result = callback._serialize_invocation_params(attributes)
+    expected_schema = (
+        DummyModel.model_json_schema() if IS_PYDANTIC_V2_OR_NEWER else DummyModel.schema()
+    )
+    assert "invocation_params" in result
+    assert "response_format" in result["invocation_params"]
+    assert result["invocation_params"]["response_format"] == expected_schema
+    assert result["invocation_params"]["other_param"] == "preserved"
+
+
+def test_serialize_invocation_params_failure():
+    class FaultyModel(pydantic.BaseModel):
+        field: str
+
+        @classmethod
+        def model_json_schema(cls):
+            raise Exception("dummy failure")
+
+    callback = MlflowLangchainTracer()
+    attributes = {"invocation_params": {"response_format": FaultyModel, "other_param": "preserved"}}
+    result = callback._serialize_invocation_params(attributes)
+    assert result["invocation_params"]["response_format"] == FaultyModel
+    assert result["invocation_params"]["other_param"] == "preserved"
+
+
+def test_serialize_invocation_params_non_pydantic_response_format():
+    callback = MlflowLangchainTracer()
+    test_cases = ["string_value", {"dict_key": "value"}, 123, ["list", "of", "items"], None]
+
+    for test_value in test_cases:
+        attributes = {
+            "invocation_params": {"response_format": test_value, "other_param": "preserved"}
+        }
+        result = callback._serialize_invocation_params(attributes)
+        assert result["invocation_params"]["response_format"] == test_value
+        assert result["invocation_params"]["other_param"] == "preserved"
+
+
+def test_serialize_invocation_params_no_invocation_params():
+    callback = MlflowLangchainTracer()
+    attributes = {"other_key": "value"}
+    result = callback._serialize_invocation_params(attributes)
+    assert result == attributes
+
+
+def test_serialize_invocation_params_none():
+    callback = MlflowLangchainTracer()
+    result = callback._serialize_invocation_params(None)
+    assert result is None

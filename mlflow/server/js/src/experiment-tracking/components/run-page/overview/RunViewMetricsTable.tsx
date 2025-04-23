@@ -221,8 +221,9 @@ export const RunViewMetricsTable = ({
               <TableHeader
                 componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewmetricstable.tsx_312"
                 key={header.id}
-                resizable={header.column.getCanResize()}
-                resizeHandler={header.getResizeHandler()}
+                header={header}
+                column={header.column}
+                setColumnSizing={table.setColumnSizing}
                 isResizing={header.column.getIsResizing()}
                 style={{
                   flexGrow: header.column.getCanResize() ? 0 : 1,

@@ -1,4 +1,7 @@
 import base64
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import pytest
@@ -6,6 +9,7 @@ import pytest
 import mlflow
 from mlflow.entities.span_event import SpanEvent
 from mlflow.tracing.destination import Databricks
+from mlflow.tracing.provider import _get_trace_exporter
 
 _EXPERIMENT_ID = "dummy-experiment-id"
 
@@ -19,14 +23,19 @@ def _predict(x: str) -> str:
     return x + "!"
 
 
+def _flush_async_logging():
+    exporter = _get_trace_exporter()
+    assert hasattr(exporter, "_async_queue"), "Async queue is not initialized"
+    exporter._async_queue.flush(terminate=True)
+
+
+@pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 @pytest.mark.parametrize("experiment_id", [None, _EXPERIMENT_ID])
-@pytest.mark.parametrize("timeout", [None, "100"])
-def test_export(experiment_id, timeout, monkeypatch):
+def test_export(experiment_id, is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
-
-    if timeout is not None:
-        monkeypatch.setenv("MLFLOW_HTTP_REQUEST_TIMEOUT", timeout)
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", "3")
 
     mlflow.tracing.set_destination(Databricks(experiment_id=experiment_id))
 
@@ -39,12 +48,15 @@ def test_export(experiment_id, timeout, monkeypatch):
     ) as mock_http:
         _predict("hello")
 
+        if is_async:
+            _flush_async_logging()
+
     mock_http.assert_called_once()
     call_args = mock_http.call_args
     assert call_args.kwargs["host_creds"] is not None
     assert call_args.kwargs["endpoint"] == "/api/2.0/tracing/traces"
     assert call_args.kwargs["method"] == "POST"
-    assert call_args.kwargs["timeout"] == (int(timeout) if timeout is not None else 5)
+    assert call_args.kwargs["retry_timeout_seconds"] == (3 if is_async else 0)
 
     trace = call_args.kwargs["json"]
     trace_id = trace["info"]["trace_id"]
@@ -122,10 +134,16 @@ def test_export(experiment_id, timeout, monkeypatch):
         },
     }
 
+    # Last active trace ID should be set
+    assert mlflow.get_last_active_trace_id() == trace_id
 
-def test_export_catch_failure(monkeypatch):
+
+@pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
+def test_export_catch_failure(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", "3")
 
     mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
 
@@ -141,5 +159,43 @@ def test_export_catch_failure(monkeypatch):
     ):
         _predict("hello")
 
+        if is_async:
+            _flush_async_logging()
+
     mock_http.assert_called_once()
     mock_logger.warning.assert_called_once()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
+def test_async_bulk_export(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", "3")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", "3")
+
+    mlflow.tracing.set_destination(Databricks(experiment_id=0))
+
+    def _mock_http(*args, **kwargs):
+        # Simulate a slow response
+        time.sleep(0.1)
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = "{}"
+        return response
+
+    with mock.patch(
+        "mlflow.tracing.export.databricks.http_request", side_effect=_mock_http
+    ) as mock_http:
+        # Log many traces
+        start_time = time.time()
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for _ in range(1000):
+                executor.submit(_predict, "hello")
+
+        # Trace logging should not block the main thread
+        assert time.time() - start_time < 5
+
+        _flush_async_logging()
+
+    assert mock_http.call_count == 1000

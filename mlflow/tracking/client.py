@@ -9,10 +9,11 @@ import json
 import logging
 import os
 import posixpath
+import random
 import re
+import string
 import sys
 import tempfile
-import time
 import urllib
 import uuid
 import warnings
@@ -39,7 +40,6 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import (
     Assessment,
-    AssessmentError,
     Expectation,
     Feedback,
 )
@@ -555,7 +555,9 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def load_prompt(self, name_or_uri: str, version: Optional[int] = None) -> Prompt:
+    def load_prompt(
+        self, name_or_uri: str, version: Optional[int] = None, allow_missing: bool = False
+    ) -> Prompt:
         """
         Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 
@@ -581,6 +583,8 @@ class MlflowClient:
         Args:
             name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
             version: The version of the prompt. If not specified, the latest version will be loaded.
+            allow_missing: If True, return None instead of raising Exception if the specified prompt
+                is not found.
         """
         if name_or_uri.startswith("prompts:/"):
             if version is not None:
@@ -593,10 +597,16 @@ class MlflowClient:
             name = name_or_uri
 
         registry_client = self._get_registry_client()
-        if version is None:
-            mv = registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
-        else:
-            mv = registry_client.get_model_version(name, version)
+        try:
+            mv = (
+                registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
+                if version is None
+                else registry_client.get_model_version(name, version)
+            )
+        except MlflowException as exc:
+            if allow_missing and exc.error_code == "RESOURCE_DOES_NOT_EXIST":
+                return None
+            raise
 
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
@@ -759,7 +769,6 @@ class MlflowClient:
         """
         Parse prompt URI into prompt name and prompt version.
         - 'prompt:/<name>/<version>' -> ('<name>', '<version>')
-        - 'prompt:/<name>' -> ('<name>', '<latest version>')
         - 'prompt:/<name>@<alias>' -> ('<name>', '<version>')
         """
         parsed = urllib.parse.urlparse(uri)
@@ -870,6 +879,7 @@ class MlflowClient:
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
+        include_spans: bool = True,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -884,6 +894,9 @@ class MlflowClient:
             run_id: A run id to scope the search. When a trace is created under an active run,
                 it will be associated with the run and you can filter on the run id to retrieve
                 the trace.
+            include_spans: If ``True``, include spans in the returned traces. Otherwise, only
+                the trace metadata is returned, e.g., trace ID, start time, end time, etc,
+                without any spans.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -893,17 +906,15 @@ class MlflowClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
-        traces = self._tracking_client.search_traces(
+        return self._tracking_client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
             run_id=run_id,
+            include_spans=include_spans,
         )
-
-        get_display_handler().display_traces(traces)
-        return traces
 
     def start_trace(
         self,
@@ -1413,6 +1424,12 @@ class MlflowClient:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+        if not isinstance(value, str):
+            _logger.warning(
+                "Received non-string value for trace tag. Please note that non-string tag values"
+                "will automatically be stringified when the trace is logged."
+            )
+
         # Trying to set the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
             if trace:
@@ -1468,23 +1485,17 @@ class MlflowClient:
         source: AssessmentSource,
         expectation: Optional[Expectation] = None,
         feedback: Optional[Feedback] = None,
-        error: Optional[AssessmentError] = None,
         rationale: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
         span_id: Optional[str] = None,
     ) -> Assessment:
-        timestamp = int(time.time() * 1000)  # milliseconds
-
         assessment = Assessment(
             # assessment_id must be None when creating a new assessment
             trace_id=trace_id,
             name=name,
             source=source,
-            create_time_ms=timestamp,
-            last_update_time_ms=timestamp,
             expectation=expectation,
             feedback=feedback,
-            error=error,
             rationale=rationale,
             metadata=metadata,
             span_id=span_id,
@@ -2808,9 +2819,11 @@ class MlflowClient:
 
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
-            filename_uuid = uuid.uuid4()
+            filename_uuid = str(uuid.uuid4())
             # TODO: reconsider the separator used here since % has special meaning in URL encoding.
             # See https://github.com/mlflow/mlflow/issues/14136 for more details.
+            # Construct a filename uuid that does not start with hex digits
+            filename_uuid = f"{random.choice(string.ascii_lowercase[6:])}{filename_uuid[1:]}"
             uncompressed_filename = (
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )

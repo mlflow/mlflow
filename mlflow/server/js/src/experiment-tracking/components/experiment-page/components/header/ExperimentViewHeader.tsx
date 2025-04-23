@@ -189,3 +189,24 @@ export const ExperimentViewHeader = React.memo(
     );
   },
 );
+
+export function ExperimentViewHeaderSkeleton() {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div css={{ height: 2 * theme.general.heightSm }}>
+      <div css={{ height: theme.spacing.lg }}>
+        <GenericSkeleton css={{ width: 100, height: theme.spacing.md }} loading />
+      </div>
+      <div css={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div>
+          <GenericSkeleton css={{ width: 160, height: theme.general.heightSm }} loading />
+        </div>
+        <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+          <GenericSkeleton css={{ width: 100, height: theme.general.heightSm }} loading />
+          <GenericSkeleton css={{ width: 60, height: theme.general.heightSm }} loading />
+        </div>
+      </div>
+    </div>
+  );
+}

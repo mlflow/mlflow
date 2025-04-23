@@ -22,7 +22,7 @@ import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider'
 jest.setTimeout(30000); // Larger timeout for integration testing
 
 jest.mock('../hooks/useIsInViewport', () => ({
-  useIsInViewport: jest.fn().mockImplementation(() => ({ isInViewport: true, setElementRef: jest.fn() })),
+  useIsInViewport: jest.fn(() => ({ isInViewport: true, setElementRef: jest.fn() })),
 }));
 
 // mock line plot

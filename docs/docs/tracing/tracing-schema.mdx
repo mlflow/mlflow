@@ -20,11 +20,11 @@ but we also define a few additional layers of structure upon the OpenTelemetry S
 <Tabs>
   <TabItem value="trace" label="Trace" default>
     #### Trace Structure
-    
-    A <APILink fn="mlflow.entities.Trace">`Trace`</APILink> in MLflow consists of two components: 
-    <APILink fn="mlflow.entities.TraceInfo">`Trace Info`</APILink> and 
+
+    A <APILink fn="mlflow.entities.Trace">`Trace`</APILink> in MLflow consists of two components:
+    <APILink fn="mlflow.entities.TraceInfo">`Trace Info`</APILink> and
     <APILink fn="mlflow.entities.TraceData">`Trace Data`</APILink>.
-        
+
     The metadata that aids in explaining the origination
     of the trace, the status of the trace, and the information about the total execution time is stored within the Trace Info. The Trace
     Data is comprised entirely of the instrumented <APILink fn="mlflow.entities.Span">`Span`</APILink>
@@ -93,7 +93,7 @@ Trace Info is a dataclass object that contains metadata about the trace. This me
 various other data that aids in retrieving and filtering traces when used with <APILink fn="mlflow.client.MlflowClient.search_traces" /> and for
 navigation of traces within the MLflow UI.
 
-To learn more about how `TraceInfo` metadata is used for searching, you can see examples [here](/tracing/api/search/#example-usage-of-search-traces).
+To learn more about how `TraceInfo` metadata is used for searching, you can see examples [here](/tracing/api/search).
 
 The data that is contained in the `TraceInfo` object is used to populate the trace view page within the MLflow tracking UI, as shown below.
 
@@ -605,8 +605,8 @@ custom attributes for standardized chat messages and tool definitions:
       <td>
         This attribute represents the system/user/assistant messages involved in the
         conversation with the chat model. It enables rich conversation rendering in the UI,
-        and will also be used in MLflow evaluation in the future. 
-        
+        and will also be used in MLflow evaluation in the future.
+
         The type must be `List[` <APILink fn="mlflow.types.chat.ChatMessage">ChatMessage</APILink> `]`
       </td>
       <td>
@@ -620,7 +620,7 @@ custom attributes for standardized chat messages and tool definitions:
       </td>
       <td>
         This attribute represents the tools that were available for the chat model to call. In the OpenAI
-        context, this would be equivalent to the [tools](https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools>) 
+        context, this would be equivalent to the [tools](https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools>)
         param in the Chat Completions API.
 
         The type must be `List[` <APILink fn="mlflow.types.chat.ChatTool">ChatTool</APILink> `]`
@@ -695,7 +695,8 @@ def call_chat_model(messages, tools):
 
 call_chat_model(messages, tools)
 
-trace = mlflow.get_last_active_trace()
+trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id)
 span = trace.data.spans[0]
 
 print("Messages: ", span.get_attribute(SpanAttributeKey.CHAT_MESSAGES))

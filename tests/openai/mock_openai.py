@@ -1,6 +1,6 @@
 import json
 from enum import Enum
-from typing import Union
+from typing import Any, Optional, Union
 
 import fastapi
 from pydantic import BaseModel
@@ -169,6 +169,201 @@ async def chat(payload: ChatCompletionRequest):
         )
     else:
         return chat_response(payload)
+
+
+def _make_responses_payload(outputs, tools=None):
+    return {
+        "id": "responses-123",
+        "object": "response",
+        "created": 1589478378,
+        "status": "completed",
+        "error": None,
+        "incomplete_details": None,
+        "max_output_tokens": None,
+        "model": "gpt-4o",
+        "output": outputs,
+        "parallel_tool_calls": True,
+        "previous_response_id": None,
+        "reasoning": {"effort": None, "generate_summary": None},
+        "store": True,
+        "temperature": 1.0,
+        "text": {"format": {"type": "text"}},
+        "tool_choice": "auto",
+        "tools": tools or [],
+        "top_p": 1.0,
+        "truncation": "disabled",
+        "usage": {
+            "input_tokens": 36,
+            "input_tokens_details": {"cached_tokens": 0},
+            "output_tokens": 87,
+            "output_tokens_details": {"reasoning_tokens": 0},
+            "total_tokens": 123,
+        },
+        "user": None,
+        "metadata": {},
+    }
+
+
+_DUMMY_TEXT_OUTPUTS = [
+    {
+        "type": "message",
+        "id": "test",
+        "status": "completed",
+        "role": "assistant",
+        "content": [
+            {
+                "type": "output_text",
+                "text": "Dummy output",
+            }
+        ],
+    }
+]
+
+_DUMMY_WEB_SEARCH_OUTPUTS = [
+    {"type": "web_search_call", "id": "tool_call_1", "status": "completed"},
+    {
+        "type": "message",
+        "id": "msg",
+        "status": "completed",
+        "role": "assistant",
+        "content": [
+            {
+                "type": "output_text",
+                "text": "As of today, March 9, 2025, one notable positive news story...",
+                "annotations": [
+                    {
+                        "type": "url_citation",
+                        "start_index": 442,
+                        "end_index": 557,
+                        "url": "https://.../?utm_source=chatgpt.com",
+                        "title": "...",
+                    },
+                ],
+            }
+        ],
+    },
+]
+
+_DUMMY_FILE_SEARCH_OUTPUTS = [
+    {
+        "type": "file_search_call",
+        "id": "file_search_1",
+        "status": "completed",
+        "queries": ["attributes of an ancient brown dragon"],
+        "results": None,
+    },
+    {
+        "type": "message",
+        "id": "file_search_1",
+        "status": "completed",
+        "role": "assistant",
+        "content": [
+            {
+                "type": "output_text",
+                "text": "The attributes of an ancient brown dragon include...",
+                "annotations": [
+                    {
+                        "type": "file_citation",
+                        "index": 320,
+                        "file_id": "file-4wDz5b167pAf72nx1h9eiN",
+                        "filename": "dragons.pdf",
+                    },
+                    {
+                        "type": "file_citation",
+                        "index": 576,
+                        "file_id": "file-4wDz5b167pAf72nx1h9eiN",
+                        "filename": "dragons.pdf",
+                    },
+                ],
+            }
+        ],
+    },
+]
+
+_DUMMY_COMPUTER_USE_OUTPUTS = [
+    {
+        "type": "reasoning",
+        "id": "rs_67cc...",
+        "summary": [{"type": "summary_text", "text": "Clicking on the browser address bar."}],
+    },
+    {
+        "type": "computer_call",
+        "id": "cu_67cc...",
+        "call_id": "computer_call_1",
+        "action": {"type": "click", "button": "left", "x": 156, "y": 50},
+        "pending_safety_checks": [],
+        "status": "completed",
+    },
+]
+
+_DUMMY_FUNCTION_CALL_OUTPUTS = [
+    {
+        "type": "function_call",
+        "id": "fc_67ca09c6bedc8190a7abfec07b1a1332096610f474011cc0",
+        "call_id": "function_call_1",
+        "name": "get_current_weather",
+        "arguments": '{"location":"Boston, MA","unit":"celsius"}',
+        "status": "completed",
+    }
+]
+
+_DUMMY_RESPONSES_STREAM_EVENTS = [
+    {
+        "type": "response.created",
+        "response": _make_responses_payload(outputs=[]),
+    },
+    {
+        "content_index": 0,
+        "delta": "Hello ",
+        "item_id": 0,
+        "output_index": 0,
+        "type": "response.output_text.delta",
+    },
+    {
+        "content_index": 0,
+        "delta": "World",
+        "item_id": 0,
+        "output_index": 0,
+        "type": "response.output_text.delta",
+    },
+    {
+        "response": _make_responses_payload(outputs=_DUMMY_TEXT_OUTPUTS),
+        "type": "response.completed",
+    },
+]
+
+
+class ResponsesPayload(BaseModel):
+    input: Any
+    tools: Optional[list[Any]] = None
+    stream: bool = False
+
+
+@app.post("/responses", response_model_exclude_unset=True)
+async def responses(payload: ResponsesPayload):
+    if payload.stream:
+        content = (
+            f"event: {d['type']}\ndata: {json.dumps(d)}\n\n" for d in _DUMMY_RESPONSES_STREAM_EVENTS
+        )
+        return StreamingResponse(content, media_type="text/event-stream")
+
+    if tools := payload.tools or []:
+        if tools[0]["type"] == "web_search_preview":
+            outputs = _DUMMY_WEB_SEARCH_OUTPUTS
+        elif tools[0]["type"] == "file_search":
+            outputs = _DUMMY_FILE_SEARCH_OUTPUTS
+        elif tools[0]["type"] == "computer_use_preview":
+            outputs = _DUMMY_COMPUTER_USE_OUTPUTS
+        elif tools[0]["type"] == "function":
+            outputs = _DUMMY_FUNCTION_CALL_OUTPUTS
+        else:
+            raise fastapi.HTTPException(
+                status_code=400,
+                detail=f"Unsupported tool type: {tools[0]['type']}",
+            )
+        return _make_responses_payload(outputs, tools)
+
+    return _make_responses_payload(outputs=_DUMMY_TEXT_OUTPUTS)
 
 
 class CompletionsPayload(BaseModel):

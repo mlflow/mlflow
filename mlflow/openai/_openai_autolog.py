@@ -110,6 +110,15 @@ def _get_span_type(task: type) -> str:
     except ImportError:
         pass
 
+    try:
+        # Responses API only available in openai>=1.66.0
+        from openai.resources.responses import AsyncResponses, Responses
+
+        span_type_mapping[Responses] = SpanType.CHAT_MODEL
+        span_type_mapping[AsyncResponses] = SpanType.CHAT_MODEL
+    except ImportError:
+        pass
+
     return span_type_mapping.get(task, SpanType.UNKNOWN)
 
 
@@ -287,7 +296,7 @@ def _log_optional_artifacts(
 
 def _start_span(mlflow_client: MlflowClient, instance: Any, inputs: dict[str, Any], run_id: str):
     # Record input parameters to attributes
-    attributes = {k: v for k, v in inputs.items() if k != "messages"}
+    attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
 
     # If there is an active span, create a child span under it, otherwise create a new trace
     span = start_client_span_or_trace(
@@ -323,7 +332,8 @@ def _end_span_on_success(
             for i, chunk in enumerate(stream):
                 output.append(_process_chunk(span, i, chunk))
                 yield chunk
-            _end_span_on_success(mlflow_client, span, inputs, "".join(output))
+            output = chunk.response if _is_responses_final_event(chunk) else "".join(output)
+            _end_span_on_success(mlflow_client, span, inputs, output)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     elif isinstance(result, AsyncStream):
@@ -333,7 +343,8 @@ def _end_span_on_success(
             async for chunk in stream:
                 output.append(_process_chunk(span, len(output), chunk))
                 yield chunk
-            _end_span_on_success(mlflow_client, span, inputs, "".join(output))
+            output = chunk.response if _is_responses_final_event(chunk) else "".join(output)
+            _end_span_on_success(mlflow_client, span, inputs, output)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     else:
@@ -341,7 +352,16 @@ def _end_span_on_success(
             set_span_chat_attributes(span, inputs, result)
             end_client_span_or_trace(mlflow_client, span, outputs=result)
         except Exception as e:
-            _logger.warning(f"Encountered unexpected error when ending trace: {e}")
+            _logger.warning(f"Encountered unexpected error when ending trace: {e}", exc_info=True)
+
+
+def _is_responses_final_event(chunk: Any) -> bool:
+    try:
+        from openai.types.responses import ResponseCompletedEvent
+
+        return isinstance(chunk, ResponseCompletedEvent)
+    except ImportError:
+        return False
 
 
 def _end_span_on_exception(mlflow_client: MlflowClient, span: LiveSpan, e: Exception):
@@ -360,10 +380,9 @@ def _process_chunk(span: LiveSpan, index: int, chunk: Any) -> str:
     # `chunk.choices` can be empty: https://github.com/mlflow/mlflow/issues/13361
     if isinstance(chunk, Completion) and chunk.choices:
         parsed = chunk.choices[0].text or ""
-    # In Azure OpenAI’s content filtering response, `chunk.choices[0].delta` can become `None`.
-    # https://github.com/mlflow/mlflow/issues/15135
-    elif isinstance(chunk, ChatCompletionChunk) and chunk.choices and chunk.choices[0].delta:
-        parsed = chunk.choices[0].delta.content or ""
+    elif isinstance(chunk, ChatCompletionChunk) and chunk.choices:
+        choice = chunk.choices[0]
+        parsed = (choice.delta and choice.delta.content) or ""
     else:
         parsed = ""
 

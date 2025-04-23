@@ -29,7 +29,7 @@ def test_json_deserialization():
     with pytest.raises(Exception, match="Error!"):
         model.predict(2, 5)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     trace_data = trace.data
 
     # Compare events separately as it includes exception stacktrace which is hard to hardcode
@@ -136,7 +136,7 @@ def test_intermediate_outputs_from_attribute():
             span.set_attribute("mlflow.trace.intermediate_outputs", intermediate_outputs)
 
     run()
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
     assert trace.data.intermediate_outputs == intermediate_outputs
 
@@ -157,7 +157,7 @@ def test_intermediate_outputs_from_spans():
         llm(2)
 
     predict()
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
     assert trace.data.intermediate_outputs == {
         "retrieved_documents": ["document 1", "document 2"],
@@ -172,6 +172,6 @@ def test_intermediate_outputs_no_value():
             span.set_outputs(1)
 
     run()
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
     assert trace.data.intermediate_outputs is None

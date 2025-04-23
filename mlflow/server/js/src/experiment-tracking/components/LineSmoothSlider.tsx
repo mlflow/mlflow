@@ -24,6 +24,7 @@ interface LineSmoothSliderProps {
   disabled?: boolean;
   componentId?: string;
   onAfterChange?: (value: number) => void;
+  className?: string;
 }
 
 // Internal helper function: finds the closest value to the given value from the marks
@@ -57,6 +58,7 @@ export const LineSmoothSlider = ({
   disabled,
   onAfterChange,
   componentId,
+  className,
 }: LineSmoothSliderProps) => {
   const { theme } = useDesignSystemTheme();
   const shouldUseMarks = !isEmpty(marks);
@@ -76,7 +78,12 @@ export const LineSmoothSlider = ({
     >
       <Slider.Root
         disabled={disabled}
-        css={{ flex: 1, position: 'relative', 'span:last-child': { zIndex: ZINDEX_THUMB } }}
+        css={{
+          flex: 1,
+          position: 'relative',
+          'span:last-child': { zIndex: ZINDEX_THUMB },
+        }}
+        className={className}
         min={min}
         max={max}
         value={[value ?? 0]}
