@@ -35,22 +35,18 @@ MOCK_TOOLS = [
 ]
 
 
-def _extract_property_from_chunks(variant: ChatChunkVariant | CompletionsChunkVariant):
+def _extract_property_from_chunks(variant: ChatChunkVariant | CompletionsChunkVariant, chunks):
     """Utility function to extract values from a streaming response chunk for assertion purposes."""
-
-    def _fn(chunks):
-        if variant == ChatChunkVariant.EMPTY_CHOICES:
-            return chunks[0].choices
-        elif variant == ChatChunkVariant.CHOICE_DELTA_NONE:
-            return chunks[-1].choices[0].delta
-        elif variant == ChatChunkVariant.CHOICE_DELTA_CONTENT_NONE:
-            return chunks[-1].choices[0].delta.content
-        elif variant == CompletionsChunkVariant.EMPTY_CHOICES:
-            return chunks[0].choices
-        elif variant == CompletionsChunkVariant.CHOICE_EMPTY_TEXT:
-            return chunks[-1].choices[0].text
-
-    return _fn
+    if variant == ChatChunkVariant.EMPTY_CHOICES:
+        return chunks[0].choices
+    elif variant == ChatChunkVariant.CHOICE_DELTA_NONE:
+        return chunks[-1].choices[0].delta
+    elif variant == ChatChunkVariant.CHOICE_DELTA_CONTENT_NONE:
+        return chunks[-1].choices[0].delta.content
+    elif variant == CompletionsChunkVariant.EMPTY_CHOICES:
+        return chunks[0].choices
+    elif variant == CompletionsChunkVariant.CHOICE_EMPTY_TEXT:
+        return chunks[-1].choices[0].text
 
 
 @pytest.fixture(params=[True, False], ids=["sync", "async"])
@@ -308,7 +304,7 @@ async def test_chat_completions_streaming_with_openai_compatible_server_special_
     else:
         chunks = list(stream)
 
-    assert _extract_property_from_chunks(variant)(chunks) == expected
+    assert _extract_property_from_chunks(variant, chunks) == expected
 
     trace = mlflow.get_last_active_trace()
     assert trace.info.status == "OK"
@@ -381,7 +377,7 @@ async def test_completions_autolog_streaming_with_openai_compatible_server_speci
     else:
         chunks = list(stream)
 
-    assert _extract_property_from_chunks(variant)(chunks) == expected
+    assert _extract_property_from_chunks(variant, chunks) == expected
 
     trace = mlflow.get_last_active_trace()
     assert trace.info.status == "OK"
