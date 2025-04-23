@@ -2,13 +2,16 @@ from typing import Any, Optional
 
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import active_run
@@ -422,6 +425,46 @@ def register_prompt(
         commit_message=commit_message,
         tags=tags,
         version_metadata=version_metadata,
+    )
+
+
+@require_prompt_registry
+def list_prompts(
+    filter_string: Optional[str] = None,
+    max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+    page_token: Optional[str] = None,
+) -> PagedList[RegisteredModel]:
+    """
+    Retrieve prompt templates from the MLflow Prompt Registry.
+
+    This call returns only those registered models that have been marked
+    as prompts (i.e. tagged with `mlflow.prompt.is_prompt=true`). We can
+    further restrict results via a standard registry filter expression.
+
+    Args:
+        filter_string (Optional[str]):
+            An additional registry‐search expression to apply (e.g.
+            `"name LIKE 'my_prompt%'"`).  The prompt‐tag filter is always
+            applied internally.  Defaults to `None` (no extra filtering).
+        max_results (int):
+            The maximum number of prompts to return in one page.  Defaults
+            to `SEARCH_MAX_RESULTS_DEFAULT` (typically 1 000).
+        page_token (Optional[str]):
+            A pagination token from a previous `list_prompts` call; use this
+            to retrieve the next page of results.  Defaults to `None`.
+
+    Returns:
+        PagedList[RegisteredModel]:
+            A pageable list of `RegisteredModel` entities representing prompt
+            templates.  Inspect the returned object's `.token` attribute to
+            fetch subsequent pages.
+    """
+    fls = f"tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
+    if filter_string:
+        fls = f"{fls} AND {filter_string}"
+
+    return MlflowClient().list_prompts(
+        filter_string=fls, max_results=max_results, page_token=page_token
     )
 
 

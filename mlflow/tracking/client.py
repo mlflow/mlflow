@@ -552,6 +552,49 @@ class MlflowClient:
 
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
 
+    @translate_prompt_exception
+    @require_prompt_registry
+    def list_prompts(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: Optional[str] = None,
+    ) -> PagedList[RegisteredModel]:
+        """
+        Retrieve prompt templates from the MLflow Prompt Registry.
+
+        This call returns only those registered models that have been marked
+        as prompts (i.e. tagged with `mlflow.prompt.is_prompt=true`). We can
+        further restrict results via a standard registry filter expression.
+
+        Args:
+            filter_string (Optional[str]):
+                An additional registry‐search expression to apply (e.g.
+                `"name LIKE 'my_prompt%'"`).  The prompt‐tag filter is always
+                applied internally.  Defaults to `None` (no extra filtering).
+            max_results (int):
+                The maximum number of prompts to return in one page.  Defaults
+                to `SEARCH_MAX_RESULTS_DEFAULT` (typically 1 000).
+            page_token (Optional[str]):
+                A pagination token from a previous `list_prompts` call; use this
+                to retrieve the next page of results.  Defaults to `None`.
+
+        Returns:
+            PagedList[RegisteredModel]:
+                A pageable list of `RegisteredModel` entities representing prompt
+                templates.  Inspect the returned object's `.token` attribute to
+                fetch subsequent pages.
+        """
+        fls = f"tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
+        if filter_string:
+            fls = f"{fls} AND {filter_string}"
+
+        return self._get_registry_client().search_registered_models(
+            filter_string=fls,
+            max_results=max_results,
+            page_token=page_token,
+        )
+
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
