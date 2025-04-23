@@ -18,7 +18,7 @@ from optuna.trial import FrozenTrial, TrialState
 
 import mlflow
 from mlflow.entities import Metric, Param, RunTag
-from mlflow.pyspark.optuna.storage import MlflowStorage
+from mlflow.optuna.storage import MlflowStorage
 
 ALL_STATES = list(TrialState)
 
@@ -168,7 +168,7 @@ def test_queue_batch_operation_appends_to_existing_queue(setup_storage):
 
 def test_flush_batch_sends_data_to_mlflow(setup_storage):
     """Test that _flush_batch properly sends data to MLflow client."""
-    with patch("mlflow.pyspark.optuna.storage.MlflowClient") as mock_client:
+    with patch("mlflow.optuna.storage.MlflowClient") as mock_client:
         storage = setup_storage
         run_id = "test-run-id"
         mock_client_instance = MagicMock()
@@ -199,7 +199,7 @@ def test_flush_batch_sends_data_to_mlflow(setup_storage):
 
 def test_flush_batch_does_nothing_for_empty_batch(setup_storage):
     """Test that _flush_batch does nothing when batch is empty."""
-    with patch("mlflow.pyspark.optuna.storage.MlflowClient") as mock_client:
+    with patch("mlflow.optuna.storage.MlflowClient") as mock_client:
         storage = setup_storage
         run_id = "test-run-id"
         # Create a mock instance that will be returned when MlflowClient is instantiated
@@ -220,7 +220,7 @@ def test_flush_batch_does_nothing_for_empty_batch(setup_storage):
 
 def test_flush_batch_handles_nonexistent_run(setup_storage):
     """Test that _flush_batch handles nonexistent run gracefully."""
-    with patch("mlflow.pyspark.optuna.storage.MlflowClient") as mock_client:
+    with patch("mlflow.optuna.storage.MlflowClient") as mock_client:
         storage = setup_storage
         run_id = "nonexistent-run"
         # Create a mock instance that will be returned when MlflowClient is instantiated

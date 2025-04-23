@@ -411,7 +411,6 @@ import sys
 import tempfile
 import threading
 import uuid
-import warnings
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple, Union
@@ -489,6 +488,7 @@ from mlflow.pyfunc.dbconnect_artifact_cache import (
 from mlflow.pyfunc.model import (
     _DEFAULT_CHAT_AGENT_METADATA_TASK,
     _DEFAULT_CHAT_MODEL_METADATA_TASK,
+    _DEFAULT_RESPONSES_AGENT_METADATA_TASK,
     ChatAgent,
     ChatModel,
     PythonModel,
@@ -499,6 +499,13 @@ from mlflow.pyfunc.model import (
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
+
+try:
+    from mlflow.pyfunc.model import ResponsesAgent
+
+    IS_RESPONSES_AGENT_AVAILABLE = True
+except ImportError:
+    IS_RESPONSES_AGENT_AVAILABLE = False
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -2791,7 +2798,6 @@ def save_model(
     path,
     loader_module=None,
     data_path=None,
-    code_path=None,  # deprecated
     code_paths=None,
     infer_code_paths=False,
     conda_env=None,
@@ -2830,11 +2836,9 @@ def save_model(
             - The MLflow library.
             - Package(s) listed in the model's Conda environment, specified by
               the ``conda_env`` parameter.
-            - One or more of the files specified by the ``code_path`` parameter.
+            - One or more of the files specified by the ``code_paths`` parameter.
 
         data_path: Path to a file or directory containing model data.
-        code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
-            replaced by ``code_paths`` and will be removed in a future version of MLflow.
         code_paths: {{ code_paths_pyfunc }}
         infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
@@ -2851,7 +2855,7 @@ def save_model(
             - The MLflow library.
             - Package(s) listed in the model's Conda environment, specified by the ``conda_env``
               parameter.
-            - One or more of the files specified by the ``code_path`` parameter.
+            - One or more of the files specified by the ``code_paths`` parameter.
 
             Note: If the class is imported from another module, as opposed to being defined in the
             ``__main__`` scope, the defining module should also be included in one of the listed
@@ -3021,22 +3025,9 @@ def save_model(
     if len(kwargs) > 0:
         raise TypeError(f"save_model() got unexpected keyword arguments: {kwargs}")
 
-    if code_path is not None and code_paths is not None:
-        raise MlflowException(
-            "Both `code_path` and `code_paths` have been specified, which is not permitted."
-        )
-    if code_path is not None:
-        # Alias for `code_path` deprecation
-        code_paths = code_path
-        warnings.warn(
-            "The `code_path` argument is replaced by `code_paths` and is deprecated "
-            "as of MLflow version 2.12.0. This argument will be removed in a future "
-            "release of MLflow."
-        )
-
     if code_paths is not None:
         if not isinstance(code_paths, list):
-            raise TypeError(f"Argument code_path should be a list, not {type(code_paths)}")
+            raise TypeError(f"Argument code_paths should be a list, not {type(code_paths)}")
 
     first_argument_set = {
         "loader_module": loader_module,
@@ -3137,6 +3128,10 @@ def save_model(
             )
     elif isinstance(python_model, ChatAgent):
         input_example = _save_model_chat_agent_helper(
+            python_model, mlflow_model, signature, input_example
+        )
+    elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
+        input_example = _save_model_responses_agent_helper(
             python_model, mlflow_model, signature, input_example
         )
     elif callable(python_model) or isinstance(python_model, PythonModel):
@@ -3336,7 +3331,6 @@ def log_model(
     artifact_path=None,
     loader_module=None,
     data_path=None,
-    code_path=None,  # deprecated
     code_paths=None,
     infer_code_paths=False,
     conda_env=None,
@@ -3381,11 +3375,9 @@ def log_model(
             - The MLflow library.
             - Package(s) listed in the model's Conda environment, specified by
               the ``conda_env`` parameter.
-            - One or more of the files specified by the ``code_path`` parameter.
+            - One or more of the files specified by the ``code_paths`` parameter.
 
         data_path: Path to a file or directory containing model data.
-        code_path: **Deprecated** The legacy argument for defining dependent code. This argument is
-            replaced by ``code_paths`` and will be removed in a future version of MLflow.
         code_paths: {{ code_paths_pyfunc }}
         infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
@@ -3400,7 +3392,7 @@ def log_model(
             - The MLflow library.
             - Package(s) listed in the model's Conda environment, specified by the ``conda_env``
               parameter.
-            - One or more of the files specified by the ``code_path`` parameter.
+            - One or more of the files specified by the ``code_paths`` parameter.
 
             Note: If the class is imported from another module, as opposed to being defined in the
             ``__main__`` scope, the defining module should also be included in one of the listed
@@ -3571,7 +3563,6 @@ def log_model(
         flavor=mlflow.pyfunc,
         loader_module=loader_module,
         data_path=data_path,
-        code_path=code_path,  # deprecated
         code_paths=code_paths,
         python_model=python_model,
         artifacts=artifacts,
@@ -3751,6 +3742,65 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
         raise MlflowException(
             "Failed to save ChatAgent. Ensure your model's predict() method returns a "
             "ChatAgentResponse object or a dict with the same schema."
+            f"Pydantic validation error: {e}"
+        ) from e
+    return input_example
+
+
+def _save_model_responses_agent_helper(python_model, mlflow_model, signature, input_example):
+    """Helper method for save_model for ResponsesAgent models
+
+    Returns: a dictionary input example
+    """
+    from mlflow.types.responses import (
+        RESPONSES_AGENT_INPUT_EXAMPLE,
+        RESPONSES_AGENT_INPUT_SCHEMA,
+        RESPONSES_AGENT_OUTPUT_SCHEMA,
+        ResponsesRequest,
+        ResponsesResponse,
+    )
+
+    if signature is not None:
+        raise MlflowException(
+            "ResponsesAgent subclasses have a standard signature that is set "
+            "automatically. Please remove the `signature` parameter from "
+            "the call to log_model() or save_model().",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    mlflow_model.signature = ModelSignature(
+        inputs=RESPONSES_AGENT_INPUT_SCHEMA,
+        outputs=RESPONSES_AGENT_OUTPUT_SCHEMA,
+    )
+
+    # For ResponsesAgent we set default metadata to indicate its task
+    default_metadata = {TASK: _DEFAULT_RESPONSES_AGENT_METADATA_TASK}
+    mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
+
+    # We accept either a dict or a ResponsesRequest object as input
+    if input_example:
+        try:
+            model_validate(ResponsesRequest, input_example)
+        except pydantic.ValidationError as e:
+            raise MlflowException(
+                message=(
+                    f"Invalid input example. Expected a ResponsesRequest object or dictionary with"
+                    f" its schema. Pydantic validation error: {e}"
+                ),
+                error_code=INTERNAL_ERROR,
+            ) from e
+        if isinstance(input_example, ResponsesRequest):
+            input_example = input_example.model_dump_compat(exclude_none=True)
+    else:
+        input_example = RESPONSES_AGENT_INPUT_EXAMPLE
+    _logger.info("Predicting on input example to validate output")
+    request = ResponsesRequest(**input_example)
+    output = python_model.predict(request)
+    try:
+        model_validate(ResponsesResponse, output)
+    except Exception as e:
+        raise MlflowException(
+            "Failed to save ResponsesAgent. Ensure your model's predict() method returns a "
+            "ResponsesResponse object or a dict with the same schema."
             f"Pydantic validation error: {e}"
         ) from e
     return input_example

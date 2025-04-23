@@ -77,7 +77,7 @@ def test_export(experiment_id, is_async, monkeypatch):
             "execution_duration": mock.ANY,
             "state": "OK",
             "trace_metadata": {
-                "mlflow.trace_schema.version": "2",
+                "mlflow.trace_schema.version": "3",
             },
             "tags": {
                 "foo": "bar",

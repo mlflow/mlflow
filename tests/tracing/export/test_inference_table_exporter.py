@@ -9,7 +9,6 @@ from mlflow.tracing.export.inference_table import (
     pop_trace,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import encode_span_id, encode_trace_id
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
@@ -53,15 +52,11 @@ def test_export():
     trace_dict = pop_trace(_REQUEST_ID)
     trace_info = trace_dict["info"]
     assert trace_info["request_time"] == "1970-01-01T00:00:00Z"
-    assert trace_info["execution_duration"] == "0.001s"
+    assert trace_info["execution_duration_ms"] == 1
 
     spans = trace_dict["data"]["spans"]
     assert len(spans) == 2
     assert spans[0]["name"] == "root"
-    assert spans[0]["context"] == {
-        "trace_id": encode_trace_id(_TRACE_ID),
-        "span_id": encode_span_id(1),
-    }
     assert isinstance(spans[0]["attributes"], dict)
 
     # Last active trace ID should be set
