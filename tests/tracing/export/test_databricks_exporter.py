@@ -85,6 +85,8 @@ def test_export(experiment_id, is_async, monkeypatch):
     mock_upload_trace_data.assert_called_once()
 
     # Access the trace that was passed to _start_trace_v3
+    endpoint = mock_call_endpoint.call_args.args[1]
+    assert endpoint == "/api/3.0/mlflow/traces"
     trace_json = mock_call_endpoint.call_args.args[3]
     trace = json.loads(trace_json)["trace"]
 

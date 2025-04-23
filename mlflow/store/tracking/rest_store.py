@@ -307,7 +307,13 @@ class RestStore(AbstractStore):
             The returned TraceInfoV3 object from the backend.
         """
         req_body = message_to_json(StartTraceV3(trace=trace.to_proto()))
-        response_proto = self._call_endpoint(StartTraceV3, req_body)
+        response_proto = self._call_endpoint(
+            # NB: _call_endpoint doesn't handle versioning between v2 and v3 endpoint
+            # yet, so manually passing the v3 endpoint here.
+            StartTraceV3,
+            req_body,
+            endpoint="/api/3.0/mlflow/traces",
+        )
         return TraceInfoV3.from_proto(response_proto.trace.trace_info)
 
     def end_trace(
