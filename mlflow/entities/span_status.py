@@ -17,8 +17,8 @@ class SpanStatusCode(str, Enum):
     OK = "OK"
     ERROR = "ERROR"
 
-    @classmethod
-    def from_proto_status_code(cls, status_code: str) -> SpanStatusCode:
+    @staticmethod
+    def from_proto_status_code(status_code: str) -> SpanStatusCode:
         """
         Convert a string status code to the corresponding SpanStatusCode enum value.
         """
@@ -31,8 +31,8 @@ class SpanStatusCode(str, Enum):
             proto_code.Name(proto_code.STATUS_CODE_ERROR): SpanStatusCode.ERROR,
         }
         try:
-            return cls(status_code_mapping[status_code])
-        except ValueError:
+            return status_code_mapping[status_code]
+        except KeyError:
             raise MlflowException(
                 f"Invalid status code: {status_code}. "
                 f"Valid values are: {', '.join(status_code_mapping.keys())}",

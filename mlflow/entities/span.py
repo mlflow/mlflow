@@ -232,8 +232,12 @@ class Span:
                     INVALID_PARAMETER_VALUE,
                 )
 
+            if Span._is_span_v2_schema(data):
+                return cls.from_dict_v2(data)
+
             trace_id = _decode_trace_id_from_byte(data["trace_id"])
             span_id = _decode_span_id_from_byte(data["span_id"])
+            # Parent ID always exists in proto (empty string) even if the span is a root span.
             parent_id = (
                 _decode_span_id_from_byte(data["parent_span_id"])
                 if data["parent_span_id"]
@@ -264,48 +268,41 @@ class Span:
                 ],
             )
             return cls(otel_span)
-        except Exception:
-            # Fallback to the v2 span deserialization method
-            return cls.from_dict_v2(data)
-
-    @classmethod
-    def from_dict_v2(cls, data: dict[str, Any]) -> "Span":
-        """Create a Span object from the given dictionary in v2 schema."""
-        try:
-            request_id = data.get("attributes", {}).get(SpanAttributeKey.REQUEST_ID)
-            if not request_id:
-                raise MlflowException(
-                    f"The {SpanAttributeKey.REQUEST_ID} attribute is empty or missing.",
-                    INVALID_PARAMETER_VALUE,
-                )
-
-            trace_id = decode_id(data["context"]["trace_id"])
-            span_id = decode_id(data["context"]["span_id"])
-            parent_id = decode_id(data["parent_id"]) if data["parent_id"] else None
-
-            otel_span = OTelReadableSpan(
-                name=data["name"],
-                context=build_otel_context(trace_id, span_id),
-                parent=build_otel_context(trace_id, parent_id) if parent_id else None,
-                start_time=data["start_time"],
-                end_time=data["end_time"],
-                attributes=data["attributes"],
-                status=SpanStatus(data["status_code"], data["status_message"]).to_otel_status(),
-                events=[
-                    OTelEvent(
-                        name=event["name"],
-                        timestamp=event["timestamp"],
-                        attributes=event["attributes"],
-                    )
-                    for event in data["events"]
-                ],
-            )
-            return cls(otel_span)
         except Exception as e:
             raise MlflowException(
                 "Failed to create a Span object from the given dictionary",
                 INVALID_PARAMETER_VALUE,
             ) from e
+
+    @staticmethod
+    def _is_span_v2_schema(data: dict[str, Any]) -> bool:
+        return "context" in data
+
+    @classmethod
+    def from_dict_v2(cls, data: dict[str, Any]) -> "Span":
+        """Create a Span object from the given dictionary in v2 schema."""
+        trace_id = decode_id(data["context"]["trace_id"])
+        span_id = decode_id(data["context"]["span_id"])
+        parent_id = decode_id(data["parent_id"]) if data["parent_id"] else None
+
+        otel_span = OTelReadableSpan(
+            name=data["name"],
+            context=build_otel_context(trace_id, span_id),
+            parent=build_otel_context(trace_id, parent_id) if parent_id else None,
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+            attributes=data["attributes"],
+            status=SpanStatus(data["status_code"], data["status_message"]).to_otel_status(),
+            events=[
+                OTelEvent(
+                    name=event["name"],
+                    timestamp=event["timestamp"],
+                    attributes=event["attributes"],
+                )
+                for event in data["events"]
+            ],
+        )
+        return cls(otel_span)
 
     def to_proto(self):
         """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
