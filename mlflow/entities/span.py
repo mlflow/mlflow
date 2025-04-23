@@ -208,10 +208,17 @@ class Span:
         return self._attributes.get(key)
 
     def to_dict(self) -> dict[str, Any]:
-        return MessageToDict(
+        d = MessageToDict(
             self.to_proto(),
             preserving_proto_field_name=True,
         )
+        # Casting fields types as MessageToDict convert everything to string
+        d["start_time_unix_nano"] = self.start_time_ns
+        d["end_time_unix_nano"] = self.end_time_ns
+        for i, event in enumerate(d.get("events", [])):
+            event["time_unix_nano"] = self.events[i].timestamp
+            event["attributes"] = self.events[i].attributes
+        return d
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Span":
