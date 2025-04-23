@@ -1,10 +1,10 @@
+import base64
 import json
 import logging
-from dataclasses import asdict
 from functools import lru_cache
 from typing import Any, Optional, Union
 
-from google.protobuf.json_format import ParseDict
+from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -207,31 +207,24 @@ class Span:
         """
         return self._attributes.get(key)
 
-    def to_dict(self):
-        # NB: OpenTelemetry Span has to_json() method, but it will write many fields that
-        #  we don't use e.g. links, kind, resource, trace_state, etc. So we manually
-        #  cherry-pick the fields we need here.
-        return {
-            "name": self.name,
-            "context": {
-                "span_id": self.span_id,
-                "trace_id": self._trace_id,
-            },
-            "parent_id": self.parent_id,
-            "start_time": self.start_time_ns,
-            "end_time": self.end_time_ns,
-            "status_code": self.status.status_code.value,
-            "status_message": self.status.description,
-            "attributes": dict(self._span.attributes),
-            "events": [asdict(event) for event in self.events],
-        }
+    def to_dict(self) -> dict[str, Any]:
+        d = MessageToDict(
+            self.to_proto(),
+            preserving_proto_field_name=True,
+        )
+        # Casting fields types as MessageToDict convert everything to string
+        d["start_time_unix_nano"] = self.start_time_ns
+        d["end_time_unix_nano"] = self.end_time_ns
+        for i, event in enumerate(d.get("events", [])):
+            event["time_unix_nano"] = self.events[i].timestamp
+            event["attributes"] = self.events[i].attributes
+        return d
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Span":
-        """
-        Create a Span object from the given dictionary.
-        """
+        """Create a Span object from the given dictionary."""
         try:
+            # Try to deserialize the span using the v3 schema
             request_id = data.get("attributes", {}).get(SpanAttributeKey.REQUEST_ID)
             if not request_id:
                 raise MlflowException(
@@ -239,25 +232,37 @@ class Span:
                     INVALID_PARAMETER_VALUE,
                 )
 
-            trace_id = decode_id(data["context"]["trace_id"])
-            span_id = decode_id(data["context"]["span_id"])
-            parent_id = decode_id(data["parent_id"]) if data["parent_id"] else None
+            if Span._is_span_v2_schema(data):
+                return cls.from_dict_v2(data)
+
+            trace_id = _decode_id_from_byte(data["trace_id"])
+            span_id = _decode_id_from_byte(data["span_id"])
+            # Parent ID always exists in proto (empty string) even if the span is a root span.
+            parent_id = (
+                _decode_id_from_byte(data["parent_span_id"]) if data["parent_span_id"] else None
+            )
+
+            end_time_ns = data.get("end_time_unix_nano")
+            end_time_ns = int(end_time_ns) if end_time_ns else None
 
             otel_span = OTelReadableSpan(
                 name=data["name"],
                 context=build_otel_context(trace_id, span_id),
                 parent=build_otel_context(trace_id, parent_id) if parent_id else None,
-                start_time=data["start_time"],
-                end_time=data["end_time"],
+                start_time=int(data["start_time_unix_nano"]),
+                end_time=end_time_ns,
                 attributes=data["attributes"],
-                status=SpanStatus(data["status_code"], data["status_message"]).to_otel_status(),
+                status=SpanStatus(
+                    status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
+                    description=data["status"].get("message"),
+                ).to_otel_status(),
                 events=[
                     OTelEvent(
                         name=event["name"],
-                        timestamp=event["timestamp"],
-                        attributes=event["attributes"],
+                        timestamp=int(event["time_unix_nano"]),
+                        attributes=event.get("attributes", {}),
                     )
-                    for event in data["events"]
+                    for event in data.get("events", [])
                 ],
             )
             return cls(otel_span)
@@ -266,6 +271,36 @@ class Span:
                 "Failed to create a Span object from the given dictionary",
                 INVALID_PARAMETER_VALUE,
             ) from e
+
+    @staticmethod
+    def _is_span_v2_schema(data: dict[str, Any]) -> bool:
+        return "context" in data
+
+    @classmethod
+    def from_dict_v2(cls, data: dict[str, Any]) -> "Span":
+        """Create a Span object from the given dictionary in v2 schema."""
+        trace_id = decode_id(data["context"]["trace_id"])
+        span_id = decode_id(data["context"]["span_id"])
+        parent_id = decode_id(data["parent_id"]) if data["parent_id"] else None
+
+        otel_span = OTelReadableSpan(
+            name=data["name"],
+            context=build_otel_context(trace_id, span_id),
+            parent=build_otel_context(trace_id, parent_id) if parent_id else None,
+            start_time=data["start_time"],
+            end_time=data["end_time"],
+            attributes=data["attributes"],
+            status=SpanStatus(data["status_code"], data["status_message"]).to_otel_status(),
+            events=[
+                OTelEvent(
+                    name=event["name"],
+                    timestamp=event["timestamp"],
+                    attributes=event["attributes"],
+                )
+                for event in data["events"]
+            ],
+        )
+        return cls(otel_span)
 
     def to_proto(self):
         """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
@@ -298,6 +333,12 @@ def _encode_span_id_to_byte(span_id: Optional[int]) -> bytes:
 def _encode_trace_id_to_byte(trace_id: int) -> bytes:
     # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L135
     return trace_id.to_bytes(length=16, byteorder="big", signed=False)
+
+
+def _decode_id_from_byte(trace_or_span_id_b64: str) -> int:
+    # Decoding the base64 encoded trace or span ID to bytes and then converting it to int.
+    bytes = base64.b64decode(trace_or_span_id_b64)
+    return int.from_bytes(bytes, byteorder="big", signed=False)
 
 
 class LiveSpan(Span):
