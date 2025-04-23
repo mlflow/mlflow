@@ -80,6 +80,13 @@ from mlflow.protos.service_pb2 import (
     SetTag,
     UpdateExperiment,
     UpdateRun,
+    # Routes for logged models
+    # CreateLoggedModel,
+    # GetLoggedModel,
+    # FinalizeLoggedModel,
+    # DeleteLoggedModel,
+    # DeleteLoggedModelTag,
+    # SetLoggedModelTags,
 )
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
@@ -391,6 +398,7 @@ BEFORE_REQUEST_HANDLERS = {
     SetRegisteredModelAlias: validate_can_update_registered_model,
     DeleteRegisteredModelAlias: validate_can_delete_registered_model,
     GetModelVersionByAlias: validate_can_read_registered_model,
+    # Routes for logged models
 }
 
 
