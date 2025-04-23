@@ -43,7 +43,6 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.process import ShellCommandException
 
 from tests.helper_functions import (
-    PROTOBUF_REQUIREMENT,
     RestEndpoint,
     get_safe_port,
     pyfunc_build_image,
