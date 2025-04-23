@@ -1806,8 +1806,17 @@ public final class Assessments {
 
     /**
      * <pre>
-     * Value of the expectation-based assessment.
-     * We use google.protobuf.Value to support a flexible schema of expectation values.
+     * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+     * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+     * be JSON conforming to one of the following supported types:
+     * * Numeric values like integers or floats
+     * * Boolean values
+     * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+     * * List values containing only strings (empty lists allowed).
+     * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+     * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+     * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+     * risks around their serialization and deserialization.
      * </pre>
      *
      * <code>optional .google.protobuf.Value value = 2;</code>
@@ -1816,8 +1825,17 @@ public final class Assessments {
     boolean hasValue();
     /**
      * <pre>
-     * Value of the expectation-based assessment.
-     * We use google.protobuf.Value to support a flexible schema of expectation values.
+     * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+     * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+     * be JSON conforming to one of the following supported types:
+     * * Numeric values like integers or floats
+     * * Boolean values
+     * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+     * * List values containing only strings (empty lists allowed).
+     * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+     * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+     * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+     * risks around their serialization and deserialization.
      * </pre>
      *
      * <code>optional .google.protobuf.Value value = 2;</code>
@@ -1826,13 +1844,52 @@ public final class Assessments {
     com.google.protobuf.Value getValue();
     /**
      * <pre>
-     * Value of the expectation-based assessment.
-     * We use google.protobuf.Value to support a flexible schema of expectation values.
+     * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+     * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+     * be JSON conforming to one of the following supported types:
+     * * Numeric values like integers or floats
+     * * Boolean values
+     * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+     * * List values containing only strings (empty lists allowed).
+     * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+     * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+     * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+     * risks around their serialization and deserialization.
      * </pre>
      *
      * <code>optional .google.protobuf.Value value = 2;</code>
      */
     com.google.protobuf.ValueOrBuilder getValueOrBuilder();
+
+    /**
+     * <pre>
+     * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+     * ``serialized_value`` or ``value`` may be defined.
+     * </pre>
+     *
+     * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+     * @return Whether the serializedValue field is set.
+     */
+    boolean hasSerializedValue();
+    /**
+     * <pre>
+     * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+     * ``serialized_value`` or ``value`` may be defined.
+     * </pre>
+     *
+     * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+     * @return The serializedValue.
+     */
+    org.mlflow.api.proto.Assessments.Expectation.SerializedValue getSerializedValue();
+    /**
+     * <pre>
+     * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+     * ``serialized_value`` or ``value`` may be defined.
+     * </pre>
+     *
+     * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+     */
+    org.mlflow.api.proto.Assessments.Expectation.SerializedValueOrBuilder getSerializedValueOrBuilder();
   }
   /**
    * <pre>
@@ -1898,6 +1955,19 @@ public final class Assessments {
               bitField0_ |= 0x00000001;
               break;
             }
+            case 26: {
+              org.mlflow.api.proto.Assessments.Expectation.SerializedValue.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000002) != 0)) {
+                subBuilder = serializedValue_.toBuilder();
+              }
+              serializedValue_ = input.readMessage(org.mlflow.api.proto.Assessments.Expectation.SerializedValue.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(serializedValue_);
+                serializedValue_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000002;
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -1930,13 +2000,918 @@ public final class Assessments {
               org.mlflow.api.proto.Assessments.Expectation.class, org.mlflow.api.proto.Assessments.Expectation.Builder.class);
     }
 
+    public interface SerializedValueOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.assessments.Expectation.SerializedValue)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <pre>
+       * Marks the serialization format for the expectation value. This is a contract specific to the client. The service
+       * will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".
+       * </pre>
+       *
+       * <code>optional string serialization_format = 1;</code>
+       * @return Whether the serializationFormat field is set.
+       */
+      boolean hasSerializationFormat();
+      /**
+       * <pre>
+       * Marks the serialization format for the expectation value. This is a contract specific to the client. The service
+       * will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".
+       * </pre>
+       *
+       * <code>optional string serialization_format = 1;</code>
+       * @return The serializationFormat.
+       */
+      java.lang.String getSerializationFormat();
+      /**
+       * <pre>
+       * Marks the serialization format for the expectation value. This is a contract specific to the client. The service
+       * will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".
+       * </pre>
+       *
+       * <code>optional string serialization_format = 1;</code>
+       * @return The bytes for serializationFormat.
+       */
+      com.google.protobuf.ByteString
+          getSerializationFormatBytes();
+
+      /**
+       * <pre>
+       * The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       * @return Whether the value field is set.
+       */
+      boolean hasValue();
+      /**
+       * <pre>
+       * The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       * @return The value.
+       */
+      java.lang.String getValue();
+      /**
+       * <pre>
+       * The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       * @return The bytes for value.
+       */
+      com.google.protobuf.ByteString
+          getValueBytes();
+    }
+    /**
+     * Protobuf type {@code mlflow.assessments.Expectation.SerializedValue}
+     */
+    public static final class SerializedValue extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.assessments.Expectation.SerializedValue)
+        SerializedValueOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use SerializedValue.newBuilder() to construct.
+      private SerializedValue(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private SerializedValue() {
+        serializationFormat_ = "";
+        value_ = "";
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new SerializedValue();
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private SerializedValue(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000001;
+                serializationFormat_ = bs;
+                break;
+              }
+              case 18: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000002;
+                value_ = bs;
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Assessments.internal_static_mlflow_assessments_Expectation_SerializedValue_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Assessments.internal_static_mlflow_assessments_Expectation_SerializedValue_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Assessments.Expectation.SerializedValue.class, org.mlflow.api.proto.Assessments.Expectation.SerializedValue.Builder.class);
+      }
+
+      private int bitField0_;
+      public static final int SERIALIZATION_FORMAT_FIELD_NUMBER = 1;
+      private volatile java.lang.Object serializationFormat_;
+      /**
+       * <pre>
+       * Marks the serialization format for the expectation value. This is a contract specific to the client. The service
+       * will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".
+       * </pre>
+       *
+       * <code>optional string serialization_format = 1;</code>
+       * @return Whether the serializationFormat field is set.
+       */
+      @java.lang.Override
+      public boolean hasSerializationFormat() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Marks the serialization format for the expectation value. This is a contract specific to the client. The service
+       * will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".
+       * </pre>
+       *
+       * <code>optional string serialization_format = 1;</code>
+       * @return The serializationFormat.
+       */
+      @java.lang.Override
+      public java.lang.String getSerializationFormat() {
+        java.lang.Object ref = serializationFormat_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            serializationFormat_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * Marks the serialization format for the expectation value. This is a contract specific to the client. The service
+       * will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".
+       * </pre>
+       *
+       * <code>optional string serialization_format = 1;</code>
+       * @return The bytes for serializationFormat.
+       */
+      @java.lang.Override
+      public com.google.protobuf.ByteString
+          getSerializationFormatBytes() {
+        java.lang.Object ref = serializationFormat_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          serializationFormat_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
+      public static final int VALUE_FIELD_NUMBER = 2;
+      private volatile java.lang.Object value_;
+      /**
+       * <pre>
+       * The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       * @return Whether the value field is set.
+       */
+      @java.lang.Override
+      public boolean hasValue() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       * @return The value.
+       */
+      @java.lang.Override
+      public java.lang.String getValue() {
+        java.lang.Object ref = value_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            value_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       * @return The bytes for value.
+       */
+      @java.lang.Override
+      public com.google.protobuf.ByteString
+          getValueBytes() {
+        java.lang.Object ref = value_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          value_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        if (((bitField0_ & 0x00000001) != 0)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 1, serializationFormat_);
+        }
+        if (((bitField0_ & 0x00000002) != 0)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 2, value_);
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        if (((bitField0_ & 0x00000001) != 0)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, serializationFormat_);
+        }
+        if (((bitField0_ & 0x00000002) != 0)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, value_);
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.Assessments.Expectation.SerializedValue)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.Assessments.Expectation.SerializedValue other = (org.mlflow.api.proto.Assessments.Expectation.SerializedValue) obj;
+
+        if (hasSerializationFormat() != other.hasSerializationFormat()) return false;
+        if (hasSerializationFormat()) {
+          if (!getSerializationFormat()
+              .equals(other.getSerializationFormat())) return false;
+        }
+        if (hasValue() != other.hasValue()) return false;
+        if (hasValue()) {
+          if (!getValue()
+              .equals(other.getValue())) return false;
+        }
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (hasSerializationFormat()) {
+          hash = (37 * hash) + SERIALIZATION_FORMAT_FIELD_NUMBER;
+          hash = (53 * hash) + getSerializationFormat().hashCode();
+        }
+        if (hasValue()) {
+          hash = (37 * hash) + VALUE_FIELD_NUMBER;
+          hash = (53 * hash) + getValue().hashCode();
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.Assessments.Expectation.SerializedValue prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.assessments.Expectation.SerializedValue}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.assessments.Expectation.SerializedValue)
+          org.mlflow.api.proto.Assessments.Expectation.SerializedValueOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.Assessments.internal_static_mlflow_assessments_Expectation_SerializedValue_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.Assessments.internal_static_mlflow_assessments_Expectation_SerializedValue_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.Assessments.Expectation.SerializedValue.class, org.mlflow.api.proto.Assessments.Expectation.SerializedValue.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.Assessments.Expectation.SerializedValue.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          serializationFormat_ = "";
+          bitField0_ = (bitField0_ & ~0x00000001);
+          value_ = "";
+          bitField0_ = (bitField0_ & ~0x00000002);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.Assessments.internal_static_mlflow_assessments_Expectation_SerializedValue_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Assessments.Expectation.SerializedValue getDefaultInstanceForType() {
+          return org.mlflow.api.proto.Assessments.Expectation.SerializedValue.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Assessments.Expectation.SerializedValue build() {
+          org.mlflow.api.proto.Assessments.Expectation.SerializedValue result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Assessments.Expectation.SerializedValue buildPartial() {
+          org.mlflow.api.proto.Assessments.Expectation.SerializedValue result = new org.mlflow.api.proto.Assessments.Expectation.SerializedValue(this);
+          int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (((from_bitField0_ & 0x00000001) != 0)) {
+            to_bitField0_ |= 0x00000001;
+          }
+          result.serializationFormat_ = serializationFormat_;
+          if (((from_bitField0_ & 0x00000002) != 0)) {
+            to_bitField0_ |= 0x00000002;
+          }
+          result.value_ = value_;
+          result.bitField0_ = to_bitField0_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.Assessments.Expectation.SerializedValue) {
+            return mergeFrom((org.mlflow.api.proto.Assessments.Expectation.SerializedValue)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.Assessments.Expectation.SerializedValue other) {
+          if (other == org.mlflow.api.proto.Assessments.Expectation.SerializedValue.getDefaultInstance()) return this;
+          if (other.hasSerializationFormat()) {
+            bitField0_ |= 0x00000001;
+            serializationFormat_ = other.serializationFormat_;
+            onChanged();
+          }
+          if (other.hasValue()) {
+            bitField0_ |= 0x00000002;
+            value_ = other.value_;
+            onChanged();
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.Assessments.Expectation.SerializedValue parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.Assessments.Expectation.SerializedValue) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private java.lang.Object serializationFormat_ = "";
+        /**
+         * <pre>
+         * Marks the serialization format for the expectation value. This is a contract specific to the client. The service
+         * will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".
+         * </pre>
+         *
+         * <code>optional string serialization_format = 1;</code>
+         * @return Whether the serializationFormat field is set.
+         */
+        public boolean hasSerializationFormat() {
+          return ((bitField0_ & 0x00000001) != 0);
+        }
+        /**
+         * <pre>
+         * Marks the serialization format for the expectation value. This is a contract specific to the client. The service
+         * will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".
+         * </pre>
+         *
+         * <code>optional string serialization_format = 1;</code>
+         * @return The serializationFormat.
+         */
+        public java.lang.String getSerializationFormat() {
+          java.lang.Object ref = serializationFormat_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              serializationFormat_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Marks the serialization format for the expectation value. This is a contract specific to the client. The service
+         * will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".
+         * </pre>
+         *
+         * <code>optional string serialization_format = 1;</code>
+         * @return The bytes for serializationFormat.
+         */
+        public com.google.protobuf.ByteString
+            getSerializationFormatBytes() {
+          java.lang.Object ref = serializationFormat_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            serializationFormat_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Marks the serialization format for the expectation value. This is a contract specific to the client. The service
+         * will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".
+         * </pre>
+         *
+         * <code>optional string serialization_format = 1;</code>
+         * @param value The serializationFormat to set.
+         * @return This builder for chaining.
+         */
+        public Builder setSerializationFormat(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+          serializationFormat_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Marks the serialization format for the expectation value. This is a contract specific to the client. The service
+         * will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".
+         * </pre>
+         *
+         * <code>optional string serialization_format = 1;</code>
+         * @return This builder for chaining.
+         */
+        public Builder clearSerializationFormat() {
+          bitField0_ = (bitField0_ & ~0x00000001);
+          serializationFormat_ = getDefaultInstance().getSerializationFormat();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Marks the serialization format for the expectation value. This is a contract specific to the client. The service
+         * will not attempt to deserialize the value or validate the format. An example format is "JSON_FORMAT".
+         * </pre>
+         *
+         * <code>optional string serialization_format = 1;</code>
+         * @param value The bytes for serializationFormat to set.
+         * @return This builder for chaining.
+         */
+        public Builder setSerializationFormatBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+          serializationFormat_ = value;
+          onChanged();
+          return this;
+        }
+
+        private java.lang.Object value_ = "";
+        /**
+         * <pre>
+         * The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.
+         * </pre>
+         *
+         * <code>optional string value = 2;</code>
+         * @return Whether the value field is set.
+         */
+        public boolean hasValue() {
+          return ((bitField0_ & 0x00000002) != 0);
+        }
+        /**
+         * <pre>
+         * The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.
+         * </pre>
+         *
+         * <code>optional string value = 2;</code>
+         * @return The value.
+         */
+        public java.lang.String getValue() {
+          java.lang.Object ref = value_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              value_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <pre>
+         * The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.
+         * </pre>
+         *
+         * <code>optional string value = 2;</code>
+         * @return The bytes for value.
+         */
+        public com.google.protobuf.ByteString
+            getValueBytes() {
+          java.lang.Object ref = value_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            value_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.
+         * </pre>
+         *
+         * <code>optional string value = 2;</code>
+         * @param value The value to set.
+         * @return This builder for chaining.
+         */
+        public Builder setValue(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          value_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.
+         * </pre>
+         *
+         * <code>optional string value = 2;</code>
+         * @return This builder for chaining.
+         */
+        public Builder clearValue() {
+          bitField0_ = (bitField0_ & ~0x00000002);
+          value_ = getDefaultInstance().getValue();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * The value of the expectation-based assessment serialized as a string in the format defined by ``serialization_format``.
+         * </pre>
+         *
+         * <code>optional string value = 2;</code>
+         * @param value The bytes for value to set.
+         * @return This builder for chaining.
+         */
+        public Builder setValueBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          value_ = value;
+          onChanged();
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.assessments.Expectation.SerializedValue)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.assessments.Expectation.SerializedValue)
+      private static final org.mlflow.api.proto.Assessments.Expectation.SerializedValue DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.Assessments.Expectation.SerializedValue();
+      }
+
+      public static org.mlflow.api.proto.Assessments.Expectation.SerializedValue getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<SerializedValue>
+          PARSER = new com.google.protobuf.AbstractParser<SerializedValue>() {
+        @java.lang.Override
+        public SerializedValue parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new SerializedValue(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<SerializedValue> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<SerializedValue> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Assessments.Expectation.SerializedValue getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
     private int bitField0_;
     public static final int VALUE_FIELD_NUMBER = 2;
     private com.google.protobuf.Value value_;
     /**
      * <pre>
-     * Value of the expectation-based assessment.
-     * We use google.protobuf.Value to support a flexible schema of expectation values.
+     * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+     * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+     * be JSON conforming to one of the following supported types:
+     * * Numeric values like integers or floats
+     * * Boolean values
+     * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+     * * List values containing only strings (empty lists allowed).
+     * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+     * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+     * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+     * risks around their serialization and deserialization.
      * </pre>
      *
      * <code>optional .google.protobuf.Value value = 2;</code>
@@ -1948,8 +2923,17 @@ public final class Assessments {
     }
     /**
      * <pre>
-     * Value of the expectation-based assessment.
-     * We use google.protobuf.Value to support a flexible schema of expectation values.
+     * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+     * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+     * be JSON conforming to one of the following supported types:
+     * * Numeric values like integers or floats
+     * * Boolean values
+     * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+     * * List values containing only strings (empty lists allowed).
+     * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+     * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+     * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+     * risks around their serialization and deserialization.
      * </pre>
      *
      * <code>optional .google.protobuf.Value value = 2;</code>
@@ -1961,8 +2945,17 @@ public final class Assessments {
     }
     /**
      * <pre>
-     * Value of the expectation-based assessment.
-     * We use google.protobuf.Value to support a flexible schema of expectation values.
+     * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+     * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+     * be JSON conforming to one of the following supported types:
+     * * Numeric values like integers or floats
+     * * Boolean values
+     * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+     * * List values containing only strings (empty lists allowed).
+     * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+     * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+     * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+     * risks around their serialization and deserialization.
      * </pre>
      *
      * <code>optional .google.protobuf.Value value = 2;</code>
@@ -1970,6 +2963,47 @@ public final class Assessments {
     @java.lang.Override
     public com.google.protobuf.ValueOrBuilder getValueOrBuilder() {
       return value_ == null ? com.google.protobuf.Value.getDefaultInstance() : value_;
+    }
+
+    public static final int SERIALIZED_VALUE_FIELD_NUMBER = 3;
+    private org.mlflow.api.proto.Assessments.Expectation.SerializedValue serializedValue_;
+    /**
+     * <pre>
+     * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+     * ``serialized_value`` or ``value`` may be defined.
+     * </pre>
+     *
+     * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+     * @return Whether the serializedValue field is set.
+     */
+    @java.lang.Override
+    public boolean hasSerializedValue() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+     * ``serialized_value`` or ``value`` may be defined.
+     * </pre>
+     *
+     * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+     * @return The serializedValue.
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Assessments.Expectation.SerializedValue getSerializedValue() {
+      return serializedValue_ == null ? org.mlflow.api.proto.Assessments.Expectation.SerializedValue.getDefaultInstance() : serializedValue_;
+    }
+    /**
+     * <pre>
+     * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+     * ``serialized_value`` or ``value`` may be defined.
+     * </pre>
+     *
+     * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Assessments.Expectation.SerializedValueOrBuilder getSerializedValueOrBuilder() {
+      return serializedValue_ == null ? org.mlflow.api.proto.Assessments.Expectation.SerializedValue.getDefaultInstance() : serializedValue_;
     }
 
     private byte memoizedIsInitialized = -1;
@@ -1989,6 +3023,9 @@ public final class Assessments {
       if (((bitField0_ & 0x00000001) != 0)) {
         output.writeMessage(2, getValue());
       }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        output.writeMessage(3, getSerializedValue());
+      }
       unknownFields.writeTo(output);
     }
 
@@ -2001,6 +3038,10 @@ public final class Assessments {
       if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(2, getValue());
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(3, getSerializedValue());
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -2022,6 +3063,11 @@ public final class Assessments {
         if (!getValue()
             .equals(other.getValue())) return false;
       }
+      if (hasSerializedValue() != other.hasSerializedValue()) return false;
+      if (hasSerializedValue()) {
+        if (!getSerializedValue()
+            .equals(other.getSerializedValue())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -2036,6 +3082,10 @@ public final class Assessments {
       if (hasValue()) {
         hash = (37 * hash) + VALUE_FIELD_NUMBER;
         hash = (53 * hash) + getValue().hashCode();
+      }
+      if (hasSerializedValue()) {
+        hash = (37 * hash) + SERIALIZED_VALUE_FIELD_NUMBER;
+        hash = (53 * hash) + getSerializedValue().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -2171,6 +3221,7 @@ public final class Assessments {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
           getValueFieldBuilder();
+          getSerializedValueFieldBuilder();
         }
       }
       @java.lang.Override
@@ -2182,6 +3233,12 @@ public final class Assessments {
           valueBuilder_.clear();
         }
         bitField0_ = (bitField0_ & ~0x00000001);
+        if (serializedValueBuilder_ == null) {
+          serializedValue_ = null;
+        } else {
+          serializedValueBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -2217,6 +3274,14 @@ public final class Assessments {
             result.value_ = valueBuilder_.build();
           }
           to_bitField0_ |= 0x00000001;
+        }
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          if (serializedValueBuilder_ == null) {
+            result.serializedValue_ = serializedValue_;
+          } else {
+            result.serializedValue_ = serializedValueBuilder_.build();
+          }
+          to_bitField0_ |= 0x00000002;
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -2270,6 +3335,9 @@ public final class Assessments {
         if (other.hasValue()) {
           mergeValue(other.getValue());
         }
+        if (other.hasSerializedValue()) {
+          mergeSerializedValue(other.getSerializedValue());
+        }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
         return this;
@@ -2305,8 +3373,17 @@ public final class Assessments {
           com.google.protobuf.Value, com.google.protobuf.Value.Builder, com.google.protobuf.ValueOrBuilder> valueBuilder_;
       /**
        * <pre>
-       * Value of the expectation-based assessment.
-       * We use google.protobuf.Value to support a flexible schema of expectation values.
+       * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+       * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+       * be JSON conforming to one of the following supported types:
+       * * Numeric values like integers or floats
+       * * Boolean values
+       * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+       * * List values containing only strings (empty lists allowed).
+       * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+       * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+       * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+       * risks around their serialization and deserialization.
        * </pre>
        *
        * <code>optional .google.protobuf.Value value = 2;</code>
@@ -2317,8 +3394,17 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * Value of the expectation-based assessment.
-       * We use google.protobuf.Value to support a flexible schema of expectation values.
+       * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+       * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+       * be JSON conforming to one of the following supported types:
+       * * Numeric values like integers or floats
+       * * Boolean values
+       * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+       * * List values containing only strings (empty lists allowed).
+       * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+       * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+       * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+       * risks around their serialization and deserialization.
        * </pre>
        *
        * <code>optional .google.protobuf.Value value = 2;</code>
@@ -2333,8 +3419,17 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * Value of the expectation-based assessment.
-       * We use google.protobuf.Value to support a flexible schema of expectation values.
+       * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+       * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+       * be JSON conforming to one of the following supported types:
+       * * Numeric values like integers or floats
+       * * Boolean values
+       * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+       * * List values containing only strings (empty lists allowed).
+       * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+       * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+       * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+       * risks around their serialization and deserialization.
        * </pre>
        *
        * <code>optional .google.protobuf.Value value = 2;</code>
@@ -2354,8 +3449,17 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * Value of the expectation-based assessment.
-       * We use google.protobuf.Value to support a flexible schema of expectation values.
+       * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+       * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+       * be JSON conforming to one of the following supported types:
+       * * Numeric values like integers or floats
+       * * Boolean values
+       * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+       * * List values containing only strings (empty lists allowed).
+       * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+       * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+       * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+       * risks around their serialization and deserialization.
        * </pre>
        *
        * <code>optional .google.protobuf.Value value = 2;</code>
@@ -2373,8 +3477,17 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * Value of the expectation-based assessment.
-       * We use google.protobuf.Value to support a flexible schema of expectation values.
+       * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+       * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+       * be JSON conforming to one of the following supported types:
+       * * Numeric values like integers or floats
+       * * Boolean values
+       * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+       * * List values containing only strings (empty lists allowed).
+       * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+       * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+       * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+       * risks around their serialization and deserialization.
        * </pre>
        *
        * <code>optional .google.protobuf.Value value = 2;</code>
@@ -2398,8 +3511,17 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * Value of the expectation-based assessment.
-       * We use google.protobuf.Value to support a flexible schema of expectation values.
+       * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+       * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+       * be JSON conforming to one of the following supported types:
+       * * Numeric values like integers or floats
+       * * Boolean values
+       * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+       * * List values containing only strings (empty lists allowed).
+       * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+       * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+       * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+       * risks around their serialization and deserialization.
        * </pre>
        *
        * <code>optional .google.protobuf.Value value = 2;</code>
@@ -2416,8 +3538,17 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * Value of the expectation-based assessment.
-       * We use google.protobuf.Value to support a flexible schema of expectation values.
+       * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+       * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+       * be JSON conforming to one of the following supported types:
+       * * Numeric values like integers or floats
+       * * Boolean values
+       * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+       * * List values containing only strings (empty lists allowed).
+       * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+       * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+       * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+       * risks around their serialization and deserialization.
        * </pre>
        *
        * <code>optional .google.protobuf.Value value = 2;</code>
@@ -2429,8 +3560,17 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * Value of the expectation-based assessment.
-       * We use google.protobuf.Value to support a flexible schema of expectation values.
+       * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+       * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+       * be JSON conforming to one of the following supported types:
+       * * Numeric values like integers or floats
+       * * Boolean values
+       * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+       * * List values containing only strings (empty lists allowed).
+       * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+       * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+       * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+       * risks around their serialization and deserialization.
        * </pre>
        *
        * <code>optional .google.protobuf.Value value = 2;</code>
@@ -2445,8 +3585,17 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * Value of the expectation-based assessment.
-       * We use google.protobuf.Value to support a flexible schema of expectation values.
+       * The value of the expectation-based assessment. This uses ``google.protobuf.Value`` under the hood to support a
+       * flexible schema of expectation values but is validated to constrain it to specific types. This means the value must
+       * be JSON conforming to one of the following supported types:
+       * * Numeric values like integers or floats
+       * * Boolean values
+       * * Text value (can contain JSON text the user wishes to store, but it will only be searchable as text)
+       * * List values containing only strings (empty lists allowed).
+       * Other values like null, structs, non-string lists etc. will be rejected. However, they can instead be serialized as
+       * a string and stored in the ``serialized_value`` field instead. Only one of either ``serialized_value`` or ``value``
+       * may be defined. We do not support these other formats directly despite using google.protobuf.Value due to security
+       * risks around their serialization and deserialization.
        * </pre>
        *
        * <code>optional .google.protobuf.Value value = 2;</code>
@@ -2463,6 +3612,171 @@ public final class Assessments {
           value_ = null;
         }
         return valueBuilder_;
+      }
+
+      private org.mlflow.api.proto.Assessments.Expectation.SerializedValue serializedValue_;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Assessments.Expectation.SerializedValue, org.mlflow.api.proto.Assessments.Expectation.SerializedValue.Builder, org.mlflow.api.proto.Assessments.Expectation.SerializedValueOrBuilder> serializedValueBuilder_;
+      /**
+       * <pre>
+       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+       * ``serialized_value`` or ``value`` may be defined.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+       * @return Whether the serializedValue field is set.
+       */
+      public boolean hasSerializedValue() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+       * ``serialized_value`` or ``value`` may be defined.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+       * @return The serializedValue.
+       */
+      public org.mlflow.api.proto.Assessments.Expectation.SerializedValue getSerializedValue() {
+        if (serializedValueBuilder_ == null) {
+          return serializedValue_ == null ? org.mlflow.api.proto.Assessments.Expectation.SerializedValue.getDefaultInstance() : serializedValue_;
+        } else {
+          return serializedValueBuilder_.getMessage();
+        }
+      }
+      /**
+       * <pre>
+       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+       * ``serialized_value`` or ``value`` may be defined.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+       */
+      public Builder setSerializedValue(org.mlflow.api.proto.Assessments.Expectation.SerializedValue value) {
+        if (serializedValueBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          serializedValue_ = value;
+          onChanged();
+        } else {
+          serializedValueBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+       * ``serialized_value`` or ``value`` may be defined.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+       */
+      public Builder setSerializedValue(
+          org.mlflow.api.proto.Assessments.Expectation.SerializedValue.Builder builderForValue) {
+        if (serializedValueBuilder_ == null) {
+          serializedValue_ = builderForValue.build();
+          onChanged();
+        } else {
+          serializedValueBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+       * ``serialized_value`` or ``value`` may be defined.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+       */
+      public Builder mergeSerializedValue(org.mlflow.api.proto.Assessments.Expectation.SerializedValue value) {
+        if (serializedValueBuilder_ == null) {
+          if (((bitField0_ & 0x00000002) != 0) &&
+              serializedValue_ != null &&
+              serializedValue_ != org.mlflow.api.proto.Assessments.Expectation.SerializedValue.getDefaultInstance()) {
+            serializedValue_ =
+              org.mlflow.api.proto.Assessments.Expectation.SerializedValue.newBuilder(serializedValue_).mergeFrom(value).buildPartial();
+          } else {
+            serializedValue_ = value;
+          }
+          onChanged();
+        } else {
+          serializedValueBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000002;
+        return this;
+      }
+      /**
+       * <pre>
+       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+       * ``serialized_value`` or ``value`` may be defined.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+       */
+      public Builder clearSerializedValue() {
+        if (serializedValueBuilder_ == null) {
+          serializedValue_ = null;
+          onChanged();
+        } else {
+          serializedValueBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000002);
+        return this;
+      }
+      /**
+       * <pre>
+       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+       * ``serialized_value`` or ``value`` may be defined.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+       */
+      public org.mlflow.api.proto.Assessments.Expectation.SerializedValue.Builder getSerializedValueBuilder() {
+        bitField0_ |= 0x00000002;
+        onChanged();
+        return getSerializedValueFieldBuilder().getBuilder();
+      }
+      /**
+       * <pre>
+       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+       * ``serialized_value`` or ``value`` may be defined.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+       */
+      public org.mlflow.api.proto.Assessments.Expectation.SerializedValueOrBuilder getSerializedValueOrBuilder() {
+        if (serializedValueBuilder_ != null) {
+          return serializedValueBuilder_.getMessageOrBuilder();
+        } else {
+          return serializedValue_ == null ?
+              org.mlflow.api.proto.Assessments.Expectation.SerializedValue.getDefaultInstance() : serializedValue_;
+        }
+      }
+      /**
+       * <pre>
+       * The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+       * ``serialized_value`` or ``value`` may be defined.
+       * </pre>
+       *
+       * <code>optional .mlflow.assessments.Expectation.SerializedValue serialized_value = 3;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Assessments.Expectation.SerializedValue, org.mlflow.api.proto.Assessments.Expectation.SerializedValue.Builder, org.mlflow.api.proto.Assessments.Expectation.SerializedValueOrBuilder> 
+          getSerializedValueFieldBuilder() {
+        if (serializedValueBuilder_ == null) {
+          serializedValueBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.Assessments.Expectation.SerializedValue, org.mlflow.api.proto.Assessments.Expectation.SerializedValue.Builder, org.mlflow.api.proto.Assessments.Expectation.SerializedValueOrBuilder>(
+                  getSerializedValue(),
+                  getParentForChildren(),
+                  isClean());
+          serializedValue_ = null;
+        }
+        return serializedValueBuilder_;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -7354,6 +8668,11 @@ public final class Assessments {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_assessments_Expectation_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_assessments_Expectation_SerializedValue_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_assessments_Expectation_SerializedValue_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_assessments_Feedback_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -7386,26 +8705,29 @@ public final class Assessments {
       "\031\001\"M\n\nSourceType\022\033\n\027SOURCE_TYPE_UNSPECIF" +
       "IED\020\000\022\t\n\005HUMAN\020\001\022\r\n\tLLM_JUDGE\020\002\022\010\n\004CODE\020" +
       "\003\"<\n\017AssessmentError\022\022\n\nerror_code\030\001 \001(\t" +
-      "\022\025\n\rerror_message\030\002 \001(\t\"4\n\013Expectation\022%" +
-      "\n\005value\030\002 \001(\0132\026.google.protobuf.Value\"e\n" +
-      "\010Feedback\022%\n\005value\030\002 \001(\0132\026.google.protob" +
-      "uf.Value\0222\n\005error\030\003 \001(\0132#.mlflow.assessm" +
-      "ents.AssessmentError\"\261\004\n\nAssessment\022\025\n\ra" +
-      "ssessment_id\030\001 \001(\t\022\035\n\017assessment_name\030\002 " +
-      "\001(\tB\004\370\206\031\001\022\020\n\010trace_id\030\003 \001(\t\022\017\n\007span_id\030\004" +
-      " \001(\t\0224\n\006source\030\005 \001(\0132$.mlflow.assessment" +
-      "s.AssessmentSource\022/\n\013create_time\030\006 \001(\0132" +
-      "\032.google.protobuf.Timestamp\0224\n\020last_upda" +
-      "te_time\030\007 \001(\0132\032.google.protobuf.Timestam" +
-      "p\0220\n\010feedback\030\t \001(\0132\034.mlflow.assessments" +
-      ".FeedbackH\000\0226\n\013expectation\030\n \001(\0132\037.mlflo" +
-      "w.assessments.ExpectationH\000\022\021\n\trationale" +
-      "\030\013 \001(\t\0226\n\005error\030\014 \001(\0132#.mlflow.assessmen" +
-      "ts.AssessmentErrorB\002\030\001\022>\n\010metadata\030\r \003(\013" +
-      "2,.mlflow.assessments.Assessment.Metadat" +
-      "aEntry\032/\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005" +
-      "value\030\002 \001(\t:\0028\001B\007\n\005valueB\031\n\024org.mlflow.a" +
-      "pi.proto\220\001\001"
+      "\022\025\n\rerror_message\030\002 \001(\t\"\277\001\n\013Expectation\022" +
+      "%\n\005value\030\002 \001(\0132\026.google.protobuf.Value\022I" +
+      "\n\020serialized_value\030\003 \001(\0132/.mlflow.assess" +
+      "ments.Expectation.SerializedValue\032>\n\017Ser" +
+      "ializedValue\022\034\n\024serialization_format\030\001 \001" +
+      "(\t\022\r\n\005value\030\002 \001(\t\"e\n\010Feedback\022%\n\005value\030\002" +
+      " \001(\0132\026.google.protobuf.Value\0222\n\005error\030\003 " +
+      "\001(\0132#.mlflow.assessments.AssessmentError" +
+      "\"\261\004\n\nAssessment\022\025\n\rassessment_id\030\001 \001(\t\022\035" +
+      "\n\017assessment_name\030\002 \001(\tB\004\370\206\031\001\022\020\n\010trace_i" +
+      "d\030\003 \001(\t\022\017\n\007span_id\030\004 \001(\t\0224\n\006source\030\005 \001(\013" +
+      "2$.mlflow.assessments.AssessmentSource\022/" +
+      "\n\013create_time\030\006 \001(\0132\032.google.protobuf.Ti" +
+      "mestamp\0224\n\020last_update_time\030\007 \001(\0132\032.goog" +
+      "le.protobuf.Timestamp\0220\n\010feedback\030\t \001(\0132" +
+      "\034.mlflow.assessments.FeedbackH\000\0226\n\013expec" +
+      "tation\030\n \001(\0132\037.mlflow.assessments.Expect" +
+      "ationH\000\022\021\n\trationale\030\013 \001(\t\0226\n\005error\030\014 \001(" +
+      "\0132#.mlflow.assessments.AssessmentErrorB\002" +
+      "\030\001\022>\n\010metadata\030\r \003(\0132,.mlflow.assessment" +
+      "s.Assessment.MetadataEntry\032/\n\rMetadataEn" +
+      "try\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001B\007\n\005v" +
+      "alueB\031\n\024org.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -7431,7 +8753,13 @@ public final class Assessments {
     internal_static_mlflow_assessments_Expectation_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_assessments_Expectation_descriptor,
-        new java.lang.String[] { "Value", });
+        new java.lang.String[] { "Value", "SerializedValue", });
+    internal_static_mlflow_assessments_Expectation_SerializedValue_descriptor =
+      internal_static_mlflow_assessments_Expectation_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_assessments_Expectation_SerializedValue_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_assessments_Expectation_SerializedValue_descriptor,
+        new java.lang.String[] { "SerializationFormat", "Value", });
     internal_static_mlflow_assessments_Feedback_descriptor =
       getDescriptor().getMessageTypes().get(3);
     internal_static_mlflow_assessments_Feedback_fieldAccessorTable = new
