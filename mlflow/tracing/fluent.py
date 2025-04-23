@@ -343,7 +343,7 @@ def _wrap_generator(
 
         async def wrapper(*args, **kwargs):
             inputs = capture_function_input_args(fn, args, kwargs)
-            span = _start_stream_span(fn, args, kwargs)
+            span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
             i = 0
