@@ -285,6 +285,8 @@ typing-extensions-allowlist = [
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette"]
+# `import databricks.sdk` slows down `import mlflow`: https://github.com/mlflow/mlflow/issues/15440
+"mlflow/*" = ["databricks.sdk"]
 
 # typos
 [tool.typos.default.extend-words]
