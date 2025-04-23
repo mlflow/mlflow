@@ -250,8 +250,7 @@ def _get_permission_from_run_id() -> Permission:
 
 
 def _get_permission_from_model_id() -> Permission:
-    # run permissions inherit from parent resource (experiment)
-    # so we just get the experiment permission
+    # logged model permissions inherit from parent resource (experiment)
     model_id = _get_request_param("model_id")
     model = _get_tracking_store().get_logged_model(model_id)
     experiment_id = model.experiment_id
