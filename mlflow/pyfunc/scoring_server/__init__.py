@@ -38,7 +38,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
 from mlflow.types import ParamSchema, Schema
 from mlflow.utils import reraise
-from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
     MlflowInvalidInputException,
