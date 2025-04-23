@@ -1994,7 +1994,7 @@ class FileStore(AbstractStore):
             _validate_param(param.key, param.value)
 
         name = name or _generate_random_name()
-        model_id = str(uuid.uuid4())
+        model_id = f"m-{str(uuid.uuid4()).replace('-', '')}"
         artifact_location = self._get_model_artifact_dir(experiment_id, model_id)
         creation_timestamp = int(time.time() * 1000)
         model = LoggedModel(

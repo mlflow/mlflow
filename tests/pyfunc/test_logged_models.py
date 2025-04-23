@@ -153,3 +153,11 @@ def test_external_logged_model_cannot_be_loaded_with_pyfunc():
         match="This model's artifacts are external.*cannot be loaded",
     ):
         mlflow.pyfunc.load_model(f"models:/{model.model_id}")
+
+
+def test_load_model_invalid_uri_model_id():
+    with pytest.raises(
+        MlflowException,
+        match="Invalid identifier is passed. Maybe you meant 'models:/m-dummy'?",
+    ):
+        mlflow.pyfunc.load_model("m-dummy")
