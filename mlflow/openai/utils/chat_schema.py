@@ -76,14 +76,6 @@ def _is_responses_output(output: Any) -> bool:
     a response from the MLflow ResponsesAgent instance.
     """
     try:
-        from mlflow.types.responses import ResponsesResponse
-
-        if isinstance(output, ResponsesResponse):
-            return True
-    except ImportError:
-        pass
-
-    try:
         from openai.types.responses import Response
 
         if isinstance(output, Response):
@@ -91,10 +83,20 @@ def _is_responses_output(output: Any) -> bool:
     except ImportError:
         pass
 
+    try:
+        from mlflow.types.responses import ResponsesResponse
+
+        if ResponsesResponse.validate_compat(output):
+            return True
+    except Exception:
+        pass
+
     return False
 
 
-def _parse_responses_inputs_outputs(inputs: dict[str, Any], output: Any) -> list[ChatMessage]:
+def _parse_responses_inputs_outputs(
+    inputs: dict[str, Any], output: Union[BaseModel, dict[str, Any]]
+) -> list[ChatMessage]:
     messages = []
     if _input := inputs.get("input"):
         if isinstance(_input, str):
@@ -103,9 +105,9 @@ def _parse_responses_inputs_outputs(inputs: dict[str, Any], output: Any) -> list
             for item in _input:
                 messages.extend(_parse_response_item(item, messages))
 
-    for output in output.output:
-        output_dict = output.model_dump(exclude_unset=True)
-        messages.extend(_parse_response_item(output_dict, messages))
+    output = output if isinstance(output, dict) else output.model_dump()
+    for output_item in output["output"]:
+        messages.extend(_parse_response_item(output_item, messages))
 
     return messages
 
