@@ -2,7 +2,7 @@ from enum import Enum
 
 from opentelemetry import trace as trace_api
 
-from mlflow.protos import databricks_trace_server_pb2 as pb
+from mlflow.protos import service_pb2 as pb
 
 
 class TraceState(str, Enum):
@@ -12,11 +12,11 @@ class TraceState(str, Enum):
     IN_PROGRESS = "IN_PROGRESS"
 
     def to_proto(self):
-        return pb.TraceInfo.State.Value(self)
+        return pb.TraceInfoV3.State.Value(self)
 
     @classmethod
     def from_proto(cls, proto: int) -> "TraceState":
-        return TraceState(pb.TraceInfo.State.Name(proto))
+        return TraceState(pb.TraceInfoV3.State.Name(proto))
 
     @staticmethod
     def from_otel_status(otel_status: trace_api.Status):

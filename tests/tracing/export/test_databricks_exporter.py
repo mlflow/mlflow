@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -7,6 +8,14 @@ import pytest
 
 import mlflow
 from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_location import (
+    MlflowExperimentLocation,
+    TraceLocation,
+    TraceLocationType,
+)
+from mlflow.entities.trace_state import TraceState
+from mlflow.protos import service_pb2 as pb
 from mlflow.tracing.destination import Databricks
 from mlflow.tracing.provider import _get_trace_exporter
 
@@ -38,18 +47,30 @@ def test_export(experiment_id, is_async, monkeypatch):
 
     mlflow.tracing.set_destination(Databricks(experiment_id=experiment_id))
 
-    response = mock.MagicMock()
-    response.status_code = 200
-    response.text = "{}"
-
     # Create mock for returned trace from _start_trace_v3
-    mock_returned_trace = mock.MagicMock()
-    mock_returned_trace.info = mock.MagicMock()
+    mock_trace_info = TraceInfoV3(
+        trace_id="12345",
+        trace_location=TraceLocation(
+            type=TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflow_experiment=MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID),
+        ),
+        request_time=1234567890,
+        state=TraceState.OK,
+        request_preview="Some request",
+        response_preview="Some response",
+        client_request_id=None,
+        execution_duration=100,
+        trace_metadata={"key1": "value1"},
+        tags={"foo": "bar"},
+    ).to_proto()
+    mock_response = pb.StartTraceV3.Response(
+        trace=pb.Trace(trace_info=mock_trace_info),
+    )
 
     with (
         mock.patch(
-            "mlflow.tracking.MlflowClient._start_trace_v3", return_value=mock_returned_trace
-        ) as mock_start_trace,
+            "mlflow.store.tracking.rest_store.call_endpoint", return_value=mock_response
+        ) as mock_call_endpoint,
         mock.patch(
             "mlflow.tracking.MlflowClient._upload_trace_data", return_value=None
         ) as mock_upload_trace_data,
@@ -60,20 +81,20 @@ def test_export(experiment_id, is_async, monkeypatch):
             _flush_async_logging()
 
     # Verify client methods were called correctly
-    mock_start_trace.assert_called_once()
+    mock_call_endpoint.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
     # Access the trace that was passed to _start_trace_v3
-    trace = mock_start_trace.call_args.args[0]
+    trace_json = mock_call_endpoint.call_args.args[3]
+    trace = json.loads(trace_json)["trace"]
 
     # Basic validation of the trace object
-    assert trace is not None
-    assert trace.info is not None
-    assert trace.info.trace_id is not None
+    assert trace["trace_info"]["trace_id"] is not None
 
     # Validate the data was passed to upload_trace_data
     call_args = mock_upload_trace_data.call_args
-    assert call_args.args[0] == mock_returned_trace.info
+    assert isinstance(call_args.args[0], TraceInfoV3)
+    assert call_args.args[0].trace_id == "12345"
 
     # We don't need to validate the exact JSON structure anymore since
     # we're testing the client methods directly, not the HTTP request

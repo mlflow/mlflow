@@ -8,22 +8,12 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
-from mlflow.protos.databricks_trace_server_pb2 import DatabricksTracingServerService
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking import MlflowClient
-from mlflow.utils.rest_utils import (
-    _REST_API_PATH_PREFIX,
-    extract_api_info_for_service,
-)
 
 _logger = logging.getLogger(__name__)
-
-
-_METHOD_TO_INFO = extract_api_info_for_service(
-    DatabricksTracingServerService, _REST_API_PATH_PREFIX
-)
 
 
 class DatabricksSpanExporter(SpanExporter):
@@ -78,8 +68,8 @@ class DatabricksSpanExporter(SpanExporter):
         """
         try:
             if trace:
-                returned_trace = self._client._start_trace_v3(trace)
-                self._client._upload_trace_data(returned_trace.info, trace.data)
+                returned_trace_info = self._client._start_trace_v3(trace)
+                self._client._upload_trace_data(returned_trace_info, trace.data)
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:

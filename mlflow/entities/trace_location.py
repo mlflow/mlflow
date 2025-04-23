@@ -4,7 +4,7 @@ from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
-from mlflow.protos import databricks_trace_server_pb2 as pb
+from mlflow.protos import service_pb2 as pb
 
 
 @dataclass
