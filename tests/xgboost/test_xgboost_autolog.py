@@ -272,7 +272,7 @@ def test_xgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
 
 @pytest.mark.parametrize("log_models", [True, False])
 def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain, log_models):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(log_models=log_models)
     evals_result = {}
     xgb.train(
         bst_params, dtrain, num_boost_round=20, evals=[(dtrain, "train")], evals_result=evals_result
