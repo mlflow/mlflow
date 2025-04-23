@@ -270,7 +270,8 @@ def test_xgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
         assert "TESTCOL" not in input_example.columns
 
 
-def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
+@pytest.mark.parametrize("log_models", [True, False])
+def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain, log_models):
     mlflow.xgboost.autolog()
     evals_result = {}
     xgb.train(
@@ -284,6 +285,12 @@ def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
     assert metric_key in data.metrics
     assert len(metric_history) == 20
     assert metric_history == evals_result["train"]["mlogloss"]
+    logged_model = mlflow.last_logged_model()
+    if log_models:
+        assert logged_model is not None
+        assert run.data.metrics == {m.key: m.value for m in logged_model.metrics}
+    else:
+        assert logged_model is None
 
 
 def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain):
