@@ -239,9 +239,7 @@ class Span:
             span_id = _decode_id_from_byte(data["span_id"])
             # Parent ID always exists in proto (empty string) even if the span is a root span.
             parent_id = (
-                _decode_id_from_byte(data["parent_span_id"])
-                if data["parent_span_id"]
-                else None
+                _decode_id_from_byte(data["parent_span_id"]) if data["parent_span_id"] else None
             )
 
             end_time_ns = data.get("end_time_unix_nano")
@@ -330,6 +328,7 @@ class Span:
 def _encode_span_id_to_byte(span_id: Optional[int]) -> bytes:
     # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L131
     return span_id.to_bytes(length=8, byteorder="big", signed=False)
+
 
 def _encode_trace_id_to_byte(trace_id: int) -> bytes:
     # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L135
