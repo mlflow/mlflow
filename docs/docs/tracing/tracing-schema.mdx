@@ -13,6 +13,12 @@ import TabItem from "@theme/TabItem";
 This document provides a detailed view of the schema for traces and its ingredients. MLflow traces are **compatible to OpenTelemetry specs**,
 but we also define a few additional layers of structure upon the OpenTelemetry Spans to provide additional metadata about the trace.
 
+:::note
+
+    The `request_id` field was renamed to `trace_id` in MLflow 3.
+
+:::
+
 ## Structure of Traces
 
 **TL;DR**: `Trace = TraceInfo + TraceData` where `TraceData = List[Span]`
@@ -111,7 +117,7 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
   </thead>
   <tbody>
     <tr>
-      <td>**request_id**</td>
+      <td>**trace_id**</td>
       <td>
         A unique identifier for the trace. The identifier is used within MLflow
         and integrated system to resolve the event being captured and to provide
@@ -364,12 +370,12 @@ The sections below provide a detailed view of the structure of a span.
       <td>A `span_id` is set when a span is created and is immutable.</td>
     </tr>
     <tr>
-      <td>**request_id**</td>
+      <td>**trace_id**</td>
       <td>
-        The `request_id` property is a unique identifier that is generated for
+        The `trace_id` property is a unique identifier that is generated for
         each **trace** and is propagated to each span that is a member of that trace.
       </td>
-      <td>The `request_id` is a system-generated property and is immutable.</td>
+      <td>The `trace_id` is a system-generated property and is immutable.</td>
     </tr>
     <tr>
       <td>**name**</td>

@@ -125,9 +125,9 @@ def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None, token=None
     try:
         if span.parent_id is None:
             # NB: Initiate the new client every time to handle tracking URI updates.
-            MlflowClient().end_trace(span.request_id, status=status, outputs=outputs)
+            MlflowClient().end_trace(span.trace_id, status=status, outputs=outputs)
         else:
-            MlflowClient().end_span(span.request_id, span.span_id, status=status, outputs=outputs)
+            MlflowClient().end_span(span.trace_id, span.span_id, status=status, outputs=outputs)
     finally:
         # We should detach span even when end_span / end_trace API call fails
         if token:
@@ -169,7 +169,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             if parent_span:
                 # NB: Initiate the new client every time to handle tracking URI updates.
                 span = MlflowClient().start_span(
-                    request_id=parent_span.request_id,
+                    trace_id=parent_span.trace_id,
                     parent_id=parent_span.span_id,
                     name=id_.partition("-")[0],
                     span_type=span_type,

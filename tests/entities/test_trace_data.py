@@ -52,7 +52,7 @@ def test_json_deserialization():
                 },
                 "trace_state": "",
                 "attributes": {
-                    "mlflow.traceRequestId": json.dumps(trace.info.request_id),
+                    "mlflow.traceRequestId": json.dumps(trace.info.trace_id),
                     "mlflow.spanType": '"UNKNOWN"',
                     "mlflow.spanFunctionName": '"predict"',
                     "mlflow.spanInputs": '{"x": 2, "y": 5}',
@@ -83,7 +83,7 @@ def test_json_deserialization():
                 },
                 "trace_state": "",
                 "attributes": {
-                    "mlflow.traceRequestId": json.dumps(trace.info.request_id),
+                    "mlflow.traceRequestId": json.dumps(trace.info.trace_id),
                     "mlflow.spanType": '"UNKNOWN"',
                 },
                 "events": [
@@ -108,7 +108,7 @@ def test_json_deserialization():
                 "trace_state": "",
                 "attributes": {
                     "delta": "1",
-                    "mlflow.traceRequestId": json.dumps(trace.info.request_id),
+                    "mlflow.traceRequestId": json.dumps(trace.info.trace_id),
                     "mlflow.spanType": '"LLM"',
                     "mlflow.spanFunctionName": '"always_fail"',
                     "mlflow.spanInputs": "{}",

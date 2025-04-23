@@ -207,7 +207,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
     mock_store.get_trace_info.assert_called_once_with("1234567", should_query_v3=False)
     mock_artifact_repo.download_trace_data.assert_called_once()
 
-    assert trace.info.request_id == "tr-1234567"
+    assert trace.info.trace_id == "tr-1234567"
     assert trace.info.experiment_id == "0"
     assert trace.info.timestamp_ms == 123
     assert trace.info.execution_time_ms == 456
@@ -217,7 +217,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
     assert trace.data.response == '{"answer": 42}'
     assert len(trace.data.spans) == 1
     assert trace.data.spans[0].name == "predict"
-    assert trace.data.spans[0].request_id == "tr-1234567"
+    assert trace.data.spans[0].trace_id == "tr-1234567"
     assert trace.data.spans[0].inputs == {"prompt": "What is the meaning of life?"}
     assert trace.data.spans[0].outputs == {"answer": 42}
     assert trace.data.spans[0].start_time_ns == 123000000
@@ -333,7 +333,7 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
             mock_get_artifact_repository.assert_called()
         else:
             assert len(traces) == 1
-            assert traces[0].info.request_id == "1234567"
+            assert traces[0].info.trace_id == "1234567"
             mock_get_artifact_repository.assert_not_called()
 
 
@@ -342,7 +342,7 @@ def test_client_delete_traces(mock_store):
         experiment_id="0",
         max_timestamp_millis=1,
         max_traces=2,
-        request_ids=["tr-1234"],
+        trace_ids=["tr-1234"],
     )
     mock_store.delete_traces.assert_called_once_with(
         experiment_id="0",
@@ -394,14 +394,14 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
                 tags={"tag": "tag_value"},
                 experiment_id=experiment_id,
             )
-            request_id = root_span.request_id
+            trace_id = root_span.trace_id
 
             z = x + y
 
             child_span = client.start_span(
                 "child_span_1",
                 span_type=SpanType.LLM,
-                request_id=request_id,
+                trace_id=trace_id,
                 parent_id=root_span.span_id,
                 inputs={"z": z},
             )
@@ -409,20 +409,20 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
             z = z + 2
 
             client.end_span(
-                request_id=request_id,
+                trace_id=trace_id,
                 span_id=child_span.span_id,
                 outputs={"output": z},
                 attributes={"delta": 2},
             )
 
-            res = self.square(z, request_id, root_span.span_id)
-            client.end_trace(request_id, outputs={"output": res}, status="OK")
+            res = self.square(z, trace_id, root_span.span_id)
+            client.end_trace(trace_id, outputs={"output": res}, status="OK")
             return res
 
-        def square(self, t, request_id, parent_id):
+        def square(self, t, trace_id, parent_id):
             span = client.start_span(
                 "child_span_2",
-                request_id=request_id,
+                trace_id=trace_id,
                 parent_id=parent_id,
                 inputs={"t": t},
             )
@@ -431,7 +431,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
             time.sleep(0.1)
 
             client.end_span(
-                request_id=request_id,
+                trace_id=trace_id,
                 span_id=span.span_id,
                 outputs={"output": res},
             )
@@ -448,13 +448,13 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
-    request_id = mlflow.get_trace(mlflow.get_last_active_trace_id()).info.request_id
+    trace_id = mlflow.get_trace(mlflow.get_last_active_trace_id()).info.trace_id
 
     # Validate that trace is logged to the backend
-    trace = client.get_trace(request_id)
+    trace = client.get_trace(trace_id)
     assert trace is not None
 
-    assert trace.info.request_id is not None
+    assert trace.info.trace_id is not None
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace.info.status == TraceStatus.OK
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
@@ -477,7 +477,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     assert root_span.parent_id is None
     assert root_span.attributes == {
         "mlflow.experimentId": experiment_id,
-        "mlflow.traceRequestId": trace.info.request_id,
+        "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
         "mlflow.spanInputs": {"x": 1, "y": 2},
         "mlflow.spanOutputs": {"output": 25},
@@ -486,7 +486,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     child_span_1 = span_name_to_span["child_span_1"]
     assert child_span_1.parent_id == root_span.span_id
     assert child_span_1.attributes == {
-        "mlflow.traceRequestId": trace.info.request_id,
+        "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "LLM",
         "mlflow.spanInputs": {"z": 3},
         "mlflow.spanOutputs": {"output": 5},
@@ -496,7 +496,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
     child_span_2 = span_name_to_span["child_span_2"]
     assert child_span_2.parent_id == root_span.span_id
     assert child_span_2.attributes == {
-        "mlflow.traceRequestId": trace.info.request_id,
+        "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": "UNKNOWN",
         "mlflow.spanInputs": {"t": 5},
         "mlflow.spanOutputs": {"output": 25},
@@ -510,13 +510,11 @@ def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
     experiment_id = client.create_experiment("test_experiment")
 
     root = client.start_trace(name="root", experiment_id=experiment_id, inputs=[])
-    span = client.start_span(
-        name="child", request_id=root.request_id, parent_id=root.span_id, inputs=0
-    )
-    client.end_span(request_id=root.request_id, span_id=span.span_id, outputs=False)
-    client.end_trace(request_id=root.request_id, outputs="")
+    span = client.start_span(name="child", trace_id=root.trace_id, parent_id=root.span_id, inputs=0)
+    client.end_span(trace_id=root.trace_id, span_id=span.span_id, outputs=False)
+    client.end_trace(trace_id=root.trace_id, outputs="")
 
-    trace = client.get_trace(root.request_id)
+    trace = client.get_trace(root.trace_id)
     assert trace.data.spans[0].inputs == []
     assert trace.data.spans[0].outputs == ""
     assert trace.data.spans[1].inputs == 0
@@ -534,21 +532,21 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
 
         def predict(self, x):
             root_span = self._client.start_trace(name="predict")
-            request_id = root_span.request_id
+            trace_id = root_span.trace_id
             child_span = self._client.start_span(
                 "ended-span",
-                request_id=request_id,
+                trace_id=trace_id,
                 parent_id=root_span.span_id,
             )
             time.sleep(0.1)
-            self._client.end_span(request_id, child_span.span_id)
+            self._client.end_span(trace_id, child_span.span_id)
 
-            res = self.square(x, request_id, root_span.span_id)
-            self._client.end_trace(request_id)
+            res = self.square(x, trace_id, root_span.span_id)
+            self._client.end_trace(trace_id)
             return res
 
-        def square(self, t, request_id, parent_id):
-            self._client.start_span("non-ended-span", request_id=request_id, parent_id=parent_id)
+        def square(self, t, trace_id, parent_id):
+            self._client.start_span("non-ended-span", trace_id=trace_id, parent_id=parent_id)
             time.sleep(0.1)
             # The span created above is not ended
             return t**2
@@ -563,7 +561,7 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     assert len(traces) == 1
 
     trace_info = traces[0].info
-    assert trace_info.request_id is not None
+    assert trace_info.trace_id is not None
     assert trace_info.experiment_id == exp_id
     assert trace_info.timestamp_ms is not None
     assert trace_info.execution_time_ms is not None
@@ -619,14 +617,14 @@ def test_log_trace_with_databricks_tracking_uri(
                 # Trying to override mlflow.user tag, which will be ignored
                 tags={"tag": "tag_value", "mlflow.user": "unknown"},
             )
-            request_id = root_span.request_id
+            trace_id = root_span.trace_id
 
             z = x + y
 
             child_span = self._client.start_span(
                 "child_span_1",
                 span_type=SpanType.LLM,
-                request_id=request_id,
+                trace_id=trace_id,
                 parent_id=root_span.span_id,
                 inputs={"z": z},
             )
@@ -634,12 +632,12 @@ def test_log_trace_with_databricks_tracking_uri(
             z = z + 2
 
             self._client.end_span(
-                request_id=request_id,
+                trace_id=trace_id,
                 span_id=child_span.span_id,
                 outputs={"output": z},
                 attributes={"delta": 2},
             )
-            self._client.end_trace(request_id, outputs=z, status="OK")
+            self._client.end_trace(trace_id, outputs=z, status="OK")
             return z
 
     model = TestModel()
@@ -694,15 +692,15 @@ def test_start_and_end_trace_does_not_log_trace_when_disabled(
         )
         child_span = client.start_span(
             "child_span_1",
-            request_id=span.request_id,
+            trace_id=span.trace_id,
             parent_id=span.span_id,
         )
         client.end_span(
-            request_id=span.request_id,
+            trace_id=span.trace_id,
             span_id=child_span.span_id,
             outputs={"output": 5},
         )
-        client.end_trace(span.request_id, outputs=5, status="OK")
+        client.end_trace(span.trace_id, outputs=5, status="OK")
         return "done"
 
     mock_logger = mock.MagicMock()
@@ -725,7 +723,7 @@ def test_start_trace_within_active_run(async_logging_enabled):
             name="test",
             experiment_id=exp_id,
         )
-        client.end_trace(root_span.request_id)
+        client.end_trace(root_span.trace_id)
 
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
@@ -789,7 +787,7 @@ def test_trace_status_either_pending_or_end():
 
 def test_start_span_raise_error_when_parent_id_is_not_provided():
     with pytest.raises(MlflowException, match=r"start_span\(\) must be called with"):
-        mlflow.tracking.MlflowClient().start_span("span_name", request_id="test", parent_id=None)
+        mlflow.tracking.MlflowClient().start_span("span_name", trace_id="test", parent_id=None)
 
 
 def test_log_trace(tracking_uri):
@@ -802,21 +800,21 @@ def test_log_trace(tracking_uri):
         experiment_id=experiment_id,
         tags={"custom_tag": "tag_value"},
     )
-    client.end_trace(span.request_id, status="OK")
+    client.end_trace(span.trace_id, status="OK")
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
     # Purge all traces in the backend once
-    client.delete_traces(experiment_id=experiment_id, request_ids=[trace.info.request_id])
+    client.delete_traces(experiment_id=experiment_id, trace_ids=[trace.info.trace_id])
     assert client.search_traces(experiment_ids=[experiment_id]) == []
 
     # Log the trace manually
-    new_request_id = client._log_trace(trace)
+    new_trace_id = client._log_trace(trace)
 
     # Validate the trace is added to the backend
     backend_traces = client.search_traces(experiment_ids=[experiment_id])
     assert len(backend_traces) == 1
-    assert backend_traces[0].info.request_id == new_request_id  # new request ID is assigned
+    assert backend_traces[0].info.trace_id == new_trace_id  # new request ID is assigned
     assert backend_traces[0].info.experiment_id == experiment_id
     assert backend_traces[0].info.status == trace.info.status
     assert backend_traces[0].info.tags["custom_tag"] == "tag_value"
@@ -827,7 +825,7 @@ def test_log_trace(tracking_uri):
 
     # If the experiment ID is None in the given trace, it should be set to the default experiment
     trace.info.experiment_id = None
-    new_request_id = client._log_trace(trace)
+    new_trace_id = client._log_trace(trace)
     backend_traces = client.search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
     assert len(backend_traces) == 1
 
@@ -839,12 +837,12 @@ def test_ignore_exception_from_tracing_logic(monkeypatch, async_logging_enabled)
     class TestModel:
         def predict(self, x):
             root_span = client.start_trace(experiment_id=exp_id, name="predict")
-            request_id = root_span.request_id
+            trace_id = root_span.trace_id
             child_span = client.start_span(
-                name="child", request_id=request_id, parent_id=root_span.span_id
+                name="child", trace_id=trace_id, parent_id=root_span.span_id
             )
-            client.end_span(request_id, child_span.span_id)
-            client.end_trace(request_id)
+            client.end_span(trace_id, child_span.span_id)
+            client.end_trace(trace_id)
             return x
 
     model = TestModel()
@@ -875,9 +873,9 @@ def test_set_and_delete_trace_tag_on_active_trace(monkeypatch):
     client = mlflow.tracking.MlflowClient()
 
     root_span = client.start_trace(name="test")
-    request_id = root_span.request_id
-    client.set_trace_tag(request_id, "foo", "bar")
-    client.end_trace(request_id)
+    trace_id = root_span.trace_id
+    client.set_trace_tag(trace_id, "foo", "bar")
+    client.end_trace(trace_id)
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.tags["foo"] == "bar"
@@ -894,9 +892,9 @@ def test_delete_trace_tag_on_active_trace(monkeypatch):
 
     client = mlflow.tracking.MlflowClient()
     root_span = client.start_trace(name="test", tags={"foo": "bar", "baz": "qux"})
-    request_id = root_span.request_id
-    client.delete_trace_tag(request_id, "foo")
-    client.end_trace(request_id)
+    trace_id = root_span.trace_id
+    client.delete_trace_tag(trace_id, "foo")
+    client.end_trace(trace_id)
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert "baz" in trace.info.tags
@@ -1670,22 +1668,22 @@ def test_file_store_download_upload_trace_data(tmp_path):
     with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
         client = MlflowClient()
         span = client.start_trace("test", inputs={"test": 1})
-        client.end_trace(span.request_id, outputs={"result": 2})
-        trace = mlflow.get_trace(span.request_id)
-        trace_data = client.get_trace(span.request_id).data
+        client.end_trace(span.trace_id, outputs={"result": 2})
+        trace = mlflow.get_trace(span.trace_id)
+        trace_data = client.get_trace(span.trace_id).data
         assert trace_data.request == trace.data.request
         assert trace_data.response == trace.data.response
 
 
-def test_get_trace_throw_if_request_id_is_online_trace_id():
+def test_get_trace_throw_if_trace_id_is_online_trace_id():
     client = MlflowClient("databricks")
-    request_id = "3a3c3b56-910a-4721-8d02-0333eda5f37e"
+    trace_id = "3a3c3b56-910a-4721-8d02-0333eda5f37e"
     with pytest.raises(MlflowException, match="Traces from inference tables can only be loaded"):
-        client.get_trace(request_id)
+        client.get_trace(trace_id)
 
     another_client = MlflowClient("mlruns")
     with pytest.raises(MlflowException, match=r"Trace with request ID '[\w-]+' not found"):
-        another_client.get_trace(request_id)
+        another_client.get_trace(trace_id)
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
