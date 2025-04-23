@@ -62,7 +62,11 @@ def test_llm_judge_scorer_with_mlflow_evaluate():
         )
     )
 
-    with mock.patch.object(model_utils, "score_model_on_payload", return_value="4") as mock_score:
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value="score: 4\njustification: The answer is almost correct.",
+    ) as mock_score:
         with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
             results = mlflow.evaluate(
                 data=eval_data,
@@ -73,4 +77,8 @@ def test_llm_judge_scorer_with_mlflow_evaluate():
             table_metric_names = results.tables["eval_results"].keys()
             assert any("quality" in metric for metric in table_metric_names)
             assert all("quality/error" not in metric for metric in table_metric_names)
-            assert results.tables["eval_results"]["metric/quality/value"].mean() == 4
+            assert results.tables["eval_results"]["metric/quality/quality/value"].mean() == 4
+            assert (
+                results.tables["eval_results"]["metric/quality/quality/rationale"][0]
+                == "The answer is almost correct."
+            )
