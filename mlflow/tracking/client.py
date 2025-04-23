@@ -50,7 +50,7 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_span
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan, create_mlflow_span
 from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
