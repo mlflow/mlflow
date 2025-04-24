@@ -1027,7 +1027,7 @@ def test_search_traces_with_no_spans(monkeypatch):
 
 
 # no spans have the input or output with name,
-# some span has an input but we’re looking for output,
+# some span has an input but we're looking for output,
 def test_search_traces_with_input_and_no_output(monkeypatch):
     with mlflow.start_span(name="with_input_and_no_output") as span:
         span.set_inputs({"a": 1})
@@ -1069,7 +1069,7 @@ def test_search_traces_with_invalid_span_content(monkeypatch):
         mlflow.search_traces()
 
 
-# Test case where span inputs / outputs aren’t dict
+# Test case where span inputs / outputs aren't dict
 def test_search_traces_with_non_dict_span_inputs_outputs(monkeypatch):
     with mlflow.start_span(name="non_dict_span") as span:
         span.set_inputs(["a", "b"])
@@ -1136,7 +1136,7 @@ def test_search_traces_with_multiple_spans_with_same_name(monkeypatch):
     assert df["duplicate_name_2.inputs.z"].tolist() == [7]
 
 
-# Test a field that doesn’t exist for extraction - we shouldn’t throw, just return empty column
+# Test a field that doesn't exist for extraction - we shouldn't throw, just return empty column
 def test_search_traces_with_non_existent_field(monkeypatch):
     model = DefaultTestModel()
     model.predict(2, 5)
@@ -1161,7 +1161,7 @@ def test_search_traces_with_non_existent_field(monkeypatch):
     assert df["add_one_with_custom_name.inputs.z"].tolist() == [7]
 
 
-# Test experiment ID doesn’t need to be specified
+# Test experiment ID doesn't need to be specified
 def test_search_traces_without_experiment_id(monkeypatch):
     model = DefaultTestModel()
     model.predict(2, 5)
