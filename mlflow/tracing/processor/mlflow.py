@@ -12,7 +12,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
-    MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
     TRUNCATION_SUFFIX,
@@ -238,7 +238,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         if not value:
             return ""
 
-        if len(value) > MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS:
-            trunc_length = MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS - len(TRUNCATION_SUFFIX)
+        if len(value) > MAX_CHARS_IN_TRACE_INFO_METADATA:
+            trunc_length = MAX_CHARS_IN_TRACE_INFO_METADATA - len(TRUNCATION_SUFFIX)
             value = value[:trunc_length] + TRUNCATION_SUFFIX
         return value

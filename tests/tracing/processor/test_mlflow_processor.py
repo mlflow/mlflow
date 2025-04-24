@@ -9,6 +9,7 @@ from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
@@ -250,7 +251,7 @@ def test_on_end():
         start_time=5_000_000,
         end_time=9_000_000,
     )
-    span = LiveSpan(otel_span, request_id=_REQUEST_ID)
+    span = LiveSpan(otel_span, _REQUEST_ID)
     span.set_status("OK")
     span.set_inputs({"input1": "very long input" * 100})
     span.set_outputs({"output": "very long output" * 100})
@@ -269,10 +270,10 @@ def test_on_end():
     assert trace_info.status == TraceStatus.OK
     assert trace_info.execution_time_ms == 4
     trace_input = trace_info.request_metadata.get(TraceMetadataKey.INPUTS)
-    assert len(trace_input) == 250
+    assert len(trace_input) == MAX_CHARS_IN_TRACE_INFO_METADATA
     assert trace_input.startswith('{"input1": "very long input')
     trace_output = trace_info.request_metadata.get(TraceMetadataKey.OUTPUTS)
-    assert len(trace_output) == 250
+    assert len(trace_output) == MAX_CHARS_IN_TRACE_INFO_METADATA
     assert trace_output.startswith('{"output": "very long output')
     assert trace_info.tags == {}
 

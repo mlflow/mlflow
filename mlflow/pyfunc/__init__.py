@@ -488,6 +488,7 @@ from mlflow.pyfunc.dbconnect_artifact_cache import (
 from mlflow.pyfunc.model import (
     _DEFAULT_CHAT_AGENT_METADATA_TASK,
     _DEFAULT_CHAT_MODEL_METADATA_TASK,
+    _DEFAULT_RESPONSES_AGENT_METADATA_TASK,
     ChatAgent,
     ChatModel,
     PythonModel,
@@ -498,6 +499,13 @@ from mlflow.pyfunc.model import (
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
+
+try:
+    from mlflow.pyfunc.model import ResponsesAgent
+
+    IS_RESPONSES_AGENT_AVAILABLE = True
+except ImportError:
+    IS_RESPONSES_AGENT_AVAILABLE = False
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -2802,7 +2810,6 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
-    example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
     auth_policy: Optional[AuthPolicy] = None,
@@ -2973,7 +2980,6 @@ def save_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
-        example_no_conversion: {{ example_no_conversion }}
         streamable: A boolean value indicating if the model supports streaming prediction,
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
@@ -3102,7 +3108,7 @@ def save_model(
             messages = [ChatMessage.from_dict(m) for m in input_example["messages"]]
         # extra params introduced by ChatParams will not be included in the
         # logged input example file to avoid confusion
-        _save_example(mlflow_model, input_example, path, example_no_conversion)
+        _save_example(mlflow_model, input_example, path)
         params = ChatParams.from_dict(input_example)
 
         # call load_context() first, as predict may depend on it
@@ -3122,6 +3128,10 @@ def save_model(
             )
     elif isinstance(python_model, ChatAgent):
         input_example = _save_model_chat_agent_helper(
+            python_model, mlflow_model, signature, input_example
+        )
+    elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
+        input_example = _save_model_responses_agent_helper(
             python_model, mlflow_model, signature, input_example
         )
     elif callable(python_model) or isinstance(python_model, PythonModel):
@@ -3167,7 +3177,7 @@ def save_model(
         # only infer signature based on input example when signature
         # and type hints are not provided
         if signature is None and signature_from_type_hints is None:
-            saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+            saved_example = _save_example(mlflow_model, input_example, path)
             if saved_example is not None:
                 _logger.info("Inferring model signature from input example")
                 try:
@@ -3202,7 +3212,7 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
     if saved_example is None:
-        saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+        saved_example = _save_example(mlflow_model, input_example, path)
 
     if signature_from_type_hints:
         if signature and signature_from_type_hints != signature:
@@ -3334,7 +3344,6 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
-    example_no_conversion=None,
     streamable=None,
     resources: Optional[Union[str, list[Resource]]] = None,
     auth_policy: Optional[AuthPolicy] = None,
@@ -3527,7 +3536,6 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
-        example_no_conversion: {{ example_no_conversion }}
         streamable: A boolean value indicating if the model supports streaming prediction,
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
@@ -3568,7 +3576,6 @@ def log_model(
         metadata=metadata,
         prompts=prompts,
         model_config=model_config,
-        example_no_conversion=example_no_conversion,
         streamable=streamable,
         resources=resources,
         infer_code_paths=infer_code_paths,
@@ -3735,6 +3742,65 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
         raise MlflowException(
             "Failed to save ChatAgent. Ensure your model's predict() method returns a "
             "ChatAgentResponse object or a dict with the same schema."
+            f"Pydantic validation error: {e}"
+        ) from e
+    return input_example
+
+
+def _save_model_responses_agent_helper(python_model, mlflow_model, signature, input_example):
+    """Helper method for save_model for ResponsesAgent models
+
+    Returns: a dictionary input example
+    """
+    from mlflow.types.responses import (
+        RESPONSES_AGENT_INPUT_EXAMPLE,
+        RESPONSES_AGENT_INPUT_SCHEMA,
+        RESPONSES_AGENT_OUTPUT_SCHEMA,
+        ResponsesRequest,
+        ResponsesResponse,
+    )
+
+    if signature is not None:
+        raise MlflowException(
+            "ResponsesAgent subclasses have a standard signature that is set "
+            "automatically. Please remove the `signature` parameter from "
+            "the call to log_model() or save_model().",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    mlflow_model.signature = ModelSignature(
+        inputs=RESPONSES_AGENT_INPUT_SCHEMA,
+        outputs=RESPONSES_AGENT_OUTPUT_SCHEMA,
+    )
+
+    # For ResponsesAgent we set default metadata to indicate its task
+    default_metadata = {TASK: _DEFAULT_RESPONSES_AGENT_METADATA_TASK}
+    mlflow_model.metadata = default_metadata | (mlflow_model.metadata or {})
+
+    # We accept either a dict or a ResponsesRequest object as input
+    if input_example:
+        try:
+            model_validate(ResponsesRequest, input_example)
+        except pydantic.ValidationError as e:
+            raise MlflowException(
+                message=(
+                    f"Invalid input example. Expected a ResponsesRequest object or dictionary with"
+                    f" its schema. Pydantic validation error: {e}"
+                ),
+                error_code=INTERNAL_ERROR,
+            ) from e
+        if isinstance(input_example, ResponsesRequest):
+            input_example = input_example.model_dump_compat(exclude_none=True)
+    else:
+        input_example = RESPONSES_AGENT_INPUT_EXAMPLE
+    _logger.info("Predicting on input example to validate output")
+    request = ResponsesRequest(**input_example)
+    output = python_model.predict(request)
+    try:
+        model_validate(ResponsesResponse, output)
+    except Exception as e:
+        raise MlflowException(
+            "Failed to save ResponsesAgent. Ensure your model's predict() method returns a "
+            "ResponsesResponse object or a dict with the same schema."
             f"Pydantic validation error: {e}"
         ) from e
     return input_example

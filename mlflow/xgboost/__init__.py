@@ -712,7 +712,10 @@ def autolog(
                     "Failed to log dataset information to MLflow Tracking. Reason: %s", e
                 )
 
-        with batch_metrics_logger(run_id) as metrics_logger:
+        model_id = None
+        if _log_models:
+            model_id = mlflow.initialize_logged_model("model").model_id
+        with batch_metrics_logger(run_id, model_id=model_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:
                 tmp_list = list(args)
@@ -743,7 +746,6 @@ def autolog(
                 return infer_signature(input_example, model_output)
 
             # Only log the model if the autolog() param log_models is set to True.
-            model_id = None
             if _log_models:
                 # Will only resolve `input_example` and `signature` if `log_models` is `True`.
                 input_example, signature = resolve_input_example_and_signature(
@@ -757,7 +759,7 @@ def autolog(
                 registered_model_name = get_autologging_config(
                     FLAVOR_NAME, "registered_model_name", None
                 )
-                logged_model = log_model(
+                log_model(
                     model,
                     "model",
                     signature=signature,
@@ -765,8 +767,8 @@ def autolog(
                     registered_model_name=registered_model_name,
                     model_format=model_format,
                     params=params_to_log_for_fn,
+                    model_id=model_id,
                 )
-                model_id = logged_model.model_id
 
             # If early_stopping_rounds is present, logging metrics at the best iteration
             # as extra metrics with the max step + 1.
