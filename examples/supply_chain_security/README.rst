@@ -34,9 +34,6 @@ Which returns ``[235.11371081266924]``.
 Structure of this MLflow Project
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-PIP `hash-checking mode <https://pip.pypa.io/en/latest/cli/pip_install/#hash-checking-mode>`_ is enforced by
-setting ``--require-hashes`` in the conda environment ``conda.yaml``:
-
 .. code-block:: yaml
 
   name: mlflow-supply-chain-security
