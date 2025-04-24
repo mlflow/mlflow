@@ -78,9 +78,9 @@ export const TraceDataDrawer = ({
     () =>
       traceData
         ? {
-          info: traceInfoToUse || {},
-          data: traceData,
-        }
+            info: traceInfoToUse || {},
+            data: traceData,
+          }
         : undefined,
     [traceData, traceInfoToUse],
   );
