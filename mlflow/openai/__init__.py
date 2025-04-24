@@ -50,11 +50,10 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
-from mlflow.models.model import _MODEL_TRACKER, MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.openai._openai_autolog import (
-    _generate_model_identity,
     async_patched_call,
     patched_agent_get_chat_completion,
     patched_call,
@@ -63,11 +62,14 @@ from mlflow.openai._openai_autolog import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking.fluent import (
+    _get_active_model_context,
+    _set_active_model,
+)
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
-    autologging_is_disabled,
     disable_autologging_globally,
     safe_patch,
 )
@@ -272,7 +274,6 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    example_no_conversion=None,
     **kwargs,
 ):
     """
@@ -304,7 +305,6 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        example_no_conversion: {{ example_no_conversion }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
             or ``top_p`` value to use for chat completion.
@@ -382,7 +382,7 @@ def save_model(
             outputs=Schema([TensorSpec(type=np.dtype("float64"), shape=(-1,))]),
         )
 
-    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+    saved_example = _save_example(mlflow_model, input_example, path)
     if signature is None and saved_example is not None:
         wrapped_model = _OpenAIWrapper(model)
         signature = _infer_signature_from_input_example(saved_example, wrapped_model)
@@ -475,7 +475,6 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    example_no_conversion=None,
     prompts: Optional[list[Union[str, Prompt]]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
@@ -521,7 +520,6 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        example_no_conversion: {{ example_no_conversion }}
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -564,7 +562,7 @@ def log_model(
             model = mlflow.pyfunc.load_model(info.model_uri)
             print(model.predict(["hello", "world"]))
     """
-    mlflow_model = Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         name=name,
         flavor=mlflow.openai,
@@ -579,7 +577,6 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
-        example_no_conversion=example_no_conversion,
         prompts=prompts,
         params=params,
         tags=tags,
@@ -588,13 +585,24 @@ def log_model(
         model_id=model_id,
         **kwargs,
     )
-    if mlflow_model.model_id:
-        model_identity = _generate_model_identity({"model": model, "task": task, **kwargs})
-        _MODEL_TRACKER.set(model_identity, mlflow_model.model_id)
-    return mlflow_model
 
 
 def _load_model(path):
+    model_file_path = os.path.dirname(path)
+    if os.path.exists(model_file_path):
+        mlflow_model = Model.load(model_file_path)
+        if (
+            mlflow_model.model_id
+            and (amc := _get_active_model_context())
+            # only set the active model if the model is not set by the user
+            and not amc.set_by_user
+            and amc.model_id != mlflow_model.model_id
+        ):
+            _set_active_model(model_id=mlflow_model.model_id)
+            _logger.info(
+                "Use `mlflow.set_active_model` to set the active model "
+                "to a different one if needed."
+            )
     with open(path) as f:
         return yaml.safe_load(f)
 
@@ -872,22 +880,7 @@ def load_model(model_uri, dst_path=None):
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     model_data_path = os.path.join(local_model_path, flavor_conf.get("data", MODEL_FILENAME))
-    model = _load_model(model_data_path)
-    mlflow_model = Model.load(local_model_path)
-    if mlflow_model.model_id:
-        model_identity = _generate_model_identity(model)
-        # Note: if the same model configs are loaded in the same session, the latter
-        # model_id overrides the previous one. Best practice for users is to avoid
-        # loading the same model configs multiple times. Traces will be linked to
-        # the latest model_id.
-        if _MODEL_TRACKER.get(model_identity) and not autologging_is_disabled(FLAVOR_NAME):
-            _logger.warning(
-                "A model with the same configuration was loaded previously. Traces generated from "
-                "identical configurations will be linked to the newly loaded "
-                f"model {mlflow_model.model_id}."
-            )
-        _MODEL_TRACKER.set(model_identity, mlflow_model.model_id)
-    return model
+    return _load_model(model_data_path)
 
 
 @experimental
@@ -991,6 +984,14 @@ def _autolog(
     else:
         safe_patch(FLAVOR_NAME, Completions, "parse", patched_call)
         safe_patch(FLAVOR_NAME, AsyncCompletions, "parse", async_patched_call)
+
+    try:
+        from openai.resources.responses import AsyncResponses, Responses
+    except ImportError:
+        pass
+    else:
+        safe_patch(FLAVOR_NAME, Responses, "create", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncResponses, "create", async_patched_call)
 
     # Patch Swarm agent to generate traces
     try:

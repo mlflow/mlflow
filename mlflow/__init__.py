@@ -63,7 +63,6 @@ catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
-fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
 groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
 h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
@@ -76,7 +75,6 @@ llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
 mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
-mleap = LazyLoader("mlflow.mleap", globals(), "mlflow.mleap")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
 paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
@@ -87,7 +85,6 @@ pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
 rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
-recipes = LazyLoader("mlflow.recipes", globals(), "mlflow.recipes")
 sentence_transformers = LazyLoader(
     "mlflow.sentence_transformers",
     globals(),
@@ -115,7 +112,6 @@ if TYPE_CHECKING:
         crewai,
         diviner,
         dspy,
-        fastai,
         gemini,
         groq,
         h2o,
@@ -128,7 +124,6 @@ if TYPE_CHECKING:
         llm,
         metrics,
         mistral,
-        mleap,
         onnx,
         openai,
         paddle,
@@ -138,7 +133,6 @@ if TYPE_CHECKING:
         pyfunc,
         pyspark,
         pytorch,
-        recipes,
         rfunc,
         sentence_transformers,
         shap,
@@ -186,6 +180,7 @@ from mlflow.tracing.fluent import (
     add_trace,
     get_current_active_span,
     get_last_active_trace,
+    get_last_active_trace_id,
     get_trace,
     log_trace,
     search_traces,
@@ -204,6 +199,7 @@ from mlflow.tracking._model_registry.fluent import (
     set_prompt_alias,
 )
 from mlflow.tracking.fluent import (
+    ActiveModel,
     ActiveRun,
     active_run,
     autolog,
@@ -218,6 +214,7 @@ from mlflow.tracking.fluent import (
     flush_artifact_async_logging,
     flush_async_logging,
     flush_trace_async_logging,
+    get_active_model_id,
     get_artifact_uri,
     get_experiment,
     get_experiment_by_name,
@@ -234,6 +231,7 @@ from mlflow.tracking.fluent import (
     log_figure,
     log_image,
     log_input,
+    log_inputs,
     log_metric,
     log_metrics,
     log_outputs,
@@ -244,6 +242,7 @@ from mlflow.tracking.fluent import (
     search_experiments,
     search_logged_models,
     search_runs,
+    set_active_model,
     set_experiment,
     set_experiment_tag,
     set_experiment_tags,
@@ -259,6 +258,7 @@ from mlflow.utils.doctor import doctor
 
 __all__ = [
     "ActiveRun",
+    "ActiveModel",
     "MlflowClient",
     "MlflowException",
     "active_run",
@@ -277,11 +277,13 @@ __all__ = [
     "flush_async_logging",
     "flush_artifact_async_logging",
     "flush_trace_async_logging",
+    "get_active_model_id",
     "get_artifact_uri",
     "get_experiment",
     "get_experiment_by_name",
     "get_last_active_trace",
     "get_logged_model",
+    "get_last_active_trace_id",
     "get_parent_run",
     "get_registry_uri",
     "get_run",
@@ -297,6 +299,7 @@ __all__ = [
     "log_figure",
     "log_image",
     "log_input",
+    "log_inputs",
     "log_outputs",
     "log_metric",
     "log_metrics",
@@ -313,6 +316,7 @@ __all__ = [
     "search_model_versions",
     "search_registered_models",
     "search_runs",
+    "set_active_model",
     "set_experiment",
     "set_experiment_tag",
     "set_experiment_tags",

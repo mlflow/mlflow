@@ -1,4 +1,3 @@
-import asyncio
 from unittest import mock
 
 import importlib_metadata
@@ -11,7 +10,6 @@ from llama_index.llms.openai import OpenAI
 from packaging.version import Version
 
 import mlflow
-from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
@@ -119,11 +117,11 @@ def test_autolog_should_not_generate_traces_during_logging_loading(single_index)
         ),
     ],
 )
-def test_autolog_link_traces_to_logged_model_engine(
+def test_autolog_link_traces_to_loaded_model_engine(
     code_path, engine_type, engine_method, input_arg
 ):
     model_infos = []
-    for i in range(5):
+    for i in range(3):
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
@@ -137,18 +135,18 @@ def test_autolog_link_traces_to_logged_model_engine(
         getattr(model, engine_method)(f"Hello {model_info.model_id}")
 
     traces = get_traces()
-    assert len(traces) == 5
+    assert len(traces) == 3
     for trace in traces:
         span = trace.data.spans[0]
-        model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
+        model_id = trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
         assert model_id is not None
         assert span.inputs[input_arg] == f"Hello {model_id}"
 
 
 @pytest.mark.parametrize("is_stream", [False, True])
-def test_autolog_link_traces_to_logged_model_index_query(single_index, is_stream):
+def test_autolog_link_traces_to_loaded_model_index_query(single_index, is_stream):
     model_infos = []
-    for i in range(5):
+    for i in range(3):
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
@@ -165,17 +163,17 @@ def test_autolog_link_traces_to_logged_model_index_query(single_index, is_stream
             response = "".join(response.response_gen)
 
     traces = get_traces()
-    assert len(traces) == 5
+    assert len(traces) == 3
     for trace in traces:
         span = trace.data.spans[0]
-        model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
+        model_id = trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
         assert span.inputs["str_or_query_bundle"] == f"Hello {model_id}"
 
 
 @pytest.mark.asyncio
-async def test_autolog_link_traces_to_logged_model_index_query_async(single_index):
+async def test_autolog_link_traces_to_loaded_model_index_query_async(single_index):
     model_infos = []
-    for i in range(5):
+    for i in range(3):
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
@@ -190,10 +188,10 @@ async def test_autolog_link_traces_to_logged_model_index_query_async(single_inde
         await engine.aquery(f"Hello {model_info.model_id}")
 
     traces = get_traces()
-    assert len(traces) == 5
+    assert len(traces) == 3
     for trace in traces:
         span = trace.data.spans[0]
-        model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
+        model_id = trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
         assert span.inputs["str_or_query_bundle"] == f"Hello {model_id}"
 
 
@@ -209,9 +207,9 @@ async def test_autolog_link_traces_to_logged_model_index_query_async(single_inde
         ChatMode.OPENAI,
     ],
 )
-def test_autolog_link_traces_to_logged_model_index_chat(single_index, chat_mode):
+def test_autolog_link_traces_to_loaded_model_index_chat(single_index, chat_mode):
     model_infos = []
-    for i in range(5):
+    for i in range(3):
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
@@ -226,16 +224,16 @@ def test_autolog_link_traces_to_logged_model_index_chat(single_index, chat_mode)
         engine.chat(f"Hello {model_info.model_id}")
 
     traces = get_traces()
-    assert len(traces) == 5
+    assert len(traces) == 3
     for trace in traces:
         span = trace.data.spans[0]
-        model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
+        model_id = trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
         assert span.inputs["message"] == f"Hello {model_id}"
 
 
-def test_autolog_link_traces_to_logged_model_index_retriever(single_index):
+def test_autolog_link_traces_to_loaded_model_index_retriever(single_index):
     model_infos = []
-    for i in range(5):
+    for i in range(3):
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
@@ -250,10 +248,10 @@ def test_autolog_link_traces_to_logged_model_index_retriever(single_index):
         engine.retrieve(f"Hello {model_info.model_id}")
 
     traces = get_traces()
-    assert len(traces) == 5
+    assert len(traces) == 3
     for trace in traces:
         span = trace.data.spans[0]
-        model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
+        model_id = trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
         assert span.inputs["str_or_query_bundle"] == f"Hello {model_id}"
 
 
@@ -262,7 +260,7 @@ def test_autolog_link_traces_to_logged_model_index_retriever(single_index):
     reason="Workflow was introduced in 0.11.0",
 )
 @pytest.mark.asyncio
-async def test_autolog_link_traces_to_logged_model_workflow():
+async def test_autolog_link_traces_to_loaded_model_workflow():
     mlflow.llama_index.autolog()
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
@@ -276,145 +274,53 @@ async def test_autolog_link_traces_to_logged_model_workflow():
     traces = get_traces()
     assert len(traces) == 1
     span = traces[0].data.spans[0]
-    model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
+    model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
     assert model_id is not None
     assert span.inputs["kwargs"]["topic"] == f"Hello {model_id}"
-
-
-def test_autolog_link_traces_to_original_model_after_logging(single_index):
-    with mlflow.start_run():
-        model_info = mlflow.llama_index.log_model(
-            single_index, "model", input_example="Hello", engine_type="query"
-        )
-
-    mlflow.llama_index.autolog()
-    engine = single_index.as_query_engine()
-    engine.query(f"Hello {model_info.model_id}")
-
-    traces = get_traces()
-    assert len(traces) == 1
-    span = traces[0].data.spans[0]
-    model_id = span.get_attribute(SpanAttributeKey.MODEL_ID)
-    assert model_id is not None
-    assert span.inputs["str_or_query_bundle"] == f"Hello {model_id}"
-
-
-@pytest.mark.parametrize("is_async", [False, True])
-def test_autolog_create_logged_model_and_link_traces_index(single_index, is_async):
-    mlflow.llama_index.autolog()
-
-    with mlflow.start_run() as run:
-        engine = single_index.as_query_engine()
-        for _ in range(5):
-            if is_async:
-                asyncio.run(engine.aquery("Hello"))
-            else:
-                engine.query("Hello")
-    logged_models = mlflow.search_logged_models(
-        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
-    )
-    assert len(logged_models) == 1
-    logged_model = logged_models[0]
-    traces = get_traces()
-    assert len(traces) == 5
-    for i in range(5):
-        assert (
-            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
-            == logged_model.model_id
-        )
-
-    with mlflow.start_run():
-        model_info = mlflow.llama_index.log_model(
-            single_index, "model", input_example="Hello", engine_type="query"
-        )
-    loaded_index = mlflow.llama_index.load_model(model_info.model_uri)
-    if is_async:
-        asyncio.run(loaded_index.as_query_engine().aquery("Hello"))
-        asyncio.run(loaded_index.as_chat_engine().achat("Hello"))
-        asyncio.run(loaded_index.as_retriever().aretrieve("Hello"))
-    else:
-        loaded_index.as_query_engine().query("Hello")
-        loaded_index.as_chat_engine().chat("Hello")
-        loaded_index.as_retriever().retrieve("Hello")
-    traces = get_traces()
-    assert len(traces) == 8
-    for i in range(3):
-        assert (
-            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == model_info.model_id
-        )
-    # This is required because settings contains OpenAIEmbedding, it might introduce
-    # some side effect on tracing when multiple tests run together
-    mlflow.llama_index.autolog(disable=True)
-
-
-@pytest.mark.parametrize("is_async", [True, False])
-def test_autolog_create_logged_model_and_link_traces_engine(single_index, is_async):
-    engine = single_index.as_query_engine()
-    mlflow.llama_index.autolog()
-
-    with mlflow.start_run() as run:
-        for _ in range(5):
-            if is_async:
-                asyncio.run(engine.aquery("Hello"))
-            else:
-                engine.query("Hello")
-    logged_models = mlflow.search_logged_models(
-        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
-    )
-    assert len(logged_models) == 1
-    logged_model = logged_models[0]
-    traces = get_traces()
-    assert len(traces) == 5
-    for i in range(5):
-        assert (
-            traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID)
-            == logged_model.model_id
-        )
-    # This is required because settings contains OpenAIEmbedding, it might introduce
-    # some side effect on tracing when two tests run together
-    mlflow.llama_index.autolog(disable=True)
 
 
 @pytest.mark.skipif(
     llama_core_version < Version("0.11.0"),
     reason="Workflow was introduced in 0.11.0",
 )
-@pytest.mark.parametrize("log_models", [True, False])
-def test_autolog_create_logged_model_and_link_traces_workflow(log_models):
+def test_autolog_link_traces_to_loaded_model_workflow_pyfunc():
+    mlflow.llama_index.autolog()
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             "tests/llama_index/sample_code/simple_workflow.py",
             "model",
             input_example={"topic": "Hello"},
         )
-    workflow = mlflow.llama_index.load_model(model_info.model_uri)
-    # clear here to mimic the model is not loaded, only for testing
-    _MODEL_TRACKER.clear()
+    loaded_workflow = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_workflow.predict({"topic": f"Hello {model_info.model_id}"})
 
-    # This is needed since pytest.asyncio doesn't function well
-    async def run_workflow(topic):
-        await workflow.run(topic=topic)
-
-    mlflow.llama_index.autolog(log_models=log_models)
-
-    with mlflow.start_run() as run:
-        for i in range(5):
-            asyncio.run(run_workflow("Hello"))
-            traces = get_traces()
-            assert len(traces) == i + 1
     traces = get_traces()
-    assert len(traces) == 5
-    logged_models = mlflow.search_logged_models(
-        filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
-    )
-    if log_models:
-        assert len(logged_models) == 1
-        logged_model_id = logged_models[0].model_id
-        for i in range(5):
-            assert (
-                traces[i].data.spans[0].get_attribute(SpanAttributeKey.MODEL_ID) == logged_model_id
-            )
-    else:
-        assert len(logged_models) == 0
-        for i in range(5):
-            assert SpanAttributeKey.MODEL_ID not in traces[i].data.spans[0].attributes
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
+    assert model_id is not None
+    assert span.inputs["kwargs"]["topic"] == f"Hello {model_id}"
+
+
+@pytest.mark.skipif(
+    llama_core_version < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+def test_autolog_link_traces_to_active_model():
+    model = mlflow.create_external_model(name="test_model")
+    mlflow.set_active_model(model_id=model.model_id)
+    mlflow.llama_index.autolog()
+    with mlflow.start_run():
+        model_info = mlflow.llama_index.log_model(
+            "tests/llama_index/sample_code/simple_workflow.py",
+            "model",
+            input_example={"topic": "Hello"},
+        )
+    loaded_workflow = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_workflow.predict({"topic": f"Hello {model_info.model_id}"})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
+    assert model_id == model.model_id
+    assert model_id != model_info.model_id

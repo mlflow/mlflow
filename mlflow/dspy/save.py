@@ -19,7 +19,7 @@ from mlflow.models import (
     infer_pip_requirements,
 )
 from mlflow.models.dependencies_schemas import _get_dependencies_schemas
-from mlflow.models.model import _MODEL_TRACKER, MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.rag_signatures import SIGNATURE_FOR_LLM_INFERENCE_TASK
 from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -359,7 +359,7 @@ def log_model(
                 signature=signature,
             )
     """
-    model = Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         name=name,
         flavor=mlflow.dspy,
@@ -383,6 +383,3 @@ def log_model(
         step=step,
         model_id=model_id,
     )
-    if model.model_id and not isinstance(dspy_model, str):
-        _MODEL_TRACKER.set(id(dspy_model), model.model_id)
-    return model

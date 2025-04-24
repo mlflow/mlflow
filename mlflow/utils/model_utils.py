@@ -180,7 +180,7 @@ def _infer_and_copy_code_paths(flavor, path, default_subpath="code"):
     # It only picks necessary files, because:
     #  1. Reduce risk of logging files containing user credentials to MLflow
     #     artifact repository.
-    #  2. In databricks runtime, notebook files might exist under a code_path directory,
+    #  2. In databricks runtime, notebook files might exist under a code_paths directory,
     #     if logging the whole directory to MLflow artifact repository, these
     #     notebook files are not accessible and trigger exceptions. On the other
     #     hand, these notebook files are not used as code_paths modules because

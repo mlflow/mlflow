@@ -77,7 +77,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE, TraceMetadataKey
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
@@ -833,6 +833,9 @@ def test_run_info(store: SqlAlchemyStore):
         ]:
             continue
 
+        if k == "run_uuid":
+            k = "run_id"
+
         v2 = getattr(run.info, k)
         if k == "source_type":
             assert v == SourceType.to_string(v2)
@@ -994,9 +997,9 @@ def test_get_deleted_runs(store: SqlAlchemyStore):
     deleted_run_ids = store._get_deleted_runs()
     assert deleted_run_ids == []
 
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     deleted_run_ids = store._get_deleted_runs()
-    assert deleted_run_ids == [run.info.run_uuid]
+    assert deleted_run_ids == [run.info.run_id]
 
 
 def test_log_metric(store: SqlAlchemyStore):
@@ -2991,7 +2994,7 @@ def _generate_large_data(store, nb_runs=1000):
             tags=[],
             user_id="Anderson",
             run_name="name",
-        ).info.run_uuid
+        ).info.run_id
 
         run_ids.append(run_id)
 
@@ -3093,14 +3096,14 @@ def test_search_runs_keep_all_runs_when_sorting(store: SqlAlchemyStore):
         tags=[],
         user_id="Me",
         run_name="name",
-    ).info.run_uuid
+    ).info.run_id
     r2 = store.create_run(
         experiment_id=experiment_id,
         start_time=0,
         tags=[],
         user_id="Me",
         run_name="name",
-    ).info.run_uuid
+    ).info.run_id
     store.set_tag(r1, RunTag(key="t1", value="1"))
     store.set_tag(r1, RunTag(key="t2", value="1"))
     store.set_tag(r2, RunTag(key="t2", value="1"))
@@ -4467,6 +4470,10 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
     store.delete_trace_tag(request_id, "tag1")
     assert store.get_trace_info(request_id).tags == {"tag2": "orange"}
 
+    # test value length
+    store.set_trace_tag(request_id, "key", "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE)
+    assert store.get_trace_info(request_id).tags["key"] == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
+
     with pytest.raises(MlflowException, match="No trace tag with key 'tag1'"):
         store.delete_trace_tag(request_id, "tag1")
 
@@ -4629,6 +4636,93 @@ def test_log_outputs(store: SqlAlchemyStore):
     store.log_outputs(run.info.run_id, [LoggedModelOutput(model.model_id, 1)])
     run = store.get_run(run.info.run_id)
     assert run.outputs.model_outputs == [LoggedModelOutput(model.model_id, 1)]
+
+
+@pytest.mark.parametrize("tags_count", [0, 1, 2])
+def test_get_run_inputs(store, tags_count):
+    run = _run_factory(store)
+
+    dataset = entities.Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+
+    tags = [entities.InputTag(key=f"foo{i}", value=f"bar{i}") for i in range(tags_count)]
+
+    dataset_inputs = [entities.DatasetInput(dataset, tags)]
+
+    store.log_inputs(run.info.run_id, dataset_inputs)
+
+    with store.ManagedSessionMaker() as session:
+        actual = store._get_run_inputs(session, [run.info.run_id])
+
+    assert len(actual) == 1
+    assert_dataset_inputs_equal(actual[0], dataset_inputs)
+
+
+def test_get_run_inputs_run_order(store):
+    exp_id = _create_experiments(store, "test_get_run_inputs_run_order")
+    config = _get_run_configs(exp_id)
+
+    run_with_one_input = _run_factory(store, config)
+    run_with_no_inputs = _run_factory(store, config)
+    run_with_two_inputs = _run_factory(store, config)
+
+    dataset1 = entities.Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+
+    dataset2 = entities.Dataset(
+        name="name2",
+        digest="digest2",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+
+    tags_1 = [entities.InputTag(key="foo1", value="bar1")]
+
+    tags_2 = [
+        entities.InputTag(key="foo2", value="bar2"),
+        entities.InputTag(key="foo3", value="bar3"),
+    ]
+
+    tags_3 = [
+        entities.InputTag(key="foo4", value="bar4"),
+        entities.InputTag(key="foo5", value="bar5"),
+        entities.InputTag(key="foo6", value="bar6"),
+    ]
+
+    dataset_inputs_1 = [entities.DatasetInput(dataset1, tags_1)]
+    dataset_inputs_2 = [
+        entities.DatasetInput(dataset2, tags_2),
+        entities.DatasetInput(dataset1, tags_3),
+    ]
+
+    store.log_inputs(run_with_one_input.info.run_id, dataset_inputs_1)
+    store.log_inputs(run_with_two_inputs.info.run_id, dataset_inputs_2)
+
+    expected = [dataset_inputs_1, [], dataset_inputs_2]
+
+    runs = [run_with_one_input, run_with_no_inputs, run_with_two_inputs]
+    run_uuids = [run.info.run_id for run in runs]
+
+    with store.ManagedSessionMaker() as session:
+        actual = store._get_run_inputs(session, run_uuids)
+
+    assert len(expected) == len(actual)
+    for expected_i, actual_i in zip(expected, actual):
+        assert_dataset_inputs_equal(expected_i, actual_i)
 
 
 def test_create_logged_model(store: SqlAlchemyStore):

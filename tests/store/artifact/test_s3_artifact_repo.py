@@ -372,6 +372,24 @@ def test_delete_artifacts_single_object(s3_artifact_repo, tmp_path):
     assert s3_artifact_repo.list_artifacts() == []
 
 
+@pytest.mark.parametrize("artifact_path", ["subdir", "subdir/"])
+def test_list_and_delete_artifacts_path(s3_artifact_repo, tmp_path, artifact_path):
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    path_a = subdir / "a.txt"
+    path_a.write_text("A")
+
+    s3_artifact_repo.log_artifacts(str(subdir), artifact_path.rstrip("/"))
+
+    # confirm that artifact is present
+    artifact_file_names = [obj.path for obj in s3_artifact_repo.list_artifacts(artifact_path)]
+    assert "subdir/a.txt" in artifact_file_names
+
+    s3_artifact_repo.delete_artifacts(artifact_path=artifact_path)
+    assert s3_artifact_repo.list_artifacts(artifact_path) == []
+    assert s3_artifact_repo.list_artifacts() == []
+
+
 def test_delete_artifacts_pagination(s3_artifact_repo, tmp_path):
     subdir = tmp_path / "subdir"
     subdir.mkdir()

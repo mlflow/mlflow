@@ -11,7 +11,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
-    MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
     TRUNCATION_SUFFIX,
@@ -32,7 +32,7 @@ from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunCon
 from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
-from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.tracking.fluent import _get_experiment_id, get_active_model_id
 from mlflow.utils.mlflow_tags import TRACE_RESOLVE_TAGS_ALLOWLIST
 
 _logger = logging.getLogger(__name__)
@@ -226,15 +226,19 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 ),
             }
         )
+        # model_id is used in start_span and passed as attribute, so it should
+        # be used even if active_model_id exists
         if model_id is not None:
             trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = model_id
+        elif active_model_id := get_active_model_id():
+            trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = active_model_id
 
     def _truncate_metadata(self, value: Optional[str]) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""
         if not value:
             return ""
 
-        if len(value) > MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS:
-            trunc_length = MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS - len(TRUNCATION_SUFFIX)
+        if len(value) > MAX_CHARS_IN_TRACE_INFO_METADATA:
+            trunc_length = MAX_CHARS_IN_TRACE_INFO_METADATA - len(TRUNCATION_SUFFIX)
             value = value[:trunc_length] + TRUNCATION_SUFFIX
         return value

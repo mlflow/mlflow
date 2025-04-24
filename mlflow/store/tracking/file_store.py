@@ -609,10 +609,10 @@ class FileStore(AbstractStore):
         )
         deleted_run_ids = []
         for deleted_run in deleted_runs:
-            _, run_dir = self._find_run_root(deleted_run.info.run_uuid)
+            _, run_dir = self._find_run_root(deleted_run.info.run_id)
             meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
             if "deleted_time" not in meta or current_time - int(meta["deleted_time"]) >= older_than:
-                deleted_run_ids.append(deleted_run.info.run_uuid)
+                deleted_run_ids.append(deleted_run.info.run_id)
 
         return deleted_run_ids
 
@@ -687,7 +687,6 @@ class FileStore(AbstractStore):
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(
-            run_uuid=run_uuid,
             run_id=run_uuid,
             run_name=run_name,
             experiment_id=experiment_id,
@@ -1994,7 +1993,7 @@ class FileStore(AbstractStore):
             _validate_param(param.key, param.value)
 
         name = name or _generate_random_name()
-        model_id = str(uuid.uuid4())
+        model_id = f"m-{str(uuid.uuid4()).replace('-', '')}"
         artifact_location = self._get_model_artifact_dir(experiment_id, model_id)
         creation_timestamp = int(time.time() * 1000)
         model = LoggedModel(
@@ -2261,6 +2260,7 @@ class FileStore(AbstractStore):
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
+        datasets: Optional[list[str]] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
@@ -2271,6 +2271,11 @@ class FileStore(AbstractStore):
         Args:
             experiment_ids: List of experiment ids to scope the search.
             filter_string: A search filter string.
+            datasets: List of dictionaries to specify datasets on which to apply metrics filters.
+                The following fields are supported:
+
+                name (str): Required. Name of the dataset.
+                digest (str): Optional. Digest of the dataset.
             max_results: Maximum number of logged models desired. Default is 100.
             order_by: List of dictionaries to specify the ordering of the search results.
                 The following fields are supported:
@@ -2291,6 +2296,11 @@ class FileStore(AbstractStore):
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
             :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
         """
+        if datasets:
+            raise MlflowException(
+                "Filtering by datasets is not currently supported by FileStore",
+                INVALID_PARAMETER_VALUE,
+            )
         max_results = max_results or SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT
         all_models = []
         for experiment_id in experiment_ids:

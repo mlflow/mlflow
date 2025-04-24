@@ -9,7 +9,6 @@ import anthropic
 import autogen
 import boto3
 import dspy
-import fastai
 import google.genai
 import groq
 import keras
@@ -49,7 +48,6 @@ from tests.helper_functions import start_mock_openai_server
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
     keras: mlflow.keras,
-    fastai: mlflow.fastai,
     sklearn: mlflow.sklearn,
     xgboost: mlflow.xgboost,
     lightgbm: mlflow.lightgbm,
@@ -440,10 +438,10 @@ def test_autolog_genai_auto_tracing(mock_openai, is_databricks, disable, other_l
 
     # GenAI should not be enabled by mlflow.autolog even if disable=False on Databricks
     if is_databricks or disable:
-        trace = mlflow.get_last_active_trace()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         assert trace is None
     else:
-        trace = mlflow.get_last_active_trace()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         assert trace is not None
         assert trace.info.status == "OK"
         assert len(trace.data.spans) == 1

@@ -238,7 +238,9 @@ def _prune_packages(packages):
     requires = {req for req in requires if not req.startswith("llama-index-")}
 
     # Do not exclude mlflow's dependencies
-    return packages - (requires - set(_get_requires("mlflow")))
+    # Do not exclude databricks-connect since it conflicts with pyspark during execution time,
+    # and we need to determine if pyspark needs to be stripped based on the inferred packages
+    return packages - (requires - set(_get_requires("mlflow")) - {"databricks-connect"})
 
 
 def _run_command(cmd, timeout_seconds, env=None):
@@ -441,7 +443,7 @@ def _init_modules_to_packages_map():
     global _MODULES_TO_PACKAGES
     if _MODULES_TO_PACKAGES is None:
         # Note `importlib_metadata.packages_distributions` only captures packages installed into
-        # Python’s site-packages directory via tools such as pip:
+        # Python's site-packages directory via tools such as pip:
         # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
         _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
 

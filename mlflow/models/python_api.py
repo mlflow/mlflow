@@ -37,8 +37,8 @@ def build_docker(
     .. important::
 
         Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**
-        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o",
-        "mleap", "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
+        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o"
+        "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
         that uses SparkML, please specify ``install-java=True`` to enforce Java installation.
         For earlier versions, Java is always installed to the image.
 
@@ -46,7 +46,7 @@ def build_docker(
     .. warning::
 
         If ``model_uri`` is unspecified, the resulting image doesn't support serving models with
-        the RFunc or Java MLeap model servers.
+        the RFunc server.
 
     NB: by default, the container will start nginx and gunicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),
@@ -115,6 +115,25 @@ def predict(
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
+
+    .. note::
+
+        To increase verbosity for debugging purposes (in order to inspect the full dependency
+        resolver operations when processing transient dependencies), consider setting the following
+        environment variables:
+
+        .. code-block:: bash
+
+            # For virtualenv
+            export PIP_VERBOSE=1
+
+            # For uv
+            export RUST_LOG=uv=debug
+
+        See also:
+
+        - https://pip.pypa.io/en/stable/topics/configuration/#environment-variables
+        - https://docs.astral.sh/uv/configuration/environment
 
     Args:
         model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.

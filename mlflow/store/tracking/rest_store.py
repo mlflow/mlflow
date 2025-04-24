@@ -18,6 +18,8 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -63,6 +65,7 @@ from mlflow.protos.service_pb2 import (
     SetTag,
     SetTraceTag,
     StartTrace,
+    StartTraceV3,
     TraceRequestMetadata,
     TraceTag,
     UpdateAssessment,
@@ -72,7 +75,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.utils.proto_json_utils import message_to_json, set_pb_value
+from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
@@ -289,6 +292,30 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(StartTrace, req_body)
         return TraceInfo.from_proto(response_proto.trace_info)
 
+    def start_trace_v3(self, trace: Trace) -> TraceInfoV3:
+        """
+        Start a trace using the V3 API format.
+
+        NB: This method is named "Start" for internal reason in the backend, but actually
+        should be called at the end of the trace. We will migrate this to "CreateTrace"
+        API in the future to avoid confusion.
+
+        Args:
+            trace: The Trace object to create.
+
+        Returns:
+            The returned TraceInfoV3 object from the backend.
+        """
+        req_body = message_to_json(StartTraceV3(trace=trace.to_proto()))
+        response_proto = self._call_endpoint(
+            # NB: _call_endpoint doesn't handle versioning between v2 and v3 endpoint
+            # yet, so manually passing the v3 endpoint here.
+            StartTraceV3,
+            req_body,
+            endpoint="/api/3.0/mlflow/traces",
+        )
+        return TraceInfoV3.from_proto(response_proto.trace.trace_info)
+
     def end_trace(
         self,
         request_id: str,
@@ -371,25 +398,24 @@ class RestStore(AbstractStore):
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
+        if should_query_v3:
+            trace_v3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
+            trace_v3_endpoint = get_trace_assessment_endpoint(request_id)
+            try:
+                trace_v3_response_proto = self._call_endpoint(
+                    GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
+                )
+                return TraceInfoV3.from_proto(trace_v3_response_proto)
+            except Exception:
+                # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
+                _logger.debug(
+                    f"Failed to fetch trace info from V3 API for request ID {request_id!r}.",
+                    exc_info=True,
+                )
         req_body = message_to_json(GetTraceInfo(request_id=request_id))
         endpoint = get_trace_info_endpoint(request_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
-        assessments = None
-        if should_query_v3:
-            try:
-                tracev3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
-                tracev3_endpoint = get_trace_assessment_endpoint(request_id)
-                tracev3_response_proto = self._call_endpoint(
-                    GetTraceInfoV3, tracev3_req_body, endpoint=tracev3_endpoint
-                )
-                assessments = [
-                    Assessment.from_proto(a)
-                    for a in tracev3_response_proto.trace.trace_info.assessments
-                ]
-            except Exception:
-                # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
-                pass
-        return TraceInfo.from_proto(response_proto.trace_info, assessments=assessments)
+        return TraceInfo.from_proto(response_proto.trace_info)
 
     def get_online_trace_details(
         self,
@@ -547,10 +573,10 @@ class RestStore(AbstractStore):
             assessment.assessment_name = name
             mask.paths.append("assessment_name")
         if expectation is not None:
-            set_pb_value(assessment.expectation.value, expectation.value)
+            assessment.expectation.CopyFrom(expectation.to_proto())
             mask.paths.append("expectation")
         if feedback is not None:
-            set_pb_value(assessment.feedback.value, feedback.value)
+            assessment.feedback.CopyFrom(feedback.to_proto())
             mask.paths.append("feedback")
         if rationale is not None:
             assessment.rationale = rationale
@@ -804,6 +830,7 @@ class RestStore(AbstractStore):
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
+        datasets: Optional[list[dict[str, Any]]] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
@@ -814,6 +841,11 @@ class RestStore(AbstractStore):
         Args:
             experiment_ids: List of experiment ids to scope the search.
             filter_string: A search filter string.
+            datasets: List of dictionaries to specify datasets on which to apply metrics filters.
+                The following fields are supported:
+
+                name (str): Required. Name of the dataset.
+                digest (str): Optional. Digest of the dataset.
             max_results: Maximum number of logged models desired.
             order_by: List of dictionaries to specify the ordering of the search results.
                 The following fields are supported:
@@ -838,6 +870,13 @@ class RestStore(AbstractStore):
             SearchLoggedModels(
                 experiment_ids=experiment_ids,
                 filter=filter_string,
+                datasets=[
+                    SearchLoggedModels.Dataset(
+                        dataset_name=d["dataset_name"],
+                        dataset_digest=d.get("dataset_digest"),
+                    )
+                    for d in datasets or []
+                ],
                 max_results=max_results,
                 order_by=[
                     SearchLoggedModels.OrderBy(

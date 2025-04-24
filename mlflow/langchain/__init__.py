@@ -12,8 +12,6 @@ LangChain (native) format
     https://python.langchain.com/en/latest/index.html
 """
 
-import importlib
-import inspect
 import logging
 import os
 import tempfile
@@ -48,7 +46,7 @@ from mlflow.models.dependencies_schemas import (
     _get_dependencies_schema_from_model,
     _get_dependencies_schemas,
 )
-from mlflow.models.model import _MODEL_TRACKER, MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
+from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
 from mlflow.models.resources import DatabricksFunction, Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
@@ -60,6 +58,10 @@ from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking.fluent import (
+    _get_active_model_context,
+    _set_active_model,
+)
 from mlflow.types.schema import ColSpec, DataType, Schema
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -144,7 +146,6 @@ def save_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
-    example_no_conversion=None,
     model_config=None,
     streamable: Optional[bool] = None,
 ):
@@ -244,9 +245,6 @@ def save_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: This parameter is deprecated and will be removed in a future
-                release. It's no longer used and can be safely removed. Input examples are
-                not converted anymore.
         model_config: The model configuration to apply to the model if saving model from code. This
             configuration is available during model loading.
 
@@ -286,7 +284,7 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+    saved_example = _save_example(mlflow_model, input_example, path)
 
     if signature is None:
         if saved_example is not None:
@@ -438,7 +436,6 @@ def log_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
-    example_no_conversion=None,
     run_id=None,
     model_config=None,
     streamable=None,
@@ -555,9 +552,6 @@ def log_model(
                     )
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
-        example_no_conversion: This parameter is deprecated and will be removed in a future
-                release. It's no longer used and can be safely removed. Input examples are
-                not converted anymore.
         run_id: run_id to associate with this model version. If specified, we resume the
                 run and log the model to that run. Otherwise, a new run is created.
                 Default to None.
@@ -587,7 +581,7 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-    model = Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         name=name,
         flavor=mlflow.langchain,
@@ -603,7 +597,6 @@ def log_model(
         metadata=metadata,
         loader_fn=loader_fn,
         persist_dir=persist_dir,
-        example_no_conversion=example_no_conversion,
         run_id=run_id,
         model_config=model_config,
         streamable=streamable,
@@ -615,11 +608,6 @@ def log_model(
         step=step,
         model_id=model_id,
     )
-    # if model is logged as models as code, then we cannot
-    # get the id of the model object
-    if model.model_id and not isinstance(lc_model, str):
-        _MODEL_TRACKER.set(id(lc_model), model.model_id)
-    return model
 
 
 # patch_langchain_type_to_cls_dict here as we attempt to load model
@@ -860,6 +848,18 @@ def _load_pyfunc(path: str, model_config: Optional[dict[str, Any]] = None):  # n
 
 
 def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
+    mlflow_model = Model.load(local_model_path)
+    if (
+        mlflow_model.model_id
+        and (amc := _get_active_model_context())
+        # only set the active model if the model is not set by the user
+        and not amc.set_by_user
+        and amc.model_id != mlflow_model.model_id
+    ):
+        _set_active_model(model_id=mlflow_model.model_id)
+        logger.info(
+            "Use `mlflow.set_active_model` to set the active model to a different one if needed."
+        )
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pyfunc_flavor_conf = _get_flavor_configuration(
         model_path=local_model_path, flavor_name=PYFUNC_FLAVOR_NAME
@@ -926,12 +926,7 @@ def load_model(model_uri, dst_path=None):
     """
     model_uri = str(model_uri)
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    model = _load_model_from_local_fs(local_model_path)
-    mlflow_model = Model.load(local_model_path)
-    if mlflow_model.model_id:
-        _MODEL_TRACKER.set(id(model), mlflow_model.model_id)
-
-    return model
+    return _load_model_from_local_fs(local_model_path)
 
 
 @experimental
@@ -941,9 +936,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
-    extra_model_classes=None,
     log_traces=True,
-    log_models=True,
 ):
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
@@ -960,70 +953,15 @@ def autolog(
         silent: If ``True``, suppress all event logs and warnings from MLflow during Langchain
             autologging. If ``False``, show all events and warnings during Langchain
             autologging.
-        extra_model_classes: A list of langchain classes to log in addition to the default classes.
-            We do not guarantee classes specified in this list can be logged as a model, but tracing
-            will be supported. Note that all classes within the list must be subclasses of Runnable,
-            and we only patch `invoke`, `batch`, and `stream` methods for tracing.
         log_traces: If ``True``, traces are logged for Langchain models by using
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
-        log_models: If ``True``, automatically create a LoggedModel when the model
-            used for inference is not already logged. The created LoggedModel contains no model
-            artifacts, but it will be used to associate all traces generated by the model. If
-            ``False``, no LoggedModel is created and the traces will not be associated with any
-            model. Default to ``True``.
-            .. Note:: Experimental: This argument may change or be removed in a future release
-            without warning.
     """
-    from mlflow.langchain._langchain_autolog import (
-        _inspect_module_and_patch_cls,
-        _patch_runnable_cls,
-    )
     from mlflow.langchain.langchain_tracer import (
         patched_callback_manager_init,
         patched_callback_manager_merge,
         patched_runnable_sequence_batch,
     )
-
-    # avoid duplicate patching
-    patched_classes = set()
-    # avoid infinite recursion
-    inspected_modules = set()
-
-    # Get all installed LangChain packages
-    for pkg in importlib.metadata.distributions():
-        if pkg.metadata["Name"].startswith("langchain"):
-            module_name = pkg.metadata["Name"].replace("-", "_")
-            _inspect_module_and_patch_cls(module_name, inspected_modules, patched_classes)
-
-        # If LangGraph is installed, patch the classes. LangGraph does not define members
-        # under the top level module, so we need to hardcode the submodules to patch.
-        if pkg.metadata["Name"] == "langgraph":
-            langgraph_submodules = [
-                "langgraph.graph",
-                "langgraph.prebuilt",
-                "langgraph.pregel",
-            ]
-            for submodule in langgraph_submodules:
-                _inspect_module_and_patch_cls(submodule, inspected_modules, patched_classes)
-
-    if extra_model_classes:
-        from langchain_core.runnables import Runnable
-
-        unsupported_classes = []
-        for cls in extra_model_classes:
-            if cls.__name__ in patched_classes:
-                continue
-            elif inspect.isclass(cls) and issubclass(cls, Runnable):
-                _patch_runnable_cls(cls)
-                patched_classes.add(cls.__name__)
-            else:
-                unsupported_classes.append(cls.__name__)
-        if unsupported_classes:
-            logger.warning(
-                f"Unsupported classes found in extra_model_classes: {unsupported_classes}. "
-                "Only subclasses of Runnable are supported."
-            )
 
     try:
         from langchain_core.callbacks import BaseCallbackManager

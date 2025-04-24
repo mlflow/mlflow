@@ -38,12 +38,10 @@ from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.llama_index.chat import get_chat_messages_from_event
-from mlflow.models.model import _MODEL_TRACKER
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.pydantic_utils import model_dump_compat
 
 _logger = logging.getLogger(__name__)
@@ -127,9 +125,9 @@ def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None, token=None
     try:
         if span.parent_id is None:
             # NB: Initiate the new client every time to handle tracking URI updates.
-            MlflowClient().end_trace(span.request_id, status=status, outputs=outputs)
+            MlflowClient().end_trace(span.trace_id, status=status, outputs=outputs)
         else:
-            MlflowClient().end_span(span.request_id, span.span_id, status=status, outputs=outputs)
+            MlflowClient().end_span(span.trace_id, span.span_id, status=status, outputs=outputs)
     finally:
         # We should detach span even when end_span / end_trace API call fails
         if token:
@@ -151,23 +149,6 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         llama_span = self.open_spans.get(event.span_id) or self._pending_spans.get(event.span_id)
         return llama_span._mlflow_span if llama_span else None
 
-    def _get_model_id(self, instance: Any, parent_span: Any) -> Optional[str]:
-        if parent_span is None:
-            if model_id := getattr(instance, "_mlflow_model_id", None):
-                return model_id
-            if model_id := _MODEL_TRACKER.get(id(instance)):
-                return model_id
-            autologging_config = AutoLoggingConfig.init(mlflow.llama_index.FLAVOR_NAME)
-            if autologging_config.log_models:
-                logged_model = mlflow.create_external_model(name=instance.__class__.__name__)
-                _MODEL_TRACKER.set(id(instance), logged_model.model_id)
-                _logger.debug(
-                    f"Created LoggedModel with model_id {logged_model.model_id} "
-                    f"for {instance.__class__.__name__}"
-                )
-                return logged_model.model_id
-        return None
-
     def new_span(
         self,
         id_: str,
@@ -184,16 +165,11 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         try:
             input_args = bound_args.arguments
             attributes = self._get_instance_attributes(instance)
-            if model_id := self._get_model_id(instance, parent_span):
-                attributes = {
-                    **(attributes or {}),
-                    SpanAttributeKey.MODEL_ID: model_id,
-                }
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
             if parent_span:
                 # NB: Initiate the new client every time to handle tracking URI updates.
                 span = MlflowClient().start_span(
-                    request_id=parent_span.request_id,
+                    trace_id=parent_span.trace_id,
                     parent_id=parent_span.span_id,
                     name=id_.partition("-")[0],
                     span_type=span_type,

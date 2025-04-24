@@ -323,6 +323,10 @@ def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_m
     client = MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     assert ("restored_model_checkpoint" in artifacts) == log_models
+    if log_models:
+        logged_model = mlflow.last_logged_model()
+        assert logged_model is not None
+        assert {metric.key: metric.value for metric in logged_model.metrics} == run.data.metrics
 
 
 @pytest.mark.parametrize("patience", [0, 1, 5])

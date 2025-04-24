@@ -53,6 +53,9 @@ pytorch:
     maximum: "2.6.0"
     requirements:
       ">= 0.0.0": ["tensorboard"]
+      # Old pytorch uses setuptools.distutils.version, which is not available in setuptools>59.5
+      # https://github.com/pytorch/pytorch/blob/v1.10.2/torch/utils/tensorboard/__init__.py#L4
+      "<1.11.0": ["setuptools<=59.5.0"]
     run: |
       pytest tests/pytorch/test_tensorboard_autolog.py
 
@@ -66,7 +69,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.9.0"
-    maximum: "2.5.0.post0"
+    maximum: "2.5.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
     run: |
@@ -80,7 +83,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.9.0"
+    maximum: "3.9.2"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -89,7 +92,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.9.0"
+    maximum: "3.9.2"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
@@ -142,7 +145,7 @@ xgboost:
 
   models:
     minimum: "1.4.2"
-    maximum: "2.1.4"
+    maximum: "3.0.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.6": ["pandas<2", "numpy<2"]
@@ -153,7 +156,7 @@ xgboost:
 
   autologging:
     minimum: "1.4.2"
-    maximum: "2.1.4"
+    maximum: "3.0.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
       "< 1.6": ["pandas<2", "numpy<2"]
@@ -194,38 +197,13 @@ catboost:
 
   models:
     minimum: "1.0.0"
-    maximum: "1.2.7"
+    maximum: "1.2.8"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.1": ["pandas<2"]
       "< 1.2": ["numpy<2"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py
-
-fastai:
-  package_info:
-    pip_release: "fastai"
-
-  models:
-    minimum: "2.4.1"
-    maximum: "2.7.19"
-    requirements:
-      # TODO: fastai depends on spacy, but spacy>=3.8.2 requires python>=3.9
-      #  Once migrating fastai tests to python 3.9, we should remove spacy<3.8.2
-      #  To migrate fastai tests to python 3.9, we need to address error
-      #  when installing old version scipy: "No module named 'distutils.msvccompiler'"
-      #  similar issue link: https://github.com/numpy/numpy/issues/27405
-      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
-    run: |
-      pytest tests/fastai/test_fastai_model_export.py
-
-  autologging:
-    minimum: "2.4.1"
-    maximum: "2.7.19"
-    requirements:
-      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
-    run: |
-      pytest tests/fastai/test_fastai_autolog.py
 
 onnx:
   package_info:
@@ -265,7 +243,7 @@ spacy:
 
   models:
     minimum: "3.4.4"
-    maximum: "3.8.4"
+    maximum: "3.8.5"
     python:
       ">= 3.8.4": "3.10"
     requirements:
@@ -376,29 +354,6 @@ spark:
 
       find tests/spark/autologging -name 'test*.py' | grep -v crossframework | grep -v test_spark_disable_autologging | xargs -L 1 pytest
 
-mleap:
-  package_info:
-    pip_release: "mleap"
-
-  models:
-    minimum: "0.18.0"
-    maximum: "0.23.3"
-    requirements:
-      ">= 0.0.0": ["pandas<2"]
-      "< 0.22.0": ["numpy<1.24.0"]
-      "> 0.17.0, < 0.21.0": ["pyspark==3.0.2"]
-      ">= 0.21.0": ["pyspark<3.4"]
-    run: |
-      SAGEMAKER_OUT=$(mktemp)
-      if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
-        echo "Sagemaker container build succeeded.";
-      else
-        echo "Sagemaker container build failed, output:";
-        cat $SAGEMAKER_OUT;
-        exit 1
-      fi
-      pytest tests/mleap/test_mleap_model_export.py
-
 prophet:
   package_info:
     pip_release: "prophet"
@@ -481,7 +436,7 @@ shap:
     pip_release: "shap"
   models:
     minimum: "0.42.1"
-    maximum: "0.47.0"
+    maximum: "0.47.2"
     requirements:
       "< 0.46.0": ["numpy<1.24.0"]
     run: |
@@ -492,14 +447,14 @@ paddle:
     pip_release: "paddlepaddle"
   models:
     minimum: "2.5.2"
-    maximum: "2.6.2"
+    maximum: "3.0.0"
     requirements:
       "< 2.6.0": ["numpy<2"]
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autologging:
     minimum: "2.5.2"
-    maximum: "2.6.2"
+    maximum: "3.0.0"
     requirements:
       "< 2.6.0": ["numpy<2"]
     run: |
@@ -512,13 +467,11 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.35.2"
-    maximum: "4.49.0"
+    maximum: "4.51.3"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
-        "4.38.0",
-        "4.38.1",
-        "4.38.2",
+        ">=4.38.0,<4.39.0",
       ]
     requirements:
       ">= 0.0.0": [
@@ -555,13 +508,11 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.35.2"
-    maximum: "4.49.0"
+    maximum: "4.51.3"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
-        "4.38.0",
-        "4.38.1",
-        "4.38.2",
+        ">=4.38.0,<4.39.0",
       ]
     requirements:
       ">= 0.0.0": [
@@ -595,7 +546,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.66.3"
+    maximum: "1.75.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -614,7 +565,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.66.3"
+    maximum: "1.75.0"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
@@ -641,14 +592,14 @@ dspy:
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
     minimum: "2.5.17"
-    maximum: "2.6.11"
+    maximum: "2.6.18"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "2.5.17"
-    maximum: "2.6.11"
+    maximum: "2.6.18"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
@@ -662,7 +613,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
-    maximum: "0.3.20"
+    maximum: "0.3.24"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -690,12 +641,15 @@ langchain:
       "< 0.2": ["langchain-openai<=0.1.22"]
       ">= 0.2": [
           "langchain-huggingface",
-          # Install langchain-databricks from the main branch
-          "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
           # Required for testing uc tools
           "unitycatalog-langchain",
         ]
+      ">=0.3": ["databricks-langchain"]
     run: |
+      # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
+      # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
+      # resulting in a weird module conflict issue.
+      pip install './skinny'
       # Run all langchain tests except autologging and evaluation
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py
       # test both pydantic v1 and v2
@@ -707,7 +661,7 @@ langchain:
       fi
   autologging:
     minimum: "0.1.0"
-    maximum: "0.3.20"
+    maximum: "0.3.24"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -756,7 +710,7 @@ langgraph:
 
   models:
     minimum: "0.2.0"
-    maximum: "0.3.8"
+    maximum: "0.3.31"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -771,7 +725,7 @@ langgraph:
 
   autologging:
     minimum: "0.2.0"
-    maximum: "0.3.8"
+    maximum: "0.3.31"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -793,7 +747,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.12.23"
+    maximum: "0.12.32"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -809,7 +763,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.12.23"
+    maximum: "0.12.32"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -828,7 +782,8 @@ autogen:
     #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
   autologging:
     minimum: "0.2.36"
-    maximum: "0.2.40"
+    maximum: "0.5.4"
+    unsupported: [">=0.4"]
     python:
       "== dev": "3.10"
     requirements:
@@ -847,7 +802,7 @@ gemini:
       pip install git+https://github.com/googleapis/python-genai
   autologging:
     minimum: "1.0.0"
-    maximum: "1.5.0"
+    maximum: "1.11.0"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK 
@@ -861,7 +816,7 @@ anthropic:
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.30.0"
-    maximum: "0.49.0"
+    maximum: "0.50.0"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
@@ -877,7 +832,8 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI
   autologging:
     minimum: "0.80.0"
-    maximum: "0.105.0"
+    maximum: "0.114.0"
+    unsupported: ["==0.114.0"]
     python:
       ">= 0.80.0": "3.10"
     requirements:
@@ -896,7 +852,7 @@ mistral:
       rm -rf $TMP_DIR
   autologging:
     minimum: "1.0.0"
-    maximum: "1.5.1"
+    maximum: "1.7.0"
     requirements:
     run: pytest tests/mistral
 
@@ -907,7 +863,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "3.4.1"
+    maximum: "4.1.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -918,6 +874,8 @@ sentence_transformers:
           "einops",
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
+          # Fix for https://github.com/huggingface/transformers/issues/37326
+          "accelerate",
         ]
       "== 2.2.2": ["huggingface-hub<0.26"]
     run: |
@@ -928,7 +886,7 @@ johnsnowlabs:
     pip_release: "johnsnowlabs"
   models:
     minimum: "4.4.6"
-    maximum: "5.5.4"
+    maximum: "5.5.5"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
       "< 5.2.8": ["pyspark<3.4"]
@@ -965,7 +923,9 @@ litellm:
       pip install git+https://github.com/BerriAI/litellm.git
   autologging:
     minimum: "1.52.9"
-    maximum: "1.63.7"
+    maximum: "1.67.1"
+    # TODO: Remove this once https://github.com/BerriAI/litellm/issues/9656 is fixed
+    unsupported: [">=1.59"]
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -982,7 +942,7 @@ groq:
       pip install git+https://github.com/groq/groq-python
   autologging:
     minimum: "0.13.0"
-    maximum: "0.19.0"
+    maximum: "0.23.0"
     requirements:
     run: pytest tests/groq
 
@@ -993,5 +953,5 @@ bedrock:
   autologging:
     # BedrockRuntime client is added in boto3 1.33
     minimum: "1.33.0"
-    maximum: "1.37.11"
+    maximum: "1.38.0"
     run: pytest tests/bedrock

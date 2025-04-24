@@ -33,6 +33,7 @@ from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import (
     MlflowException,
@@ -210,6 +211,22 @@ class TrackingServiceClient:
             tags=tags,
         )
 
+    def start_trace_v3(self, trace: Trace) -> TraceInfoV3:
+        """
+        Start a trace using the V3 API format.
+
+        NB: This method is named "Start" for internal reason in the backend, but actually
+        should be called at the end of the trace. We will migrate this to "CreateTrace"
+        API in the future to avoid confusion.
+
+        Args:
+            trace: The Trace object to create.
+
+        Returns:
+            The returned TraceInfoV3 object from the backend.
+        """
+        return self.store.start_trace_v3(trace=trace)
+
     def end_trace(
         self,
         request_id: str,
@@ -346,6 +363,7 @@ class TrackingServiceClient:
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
+        include_spans: bool = True,
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
@@ -364,6 +382,9 @@ class TrackingServiceClient:
                     trace_info.request_id, should_query_v3=True
                 )
                 trace_info.assessments = trace_info_with_assessments.assessments
+
+            if not include_spans:
+                return Trace(trace_info, TraceData(spans=[]))
 
             try:
                 if is_databricks and is_online_trace:
@@ -1239,6 +1260,7 @@ class TrackingServiceClient:
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
+        datasets: Optional[list[dict[str, Any]]] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
@@ -1250,5 +1272,5 @@ class TrackingServiceClient:
                 f"experiment_ids must be a list of strings, got {type(experiment_ids)}",
             )
         return self.store.search_logged_models(
-            experiment_ids, filter_string, max_results, order_by, page_token
+            experiment_ids, filter_string, datasets, max_results, order_by, page_token
         )

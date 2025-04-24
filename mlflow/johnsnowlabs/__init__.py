@@ -57,7 +57,7 @@ from typing import Any, Optional
 import yaml
 
 import mlflow
-from mlflow import mleap, pyfunc
+from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -200,7 +200,6 @@ def log_model(
     conda_env=None,
     code_paths=None,
     dfs_tmpdir=None,
-    sample_input=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -251,9 +250,6 @@ def log_model(
             necessary as Spark ML models read from and write to DFS if running on a
             cluster. If this operation completes successfully, all temporary files
             created on the DFS are removed. Defaults to ``/tmp/mlflow``.
-        sample_input: A sample input used to add the MLeap flavor to the model.
-            This must be a PySpark DataFrame that the model can evaluate. If
-            ``sample_input`` is ``None``, the MLeap flavor is not added.
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -353,7 +349,6 @@ def log_model(
             conda_env=conda_env,
             code_paths=code_paths,
             dfs_tmpdir=dfs_tmpdir,
-            sample_input=sample_input,
             registered_model_name=registered_model_name,
             signature=signature,
             input_example=input_example,
@@ -382,7 +377,6 @@ def log_model(
             tmp_model_metadata_dir,
             spark_model,
             mlflow_model,
-            sample_input,
             conda_env,
             code_paths,
             signature=signature,
@@ -407,7 +401,6 @@ def _save_model_metadata(
     dst_dir,
     spark_model,
     mlflow_model,
-    sample_input,
     conda_env,
     code_paths,
     signature=None,
@@ -425,13 +418,6 @@ def _save_model_metadata(
     be loaded from the remote_model_path.
     """
 
-    if sample_input is not None:
-        mleap.add_to_model(
-            mlflow_model=mlflow_model,
-            path=dst_dir,
-            spark_model=spark_model,
-            sample_input=sample_input,
-        )
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
@@ -519,7 +505,6 @@ def save_model(
     conda_env=None,
     code_paths=None,
     dfs_tmpdir=None,
-    sample_input=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
@@ -531,8 +516,6 @@ def save_model(
     Save a Spark johnsnowlabs Model to a local path.
 
     By default, this function saves models using the Spark MLlib persistence mechanism.
-    Additionally, if a sample input is specified using the ``sample_input`` parameter, the model
-    is also serialized in MLeap format and the MLeap flavor is added.
 
     Args:
         spark_model: Either a pyspark.ml.pipeline.PipelineModel or nlu.NLUPipeline object to be
@@ -563,9 +546,6 @@ def save_model(
             as Spark ML models read from and write to DFS if running on a cluster. All
             temporary files created on the DFS are removed if this operation
             completes successfully. Defaults to ``/tmp/mlflow``.
-        sample_input: A sample input that is used to add the MLeap flavor to the model.
-            This must be a PySpark DataFrame that the model can evaluate. If
-            ``sample_input`` is ``None``, the MLeap flavor is not added.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
             describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
             The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
@@ -646,7 +626,6 @@ def save_model(
         dst_dir=path,
         spark_model=spark_model,
         mlflow_model=mlflow_model,
-        sample_input=sample_input,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -820,7 +799,6 @@ def _get_or_create_sparksession(model_path=None):  # noqa: D417
         os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
         if model_path:
             jar_paths, license_path = _fetch_deps_from_path(model_path)
-            # jar_paths += get_mleap_jars().split(',')  # TODO when to load MLleap Jars
             if license_path:
                 with open(license_path) as f:
                     loaded_license = json.load(f)

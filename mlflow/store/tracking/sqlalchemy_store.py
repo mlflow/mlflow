@@ -5,6 +5,7 @@ import random
 import threading
 import time
 import uuid
+from collections import defaultdict
 from functools import reduce
 from typing import Any, Optional
 
@@ -565,46 +566,32 @@ class SqlAlchemyStore(AbstractStore):
         return runs[0]
 
     def _get_run_inputs(self, session, run_uuids):
-        datasets = (
+        datasets_with_tags = (
             session.query(
                 SqlInput.input_uuid,
                 SqlInput.destination_id.label("run_uuid"),
                 SqlDataset,
-            )
-            .select_from(SqlDataset)
-            .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
-            .filter(
-                SqlInput.destination_type == "RUN",
-                SqlInput.destination_id.in_(run_uuids),
-            )
-            .order_by("run_uuid")
-        ).all()
-        input_uuids = [dataset.input_uuid for dataset in datasets]
-        input_tags = (
-            session.query(
-                SqlInput.input_uuid,
-                SqlInput.destination_id.label("run_uuid"),
                 SqlInputTag,
             )
-            .join(SqlInput, (SqlInput.input_uuid == SqlInputTag.input_uuid))
-            .filter(SqlInput.input_uuid.in_(input_uuids))
+            .select_from(SqlInput)
+            .join(SqlDataset, SqlInput.source_id == SqlDataset.dataset_uuid)
+            .outerjoin(SqlInputTag, SqlInputTag.input_uuid == SqlInput.input_uuid)
+            .filter(SqlInput.destination_type == "RUN", SqlInput.destination_id.in_(run_uuids))
             .order_by("run_uuid")
         ).all()
 
-        all_dataset_inputs = []
-        for run_uuid in run_uuids:
-            dataset_inputs = []
-            for input_uuid, dataset_run_uuid, dataset_sql in datasets:
-                if run_uuid == dataset_run_uuid:
-                    dataset_entity = dataset_sql.to_mlflow_entity()
-                    tags = []
-                    for tag_input_uuid, tag_run_uuid, tag_sql in input_tags:
-                        if input_uuid == tag_input_uuid and run_uuid == tag_run_uuid:
-                            tags.append(tag_sql.to_mlflow_entity())
-                    dataset_input_entity = DatasetInput(dataset=dataset_entity, tags=tags)
-                    dataset_inputs.append(dataset_input_entity)
-            all_dataset_inputs.append(dataset_inputs)
-        return all_dataset_inputs
+        dataset_inputs_per_run = defaultdict(dict)
+        for input_uuid, run_uuid, dataset_sql, tag_sql in datasets_with_tags:
+            dataset_inputs = dataset_inputs_per_run[run_uuid]
+            dataset_uuid = dataset_sql.dataset_uuid
+            dataset_input = dataset_inputs.get(dataset_uuid)
+            if dataset_input is None:
+                dataset_entity = dataset_sql.to_mlflow_entity()
+                dataset_input = DatasetInput(dataset=dataset_entity, tags=[])
+                dataset_inputs[dataset_uuid] = dataset_input
+            if tag_sql is not None:
+                dataset_input.tags.append(tag_sql.to_mlflow_entity())
+        return [list(dataset_inputs_per_run[run_uuid].values()) for run_uuid in run_uuids]
 
     @staticmethod
     def _get_eager_run_query_options():
@@ -682,11 +669,12 @@ class SqlAlchemyStore(AbstractStore):
             mlflow_run = run.to_mlflow_entity()
             # Get the run inputs and add to the run
             inputs = self._get_run_inputs(run_uuids=[run_id], session=session)[0]
+            model_inputs = self._get_model_inputs(run_id, session)
             model_outputs = self._get_model_outputs(run_id, session)
             return Run(
                 mlflow_run.info,
                 mlflow_run.data,
-                RunInputs(dataset_inputs=inputs),
+                RunInputs(dataset_inputs=inputs, model_inputs=model_inputs),
                 RunOutputs(model_outputs),
             )
 
@@ -1550,17 +1538,20 @@ class SqlAlchemyStore(AbstractStore):
             experiment_id = run.experiment_id
             self._check_run_is_active(run)
             try:
-                self._log_inputs_impl(experiment_id, run_id, datasets)
+                self._log_inputs_impl(experiment_id, run_id, datasets, models)
             except MlflowException as e:
                 raise e
             except Exception as e:
                 raise MlflowException(e, INTERNAL_ERROR)
 
     def _log_inputs_impl(
-        self, experiment_id, run_id, dataset_inputs: Optional[list[DatasetInput]] = None
+        self,
+        experiment_id,
+        run_id,
+        dataset_inputs: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
     ):
-        if dataset_inputs is None or len(dataset_inputs) == 0:
-            return
+        dataset_inputs = dataset_inputs or []
         for dataset_input in dataset_inputs:
             if dataset_input.dataset is None:
                 raise MlflowException(
@@ -1669,6 +1660,18 @@ class SqlAlchemyStore(AbstractStore):
                             )
                         )
 
+            if models:
+                for model in models:
+                    session.merge(
+                        SqlInput(
+                            input_uuid=uuid.uuid4().hex,
+                            source_type="RUN_INPUT",
+                            source_id=run_id,
+                            destination_type="MODEL_INPUT",
+                            destination_id=model.model_id,
+                        )
+                    )
+
             session.add_all(objs_to_write)
 
     def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
@@ -1686,6 +1689,24 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 for model in models
             )
+
+    def _get_model_inputs(
+        self,
+        run_id: str,
+        session: Optional[sqlalchemy.orm.Session] = None,
+    ) -> list[LoggedModelInput]:
+        return [
+            LoggedModelInput(model_id=input.destination_id)
+            for input in (
+                session.query(SqlInput)
+                .filter(
+                    SqlInput.source_type == "RUN_INPUT",
+                    SqlInput.source_id == run_id,
+                    SqlInput.destination_type == "MODEL_INPUT",
+                )
+                .all()
+            )
+        ]
 
     def _get_model_outputs(
         self,
@@ -1719,7 +1740,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
-            model_id = str(uuid.uuid4())
+            model_id = f"m-{str(uuid.uuid4()).replace('-', '')}"
             artifact_location = append_to_uri_path(
                 experiment.artifact_location,
                 SqlAlchemyStore.MODELS_FOLDER_NAME,
@@ -1977,10 +1998,16 @@ class SqlAlchemyStore(AbstractStore):
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
+        datasets: Optional[list[DatasetInput]] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[LoggedModel]:
+        if datasets:
+            raise MlflowException(
+                "Filtering by datasets is not currently supported by SqlAlchemyStore",
+                INVALID_PARAMETER_VALUE,
+            )
         if page_token:
             token = SearchLoggedModelsPaginationToken.decode(page_token)
             token.validate(experiment_ids, filter_string, order_by)

@@ -527,7 +527,9 @@ def register_prompt(
 
 @experimental
 @require_prompt_registry
-def load_prompt(name_or_uri: str, version: Optional[int] = None) -> Prompt:
+def load_prompt(
+    name_or_uri: str, version: Optional[int] = None, allow_missing: bool = False
+) -> Prompt:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 
@@ -536,6 +538,8 @@ def load_prompt(name_or_uri: str, version: Optional[int] = None) -> Prompt:
     Args:
         name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
         version: The version of the prompt. If not specified, the latest version will be loaded.
+        allow_missing: If True, return None instead of raising Exception if the specified prompt
+            is not found.
 
     Example:
 
@@ -557,7 +561,9 @@ def load_prompt(name_or_uri: str, version: Optional[int] = None) -> Prompt:
 
     """
     client = MlflowClient()
-    prompt = client.load_prompt(name_or_uri=name_or_uri, version=version)
+    prompt = client.load_prompt(
+        name_or_uri=name_or_uri, version=version, allow_missing=allow_missing
+    )
 
     # If there is an active MLflow run, associate the prompt with the run
     if run := active_run():
