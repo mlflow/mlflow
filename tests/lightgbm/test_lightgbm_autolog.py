@@ -297,6 +297,8 @@ def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
     assert metric_key in data.metrics
     assert len(metric_history) == 10
     assert metric_history == evals_result["train"]["multi_logloss"]
+    logged_model = mlflow.last_logged_model()
+    assert {m.key: m.value for m in logged_model.metrics} == data.metrics
 
 
 def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_set):
@@ -333,6 +335,8 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_s
         assert metric_key in data.metrics
         assert len(metric_history) == 10
         assert metric_history == evals_result[valid_name]["multi_logloss"]
+    logged_model = mlflow.last_logged_model()
+    assert {m.key: m.value for m in logged_model.metrics} == data.metrics
 
 
 def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
@@ -369,6 +373,8 @@ def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
         assert metric_key in data.metrics
         assert len(metric_history) == 10
         assert metric_history == evals_result["train"][metric_name]
+    logged_model = mlflow.last_logged_model()
+    assert {m.key: m.value for m in logged_model.metrics} == data.metrics
 
 
 def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_params, train_set):
@@ -408,6 +414,8 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
             assert metric_key in data.metrics
             assert len(metric_history) == 10
             assert metric_history == evals_result[valid_name][metric_name]
+    logged_model = mlflow.last_logged_model()
+    assert {m.key: m.value for m in logged_model.metrics} == data.metrics
 
 
 def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, train_set):
@@ -505,8 +513,9 @@ def test_lgb_autolog_atsign_metrics(train_set):
     assert set(run.data.metrics) == {"valid-map_at_1"}
 
 
-def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
-    mlflow.lightgbm.autolog()
+@pytest.mark.parametrize("log_models", [True, False])
+def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set, log_models):
+    mlflow.lightgbm.autolog(log_models=log_models)
     evals_result = {}
     params = {"metric": ["multi_error", "multi_logloss"]}
     params.update(bst_params)
@@ -542,6 +551,8 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
     assert "stopped_iteration" in data.metrics
     assert int(data.metrics["stopped_iteration"]) == len(evals_result["train"]["multi_logloss"])
 
+    logged_model = mlflow.last_logged_model()
+    logged_model_metrics = {m.key: m.value for m in logged_model.metrics} if log_models else {}
     for valid_name in valid_names:
         for metric_name in params["metric"]:
             metric_key = f"{valid_name}-{metric_name}"
@@ -552,6 +563,8 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
 
             best_metrics = evals_result[valid_name][metric_name][model.best_iteration - 1]
             assert metric_history == evals_result[valid_name][metric_name] + [best_metrics]
+            if log_models:
+                assert logged_model_metrics[metric_key] == best_metrics
 
 
 def test_lgb_autolog_logs_feature_importance(bst_params, train_set):

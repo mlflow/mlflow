@@ -799,7 +799,10 @@ def autolog(
                     "Failed to log dataset information to MLflow Tracking. Reason: %s", e
                 )
 
-        with batch_metrics_logger(run_id) as metrics_logger:
+        model_id = None
+        if _log_models:
+            model_id = mlflow.initialize_logged_model("model").model_id
+        with batch_metrics_logger(run_id, model_id=model_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:
                 tmp_list = list(args)
@@ -825,6 +828,7 @@ def autolog(
                         # best_iteration is set even if training does not stop early.
                         "best_iteration": model.best_iteration,
                     },
+                    model_id=model_id,
                 )
                 # iteration starts from 1 in LightGBM.
                 last_iter_results = eval_results[model.best_iteration - 1]
@@ -832,6 +836,7 @@ def autolog(
                     run_id=mlflow.active_run().info.run_id,
                     metrics=last_iter_results,
                     step=extra_step,
+                    model_id=model_id,
                 )
                 early_stopping_logging_operations = autologging_client.flush(synchronous=False)
 
@@ -887,6 +892,7 @@ def autolog(
                 signature=signature,
                 input_example=input_example,
                 registered_model_name=registered_model_name,
+                model_id=model_id,
             )
 
         param_logging_operations.await_completion()
