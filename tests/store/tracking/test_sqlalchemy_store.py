@@ -809,7 +809,7 @@ def test_run_info(store: SqlAlchemyStore):
         "experiment_id": experiment_id,
         "name": "test run",
         "user_id": "Anderson",
-        "run_id": "test",
+        "run_uuid": "test",
         "status": RunStatus.to_string(RunStatus.SCHEDULED),
         "source_type": SourceType.to_string(SourceType.LOCAL),
         "source_name": "Python application",
@@ -832,6 +832,9 @@ def test_run_info(store: SqlAlchemyStore):
             "entry_point_name",
         ]:
             continue
+
+        if k == "run_uuid":
+            k = "run_id"
 
         v2 = getattr(run.info, k)
         if k == "source_type":

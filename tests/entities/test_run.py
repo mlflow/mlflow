@@ -57,7 +57,6 @@ def test_creation_and_hydration(run_data, run_info, run_inputs):
     _check_run(run1, run_info, metrics, params, tags, datasets)
 
     expected_info_dict = {
-        "run_uuid": run_id,
         "run_id": run_id,
         "run_name": run_name,
         "experiment_id": experiment_id,
