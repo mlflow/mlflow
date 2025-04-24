@@ -273,6 +273,7 @@ convention = "google"
 exclude = [
   "mlflow/protos",
   "mlflow/ml_package_versions.py",
+  "mlflow/models/notebook_resources/eval_with_synthetic_example.py",
   "mlflow/server/js",
   "mlflow/store/db_migrations",
   "tests/protos",
