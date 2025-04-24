@@ -43,7 +43,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     Job,
     Lineage,
     LineageHeaderInfo,
-    ModelParam,
     Notebook,
     SearchModelVersionsRequest,
     SearchModelVersionsResponse,
@@ -818,7 +817,7 @@ class UcModelRegistryStore(BaseRestStore):
                     run_tracking_server_id=source_workspace_id,
                     feature_deps=feature_deps,
                     model_version_dependencies=other_model_deps,
-                    model_id=model_id
+                    model_id=model_id,
                 )
             )
             model_version = self._call_endpoint(
