@@ -51,6 +51,7 @@ from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan, create_mlflow_span
+from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
@@ -1409,6 +1410,22 @@ class MlflowClient:
             request_metadata=request_metadata or {},
             tags=tags or {},
         )
+
+    def _start_trace_v3(self, trace: Trace) -> TraceInfoV3:
+        """
+        Start a trace using the V3 API format.
+
+        NB: This method is named "Start" for internal reason in the backend, but actually
+        should be called at the end of the trace. We will migrate this to "CreateTrace"
+        API in the future to avoid confusion.
+
+        Args:
+            trace: The Trace object to create.
+
+        Returns:
+            The returned TraceInfoV3 object from the backend.
+        """
+        return self._tracking_client.start_trace_v3(trace=trace)
 
     def _upload_ended_trace_info(
         self,

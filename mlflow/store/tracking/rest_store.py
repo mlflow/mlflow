@@ -18,6 +18,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
@@ -64,6 +65,7 @@ from mlflow.protos.service_pb2 import (
     SetTag,
     SetTraceTag,
     StartTrace,
+    StartTraceV3,
     TraceRequestMetadata,
     TraceTag,
     UpdateAssessment,
@@ -289,6 +291,30 @@ class RestStore(AbstractStore):
         )
         response_proto = self._call_endpoint(StartTrace, req_body)
         return TraceInfo.from_proto(response_proto.trace_info)
+
+    def start_trace_v3(self, trace: Trace) -> TraceInfoV3:
+        """
+        Start a trace using the V3 API format.
+
+        NB: This method is named "Start" for internal reason in the backend, but actually
+        should be called at the end of the trace. We will migrate this to "CreateTrace"
+        API in the future to avoid confusion.
+
+        Args:
+            trace: The Trace object to create.
+
+        Returns:
+            The returned TraceInfoV3 object from the backend.
+        """
+        req_body = message_to_json(StartTraceV3(trace=trace.to_proto()))
+        response_proto = self._call_endpoint(
+            # NB: _call_endpoint doesn't handle versioning between v2 and v3 endpoint
+            # yet, so manually passing the v3 endpoint here.
+            StartTraceV3,
+            req_body,
+            endpoint="/api/3.0/mlflow/traces",
+        )
+        return TraceInfoV3.from_proto(response_proto.trace.trace_info)
 
     def end_trace(
         self,

@@ -18,6 +18,7 @@ from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
+import mlflow
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
@@ -181,6 +182,15 @@ def set_destination(destination: TraceDestination):
         raise MlflowException.invalid_parameter_value(
             f"Invalid destination type: {type(destination)}. "
             "The destination must be an instance of TraceDestination."
+        )
+
+    if isinstance(destination, Databricks) and (
+        mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
+    ):
+        mlflow.set_tracking_uri("databricks")
+        _logger.info(
+            "Automatically setting the tracking URI to `databricks` "
+            "because the tracing destination is set to Databricks."
         )
 
     # The destination needs to be persisted because the tracer setup can be re-initialized

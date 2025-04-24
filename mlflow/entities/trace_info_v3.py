@@ -10,7 +10,7 @@ from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.protos import databricks_trace_server_pb2 as pb
+from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
 
 
 @dataclass
@@ -70,7 +70,7 @@ class TraceInfoV3(_MlflowObject):
         if self.execution_duration is not None:
             execution_duration = Duration()
             execution_duration.FromMilliseconds(self.execution_duration)
-        return pb.TraceInfo(
+        return ProtoTraceInfoV3(
             trace_id=self.trace_id,
             client_request_id=self.client_request_id,
             trace_location=self.trace_location.to_proto(),

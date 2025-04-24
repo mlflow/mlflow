@@ -13,7 +13,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.protos.databricks_trace_server_pb2 import Trace as ProtoTrace
+from mlflow.protos.service_pb2 import Trace as ProtoTrace
 
 _logger = logging.getLogger(__name__)
 
@@ -246,9 +246,11 @@ class Trace(_MlflowObject):
         ]
 
     def to_proto(self):
-        """Convert into a proto object to sent to the Databricks Trace Server."""
-        return ProtoTrace(
-            # Convert MLflow's TraceInfoV3 to Databricks Trace Server's TraceInfo
-            info=self.info.to_proto(),
-            data=self.data.to_proto(),
-        )
+        """
+        Convert into a proto object to sent to the MLflow backend.
+
+        NB: The Trace definition in MLflow backend doesn't include the `data` field,
+            but rather only contains TraceInfoV3.
+        """
+
+        return ProtoTrace(trace_info=self.info.to_proto())
