@@ -136,6 +136,7 @@ class RunInfo(_MlflowObject):
 
     def to_proto(self):
         proto = ProtoRunInfo()
+        proto.run_uuid = self.run_id
         proto.run_id = self.run_id
         if self.run_name is not None:
             proto.run_name = self.run_name
