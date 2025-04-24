@@ -1554,7 +1554,7 @@ def test_save_load_chain_with_model_paths():
     artifact_path = "model_path"
     with (
         mlflow.start_run(),
-        mock.patch("mlflow.langchain._add_code_from_conf_to_system_path") as add_mock,
+        mock.patch("mlflow.langchain.model._add_code_from_conf_to_system_path") as add_mock,
     ):
         model_info = mlflow.langchain.log_model(model, artifact_path, code_paths=[__file__])
         mlflow.langchain.load_model(model_info.model_uri)
@@ -1858,7 +1858,7 @@ def _extract_endpoint_name_from_lc_model(lc_model):
 
 
 @mock.patch(
-    "mlflow.langchain.databricks_dependencies._extract_dependency_list_from_lc_model",
+    "mlflow.langchain.model.databricks_dependencies._extract_dependency_list_from_lc_model",
     _extract_endpoint_name_from_lc_model,
 )
 def test_databricks_dependency_extraction_from_lcel_chain():
@@ -1874,7 +1874,7 @@ def test_databricks_dependency_extraction_from_lcel_chain():
     chain = prompt_1 | {"joke1": model_1, "joke2": model_2} | prompt_2 | model_3 | output_parser
 
     pyfunc_artifact_path = "basic_chain"
-    with mlflow.start_run(), mock.patch("mlflow.langchain.logger.info") as mock_log_info:
+    with mlflow.start_run(), mock.patch("mlflow.langchain.model.logger.info") as mock_log_info:
         model_info = mlflow.langchain.log_model(chain, pyfunc_artifact_path)
         mock_log_info.assert_called_once_with(
             "Attempting to auto-detect Databricks resource dependencies for the current "
@@ -1914,11 +1914,11 @@ def _extract_databricks_dependencies_from_llm(llm):
 
 
 @mock.patch(
-    "mlflow.langchain.databricks_dependencies._extract_databricks_dependencies_from_llm",
+    "mlflow.langchain.model.databricks_dependencies._extract_databricks_dependencies_from_llm",
     _extract_databricks_dependencies_from_llm,
 )
 @mock.patch(
-    "mlflow.langchain.databricks_dependencies._extract_databricks_dependencies_from_retriever",
+    "mlflow.langchain.model.databricks_dependencies._extract_databricks_dependencies_from_retriever",
     _extract_databricks_dependencies_from_retriever,
 )
 def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
@@ -2083,10 +2083,10 @@ def _error_func(*args, **kwargs):
 
 
 @mock.patch(
-    "mlflow.langchain.databricks_dependencies._traverse_runnable",
+    "mlflow.langchain.model.databricks_dependencies._traverse_runnable",
     _error_func,
 )
-@mock.patch("mlflow.langchain.databricks_dependencies._logger.warning")
+@mock.patch("mlflow.langchain.model.databricks_dependencies._logger.warning")
 def test_databricks_dependency_extraction_log_errors_as_warnings(mock_warning):
     from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 
@@ -2722,7 +2722,7 @@ def test_save_load_chain_as_code_with_model_paths(chain_model_signature, chain_p
     artifact_path = "model_path"
     with (
         mlflow.start_run(),
-        mock.patch("mlflow.langchain._add_code_from_conf_to_system_path") as add_mock,
+        mock.patch("mlflow.langchain.model._add_code_from_conf_to_system_path") as add_mock,
     ):
         model_info = mlflow.langchain.log_model(
             chain_path,
@@ -3301,7 +3301,7 @@ def test_load_chain_with_model_config_overrides_saved_config(
             model_config=model_config,
         )
 
-    with mock.patch("mlflow.langchain._load_model_code_path") as load_model_code_path_mock:
+    with mock.patch("mlflow.langchain.model._load_model_code_path") as load_model_code_path_mock:
         mlflow.pyfunc.load_model(model_info.model_uri, model_config={"embedding_size": 2})
         args, kwargs = load_model_code_path_mock.call_args
         assert args[1] == {
@@ -3328,7 +3328,7 @@ def test_langchain_model_streamable_param_in_log_model(streamable, fake_chat_mod
     llm_chain = LLMChain(llm=llm, prompt=prompt)
 
     for model in [chain, runnable, llm_chain]:
-        with mock.patch("mlflow.langchain._save_model"), mlflow.start_run():
+        with mock.patch("mlflow.langchain.model._save_model"), mlflow.start_run():
             model_info = mlflow.langchain.log_model(
                 model,
                 "model",
@@ -3350,7 +3350,7 @@ def model_type(request):
 def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
     streamable, model_type
 ):
-    with mock.patch("mlflow.langchain._save_model"), mlflow.start_run():
+    with mock.patch("mlflow.langchain.model._save_model"), mlflow.start_run():
         model = mock.MagicMock(spec=model_type)
         assert hasattr(model, "stream") is True
         model_info = mlflow.langchain.log_model(

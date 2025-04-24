@@ -5,6 +5,7 @@ from mlflow.langchain.model import (
     load_model,
     log_model,
     save_model,
+    _LangChainModelWrapper
 )
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "load_model",
     "log_model",
     "save_model",
+    "_LangChainModelWrapper",
     "_load_pyfunc",
 ]

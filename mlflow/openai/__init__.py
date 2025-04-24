@@ -15,5 +15,4 @@ __all__ = [
     "log_model",
     "save_model",
     "_load_pyfunc",
-    "_OpenAIEnvVar",
 ]

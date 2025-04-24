@@ -195,7 +195,7 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     # new ones as requested, as long as the provider support chat endpoints.
     if provider == Provider.OPENAI:
         from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
-        from mlflow.openai import _get_api_config, _OAITokenHolder
+        from mlflow.openai.model import _get_api_config, _OAITokenHolder
 
         api_config = _get_api_config()
         api_token = _OAITokenHolder(api_config.api_type)
