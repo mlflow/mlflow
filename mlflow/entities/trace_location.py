@@ -85,7 +85,7 @@ class TraceLocation(_MlflowObject):
     Currently, MLflow supports two types of trace locations:
 
         - MLflow experiment: The trace is stored in an MLflow experiment.
-        - Inference table: The trace is stored in an Databricks inference table.
+        - Inference table: The trace is stored in a Databricks inference table.
 
     Args:
         type: The type of the trace location, should be one of the

@@ -20,14 +20,14 @@ class TraceInfoV3(_MlflowObject):
     Args:
         trace_id: The primary identifier for the trace.
         trace_location: The location where the trace is stored, represented as
-            a :py:class:`~mlflow.entities.TraceLocation>` object. MLflow currently
+            a :py:class:`~mlflow.entities.TraceLocation` object. MLflow currently
             support MLflow Experiment or Databricks Inference Table as a trace location.
         request_time: Start time of the trace, in milliseconds.
-        state: State of the trace, represented as a :py:class:`~mlflow.entities.TraceState>`
+        state: State of the trace, represented as a :py:class:`~mlflow.entities.TraceState`
             enum. Can be one of [`OK`, `ERROR`, `IN_PROGRESS`, `STATE_UNSPECIFIED`].
         request_preview: Request to the model/agent, equivalent to the input of the root,
             span but JSON-encoded and can be truncated.
-        request_preview: REsponse from the model/agent, equivalent to the output of the
+        response_preview: Response from the model/agent, equivalent to the output of the
             root span but JSON-encoded and can be truncated.
         client_request_id: Client supplied request ID associated with the trace. This
             could be used to identify the trace/request from an external system that
@@ -135,7 +135,7 @@ class TraceInfoV3(_MlflowObject):
     # Aliases for backward compatibility with V2 format
     @property
     def request_id(self) -> str:
-        """Deprecated: Use `trace_id` instead."""
+        """Deprecated. Use `trace_id` instead."""
         return self.trace_id
 
     @property
@@ -155,7 +155,7 @@ class TraceInfoV3(_MlflowObject):
 
     @property
     def request_metadata(self) -> dict[str, str]:
-        """Deprecated: Use `trace_metadata` instead."""
+        """Deprecated. Use `trace_metadata` instead."""
         return self.trace_metadata
 
     @property
