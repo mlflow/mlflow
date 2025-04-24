@@ -782,8 +782,9 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
     parent_run,
     max_tuning_runs,
     child_tags=None,
-    model_id=None,
     dataset=None,
+    best_estimator_params=None,
+    best_estimator_model_id=None,
 ):
     """
     Creates a collection of child runs for a parameter search training session.
@@ -802,8 +803,9 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
             parameter search run for which child runs should be created.
         child_tags: An optional dictionary of MLflow tag keys and values to log
             for each child run.
-        model_id: Model ID.
         dataset: The dataset used to evaluate the model.
+        best_estimator_params: The parameters of the best estimator.
+        best_estimator_model_id: The model ID of the logged best estimator.
     """
     import pandas as pd
 
@@ -876,11 +878,19 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
             if not any(key.startswith(prefix) for prefix in excluded_metric_prefixes)
             and isinstance(value, Number)
         }
+        # Only log metrics to the best_estimator_model when the child run's
+        # parameters match the best_estimator's parameters.
+        model_id = (
+            best_estimator_model_id
+            if best_estimator_params
+            and result_row.get("params", {}).items() <= best_estimator_params.items()
+            else None
+        )
         autologging_client.log_metrics(
             run_id=pending_child_run_id,
             metrics=metrics_to_log,
-            model_id=model_id,
             dataset=dataset,
+            model_id=model_id,
         )
 
         autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
