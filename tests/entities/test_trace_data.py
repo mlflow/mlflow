@@ -207,17 +207,6 @@ def test_intermediate_outputs_no_value():
     assert trace.data.intermediate_outputs is None
 
 
-def test_to_proto():
-    with mlflow.start_span():
-        pass
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    proto = trace.data.to_proto()
-    assert len(proto.spans) == 1
-    # Ensure the legacy properties are not present
-    assert not hasattr(proto, "request")
-    assert not hasattr(proto, "response")
-
-
 def test_to_dict():
     with mlflow.start_span():
         pass

@@ -184,7 +184,9 @@ def set_destination(destination: TraceDestination):
             "The destination must be an instance of TraceDestination."
         )
 
-    if mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks"):
+    if isinstance(destination, Databricks) and (
+        mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
+    ):
         mlflow.set_tracking_uri("databricks")
         _logger.info(
             "Automatically setting the tracking URI to `databricks` "
