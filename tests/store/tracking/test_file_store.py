@@ -974,6 +974,7 @@ def _verify_run(store, run_id, run_data):
     # key without actually deleting it from self.run_data
     _run_info = run_info.copy()
     _run_info.pop("deleted_time", None)
+    _run_info.pop("run_uuid", None)
     assert _run_info == dict(run.info)
 
 
