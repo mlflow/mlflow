@@ -1957,3 +1957,30 @@ def test_log_and_detach_prompt(tracking_uri):
     client.detach_prompt_from_run(run_id, "prompts:/p1/1")
     prompts = client.list_logged_prompts(run_id)
     assert [p.name for p in prompts] == ["p2"]
+
+
+def test_search_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(name="prompt_1", template="Hi, {{name}}!")
+    client.register_prompt(name="prompt_2", template="Hello, {{name}}!")
+    client.register_prompt(name="prompt_3", template="Greetings, {{name}}!")
+    client.register_prompt(name="prompt_4", template="Howdy, {{name}}!")
+    client.register_prompt(name="prompt_5", template="Salutations, {{name}}!")
+    client.register_prompt(name="prompt_6", template="Bonjour, {{name}}!")
+    client.register_prompt(name="test", template="Test Template")
+    client.register_prompt(name="new", template="Bonjour, {{name}}!")
+
+    prompts = client.search_prompts(filter_string="name='prompt_1'")
+    assert len(prompts) == 1
+    assert prompts[0].name == "prompt_1"
+
+    prompts = client.search_prompts(filter_string="name LIKE '%prompt%'")
+    assert len(prompts) == 6
+    assert all("prompt" in prompt.name for prompt in prompts)
+
+    prompts = client.search_prompts()
+    assert len(prompts) == 8
+
+    prompts = client.search_prompts(max_results=3)
+    assert len(prompts) == 3
