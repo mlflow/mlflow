@@ -1,5 +1,35 @@
 # CHANGELOG
 
+## 2.22.0 (2025-04-24)
+
+MLflow 2.22.0 includes several major features and improvements
+
+Breaking changes:
+
+- [Tracking] Add get_last_active_trace works in model serving / monitoring (#15233, @B-Step62)
+
+Features:
+
+- [Models] Add optuna storage utility to enable parallel hyperparam tuning (#15243, @XiaohanZhangCMU)
+- [Tracking] Support tracing OpenAI Responses API (#15240, @B-Step62)
+- [UI] Automatically update Text Artifact view in UI (#14939, @joelrobin18)
+- [Tracking] Implement async export for Databricks trace export and make it default (#15163, @B-Step62)
+- [] Gemini embeddings to Mlflow AI Gateway + Unit test (#15017, @joelrobin18)
+- [Sqlalchemy / Tracking] Support mysql ssl connections with client certs (#14839, @aksylumoed)
+- [Artifacts] Supports ADLS artifact repo (#14723, @serena-ruan)
+
+Bug fixes:
+
+- [Tracking / UI] Update langchain_tracer for serializing invocation params when using Structured Output + Unit test (#14971, @joelrobin18)
+- [Server-infra] Validate auth password to be string longer than 8 chars (#15287, @WeichenXu123)
+- [Deployments] fix openai gateway adapter (#15286, @WeichenXu123)
+- [Artifacts / Server-infra / Tracking] Strip slash (#15016, @tarek7669)
+- [] Fix a bug in tag creation where tag values containing `": "` get truncated (#14896, @harupy)
+
+Small bug fixes and documentation updates:
+
+#15396, #15379, #15292, #15305, #15078, #15251, #15267, #15208, #15104, #15045, #15084, #15055, #15056, #15048, #14946, #14956, #14903, #14854, #14830, @serena-ruan; #15417, #15256, #15186, #15007, @TomeHirata; #15119, @bbqiu; #15413, #15314, #15311, #15303, #15301, #15288, #15275, #15269, #15272, #15268, #15262, #15266, #15264, #15261, #15252, #15249, #15244, #15236, #15235, #15237, #15140, #14982, #14898, #14893, #14861, #14870, #14853, #14849, #14813, #14822, @harupy; #15333, #15298, #15300, #15156, #15019, #14957, @B-Step62; #15313, #15297, #14880, @daniellok-db; #15066, #15074, #14913, @joelrobin18; #15232, @kbolashev; #15242, @dbczumar; #15210, #15178, @WeichenXu123; #15187, #15177, @hubertzub-db; #15059, #15070, #15050, #15012, #14959, #14918, #15005, #14965, #14858, #14930, #14927, #14786, #14883, #14863, #14852, #14788, @Gumichocopengin8; #15134, #15129, #15120, #15117, #15002, #14997, #14996, #14998, #14975, #14874, @mlflow-automation; #14920, #14919, @jaceklaskowski
+
 ## 2.21.3 (2025-04-03)
 
 MLflow 2.21.3 includes a few bugi
