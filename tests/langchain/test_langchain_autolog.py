@@ -1,3 +1,4 @@
+import json
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -971,7 +972,7 @@ def test_langchain_auto_tracing_in_serving_runnable():
     assert predictions == [expected_output]
     trace = Trace.from_dict(trace)
     assert trace.info.request_id == request_id
-    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
+    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
     spans = trace.data.spans
     assert len(spans) == 4
 
@@ -1055,3 +1056,90 @@ def test_langchain_tracing_multi_threads():
         )
         == temperatures
     )
+
+
+@pytest.mark.parametrize("func", ["invoke", "batch", "stream"])
+def test_autolog_link_traces_to_loaded_model(model_infos, func):
+    mlflow.langchain.autolog()
+
+    for model_info in model_infos:
+        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+        msg = {"product": f"{loaded_model.steps[1].temperature}_{model_info.model_id}"}
+        if func == "invoke":
+            loaded_model.invoke(msg)
+        elif func == "batch":
+            loaded_model.batch([msg])
+        elif func == "stream":
+            list(loaded_model.stream(msg))
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        temp = trace.data.spans[2].get_attribute("invocation_params")["temperature"]
+        logged_temp, logged_model_id = json.loads(trace.data.request)["product"].split(
+            "_", maxsplit=1
+        )
+        assert logged_model_id is not None
+        assert str(temp) == logged_temp
+        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
+
+
+@pytest.mark.parametrize("func", ["ainvoke", "abatch", "astream"])
+@pytest.mark.asyncio
+async def test_autolog_link_traces_to_loaded_model_async(model_infos, func):
+    mlflow.langchain.autolog()
+
+    for model_info in model_infos:
+        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+        msg = {"product": f"{loaded_model.steps[1].temperature}_{model_info.model_id}"}
+        if func == "ainvoke":
+            await loaded_model.ainvoke(msg)
+        elif func == "abatch":
+            await loaded_model.abatch([msg])
+        elif func == "astream":
+            async for chunk in loaded_model.astream(msg):
+                pass
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        temp = trace.data.spans[2].get_attribute("invocation_params")["temperature"]
+        logged_temp, logged_model_id = json.loads(trace.data.request)["product"].split(
+            "_", maxsplit=1
+        )
+        assert logged_model_id is not None
+        assert str(temp) == logged_temp
+        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
+
+
+def test_autolog_link_traces_to_loaded_model_pyfunc(model_infos):
+    mlflow.langchain.autolog()
+
+    for model_info in model_infos:
+        loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+        loaded_model.predict({"product": model_info.model_id})
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        logged_model_id = json.loads(trace.data.request)["product"]
+        assert logged_model_id is not None
+        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
+
+
+def test_autolog_link_traces_to_active_model(model_infos):
+    model = mlflow.create_external_model(name="test_model")
+    mlflow.set_active_model(model_id=model.model_id)
+    mlflow.langchain.autolog()
+
+    for model_info in model_infos:
+        loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+        loaded_model.predict({"product": model_info.model_id})
+
+    traces = get_traces()
+    assert len(traces) == len(model_infos)
+    for trace in traces:
+        logged_model_id = json.loads(trace.data.request)["product"]
+        assert logged_model_id is not None
+        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
+        assert model.model_id != logged_model_id

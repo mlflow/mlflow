@@ -172,6 +172,15 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.1.1"
         }
     },
+    "h2o": {
+        "package_info": {
+            "pip_release": "h2o"
+        },
+        "models": {
+            "minimum": "3.40.0.1",
+            "maximum": "3.46.0.6"
+        }
+    },
     "shap": {
         "package_info": {
             "pip_release": "shap"
