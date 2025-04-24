@@ -49,15 +49,15 @@ class LoggedModelStatus(str, Enum):
         raise MlflowException.invalid_parameter_value(f"Unknown model status: {proto}")
 
     @classmethod
-    def from_int(self, status_int: int) -> "LoggedModelStatus":
+    def from_int(cls, status_int: int) -> "LoggedModelStatus":
         if status_int == 0:
-            return LoggedModelStatus.UNSPECIFIED
+            return cls.UNSPECIFIED
         elif status_int == 1:
-            return LoggedModelStatus.PENDING
+            return cls.PENDING
         elif status_int == 2:
-            return LoggedModelStatus.READY
+            return cls.READY
         elif status_int == 3:
-            return LoggedModelStatus.FAILED
+            return cls.FAILED
 
         raise MlflowException.invalid_parameter_value(f"Unknown model status: {status_int}")
 
