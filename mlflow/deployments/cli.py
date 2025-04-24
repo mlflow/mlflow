@@ -1,15 +1,11 @@
 import json
 import sys
-import warnings
 from inspect import signature
 
 import click
 
 from mlflow.deployments import interface
-from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_CONFIG
 from mlflow.utils import cli_args
-from mlflow.utils.annotations import experimental
-from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj
 
 
