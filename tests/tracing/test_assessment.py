@@ -3,8 +3,11 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities.assessment import AssessmentError, Expectation, Feedback
+from mlflow.entities.assessment import Assessment, AssessmentError, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 
 
@@ -270,3 +273,58 @@ def test_assessment_apis_only_available_in_databricks():
 
     with pytest.raises(MlflowException, match=r"This API is currently only available"):
         mlflow.delete_feedback(trace_id="1234", assessment_id="1234")
+
+
+def test_search_traces_with_assessments(store):
+    mlflow.set_tracking_uri("databricks")
+
+    trace_info = TraceInfo(
+        request_id="test",
+        experiment_id="test",
+        timestamp_ms=0,
+        execution_time_ms=0,
+        status=TraceStatus.OK,
+        tags={"mlflow.artifactLocation": "test"},
+    )
+    store.search_traces.return_value = ([trace_info, trace_info], None)
+
+    trace_info_with_assessment = TraceInfo(
+        **{
+            **trace_info.to_dict(),
+            "assessments": [
+                Assessment(
+                    trace_id="test",
+                    name="test",
+                    source=AssessmentSource(
+                        source_id="test", source_type=AssessmentSourceType.HUMAN
+                    ),
+                    create_time_ms=0,
+                    last_update_time_ms=0,
+                    feedback=Feedback("test"),
+                )
+            ],
+        }
+    )
+    store.get_trace_info.return_value = trace_info_with_assessment
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient._download_trace_data",
+        return_value=TraceData(),
+    ) as mock_download:
+        res = mlflow.search_traces(
+            experiment_ids=["0"],
+            max_results=2,
+            return_type="list",
+        )
+    assert len(res) == 2
+    for trace in res:
+        assert trace.info.assessments is not None
+        assert trace.info.assessments[0].trace_id == "test"
+
+    assert store.search_traces.call_count == 1
+    assert store.get_trace_info.call_count == 2
+    assert store.get_trace_info.call_args_list == [
+        mock.call("test", should_query_v3=True),
+        mock.call("test", should_query_v3=True),
+    ]
+    assert mock_download.call_count == 2
