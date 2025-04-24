@@ -1,5 +1,4 @@
 import re
-import warnings
 
 import pytest
 import yaml
@@ -311,7 +310,10 @@ def test_invalid_model_definition(tmp_path):
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(invalid_format_config_key_invalid_path))
 
-    assert _load_route_config(conf_path).endpoints[0].model.config.openai_api_key == "/not/a/real/path"
+    assert (
+        _load_route_config(conf_path).endpoints[0].model.config.openai_api_key
+        == "/not/a/real/path"
+    )
 
     invalid_no_config = {
         "endpoints": [

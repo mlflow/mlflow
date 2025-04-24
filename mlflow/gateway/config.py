@@ -9,7 +9,7 @@ from typing import Any, Optional, Union
 import pydantic
 import yaml
 from packaging.version import Version
-from pydantic import ConfigDict, Field, ValidationError
+from pydantic import ConfigDict, ValidationError
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
