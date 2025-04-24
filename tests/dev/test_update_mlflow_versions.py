@@ -40,7 +40,7 @@ _JS_FILES = {
 
 _PYTHON_FILES = {
     "mlflow/version.py": {
-        4: 'VERSION = "{new_version}"',
+        5: 'VERSION = "{new_version}"',
     }
 }
 

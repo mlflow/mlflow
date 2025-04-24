@@ -13,19 +13,50 @@ from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracking._tracking_service.utils import _use_tracking_uri
-from mlflow.tracking.fluent import (
-    _last_active_run_id,
-    _reset_active_model_context,
-    _reset_last_logged_model_id,
-)
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.autologging.fixtures import enable_test_mode
+from tests.tracing.helper import purge_traces
+
+if not IS_TRACING_SDK_ONLY:
+    from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+    from mlflow.tracking.fluent import (
+        _last_active_run_id,
+        _reset_active_model_context,
+        _reset_last_logged_model_id,
+    )
 
 
-@pytest.fixture(autouse=True)
+# A fixture only used for testing mlflow-trace package integration.
+@pytest.fixture(autouse=IS_TRACING_SDK_ONLY)
+def remote_backend_for_tracing_sdk_test(monkeypatch):
+    # Check remote backend is running or not
+
+    try:
+        import requests
+
+        requests.get("http://localhost:5000")
+    except requests.exceptions.ConnectionError:
+        # error if remote backend is not running
+        raise pytest.UsageError(
+            "Remote backend is not running at http://localhost:5000. When testing mlflow-trace, "
+            "package, you need to start the remote tracking server in a separate environment. "
+        )
+
+    mlflow.set_tracking_uri("http://localhost:5000")
+    experiment = mlflow.set_experiment("trace-unit-test")
+
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
+
+    yield
+
+    # Remove all traces in the backend
+    purge_traces(experiment_id=experiment.experiment_id)
+
+
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def tracking_uri_mock(tmp_path, request):
     if "notrackingurimock" not in request.keywords:
         tracking_uri = path_to_local_sqlite_uri(tmp_path / f"{uuid.uuid4().hex}.sqlite")
@@ -105,7 +136,7 @@ def enable_test_mode_by_default_for_autologging_integrations():
     yield from enable_test_mode()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_leaked_runs():
     """
     Certain test cases validate safety API behavior when runs are leaked. Leaked runs that
@@ -132,7 +163,7 @@ def _called_in_save_model():
     return False
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def prevent_infer_pip_requirements_fallback(request):
     """
     Prevents `mlflow.models.infer_pip_requirements` from falling back in `mlflow.*.save_model`
@@ -154,7 +185,7 @@ def prevent_infer_pip_requirements_fallback(request):
         yield
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_mlruns_directory(request):
     """
     Clean up an `mlruns` directory on each test module teardown on CI to save the disk space.
@@ -176,7 +207,7 @@ def clean_up_mlruns_directory(request):
             subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_last_logged_model_id():
     """
     Clean up the last logged model ID stored in a thread local var.
@@ -184,7 +215,7 @@ def clean_up_last_logged_model_id():
     _reset_last_logged_model_id()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_last_active_run():
     _last_active_run_id.set(None)
 
@@ -246,6 +277,6 @@ def mock_is_in_databricks(request):
         yield mock_databricks
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def reset_active_model_context():
     _reset_active_model_context()

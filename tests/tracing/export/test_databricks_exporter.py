@@ -10,6 +10,7 @@ import mlflow
 from mlflow.entities.span_event import SpanEvent
 from mlflow.tracing.destination import Databricks
 from mlflow.tracing.provider import _get_trace_exporter
+from mlflow.tracking.fluent import _get_experiment_id
 
 _EXPERIMENT_ID = "dummy-experiment-id"
 
@@ -67,7 +68,7 @@ def test_export(experiment_id, is_async, monkeypatch):
             "trace_id": trace_id,
             "trace_location": {
                 "mlflow_experiment": {
-                    "experiment_id": experiment_id or "0",
+                    "experiment_id": experiment_id or _get_experiment_id(),
                 },
                 "type": "MLFLOW_EXPERIMENT",
             },
