@@ -188,7 +188,7 @@ def test_server_update_config_removed_then_recreated(
         gateway.wait_reload()
         gateway.assert_health()
 
-        save_yaml(config, {"endpoints": basic_config_dict["routes"][1:]})
+        save_yaml(config, {"endpoints": basic_config_dict["endpoints"][1:]})
         gateway.wait_reload()
         response = gateway.get(BASE_ROUTE)
         assert response.json()["routes"] == basic_routes[1:]

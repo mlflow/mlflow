@@ -106,7 +106,7 @@ def test_api_key_parsing_file(tmp_path):
         "endpoints": [
             {
                 "name": "claude-chat",
-                "route_type": "llm/v1/chat",
+                "endpoint_type": "llm/v1/chat",
                 "model": {
                     "name": "claude-v1",
                     "provider": "anthropic",
@@ -123,8 +123,8 @@ def test_api_key_parsing_file(tmp_path):
     config_path.write_text(yaml.safe_dump(config))
     loaded_config = _load_route_config(config_path)
 
-    assert isinstance(loaded_config.routes[0].model.config, AnthropicConfig)
-    assert loaded_config.routes[0].model.config.anthropic_api_key == "abc"
+    assert isinstance(loaded_config.endpoints[0].model.config, AnthropicConfig)
+    assert loaded_config.endpoints[0].model.config.anthropic_api_key == "abc"
 
 
 def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
@@ -138,7 +138,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     _save_route_config(loaded_config, save_path)
     loaded_from_save = _load_route_config(save_path)
 
-    completions_gpt4 = loaded_from_save.routes[0]
+    completions_gpt4 = loaded_from_save.endpoints[0]
     assert completions_gpt4.name == "completions-gpt4"
     assert completions_gpt4.route_type == "llm/v1/completions"
     assert completions_gpt4.model.name == "gpt-4"
@@ -151,7 +151,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     assert completions_conf.openai_api_type == "openai"
     assert completions_conf.openai_organization == "my_company"
 
-    chat_gpt4 = loaded_from_save.routes[1]
+    chat_gpt4 = loaded_from_save.endpoints[1]
     assert chat_gpt4.name == "chat-gpt4"
     assert chat_gpt4.route_type == "llm/v1/chat"
     assert chat_gpt4.model.name == "gpt-4"
@@ -164,7 +164,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     assert chat_conf.openai_api_version is None
     assert chat_conf.openai_organization is None
 
-    claude = loaded_from_save.routes[2]
+    claude = loaded_from_save.endpoints[2]
     assert isinstance(claude.model.config, AnthropicConfig)
     assert claude.name == "claude-chat"
     assert claude.route_type == "llm/v1/chat"
@@ -179,11 +179,11 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
     loaded = _load_route_config(conf_path)
 
-    assert all(isinstance(route, RouteConfig) for route in loaded.routes)
+    assert all(isinstance(route, RouteConfig) for route in loaded.endpoints)
 
-    routes = [r.to_route() for r in loaded.routes]
+    routes = [r.to_route() for r in loaded.endpoints]
 
-    for config in loaded.routes:
+    for config in loaded.endpoints:
         route = [x for x in routes if x.name == config.name][0]
         assert route.route_type == config.route_type
         assert route.model.name == config.model.name
@@ -311,7 +311,7 @@ def test_invalid_model_definition(tmp_path):
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(invalid_format_config_key_invalid_path))
 
-    assert _load_route_config(conf_path).routes[0].model.config.openai_api_key == "/not/a/real/path"
+    assert _load_route_config(conf_path).endpoints[0].model.config.openai_api_key == "/not/a/real/path"
 
     invalid_no_config = {
         "endpoints": [
@@ -382,7 +382,7 @@ def test_default_base_api(tmp_path):
     conf_path.write_text(yaml.safe_dump(route_no_base))
     loaded_conf = _load_route_config(conf_path)
 
-    assert loaded_conf.routes[0].model.config.openai_api_base == "https://api.openai.com/v1"
+    assert loaded_conf.endpoints[0].model.config.openai_api_base == "https://api.openai.com/v1"
 
 
 def test_duplicate_routes_in_config(tmp_path):
@@ -420,73 +420,3 @@ def test_duplicate_routes_in_config(tmp_path):
         MlflowException, match="Duplicate names found in endpoint configurations. Please"
     ):
         _load_route_config(conf_path)
-
-
-def test_deprecated_keys_in_config(tmp_path):
-    deprecated_config = {
-        "endpoints": [
-            {
-                "name": "model1",
-                "route_type": "llm/v1/chat",
-                "model": {
-                    "name": "gpt-4",
-                    "provider": "openai",
-                    "config": {
-                        "openai_api_key": "MY_TOKEN",
-                    },
-                },
-            },
-            {
-                "name": "model2",
-                "route_type": "llm/v1/chat",
-                "model": {
-                    "name": "gpt-4",
-                    "provider": "openai",
-                    "config": {
-                        "openai_api_key": "MY_TOKEN",
-                    },
-                },
-            },
-        ]
-    }
-    deprecated_conf_path = tmp_path.joinpath("deprecated_config.yaml")
-    deprecated_conf_path.write_text(yaml.safe_dump(deprecated_config))
-    with pytest.warns(FutureWarning, match="'routes' configuration key has been deprecated"):
-        _load_route_config(deprecated_conf_path)
-
-    with pytest.warns(FutureWarning, match="'route_type' configuration key has been deprecated"):
-        _load_route_config(deprecated_conf_path)
-
-    recommended_config = {
-        "endpoints": [
-            {
-                "name": "model1",
-                "endpoint_type": "llm/v1/chat",
-                "model": {
-                    "name": "gpt-4",
-                    "provider": "openai",
-                    "config": {
-                        "openai_api_key": "MY_TOKEN",
-                    },
-                },
-            },
-            {
-                "name": "model2",
-                "endpoint_type": "llm/v1/chat",
-                "model": {
-                    "name": "gpt-4",
-                    "provider": "openai",
-                    "config": {
-                        "openai_api_key": "MY_TOKEN",
-                    },
-                },
-            },
-        ]
-    }
-    recommended_conf_path = tmp_path.joinpath("recommended_config.yaml")
-    recommended_conf_path.write_text(yaml.safe_dump(recommended_config))
-
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        _load_route_config(recommended_conf_path)
-        assert not w
