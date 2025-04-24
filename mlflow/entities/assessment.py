@@ -222,7 +222,7 @@ class Feedback(_MlflowObject):
         )
 
     @classmethod
-    def from_proto(self, proto) -> "Feedback":
+    def from_proto(cls, proto) -> "Feedback":
         return Feedback(
             value=MessageToDict(proto.value),
             error=AssessmentError.from_proto(proto.error) if proto.HasField("error") else None,
