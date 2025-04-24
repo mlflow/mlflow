@@ -52,7 +52,7 @@ def test_json_deserialization():
                 },
                 "trace_state": "",
                 "attributes": {
-                    "mlflow.traceRequestId": json.dumps(trace.info.request_id),
+                    "mlflow.traceRequestId": json.dumps(trace.info.trace_id),
                     "mlflow.spanType": '"UNKNOWN"',
                     "mlflow.spanFunctionName": '"predict"',
                     "mlflow.spanInputs": '{"x": 2, "y": 5}',
@@ -83,7 +83,7 @@ def test_json_deserialization():
                 },
                 "trace_state": "",
                 "attributes": {
-                    "mlflow.traceRequestId": json.dumps(trace.info.request_id),
+                    "mlflow.traceRequestId": json.dumps(trace.info.trace_id),
                     "mlflow.spanType": '"UNKNOWN"',
                 },
                 "events": [
@@ -108,7 +108,7 @@ def test_json_deserialization():
                 "trace_state": "",
                 "attributes": {
                     "delta": "1",
-                    "mlflow.traceRequestId": json.dumps(trace.info.request_id),
+                    "mlflow.traceRequestId": json.dumps(trace.info.trace_id),
                     "mlflow.spanType": '"LLM"',
                     "mlflow.spanFunctionName": '"always_fail"',
                     "mlflow.spanInputs": "{}",
@@ -205,17 +205,6 @@ def test_intermediate_outputs_no_value():
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
     assert trace.data.intermediate_outputs is None
-
-
-def test_to_proto():
-    with mlflow.start_span():
-        pass
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    proto = trace.data.to_proto()
-    assert len(proto.spans) == 1
-    # Ensure the legacy properties are not present
-    assert not hasattr(proto, "request")
-    assert not hasattr(proto, "response")
 
 
 def test_to_dict():

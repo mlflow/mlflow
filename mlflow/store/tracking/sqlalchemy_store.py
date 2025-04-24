@@ -1740,7 +1740,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
-            model_id = str(uuid.uuid4())
+            model_id = f"m-{str(uuid.uuid4()).replace('-', '')}"
             artifact_location = append_to_uri_path(
                 experiment.artifact_location,
                 SqlAlchemyStore.MODELS_FOLDER_NAME,

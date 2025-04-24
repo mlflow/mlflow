@@ -131,7 +131,6 @@ def save_model(
     extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
-    example_no_conversion: Optional[bool] = None,
 ) -> None:
     """
     .. note::
@@ -171,7 +170,6 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
-        example_no_conversion: {{ example_no_conversion }}
     """
     import sentence_transformers
 
@@ -186,9 +184,7 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    saved_example = _save_example(
-        mlflow_model, input_example, path, no_conversion=example_no_conversion
-    )
+    saved_example = _save_example(mlflow_model, input_example, path)
 
     if task is not None:
         signature = ModelSignature(
@@ -317,7 +313,6 @@ def log_model(
     extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
-    example_no_conversion: Optional[bool] = None,
     prompts: Optional[list[Union[str, Prompt]]] = None,
     name: Optional[str] = None,
     params: Optional[dict[str, Any]] = None,
@@ -392,7 +387,6 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
-        example_no_conversion: {{ example_no_conversion }}
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -419,7 +413,6 @@ def log_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        example_no_conversion=example_no_conversion,
         prompts=prompts,
         params=params,
         tags=tags,

@@ -174,9 +174,9 @@ class InMemoryTraceManager:
                     self._traces = get_trace_cache_with_timeout()
 
     @classmethod
-    def reset(self):
+    def reset(cls):
         """Clear all the aggregated trace data. This should only be used for testing."""
-        if self._instance:
-            with self._instance._lock:
-                self._instance._traces.clear()
-            self._instance = None
+        if cls._instance:
+            with cls._instance._lock:
+                cls._instance._traces.clear()
+            cls._instance = None

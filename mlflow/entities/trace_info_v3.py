@@ -10,7 +10,7 @@ from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.protos import databricks_trace_server_pb2 as pb
+from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
 
 
 @dataclass
@@ -62,7 +62,7 @@ class TraceInfoV3(_MlflowObject):
         return cls(**d)
 
     def to_proto(self):
-        from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
+        from mlflow.entities.trace_info import _truncate_request_metadata, _truncate_tags
 
         request_time = Timestamp()
         request_time.FromMilliseconds(self.request_time)
@@ -70,7 +70,7 @@ class TraceInfoV3(_MlflowObject):
         if self.execution_duration is not None:
             execution_duration = Duration()
             execution_duration.FromMilliseconds(self.execution_duration)
-        return pb.TraceInfo(
+        return ProtoTraceInfoV3(
             trace_id=self.trace_id,
             client_request_id=self.client_request_id,
             trace_location=self.trace_location.to_proto(),
@@ -79,20 +79,8 @@ class TraceInfoV3(_MlflowObject):
             request_time=request_time,
             execution_duration=execution_duration,
             state=self.state.to_proto(),
-            trace_metadata={
-                # Truncate both key and value to avoid exceeding the max length
-                k[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]: str(v)[
-                    :MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
-                ]
-                for k, v in self.trace_metadata.items()
-            },
-            tags={
-                # Truncate both key and value to avoid exceeding the max length
-                k[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]: str(v)[
-                    :MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
-                ]
-                for k, v in self.tags.items()
-            },
+            trace_metadata=_truncate_request_metadata(self.trace_metadata),
+            tags=_truncate_tags(self.tags),
             assessments=[a.to_proto() for a in self.assessments],
         )
 

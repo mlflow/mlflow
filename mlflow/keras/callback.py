@@ -52,9 +52,10 @@ class MlflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
             )
     """
 
-    def __init__(self, log_every_epoch=True, log_every_n_steps=None):
+    def __init__(self, log_every_epoch=True, log_every_n_steps=None, model_id=None):
         self.log_every_epoch = log_every_epoch
         self.log_every_n_steps = log_every_n_steps
+        self.model_id = model_id
 
         if log_every_epoch and log_every_n_steps is not None:
             raise ValueError(
@@ -86,7 +87,7 @@ class MlflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
         """Log metrics at the end of each epoch."""
         if not self.log_every_epoch or logs is None:
             return
-        log_metrics(logs, step=epoch, synchronous=False)
+        log_metrics(logs, step=epoch, synchronous=False, model_id=self.model_id)
 
     def on_batch_end(self, batch, logs=None):
         """Log metrics at the end of each batch with user specified frequency."""
@@ -95,11 +96,11 @@ class MlflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
         current_iteration = int(self.model.optimizer.iterations.numpy())
 
         if current_iteration % self.log_every_n_steps == 0:
-            log_metrics(logs, step=current_iteration, synchronous=False)
+            log_metrics(logs, step=current_iteration, synchronous=False, model_id=self.model_id)
 
     def on_test_end(self, logs=None):
         """Log validation metrics at validation end."""
         if logs is None:
             return
         metrics = {"validation_" + k: v for k, v in logs.items()}
-        log_metrics(metrics, synchronous=False)
+        log_metrics(metrics, synchronous=False, model_id=self.model_id)

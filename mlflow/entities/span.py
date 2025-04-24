@@ -48,7 +48,7 @@ class SpanType:
 
 
 def create_mlflow_span(
-    otel_span: Any, request_id: str, span_type: Optional[str] = None
+    otel_span: Any, trace_id: str, span_type: Optional[str] = None
 ) -> Union["Span", "LiveSpan", "NoOpSpan"]:
     """
     Factory function to create a span object.
@@ -60,7 +60,7 @@ def create_mlflow_span(
         return NoOpSpan()
 
     if isinstance(otel_span, OTelSpan):
-        return LiveSpan(otel_span, request_id, span_type)
+        return LiveSpan(otel_span, trace_id, span_type)
 
     if isinstance(otel_span, OTelReadableSpan):
         return Span(otel_span)
@@ -97,13 +97,14 @@ class Span:
 
     @property
     @lru_cache(maxsize=1)
-    def request_id(self) -> str:
-        """
-        The request ID of the span, a unique identifier for the trace it belongs to.
-        Request ID is equivalent to the trace ID in OpenTelemetry, but generated
-        differently by the tracing backend.
-        """
+    def trace_id(self) -> str:
+        """The trace ID of the span, a unique identifier for the trace it belongs to."""
         return self.get_attribute(SpanAttributeKey.REQUEST_ID)
+
+    @property
+    def request_id(self) -> str:
+        """Deprecated. Use `trace_id` instead."""
+        return self.trace_id
 
     @property
     def span_id(self) -> str:
@@ -156,7 +157,7 @@ class Span:
     def _trace_id(self) -> str:
         """
         The OpenTelemetry trace ID of the span. Note that this should not be exposed to
-        the user, instead, use request_id as an unique identifier for a trace.
+        the user, instead, use trace_id property as an unique identifier for a trace.
         """
         return encode_trace_id(self._span.context.trace_id)
 
@@ -191,7 +192,7 @@ class Span:
 
     def __repr__(self):
         return (
-            f"{type(self).__name__}(name={self.name!r}, request_id={self.request_id!r}, "
+            f"{type(self).__name__}(name={self.name!r}, trace_id={self.trace_id!r}, "
             f"span_id={self.span_id!r}, parent_id={self.parent_id!r})"
         )
 
@@ -353,7 +354,7 @@ class LiveSpan(Span):
     def __init__(
         self,
         otel_span: OTelSpan,
-        request_id: str,
+        trace_id: str,
         span_type: str = SpanType.UNKNOWN,
     ):
         """
@@ -373,7 +374,7 @@ class LiveSpan(Span):
 
         self._span = otel_span
         self._attributes = _SpanAttributesRegistry(otel_span)
-        self._attributes.set(SpanAttributeKey.REQUEST_ID, request_id)
+        self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
 
     def set_span_type(self, span_type: str):
@@ -477,8 +478,8 @@ class LiveSpan(Span):
         cls,
         span: Span,
         parent_span_id: Optional[str] = None,
-        request_id: Optional[str] = None,
         trace_id: Optional[str] = None,
+        otel_trace_id: Optional[str] = None,
     ) -> "LiveSpan":
         """
         Create a new LiveSpan object from the given immutable span by
@@ -486,17 +487,18 @@ class LiveSpan(Span):
 
         This is particularly useful when we merging a remote trace into the current trace.
         We cannot merge the remote trace directly, because it is already stored as an immutable
-        span, meaning that we cannot update metadata like request ID, trace ID, parent span ID,
+        span, meaning that we cannot update metadata like trace ID, parent span ID,
         which are necessary for merging the trace.
 
         Args:
             span: The immutable span object to clone.
             parent_span_id: The parent span ID of the new span.
                 If it is None, the span will be created as a root span.
-            request_id: The request ID to be set on the new span. Specify this if you want to
-                create the new span with a different request ID from the original span.
-            trace_id: The trace ID of the new span in hex encoded format. Specify this if you
-                want to create the new span with a different trace ID from the original span
+            trace_id: The trace ID to be set on the new span. Specify this if you want to
+                create the new span with a different trace ID from the original span.
+            otel_trace_id: The OpenTelemetry trace ID of the new span in hex encoded format.
+                Specify this if you want to create the new span with a different trace ID
+                from the original span
 
         Returns:
             The new LiveSpan object with the same state as the original span.
@@ -506,8 +508,8 @@ class LiveSpan(Span):
         from mlflow.tracing.trace_manager import InMemoryTraceManager
 
         trace_manager = InMemoryTraceManager.get_instance()
-        request_id = request_id or span.request_id
-        parent_span = trace_manager.get_span_from_id(request_id, parent_span_id)
+        trace_id = trace_id or span.trace_id
+        parent_span = trace_manager.get_span_from_id(trace_id, parent_span_id)
 
         # Create a new span with the same name, parent, and start time
         otel_span = mlflow.tracing.provider.start_detached_span(
@@ -516,7 +518,7 @@ class LiveSpan(Span):
             start_time_ns=span.start_time_ns,
         )
         # otel_span._span_processor = span._span._span_processor
-        clone_span = LiveSpan(otel_span, request_id, span.span_type)
+        clone_span = LiveSpan(otel_span, trace_id, span.span_type)
 
         # Copy all the attributes, inputs, outputs, and events from the original span
         clone_span.set_status(span.status)
@@ -531,8 +533,8 @@ class LiveSpan(Span):
         # Update trace ID and span ID
         context = span._span.get_span_context()
         clone_span._span._context = SpanContext(
-            # Override trace_id if provided, otherwise use the original trace ID
-            trace_id=decode_id(trace_id) or context.trace_id,
+            # Override otel_trace_id if provided, otherwise use the original trace ID
+            trace_id=decode_id(otel_trace_id) or context.trace_id,
             span_id=context.span_id,
             is_remote=context.is_remote,
             # Override trace flag as if it is sampled within current context.
@@ -544,7 +546,7 @@ class LiveSpan(Span):
         return clone_span
 
 
-NO_OP_SPAN_REQUEST_ID = "MLFLOW_NO_OP_SPAN_REQUEST_ID"
+NO_OP_SPAN_TRACE_ID = "MLFLOW_NO_OP_SPAN_TRACE_ID"
 
 
 class NoOpSpan(Span):
@@ -571,11 +573,11 @@ class NoOpSpan(Span):
         self._attributes = {}
 
     @property
-    def request_id(self):
+    def trace_id(self):
         """
-        No-op span returns a special request ID to distinguish it from the real spans.
+        No-op span returns a special trace ID to distinguish it from the real spans.
         """
-        return NO_OP_SPAN_REQUEST_ID
+        return NO_OP_SPAN_TRACE_ID
 
     @property
     def span_id(self):

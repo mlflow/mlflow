@@ -26,7 +26,7 @@ def test_export():
         start_time=0,
         end_time=1_000_000,  # 1 millisecond
     )
-    span = LiveSpan(otel_span, request_id=_REQUEST_ID)
+    span = LiveSpan(otel_span, _REQUEST_ID)
     span.set_inputs({"input1": "very long input" * 100})
     span.set_outputs("very long output" * 100)
     _register_span_and_trace(span)
@@ -34,7 +34,7 @@ def test_export():
     child_otel_span = create_mock_otel_span(
         name="child", trace_id=_TRACE_ID, span_id=2, parent_id=1
     )
-    child_span = LiveSpan(child_otel_span, request_id=_REQUEST_ID)
+    child_span = LiveSpan(child_otel_span, _REQUEST_ID)
     _register_span_and_trace(child_span)
 
     # Invalid span should be also ignored
@@ -65,7 +65,7 @@ def test_export():
 
 def test_export_warn_invalid_attributes():
     otel_span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1)
-    span = LiveSpan(otel_span, request_id=_REQUEST_ID)
+    span = LiveSpan(otel_span, _REQUEST_ID)
     span.set_attribute("valid", "value")
     # # Users may set attribute directly to the OpenTelemetry span
     # otel_span.set_attribute("int", 1)
@@ -104,14 +104,14 @@ def test_export_trace_buffer_not_exceeds_max_size(monkeypatch):
     exporter = InferenceTableSpanExporter()
 
     otel_span_1 = create_mock_otel_span(name="1", trace_id=_TRACE_ID, span_id=1)
-    _register_span_and_trace(LiveSpan(otel_span_1, request_id=_REQUEST_ID))
+    _register_span_and_trace(LiveSpan(otel_span_1, _REQUEST_ID))
 
     exporter.export([otel_span_1])
 
     assert pop_trace(_REQUEST_ID) is not None
 
     otel_span_2 = create_mock_otel_span(name="2", trace_id=_TRACE_ID + 1, span_id=1)
-    _register_span_and_trace(LiveSpan(otel_span_2, request_id=_REQUEST_ID_2))
+    _register_span_and_trace(LiveSpan(otel_span_2, _REQUEST_ID_2))
 
     exporter.export([otel_span_2])
 
