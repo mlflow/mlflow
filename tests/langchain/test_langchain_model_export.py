@@ -1858,7 +1858,7 @@ def _extract_endpoint_name_from_lc_model(lc_model):
 
 
 @mock.patch(
-    "mlflow.langchain.model.databricks_dependencies._extract_dependency_list_from_lc_model",
+    "mlflow.langchain.databricks_dependencies._extract_dependency_list_from_lc_model",
     _extract_endpoint_name_from_lc_model,
 )
 def test_databricks_dependency_extraction_from_lcel_chain():
@@ -1914,11 +1914,11 @@ def _extract_databricks_dependencies_from_llm(llm):
 
 
 @mock.patch(
-    "mlflow.langchain.model.databricks_dependencies._extract_databricks_dependencies_from_llm",
+    "mlflow.langchain.databricks_dependencies._extract_databricks_dependencies_from_llm",
     _extract_databricks_dependencies_from_llm,
 )
 @mock.patch(
-    "mlflow.langchain.model.databricks_dependencies._extract_databricks_dependencies_from_retriever",
+    "mlflow.langchain.databricks_dependencies._extract_databricks_dependencies_from_retriever",
     _extract_databricks_dependencies_from_retriever,
 )
 def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
@@ -2083,10 +2083,10 @@ def _error_func(*args, **kwargs):
 
 
 @mock.patch(
-    "mlflow.langchain.model.databricks_dependencies._traverse_runnable",
+    "mlflow.langchain.databricks_dependencies._traverse_runnable",
     _error_func,
 )
-@mock.patch("mlflow.langchain.model.databricks_dependencies._logger.warning")
+@mock.patch("mlflow.langchain.databricks_dependencies._logger.warning")
 def test_databricks_dependency_extraction_log_errors_as_warnings(mock_warning):
     from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 
