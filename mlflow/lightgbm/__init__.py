@@ -802,7 +802,7 @@ def autolog(
         model_id = None
         if _log_models:
             model_id = mlflow.initialize_logged_model("model").model_id
-        with batch_metrics_logger(run_id, model_id=model_id) as metrics_logger:
+        with batch_metrics_logger(run_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:
                 tmp_list = list(args)
@@ -832,6 +832,7 @@ def autolog(
                 )
                 # iteration starts from 1 in LightGBM.
                 last_iter_results = eval_results[model.best_iteration - 1]
+                # only log the best metrics to model_id
                 autologging_client.log_metrics(
                     run_id=mlflow.active_run().info.run_id,
                     metrics=last_iter_results,

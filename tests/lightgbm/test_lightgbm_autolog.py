@@ -553,6 +553,8 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set, log
 
     logged_model = mlflow.last_logged_model()
     logged_model_metrics = {m.key: m.value for m in logged_model.metrics} if log_models else {}
+    if log_models:
+        assert data.metrics.items() <= logged_model_metrics.items()
     for valid_name in valid_names:
         for metric_name in params["metric"]:
             metric_key = f"{valid_name}-{metric_name}"
