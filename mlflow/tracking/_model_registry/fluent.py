@@ -2,7 +2,6 @@ from typing import Any, Optional
 
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -429,7 +428,7 @@ def register_prompt(
 
 
 @require_prompt_registry
-def list_prompts(
+def search_prompts(
     filter_string: Optional[str] = None,
     max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
     page_token: Optional[str] = None,
@@ -450,7 +449,7 @@ def list_prompts(
             The maximum number of prompts to return in one page.  Defaults
             to `SEARCH_MAX_RESULTS_DEFAULT` (typically 1 000).
         page_token (Optional[str]):
-            A pagination token from a previous `list_prompts` call; use this
+            A pagination token from a previous `search_prompts` call; use this
             to retrieve the next page of results.  Defaults to `None`.
 
     Returns:
@@ -459,12 +458,9 @@ def list_prompts(
             templates.  Inspect the returned object's `.token` attribute to
             fetch subsequent pages.
     """
-    fls = f"tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
-    if filter_string:
-        fls = f"{fls} AND {filter_string}"
 
-    return MlflowClient().list_prompts(
-        filter_string=fls, max_results=max_results, page_token=page_token
+    return MlflowClient().search_prompts(
+        filter_string=filter_string, max_results=max_results, page_token=page_token
     )
 
 

@@ -554,7 +554,7 @@ class MlflowClient:
 
     @translate_prompt_exception
     @require_prompt_registry
-    def list_prompts(
+    def search_prompts(
         self,
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
@@ -576,7 +576,7 @@ class MlflowClient:
                 The maximum number of prompts to return in one page.  Defaults
                 to `SEARCH_MAX_RESULTS_DEFAULT` (typically 1 000).
             page_token (Optional[str]):
-                A pagination token from a previous `list_prompts` call; use this
+                A pagination token from a previous `search_prompts` call; use this
                 to retrieve the next page of results.  Defaults to `None`.
 
         Returns:
