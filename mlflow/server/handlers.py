@@ -2793,8 +2793,8 @@ def _search_logged_models():
                 {
                     "field_name": ob.field_name,
                     "ascending": ob.ascending,
-                    "dataset_name": ob.dataset_name,
-                    "dataset_digest": ob.dataset_digest,
+                    "dataset_name": ob.dataset_name or None,
+                    "dataset_digest": ob.dataset_digest or None,
                 }
                 for ob in request_message.order_by
             ]

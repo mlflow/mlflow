@@ -741,7 +741,7 @@ def filter_search_logged_models(resp: Response) -> None:
                 )
                 break
         else:
-            # If we reach here, that means
+            # If we reach here, it means we have not reached the max results.
             next_page_token = (
                 None if is_last_page else Token(offset=offset + max_results, **params).encode()
             )
