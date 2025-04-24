@@ -33,6 +33,13 @@ from mlflow.utils.requirements_utils import (
 
 from tests.helper_functions import AnyStringWith
 
+try:
+    import databricks.agents  # noqa: F401
+
+    IS_DATABRICKS_AGENT_INSTALLED = True
+except ImportError:
+    IS_DATABRICKS_AGENT_INSTALLED = False
+
 
 def test_is_comment():
     assert _is_comment("# comment")
@@ -737,6 +744,9 @@ def test_capture_imported_modules_extra_env_vars(monkeypatch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
+@pytest.mark.skipif(
+    not IS_DATABRICKS_AGENT_INSTALLED, reason="Requires databricks.agents to be installed"
+)
 def test_infer_pip_requirements_on_databricks_agents(tmp_path):
     # import here to avoid breaking this test suite on mlflow-skinny
     from mlflow.pyfunc import _get_pip_requirements_from_model_path
