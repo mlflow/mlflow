@@ -206,6 +206,7 @@ def test_chat_agent_predict(tmp_path):
     messages = [
         {"role": "system", "content": "You are a helpful assistant"},
         {"role": "user", "content": "Hello!"},
+        {"role": "assistant", "content": ""},
     ]
 
     response = loaded_model.predict({"messages": messages})
