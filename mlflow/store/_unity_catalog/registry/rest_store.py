@@ -189,7 +189,7 @@ def get_model_version_dependencies(model_dir):
     if model.auth_policy:
         databricks_resources = model.auth_policy.get("system_auth_policy", {}).get("resources", {})
     else:
-        databricks_resources = getattr(model, "resources", {})
+        databricks_resources = model.resources
 
     if databricks_resources:
         databricks_dependencies = databricks_resources.get("databricks", {})
