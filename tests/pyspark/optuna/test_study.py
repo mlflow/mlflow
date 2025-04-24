@@ -1,25 +1,17 @@
 import logging
 import os
-import random
-import tempfile
-import time
 import pyspark
-from datetime import datetime
 from packaging.version import Version
-from time import sleep
-from typing import Any
-from unittest.mock import MagicMock, call, patch
 
 import numpy as np
 import optuna
 import pytest
 
-
 import mlflow
 from mlflow.entities import Metric, Param, RunTag
 
 from mlflow.optuna.storage import MlflowStorage
-from mlflow.optuna.study import MLFlowSparkStudy
+from mlflow.pyspark.optuna.study import MLFlowSparkStudy
 
 from tests.pyfunc.test_spark import get_spark_session
 from tests.optuna.test_storage import setup_storage
@@ -75,4 +67,4 @@ def test_study_optimize_run(setup_storage):
         x = trial.suggest_float('x', -10, 10)
         return (x - 2) ** 2
 
-    mlflow_study.optimize(objective, n_trials=1)
+    mlflow_study.optimize(objective, n_trials=4)
