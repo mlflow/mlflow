@@ -4,9 +4,9 @@ from unittest import mock
 
 import pytest
 
+from mlflow.deployments.server.config import Endpoint
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import RouteModelInfo
-from mlflow.deployments.server.config import Endpoint
 from mlflow.metrics.genai.model_utils import (
     _parse_model_uri,
     call_deployments_api,
@@ -355,6 +355,7 @@ def test_score_model_togetherai(monkeypatch):
 
 def test_score_model_gateway_completions():
     from mlflow.deployments.mlflow import MlflowDeploymentClient
+
     expected_output = {
         "choices": [
             {"text": "man, one giant leap for mankind.", "metadata": {"finish_reason": "stop"}}
@@ -368,26 +369,31 @@ def test_score_model_gateway_completions():
         },
     }
 
-    with mock.patch(
-        "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
-        return_value=Endpoint(
-            name="my-route",
-            endpoint_type="llm/v1/completions",
-            model=RouteModelInfo(provider="openai"),
-            endpoint_url="my-route",
-            limit=None,
+    with (
+        mock.patch(
+            "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
+            return_value=Endpoint(
+                name="my-route",
+                endpoint_type="llm/v1/completions",
+                model=RouteModelInfo(provider="openai"),
+                endpoint_url="my-route",
+                limit=None,
+            ),
         ),
-    ), mock.patch(
-        "mlflow.deployments.MlflowDeploymentClient.predict", return_value=expected_output
-    ), mock.patch(
-        "mlflow.deployments.get_deploy_client", return_value=MlflowDeploymentClient("url")
+        mock.patch(
+            "mlflow.deployments.MlflowDeploymentClient.predict", return_value=expected_output
+        ),
+        mock.patch(
+            "mlflow.deployments.get_deploy_client", return_value=MlflowDeploymentClient("url")
+        ),
     ):
-            response = score_model_on_payload("gateway:/my-route", "")
-            assert response == expected_output["choices"][0]["text"]
+        response = score_model_on_payload("gateway:/my-route", "")
+        assert response == expected_output["choices"][0]["text"]
 
 
 def test_score_model_gateway_chat():
     from mlflow.deployments.mlflow import MlflowDeploymentClient
+
     expected_output = {
         "choices": [
             {
@@ -408,19 +414,23 @@ def test_score_model_gateway_chat():
         },
     }
 
-    with mock.patch(
-        "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
-        return_value=Endpoint(
-            name="my-route",
-            endpoint_type="llm/v1/chat",
-            model=RouteModelInfo(provider="openai"),
-            endpoint_url="my-route",
-            limit=None,
+    with (
+        mock.patch(
+            "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
+            return_value=Endpoint(
+                name="my-route",
+                endpoint_type="llm/v1/chat",
+                model=RouteModelInfo(provider="openai"),
+                endpoint_url="my-route",
+                limit=None,
+            ),
         ),
-    ), mock.patch(
-        "mlflow.deployments.MlflowDeploymentClient.predict", return_value=expected_output
-    ), mock.patch(
-        "mlflow.deployments.get_deploy_client", return_value=MlflowDeploymentClient("url")
+        mock.patch(
+            "mlflow.deployments.MlflowDeploymentClient.predict", return_value=expected_output
+        ),
+        mock.patch(
+            "mlflow.deployments.get_deploy_client", return_value=MlflowDeploymentClient("url")
+        ),
     ):
         response = score_model_on_payload("gateway:/my-route", "")
         assert response == expected_output["choices"][0]["message"]["content"]

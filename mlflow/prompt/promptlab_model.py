@@ -18,6 +18,7 @@ class _PromptlabModel:
 
     def predict(self, inputs: pd.DataFrame) -> list[str]:
         from mlflow.deployments import MlflowDeploymentClient, get_deploy_client
+
         client = MlflowDeploymentClient(get_deploy_client())
 
         results = []

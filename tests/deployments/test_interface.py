@@ -1,7 +1,7 @@
 import pytest
 
-from mlflow.deployments.interface import get_deploy_client
 import mlflow.deployments.utils
+from mlflow.deployments.interface import get_deploy_client
 
 mlflow.deployments.utils._deployments_target = None
 

@@ -30,12 +30,13 @@ def test_promptlab_prompt_replacement():
     model = construct_model("completions")
     get_route_patch = mock.patch(
         "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
-        return_value=mock.Mock(endpoint_type="llm/v1/completions")
+        return_value=mock.Mock(endpoint_type="llm/v1/completions"),
     )
 
-    with get_route_patch, mock.patch(
-        "mlflow.deployments.MlflowDeploymentClient.predict"
-    ) as mock_query:
+    with (
+        get_route_patch,
+        mock.patch("mlflow.deployments.MlflowDeploymentClient.predict") as mock_query,
+    ):
         model.predict(data)
 
         calls = [
@@ -65,8 +66,9 @@ def test_promptlab_works_with_chat_route():
         return_value=mock.Mock(endpoint_type="llm/v1/chat"),
     )
 
-    with get_route_patch, mock.patch(
-        "mlflow.deployments.MlflowDeploymentClient.predict", return_value=mock_response
+    with (
+        get_route_patch,
+        mock.patch("mlflow.deployments.MlflowDeploymentClient.predict", return_value=mock_response),
     ):
         response = model.predict(pd.DataFrame(data=[{"thing": "books"}]))
 
@@ -85,11 +87,12 @@ def test_promptlab_works_with_completions_route():
     model = construct_model("completions")
     get_route_patch = mock.patch(
         "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
-        return_value=mock.Mock(endpoint_type="llm/v1/completions")
+        return_value=mock.Mock(endpoint_type="llm/v1/completions"),
     )
 
-    with get_route_patch, mock.patch(
-        "mlflow.deployments.MlflowDeploymentClient.predict", return_value=mock_response
+    with (
+        get_route_patch,
+        mock.patch("mlflow.deployments.MlflowDeploymentClient.predict", return_value=mock_response),
     ):
         response = model.predict(pd.DataFrame(data=[{"thing": "books"}]))
 
