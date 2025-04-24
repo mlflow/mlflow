@@ -22,9 +22,16 @@ def store():
         yield mock_store
 
 
-def test_log_expectation(store):
+# TODO: Remove this once the OSS backend is implemented
+@pytest.fixture
+def tracking_uri():
+    original_tracking_uri = mlflow.get_tracking_uri()
     mlflow.set_tracking_uri("databricks")
+    yield
+    mlflow.set_tracking_uri(original_tracking_uri)
 
+
+def test_log_expectation(store, tracking_uri):
     mlflow.log_expectation(
         trace_id="1234",
         name="expected_answer",
@@ -48,7 +55,7 @@ def test_log_expectation(store):
     assert assessment.metadata == {"key": "value"}
 
 
-def test_log_expectation_invalid_parameters():
+def test_log_expectation_invalid_parameters(tracking_uri):
     with pytest.raises(MlflowException, match=r"Expectation value cannot be None."):
         mlflow.log_expectation(
             trace_id="1234",
@@ -74,9 +81,7 @@ def test_log_expectation_invalid_parameters():
         )
 
 
-def test_update_expectation(store):
-    mlflow.set_tracking_uri("databricks")
-
+def test_update_expectation(store, tracking_uri):
     mlflow.update_expectation(
         assessment_id="1234",
         trace_id="tr-1234",
@@ -94,9 +99,7 @@ def test_update_expectation(store):
     assert call_args["metadata"] is None
 
 
-def test_log_feedback(store):
-    mlflow.set_tracking_uri("databricks")
-
+def test_log_feedback(store, tracking_uri):
     mlflow.log_feedback(
         trace_id="1234",
         name="faithfulness",
@@ -125,9 +128,7 @@ def test_log_feedback(store):
     assert assessment.metadata == {"model": "gpt-4o-mini"}
 
 
-def test_log_feedback_with_error(store):
-    mlflow.set_tracking_uri("databricks")
-
+def test_log_feedback_with_error(store, tracking_uri):
     mlflow.log_feedback(
         trace_id="1234",
         name="faithfulness",
@@ -154,9 +155,7 @@ def test_log_feedback_with_error(store):
     assert assessment.rationale is None
 
 
-def test_log_feedback_with_value_and_error(store):
-    mlflow.set_tracking_uri("databricks")
-
+def test_log_feedback_with_value_and_error(store, tracking_uri):
     mlflow.log_feedback(
         trace_id="1234",
         name="faithfulness",
@@ -184,7 +183,7 @@ def test_log_feedback_with_value_and_error(store):
     assert assessment.rationale is None
 
 
-def test_log_feedback_invalid_parameters():
+def test_log_feedback_invalid_parameters(tracking_uri):
     with pytest.raises(MlflowException, match=r"Either `value` or `error` must be provided."):
         mlflow.log_feedback(
             trace_id="1234",
@@ -201,9 +200,7 @@ def test_log_feedback_invalid_parameters():
         )
 
 
-def test_update_feedback(store):
-    mlflow.set_tracking_uri("databricks")
-
+def test_update_feedback(store, tracking_uri):
     mlflow.update_feedback(
         assessment_id="1234",
         trace_id="tr-1234",
@@ -223,9 +220,7 @@ def test_update_feedback(store):
     assert call_args["metadata"] == {"model": "gpt-4o-mini"}
 
 
-def test_delete_expectation(store):
-    mlflow.set_tracking_uri("databricks")
-
+def test_delete_expectation(store, tracking_uri):
     mlflow.delete_expectation(trace_id="tr-1234", assessment_id="1234")
 
     assert store.delete_assessment.call_count == 1
@@ -234,9 +229,7 @@ def test_delete_expectation(store):
     assert call_args["trace_id"] == "tr-1234"
 
 
-def test_delete_feedback(store):
-    mlflow.set_tracking_uri("databricks")
-
+def test_delete_feedback(store, tracking_uri):
     mlflow.delete_feedback(trace_id="tr-5678", assessment_id="5678")
 
     assert store.delete_assessment.call_count == 1
@@ -275,9 +268,7 @@ def test_assessment_apis_only_available_in_databricks():
         mlflow.delete_feedback(trace_id="1234", assessment_id="1234")
 
 
-def test_search_traces_with_assessments(store):
-    mlflow.set_tracking_uri("databricks")
-
+def test_search_traces_with_assessments(store, tracking_uri):
     trace_info = TraceInfo(
         request_id="test",
         experiment_id="test",
@@ -308,8 +299,7 @@ def test_search_traces_with_assessments(store):
     store.get_trace_info.return_value = trace_info_with_assessment
 
     with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient._download_trace_data",
-        return_value=TraceData(),
+        "mlflow.tracing.client.TracingClient._download_trace_data", return_value=TraceData()
     ) as mock_download:
         res = mlflow.search_traces(
             experiment_ids=["0"],

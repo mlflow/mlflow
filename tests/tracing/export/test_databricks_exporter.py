@@ -18,6 +18,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.protos import service_pb2 as pb
 from mlflow.tracing.destination import Databricks
 from mlflow.tracing.provider import _get_trace_exporter
+from mlflow.tracking.fluent import _get_experiment_id
 
 _EXPERIMENT_ID = "dummy-experiment-id"
 

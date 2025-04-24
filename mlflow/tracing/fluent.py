@@ -599,7 +599,7 @@ def search_traces(
     order_by: Optional[list[str]] = None,
     extract_fields: Optional[list[str]] = None,
     run_id: Optional[str] = None,
-    return_type: Literal["pandas", "list"] = "pandas",
+    return_type: Optional[Literal["pandas", "list"]] = None,
     model_id: Optional[str] = None,
     sql_warehouse_id: Optional[str] = None,
 ) -> Union["pandas.DataFrame", list[Trace]]:
@@ -651,8 +651,9 @@ def search_traces(
             it will be associated with the run and you can filter on the run id to retrieve the
             trace. See the example below for how to filter traces by run id.
 
-        return_type: The type of the return value. The following return types are supported. Default
-            is ``"pandas"``.
+        return_type: The type of the return value. The following return types are supported. If
+            the pandas library is installed, the default return type is "pandas". Otherwise, the
+            default return type is "list".
 
             - `"pandas"`: Returns a Pandas DataFrame containing information about traces
                 where each row represents a single trace and each column represents a field of the
@@ -718,6 +719,15 @@ def search_traces(
     """
     from mlflow.tracking.fluent import _get_experiment_id
 
+    # Default to "pandas" only if the pandas library is installed
+    if return_type is None:
+        try:
+            import pandas  # noqa: F401
+
+            return_type = "pandas"
+        except ImportError:
+            return_type = "list"
+
     if return_type not in ["pandas", "list"]:
         raise MlflowException.invalid_parameter_value(
             f"Invalid return type: {return_type}. Return type must be either 'pandas' or 'list'."
@@ -732,7 +742,7 @@ def search_traces(
             raise MlflowException(
                 message=(
                     "The `pandas` library is not installed. Please install `pandas` to use"
-                    " the `return_type='pandas'` option."
+                    " the `return_type='pandas'` option, or set `return_type='list'`."
                 ),
             )
 

@@ -26,7 +26,6 @@ from mlflow.utils.uri import (
     is_models_uri,
     is_oss_unity_catalog_uri,
 )
-from mlflow.utils.yaml_utils import write_yaml
 
 REGISTERED_MODEL_META_FILE_NAME = "registered_model_meta"
 
@@ -193,6 +192,8 @@ class ModelsArtifactRepository(ArtifactRepository):
         return self.repo.list_artifacts(path)
 
     def _add_registered_model_meta_file(self, model_path):
+        from mlflow.utils.yaml_utils import write_yaml
+
         write_yaml(
             model_path,
             REGISTERED_MODEL_META_FILE_NAME,

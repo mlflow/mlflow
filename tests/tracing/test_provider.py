@@ -25,7 +25,7 @@ from mlflow.tracing.provider import (
     trace_disabled,
 )
 
-from tests.tracing.helper import get_traces, purge_traces
+from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
 
 
 @pytest.fixture
