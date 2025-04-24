@@ -2,29 +2,39 @@
 
 ## 2.22.0 (2025-04-24)
 
-MLflow 2.22.0 includes several major features and improvements
-
-Breaking changes:
-
-- [Tracking] Add get_last_active_trace works in model serving / monitoring (#15233, @B-Step62)
+MLflow 2.22.0 brings important bug fixes and improves the UI and tracking capabilities.
 
 Features:
 
-- [Models] Add optuna storage utility to enable parallel hyperparam tuning (#15243, @XiaohanZhangCMU)
-- [Tracking] Support tracing OpenAI Responses API (#15240, @B-Step62)
-- [UI] Automatically update Text Artifact view in UI (#14939, @joelrobin18)
-- [Tracking] Implement async export for Databricks trace export and make it default (#15163, @B-Step62)
-- [] Gemini embeddings to Mlflow AI Gateway + Unit test (#15017, @joelrobin18)
-- [Sqlalchemy / Tracking] Support mysql ssl connections with client certs (#14839, @aksylumoed)
-- [Artifacts] Supports ADLS artifact repo (#14723, @serena-ruan)
+- [Tracking] Supported tracing for OpenAI Responses API.  
+  (#15240, @B-Step62)
+- [Tracking] Introduced `get_last_active_trace`, which affects model serving/monitoring logic.  
+  (#15233, @B-Step62)
+- [Tracking] Introduced async export for Databricks traces (default behavior).  
+  (#15163, @B-Step62)
+- [AI Gateway] Added Gemini embeddings support with corresponding unit tests.  
+  (#15017, @joelrobin18)
+- [Tracking / SQLAlchemy] MySQL SSL connections are now supported with client certs.  
+  (#14839, @aksylumoed)
+- [Models] Added Optuna storage utility for enabling parallel hyperparameter tuning.  
+  (#15243, @XiaohanZhangCMU)
+- [Artifacts] Added support for Azure Data Lake Storage (ADLS) artifact repositories.  
+  (#14723, @serena-ruan)
+- [UI] Artifact views for text now auto-refresh in the UI.  
+  (#14939, @joelrobin18)
 
-Bug fixes:
+Bug Fixes:
 
-- [Tracking / UI] Update langchain_tracer for serializing invocation params when using Structured Output + Unit test (#14971, @joelrobin18)
-- [Server-infra] Validate auth password to be string longer than 8 chars (#15287, @WeichenXu123)
-- [Deployments] fix openai gateway adapter (#15286, @WeichenXu123)
-- [Artifacts / Server-infra / Tracking] Strip slash (#15016, @tarek7669)
-- [] Fix a bug in tag creation where tag values containing `": "` get truncated (#14896, @harupy)
+- [Tracking / UI] Fixed serialization for structured output in `langchain_tracer` + added unit tests.  
+  (#14971, @joelrobin18)
+- [Server-infra] Enforced password validation for authentication (min. 8 characters).  
+  (#15287, @WeichenXu123)
+- [Deployments] Resolved an issue with the OpenAI Gateway adapter.  
+  (#15286, @WeichenXu123)
+- [Artifacts / Tracking / Server-infra] Normalized paths by stripping trailing slashes.  
+  (#15016, @tarek7669)
+- [Tags] Fixed bug where tag values containing `": "` were being truncated.  
+  (#14896, @harupy)
 
 Small bug fixes and documentation updates:
 
@@ -87,7 +97,7 @@ We are excited to announce the release of MLflow 2.21.0! This release includes a
 
 - 📚 **Documentation Redesign**: [MLflow documentation](https://mlflow.org/docs/latest/) is fully revamped with a new MDX-based website that provides better navigation and makes it easier to find the information you need! (#13645, @daniellok-db)
 - 🤖 **Prompt Registry**: [MLflow Prompt Registry](https://mlflow.org/docs/latest/prompts/) is a powerful tool that streamlines prompt engineering and management in your GenAI applications. It enables you to version, track, and reuse prompts across your organization. (#14795, #14834, #14936, @B-Step62, #14960, #14984, @daniellok-db, #14909, @hubertzub-db)
-- ⚡️ **FastAPI Scoring Server**: The [MLflow inference server](https://mlflow.org/docs/latest/deployment/deploy-model-locally/#serving-frameworks)has been migrated from Flask to FastAPI, enabling ASGI-based scalable inference for improved performance and throughput. (#14307, @TomeHirata)
+- ⚡️ **FastAPI Scoring Server**: The [MLflow inference server](https://mlflow.org/docs/latest/deployment/deploy-model-locally/#serving-frameworks) has been migrated from Flask to FastAPI, enabling ASGI-based scalable inference for improved performance and throughput. (#14307, @TomeHirata)
 - 🔍 **Enhanced Tracing Capabilities**: [MLflow Tracing](https://mlflow.org/docs/latest/tracing/) now supports synchronous/asynchronous generators and auto-tracing for Async OpenAI, providing more flexible and comprehensive tracing options. (#14459, #14400, #14793, @14792, @B-Step62)
 
 Features:
