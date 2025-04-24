@@ -38,7 +38,7 @@ def basic_config_dict():
         "endpoints": [
             {
                 "name": "chat-openai",
-                "route_type": "llm/v1/chat",
+                "endpoint_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-4o-mini",
                     "provider": "openai",
@@ -47,7 +47,7 @@ def basic_config_dict():
             },
             {
                 "name": "completions-openai",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -56,7 +56,7 @@ def basic_config_dict():
             },
             {
                 "name": "embeddings-openai",
-                "route_type": "llm/v1/embeddings",
+                "endpoint_type": "llm/v1/embeddings",
                 "model": {
                     "provider": "openai",
                     "name": "text-embedding-ada-002",
@@ -68,7 +68,7 @@ def basic_config_dict():
             },
             {
                 "name": "completions-anthropic",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "provider": "anthropic",
                     "name": "claude-instant-1.1",
@@ -79,7 +79,7 @@ def basic_config_dict():
             },
             {
                 "name": "completions-ai21labs",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "provider": "ai21labs",
                     "name": "j2-ultra",
@@ -90,7 +90,7 @@ def basic_config_dict():
             },
             {
                 "name": "completions-cohere",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "provider": "cohere",
                     "name": "command",
@@ -101,7 +101,7 @@ def basic_config_dict():
             },
             {
                 "name": "completions-mosaicml",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "provider": "mosaicml",
                     "name": "mpt-7b-instruct",
@@ -112,7 +112,7 @@ def basic_config_dict():
             },
             {
                 "name": "completions-palm",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "provider": "palm",
                     "name": "text-bison-001",
@@ -123,7 +123,7 @@ def basic_config_dict():
             },
             {
                 "name": "chat-palm",
-                "route_type": "llm/v1/chat",
+                "endpoint_type": "llm/v1/chat",
                 "model": {
                     "provider": "palm",
                     "name": "chat-bison-001",
@@ -134,7 +134,7 @@ def basic_config_dict():
             },
             {
                 "name": "chat-mosaicml",
-                "route_type": "llm/v1/chat",
+                "endpoint_type": "llm/v1/chat",
                 "model": {
                     "provider": "mosaicml",
                     "name": "llama2-70b-chat",
@@ -145,7 +145,7 @@ def basic_config_dict():
             },
             {
                 "name": "embeddings-cohere",
-                "route_type": "llm/v1/embeddings",
+                "endpoint_type": "llm/v1/embeddings",
                 "model": {
                     "provider": "cohere",
                     "name": "embed-english-v2.0",
@@ -156,7 +156,7 @@ def basic_config_dict():
             },
             {
                 "name": "embeddings-mosaicml",
-                "route_type": "llm/v1/embeddings",
+                "endpoint_type": "llm/v1/embeddings",
                 "model": {
                     "provider": "mosaicml",
                     "name": "instructor-large",
@@ -167,7 +167,7 @@ def basic_config_dict():
             },
             {
                 "name": "embeddings-palm",
-                "route_type": "llm/v1/embeddings",
+                "endpoint_type": "llm/v1/embeddings",
                 "model": {
                     "provider": "palm",
                     "name": "embedding-gecko-001",
@@ -178,7 +178,7 @@ def basic_config_dict():
             },
             {
                 "name": "chat-oss",
-                "route_type": "llm/v1/chat",
+                "endpoint_type": "llm/v1/chat",
                 "model": {
                     "provider": "mlflow-model-serving",
                     "name": "mpt-chatbot",
@@ -187,7 +187,7 @@ def basic_config_dict():
             },
             {
                 "name": "completions-oss",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "provider": "mlflow-model-serving",
                     "name": "completion-model",
@@ -196,7 +196,7 @@ def basic_config_dict():
             },
             {
                 "name": "embeddings-oss",
-                "route_type": "llm/v1/embeddings",
+                "endpoint_type": "llm/v1/embeddings",
                 "model": {
                     "provider": "mlflow-model-serving",
                     "name": "sentence-transformers",
@@ -205,7 +205,7 @@ def basic_config_dict():
             },
             {
                 "name": "completions-huggingface",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "provider": "huggingface-text-generation-inference",
                     "name": "hf-falcon-7b-instruct",
@@ -214,7 +214,7 @@ def basic_config_dict():
             },
             {
                 "name": "completions-bedrock",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "provider": "bedrock",
                     "name": "amazon.titan-tg1-large",
@@ -223,7 +223,7 @@ def basic_config_dict():
             },
             {
                 "name": "completions-mistral",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "provider": "mistral",
                     "name": "mistral-tiny",
@@ -234,7 +234,7 @@ def basic_config_dict():
             },
             {
                 "name": "embeddings-mistral",
-                "route_type": "llm/v1/embeddings",
+                "endpoint_type": "llm/v1/embeddings",
                 "model": {
                     "provider": "mistral",
                     "name": "mistral-embed",
@@ -245,7 +245,7 @@ def basic_config_dict():
             },
             {
                 "name": "completions-togetherai",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "provider": "togetherai",
                     "name": "mistralai/Mixtral-8x7B-v0.1",
@@ -256,7 +256,7 @@ def basic_config_dict():
             },
             {
                 "name": "chat-togetherai",
-                "route_type": "llm/v1/chat",
+                "endpoint_type": "llm/v1/chat",
                 "model": {
                     "provider": "togetherai",
                     "name": "mistralai/Mixtral-8x7B-Instruct-v0.1",
@@ -267,7 +267,7 @@ def basic_config_dict():
             },
             {
                 "name": "embeddings-togetherai",
-                "route_type": "llm/v1/embeddings",
+                "endpoint_type": "llm/v1/embeddings",
                 "model": {
                     "provider": "togetherai",
                     "name": "togethercomputer/m2-bert-80M-8k-retrieval",

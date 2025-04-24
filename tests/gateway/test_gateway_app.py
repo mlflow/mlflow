@@ -18,7 +18,7 @@ def client() -> TestClient:
             "endpoints": [
                 {
                     "name": "completions-gpt4",
-                    "route_type": "llm/v1/completions",
+                    "endpoint_type": "llm/v1/completions",
                     "model": {
                         "name": "gpt-4",
                         "provider": "openai",
@@ -32,7 +32,7 @@ def client() -> TestClient:
                 },
                 {
                     "name": "chat-gpt4",
-                    "route_type": "llm/v1/chat",
+                    "endpoint_type": "llm/v1/chat",
                     "model": {
                         "name": "gpt-4",
                         "provider": "openai",
@@ -118,7 +118,7 @@ def test_dynamic_route():
             "endpoints": [
                 {
                     "name": "chat",
-                    "route_type": "llm/v1/chat",
+                    "endpoint_type": "llm/v1/chat",
                     "model": {
                         "name": "gpt-4",
                         "provider": "openai",

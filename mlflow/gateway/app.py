@@ -147,7 +147,7 @@ def _route_type_to_endpoint(config: RouteConfig, limiter: Limiter, key: str):
         RouteType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
         RouteType.LLM_V1_EMBEDDINGS: _create_embeddings_endpoint,
     }
-    if factory := provider_to_factory.get(config.route_type):
+    if factory := provider_to_factory.get(config.endpoint_type):
         handler = factory(config)
         if limit := config.limit:
             limit_value = f"{limit.calls}/{limit.renewal_period}"
@@ -158,7 +158,7 @@ def _route_type_to_endpoint(config: RouteConfig, limiter: Limiter, key: str):
 
     raise HTTPException(
         status_code=404,
-        detail=f"Unexpected route type {config.route_type!r} for route {config.name!r}.",
+        detail=f"Unexpected route type {config.endpoint_type!r} for route {config.name!r}.",
     )
 
 
@@ -366,7 +366,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         request: Request, payload: chat.RequestPayload
     ) -> chat.ResponsePayload:
         route = _look_up_route(payload.model)
-        if route.route_type != RouteType.LLM_V1_CHAT:
+        if route.endpoint_type != RouteType.LLM_V1_CHAT:
             raise HTTPException(
                 status_code=400,
                 detail=f"Endpoint {route.name!r} is not a chat endpoint.",
@@ -384,7 +384,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         request: Request, payload: completions.RequestPayload
     ) -> completions.ResponsePayload:
         route = _look_up_route(payload.model)
-        if route.route_type != RouteType.LLM_V1_COMPLETIONS:
+        if route.endpoint_type != RouteType.LLM_V1_COMPLETIONS:
             raise HTTPException(
                 status_code=400,
                 detail=f"Endpoint {route.name!r} is not a completions endpoint.",
@@ -402,7 +402,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         request: Request, payload: embeddings.RequestPayload
     ) -> embeddings.ResponsePayload:
         route = _look_up_route(payload.model)
-        if route.route_type != RouteType.LLM_V1_EMBEDDINGS:
+        if route.endpoint_type != RouteType.LLM_V1_EMBEDDINGS:
             raise HTTPException(
                 status_code=400,
                 detail=f"Endpoint {route.name!r} is not an embeddings endpoint.",

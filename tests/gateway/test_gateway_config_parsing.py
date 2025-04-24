@@ -22,7 +22,7 @@ def basic_config_dict():
         "endpoints": [
             {
                 "name": "completions-gpt4",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -37,7 +37,7 @@ def basic_config_dict():
             },
             {
                 "name": "chat-gpt4",
-                "route_type": "llm/v1/chat",
+                "endpoint_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -46,7 +46,7 @@ def basic_config_dict():
             },
             {
                 "name": "claude-chat",
-                "route_type": "llm/v1/chat",
+                "endpoint_type": "llm/v1/chat",
                 "model": {
                     "name": "claude-v1",
                     "provider": "anthropic",
@@ -140,7 +140,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
 
     completions_gpt4 = loaded_from_save.endpoints[0]
     assert completions_gpt4.name == "completions-gpt4"
-    assert completions_gpt4.route_type == "llm/v1/completions"
+    assert completions_gpt4.endpoint_type == "llm/v1/completions"
     assert completions_gpt4.model.name == "gpt-4"
     assert completions_gpt4.model.provider == "openai"
     completions_conf = completions_gpt4.model.config
@@ -153,7 +153,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
 
     chat_gpt4 = loaded_from_save.endpoints[1]
     assert chat_gpt4.name == "chat-gpt4"
-    assert chat_gpt4.route_type == "llm/v1/chat"
+    assert chat_gpt4.endpoint_type == "llm/v1/chat"
     assert chat_gpt4.model.name == "gpt-4"
     assert chat_gpt4.model.provider == "openai"
     chat_conf = chat_gpt4.model.config
@@ -167,7 +167,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     claude = loaded_from_save.endpoints[2]
     assert isinstance(claude.model.config, AnthropicConfig)
     assert claude.name == "claude-chat"
-    assert claude.route_type == "llm/v1/chat"
+    assert claude.endpoint_type == "llm/v1/chat"
     assert claude.model.name == "claude-v1"
     assert claude.model.provider == "anthropic"
     claude_conf = claude.model.config
@@ -185,7 +185,7 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
 
     for config in loaded.endpoints:
         route = [x for x in routes if x.name == config.name][0]
-        assert route.route_type == config.route_type
+        assert route.route_type == config.endpoint_type
         assert route.model.name == config.model.name
         assert route.model.provider == config.model.provider
         # Pydantic doesn't allow undefined elements to be a part of its serialized object.
@@ -199,7 +199,7 @@ def test_invalid_route_definition(tmp_path):
         "endpoints": [
             {
                 "name": "invalid_route",
-                "route_type": "invalid/route",
+                "endpoint_type": "invalid/route",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -226,7 +226,7 @@ def test_invalid_provider(tmp_path):
         "endpoints": [
             {
                 "name": "invalid_route",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "name": "gpt-4",
                     "provider": "my_provider",
@@ -253,7 +253,7 @@ def test_invalid_model_definition(tmp_path):
         "endpoints": [
             {
                 "name": "some_name",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "name": "invalid",
                     "provider": "openai",
@@ -275,7 +275,7 @@ def test_invalid_model_definition(tmp_path):
         "endpoints": [
             {
                 "name": "some_name",
-                "route_type": "llm/v1/chat",
+                "endpoint_type": "llm/v1/chat",
                 "model": {
                     "name": "invalid",
                     "provider": "openai",
@@ -298,7 +298,7 @@ def test_invalid_model_definition(tmp_path):
         "endpoints": [
             {
                 "name": "some_name",
-                "route_type": "llm/v1/embeddings",
+                "endpoint_type": "llm/v1/embeddings",
                 "model": {
                     "name": "invalid",
                     "provider": "openai",
@@ -317,7 +317,7 @@ def test_invalid_model_definition(tmp_path):
         "endpoints": [
             {
                 "name": "some_name",
-                "route_type": "llm/v1/embeddings",
+                "endpoint_type": "llm/v1/embeddings",
                 "model": {
                     "name": "invalid",
                     "provider": "anthropic",
@@ -343,7 +343,7 @@ def test_invalid_route_name(tmp_path, route_name):
         "endpoints": [
             {
                 "name": route_name,
-                "route_type": "bad/naming",
+                "endpoint_type": "bad/naming",
                 "model": {
                     "name": "claude-v1",
                     "provider": "anthropic",
@@ -369,7 +369,7 @@ def test_default_base_api(tmp_path):
         "endpoints": [
             {
                 "name": "chat-gpt4",
-                "route_type": "llm/v1/chat",
+                "endpoint_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -390,7 +390,7 @@ def test_duplicate_routes_in_config(tmp_path):
         "endpoints": [
             {
                 "name": "classifier",
-                "route_type": "llm/v1/classifier",
+                "endpoint_type": "llm/v1/classifier",
                 "model": {
                     "name": "serving-endpoints/document-classifier/Production/invocations",
                     "provider": "databricks-model-serving",
@@ -402,7 +402,7 @@ def test_duplicate_routes_in_config(tmp_path):
             },
             {
                 "name": "classifier",
-                "route_type": "llm/v1/classifier",
+                "endpoint_type": "llm/v1/classifier",
                 "model": {
                     "name": "serving-endpoints/document-classifier/Production/invocations",
                     "provider": "databricks_serving_endpoint",

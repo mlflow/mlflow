@@ -344,7 +344,7 @@ class LimitsConfig(ConfigModel):
 
 class RouteConfig(AliasedConfigModel):
     name: str
-    route_type: RouteType = Field(alias="endpoint_type")
+    endpoint_type: RouteType
     model: Model
     limit: Optional[Limit] = None
 
@@ -372,10 +372,10 @@ class RouteConfig(AliasedConfigModel):
     @model_validator(mode="after", skip_on_failure=True)
     def validate_route_type_and_model_name(cls, values):
         if IS_PYDANTIC_V2_OR_NEWER:
-            route_type = values.route_type
+            route_type = values.endpoint_type
             model = values.model
         else:
-            route_type = values.get("route_type")
+            route_type = values.get("endpoint_type")
             model = values.get("model")
         if (
             model
@@ -395,7 +395,7 @@ class RouteConfig(AliasedConfigModel):
             )
         return values
 
-    @field_validator("route_type", mode="before")
+    @field_validator("endpoint_type", mode="before")
     def validate_route_type(cls, value):
         if value in RouteType._value2member_map_:
             return value
@@ -421,7 +421,7 @@ class RouteConfig(AliasedConfigModel):
     def to_route(self) -> "Route":
         return Route(
             name=self.name,
-            route_type=self.route_type,
+            route_type=self.endpoint_type,
             model=RouteModelInfo(
                 name=self.model.name,
                 provider=self.model.provider,

@@ -17,7 +17,7 @@ def config():
         "endpoints": [
             {
                 "name": "chat",
-                "route_type": "llm/v1/chat",
+                "endpoint_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-4o-mini",
                     "provider": "openai",
@@ -26,7 +26,7 @@ def config():
             },
             {
                 "name": "completions",
-                "route_type": "llm/v1/completions",
+                "endpoint_type": "llm/v1/completions",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -35,7 +35,7 @@ def config():
             },
             {
                 "name": "embeddings",
-                "route_type": "llm/v1/embeddings",
+                "endpoint_type": "llm/v1/embeddings",
                 "model": {
                     "provider": "openai",
                     "name": "text-embedding-ada-002",
