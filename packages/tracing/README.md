@@ -1,4 +1,4 @@
-# MLflow Trace: An Open-Source SDK for Observability and Monitoring GenAI Applications🔍
+# MLflow Tracing: An Open-Source SDK for Observability and Monitoring GenAI Applications🔍
 
 [![Latest Docs](https://img.shields.io/badge/docs-latest-success.svg?style=for-the-badge)](https://mlflow.org/docs/latest/index.html)
 [![Apache 2 License](https://img.shields.io/badge/license-Apache%202-brightgreen.svg?style=for-the-badge&logo=apache)](https://github.com/mlflow/mlflow/blob/master/LICENSE.txt)
@@ -7,9 +7,13 @@
 
 ![Trace Hero](https://mlflow.org/docs/latest/assets/images/tracing-top-dcca046565ab33be6afe0447dd328c22.gif)
 
-MLflow Trace is an open-source, lightweight Python package that only includes the minimum set of dependencies and functionality
-to instrument your code/models/agents with [MLflow Tracing](https://mlflow.org/docs/latest/tracing). This package is designed to be
-used in environments where you want to minimize the size of your dependencies, such as in production or serverless environments.
+MLflow Tracing (`mlflow-tracing`) is an open-source, lightweight Python package that only includes the minimum set of dependencies and functionality
+to instrument your code/models/agents with [MLflow Tracing Feature](https://mlflow.org/docs/latest/tracing). It is designed to be a perfect fit for production environments where you want:
+
+- **⚡️ Faster Deployment**: The package size and dependencies are significantly smaller than the full MLflow package, allowing for faster deployment times in dynamic environments such as Docker containers, serverless functions, and cloud-based applications.
+- **🔧 Simplified Dependency Management**: A smaller set of dependencies means less work keeping up with dependency updates, security patches, and breaking changes from upstream libraries.
+- **📦 Portability**: With the less number of dependencies, MLflow Tracing can be easily deployed across different environments and platforms, without worrying about compatibility issues.
+- **🔒 Less Security Risks**: Each dependency potentially introduces security vulnerabilities. By reducing the number of dependencies, MLflow Tracing minimizes the attack surface and reduces the risk of security breaches.
 
 ## ✨ Features
 
@@ -17,14 +21,13 @@ used in environments where you want to minimize the size of your dependencies, s
 - [Manual instrumentation APIs](https://mlflow.org/docs/latest/tracing/api/manual-instrumentation) such as `@trace` decorator.
 - [Production Monitoring](https://mlflow.org/docs/latest/tracing/production)
 - Other tracing APIs such as `mlflow.set_trace_tag`, `mlflow.search_traces`, etc.
-- Authentication
 
 ## 🌐 Choose Backend
 
-The MLflow Trace package is designed to work with te remote hosted MLflow server as a backend. This allows you to log your traces to a central location, making it easier to manage and analyze your traces. There are several different options for hosting your MLflow server, including:
+The MLflow Trace package is designed to work with a remote hosted MLflow server as a backend. This allows you to log your traces to a central location, making it easier to manage and analyze your traces. There are several different options for hosting your MLflow server, including:
 
 - [Databricks](https://docs.databricks.com/machine-learning/mlflow/managed-mlflow.html) - Databricks offers a FREE, fully managed MLflow server as a part of their platform. This is the easiest way to get started with MLflow tracing, without having to set up any infrastructure.
-- [Amazon SageMaker](https://aws.amazon.com/sagemaker-ai/experiments/) - MLflow on Amazon SageMaker is a fully managed service offer by AWS, including tracing and other MLflow features such as model registry.
+- [Amazon SageMaker](https://aws.amazon.com/sagemaker-ai/experiments/) - MLflow on Amazon SageMaker is a fully managed service offered as part of the SageMaker platform by AWS, including tracing and other MLflow features such as model registry.
 - [Nebius](https://nebius.com/) - Nebius, a cutting-edge cloud platform for GenAI explorers, offers a fully managed MLflow server.
 - [Self-hosting](https://mlflow.org/docs/latest/tracking/#tracking_setup) - MLflow is a fully open-source project, allowing you to self-host your own MLflow server and keep your data private. This is a great option if you want to have full control over your data and infrastructure.
 
@@ -69,7 +72,7 @@ response = client.chat.completions.create(
 
 ## 📘 Documentation
 
-Official documentation for MLflow can be found at [here](https://mlflow.org/docs/latest/index.html).
+Official documentation for MLflow Tracing can be found at [here](https://mlflow.org/docs/latest/tracing).
 
 ## 🛑 Features _Not_ Included
 

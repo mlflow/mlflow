@@ -45,5 +45,40 @@ repository = "https://github.com/mlflow/mlflow"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["mlflow", "mlflow.*"]
-exclude = ["tests", "tests.*"]
+include = [
+  "mlflow",
+  "mlflow.anthropic*",
+  "mlflow.autogen*",
+  "mlflow.bedrock*",
+  "mlflow.crewai*",
+  "mlflow.dspy*",
+  "mlflow.entities*",
+  "mlflow.environment_variables",
+  "mlflow.exceptions",
+  "mlflow.gemini*",
+  "mlflow.groq*",
+  "mlflow.langchain*",
+  "mlflow.litellm*",
+  "mlflow.llama_index*",
+  "mlflow.mistral*",
+  "mlflow.protos*",
+  "mlflow.store*",
+  "mlflow.tracing*",
+  "mlflow.tracking*",
+  "mlflow.types*",
+  "mlflow.utils*",
+  "mlflow.version",
+]
+exclude = [
+  # Large proto files that are not needed in the package
+  "mlflow/protos/databricks_artifacts_pb2.py",
+  "mlflow/protos/databricks_filesystem_service_pb2.py",
+  "mlflow/protos/databricks_uc_registry_messages_pb2.py",
+  "mlflow/protos/databricks_uc_registry_service_pb2.py",
+  "mlflow/protos/model_registry_pb2.py",
+  "mlflow/protos/unity_catalog_oss_messages_pb2.py",
+  "mlflow/protos/unity_catalog_oss_service_pb2.py",
+  # Test files
+  "tests",
+  "tests.*",
+]
