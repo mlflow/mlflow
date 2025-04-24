@@ -174,9 +174,6 @@ def format_input_example_for_special_cases(input_example, pipeline):
     return input_data if not isinstance(input_example, tuple) else (input_data, input_example[1])
 
 
-@deprecated(
-    alternative="the `input_example` parameter in mlflow.transformers.log_model", since="2.19.0"
-)
 def generate_signature_output(pipeline, data, model_config=None, flavor_config=None, params=None):
     # Lazy import to avoid circular dependencies. Ideally we should move _TransformersWrapper
     # out from __init__.py to avoid this.
