@@ -22,7 +22,7 @@ TARGET = "aiohttp.ClientSession.post"
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "mistral",
             "name": "mistral-tiny",
@@ -117,7 +117,7 @@ async def test_completions_temperature_is_scaled_correctly():
 def embeddings_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "mistral",
             "name": "mistral-embed",

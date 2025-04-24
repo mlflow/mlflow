@@ -185,7 +185,7 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     def _get_route_config(config):
         return RouteConfig(
             name=provider,
-            route_type="llm/v1/chat",
+            endpoint_type="llm/v1/chat",
             model={
                 "provider": provider,
                 "name": model,
