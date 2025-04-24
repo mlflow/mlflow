@@ -7,6 +7,11 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_KEY,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+)
 
 
 @pytest.fixture
@@ -23,7 +28,7 @@ def trace_info():
         },
         tags={
             "baz": "qux",
-            "k" * 2000: "v" * 2000,
+            "k" * 2000: "v" * 8000,
         },
         assessments=[],
     )
@@ -65,16 +70,16 @@ def test_to_proto(trace_info):
     assert request_metadata_1.value == "bar"
     request_metadata_2 = proto.request_metadata[1]
     assert isinstance(request_metadata_2, ProtoTraceRequestMetadata)
-    assert request_metadata_2.key == "k" * 250
-    assert request_metadata_2.value == "v" * 250
+    assert request_metadata_2.key == "k" * MAX_CHARS_IN_TRACE_INFO_METADATA
+    assert request_metadata_2.value == "v" * MAX_CHARS_IN_TRACE_INFO_METADATA
     tag_1 = proto.tags[0]
     assert isinstance(tag_1, ProtoTraceTag)
     assert tag_1.key == "baz"
     assert tag_1.value == "qux"
     tag_2 = proto.tags[1]
     assert isinstance(tag_2, ProtoTraceTag)
-    assert tag_2.key == "k" * 250
-    assert tag_2.value == "v" * 250
+    assert tag_2.key == "k" * MAX_CHARS_IN_TRACE_INFO_TAGS_KEY
+    assert tag_2.value == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
 
 
 def test_to_dict(trace_info):
@@ -91,7 +96,7 @@ def test_to_dict(trace_info):
         },
         "tags": {
             "baz": "qux",
-            "k" * 2000: "v" * 2000,
+            "k" * 2000: "v" * 8000,
         },
         "assessments": [],
     }
@@ -148,6 +153,12 @@ def test_trace_info_v3(trace_info):
     assert v3_proto.execution_duration.ToMilliseconds() == 1
     assert v3_proto.state == 1
     assert v3_proto.trace_metadata["foo"] == "bar"
-    assert v3_proto.trace_metadata["k" * 250] == "v" * 250
+    assert (
+        v3_proto.trace_metadata["k" * MAX_CHARS_IN_TRACE_INFO_METADATA]
+        == "v" * MAX_CHARS_IN_TRACE_INFO_METADATA
+    )
     assert v3_proto.tags["baz"] == "qux"
-    assert v3_proto.tags["k" * 250] == "v" * 250
+    assert (
+        v3_proto.tags["k" * MAX_CHARS_IN_TRACE_INFO_TAGS_KEY]
+        == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
+    )

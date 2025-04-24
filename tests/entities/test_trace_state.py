@@ -1,7 +1,7 @@
 import pytest
 
 from mlflow.entities.trace_state import TraceState
-from mlflow.protos.databricks_trace_server_pb2 import TraceInfo as ProtoTraceInfo
+from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfo
 
 
 @pytest.mark.parametrize(

@@ -559,6 +559,18 @@ service MlflowService {
     };
   }
 
+  // Create a trace using the V3 API format
+  rpc startTraceV3 (StartTraceV3) returns (StartTraceV3.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces"
+        since { major: 3, minor: 0 }
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
   // Edge endpoint used to search for online traces from an inference table.
   rpc searchUnifiedTraceHandler(SearchUnifiedTraces) returns (SearchUnifiedTraces.Response) {
     option (rpc) = {
@@ -1924,15 +1936,25 @@ message TraceInfoV3 {
 
   optional TraceLocation trace_location = 3;
 
+  // [Deprecated, please use `request_preview` instead.]
   // Request to the model/agent.
   // Equivalent to the input of the root span but added for ease of access.
   // Represented as a JSON string.
   optional string request = 4;
 
+  // [Deprecated, please use `request_preview` instead.]
   // Response of the model/agent.
   // Equivalent to the output of the root span but added for ease of access.
   // Represented as a JSON string.
   optional string response = 5;
+
+  // A preview of the request to the model/agent represented as a JSON string. This is equivalent to the input of the root
+  // span. This preview value is truncated to 10KB while the full request is stored in the trace data in blob storage.
+  optional string request_preview = 12;
+
+  // A preview of the request to the model/agent represented as a JSON string. This is equivalent to the output of the root
+  // span. This preview value is truncated to 10KB while the full response is stored in the trace data in blob storage.
+  optional string response_preview = 13;
 
   // Start time of the trace
   optional google.protobuf.Timestamp request_time = 6;
@@ -1970,6 +1992,19 @@ message TraceInfoV3 {
 
   // Mutable, user-defined tags for the trace, e.g. “question_topic”: “DBSQL”
   map<string, string> tags = 11;
+}
+
+
+message StartTraceV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The information for the trace being created.
+  optional Trace trace = 1 [(validate_required) = true];
+
+  message Response {
+    // The created trace information.
+    optional Trace trace = 1;
+  }
 }
 
 // DatasetSummary. Represents a summary of information about a dataset.

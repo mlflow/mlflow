@@ -26,7 +26,7 @@ def test_deduplicate_span_names():
     span_names = ["red", "red", "blue", "red", "green", "blue"]
 
     spans = [
-        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=span_name), request_id="tr-123")
+        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=span_name), trace_id="tr-123")
         for i, span_name in enumerate(span_names)
     ]
     deduplicate_span_names_in_place(spans)

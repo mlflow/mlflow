@@ -85,7 +85,7 @@ def test_on_end():
         start_time=5_000_000,
         end_time=9_000_000,
     )
-    span = LiveSpan(otel_span, request_id=_REQUEST_ID)
+    span = LiveSpan(otel_span, _REQUEST_ID)
     span.set_status("OK")
     span.set_inputs({"input1": "very long input" * 100})
     span.set_outputs({"output": "very long output" * 100})
