@@ -454,14 +454,14 @@ def test_mlflow_gc_sqlite_with_s3_artifact_repository(
     fake_artifact_path = os.path.join(dest_path, "fake_artifact.txt")
     with Stubber(artifact_repo._get_s3_client()) as s3_stubber:
         s3_stubber.add_response(
-            "list_objects",
+            "list_objects_v2",
             {"Contents": [{"Key": fake_artifact_path}]},
             {"Bucket": bucket, "Prefix": dest_path},
         )
         s3_stubber.add_response(
-            "delete_object",
-            {"DeleteMarker": True},
-            {"Bucket": bucket, "Key": fake_artifact_path},
+            "delete_objects",
+            {"Deleted": [{"Key": fake_artifact_path}]},
+            {"Bucket": bucket, "Delete": {"Objects": [{"Key": fake_artifact_path}]}},
         )
 
         CliRunner().invoke(

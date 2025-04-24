@@ -1,0 +1,46 @@
+---
+sidebar_position: 11
+sidebar_label: Groq
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Tracing Groq
+
+![Groq tracing via autolog](/images/llms/groq/groq-tracing.png)
+
+MLflow Tracing provides automatic tracing capability when using Groq.
+When Groq auto-tracing is enabled by calling the <APILink fn="mlflow.groq.autolog" /> function,
+usage of the Groq SDK will automatically record generated traces during interactive development.
+
+Note that only synchronous calls are supported, and that asynchronous API and streaming methods are not traced.
+
+### Example Usage
+
+```python
+import groq
+
+import mlflow
+
+# Turn on auto tracing for Groq by calling mlflow.groq.autolog()
+mlflow.groq.autolog()
+
+client = groq.Groq()
+
+# Use the create method to create new message
+message = client.chat.completions.create(
+    model="llama3-8b-8192",
+    messages=[
+        {
+            "role": "user",
+            "content": "Explain the importance of low latency LLMs.",
+        }
+    ],
+)
+
+print(message.choices[0].message.content)
+```
+
+## Disable auto-tracing
+
+Auto tracing for Groq can be disabled globally by calling `mlflow.groq.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

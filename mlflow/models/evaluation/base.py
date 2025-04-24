@@ -1120,7 +1120,7 @@ def evaluate(  # noqa: D417
     specified ``evaluators``, and logs resulting metrics & artifacts to MLflow tracking server.
     Users can also skip setting ``model`` and put the model outputs in ``data`` directly for
     evaluation. For detailed information, please read
-    :ref:`the Model Evaluation documentation <model-evaluation>`.
+    `the Model Evaluation documentation <../../model-evaluation/index.html>`_.
 
     Default Evaluator behavior:
      - The default evaluator, which can be invoked with ``evaluators="default"`` or

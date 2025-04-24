@@ -3,6 +3,7 @@ from mlflow.server.handlers import _get_rest_path
 HOME = "/"
 SIGNUP = "/signup"
 CREATE_USER = _get_rest_path("/mlflow/users/create")
+CREATE_USER_UI = _get_rest_path("/mlflow/users/create-ui")
 GET_USER = _get_rest_path("/mlflow/users/get")
 UPDATE_USER_PASSWORD = _get_rest_path("/mlflow/users/update-password")
 UPDATE_USER_ADMIN = _get_rest_path("/mlflow/users/update-admin")

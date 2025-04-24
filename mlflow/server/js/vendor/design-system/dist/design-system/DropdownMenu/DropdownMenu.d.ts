@@ -5,7 +5,10 @@ import React from 'react';
 import type { Theme } from '../../theme';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
 import type { AnalyticsEventProps, AnalyticsEventValueChangeNoPiiFlagProps } from '../types';
-export declare const Root: ({ children, ...props }: DropdownMenu.DropdownMenuProps) => ReactElement;
+interface DropdownRootProps extends DropdownMenu.DropdownMenuProps {
+    itemHtmlType?: 'submit' | 'button';
+}
+export declare const Root: ({ children, itemHtmlType, ...props }: DropdownRootProps) => ReactElement;
 export interface DropdownMenuProps extends DropdownMenu.MenuContentProps {
     minWidth?: number;
     forceCloseOnEscape?: boolean;
@@ -53,11 +56,12 @@ export declare const HintRow: React.ForwardRefExoticComponent<Pick<Pick<React.De
 export declare const IconWrapper: React.ForwardRefExoticComponent<Pick<Pick<React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>, "key" | keyof React.HTMLAttributes<HTMLDivElement>> & {
     ref?: ((instance: HTMLDivElement | null) => void) | React.RefObject<HTMLDivElement> | null | undefined;
 }, "key" | keyof React.HTMLAttributes<HTMLDivElement>> & React.RefAttributes<HTMLDivElement>>;
-export declare const dropdownContentStyles: (theme: Theme) => CSSObject;
+export declare const dropdownContentStyles: (theme: Theme, useNewShadows: boolean) => CSSObject;
 export declare const dropdownItemStyles: (theme: Theme) => Interpolation<Theme>;
 export declare const dropdownSeparatorStyles: (theme: Theme) => {
     height: number;
     margin: string;
     backgroundColor: string;
 };
+export {};
 //# sourceMappingURL=DropdownMenu.d.ts.map

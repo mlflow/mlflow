@@ -339,7 +339,7 @@ def log_explainer(
         metadata: {{ metadata }}
     """
 
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.shap,
         explainer=explainer,

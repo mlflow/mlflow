@@ -6,8 +6,10 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+import pydantic
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
 from mlflow.types.schema import (
     HAS_PYSPARK,
@@ -113,6 +115,11 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object, AnyType]:
     return dtype
 
 
+class InvalidDataForSignatureInferenceError(MlflowException):
+    def __init__(self, message):
+        super().__init__(message=message, error_code=INVALID_PARAMETER_VALUE)
+
+
 def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyType]]:
     """
     Infer the datatype of input data.
@@ -130,6 +137,16 @@ def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyTyp
         While empty lists are inferred as AnyType instead of None after the support of AnyType.
         e.g. [] -> AnyType, [[], []] -> Array(Any)
     """
+    if isinstance(data, pydantic.BaseModel):
+        raise InvalidDataForSignatureInferenceError(
+            message="MLflow does not support inferring model signature from input example "
+            "with Pydantic objects. To use Pydantic objects, define your PythonModel's "
+            "`predict` method with a Pydantic type hint, and model signature will be automatically "
+            "inferred when logging the model. e.g. "
+            "`def predict(self, model_input: list[PydanticType])`. Check "
+            "https://mlflow.org/docs/latest/model/python_model.html#type-hint-usage-in-pythonmodel "
+            "for more details."
+        )
 
     if _is_none_or_nan(data) or (isinstance(data, (list, dict)) and not data):
         return AnyType()
@@ -490,7 +507,8 @@ def _infer_numpy_dtype(dtype) -> DataType:
 def _is_none_or_nan(x):
     if isinstance(x, float):
         return np.isnan(x)
-    return x is None
+    # NB: We can't use pd.isna() because the input can be a series.
+    return x is None or x is pd.NA or x is pd.NaT
 
 
 def _infer_required(col) -> bool:

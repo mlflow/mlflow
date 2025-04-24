@@ -10,6 +10,7 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.dspy.wrapper import DspyChatModelWrapper, DspyModelWrapper
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import (
     Model,
@@ -269,6 +270,7 @@ def log_model(
     extra_pip_requirements: Optional[Union[list[str], str]] = None,
     metadata: Optional[dict[str, Any]] = None,
     resources: Optional[Union[str, Path, list[Resource]]] = None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -300,6 +302,7 @@ def log_model(
             file.
         resources: A list of model resources or a resources.yaml file containing a list of
             resources required to serve the model.
+        prompts: {{ prompts }}
 
     .. code-block:: python
         :caption: Example
@@ -358,4 +361,5 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         resources=resources,
+        prompts=prompts,
     )

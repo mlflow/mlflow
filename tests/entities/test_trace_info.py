@@ -1,10 +1,17 @@
 import pytest
+from google.protobuf.duration_pb2 import Duration
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_KEY,
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+)
 
 
 @pytest.fixture
@@ -21,8 +28,9 @@ def trace_info():
         },
         tags={
             "baz": "qux",
-            "k" * 2000: "v" * 2000,
+            "k" * 2000: "v" * 8000,
         },
+        assessments=[],
     )
 
 
@@ -62,16 +70,16 @@ def test_to_proto(trace_info):
     assert request_metadata_1.value == "bar"
     request_metadata_2 = proto.request_metadata[1]
     assert isinstance(request_metadata_2, ProtoTraceRequestMetadata)
-    assert request_metadata_2.key == "k" * 250
-    assert request_metadata_2.value == "v" * 250
+    assert request_metadata_2.key == "k" * MAX_CHARS_IN_TRACE_INFO_METADATA
+    assert request_metadata_2.value == "v" * MAX_CHARS_IN_TRACE_INFO_METADATA
     tag_1 = proto.tags[0]
     assert isinstance(tag_1, ProtoTraceTag)
     assert tag_1.key == "baz"
     assert tag_1.value == "qux"
     tag_2 = proto.tags[1]
     assert isinstance(tag_2, ProtoTraceTag)
-    assert tag_2.key == "k" * 250
-    assert tag_2.value == "v" * 250
+    assert tag_2.key == "k" * MAX_CHARS_IN_TRACE_INFO_TAGS_KEY
+    assert tag_2.value == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
 
 
 def test_to_dict(trace_info):
@@ -88,8 +96,9 @@ def test_to_dict(trace_info):
         },
         "tags": {
             "baz": "qux",
-            "k" * 2000: "v" * 2000,
+            "k" * 2000: "v" * 8000,
         },
+        "assessments": [],
     }
 
 
@@ -125,8 +134,31 @@ def test_trace_info_serialization_deserialization(trace_info_proto):
             "baz": "qux",
             "k" * 250: "v" * 250,
         },
+        "assessments": [],
     }
     # python native dictionary -> TraceInfo
     assert TraceInfo.from_dict(trace_info_as_dict) == trace_info
     # TraceInfo -> trace info proto
     assert trace_info.to_proto() == trace_info_proto
+
+
+def test_trace_info_v3(trace_info):
+    v3_proto = trace_info.to_v3_proto("request", "response")
+    assert v3_proto.request == "request"
+    assert v3_proto.response == "response"
+    assert v3_proto.trace_id == "request_id"
+    assert isinstance(v3_proto.request_time, Timestamp)
+    assert v3_proto.request_time.ToSeconds() == 0
+    assert isinstance(v3_proto.execution_duration, Duration)
+    assert v3_proto.execution_duration.ToMilliseconds() == 1
+    assert v3_proto.state == 1
+    assert v3_proto.trace_metadata["foo"] == "bar"
+    assert (
+        v3_proto.trace_metadata["k" * MAX_CHARS_IN_TRACE_INFO_METADATA]
+        == "v" * MAX_CHARS_IN_TRACE_INFO_METADATA
+    )
+    assert v3_proto.tags["baz"] == "qux"
+    assert (
+        v3_proto.tags["k" * MAX_CHARS_IN_TRACE_INFO_TAGS_KEY]
+        == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
+    )

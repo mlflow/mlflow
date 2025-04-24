@@ -3,18 +3,14 @@ import inspect
 import logging
 import uuid
 import warnings
-from contextvars import ContextVar
 from copy import deepcopy
-from typing import Union
 
-from langchain_core.callbacks.base import BaseCallbackHandler, BaseCallbackManager
 from packaging.version import Version
 
 import mlflow
 from mlflow.entities import RunTag
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.langchain_tracer import MlflowLangchainTracer, should_attach_span_to_context
 from mlflow.langchain.runnables import get_runnable_steps
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import name_utils
@@ -38,17 +34,6 @@ INFERENCE_FILE_NAME = "inference_inputs_outputs.json"
 # for example, LangChain's batch()/abatch() API processes each request in a child thread.
 IS_PATCHING_DISABLED_FOR_ARTIFACTS = False
 
-# A *thread-local* state that indicates whether MLflow should patch the inference
-# method to inject tracing callbacks. This must be thread-local because MLflow can
-# run multiple model predictions across multiple threads (e.g. mlflow.evaluate)
-# and globally disabling tracing would cause issues for concurrent predictions.
-# In normal cases, we do not need this flag because MLflow checks if the call args
-# already contains the MLflow callback before injecting it, and LangChain propagates
-# callbacks from parent to child, preventing double patching. However, an exception
-# is LangGraph, where users might define their custom python function and invoke
-# some LangChain classes manually without propagating the callbacks.
-IS_PATCHING_DISABLED_FOR_TRACING = ContextVar("is_trace_disabled", default=False)
-
 
 @contextlib.contextmanager
 def disable_patching():
@@ -62,14 +47,10 @@ def disable_patching():
     original_artifact_flag = IS_PATCHING_DISABLED_FOR_ARTIFACTS
     IS_PATCHING_DISABLED_FOR_ARTIFACTS = True
 
-    original_trace_flag = IS_PATCHING_DISABLED_FOR_TRACING.get()
-    IS_PATCHING_DISABLED_FOR_TRACING.set(True)
-
     try:
         yield
     finally:
         IS_PATCHING_DISABLED_FOR_ARTIFACTS = original_artifact_flag
-        IS_PATCHING_DISABLED_FOR_TRACING.set(original_trace_flag)
 
 
 def patched_inference(func_name, original, self, *args, **kwargs):
@@ -85,155 +66,13 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             return original(self, *args, **kwargs)
 
     config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
-    should_trace = not IS_PATCHING_DISABLED_FOR_TRACING.get() and config.log_traces
-
-    if should_trace:
-        tracer = MlflowLangchainTracer(
-            set_span_in_context=should_attach_span_to_context(func_name, self)
-        )
-        args, kwargs = _get_args_with_mlflow_tracer(tracer, func_name, args, kwargs)
-
-    # Traces does not require an MLflow run, only the other optional artifacts require it.
-    try:
-        if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
-            with _setup_autolog_run(config, self) as run_id:
-                result = _invoke(self, *args, **kwargs)
-                _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
-        else:
+    if not IS_PATCHING_DISABLED_FOR_ARTIFACTS and config.should_log_optional_artifacts():
+        with _setup_autolog_run(config, self) as run_id:
             result = _invoke(self, *args, **kwargs)
-    finally:
-        if should_trace:
-            # Make sure all spans are flushed before finishing the inference. LangChain's on_xyz_end
-            # callbacks are not guaranteed to be invoked always, which results in leaking the active
-            # span context to the next inference call. Flushing the tracer ensures that all spans
-            # are finished and detached from the context.
-            tracer.flush()
-
+            _log_optional_artifacts(config, run_id, result, self, func_name, *args, **kwargs)
+    else:
+        result = _invoke(self, *args, **kwargs)
     return result
-
-
-def _get_args_with_mlflow_tracer(mlflow_tracer, func_name, args, kwargs):
-    """
-    Get the patched arguments with MLflow tracer injected.
-    """
-    if func_name in ["invoke", "batch", "stream", "ainvoke", "abatch", "astream"]:
-        # `config` is the second positional argument of runnable APIs such as
-        # invoke, batch, stream, ainvoke, abatch, and astream
-        # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/runnables/base.py
-        if len(args) >= 2:
-            config = args[1]
-            config = _get_runnable_config_with_callback(config, mlflow_tracer)
-            return (args[0], config, *args[2:]), kwargs
-        else:
-            config = kwargs.get("config")
-            kwargs["config"] = _get_runnable_config_with_callback(config, mlflow_tracer)
-        return args, kwargs
-
-    elif func_name == "__call__":
-        # `callbacks` is the third positional argument of chain.__call__ function
-        # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/langchain/langchain/chains/base.py#L320
-        if len(args) >= 3:
-            callbacks = args[2] or []
-            callbacks = _inject_callback(callbacks, mlflow_tracer)
-            return (*args[:2], callbacks, *args[3:]), kwargs
-        else:
-            callbacks = kwargs.get("callbacks") or []
-            kwargs["callbacks"] = _inject_callback(callbacks, mlflow_tracer)
-            return args, kwargs
-
-    elif func_name == "get_relevant_documents":
-        # callbacks is only available as kwargs in get_relevant_documents function
-        # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/retrievers.py#L173
-        callbacks = kwargs.get("callbacks") or []
-        kwargs["callbacks"] = _inject_callback(callbacks, mlflow_tracer)
-        return args, kwargs
-
-    else:
-        _logger.warning(f"Unsupported function `{func_name}`. Skipping injecting MLflow callbacks.")
-        return args, kwargs
-
-
-def _get_runnable_config_with_callback(
-    original_config: Union[None, dict, list[dict]],
-    new_callback: BaseCallbackHandler,
-) -> Union[dict, list[dict]]:
-    """
-    Create a new RunnableConfig (or a list of them) with the new callback injected.
-
-    This function MUST return a new RunnableConfig instance, instead of mutating the original
-    config. This is because the original config may be shared across different calls and in-place
-    modification may cause unexpected behaviors, e.g. double injection.
-
-    Args:
-        original_config: the original RunnableConfig passed by the user
-        new_callback: a new callback to be injected
-    """
-    from langchain_core.runnables.config import RunnableConfig
-
-    if original_config is None:
-        _logger.debug("Injected MLflow callbacks into the model call args.")
-        return RunnableConfig(callbacks=[new_callback])
-    elif isinstance(original_config, list):
-        return [_get_runnable_config_with_callback(c, new_callback) for c in original_config]
-    # Here we expect RunnableConfig, but it is a TypedDict so cannot be used for `isinstance`
-    # check. At runtime, it will merely be a dict.
-    elif isinstance(original_config, dict):
-        config_copy = original_config.copy()
-        callbacks = config_copy.pop("callbacks", None) or []
-        callbacks = _inject_callback(callbacks, new_callback)
-        return RunnableConfig(callbacks=callbacks, **config_copy)
-    else:
-        _logger.warning(
-            f"Unsupported config type `{original_config}` for autologging with tracing."
-            "Skipping injecting MLflow callbacks."
-        )
-        return original_config
-
-
-def _inject_callback(
-    original_callbacks: Union[list[BaseCallbackHandler], BaseCallbackManager],
-    new_callback: MlflowLangchainTracer,
-) -> Union[list, BaseCallbackManager]:
-    """
-    Inject a callback into the original callbacks.
-
-    This function MUST return a new list or new callback manager instance, instead of
-    mutating the original callbacks. This is because the original callbacks may be shared across
-    different calls and in-place modification may cause unexpected behaviors, e.g. double injection.
-
-    Args:
-        original_callbacks: the original callbacks passed by the user
-        new_callback: a new callback to be injected
-    """
-    if isinstance(original_callbacks, BaseCallbackManager):
-        callback_manager_copy = original_callbacks.copy()
-        if not any(isinstance(cb, type(new_callback)) for cb in callback_manager_copy.handlers):
-            # Create a copy of the handlers list to avoid modifying the original handlers list,
-            # while the callback instance itself is shallow copied.
-            handlers = [*callback_manager_copy.handlers, new_callback]
-            callback_manager_copy.handlers = handlers
-            _logger.debug("Injected MLflow callbacks into the model call args.")
-        return callback_manager_copy
-
-    elif _is_list_of_base_callback_handlers(original_callbacks):
-        callback_list_copy = list(original_callbacks)
-        if not any(isinstance(cb, type(new_callback)) for cb in callback_list_copy):
-            callback_list_copy.append(new_callback)
-            _logger.debug("Injected MLflow callbacks into the model call args.")
-        return callback_list_copy
-
-    else:
-        _logger.warning(
-            f"Unsupported callbacks type `{original_callbacks}` for autologging with tracing."
-            "Skipping injecting MLflow callbacks."
-        )
-        return original_callbacks
-
-
-def _is_list_of_base_callback_handlers(callbacks) -> bool:
-    return isinstance(callbacks, list) and all(
-        isinstance(cb, BaseCallbackHandler) for cb in callbacks
-    )
 
 
 @contextlib.contextmanager
@@ -297,11 +136,9 @@ def _resolve_tags(extra_tags, active_run=None):
 
 def _get_input_data_from_function(func_name, model, args, kwargs):
     func_param_name_mapping = {
-        "__call__": "inputs",
         "invoke": "input",
         "batch": "inputs",
         "stream": "input",
-        "get_relevant_documents": "query",
     }
     input_example_exc = None
     if param_name := func_param_name_mapping.get(func_name):
@@ -332,22 +169,6 @@ def _convert_data_to_dict(data, key):
     if isinstance(data, str):
         return {key: [data]}
     raise MlflowException("Unsupported data type.")
-
-
-def _combine_input_and_output(input, output, session_id, func_name):
-    """
-    Combine input and output into a single dictionary
-    """
-    if func_name == "get_relevant_documents" and output is not None:
-        output = [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in output]
-        # to make sure output is inside a single row when converted into pandas DataFrame
-        output = [output]
-    result = {"session_id": [session_id]}
-    if input:
-        result.update(_convert_data_to_dict(input, "input"))
-    if output:
-        result.update(_convert_data_to_dict(output, "output"))
-    return result
 
 
 def _update_langchain_model_config(model):
@@ -413,11 +234,7 @@ def _chain_with_retriever(model):
 def _log_optional_artifacts(autolog_config, run_id, result, self, func_name, *args, **kwargs):
     input_example = None
     if autolog_config.log_models and not hasattr(self, "_mlflow_model_logged"):
-        if (
-            (func_name == "get_relevant_documents")
-            or _runnable_with_retriever(self)
-            or _chain_with_retriever(self)
-        ):
+        if _runnable_with_retriever(self) or _chain_with_retriever(self):
             _logger.info(UNSUPPORTED_LOG_MODEL_MESSAGE)
         else:
             # warn user in case we did't capture some cases where retriever is used

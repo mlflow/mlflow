@@ -319,3 +319,30 @@ class TypingExtensions(Rule):
             "but make sure that the version requirement for `typing-extensions` is compatible with "
             "the added types."
         )
+
+
+class MarkdownLink(Rule):
+    def _id(self) -> str:
+        return "MLF0018"
+
+    def _message(self) -> str:
+        return (
+            "Markdown link is not supported in docstring. "
+            "Use reST link instead (e.g., `Link text <link URL>`_)."
+        )
+
+
+class LazyModule(Rule):
+    def _id(self) -> str:
+        return "MLF0019"
+
+    def _message(self) -> str:
+        return "Module loaded by `LazyLoader` must be imported in `TYPE_CHECKING` block."
+
+
+class EmptyNotebookCell(Rule):
+    def _id(self) -> str:
+        return "MLF0020"
+
+    def _message(self) -> str:
+        return "Empty notebook cell. Remove it or add some content."

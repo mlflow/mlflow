@@ -1,6 +1,6 @@
 import type { WizardStep } from './WizardStep';
 import type { WizardCurrentStepResult } from './useWizardCurrentStep';
-import { type ButtonProps } from '../../design-system';
+import { Button, type ButtonProps } from '../../design-system';
 export interface WizardFooterProps extends Omit<WizardCurrentStepResult, 'onStepsChange' | 'onValidateStepChange'>, WizardStep {
     currentStepIndex: number;
     onCancel?: () => void;
@@ -11,6 +11,10 @@ export interface WizardFooterProps extends Omit<WizardCurrentStepResult, 'onStep
     doneButtonContent: React.ReactNode;
     extraFooterButtonsLeft?: ButtonProps[];
     extraFooterButtonsRight?: ButtonProps[];
+    componentId?: string;
 }
-export declare function getWizardFooterButtons({ goToNextStepOrDone, isLastStep, currentStepIndex, goToPreviousStep, busyValidatingNextStep, nextButtonDisabled, nextButtonLoading, nextButtonContentOverride, previousButtonContentOverride, previousStepButtonHidden, previousButtonDisabled, previousButtonLoading, cancelButtonContent, cancelStepButtonHidden, nextButtonContent, previousButtonContent, doneButtonContent, extraFooterButtonsLeft, extraFooterButtonsRight, onCancel, moveCancelToOtherSide, }: WizardFooterProps): (import("@emotion/react/jsx-runtime").JSX.Element | import("@emotion/react/jsx-runtime").JSX.Element[])[];
+export declare function getWizardFooterButtons({ title, goToNextStepOrDone, isLastStep, currentStepIndex, goToPreviousStep, busyValidatingNextStep, nextButtonDisabled, nextButtonLoading, nextButtonContentOverride, previousButtonContentOverride, previousStepButtonHidden, previousButtonDisabled, previousButtonLoading, cancelButtonContent, cancelStepButtonHidden, nextButtonContent, previousButtonContent, doneButtonContent, extraFooterButtonsLeft, extraFooterButtonsRight, onCancel, moveCancelToOtherSide, componentId, tooltipContent, }: WizardFooterProps): (import("@emotion/react/jsx-runtime").JSX.Element | import("@emotion/react/jsx-runtime").JSX.Element[])[];
+export declare function ButtonWithTooltip({ tooltipContent, disabled, children, ...props }: React.ComponentProps<typeof Button> & {
+    tooltipContent?: string;
+}): import("@emotion/react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=WizardFooter.d.ts.map

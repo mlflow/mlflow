@@ -557,11 +557,10 @@ def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
 
-    with mock.patch(
-        "unitycatalog.ai.core.databricks.DatabricksFunctionClient._validate_warehouse_type",
-        return_value=None,
-    ):
-        client = DatabricksFunctionClient(warehouse_id="testId1")
+    # TODO: remove this mock after unitycatalog-ai release a new version to avoid setting
+    # spark session during initialization
+    with mock.patch("unitycatalog.ai.core.databricks.DatabricksFunctionClient.set_spark_session"):
+        client = DatabricksFunctionClient()
     toolkit = UCFunctionToolkit(function_names=["rag.test.test_function"], client=client)
     llm = OpenAI(temperature=0)
     agent = initialize_agent(
@@ -573,5 +572,4 @@ def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch
     resources = list(_extract_dependency_list_from_lc_model(agent))
     assert resources == [
         DatabricksFunction(function_name="rag.test.test_function"),
-        DatabricksSQLWarehouse(warehouse_id="testId1"),
     ]

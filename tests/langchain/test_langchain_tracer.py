@@ -6,6 +6,7 @@ from typing import Any, Optional
 from unittest.mock import MagicMock
 
 import langchain
+import pydantic
 import pytest
 from langchain.chains.llm import LLMChain
 from langchain.prompts import PromptTemplate
@@ -31,10 +32,9 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.langchain import _LangChainModelWrapper
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
-from mlflow.pyfunc.context import Context
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
-from mlflow.tracing.export.inference_table import pop_trace
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import trace_disabled
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 from tests.tracing.helper import get_traces
 
@@ -105,7 +105,7 @@ def test_llm_success():
     callback.on_llm_new_token("test", run_id=run_id)
 
     callback.on_llm_end(LLMResult(generations=[[{"text": "generated text"}]]), run_id=run_id)
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     llm_span = trace.data.spans[0]
 
@@ -144,7 +144,7 @@ def test_llm_error():
     mock_error = Exception("mock exception")
     callback.on_llm_error(error=mock_error, run_id=run_id)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     error_event = SpanEvent.from_exception(mock_error)
     assert len(trace.data.spans) == 1
     llm_span = trace.data.spans[0]
@@ -199,7 +199,7 @@ def test_chat_model():
         run_id=run_id,
     )
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.name == "test_chat_model"
@@ -257,7 +257,7 @@ def test_chat_model_with_tool():
         run_id=run_id,
     )
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.status.status_code == SpanStatusCode.OK
@@ -305,7 +305,7 @@ def test_chat_model_with_non_openai_tool():
         run_id=run_id,
     )
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.status.status_code == SpanStatusCode.OK
@@ -351,7 +351,7 @@ def test_retriever_success():
         ),
     ]
     callback.on_retriever_end(documents, run_id=run_id)
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
 
@@ -379,7 +379,7 @@ def test_retriever_error():
     )
     mock_error = Exception("mock exception")
     callback.on_retriever_error(error=mock_error, run_id=run_id)
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
     assert retriever_span.inputs == "test query"
@@ -466,7 +466,7 @@ def test_multiple_components():
         outputs={"output": "test output"},
         run_id=chain_run_id,
     )
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 5
     chain_span = trace.data.spans[0]
     assert chain_span.start_time_ns is not None
@@ -508,90 +508,8 @@ def test_multiple_components():
     _validate_trace_json_serialization(trace)
 
 
-def _predict_with_callbacks(lc_model, request_id, data):
-    model = _LangChainModelWrapper(lc_model)
-    tracer = MlflowLangchainTracer(prediction_context=Context(request_id=request_id))
-    response = model._predict_with_callbacks(
-        data, callback_handlers=[tracer], convert_chat_responses=True
-    )
-    trace_dict = pop_trace(request_id)
-    return response, trace_dict
-
-
-def test_e2e_rag_model_tracing_in_serving(mock_databricks_serving_with_tracing_env, monkeypatch):
-    monkeypatch.setenv("RAG_TRACE_V2_ENABLED", "true")
-
-    llm_chain = create_openai_llmchain()
-
-    request_id = "test_request_id"
-    response, trace_dict = _predict_with_callbacks(llm_chain, request_id, ["MLflow"])
-
-    assert response == [{"text": TEST_CONTENT}]
-    trace = Trace.from_dict(trace_dict)
-    assert trace.info.request_id == request_id
-    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
-    spans = trace.data.spans
-    assert len(spans) == 2
-
-    root_span = spans[0]
-    assert root_span.start_time_ns // 1_000_000 == trace.info.timestamp_ms
-    # there might be slight difference when we truncate nano seconds to milliseconds
-    assert (
-        root_span.end_time_ns // 1_000_000
-        - (trace.info.timestamp_ms + trace.info.execution_time_ms)
-    ) <= 1
-    assert root_span.inputs == {"product": "MLflow"}
-    assert root_span.outputs == {"text": TEST_CONTENT}
-    assert root_span.span_type == "CHAIN"
-
-    root_span_id = root_span.span_id
-    child_span = spans[1]
-    assert child_span.parent_id == root_span_id
-    assert child_span.inputs == ["What is MLflow?"]
-    assert child_span.outputs["generations"][0][0]["text"] == TEST_CONTENT
-    assert child_span.span_type == "LLM"
-
-    _validate_trace_json_serialization(trace)
-
-
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="ToolCall message is not available in older versions",
-)
-def test_agent_success(mock_databricks_serving_with_tracing_env):
-    # Load the agent definition (with OpenAI mock) from the sample script
-    from tests.langchain.sample_code.openai_agent import create_openai_agent
-
-    agent = create_openai_agent()
-
-    langchain_input = {"input": "what is the value of magic_function(3)?"}
-    expected_output = {"output": "The result of 2 * 3 is 6."}
-    request_id = "test_request_id"
-    response, trace_dict = _predict_with_callbacks(agent, request_id, langchain_input)
-
-    assert response == expected_output
-
-    trace = Trace.from_dict(trace_dict)
-    assert trace.info.status == "OK"
-
-    spans = trace.data.spans
-    assert len(spans) == 16
-
-    root_span = spans[0]
-    assert root_span.name == "AgentExecutor"
-    assert root_span.span_type == "CHAIN"
-    assert root_span.inputs == langchain_input
-    assert root_span.outputs == expected_output
-    assert root_span.start_time_ns // 1_000_000 == trace.info.timestamp_ms
-    assert (
-        root_span.end_time_ns // 1_000_000
-        - (trace.info.timestamp_ms + trace.info.execution_time_ms)
-    ) <= 1
-
-    _validate_trace_json_serialization(trace)
-
-
-def test_tool_success(mock_databricks_serving_with_tracing_env):
+def test_tool_success():
+    callback = MlflowLangchainTracer()
     prompt = SystemMessagePromptTemplate.from_template("You are a nice assistant.") + "{question}"
     llm = OpenAI(temperature=0.9)
 
@@ -599,12 +517,10 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
     chain_tool = tool("chain_tool", chain)
 
     tool_input = {"question": "What up"}
-    request_id = "test_request_id"
-    response, trace_dict = _predict_with_callbacks(chain_tool, request_id, tool_input)
+    response = chain_tool.invoke(tool_input, config={"callbacks": [callback]})
 
     # str output is converted to _ChatResponse
-    output = response["choices"][0]["message"]["content"]
-    trace = Trace.from_dict(trace_dict)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     spans = trace.data.spans
     assert len(spans) == 5
 
@@ -631,7 +547,7 @@ def test_tool_success(mock_databricks_serving_with_tracing_env):
     # StrOutputParser
     output_parser_span = spans[4]
     assert output_parser_span.span_type == "CHAIN"
-    assert output_parser_span.outputs == output
+    assert output_parser_span.outputs == response
 
     _validate_trace_json_serialization(trace)
 
@@ -765,7 +681,7 @@ def test_tracer_with_manual_traces():
     expected_response = "What is the complementary color of green?"
     assert response == expected_response
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     spans = trace.data.spans
     assert spans[0].name == "parent"
@@ -779,3 +695,60 @@ def test_tracer_with_manual_traces():
     assert spans[4].parent_id == spans[3].span_id
     assert spans[5].name == "PromptTemplate"
     assert spans[5].parent_id == spans[1].span_id
+
+
+def test_serialize_invocation_params_success():
+    class DummyModel(pydantic.BaseModel):
+        field: str
+
+    callback = MlflowLangchainTracer()
+    attributes = {"invocation_params": {"response_format": DummyModel, "other_param": "preserved"}}
+    result = callback._serialize_invocation_params(attributes)
+    expected_schema = (
+        DummyModel.model_json_schema() if IS_PYDANTIC_V2_OR_NEWER else DummyModel.schema()
+    )
+    assert "invocation_params" in result
+    assert "response_format" in result["invocation_params"]
+    assert result["invocation_params"]["response_format"] == expected_schema
+    assert result["invocation_params"]["other_param"] == "preserved"
+
+
+def test_serialize_invocation_params_failure():
+    class FaultyModel(pydantic.BaseModel):
+        field: str
+
+        @classmethod
+        def model_json_schema(cls):
+            raise Exception("dummy failure")
+
+    callback = MlflowLangchainTracer()
+    attributes = {"invocation_params": {"response_format": FaultyModel, "other_param": "preserved"}}
+    result = callback._serialize_invocation_params(attributes)
+    assert result["invocation_params"]["response_format"] == FaultyModel
+    assert result["invocation_params"]["other_param"] == "preserved"
+
+
+def test_serialize_invocation_params_non_pydantic_response_format():
+    callback = MlflowLangchainTracer()
+    test_cases = ["string_value", {"dict_key": "value"}, 123, ["list", "of", "items"], None]
+
+    for test_value in test_cases:
+        attributes = {
+            "invocation_params": {"response_format": test_value, "other_param": "preserved"}
+        }
+        result = callback._serialize_invocation_params(attributes)
+        assert result["invocation_params"]["response_format"] == test_value
+        assert result["invocation_params"]["other_param"] == "preserved"
+
+
+def test_serialize_invocation_params_no_invocation_params():
+    callback = MlflowLangchainTracer()
+    attributes = {"other_key": "value"}
+    result = callback._serialize_invocation_params(attributes)
+    assert result == attributes
+
+
+def test_serialize_invocation_params_none():
+    callback = MlflowLangchainTracer()
+    result = callback._serialize_invocation_params(None)
+    assert result is None

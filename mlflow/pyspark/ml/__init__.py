@@ -961,7 +961,7 @@ def autolog(
             "spark.mlflow.pysparkml.autolog.logModelAllowlistFile".
 
             **The default log model allowlist in mlflow**
-                .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
+                .. literalinclude:: ../../../../mlflow/pyspark/ml/log_model_allowlist.txt
                     :language: text
 
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
@@ -1098,6 +1098,14 @@ def autolog(
                         )
                         log_model_signatures = False
 
+                # `_infer_spark_model_signature` mutates the model. Copy the model to preserve the
+                # original model.
+                try:
+                    spark_model = spark_model.copy()
+                except Exception:
+                    _logger.debug(
+                        "Failed to copy the model, using the original model.", exc_info=True
+                    )
                 input_example_spark_df, signature = resolve_input_example_and_signature(
                     _get_input_example_spark_df,
                     _infer_model_signature,

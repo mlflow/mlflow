@@ -1,11 +1,8 @@
 import { Header, Tabs, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { TraceTableLangchainQuickstartContent } from './TraceTableLangchainQuickstartContent';
-import { TraceTableLlamaIndexQuickstartContent } from './TraceTableLlamaIndexQuickstartContent';
-import { TraceTableCustomQuickstartContent } from './TraceTableCustomQuickstartContent';
-import { TraceTableAutogenQuickstartContent } from './TraceTableAutogenQuickstartContent';
-import { TraceTableOpenAIQuickstartContent } from './TraceTableOpenAIQuickstartContent';
-import { isNil } from 'lodash';
+import { isNil, keys } from 'lodash';
+import { TraceTableGenericQuickstart } from './TraceTableGenericQuickstart';
+import { QUICKSTART_CONTENT, QUICKSTART_FLAVOR } from './TraceTableQuickstart.utils';
 
 export const TracesViewTableNoTracesQuickstart = ({
   baseComponentId,
@@ -17,8 +14,6 @@ export const TracesViewTableNoTracesQuickstart = ({
   runUuid?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
-  // only display the experiment ID if the user is viewing exactly one experiment
-  const experimentId = experimentIds.length === 1 ? experimentIds[0] : null;
 
   return (
     <div css={{ marginLeft: -theme.spacing.md }}>
@@ -62,18 +57,36 @@ export const TracesViewTableNoTracesQuickstart = ({
           }}
         />
       </Typography.Text>
-      <Tabs.Root componentId={`${baseComponentId}.traces_table.quickstart`} defaultValue="langchain">
+      <Tabs.Root componentId={`${baseComponentId}.traces_table.quickstart`} defaultValue="openai">
         <Tabs.List>
+          <Tabs.Trigger value="openai">
+            <FormattedMessage
+              defaultMessage="OpenAI"
+              description="Header for OpenAI tab in the MLflow Tracing quickstart guide"
+            />
+          </Tabs.Trigger>
           <Tabs.Trigger value="langchain">
             <FormattedMessage
               defaultMessage="LangChain / LangGraph"
               description="Header for LangChain / LangGraph tab in the MLflow Tracing quickstart guide"
             />
           </Tabs.Trigger>
-          <Tabs.Trigger value="llama-index">
+          <Tabs.Trigger value="llama_index">
             <FormattedMessage
               defaultMessage="LlamaIndex"
               description="Header for LlamaIndex tab in the MLflow Tracing quickstart guide"
+            />
+          </Tabs.Trigger>
+          <Tabs.Trigger value="dspy">
+            <FormattedMessage
+              defaultMessage="DSPy"
+              description="Header for DSPy tab in the MLflow Tracing quickstart guide"
+            />
+          </Tabs.Trigger>
+          <Tabs.Trigger value="crewai">
+            <FormattedMessage
+              defaultMessage="CrewAI"
+              description="Header for CrewAI tab in the MLflow Tracing quickstart guide"
             />
           </Tabs.Trigger>
           <Tabs.Trigger value="autogen">
@@ -82,10 +95,28 @@ export const TracesViewTableNoTracesQuickstart = ({
               description="Header for AutoGen tab in the MLflow Tracing quickstart guide"
             />
           </Tabs.Trigger>
-          <Tabs.Trigger value="openai">
+          <Tabs.Trigger value="anthropic">
             <FormattedMessage
-              defaultMessage="OpenAI"
-              description="Header for OpenAI tab in the MLflow Tracing quickstart guide"
+              defaultMessage="Anthropic"
+              description="Header for Anthropic tab in the MLflow Tracing quickstart guide"
+            />
+          </Tabs.Trigger>
+          <Tabs.Trigger value="bedrock">
+            <FormattedMessage
+              defaultMessage="Bedrock"
+              description="Header for Bedrock tab in the MLflow Tracing quickstart guide"
+            />
+          </Tabs.Trigger>
+          <Tabs.Trigger value="litellm">
+            <FormattedMessage
+              defaultMessage="LiteLLM"
+              description="Header for LiteLLM tab in the MLflow Tracing quickstart guide"
+            />
+          </Tabs.Trigger>
+          <Tabs.Trigger value="gemini">
+            <FormattedMessage
+              defaultMessage="Gemini"
+              description="Header for Gemini tab in the MLflow Tracing quickstart guide"
             />
           </Tabs.Trigger>
           <Tabs.Trigger value="custom">
@@ -95,41 +126,14 @@ export const TracesViewTableNoTracesQuickstart = ({
             />
           </Tabs.Trigger>
         </Tabs.List>
-        <Tabs.Content value="langchain">
-          <TraceTableLangchainQuickstartContent
-            baseComponentId={baseComponentId}
-            experimentId={experimentId}
-            runUuid={runUuid}
-          />
-        </Tabs.Content>
-        <Tabs.Content value="llama-index">
-          <TraceTableLlamaIndexQuickstartContent
-            baseComponentId={baseComponentId}
-            experimentId={experimentId}
-            runUuid={runUuid}
-          />
-        </Tabs.Content>
-        <Tabs.Content value="autogen">
-          <TraceTableAutogenQuickstartContent
-            baseComponentId={baseComponentId}
-            experimentId={experimentId}
-            runUuid={runUuid}
-          />
-        </Tabs.Content>
-        <Tabs.Content value="openai">
-          <TraceTableOpenAIQuickstartContent
-            baseComponentId={baseComponentId}
-            experimentId={experimentId}
-            runUuid={runUuid}
-          />
-        </Tabs.Content>
-        <Tabs.Content value="custom">
-          <TraceTableCustomQuickstartContent
-            baseComponentId={baseComponentId}
-            experimentId={experimentId}
-            runUuid={runUuid}
-          />
-        </Tabs.Content>
+        {keys(QUICKSTART_CONTENT).map((flavorName) => (
+          <Tabs.Content value={flavorName as QUICKSTART_FLAVOR} key={flavorName + '_content'}>
+            <TraceTableGenericQuickstart
+              flavorName={flavorName as QUICKSTART_FLAVOR}
+              baseComponentId={baseComponentId}
+            />
+          </Tabs.Content>
+        ))}
       </Tabs.Root>
     </div>
   );

@@ -281,7 +281,7 @@ def _create_virtualenv(
         )
         env_creation_cmd = ["uv", "venv", env_dir, f"--python={python_env.python}"]
         install_deps_cmd_prefix = "uv pip install --prerelease=allow"
-        if _MLFLOW_TESTING:
+        if _MLFLOW_TESTING.get():
             os.environ["RUST_LOG"] = "uv=debug"
     with remove_on_error(
         env_dir,

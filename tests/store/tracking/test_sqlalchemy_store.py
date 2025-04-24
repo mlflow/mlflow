@@ -33,7 +33,10 @@ from mlflow.entities import (
 )
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    _MLFLOW_GO_STORE_TESTING,
+    MLFLOW_TRACKING_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
@@ -69,7 +72,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE, TraceMetadataKey
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
@@ -848,6 +851,7 @@ def test_create_run_with_tags(store: SqlAlchemyStore):
     assert actual.info.start_time == expected["start_time"]
     assert len(actual.data.tags) == len(tags)
     assert actual.data.tags == {tag.key: tag.value for tag in tags}
+    assert actual.inputs.dataset_inputs == []
 
 
 def test_create_run_sets_name(store: SqlAlchemyStore):
@@ -867,6 +871,7 @@ def test_create_run_sets_name(store: SqlAlchemyStore):
     ).info.run_id
     run = store.get_run(run_id)
     assert run.info.run_name == "test"
+    assert run.inputs.dataset_inputs == []
 
     with pytest.raises(
         MlflowException,
@@ -1235,8 +1240,7 @@ def test_log_null_param(store: SqlAlchemyStore):
 @pytest.mark.skipif(
     Version(sqlalchemy.__version__) < Version("2.0")
     and mlflow.get_tracking_uri().startswith("mssql"),
-    reason="large string parameters are sent as TEXT/NTEXT; "
-    "see tests/db/compose.yml for details",
+    reason="large string parameters are sent as TEXT/NTEXT; see tests/db/compose.yml for details",
 )
 def test_log_param_max_length_value(store: SqlAlchemyStore, monkeypatch):
     run = _run_factory(store)
@@ -2789,7 +2793,7 @@ def test_log_batch_metrics(store: SqlAlchemyStore):
         metric,
         metric2,
     ]
-    store._log_metrics(run.info.run_id, metrics, path="metrics")
+    store._log_metrics(run.info.run_id, metrics)
 
     run = store.get_run(run.info.run_id)
     assert tkey in run.data.metrics
@@ -3295,7 +3299,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(
         # made to the input tags
         overwrite_tags = [
             entities.InputTag(key=f"key{i}", value=f"value{i}"),
-            entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            entities.InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(
             run.info.run_id, [entities.DatasetInput(overwrite_dataset, overwrite_tags)]
@@ -3356,7 +3360,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(
         )
         new_tags = [
             entities.InputTag(key=f"key{i}", value=f"value{i}"),
-            entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            entities.InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(new_run.info.run_id, [entities.DatasetInput(dataset, new_tags)])
         new_run = store.get_run(new_run.info.run_id)
@@ -4182,19 +4186,21 @@ def _create_trace(
         "mlflow.store.tracking.sqlalchemy_store.generate_request_id",
         side_effect=lambda: request_id,
     ):
-        # In case if under the hood of `store` is a GO implementation it is
-        # not possible to mock `generate.request_id`. Let's send generated
-        # `request_id` via special tag='request_id' so GO implementation can catch it.
-        if tags:
-            tags["request_id"] = request_id
-        else:
-            tags = {"request_id": request_id}
+        # In case if under the hood of `store` is a GO implementation, it is
+        # not possible to mock `generate.request_id`. Let's send generated `request_id`
+        # via special tag='mock.generate_request_id.go.testing.tag'
+        # so GO implementation can catch it.
+        if _MLFLOW_GO_STORE_TESTING.get():
+            if tags:
+                tags["mock.generate_request_id.go.testing.tag"] = request_id
+            else:
+                tags = {"mock.generate_request_id.go.testing.tag": request_id}
 
         trace_info = store.start_trace(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
             request_metadata=request_metadata or {},
-            tags=tags,
+            tags=tags or {},
         )
 
     store.end_trace(
@@ -4419,7 +4425,7 @@ def test_search_traces_pagination_tie_breaker(store):
         _create_trace(store, rid, exp1, timestamp_ms=0)
 
     # Insert 5 more traces with newer timestamp
-    request_ids = [f"tr-{i+5}" for i in range(5)]
+    request_ids = [f"tr-{i + 5}" for i in range(5)]
     random.shuffle(request_ids)
     for rid in request_ids:
         _create_trace(store, rid, exp1, timestamp_ms=1)
@@ -4455,6 +4461,10 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
 
     store.delete_trace_tag(request_id, "tag1")
     assert store.get_trace_info(request_id).tags == {"tag2": "orange"}
+
+    # test value length
+    store.set_trace_tag(request_id, "key", "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE)
+    assert store.get_trace_info(request_id).tags["key"] == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
 
     with pytest.raises(MlflowException, match="No trace tag with key 'tag1'"):
         store.delete_trace_tag(request_id, "tag1")
@@ -4607,3 +4617,90 @@ def test_delete_traces_raises_error(store):
         MlflowException, match=r"`max_traces` must be a positive integer, received 0"
     ):
         store.delete_traces(exp_id, 100, max_traces=0)
+
+
+@pytest.mark.parametrize("tags_count", [0, 1, 2])
+def test_get_run_inputs(store, tags_count):
+    run = _run_factory(store)
+
+    dataset = entities.Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+
+    tags = [entities.InputTag(key=f"foo{i}", value=f"bar{i}") for i in range(tags_count)]
+
+    dataset_inputs = [entities.DatasetInput(dataset, tags)]
+
+    store.log_inputs(run.info.run_id, dataset_inputs)
+
+    with store.ManagedSessionMaker() as session:
+        actual = store._get_run_inputs(session, [run.info.run_id])
+
+    assert len(actual) == 1
+    assert_dataset_inputs_equal(actual[0], dataset_inputs)
+
+
+def test_get_run_inputs_run_order(store):
+    exp_id = _create_experiments(store, "test_get_run_inputs_run_order")
+    config = _get_run_configs(exp_id)
+
+    run_with_one_input = _run_factory(store, config)
+    run_with_no_inputs = _run_factory(store, config)
+    run_with_two_inputs = _run_factory(store, config)
+
+    dataset1 = entities.Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+
+    dataset2 = entities.Dataset(
+        name="name2",
+        digest="digest2",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+
+    tags_1 = [entities.InputTag(key="foo1", value="bar1")]
+
+    tags_2 = [
+        entities.InputTag(key="foo2", value="bar2"),
+        entities.InputTag(key="foo3", value="bar3"),
+    ]
+
+    tags_3 = [
+        entities.InputTag(key="foo4", value="bar4"),
+        entities.InputTag(key="foo5", value="bar5"),
+        entities.InputTag(key="foo6", value="bar6"),
+    ]
+
+    dataset_inputs_1 = [entities.DatasetInput(dataset1, tags_1)]
+    dataset_inputs_2 = [
+        entities.DatasetInput(dataset2, tags_2),
+        entities.DatasetInput(dataset1, tags_3),
+    ]
+
+    store.log_inputs(run_with_one_input.info.run_id, dataset_inputs_1)
+    store.log_inputs(run_with_two_inputs.info.run_id, dataset_inputs_2)
+
+    expected = [dataset_inputs_1, [], dataset_inputs_2]
+
+    runs = [run_with_one_input, run_with_no_inputs, run_with_two_inputs]
+    run_uuids = [run.info.run_id for run in runs]
+
+    with store.ManagedSessionMaker() as session:
+        actual = store._get_run_inputs(session, run_uuids)
+
+    assert len(expected) == len(actual)
+    for expected_i, actual_i in zip(expected, actual):
+        assert_dataset_inputs_equal(expected_i, actual_i)

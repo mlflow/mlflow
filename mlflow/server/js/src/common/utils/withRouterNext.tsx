@@ -1,5 +1,4 @@
 import React from 'react';
-import type { EmotionJSX } from '@emotion/react/types/jsx-namespace';
 
 import {
   type Location,
@@ -24,8 +23,8 @@ export interface WithRouterNextProps<Params extends RouterDOMParams = RouterDOMP
 export const withRouterNext =
   <
     T,
-    Props extends EmotionJSX.IntrinsicAttributes &
-      EmotionJSX.LibraryManagedAttributes<React.ComponentType<T>, React.PropsWithChildren<T>>,
+    Props extends JSX.IntrinsicAttributes &
+      JSX.LibraryManagedAttributes<React.ComponentType<T>, React.PropsWithChildren<T>>,
     Params extends RouterDOMParams = RouterDOMParams,
   >(
     Component: React.ComponentType<T>,

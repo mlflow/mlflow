@@ -13,6 +13,11 @@ interface MultiSelectProps<T> extends CommonComboboxStateProps<T> {
     setSelectedItems: React.Dispatch<React.SetStateAction<T[]>>;
 }
 interface CommonComboboxStateProps<T> extends AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+    /**
+     * The complete list of items, used for filtering. If you are going to render groups,
+     * this list MUST be sorted so that groups are together and in the same order they are
+     * rendered in the menu.
+     */
     allItems: T[];
     items: T[];
     matcher?: (item: T, searchQuery: string) => boolean;
@@ -25,6 +30,11 @@ interface CommonComboboxStateProps<T> extends AnalyticsEventValueChangeNoPiiFlag
     onStateChange?: (changes: UseComboboxStateChange<T>) => void;
     initialSelectedItem?: T;
     initialInputValue?: string;
+    shouldSetItemsOnAllItemsChanges?: boolean;
+    /**
+     * When using RHF adapters, single select TypeaheadCombobox clears the value on blur, this prop prevents that behavior.
+     */
+    preventUnsetOnBlur?: boolean;
 }
 export declare const TypeaheadComboboxStateChangeTypes: {
     InputKeyDownArrowDown: import("downshift").UseComboboxStateChangeTypes.InputKeyDownArrowDown;
@@ -65,7 +75,7 @@ export declare const TypeaheadComboboxMultiSelectStateChangeTypes: {
 };
 export type UseComboboxStateProps<T> = SingleSelectProps<T> | MultiSelectProps<T>;
 export type ComboboxStateAnalyticsReturnValue<T> = UseComboboxReturnValue<T> & AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange>;
-export declare function useComboboxState<T>({ allItems, items, itemToString, onIsOpenChange, allowNewValue, formValue, formOnChange, formOnBlur, componentId, valueHasNoPii, analyticsEvents, ...props }: UseComboboxStateProps<T>): ComboboxStateAnalyticsReturnValue<T>;
+export declare function useComboboxState<T>({ allItems, items, itemToString, onIsOpenChange, allowNewValue, formValue, formOnChange, formOnBlur, componentId, valueHasNoPii, analyticsEvents, matcher, shouldSetItemsOnAllItemsChanges, preventUnsetOnBlur, ...props }: UseComboboxStateProps<T>): ComboboxStateAnalyticsReturnValue<T>;
 interface AnalyticsConfig extends AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     itemToString?: (item: any) => string;
 }

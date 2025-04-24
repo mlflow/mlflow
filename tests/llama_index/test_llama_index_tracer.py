@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import inspect
 import random
 from dataclasses import asdict
@@ -12,6 +13,7 @@ from llama_index.agent.openai import OpenAIAgent
 from llama_index.core import Settings
 from llama_index.core.base.response.schema import StreamingResponse
 from llama_index.core.llms import ChatMessage, ChatResponse
+from llama_index.core.llms.callbacks import llm_chat_callback
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
@@ -22,11 +24,12 @@ import mlflow
 import mlflow.tracking._tracking_service
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.entities.trace import Trace
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
-from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
+
+from tests.tracing.helper import get_traces
 
 llama_core_version = Version(importlib_metadata.version("llama-index-core"))
 llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
@@ -40,11 +43,6 @@ def set_handlers():
     remove_llama_index_tracer()
 
 
-def _get_all_traces() -> list[Trace]:
-    """Utility function to get all traces in the test experiment."""
-    return mlflow.MlflowClient().search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
-
-
 @pytest.mark.parametrize("is_async", [True, False])
 def test_trace_llm_complete(is_async):
     # By default llama-index uses "gpt-3.5-turbo" model that only has chat interface,
@@ -56,7 +54,7 @@ def test_trace_llm_complete(is_async):
     response = asyncio.run(llm.acomplete("Hello")) if is_async else llm.complete("Hello")
     assert response.text == "Hello"
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
 
@@ -82,6 +80,11 @@ def test_trace_llm_complete(is_async):
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
 
+    assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hello"},
+    ]
+
 
 def test_trace_llm_complete_stream():
     model_name = "gpt-3.5-turbo"
@@ -89,13 +92,13 @@ def test_trace_llm_complete_stream():
 
     response_gen = llm.stream_complete("Hello")
     # No trace should be created until the generator is consumed
-    assert len(_get_all_traces()) == 0
+    assert len(get_traces()) == 0
     assert inspect.isgenerator(response_gen)
 
     response = [r.text for r in response_gen]
     assert response == ["Hello", "Hello world"]
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
 
@@ -120,6 +123,11 @@ def test_trace_llm_complete_stream():
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
+    # When an error occurs, only input message should be captured
+    assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
+        {"role": "user", "content": "Hello"},
+        {"content": "Hello world", "role": "assistant"},
+    ]
 
 
 def _get_llm_input_content_json(content):
@@ -146,7 +154,7 @@ def test_trace_llm_chat(is_async):
     assert isinstance(response.message, ChatMessage)
     assert response.message.content == '[{"role": "system", "content": "Hello"}]'
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
 
@@ -191,6 +199,98 @@ def test_trace_llm_chat(is_async):
     )
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
+    assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
+        {
+            "role": "system",
+            "content": "Hello",
+        },
+        {
+            "role": "assistant",
+            "content": '[{"role": "system", "content": "Hello"}]',
+        },
+    ]
+
+
+def _get_image_content(image_path):
+    with open(image_path, "rb") as f:
+        content = f.read()
+        return base64.b64encode(content).decode("utf-8")
+
+
+def _multi_modal_test_cases():
+    if llama_core_version < Version("0.12.0"):
+        return []
+
+    from llama_index.core.base.llms.types import ImageBlock
+
+    image_base64 = _get_image_content("tests/resources/images/test.png")
+    test_cases = [
+        (
+            ImageBlock(url="https://example/image.jpg"),
+            {"url": "https://example/image.jpg"}
+            if llama_core_version < Version("0.12.30")
+            else {"url": "https://example/image.jpg", "detail": "auto"},
+        ),
+        # LlamaIndex support passing local image path
+        (
+            ImageBlock(path="tests/resources/images/test.png", image_mimetype="image/png"),
+            {
+                "url": f"data:image/png;base64,{image_base64}",
+                "detail": "low" if llama_core_version < Version("0.12.25") else "auto",
+            },
+        ),
+    ]
+
+    # LlamaIndex < 0.12.3 doesn't support image content in byte format
+    if llama_core_version >= Version("0.12.3"):
+        image_bytes = _get_image_content("tests/resources/images/test.png")
+        test_cases.append(
+            (
+                ImageBlock(image=image_bytes, detail="low"),
+                {
+                    "url": f"data:image/png;base64,{image_bytes}",
+                    "detail": "low",
+                },
+            ),
+        )
+
+    return test_cases
+
+
+@pytest.mark.skipif(llama_core_version < Version("0.12.0"), reason="Multi-modal not supported")
+@pytest.mark.parametrize(("image_block", "expected_image_url"), _multi_modal_test_cases())
+def test_trace_llm_chat_multi_modal(image_block, expected_image_url):
+    from llama_index.core.base.llms.types import TextBlock
+
+    llm = OpenAI()
+    message = ChatMessage(
+        role="user", blocks=[TextBlock(text="What is in the image?"), image_block]
+    )
+    response = llm.chat([message])
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+
+    spans = traces[0].data.spans
+    assert len(spans) == 1
+    assert spans[0].span_type == SpanType.CHAT_MODEL
+    assert spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "What is in the image?",
+                },
+                {
+                    "type": "image_url",
+                    "image_url": expected_image_url,
+                },
+            ],
+        },
+        {"role": "assistant", "content": response.message.content},
+    ]
 
 
 def test_trace_llm_chat_stream():
@@ -199,7 +299,7 @@ def test_trace_llm_chat_stream():
 
     response_gen = llm.stream_chat([message])
     # No trace should be created until the generator is consumed
-    assert len(_get_all_traces()) == 0
+    assert len(get_traces()) == 0
     assert inspect.isgenerator(response_gen)
 
     chunks = list(response_gen)
@@ -207,7 +307,7 @@ def test_trace_llm_chat_stream():
     assert all(isinstance(c.message, ChatMessage) for c in chunks)
     assert [c.message.content for c in chunks] == ["Hello", "Hello world"]
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
 
@@ -252,6 +352,16 @@ def test_trace_llm_chat_stream():
     )
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
+    assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
+        {
+            "role": "system",
+            "content": "Hello",
+        },
+        {
+            "role": "assistant",
+            "content": "Hello world",
+        },
+    ]
 
 
 @pytest.mark.parametrize("is_stream", [True, False])
@@ -272,7 +382,7 @@ def test_trace_llm_error(monkeypatch, is_stream):
         else:
             llm.chat([message])
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.ERROR
     spans = traces[0].data.spans
@@ -284,6 +394,10 @@ def test_trace_llm_error(monkeypatch, is_stream):
     events = traces[0].data.spans[0].events
     assert len(events) == 1
     assert events[0].attributes["exception.message"] == "Connection error."
+    # When an error occurs, only input message should be captured
+    assert spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
+        {"role": "system", "content": "Hello"},
+    ]
 
 
 @pytest.mark.parametrize("is_async", [True, False])
@@ -296,7 +410,7 @@ def test_trace_retriever(multi_index, is_async):
         retrieved = retriever.retrieve("apple")
     assert len(retrieved) == 1
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
 
@@ -345,7 +459,7 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
     if is_stream:
         response = engine.query("Hello")
         assert isinstance(response, StreamingResponse)
-        assert len(_get_all_traces()) == 0
+        assert len(get_traces()) == 0
         response = "".join(response.response_gen)
         assert response == "Hello world"
     else:
@@ -355,7 +469,7 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
         if Version(llama_index.core.__version__) > Version("0.10.68"):
             response["source_nodes"] = [n.dict() for n in response["source_nodes"]]
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
 
@@ -368,6 +482,9 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
     assert spans[0].span_type == SpanType.CHAIN
     assert spans[0].inputs == {"str_or_query_bundle": "Hello"}
     assert spans[0].outputs == response
+
+    llm_span = next(s for s in spans if s.span_type == SpanType.CHAT_MODEL)
+    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) is not None
 
 
 def test_trace_agent():
@@ -404,6 +521,7 @@ def test_trace_agent():
                 ]
             )
 
+        @llm_chat_callback()
         def chat(self, *args, **kwargs):
             return next(self._mock_response)
 
@@ -419,7 +537,7 @@ def test_trace_agent():
 
     assert response == "The result is 3"
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
 
@@ -432,6 +550,68 @@ def test_trace_agent():
     assert tool_span.attributes["name"] == "add"
     assert tool_span.attributes["description"] is not None
     assert tool_span.attributes["parameters"] is not None
+
+    # Validate the chat messages and tool calls are captured in LLM span attributes
+    llm_spans = [s for s in spans if s.span_type == SpanType.CHAT_MODEL]
+    assert len(llm_spans) == 2
+
+    expected_full_messages = [
+        {
+            "role": "user",
+            "content": "What is 1 + 2?",
+        },
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "test",
+                    "type": "function",
+                    "function": {
+                        "name": "add",
+                        "arguments": '{"a": 1, "b": 2}',
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": "3",
+            "tool_call_id": "test",
+        },
+        {
+            "role": "assistant",
+            "content": "The result is 3",
+        },
+    ]
+    assert llm_spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_full_messages[:2]
+    assert llm_spans[1].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_full_messages
+
+    assert llm_spans[0].get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
+        {
+            "function": {
+                "name": "add",
+                "description": (
+                    "add(a: int, b: int) -> int\nAdd two integers and returns the result integer"
+                ),
+                "parameters": {
+                    "properties": {
+                        "a": {
+                            "title": "A",
+                            "type": "integer",
+                        },
+                        "b": {
+                            "title": "B",
+                            "type": "integer",
+                        },
+                    },
+                    "required": ["a", "b"],
+                    "type": "object",
+                },
+            },
+            "type": "function",
+        }
+    ]
 
 
 @pytest.mark.parametrize("is_stream", [False, True])
@@ -453,24 +633,28 @@ def test_trace_chat_engine(multi_index, is_stream, is_async):
     # Since chat engine is a complex agent-based system, it is challenging to strictly
     # validate the trace structure and attributes. The detailed validation is done in
     # other tests for individual components.
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
     root_span = traces[0].data.spans[0]
     assert root_span.inputs == {"message": "Hello"}
 
+    # Validate the chat messages are captured in LLM span attributes
+    llm_span = next(s for s in traces[0].data.spans if s.span_type == SpanType.CHAT_MODEL)
+    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) is not None
+
 
 def test_tracer_handle_tracking_uri_update(tmp_path):
     OpenAI().complete("Hello")
-    assert len(_get_all_traces()) == 1
+    assert len(get_traces()) == 1
 
     # Set different tracking URI and initialize the tracer
     with _use_tracking_uri(tmp_path / "dummy"):
-        assert len(_get_all_traces()) == 0
+        assert len(get_traces()) == 0
 
         # The new trace will be logged to the updated tracking URI
         OpenAI().complete("Hello")
-        assert len(_get_all_traces()) == 1
+        assert len(get_traces()) == 1
 
 
 @pytest.mark.skipif(
@@ -489,7 +673,7 @@ async def test_tracer_simple_workflow():
     w = MyWorkflow(timeout=10, verbose=False)
     await w.run()
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
     assert all(s.status.status_code == SpanStatusCode.OK for s in traces[0].data.spans)
@@ -544,7 +728,7 @@ async def test_tracer_parallel_workflow():
     result = await w.run(inputs=["apple", "grape", "orange", "banana"])
     assert result == "apple, banana, grape, orange"
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
     for s in traces[0].data.spans:
@@ -611,7 +795,7 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     result = await w.run(inputs=inputs)
     assert result == "apple, banana, grape, orange"
 
-    traces = _get_all_traces()
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
 

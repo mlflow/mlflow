@@ -28,10 +28,18 @@ For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 
 import contextlib
+from typing import TYPE_CHECKING
 
 from mlflow.version import VERSION
 
 __version__ = VERSION
+
+import mlflow.mismatch
+
+# `check_version_mismatch` must be called here before importing any other modules
+with contextlib.suppress(Exception):
+    mlflow.mismatch._check_version_mismatch()
+
 from mlflow import (
     artifacts,  # noqa: F401
     client,  # noqa: F401
@@ -67,6 +75,7 @@ litellm = LazyLoader("mlflow.litellm", globals(), "mlflow.litellm")
 llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
+mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
 mleap = LazyLoader("mlflow.mleap", globals(), "mlflow.mleap")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
@@ -74,7 +83,6 @@ paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
 pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
 promptflow = LazyLoader("mlflow.promptflow", globals(), "mlflow.promptflow")
 prophet = LazyLoader("mlflow.prophet", globals(), "mlflow.prophet")
-promptlab = LazyLoader("mlflow.promptlab", globals(), "mlflow.promptlab")
 pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
@@ -91,8 +99,57 @@ spacy = LazyLoader("mlflow.spacy", globals(), "mlflow.spacy")
 spark = LazyLoader("mlflow.spark", globals(), "mlflow.spark")
 statsmodels = LazyLoader("mlflow.statsmodels", globals(), "mlflow.statsmodels")
 tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
+# TxtAI integration is defined at https://github.com/neuml/mlflow-txtai
+txtai = LazyLoader("mlflow.txtai", globals(), "mlflow_txtai")
 transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
 xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
+
+if TYPE_CHECKING:
+    # Do not move this block above the lazy-loaded modules above.
+    # All the lazy-loaded modules above must be imported here for code completion to work in IDEs.
+    from mlflow import (  # noqa: F401
+        anthropic,
+        autogen,
+        bedrock,
+        catboost,
+        crewai,
+        diviner,
+        dspy,
+        fastai,
+        gemini,
+        groq,
+        h2o,
+        johnsnowlabs,
+        keras,
+        langchain,
+        lightgbm,
+        litellm,
+        llama_index,
+        llm,
+        metrics,
+        mistral,
+        mleap,
+        onnx,
+        openai,
+        paddle,
+        pmdarima,
+        promptflow,
+        prophet,
+        pyfunc,
+        pyspark,
+        pytorch,
+        recipes,
+        rfunc,
+        sentence_transformers,
+        shap,
+        sklearn,
+        spacy,
+        spark,
+        statsmodels,
+        tensorflow,
+        transformers,
+        xgboost,
+    )
 
 if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
@@ -117,20 +174,35 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
 from mlflow.models.evaluation.validation import validate_evaluation_results
 from mlflow.projects import run
+from mlflow.tracing.assessment import (
+    delete_expectation,
+    delete_feedback,
+    log_expectation,
+    log_feedback,
+    update_expectation,
+    update_feedback,
+)
 from mlflow.tracing.fluent import (
     add_trace,
     get_current_active_span,
     get_last_active_trace,
+    get_last_active_trace_id,
     get_trace,
+    log_trace,
     search_traces,
     start_span,
     trace,
     update_current_trace,
 )
 from mlflow.tracking._model_registry.fluent import (
+    delete_prompt,
+    delete_prompt_alias,
+    load_prompt,
     register_model,
+    register_prompt,
     search_model_versions,
     search_registered_models,
+    set_prompt_alias,
 )
 from mlflow.tracking.fluent import (
     ActiveRun,
@@ -199,6 +271,7 @@ __all__ = [
     "get_experiment",
     "get_experiment_by_name",
     "get_last_active_trace",
+    "get_last_active_trace_id",
     "get_parent_run",
     "get_registry_uri",
     "get_run",
@@ -246,7 +319,21 @@ __all__ = [
     "start_span",
     "trace",
     "add_trace",
+    "log_trace",
     "update_current_trace",
+    # Assessment APIs
+    "delete_expectation",
+    "delete_feedback",
+    "log_expectation",
+    "log_feedback",
+    "update_expectation",
+    "update_feedback",
+    # Prompt Registry APIs
+    "delete_prompt",
+    "load_prompt",
+    "register_prompt",
+    "set_prompt_alias",
+    "delete_prompt_alias",
 ]
 
 

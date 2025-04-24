@@ -40,13 +40,17 @@ interface RunsChartsContextMenuContentDataType {
   runs: RunsChartsRunData[];
   onTogglePin?: (runUuid: string) => void;
   onHideRun?: (runUuid: string) => void;
+  getDataTraceLink?: (experimentId: string, traceUuid: string) => string;
 }
 
 type RunsChartContextMenuHoverDataType = RunsChartsCardConfig;
 
 const createBarChartValuesBox = (cardConfig: RunsChartsBarCardConfig, activeRun: RunsChartsRunData) => {
-  const { metricKey } = cardConfig;
-  const metric = activeRun?.metrics[metricKey];
+  const { metricKey, dataAccessKey } = cardConfig;
+
+  const dataKey = dataAccessKey ?? metricKey;
+
+  const metric = activeRun?.metrics[dataKey];
 
   if (!metric) {
     return null;
@@ -65,8 +69,11 @@ const createBarChartValuesBox = (cardConfig: RunsChartsBarCardConfig, activeRun:
 
 const createScatterChartValuesBox = (cardConfig: RunsChartsScatterCardConfig, activeRun: RunsChartsRunData) => {
   const { xaxis, yaxis } = cardConfig;
-  const xKey = xaxis.key;
-  const yKey = yaxis.key;
+  const xKey = xaxis.dataAccessKey ?? xaxis.key;
+  const yKey = xaxis.dataAccessKey ?? yaxis.key;
+
+  const xLabel = xaxis.key;
+  const yLabel = yaxis.key;
 
   const xValue = xaxis.type === 'METRIC' ? activeRun.metrics[xKey]?.value : activeRun.params[xKey]?.value;
 
@@ -76,12 +83,12 @@ const createScatterChartValuesBox = (cardConfig: RunsChartsScatterCardConfig, ac
     <>
       {xValue && (
         <div css={styles.value}>
-          <strong>X ({xKey}):</strong> {xValue}
+          <strong>X ({xLabel}):</strong> {xValue}
         </div>
       )}
       {yValue && (
         <div css={styles.value}>
-          <strong>Y ({yKey}):</strong> {yValue}
+          <strong>Y ({yLabel}):</strong> {yValue}
         </div>
       )}
     </>
@@ -274,7 +281,7 @@ export const RunsChartsTooltipBody = ({
   RunsChartContextMenuHoverDataType,
   RunsMetricsSingleTraceTooltipData | RunsCompareMultipleTracesTooltipData
 >) => {
-  const { runs, onTogglePin, onHideRun } = contextData;
+  const { runs, onTogglePin, onHideRun, getDataTraceLink } = contextData;
   const [experimentId] = useExperimentIds();
   const activeRun = runs?.find((run) => run.uuid === runUuid);
 
@@ -304,7 +311,7 @@ export const RunsChartsTooltipBody = ({
             <Typography.Text>{runName + metricSuffix}</Typography.Text>
           ) : (
             <Link
-              to={Routes.getRunPageRoute(experimentId, runUuid)}
+              to={getDataTraceLink?.(experimentId, runUuid) ?? Routes.getRunPageRoute(experimentId, runUuid)}
               target="_blank"
               css={styles.runLink}
               onClick={closeContextMenu}

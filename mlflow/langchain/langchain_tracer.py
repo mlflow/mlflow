@@ -1,5 +1,6 @@
 import ast
 import logging
+from contextvars import ContextVar
 from typing import Any, Optional, Sequence, Union
 from uuid import UUID
 
@@ -14,7 +15,6 @@ from langchain_core.outputs import (
     GenerationChunk,
     LLMResult,
 )
-from langchain_core.runnables import RunnableSequence
 from tenacity import RetryCallState
 
 import mlflow
@@ -32,45 +32,83 @@ from mlflow.tracing.provider import detach_span_from_context, set_span_in_contex
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatMessage, ChatTool, FunctionToolDefinition
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
+from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
-# Vector Search index column names
-VS_INDEX_ID_COL = "chunk_id"
-VS_INDEX_DOC_URL_COL = "doc_uri"
+
+_should_attach_span_to_context = ContextVar("should_attach_span_to_context", default=True)
 
 
-def should_attach_span_to_context(func_name: str, instance: Any) -> bool:
+def patched_callback_manager_init(original, self, *args, **kwargs):
+    original(self, *args, **kwargs)
+
+    if not AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME).log_traces:
+        return
+
+    for handler in self.inheritable_handlers:
+        if isinstance(handler, MlflowLangchainTracer):
+            return
+
+    _handler = MlflowLangchainTracer()
+    self.add_handler(_handler, inherit=True)
+
+
+def patched_callback_manager_merge(original, self, *args, **kwargs):
     """
-    Determine whether the span should be attached to the context during the execution
-    of the given function.
+    Patch BaseCallbackManager.merge to avoid a duplicated callback issue.
 
-    Spans should generally be attached to the context so that
-    they can work with fluent APIs or other auto-tracing integrations. However, there
-    are some tricky cases where attaching the span to the context can cause issues.
-
-    Args:
-        func_name: The name of the function (method) for which the span is being created.
-        instance: The instance of LangChain class that the function is being called on.
-
-    Returns:
-        True if the span should be attached to the context.
+    In the above patched __init__, we check `inheritable_handlers` to see if the MLflow tracer
+    is already propagated. This works when the `inheritable_handlers` is specified as constructor
+    arguments. However, in the `merge` method, LangChain does not use constructor but set
+    callbacks via the setter method. This causes duplicated callbacks injection.
+    https://github.com/langchain-ai/langchain/blob/d9a069c414a321e7a3f3638a32ecf8a37ec2d188/libs/core/langchain_core/callbacks/base.py#L962-L982
     """
-    # NB: RunnableSequence's batch() methods are implemented in a peculiar way
-    # that iterates on steps->items sequentially within the same thread. For example, if a
-    # sequence has 2 steps and the batch size is 3, the execution flow will be:
-    #  - Step 1 for item 1
-    #  - Step 1 for item 2
-    #  - Step 1 for item 3
-    #  - Step 2 for item 1
-    #  - Step 2 for item 2
-    #  - Step 2 for item 3
-    # Due to this behavior, we cannot attach the span to the context for this particular
-    # API, otherwise spans for different inputs will be mixed up.
-    if isinstance(instance, RunnableSequence) and func_name == "batch":
-        return False
+    # Get the MLflow callback inherited from parent
+    inherited = self.inheritable_handlers + args[0].inheritable_handlers
+    inherited_mlflow_cb = next(
+        (cb for cb in inherited if isinstance(cb, MlflowLangchainTracer)), None
+    )
 
-    return True
+    if not inherited_mlflow_cb:
+        return original(self, *args, **kwargs)
+
+    merged = original(self, *args, **kwargs)
+    # If a new MLflow callback is generated inside __init__, remove it
+    duplicate_mlflow_cbs = [
+        cb
+        for cb in merged.inheritable_handlers
+        if isinstance(cb, MlflowLangchainTracer) and cb != inherited_mlflow_cb
+    ]
+    for cb in duplicate_mlflow_cbs:
+        merged.remove_handler(cb)
+
+    return merged
+
+
+def patched_runnable_sequence_batch(original, self, *args, **kwargs):
+    """
+    Patch to terminate span context attachment during batch execution.
+
+    RunnableSequence's batch() methods are implemented in a peculiar way
+    that iterates on steps->items sequentially within the same thread. For example, if a
+    sequence has 2 steps and the batch size is 3, the execution flow will be:
+      - Step 1 for item 1
+      - Step 1 for item 2
+      - Step 1 for item 3
+      - Step 2 for item 1
+      - Step 2 for item 2
+      - Step 2 for item 3
+    Due to this behavior, we cannot attach the span to the context for this particular
+    API, otherwise spans for different inputs will be mixed up.
+    """
+    original_state = _should_attach_span_to_context.get()
+    _should_attach_span_to_context.set(False)
+    try:
+        return original(self, *args, **kwargs)
+    finally:
+        _should_attach_span_to_context.set(original_state)
 
 
 class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstractClass):
@@ -84,16 +122,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             thread-local context. Occasionally this has to be passed manually because
             the callback may be invoked asynchronously and Langchain doesn't correctly
             propagate the thread-local context.
-        set_span_in_context: If True, the span created by this callback will be set as
-            the active span and attached to the current context. This will allow using
-            fluent APIs or other auto-tracing integrations with this callback. If set
-            to False, the span will not be set as active span.
     """
 
     def __init__(
         self,
         prediction_context: Optional[Context] = None,
-        set_span_in_context: bool = True,
     ):
         # NB: The tracer can handle multiple traces in parallel under multi-threading scenarios.
         # DO NOT use instance variables to manage the state of single trace.
@@ -102,12 +135,40 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, SpanWithToken] = {}
         self._prediction_context = prediction_context
-        self._set_span_in_context = set_span_in_context
 
     def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
         if span_with_token := self._run_span_mapping.get(str(run_id), None):
             return span_with_token.span
         raise MlflowException(f"Span for run_id {run_id!s} not found.")
+
+    def _serialize_invocation_params(
+        self, attributes: Optional[dict[str, Any]]
+    ) -> Optional[dict[str, Any]]:
+        """
+        Serialize the 'invocation_params' in the attributes dictionary.
+        If 'invocation_params' contains a key 'response_format' whose value is a subclass
+        of pydantic.BaseModel, replace it with its JSON schema.
+        """
+        if not attributes:
+            return attributes
+
+        invocation_params = attributes.get("invocation_params")
+        if not isinstance(invocation_params, dict):
+            return attributes
+
+        response_format = invocation_params.get("response_format")
+        if isinstance(response_format, type) and issubclass(response_format, pydantic.BaseModel):
+            try:
+                invocation_params["response_format"] = (
+                    response_format.model_json_schema()
+                    if IS_PYDANTIC_V2_OR_NEWER
+                    else response_format.schema()
+                )
+            except Exception as e:
+                _logger.error(
+                    "Failed to generate JSON schema for response_format: %s", e, exc_info=True
+                )
+        return attributes
 
     def _start_span(
         self,
@@ -119,6 +180,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         attributes: Optional[dict[str, Any]] = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
+        serialized_attributes = self._serialize_invocation_params(attributes)
         with maybe_set_prediction_context(self._prediction_context):
             parent = self._get_parent_span(parent_run_id)
             if parent:
@@ -128,7 +190,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     parent_id=parent.span_id,
                     span_type=span_type,
                     inputs=inputs,
-                    attributes=attributes,
+                    attributes=serialized_attributes,
                 )
             else:
                 # When parent_run_id is None, this is root component so start trace
@@ -141,12 +203,12 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     name=span_name,
                     span_type=span_type,
                     inputs=inputs,
-                    attributes=attributes,
+                    attributes=serialized_attributes,
                     tags=dependencies_schemas,
                 )
 
             # Attach the span to the current context to mark it "active"
-            token = set_span_in_context(span) if self._set_span_in_context else None
+            token = set_span_in_context(span) if _should_attach_span_to_context.get() else None
             self._run_span_mapping[str(run_id)] = SpanWithToken(span, token)
         return span
 
@@ -184,7 +246,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         finally:
             # Span should be detached from the context even when the client.end_span fails
             st = self._run_span_mapping.pop(str(run_id), None)
-            if self._set_span_in_context:
+            if _should_attach_span_to_context.get():
                 if st.token is None:
                     raise MlflowException(
                         f"Token for span {st.span} is not found. "
@@ -220,6 +282,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         **kwargs: Any,
     ):
         """Run when a chat model starts running."""
+
         if metadata:
             kwargs.update({"metadata": metadata})
 

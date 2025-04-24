@@ -7,7 +7,6 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { Divider } from 'antd';
 import { FormattedMessage } from 'react-intl';
 import { PROMPT_TEMPLATE_EXAMPLES } from '@mlflow/mlflow/src/experiment-tracking/components/evaluation-artifacts-compare/utils/PromptExamples';
 
@@ -105,7 +104,14 @@ export const EvaluationCreatePromptRunModalExamples = ({
             {promptTemplate.prompt.map((line) => (
               <Typography.Paragraph key={line}>{line}</Typography.Paragraph>
             ))}
-            <Divider css={{ marginTop: theme.spacing.xs, marginBottom: theme.spacing.xs }} />
+            <div
+              css={{
+                marginTop: theme.spacing.xs,
+                marginBottom: theme.spacing.xs,
+                borderTop: `1px solid ${theme.colors.border}`,
+                opacity: 0.5,
+              }}
+            />
             {promptTemplate.variables.map(({ name, value }) => (
               <div key={name}>
                 <Typography.Title level={4}>{name}</Typography.Title>

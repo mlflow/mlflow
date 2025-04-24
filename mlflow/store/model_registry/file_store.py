@@ -23,10 +23,16 @@ from mlflow.entities.model_registry.model_version_stages import (
 )
 from mlflow.environment_variables import MLFLOW_REGISTRY_DIR
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import (
+    add_prompt_filter_string,
+    handle_resource_already_exist_error,
+    has_prompt_tag,
+)
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities.paged_list import PagedList
@@ -193,8 +199,19 @@ class FileStore(AbstractStore):
         """
 
         self._check_root_dir()
+
         _validate_model_name(name)
-        self._validate_registered_model_does_not_exist(name)
+        try:
+            self._validate_registered_model_does_not_exist(name)
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                existing_model = self.get_registered_model(name)
+                handle_resource_already_exist_error(
+                    name, has_prompt_tag(existing_model._tags), has_prompt_tag(tags)
+                )
+            else:
+                raise
+
         for tag in tags or []:
             _validate_registered_model_tag(tag.key, tag.value)
         meta_dir = self._get_registered_model_path(name)
@@ -374,6 +391,8 @@ class FileStore(AbstractStore):
                 f"{SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
                 INVALID_PARAMETER_VALUE,
             )
+
+        filter_string = add_prompt_filter_string(filter_string, is_prompt=False)
 
         registered_models = self._list_all_registered_models()
         filtered_rms = SearchModelUtils.filter(registered_models, filter_string)
@@ -882,6 +901,7 @@ class FileStore(AbstractStore):
                 file_mv.to_mlflow_entity()
                 for file_mv in self._list_file_model_versions_under_path(path)
             )
+        filter_string = add_prompt_filter_string(filter_string, is_prompt=False)
         filtered_mvs = SearchModelVersionUtils.filter(model_versions, filter_string)
 
         sorted_mvs = SearchModelVersionUtils.sort(

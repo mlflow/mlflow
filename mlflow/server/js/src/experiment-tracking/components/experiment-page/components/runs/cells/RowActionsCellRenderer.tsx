@@ -16,10 +16,7 @@ import { Theme } from '@emotion/react';
 import React, { useMemo } from 'react';
 import { FormattedMessage, defineMessages } from 'react-intl';
 import { RunRowType, RunRowVisibilityControl } from '../../../utils/experimentPage.row-types';
-import {
-  shouldEnableToggleIndividualRunsInGroups,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../../common/utils/FeatureUtils';
+import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../../common/utils/FeatureUtils';
 import { useUpdateExperimentViewUIState } from '../../../contexts/ExperimentPageUIStateContext';
 import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
 import { isRemainingRunsGroup } from '../../../utils/experimentPage.group-row-utils';
@@ -130,11 +127,7 @@ export const RowActionsCellRenderer = React.memo(
       if (shouldEnableToggleIndividualRunsInGroups()) {
         return visibilityControl === RunRowVisibilityControl.Hidden;
       }
-      return !(
-        !shouldUseNewRunRowsVisibilityModel() ||
-        (groupParentInfo && !isRemainingRunsGroup(groupParentInfo)) ||
-        (Boolean(runUuid) && !belongsToGroup)
-      );
+      return !((groupParentInfo && !isRemainingRunsGroup(groupParentInfo)) || (Boolean(runUuid) && !belongsToGroup));
     }, [groupParentInfo, belongsToGroup, runUuid, visibilityControl]);
 
     return (
@@ -148,8 +141,8 @@ export const RowActionsCellRenderer = React.memo(
           runUuid={runUuidToToggle}
           css={[
             styles.actionCheckbox(theme),
-            // We show this button only in the runs compare mode and only when the feature flag is set
-            shouldUseNewRunRowsVisibilityModel() && styles.showOnlyInCompareMode,
+            // We show this button only in the runs compare mode
+            styles.showOnlyInCompareMode,
           ]}
         />
         {((props.data.pinnable && runUuid) || groupParentInfo) && (

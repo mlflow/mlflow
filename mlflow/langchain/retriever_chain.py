@@ -28,7 +28,7 @@ class _RetrieverChain(Chain):
     In order to log the retriever object in the ``langchain`` flavor, the retriever object
     needs to be wrapped within a ``_RetrieverChain``.
 
-    See :ref:`log-retriever-chain` for how to log the ``_RetrieverChain``.
+    See ``examples/langchain/retriever_chain.py`` for how to log the ``_RetrieverChain``.
 
     Args:
         retriever: The retriever to wrap.

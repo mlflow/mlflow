@@ -188,7 +188,7 @@ export const ModelVersionTable = ({
           description: 'Column title text for created at timestamp in model version table',
         }),
         accessorKey: 'creation_timestamp',
-        cell: ({ getValue }) => Utils.formatTimestamp(getValue()),
+        cell: ({ getValue }) => Utils.formatTimestamp(getValue(), intl),
       },
 
       {
@@ -275,7 +275,7 @@ export const ModelVersionTable = ({
       }),
       meta: { styles: { flex: 2 } },
       accessorKey: 'description',
-      cell: ({ getValue }) => truncateToFirstLineWithMaxLength(getValue(), 32),
+      cell: ({ getValue }) => truncateToFirstLineWithMaxLength(getValue() as string, 32),
     });
     return columns;
   }, [theme, intl, modelName, showEditTagsModal, showEditAliasesModal, usingNextModelsUI, aliasesByVersion]);

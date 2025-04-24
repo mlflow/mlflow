@@ -4,7 +4,9 @@ DuBois is a shared language for building products at Databricks. You can find th
 
 ## Running Locally
 
-`yarn && yarn storybook`
+`cd js/packages/du-bois && yarn storybook`
+
+The storybook will be running on localhost:6007. Note that the source code lives in ~/universe/design-system, while the storybook is in a central location to allow imports from other projects.
 
 ## Installation
 
@@ -27,22 +29,6 @@ Or alternatively you can directly delete storybook's cache from
 
 ```
 yarn prettier
-```
-
-### Running Cypress Tests
-
-Cypress tests are located in the `cypress/integration` directory.
-
-To run Cypress tests, first ensure that an existing storybook local development server is running.
-
-```bash
-yarn start:storybook
-```
-
-Then, open the Cypress UI in another terminal.
-
-```bash
-yarn cy:open
 ```
 
 ## Publishing to NPM

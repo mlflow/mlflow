@@ -42,7 +42,11 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.utils.file_utils import (
     TempDir,
@@ -1147,8 +1151,7 @@ def test_get_metric_history(store):
 def test_get_metric_history_paginated_request_raises(store):
     with pytest.raises(
         MlflowException,
-        match="The FileStore backend does not support pagination for the `get_metric_history` "
-        "API.",
+        match="The FileStore backend does not support pagination for the `get_metric_history` API.",
     ):
         store.get_metric_history("fake_run", "fake_metric", max_results=50, page_token="42")
 
@@ -2559,7 +2562,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
         # made to the input tags
         overwrite_tags = [
             InputTag(key=f"key{i}", value=f"value{i}"),
-            InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(run.info.run_id, [DatasetInput(overwrite_dataset, overwrite_tags)])
 
@@ -2612,7 +2615,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
         )
         new_tags = [
             InputTag(key=f"key{i}", value=f"value{i}"),
-            InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(new_run.info.run_id, [DatasetInput(dataset, new_tags)])
         new_run = store.get_run(new_run.info.run_id)
@@ -2952,6 +2955,11 @@ def test_set_trace_tag(store_and_trace_info):
     store.set_trace_tag(trace.request_id, "int_key", 1234)
     trace_info = store.get_trace_info(trace.request_id)
     assert trace_info.tags["int_key"] == "1234"
+
+    # test value length
+    store.set_trace_tag(trace.request_id, "key", "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE)
+    trace_info = store.get_trace_info(trace.request_id)
+    assert trace_info.tags["key"] == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
 
     with pytest.raises(MlflowException, match=r"Missing value for required parameter \'key\'"):
         store.set_trace_tag(trace.request_id, None, "test")

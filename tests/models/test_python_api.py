@@ -343,3 +343,28 @@ def test_serialize_input_data(input_data, content_type, expected):
 def test_serialize_input_data_invalid_format(input_data, content_type):
     with pytest.raises(MlflowException):  # noqa: PT011
         _serialize_input_data(input_data, content_type)
+
+
+def test_predict_use_current_experiment():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        @mlflow.trace
+        def predict(self, context, model_input: list[str]):
+            return model_input
+
+    exp_id = mlflow.set_experiment("test_experiment").experiment_id
+    client = mlflow.MlflowClient()
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+        )
+
+    assert len(client.search_traces(experiment_ids=[exp_id])) == 0
+    mlflow.models.predict(
+        model_uri=model_info.model_uri,
+        input_data=["a", "b", "c"],
+        env_manager=VIRTUALENV,
+    )
+    traces = client.search_traces(experiment_ids=[exp_id])
+    assert len(traces) == 1
+    assert json.loads(traces[0].data.request)["model_input"] == ["a", "b", "c"]

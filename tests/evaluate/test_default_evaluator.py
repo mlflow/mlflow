@@ -53,6 +53,7 @@ from mlflow.models.evaluation.base import evaluate
 from mlflow.models.evaluation.default_evaluator import (
     _CustomArtifact,
     _evaluate_custom_artifacts,
+    _extract_output_and_other_columns,
     _extract_predict_fn,
     _extract_raw_model,
     _get_aggregate_metrics_values,
@@ -65,7 +66,6 @@ from mlflow.models.evaluation.evaluators.classifier import (
     _get_multiclass_classifier_metrics,
     _infer_model_type_by_labels,
 )
-from mlflow.models.evaluation.evaluators.default import _extract_output_and_other_columns
 from mlflow.models.evaluation.evaluators.regressor import _get_regressor_metrics
 from mlflow.models.evaluation.evaluators.shap import _compute_df_mode_or_mean
 from mlflow.models.evaluation.utils.metric import MetricDefinition
@@ -4271,3 +4271,44 @@ def test_evaluate_errors_invalid_pos_label():
             predictions="prediction",
             evaluator_config={"default": {"pos_label": 1, "label_list": [0]}},
         )
+
+
+@pytest.mark.parametrize(
+    ("model_output", "predictions"),
+    [
+        (pd.DataFrame({"output": [0, 1, 2]}), None),
+        (pd.DataFrame({"output_1": [0, 1, 2], "output_2": [4, 5, 6]}), "output_1"),
+        (pd.Series([0, 1, 2]), None),
+    ],
+)
+def test_regressor_returning_pandas_object(model_output, predictions):
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_output
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model("model", python_model=Model())
+        result = mlflow.evaluate(
+            model_info.model_uri,
+            data=pd.DataFrame(
+                {
+                    "input": [0, 1, 2],
+                    "output": [0, 1, 2],
+                }
+            ),
+            targets="output",
+            model_type="regressor",
+            predictions=predictions,
+            evaluators=["regressor"],
+        )
+        assert result.metrics == {
+            "example_count": 3,
+            "max_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_absolute_percentage_error": 0.0,
+            "mean_on_target": 1.0,
+            "mean_squared_error": 0.0,
+            "r2_score": 1.0,
+            "root_mean_squared_error": 0.0,
+            "sum_on_target": 3,
+        }

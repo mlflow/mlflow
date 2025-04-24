@@ -92,8 +92,7 @@ def test_init_validation_and_cleaning():
             "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
         )
         assert (
-            repo.artifact_uri == "dbfs:/databricks/mlflow-tracking/"
-            "MOCK-EXP/MOCK-RUN-ID/artifacts"
+            repo.artifact_uri == "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
         )
         assert repo.run_id == MOCK_RUN_ID
         assert repo.run_relative_artifact_repo_root_path == ""

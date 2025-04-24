@@ -816,7 +816,7 @@ class TensorInfo:
     def __init__(self, dtype: np.dtype, shape: Union[tuple, list]):
         if not isinstance(dtype, np.dtype):
             raise TypeError(
-                f"Expected `dtype` to be instance of `{np.dtype}`, received `{ dtype.__class__}`"
+                f"Expected `dtype` to be instance of `{np.dtype}`, received `{dtype.__class__}`"
             )
         # Throw if size information exists flexible numpy data types
         if dtype.char in ["U", "S"] and not dtype.name.isalpha():
@@ -976,7 +976,7 @@ class Schema:
         ):
             raise MlflowException(
                 "Creating Schema with a combination of {0} and {1} is not supported. "
-                "Please choose one of {0} or {1}".format(ColSpec.__class__, TensorSpec.__class__)
+                f"Please choose one of {ColSpec.__name__} or {TensorSpec.__name__}"
             )
         if (
             all(isinstance(x, TensorSpec) for x in inputs)

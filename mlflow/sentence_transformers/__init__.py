@@ -11,6 +11,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_pip_requirements
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -317,6 +318,7 @@ def log_model(
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
     example_no_conversion: Optional[bool] = None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
 ):
     """
     .. note::
@@ -385,6 +387,7 @@ def log_model(
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
         example_no_conversion: {{ example_no_conversion }}
+        prompts: {{ prompts }}
     """
     if task is not None:
         metadata = _verify_task_and_update_metadata(task, metadata)
@@ -404,6 +407,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         example_no_conversion=example_no_conversion,
+        prompts=prompts,
     )
 
 

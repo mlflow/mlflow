@@ -1,4 +1,5 @@
-import jinja2
+import html
+from pathlib import Path
 
 from mlflow.models.model import ModelInfo
 from mlflow.models.signature import ModelSignature
@@ -6,7 +7,17 @@ from mlflow.types import schema
 from mlflow.utils import databricks_utils
 
 
+def _is_input_string(inputs: schema.Schema) -> bool:
+    return (
+        not inputs.has_input_names()
+        and len(inputs.input_types()) == 1
+        and inputs.input_types()[0] == schema.DataType.string
+    )
+
+
 def _is_input_agent_compatible(inputs: schema.Schema) -> bool:
+    if _is_input_string(inputs):
+        return True
     if not inputs.has_input_names():
         return False
     messages = inputs.input_dict().get("messages")
@@ -93,7 +104,7 @@ def _is_signature_agent_compatible(signature: ModelSignature) -> bool:
     )
 
 
-def should_render_agent_eval_template(signature: ModelSignature) -> bool:
+def _should_render_agent_eval_template(signature: ModelSignature) -> bool:
     if not databricks_utils.is_in_databricks_runtime():
         return False
     from IPython import get_ipython
@@ -103,39 +114,45 @@ def should_render_agent_eval_template(signature: ModelSignature) -> bool:
     return _is_signature_agent_compatible(signature)
 
 
+def _generate_agent_eval_recipe(model_uri: str) -> str:
+    resources_dir = Path(__file__).parent / "notebook_resources"
+    pip_install_command = """%pip install -U databricks-agents
+dbutils.library.restartPython()
+## Run the above in a separate cell ##"""
+    eval_with_synthetic_code = (
+        (resources_dir / "eval_with_synthetic_example.py")
+        .read_text()
+        .replace("{{pipInstall}}", pip_install_command)
+        .replace("{{modelUri}}", model_uri)
+    )
+    eval_with_dataset_code = (
+        (resources_dir / "eval_with_dataset_example.py")
+        .read_text()
+        .replace("{{pipInstall}}", pip_install_command)
+        .replace("{{modelUri}}", model_uri)
+    )
+
+    # Remove the ruff noqa comments.
+    ruff_line = "# ruff: noqa: F821, I001\n"
+    eval_with_synthetic_code = eval_with_synthetic_code.replace(ruff_line, "")
+    eval_with_dataset_code = eval_with_dataset_code.replace(ruff_line, "")
+
+    return (
+        (resources_dir / "agent_evaluation_template.html")
+        .read_text()
+        .replace("{{eval_with_synthetic_code}}", html.escape(eval_with_synthetic_code))
+        .replace("{{eval_with_dataset_code}}", html.escape(eval_with_dataset_code))
+    )
+
+
 def maybe_render_agent_eval_recipe(model_info: ModelInfo) -> None:
     # For safety, we wrap in try/catch to make sure we don't break `mlflow.*.log_model`.
     try:
-        if not should_render_agent_eval_template(model_info.signature):
+        if not _should_render_agent_eval_template(model_info.signature):
             return
-        # Create a Jinja2 environment and load the template
-        env = jinja2.Environment(
-            loader=jinja2.PackageLoader("mlflow.models", "resources"),
-            autoescape=jinja2.select_autoescape(["html"]),
-        )
-        pip_install_command = """%pip install -U databricks-agents
-dbutils.library.restartPython()
-## Run the above in a separate cell ##"""
-        eval_with_synthetic_code = env.get_template("eval_with_synthetic_example.py").render(
-            {"pipInstall": pip_install_command, "modelUri": model_info.model_uri}
-        )
-        eval_with_dataset_code = env.get_template("eval_with_dataset_example.py").render(
-            {"pipInstall": pip_install_command, "modelUri": model_info.model_uri}
-        )
 
-        # Remove the ruff noqa comments.
-        ruff_line = "# ruff: noqa: F821, I001\n"
-        eval_with_synthetic_code = eval_with_synthetic_code.replace(ruff_line, "")
-        eval_with_dataset_code = eval_with_dataset_code.replace(ruff_line, "")
-
-        rendered_html = env.get_template("agent_evaluation_template.html").render(
-            {
-                "eval_with_synthetic_code": eval_with_synthetic_code,
-                "eval_with_dataset_code": eval_with_dataset_code,
-            }
-        )
         from IPython.display import HTML, display
 
-        display(HTML(rendered_html))
+        display(HTML(_generate_agent_eval_recipe(model_info.model_uri)))
     except Exception:
         pass

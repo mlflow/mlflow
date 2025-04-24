@@ -256,7 +256,8 @@ export const EvaluationCreatePromptRunModal = ({
             errorMessage,
           },
         );
-        Utils.logErrorAndNotifyUser(wrappedMessage);
+        // We treat is as a user error and we're not logging the error upstream
+        Utils.displayGlobalErrorNotification(wrappedMessage);
         setIsEvaluating(false);
         setLastEvaluationError(wrappedMessage);
         // NB: Not using .finally() due to issues with promise implementation in the Jest

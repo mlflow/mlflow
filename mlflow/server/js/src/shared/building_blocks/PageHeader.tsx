@@ -64,6 +64,7 @@ type PageHeaderProps = Pick<HeaderProps, 'dangerouslyAppendEmotionCSS'> & {
   infoPopover?: React.ReactNode;
   children?: React.ReactNode;
   spacerSize?: 'xs' | 'sm' | 'md' | 'lg';
+  hideSpacer?: boolean;
   titleAddOns?: React.ReactNode | React.ReactNode[];
 };
 
@@ -83,6 +84,7 @@ export function PageHeader(props: PageHeaderProps) {
     preview,
     children,
     spacerSize,
+    hideSpacer = false,
     dangerouslyAppendEmotionCSS,
   } = props;
   const { theme } = useDesignSystemTheme();
@@ -116,6 +118,7 @@ export function PageHeader(props: PageHeaderProps) {
         css={{
           // Ensure spacer's fixed height
           flexShrink: 0,
+          ...(hideSpacer ? { display: 'none' } : {}),
         }}
         size={spacerSize}
       />
