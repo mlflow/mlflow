@@ -1,8 +1,6 @@
 import posixpath
 from typing import Optional
 
-from databricks.sdk.errors.platform import NotFound
-
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 
@@ -53,6 +51,8 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
         return sorted(file_infos, key=lambda f: f.path)
 
     def _is_dir(self, artifact_path):
+        from databricks.sdk.errors.platform import NotFound
+
         try:
             self.client.files.get_directory_metadata(artifact_path)
         except NotFound:
