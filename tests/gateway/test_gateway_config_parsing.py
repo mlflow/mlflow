@@ -311,8 +311,7 @@ def test_invalid_model_definition(tmp_path):
     conf_path.write_text(yaml.safe_dump(invalid_format_config_key_invalid_path))
 
     assert (
-        _load_route_config(conf_path).endpoints[0].model.config.openai_api_key
-        == "/not/a/real/path"
+        _load_route_config(conf_path).endpoints[0].model.config.openai_api_key == "/not/a/real/path"  # pylint: disable=line-too-long
     )
 
     invalid_no_config = {
