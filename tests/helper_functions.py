@@ -13,7 +13,7 @@ import time
 import uuid
 from contextlib import ExitStack, contextmanager
 from functools import wraps
-from typing import Iterator
+from typing import Iterator, Optional
 from unittest import mock
 
 import pytest
@@ -21,6 +21,7 @@ import requests
 import yaml
 
 import mlflow
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
@@ -810,3 +811,20 @@ def skip_if_hf_hub_unhealthy():
             "See https://status.huggingface.co/ for more information."
         ),
     )
+
+
+def get_logged_model_by_name(name: str) -> Optional[LoggedModel]:
+    """
+    Get a logged model by name. If multiple logged models with
+    the same name exist, get the latest one.
+
+    Args:
+        name: The name of the logged model.
+
+    Returns:
+        The logged model.
+    """
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"name='{name}'", output_format="list"
+    )
+    return logged_models[0] if len(logged_models) >= 1 else None
