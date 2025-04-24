@@ -17,7 +17,7 @@ import tempfile
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union, List
 
 import yaml
 
@@ -612,6 +612,48 @@ class MlflowClient:
         prompt_tags = registry_client.get_registered_model(name)._tags
 
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
+    
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def list_prompts(self, alias: Optional[str] = None, max_results: Optional[int] = 1000) -> List[Prompt]:
+        """
+        List prompts in the MLflow Prompt Registry.
+        
+        Args:
+            alias: If provided, returns only prompts with this alias. If None, returns the
+                latest version of each prompt.
+            max_results: Maximum number of prompts to return. Default is 1000.
+            
+        Returns:
+            A list of :py:class:`Prompt <mlflow.entities.Prompt>` objects.
+        """
+        # Search for all registered models that are marked as prompts
+        filter_string = f"tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
+        prompt_models = self.search_registered_models(
+            filter_string=filter_string,
+            max_results=max_results
+        )
+        
+        prompts = []
+        for model in prompt_models:
+            if not model.latest_versions:
+                continue
+                
+            if alias is not None:
+                try:
+                    prompt_uri = f"prompts:/{model.name}@{alias}"
+                    prompt = self.load_prompt(prompt_uri)
+                    prompts.append(prompt)
+                except MlflowException:
+                    # This model doesn't have the specified alias, skip it
+                    continue
+            else:
+                # Get latest version of the prompt
+                prompt = self.load_prompt(model.name)
+                prompts.append(prompt)
+        
+        return prompts
 
     @experimental
     @require_prompt_registry

@@ -1673,7 +1673,122 @@ def test_crud_prompts(tracking_uri):
     assert mlflow.load_prompt("does_not_exist", allow_missing=True) is None
 
     client.delete_prompt("prompt_1", version=1)
+    
 
+def test_list_prompts(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+    
+    # Create some test prompts
+    client.register_prompt(
+        name="prompt_a",
+        template="Hello, {{name}}!",
+        commit_message="Greeting prompt",
+    )
+    
+    client.register_prompt(
+        name="prompt_b",
+        template="Goodbye, {{name}}!",
+        commit_message="Farewell prompt",
+    )
+    
+    # Create a second version for prompt_a
+    client.register_prompt(
+        name="prompt_a",
+        template="Hi, {{name}}!",
+        commit_message="Updated greeting",
+    )
+    
+    # Create a third version for prompt_a
+    client.register_prompt(
+        name="prompt_a",
+        template="Greetings, {{name}}!",
+        commit_message="Formal greeting prompt",
+    )
+    
+    # Create a third prompt
+    client.register_prompt(
+        name="prompt_c",
+        template="Question: {{question}}\nAnswer:",
+        commit_message="QA prompt",
+    )
+    
+    # Set aliases on prompts
+    client.set_prompt_alias(name="prompt_a", alias="production", version=3)
+    client.set_prompt_alias(name="prompt_a", alias="staging", version=2)
+    client.set_prompt_alias(name="prompt_a", alias="dev", version=1)
+    client.set_prompt_alias(name="prompt_b", alias="production", version=1)
+    client.set_prompt_alias(name="prompt_c", alias="staging", version=1)
+    
+    # Test default behavior - latest versions
+    prompts = client.list_prompts()
+    prompts = sorted(prompts, key=lambda p: p.name)
+    
+    assert len(prompts) == 3
+    assert prompts[0].name == "prompt_a"
+    assert prompts[0].template == "Greetings, {{name}}!"
+    assert prompts[0].version == 3
+    
+    # Test with production alias
+    production_prompts = client.list_prompts(alias="production")
+    production_prompts = sorted(production_prompts, key=lambda p: p.name)
+    assert len(production_prompts) == 2
+    assert production_prompts[0].name == "prompt_a"
+    assert production_prompts[1].name == "prompt_b"
+    
+    # Test with staging alias
+    staging_prompts = client.list_prompts(alias="staging")
+    staging_prompts = sorted(staging_prompts, key=lambda p: p.name)
+    assert len(staging_prompts) == 2
+    assert staging_prompts[0].name == "prompt_a"
+    assert staging_prompts[0].version == 2
+    assert staging_prompts[1].name == "prompt_c"
+    
+    # Test with dev alias
+    dev_prompts = client.list_prompts(alias="dev")
+    assert len(dev_prompts) == 1
+    assert dev_prompts[0].name == "prompt_a"
+    assert dev_prompts[0].version == 1
+    
+    # Test with nonexistent alias
+    nonexistent_prompts = client.list_prompts(alias="nonexistent")
+    assert len(nonexistent_prompts) == 0
+    
+    # Test with max_results
+    limited_prompts = client.list_prompts(max_results=1)
+    assert len(limited_prompts) == 1
+    
+    # Test fluent API if it exists
+    if hasattr(mlflow, "list_prompts"):
+        mlflow_prompts = mlflow.list_prompts()
+        mlflow_prompts = sorted(mlflow_prompts, key=lambda p: p.name)
+        assert len(mlflow_prompts) == 3
+        
+        mlflow_prod_prompts = mlflow.list_prompts(alias="production")
+        assert len(mlflow_prod_prompts) == 2
+    
+    # Test behavior after deletion
+    client.delete_prompt("prompt_a", version=3)
+    
+    # After deletion, should return version 2 as latest
+    after_delete_prompts = client.list_prompts()
+    after_delete_prompts = sorted(after_delete_prompts, key=lambda p: p.name)
+    prompt_a = next(p for p in after_delete_prompts if p.name == "prompt_a")
+    assert prompt_a.version == 2
+    
+    # Test production alias after deleting the version it pointed to
+    after_delete_prod_prompts = client.list_prompts(alias="production")
+    assert len(after_delete_prod_prompts) == 1
+    assert after_delete_prod_prompts[0].name == "prompt_b"
+    
+    # Delete remaining prompt_a versions
+    client.delete_prompt("prompt_a", version=2)
+    client.delete_prompt("prompt_a", version=1)
+    
+    # Verify it's not returned anymore
+    final_prompts = client.list_prompts()
+    assert len(final_prompts) == 2
+    assert "prompt_a" not in [p.name for p in final_prompts]
+    
 
 def test_create_prompt_with_tags_and_metadata(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)

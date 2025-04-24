@@ -203,6 +203,7 @@ from mlflow.tracking._model_registry.fluent import (
     search_model_versions,
     search_registered_models,
     set_prompt_alias,
+    list_prompts,
 )
 from mlflow.tracking.fluent import (
     ActiveRun,
@@ -334,6 +335,7 @@ __all__ = [
     "register_prompt",
     "set_prompt_alias",
     "delete_prompt_alias",
+    "list_prompts",
 ]
 
 
