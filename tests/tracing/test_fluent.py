@@ -386,7 +386,7 @@ def test_trace_in_databricks_model_serving(
     trace_dict = response.json["trace"]
     trace = Trace.from_dict(trace_dict)
     assert trace.info.request_id == databricks_request_id
-    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
+    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
     assert len(trace.data.spans) == 3
 
     span_name_to_span = {span.name: span for span in trace.data.spans}
@@ -838,7 +838,7 @@ def test_search_traces(return_type, mock_client):
         [
             Trace(
                 info=create_test_trace_info(f"tr-{i}"),
-                data=TraceData([], "", ""),
+                data=TraceData([]),
             )
             for i in range(10)
         ],
@@ -884,7 +884,7 @@ def test_search_traces_with_pagination(mock_client):
     traces = [
         Trace(
             info=create_test_trace_info(f"tr-{i}"),
-            data=TraceData([], "", ""),
+            data=TraceData([]),
         )
         for i in range(30)
     ]
@@ -981,11 +981,7 @@ def test_search_traces_handles_missing_response_tags_and_metadata(monkeypatch):
                         execution_time_ms=2,
                         status=TraceStatus.OK,
                     ),
-                    data=TraceData(
-                        spans=[],
-                        request="request",
-                        # Response is missing
-                    ),
+                    data=TraceData(spans=[]),
                 )
             ]
 
@@ -1060,7 +1056,7 @@ def test_search_traces_with_invalid_span_content(monkeypatch):
                         execution_time_ms=2,
                         status=TraceStatus.OK,
                     ),
-                    data=TraceData(spans=[None], request="request", response="response"),
+                    data=TraceData(spans=[None]),
                 )
             ]
 

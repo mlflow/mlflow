@@ -15,6 +15,9 @@ def build_docs(package_manager, version):
 
     # ensure it ends with a "/"
     base_url = env.get("DOCS_BASE_URL", "/docs/").rstrip("/") + "/"
+    api_reference_prefix = (
+        env.get("API_REFERENCE_PREFIX", "https://mlflow.org/docs/").rstrip("/") + "/"
+    )
 
     output_path = Path(f"_build/{version}")
     versioned_url = Path(f"{base_url}{version}")
@@ -29,7 +32,12 @@ def build_docs(package_manager, version):
         shutil.rmtree(build_path)
 
     subprocess.check_call(
-        package_manager + ["build"], env={**env, "DOCS_BASE_URL": str(versioned_url)}
+        package_manager + ["build"],
+        env={
+            **env,
+            "DOCS_BASE_URL": str(versioned_url),
+            "API_REFERENCE_PREFIX": f"{api_reference_prefix}{version}",
+        },
     )
     shutil.copytree(build_path, output_path)
 

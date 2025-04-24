@@ -419,7 +419,7 @@ Distributable Artifact](#building-a-distributable-artifact).
 
 #### Running the Javascript Dev Server
 
-[Install Node Modules](#install-node-modules), then run the following:
+[Install Node Modules](#install-node-modules), then run the following in two separate shells:
 
 In one shell:
 
@@ -427,7 +427,7 @@ In one shell:
 mlflow ui
 ```
 
-In another shell:
+And in another shell:
 
 ```bash
 cd mlflow/server/js

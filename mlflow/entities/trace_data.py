@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from mlflow.entities import Span
+from mlflow.protos import databricks_trace_server_pb2 as pb
 from mlflow.tracing.constant import SpanAttributeKey
 
 
@@ -11,32 +12,23 @@ class TraceData:
 
     Args:
         spans: List of spans that are part of the trace.
-        request: Input data for the entire trace. Equivalent to the input of the root span
-            but added for ease of access. Stored as a JSON string.
-        response: Output data for the entire trace. Equivalent to the output of the root span.
-            Stored as a JSON string.
     """
 
     spans: list[Span] = field(default_factory=list)
-    request: Optional[str] = None
-    response: Optional[str] = None
+
+    # NB: Custom constructor to allow passing additional kwargs for backward compatibility for
+    # DBX agent evaluator. Once they migrates to trace V3 schema, we can remove this.
+    def __init__(self, spans: Optional[list[Span]] = None, **kwargs):
+        self.spans = spans or []
 
     @classmethod
     def from_dict(cls, d):
         if not isinstance(d, dict):
             raise TypeError(f"TraceData.from_dict() expects a dictionary. Got: {type(d).__name__}")
-        return cls(
-            request=d.get("request"),
-            response=d.get("response"),
-            spans=[Span.from_dict(span) for span in d.get("spans", [])],
-        )
+        return cls(spans=[Span.from_dict(span) for span in d.get("spans", [])])
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "spans": [span.to_dict() for span in self.spans],
-            "request": self.request,
-            "response": self.response,
-        }
+        return {"spans": [span.to_dict() for span in self.spans]}
 
     @property
     def intermediate_outputs(self) -> Optional[dict[str, Any]]:
@@ -63,3 +55,21 @@ class TraceData:
         for span in self.spans:
             if span.parent_id is None:
                 return span
+
+    def to_proto(self):
+        return pb.TraceData(spans=[span.to_proto() for span in self.spans])
+
+    # `request` and `response` are preserved for backward compatibility with v2
+    @property
+    def request(self) -> Optional[str]:
+        if span := self._get_root_span():
+            # Accessing the OTel span directly get serialized value directly.
+            return span._span.attributes.get(SpanAttributeKey.INPUTS)
+        return None
+
+    @property
+    def response(self) -> Optional[str]:
+        if span := self._get_root_span():
+            # Accessing the OTel span directly get serialized value directly.
+            return span._span.attributes.get(SpanAttributeKey.OUTPUTS)
+        return None

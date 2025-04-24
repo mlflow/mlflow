@@ -93,11 +93,8 @@ def test_langchain_evaluate_fails_with_an_exception():
 
     chain = create_fake_chain()
 
-    with (
-        mock.patch("mlflow.langchain.log_model") as log_model_mock,
-        mock.patch.object(
-            DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
-        ),
+    with mock.patch.object(
+        DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
     ):
 
         def model(inputs):
@@ -111,7 +108,6 @@ def test_langchain_evaluate_fails_with_an_exception():
                     targets="ground_truth",
                     extra_metrics=[mlflow.metrics.exact_match()],
                 )
-            log_model_mock.assert_not_called()
 
     assert len(get_traces()) == 0
 

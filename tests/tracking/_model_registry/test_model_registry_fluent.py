@@ -152,6 +152,12 @@ def test_crud_prompts(tmp_path):
     with pytest.raises(MlflowException, match=r"Prompt \(name=prompt_1, version=2\) not found"):
         mlflow.load_prompt("prompt_1", version=2)
 
+    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt_1, version=2\) not found"):
+        mlflow.load_prompt("prompt_1", version=2, allow_missing=False)
+
+    assert mlflow.load_prompt("prompt_1", version=2, allow_missing=True) is None
+    assert mlflow.load_prompt("does_not_exist", allow_missing=True) is None
+
     mlflow.delete_prompt("prompt_1", version=1)
 
 

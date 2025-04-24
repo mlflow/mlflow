@@ -71,13 +71,13 @@ def test_export(experiment_id, is_async, monkeypatch):
                 },
                 "type": "MLFLOW_EXPERIMENT",
             },
-            "request": '{"x": "hello"}',
-            "response": '"hello!"',
+            "request_preview": '{"x": "hello"}',
+            "response_preview": '"hello!"',
             "request_time": mock.ANY,
             "execution_duration": mock.ANY,
             "state": "OK",
             "trace_metadata": {
-                "mlflow.trace_schema.version": "2",
+                "mlflow.trace_schema.version": "3",
             },
             "tags": {
                 "foo": "bar",

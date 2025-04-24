@@ -231,7 +231,8 @@ def _process_chunk(span: LiveSpan, index: int, chunk: Any) -> str:
     if isinstance(chunk, Completion) and chunk.choices:
         parsed = chunk.choices[0].text or ""
     elif isinstance(chunk, ChatCompletionChunk) and chunk.choices:
-        parsed = chunk.choices[0].delta.content or ""
+        choice = chunk.choices[0]
+        parsed = (choice.delta and choice.delta.content) or ""
     else:
         parsed = ""
 
