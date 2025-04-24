@@ -44,43 +44,46 @@ class MLFlowSparkStudy:
         study_name = self._study_name
 
         def run_task_on_executor_pd(iterator):
-            import traceback
-
             import optuna
             import pandas as pd
+            import traceback
 
             import mlflow
             from mlflow.optuna.storage import MlflowStorage
 
             mlflow.set_tracking_uri("databricks")
 
-            try:
-                storage = MlflowStorage(experiment_id=experiment_id)
-                study = optuna.load_study(study_name=study_name, storage=storage)
-                _optimize_sequential(
-                    study,
-                    func,
-                    1,
-                    timeout,
-                    catch,
-                    callbacks,
-                    False,
-                    False,
-                    datetime.datetime.now(),
-                    None,
-                )
-                error_message = None
-            except BaseException as e:
-                _traceback_string = traceback.format_exc()
-                e._tb_str = _traceback_string
-                error_message = _traceback_string
-            finally:
-                df = pd.DataFrame(
-                    {
-                        "error": [error_message],
-                    }
-                )
-                yield df
+
+            storage = MlflowStorage(experiment_id=experiment_id)
+            study = optuna.load_study(study_name=study_name, storage=storage)
+            for pdf in iterator:
+                try:
+                    error_message = []
+                    num_trials = len(pdf)
+                    _optimize_sequential(
+                        study,
+                        func,
+                        num_trials,
+                        timeout,
+                        catch,
+                        callbacks,
+                        False,
+                        False,
+                        datetime.datetime.now(),
+                        None,
+                    )
+                    error_message.append(None)
+                except BaseException as e:
+                    _traceback_string = traceback.format_exc()
+                    e._tb_str = _traceback_string
+                    error_message.append(_traceback_string)
+                finally:
+                    df = pd.DataFrame(
+                        {
+                            "error": error_message,
+                        }
+                    )
+                    yield df
 
         num_tasks = n_trials
         if n_jobs == -1:
