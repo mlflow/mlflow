@@ -2219,7 +2219,7 @@ def spark_udf(
     is_spark_connect = is_spark_connect_mode()
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
-    openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()
+    openai_env_vars = mlflow.openai.model._OpenAIEnvVar.read_environ()
     mlflow_testing = _MLFLOW_TESTING.get_raw()
 
     if prebuilt_env_uri:
