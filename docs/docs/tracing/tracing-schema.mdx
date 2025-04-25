@@ -90,12 +90,12 @@ A trace is a root object composed of two components:
 - <APILink fn="mlflow.entities.TraceData">`TraceData`</APILink>
 
 :::tip
-Check the API documentation for helper methods on these dataclass objects for more information on how to convert or extract data from them.
+Check the API documentation for helper methods on these `dataclass` objects for more information on how to convert or extract data from them.
 :::
 
 ## Trace Info
 
-Trace Info is a dataclass object that contains metadata about the trace. This metadata includes information about the trace's origin, status, and
+Trace Info is a `dataclass` object that contains metadata about the trace. This metadata includes information about the trace's origin, status, and
 various other data that aids in retrieving and filtering traces when used with <APILink fn="mlflow.client.MlflowClient.search_traces" /> and for
 navigation of traces within the MLflow UI.
 
@@ -135,20 +135,9 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
       </td>
     </tr>
     <tr>
-      <td>**experiment_id**</td>
+      <td>**trace_location**</td>
       <td>
-        The ID of the experiment in which the trace was logged. All logged
-        traces are associated with the current active experiment when the trace
-        is generated (during invocation of an instrumented object).
-      </td>
-      <td>
-        {
-          "This value is immutable and is set by the tracing backend. It is a system-controlled value that is very useful when using the "
-        }
-        <APILink fn="mlflow.client.MlflowClient.search_traces">
-          {"Search Traces"}
-        </APILink>
-        {" API."}
+        The location where the trace is stored. MLflow currently supports MLflow Experiment or Databricks Inference Table as a trace location.
       </td>
     </tr>
     <tr>
