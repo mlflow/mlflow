@@ -33,7 +33,7 @@ for how to set up secrets on Databricks.
 """
 
 from mlflow.openai.autolog import autolog
-from mlflow.openai.constants import FLAVOR_NAME
+from mlflow.openai.constant import FLAVOR_NAME
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 __all__ = ["autolog", "FLAVOR_NAME"]
