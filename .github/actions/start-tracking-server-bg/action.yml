@@ -34,7 +34,7 @@ runs:
       run: |
         echo "Waiting for MLflow server to start..."
         for i in {1..30}; do
-          if curl -s http://localhost:5000/health > /dev/null; then
+          if curl -s http://localhost:5000 > /dev/null; then
             echo "MLflow server is up!"
             exit 0
           fi
