@@ -1,20 +1,46 @@
-name: start-tracking-server-bg-volume
+name: Start MLflow Tracking Server in Background
 description: Run MLflow tracking server with volume-mounted local repo
-run: |
-  # Create a Dockerfile
-  cat > Dockerfile.mlflow << EOF
-  FROM python:3.9-slim
 
-  # Install git and other dependencies
-  RUN apt-get update && apt-get install -y git
+runs:
+  using: composite
+  steps:
+    - name: Create Dockerfile for MLflow server
+      shell: bash
+      run: |
+        cat > Dockerfile.mlflow << EOF
+        FROM python:3.9-slim
 
-  WORKDIR /mlflow-repo
+        RUN apt-get update && apt-get install -y git
 
-  EXPOSE 5000
+        WORKDIR /app
 
-  CMD pip install -e /mlflow/mlflow-repo && mlflow server --host 0.0.0.0 --port 5000
-  EOF
+        EXPOSE 5000
 
-  # Build and run the tracking server container
-  docker build -t mlflow-tracking-server -f Dockerfile.mlflow .
-  docker run -d --name mlflow-server -p 5000:5000 -v $(pwd):/mlflow-repo/mlflow mlflow-tracking-server
+        CMD pip install -e /app/mlflow-repo && mlflow server --host 0.0.0.0 --port 5000
+        EOF
+
+    - name: Build MLflow tracking server image
+      shell: bash
+      run: |
+        docker build -t mlflow-tracking-server -f Dockerfile.mlflow .
+
+    - name: Run MLflow tracking server container
+      shell: bash
+      run: |
+        docker run -d --name mlflow-server -p 5000:5000 -v $(pwd):/app/mlflow-repo mlflow-tracking-server
+
+    - name: Wait for server to start
+      shell: bash
+      run: |
+        echo "Waiting for MLflow server to start..."
+        for i in {1..30}; do
+          if curl -s http://localhost:5000/health > /dev/null; then
+            echo "MLflow server is up!"
+            exit 0
+          fi
+          echo "Waiting... ($i/30)"
+          sleep 1
+        done
+        echo "Failed to start MLflow server"
+        docker logs mlflow-server
+        exit 1
