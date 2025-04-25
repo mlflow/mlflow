@@ -1,4 +1,3 @@
-import importlib
 import json
 from unittest import mock
 
@@ -16,25 +15,12 @@ from mlflow.models.utils import load_serving_example
 from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
 from tests.helper_functions import pyfunc_serve_and_score_model
-from tests.openai.conftest import is_v1
 
 
 @pytest.fixture(scope="module")
 def spark():
     with SparkSession.builder.master("local[*]").getOrCreate() as s:
         yield s
-
-
-def chat_completions():
-    return openai.chat.completions if is_v1 else openai.ChatCompletion
-
-
-def completions():
-    return openai.completions if is_v1 else openai.Completion
-
-
-def embeddings():
-    return openai.embeddings if is_v1 else openai.Embedding
 
 
 @pytest.fixture(autouse=True)
@@ -46,10 +32,7 @@ def set_envs(monkeypatch, mock_openai):
             "OPENAI_API_BASE": mock_openai,
         }
     )
-    if is_v1:
-        openai.base_url = mock_openai
-    else:
-        importlib.reload(openai)
+    openai.base_url = mock_openai
 
 
 def test_log_model():
@@ -72,7 +55,7 @@ def test_log_model():
 def test_chat_single_variable(tmp_path):
     mlflow.openai.save_model(
         model="gpt-4o-mini",
-        task=chat_completions(),
+        task=openai.chat.completions,
         path=tmp_path,
         messages=[{"role": "user", "content": "{x}"}],
     )
@@ -108,7 +91,7 @@ def test_chat_single_variable(tmp_path):
 def test_completion_single_variable(tmp_path):
     mlflow.openai.save_model(
         model="text-davinci-003",
-        task=completions(),
+        task=openai.completions,
         path=tmp_path,
         prompt="Say {text}",
     )
@@ -141,7 +124,7 @@ def test_completion_single_variable(tmp_path):
 def test_chat_multiple_variables(tmp_path):
     mlflow.openai.save_model(
         model="gpt-4o-mini",
-        task=chat_completions(),
+        task=openai.chat.completions,
         path=tmp_path,
         messages=[{"role": "user", "content": "{x} {y}"}],
     )
@@ -183,7 +166,7 @@ def test_chat_multiple_variables(tmp_path):
 def test_chat_role_content(tmp_path):
     mlflow.openai.save_model(
         model="gpt-4o-mini",
-        task=chat_completions(),
+        task=openai.chat.completions,
         path=tmp_path,
         messages=[{"role": "{role}", "content": "{content}"}],
     )
@@ -219,7 +202,7 @@ def test_chat_role_content(tmp_path):
 def test_completion_multiple_variables(tmp_path):
     mlflow.openai.save_model(
         model="text-davinci-003",
-        task=completions(),
+        task=openai.completions,
         path=tmp_path,
         prompt="Say {x} and {y}",
     )
@@ -258,7 +241,7 @@ def test_completion_multiple_variables(tmp_path):
 def test_chat_multiple_messages(tmp_path):
     mlflow.openai.save_model(
         model="gpt-4o-mini",
-        task=chat_completions(),
+        task=openai.chat.completions,
         path=tmp_path,
         messages=[
             {"role": "user", "content": "{x}"},
@@ -303,7 +286,7 @@ def test_chat_multiple_messages(tmp_path):
 def test_chat_no_variables(tmp_path):
     mlflow.openai.save_model(
         model="gpt-4o-mini",
-        task=chat_completions(),
+        task=openai.chat.completions,
         path=tmp_path,
         messages=[{"role": "user", "content": "a"}],
     )
@@ -343,7 +326,7 @@ def test_chat_no_variables(tmp_path):
 def test_completion_no_variable(tmp_path):
     mlflow.openai.save_model(
         model="text-davinci-003",
-        task=completions(),
+        task=openai.completions,
         path=tmp_path,
     )
 
@@ -375,7 +358,7 @@ def test_completion_no_variable(tmp_path):
 def test_chat_no_messages(tmp_path):
     mlflow.openai.save_model(
         model="gpt-4o-mini",
-        task=chat_completions(),
+        task=openai.chat.completions,
         path=tmp_path,
     )
     model = mlflow.models.Model.load(tmp_path)
@@ -425,24 +408,16 @@ def test_invalid_messages(tmp_path, messages):
     ):
         mlflow.openai.save_model(
             model="gpt-4o-mini",
-            task=chat_completions(),
+            task=openai.chat.completions,
             path=tmp_path,
             messages=messages,
         )
 
 
 def test_task_argument_accepts_class(tmp_path):
-    mlflow.openai.save_model(model="gpt-4o-mini", task=chat_completions(), path=tmp_path)
+    mlflow.openai.save_model(model="gpt-4o-mini", task=openai.chat.completions, path=tmp_path)
     loaded_model = mlflow.openai.load_model(tmp_path)
     assert loaded_model["task"] == "chat.completions"
-
-
-@pytest.mark.skipif(is_v1, reason="Requires OpenAI SDK v0")
-def test_model_argument_accepts_retrieved_model(tmp_path):
-    model = openai.Model.retrieve("gpt-4o-mini")
-    mlflow.openai.save_model(model=model, task=chat_completions(), path=tmp_path)
-    loaded_model = mlflow.openai.load_model(tmp_path)
-    assert loaded_model["model"] == "gpt-4o-mini"
 
 
 def test_save_model_with_secret_scope(tmp_path, monkeypatch):
@@ -496,7 +471,7 @@ def test_spark_udf_chat(tmp_path, spark):
 
 class ChatCompletionModel(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input, params=None):
-        completion = chat_completions.create(
+        completion = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "What is MLflow?"}],
         )
@@ -506,7 +481,7 @@ class ChatCompletionModel(mlflow.pyfunc.PythonModel):
 def test_embeddings(tmp_path):
     mlflow.openai.save_model(
         model="text-embedding-ada-002",
-        task=embeddings(),
+        task=openai.embeddings,
         path=tmp_path,
     )
 
@@ -531,7 +506,7 @@ def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENAI_ENGINE", "test_engine")
     mlflow.openai.save_model(
         model="text-embedding-ada-002",
-        task=embeddings(),
+        task=openai.embeddings,
         path=tmp_path,
     )
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -544,7 +519,7 @@ def test_embeddings_pyfunc_server_and_score():
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
             "text-embedding-ada-002",
-            embeddings(),
+            openai.embeddings,
             "model",
             input_example=df,
         )
@@ -563,7 +538,7 @@ def test_embeddings_pyfunc_server_and_score():
 def test_spark_udf_embeddings(tmp_path, spark):
     mlflow.openai.save_model(
         model="text-embedding-ada-002",
-        task=embeddings(),
+        task=openai.embeddings,
         path=tmp_path,
     )
     udf = mlflow.pyfunc.spark_udf(spark, tmp_path, result_type="array<double>")
@@ -581,7 +556,7 @@ def test_spark_udf_embeddings(tmp_path, spark):
 def test_inference_params(tmp_path):
     mlflow.openai.save_model(
         model="text-embedding-ada-002",
-        task=embeddings(),
+        task=openai.embeddings,
         path=tmp_path,
         signature=ModelSignature(
             inputs=Schema([ColSpec(type="string", name=None)]),
@@ -606,7 +581,7 @@ def test_inference_params_overlap(tmp_path):
     with pytest.raises(mlflow.MlflowException, match=r"any of \['prefix'\] as parameters"):
         mlflow.openai.save_model(
             model="text-davinci-003",
-            task=completions(),
+            task=openai.completions,
             path=tmp_path,
             prefix="Classify the following text's sentiment:",
             signature=ModelSignature(
