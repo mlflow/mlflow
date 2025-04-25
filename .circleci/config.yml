@@ -85,7 +85,7 @@ jobs:
             yarn build-all -- --no-r
             python changed_pages.py
       - store_artifacts:
-          path: docs/build/      
+          path: docs/build/
       - run:
           name: Test examples
           working_directory: docs/api_reference
