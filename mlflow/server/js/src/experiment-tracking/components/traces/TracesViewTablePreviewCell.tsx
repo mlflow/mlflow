@@ -34,10 +34,9 @@ const TracesViewTablePreviewCell = ({
   const fetchFullData = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await MlflowService.getExperimentTraceData<{
-        request?: any;
-        response?: any;
-      }>(traceId);
+      const response = await MlflowService.getExperimentTraceInfo(traceId);
+
+      console.log('@@@ response', response);
 
       if (previewFieldName in response) {
         const previewValue = response[previewFieldName];
@@ -117,7 +116,7 @@ const ExpandedParamCell = ({ value }: { value: string }) => {
       }}
     >
       <CodeSnippet
-        language={structuredJSONValue ? "json" : "text"}
+        language={structuredJSONValue ? 'json' : 'text'}
         wrapLongLines
         style={{
           padding: theme.spacing.sm,
