@@ -55,7 +55,7 @@ from openai import OpenAI
 import mlflow
 from mlflow.metrics.genai import answer_correctness, answer_similarity, faithfulness
 
-# set an active model for linking traces, a model with name `openai_model` will be created
+# set an active model for linking traces, a model named `openai_model` will be created
 mlflow.set_active_model(name="openai_model")
 
 # turn on autologging for automatic tracing
