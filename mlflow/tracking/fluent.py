@@ -77,6 +77,7 @@ from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 if not IS_TRACING_SDK_ONLY:
+    from mlflow.data.dataset import Dataset
     from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
     from mlflow.tracking.client import MlflowClient
     from mlflow.tracking.context import registry as context_registry
@@ -90,8 +91,6 @@ if TYPE_CHECKING:
     import pandas
     import PIL
     import plotly
-
-    from mlflow.data.dataset import Dataset
 
 
 _active_experiment_id = None

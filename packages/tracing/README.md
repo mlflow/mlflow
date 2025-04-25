@@ -47,6 +47,8 @@ To install from the source code, run the following command:
 pip install git+https://github.com/mlflow/mlflow.git#subdirectory=packages/tracing"
 ```
 
+> **NOTE:** It is **not** recommended to co-install this package with the full MLflow package together, as it may cause version mismatches issues.
+
 ### Connect to the MLflow Server
 
 To connect to your MLflow server to log your traces, set the `MLFLOW_TRACKING_URI` environment variable or use the `mlflow.set_tracking_uri` function:
