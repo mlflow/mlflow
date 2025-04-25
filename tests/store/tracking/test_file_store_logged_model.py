@@ -741,6 +741,7 @@ def test_search_logged_models_order_by_metrics(store):
         tags=[],
     )
 
+    time.sleep(0.001)
     model2 = store.create_logged_model(exp_id, source_run_id=run_id)
     # model2:
     # metric1+dataset1+digest1+timestamp0: 0.2
