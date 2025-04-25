@@ -1324,7 +1324,7 @@ def _validate_langchain_model(model):
 
 
 def _validate_llama_index_model(model):
-    from mlflow.llama_index import _validate_and_prepare_llama_index_model_or_path
+    from mlflow.llama_index.model import _validate_and_prepare_llama_index_model_or_path
 
     return _validate_and_prepare_llama_index_model_or_path(model, None)
 

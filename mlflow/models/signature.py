@@ -547,7 +547,7 @@ def _infer_signature_from_input_example(
         except Exception:
             # try assign output schema if failing to infer it from prediction for langchain models
             try:
-                from mlflow.langchain import _LangChainModelWrapper
+                from mlflow.langchain.model import _LangChainModelWrapper
                 from mlflow.langchain.utils.chat import _ChatResponse
             except ImportError:
                 pass

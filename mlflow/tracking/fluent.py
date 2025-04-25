@@ -2529,6 +2529,12 @@ def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
         Artifact uri: file:///.../0/a46a80f1c9644bd8f4e5dd5553fffce/artifacts
         Artifact uri: file:///.../0/a46a80f1c9644bd8f4e5dd5553fffce/artifacts/features/features.txt
     """
+    if not mlflow.active_run():
+        _logger.warning(
+            "No active run found. A new active run will be created. If this is not intended, "
+            "please create a run using `mlflow.start_run()` first."
+        )
+
     return artifact_utils.get_artifact_uri(
         run_id=_get_or_start_run().info.run_id, artifact_path=artifact_path
     )

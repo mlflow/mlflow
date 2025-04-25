@@ -83,7 +83,6 @@ def create_run(
 ):
     return Run(
         RunInfo(
-            run_uuid=run_id,
             run_id=run_id,
             experiment_id=exp_id,
             user_id=uid,

@@ -107,7 +107,7 @@ with mlflow.start_run():
             )
 
 # This example produced one MLflow Run (training_run) and 6 MLflow Logged Models,
-# one for each checkpoint (at steps 0, 10, …, 50). Using MLflow’s UI or search API,
+# one for each checkpoint (at steps 0, 10, …, 50). Using MLflow's UI or search API,
 # we can get the checkpoints and rank them by their accuracy.
 ranked_checkpoints = mlflow.search_logged_models(
     output_format="list", order_by=[{"field_name": "metrics.accuracy", "ascending": False}]

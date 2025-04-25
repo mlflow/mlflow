@@ -30,7 +30,7 @@ logged_model = mlflow.langchain.log_model(
 print(logged_model.model_id, logged_model.params)
 # m-123802d4ba324f4d8baa456eb8b5c061, {'max_tokens': '2000', 'prompt_template': "input_variables=['messages'] messages=[SystemMessagePromptTemplate(...), HumanMessagePromptTemplate(...)]", 'temperature': '0.1'}
 
-# Then, we will interactively query the chain in a notebook to make sure that it’s viable enough for further testing. These traces can be viewed in UI, under the Traces tab of the model details page.
+# Then, we will interactively query the chain in a notebook to make sure that it's viable enough for further testing. These traces can be viewed in UI, under the Traces tab of the model details page.
 
 # Enable autologging so that interactive traces from the chain are automatically linked to its LoggedModel
 mlflow.langchain.autolog()

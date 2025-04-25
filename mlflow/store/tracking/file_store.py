@@ -607,10 +607,10 @@ class FileStore(AbstractStore):
         )
         deleted_run_ids = []
         for deleted_run in deleted_runs:
-            _, run_dir = self._find_run_root(deleted_run.info.run_uuid)
+            _, run_dir = self._find_run_root(deleted_run.info.run_id)
             meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
             if "deleted_time" not in meta or current_time - int(meta["deleted_time"]) >= older_than:
-                deleted_run_ids.append(deleted_run.info.run_uuid)
+                deleted_run_ids.append(deleted_run.info.run_id)
 
         return deleted_run_ids
 
@@ -685,7 +685,6 @@ class FileStore(AbstractStore):
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(
-            run_uuid=run_uuid,
             run_id=run_uuid,
             run_name=run_name,
             experiment_id=experiment_id,
@@ -1992,7 +1991,7 @@ class FileStore(AbstractStore):
             _validate_param(param.key, param.value)
 
         name = name or _generate_random_name()
-        model_id = str(uuid.uuid4())
+        model_id = f"m-{str(uuid.uuid4()).replace('-', '')}"
         artifact_location = self._get_model_artifact_dir(experiment_id, model_id)
         creation_timestamp = int(time.time() * 1000)
         model = LoggedModel(

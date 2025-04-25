@@ -215,8 +215,8 @@ class Expectation(_MlflowObject):
         return {"value": self.value}
 
     @classmethod
-    def from_dictionary(self, d):
-        return Expectation(d["value"])
+    def from_dictionary(cls, d):
+        return cls(d["value"])
 
 
 @experimental
@@ -238,7 +238,7 @@ class Feedback(_MlflowObject):
         )
 
     @classmethod
-    def from_proto(self, proto) -> "Feedback":
+    def from_proto(cls, proto) -> "Feedback":
         return Feedback(
             value=MessageToDict(proto.value),
             error=AssessmentError.from_proto(proto.error) if proto.HasField("error") else None,
@@ -248,8 +248,8 @@ class Feedback(_MlflowObject):
         return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
 
     @classmethod
-    def from_dictionary(self, d):
-        return Feedback(
+    def from_dictionary(cls, d):
+        return cls(
             value=d["value"],
             error=AssessmentError.from_dictionary(err) if (err := d.get("error")) else None,
         )

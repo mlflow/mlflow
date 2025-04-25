@@ -833,6 +833,9 @@ def test_run_info(store: SqlAlchemyStore):
         ]:
             continue
 
+        if k == "run_uuid":
+            k = "run_id"
+
         v2 = getattr(run.info, k)
         if k == "source_type":
             assert v == SourceType.to_string(v2)
@@ -994,9 +997,9 @@ def test_get_deleted_runs(store: SqlAlchemyStore):
     deleted_run_ids = store._get_deleted_runs()
     assert deleted_run_ids == []
 
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     deleted_run_ids = store._get_deleted_runs()
-    assert deleted_run_ids == [run.info.run_uuid]
+    assert deleted_run_ids == [run.info.run_id]
 
 
 def test_log_metric(store: SqlAlchemyStore):
@@ -2991,7 +2994,7 @@ def _generate_large_data(store, nb_runs=1000):
             tags=[],
             user_id="Anderson",
             run_name="name",
-        ).info.run_uuid
+        ).info.run_id
 
         run_ids.append(run_id)
 
@@ -3093,14 +3096,14 @@ def test_search_runs_keep_all_runs_when_sorting(store: SqlAlchemyStore):
         tags=[],
         user_id="Me",
         run_name="name",
-    ).info.run_uuid
+    ).info.run_id
     r2 = store.create_run(
         experiment_id=experiment_id,
         start_time=0,
         tags=[],
         user_id="Me",
         run_name="name",
-    ).info.run_uuid
+    ).info.run_id
     store.set_tag(r1, RunTag(key="t1", value="1"))
     store.set_tag(r1, RunTag(key="t2", value="1"))
     store.set_tag(r2, RunTag(key="t2", value="1"))

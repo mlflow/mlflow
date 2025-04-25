@@ -831,7 +831,7 @@ class SearchUtils:
         """Sorts a set of runs based on their natural ordering and an overriding set of order_bys.
         Runs are naturally ordered first by start time descending, then by run id for tie-breaking.
         """
-        runs = sorted(runs, key=lambda run: (-run.info.start_time, run.info.run_uuid))
+        runs = sorted(runs, key=lambda run: (-run.info.start_time, run.info.run_id))
         if not order_by_list:
             return runs
         # NB: We rely on the stability of Python's sort function, so that we can apply
