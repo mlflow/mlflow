@@ -7,7 +7,6 @@ from mlflow.environment_variables import MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import _contains_params
 from mlflow.types.schema import ColSpec, DataType, Schema, TensorSpec
-from mlflow.utils.annotations import deprecated
 from mlflow.utils.os import is_windows
 from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
 
