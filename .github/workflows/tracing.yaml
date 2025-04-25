@@ -1,0 +1,60 @@
+name: 🔍 Tracing SDK Test
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+env:
+  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+  PYTHONUTF8: "1"
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/start-tracking-server-bg
+
+      # Install mlflow-tracing SDK from the current directory
+      - name: Install mlflow-tracing SDK
+        run: |
+          pip install pip setuptools --upgrade
+          pip install -e ./package/tracing
+
+      - name: Install test dependencies
+        run: |
+          pip install pytest pytest-asyncio
+
+      - name: Run core tracing tests
+        run: |
+          pytest tests/tracing
+
+  # TODO: Add a job to run autologging tests against integrated libraries (latest versions)
+
+  # TODO: Add a job to warn large package size increase.
+  # package-size:

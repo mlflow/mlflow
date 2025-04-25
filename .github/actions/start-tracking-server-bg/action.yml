@@ -1,0 +1,20 @@
+name: start-tracking-server-bg-volume
+description: Run MLflow tracking server with volume-mounted local repo
+run: |
+  # Create a Dockerfile
+  cat > Dockerfile.mlflow << EOF
+  FROM python:3.9-slim
+
+  # Install git and other dependencies
+  RUN apt-get update && apt-get install -y git
+
+  WORKDIR /mlflow-repo
+
+  EXPOSE 5000
+
+  CMD pip install -e /mlflow/mlflow-repo && mlflow server --host 0.0.0.0 --port 5000
+  EOF
+
+  # Build and run the tracking server container
+  docker build -t mlflow-tracking-server -f Dockerfile.mlflow .
+  docker run -d --name mlflow-server -p 5000:5000 -v $(pwd):/mlflow-repo/mlflow mlflow-tracking-server
