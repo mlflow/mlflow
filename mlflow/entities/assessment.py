@@ -15,7 +15,6 @@ from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
 from mlflow.utils.annotations import experimental
-from mlflow.utils.proto_json_utils import parse_pb_value, set_pb_value
 
 # Assessment value should be one of the following types:
 # - float
@@ -129,7 +128,7 @@ class Assessment(_MlflowObject):
             assessment.assessment_id = self.assessment_id
 
         if self.expectation is not None:
-            set_pb_value(assessment.expectation.value, self.expectation.value)
+            assessment.expectation.CopyFrom(self.expectation.to_proto())
         elif self.feedback is not None:
             assessment.feedback.CopyFrom(self.feedback.to_proto())
 
@@ -141,7 +140,7 @@ class Assessment(_MlflowObject):
     @classmethod
     def from_proto(cls, proto):
         if proto.WhichOneof("value") == "expectation":
-            expectation = Expectation(parse_pb_value(proto.expectation.value))
+            expectation = Expectation.from_proto(proto.expectation)
             feedback = None
         elif proto.WhichOneof("value") == "feedback":
             expectation = None
@@ -194,9 +193,11 @@ class Expectation(_MlflowObject):
     value: AssessmentValueType
 
     def to_proto(self):
-        expectation = ProtoExpectation()
-        expectation.value = self.value
-        return expectation
+        return ProtoExpectation(value=ParseDict(self.value, Value()))
+
+    @classmethod
+    def from_proto(cls, proto) -> "Expectation":
+        return cls(value=MessageToDict(proto.value))
 
     def to_dictionary(self):
         return {"value": self.value}
@@ -221,7 +222,7 @@ class Feedback(_MlflowObject):
         )
 
     @classmethod
-    def from_proto(self, proto):
+    def from_proto(cls, proto) -> "Feedback":
         return Feedback(
             value=MessageToDict(proto.value),
             error=AssessmentError.from_proto(proto.error) if proto.HasField("error") else None,

@@ -31,6 +31,11 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'introduction/index',
+          label: 'Introduction',
+        },
+        {
+          type: 'doc',
           id: 'getting-started/running-notebooks/index',
         },
         {
@@ -187,6 +192,11 @@ const sidebars: SidebarsConfig = {
                   dirName: 'llms/llm-evaluate',
                 },
               ],
+            },
+            {
+              type: 'doc',
+              label: 'Production Monitoring',
+              id: 'tracing/production',
             },
             {
               type: 'category',

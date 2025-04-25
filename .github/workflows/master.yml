@@ -95,7 +95,7 @@ jobs:
           source dev/setup-ssh.sh
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
-            --ignore=tests/deployments/server --ignore=tests/pyspark/optuna tests
+            --ignore=tests/deployments/server tests
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -305,10 +305,8 @@ jobs:
   optuna:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
     permissions: {}
-    strategy:
-      fail-fast: false
     steps:
       - uses: actions/checkout@v4
         with:
@@ -325,7 +323,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest tests/pyspark/optuna/test_storage.py
+          pytest tests/optuna
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -446,7 +444,7 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server --ignore=tests/pyspark/optuna \
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server --ignore=tests/optuna \
             tests
           # MLeap is incompatible on Windows with PySpark3.4 release.
           # Reinstate tests when MLeap has released a fix. [ML-30491]

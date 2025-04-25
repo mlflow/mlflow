@@ -53,6 +53,9 @@ pytorch:
     maximum: "2.6.0"
     requirements:
       ">= 0.0.0": ["tensorboard"]
+      # Old pytorch uses setuptools.distutils.version, which is not available in setuptools>59.5
+      # https://github.com/pytorch/pytorch/blob/v1.10.2/torch/utils/tensorboard/__init__.py#L4
+      "<1.11.0": ["setuptools<=59.5.0"]
     run: |
       pytest tests/pytorch/test_tensorboard_autolog.py
 
@@ -208,7 +211,7 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.7.19"
+    maximum: "2.8.1"
     requirements:
       # TODO: fastai depends on spacy, but spacy>=3.8.2 requires python>=3.9
       #  Once migrating fastai tests to python 3.9, we should remove spacy<3.8.2
@@ -221,7 +224,7 @@ fastai:
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.7.19"
+    maximum: "2.8.1"
     requirements:
       "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
     run: |
@@ -481,7 +484,7 @@ shap:
     pip_release: "shap"
   models:
     minimum: "0.42.1"
-    maximum: "0.47.1"
+    maximum: "0.47.2"
     requirements:
       "< 0.46.0": ["numpy<1.24.0"]
     run: |
@@ -512,13 +515,11 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.35.2"
-    maximum: "4.51.2"
+    maximum: "4.51.3"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
-        "4.38.0",
-        "4.38.1",
-        "4.38.2",
+        ">=4.38.0,<4.39.0",
       ]
     requirements:
       ">= 0.0.0": [
@@ -555,13 +556,11 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.35.2"
-    maximum: "4.51.2"
+    maximum: "4.51.3"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
-        "4.38.0",
-        "4.38.1",
-        "4.38.2",
+        ">=4.38.0,<4.39.0",
       ]
     requirements:
       ">= 0.0.0": [
@@ -595,7 +594,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.73.0"
+    maximum: "1.75.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -614,7 +613,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.73.0"
+    maximum: "1.75.0"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
@@ -641,14 +640,14 @@ dspy:
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
     minimum: "2.5.17"
-    maximum: "2.6.17"
+    maximum: "2.6.18"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "2.5.17"
-    maximum: "2.6.17"
+    maximum: "2.6.18"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
@@ -662,7 +661,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
-    maximum: "0.3.23"
+    maximum: "0.3.24"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -707,7 +706,7 @@ langchain:
       fi
   autologging:
     minimum: "0.1.0"
-    maximum: "0.3.23"
+    maximum: "0.3.24"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -756,7 +755,7 @@ langgraph:
 
   models:
     minimum: "0.2.0"
-    maximum: "0.3.29"
+    maximum: "0.3.31"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -771,7 +770,7 @@ langgraph:
 
   autologging:
     minimum: "0.2.0"
-    maximum: "0.3.29"
+    maximum: "0.3.31"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -793,7 +792,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.12.30"
+    maximum: "0.12.32"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -809,7 +808,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.12.30"
+    maximum: "0.12.32"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -828,7 +827,8 @@ autogen:
     #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
   autologging:
     minimum: "0.2.36"
-    maximum: "0.2.40"
+    maximum: "0.5.4"
+    unsupported: [">=0.4"]
     python:
       "== dev": "3.10"
     requirements:
@@ -847,7 +847,7 @@ gemini:
       pip install git+https://github.com/googleapis/python-genai
   autologging:
     minimum: "1.0.0"
-    maximum: "1.10.0"
+    maximum: "1.11.0"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK 
@@ -861,7 +861,7 @@ anthropic:
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.30.0"
-    maximum: "0.49.0"
+    maximum: "0.50.0"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
@@ -878,6 +878,7 @@ crewai:
   autologging:
     minimum: "0.80.0"
     maximum: "0.114.0"
+    unsupported: ["==0.114.0"]
     python:
       ">= 0.80.0": "3.10"
     requirements:
@@ -896,7 +897,7 @@ mistral:
       rm -rf $TMP_DIR
   autologging:
     minimum: "1.0.0"
-    maximum: "1.6.0"
+    maximum: "1.7.0"
     requirements:
     run: pytest tests/mistral
 
@@ -907,7 +908,7 @@ sentence_transformers:
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "4.0.2"
+    maximum: "4.1.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -967,7 +968,9 @@ litellm:
       pip install git+https://github.com/BerriAI/litellm.git
   autologging:
     minimum: "1.52.9"
-    maximum: "1.66.0"
+    maximum: "1.67.1"
+    # TODO: Remove this once https://github.com/BerriAI/litellm/issues/9656 is fixed
+    unsupported: [">=1.59"]
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -984,7 +987,7 @@ groq:
       pip install git+https://github.com/groq/groq-python
   autologging:
     minimum: "0.13.0"
-    maximum: "0.22.0"
+    maximum: "0.23.0"
     requirements:
     run: pytest tests/groq
 
@@ -995,5 +998,5 @@ bedrock:
   autologging:
     # BedrockRuntime client is added in boto3 1.33
     minimum: "1.33.0"
-    maximum: "1.37.33"
+    maximum: "1.38.0"
     run: pytest tests/bedrock
