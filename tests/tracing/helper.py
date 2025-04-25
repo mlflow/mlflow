@@ -214,7 +214,7 @@ def score_in_model_serving(model_uri: str, model_input: dict):
 
 
 def skip_when_testing_trace_sdk(f):
-    # Decorator to Skip the test if only mlflow-trace package is installed and
+    # Decorator to Skip the test if only mlflow-tracing package is installed and
     # not the full mlflow package.
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
@@ -228,7 +228,7 @@ def skip_when_testing_trace_sdk(f):
 
 
 def skip_module_when_testing_trace_sdk():
-    """Skip the entire module if only mlflow-trace package is installed"""
+    """Skip the entire module if only mlflow-tracing package is installed"""
     if IS_TRACING_SDK_ONLY:
         pytest.skip(
             "Skipping test because it requires mlflow or mlflow-skinny to be installed.",

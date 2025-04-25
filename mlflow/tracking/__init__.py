@@ -5,7 +5,7 @@ and runs. This is a lower level API that directly translates to MLflow
 For a higher level API for managing an "active run", use the :py:mod:`mlflow` module.
 """
 
-# Minimum APIs required for core tracing functionality of mlflow-trace package.
+# Minimum APIs required for core tracing functionality of mlflow-tracing package.
 from mlflow.tracking._tracking_service.utils import (
     _get_artifact_repo,
     _get_store,

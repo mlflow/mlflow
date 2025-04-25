@@ -41,7 +41,7 @@ def remote_backend_for_tracing_sdk_test(monkeypatch):
     except requests.exceptions.ConnectionError:
         # error if remote backend is not running
         raise pytest.UsageError(
-            "Remote backend is not running at http://localhost:5000. When testing mlflow-trace, "
+            "Remote backend is not running at http://localhost:5000. When testing mlflow-tracing, "
             "package, you need to start the remote tracking server in a separate environment. "
         )
 
