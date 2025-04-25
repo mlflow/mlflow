@@ -13,9 +13,8 @@ import os
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
-from mlflow.data.dataset import Dataset
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
@@ -30,6 +29,9 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_TAG_VAL_LENGTH,
 )
+
+if TYPE_CHECKING:
+    from mlflow.data.dataset import Dataset
 
 _logger = logging.getLogger(__name__)
 
@@ -209,7 +211,7 @@ class MlflowAutologgingQueueingClient:
         run_id: Union[str, PendingRunId],
         metrics: dict[str, float],
         step: Optional[int] = None,
-        dataset: Optional[Dataset] = None,
+        dataset: Optional["Dataset"] = None,
         model_id: Optional[str] = None,
     ) -> None:
         """

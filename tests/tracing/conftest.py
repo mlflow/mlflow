@@ -19,6 +19,17 @@ def reset_active_experiment():
     mlflow.tracking.fluent._active_experiment_id = None
 
 
+@pytest.fixture(autouse=True)
+def reset_tracking_uri():
+    # Some API like set_destination("databricks") updates the tracking URI,
+    # we should reset it between tests
+    original_tracking_uri = mlflow.get_tracking_uri()
+
+    yield
+
+    mlflow.set_tracking_uri(original_tracking_uri)
+
+
 @pytest.fixture
 def mock_upload_trace_data():
     with (
