@@ -47,20 +47,25 @@ repository = "https://github.com/mlflow/mlflow"
 where = ["."]
 include = [
   "mlflow",
+  # Flavors that we support auto tracing
   "mlflow.anthropic*",
   "mlflow.autogen*",
   "mlflow.bedrock*",
   "mlflow.crewai*",
   "mlflow.dspy*",
-  "mlflow.entities*",
-  "mlflow.environment_variables",
-  "mlflow.exceptions",
   "mlflow.gemini*",
   "mlflow.groq*",
   "mlflow.langchain*",
   "mlflow.litellm*",
   "mlflow.llama_index*",
   "mlflow.mistral*",
+  # Other necessary modules
+  "mlflow.azure*",
+  "mlflow.entities*",
+  "mlflow.environment_variables",
+  "mlflow.exceptions",
+  "mlflow.legacy_databricks_cli*",
+  "mlflow.prompt*",
   "mlflow.protos*",
   "mlflow.store*",
   "mlflow.tracing*",

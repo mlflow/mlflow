@@ -13,7 +13,7 @@ to instrument your code/models/agents with [MLflow Tracing Feature](https://mlfl
 - **⚡️ Faster Deployment**: The package size and dependencies are significantly smaller than the full MLflow package, allowing for faster deployment times in dynamic environments such as Docker containers, serverless functions, and cloud-based applications.
 - **🔧 Simplified Dependency Management**: A smaller set of dependencies means less work keeping up with dependency updates, security patches, and breaking changes from upstream libraries.
 - **📦 Portability**: With the less number of dependencies, MLflow Tracing can be easily deployed across different environments and platforms, without worrying about compatibility issues.
-- **🔒 Less Security Risks**: Each dependency potentially introduces security vulnerabilities. By reducing the number of dependencies, MLflow Tracing minimizes the attack surface and reduces the risk of security breaches.
+- **🔒 Fewer Security Risks**: Each dependency potentially introduces security vulnerabilities. By reducing the number of dependencies, MLflow Tracing minimizes the attack surface and reduces the risk of security breaches.
 
 ## ✨ Features
 
@@ -39,6 +39,12 @@ To install the MLflow Python package, run the following command:
 
 ```bash
 pip install mlflow-tracing
+```
+
+To install from the source code, run the following command:
+
+```bash
+pip install git+https://github.com/mlflow/mlflow.git#subdirectory=packages/tracing"
 ```
 
 ### Connect to the MLflow Server

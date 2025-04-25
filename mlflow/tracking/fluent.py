@@ -15,7 +15,6 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import mlflow
-from mlflow.data.dataset import Dataset
 from mlflow.entities import (
     DatasetInput,
     Experiment,
@@ -91,6 +90,8 @@ if TYPE_CHECKING:
     import pandas
     import PIL
     import plotly
+
+    from mlflow.data.dataset import Dataset
 
 
 _active_experiment_id = None
@@ -899,7 +900,7 @@ def log_metric(
     timestamp: Optional[int] = None,
     run_id: Optional[str] = None,
     model_id: Optional[str] = None,
-    dataset: Optional[Dataset] = None,
+    dataset: Optional["Dataset"] = None,
 ) -> Optional[RunOperations]:
     """
     Log a metric under the current run. If no run is active, this method will create
@@ -985,7 +986,7 @@ def log_metric(
 
 
 def _log_inputs_for_metrics_if_necessary(
-    run_id, metrics: list[Metric], datasets: Optional[list[Dataset]] = None
+    run_id, metrics: list[Metric], datasets: Optional[list["Dataset"]] = None
 ) -> None:
     client = MlflowClient()
     run = client.get_run(run_id)
@@ -1032,7 +1033,7 @@ def log_metrics(
     run_id: Optional[str] = None,
     timestamp: Optional[int] = None,
     model_id: Optional[str] = None,
-    dataset: Optional[Dataset] = None,
+    dataset: Optional["Dataset"] = None,
 ) -> Optional[RunOperations]:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
@@ -1161,7 +1162,7 @@ def log_params(
 
 
 def _create_dataset_input(
-    dataset: Optional[Dataset],
+    dataset: Optional["Dataset"],
     context: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
 ) -> Optional[DatasetInput]:
@@ -1179,7 +1180,7 @@ def _create_dataset_input(
 
 
 def log_input(
-    dataset: Optional[Dataset] = None,
+    dataset: Optional["Dataset"] = None,
     context: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
     model: Optional[LoggedModelInput] = None,
@@ -1217,7 +1218,7 @@ def log_input(
 
 
 def log_inputs(
-    datasets: Optional[list[Optional[Dataset]]] = None,
+    datasets: Optional[list[Optional["Dataset"]]] = None,
     contexts: Optional[list[Optional[str]]] = None,
     tags_list: Optional[list[Optional[dict[str, str]]]] = None,
     models: Optional[list[Optional[LoggedModelInput]]] = None,

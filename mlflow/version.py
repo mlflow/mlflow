@@ -9,7 +9,7 @@ def is_release_version():
     return bool(re.match(r"^\d+\.\d+\.\d+$", VERSION))
 
 
-def _is_package_installed(package_name):
+def _is_package_installed(package_name: str) -> bool:
     try:
         importlib.metadata.version(package_name)
         return True
