@@ -28,6 +28,9 @@ import mlflow
 
 mlflow.set_experiment("genai_example")
 
+# set the active model for linking traces
+mlflow.set_active_model(name="openai_model")
+
 client = OpenAI()
 question = "What is MLflow?"
 
@@ -87,11 +90,12 @@ for question in questions:
 logged_model = mlflow.last_logged_model()
 traces = mlflow.search_traces(model_id=logged_model.model_id)
 print(traces)
-
-#                          trace_id                                              trace  ...                                               tags assessments
-# 0  56be163823ff457db4b30a97e704c709  Trace(trace_id=56be163823ff457db4b30a97e704c...  ...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
-# 1  71b7dc5eafd7486b989712e428a96522  Trace(trace_id=71b7dc5eafd7486b989712e428a96...  ...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
-# 2  68fa9c943dbc44df96da0b89611ed643  Trace(trace_id=68fa9c943dbc44df96da0b89611ed...  ...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
+#                            trace_id                                             trace  ...  assessments                        request_id
+# 0  9f1548c66b4647e6ae67336dd1b83fe5  Trace(trace_id=9f1548c66b4647e6ae67336dd1b83fe5)  ...           []  9f1548c66b4647e6ae67336dd1b83fe5
+# 1  c574c9825c6443b09b4c8cf0862f6c9a  Trace(trace_id=c574c9825c6443b09b4c8cf0862f6c9a)  ...           []  c574c9825c6443b09b4c8cf0862f6c9a
+# 2  5e29af629f144ebf852a55fa11daf7d7  Trace(trace_id=5e29af629f144ebf852a55fa11daf7d7)  ...           []  5e29af629f144ebf852a55fa11daf7d7
+#
+# [3 rows x 12 columns]
 ```
 
 Check out the **Models** tab in the experiment to view the newly logged model.
@@ -142,10 +146,9 @@ with mlflow.start_run() as evaluation_run:
         targets="expected_response",
         predictions="predictions",
     )
-    mlflow.log_input(
-        dataset=eval_dataset, model=LoggedModelInput(logged_model.model_id)
-    )
+    mlflow.log_input(dataset=eval_dataset)
     # Run the evaluation based on extra metrics
+    # Current active model will be automatically used
     result = mlflow.evaluate(
         data=eval_dataset,
         model_type="question-answering",
@@ -159,11 +162,13 @@ with mlflow.start_run() as evaluation_run:
 
 print(result.tables["eval_results_table"])
 #                                         messages  ...                answer_correctness/v1/justification
-# 0  What is MLflow Tracking and how does it work?  ...  The output is mostly correct, providing accura...
+# 0  What is MLflow Tracking and how does it work?  ...  The output is mostly correct and aligns well w...
 # 1                         What is Unity Catalog?  ...  The output is completely incorrect as it descr...
-# 2        What are user-defined functions (UDFs)?  ...  The output provides a general definition of us...
+# 2        What are user-defined functions (UDFs)?  ...  The output accurately describes user-defined f...
+#
+# [3 rows x 7 columns]
 ```
-Navigating to the evaluation run, you can see the metrics and their details displayed in the MLflow UI. This includes metrics like latency and answer correctness, providing insights into the model's performance.
+Navigating to the active model, you can see the metrics and their details displayed in the MLflow UI. This includes metrics like latency and answer correctness, providing insights into the model's performance.
 
 <div className="center-div" style={{ width: "100%" }}>
     ![The MLflow UI showing the evaluate run metrics](/images/mlflow-3/genai/evaluate_metrics.png)

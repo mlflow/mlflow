@@ -55,6 +55,9 @@ from openai import OpenAI
 import mlflow
 from mlflow.metrics.genai import answer_correctness, answer_similarity, faithfulness
 
+# set an active model for linking traces, a model with name `openai_model` will be created
+mlflow.set_active_model(name="openai_model")
+
 # turn on autologging for automatic tracing
 mlflow.openai.autolog()
 
@@ -120,8 +123,9 @@ with mlflow.start_run():
         predictions=response, inputs=question, context=mlflow_ground_truth
     ).scores[0]
 
-    # Fetch the LoggedModel that's automatically created during autologging
-    logged_model = mlflow.last_logged_model()
+    # get the active model id
+    active_model_id = mlflow.get_active_model_id()
+
     # Log metrics and pass model_id to link the metrics
     mlflow.log_metrics(
         {
@@ -129,18 +133,15 @@ with mlflow.start_run():
             "answer_correctness": answer_correctness_score,
             "faithfulness": faithfulness_score,
         },
-        model_id=logged_model.model_id,
+        model_id=active_model_id,
     )
 
 
-print(f"LoggedModel model id: {logged_model.model_id}")
-# LoggedModel model id: a208e70b-e80b-4f8e-b210-20737faadd20
-
-traces = mlflow.search_traces(model_id=logged_model.model_id)
+traces = mlflow.search_traces(model_id=active_model_id)
 print(traces)
-#                          trace_id                                              trace  ...                                               tags assessments
-# 0  5882df1240cf4dbf845fdc9fa26c4168  Trace(trace_id=5882df1240cf4dbf845fdc9fa26c4...  ...  {'mlflow.artifactLocation': 'file:///Users/ser...          []
-# [1 rows x 11 columns]
+#                            trace_id                                             trace  ...  assessments                        request_id
+# 0  7bb4569d3d884e3e87b1d8752276a13c  Trace(trace_id=7bb4569d3d884e3e87b1d8752276a13c)  ...           []  7bb4569d3d884e3e87b1d8752276a13c
+# [1 rows x 12 columns]
 ```
 
 Navigate to the **Models** tab of the experiment to view the newly created LoggedModel. Evaluation metrics, model ID, source run, parameters, and other details are displayed on the models detail page, providing a comprehensive overview of the model's performance and lineage.
