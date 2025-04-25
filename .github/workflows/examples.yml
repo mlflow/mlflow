@@ -37,6 +37,7 @@ defaults:
 env:
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   MLFLOW_CONDA_HOME: /usr/share/miniconda
+  PYTHONFAULTHANDLER: "1"
 
 jobs:
   examples:
