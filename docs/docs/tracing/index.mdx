@@ -115,19 +115,21 @@ Traces empowers your throughout the end-to-end lifecycle of a machine learning p
 
         Machine learning projects don’t end with the first launch. Continuous monitoring and incremental improvement are critical to long-term success.
 
-        You can put MLflow into your existing observability stack as well. MLflow can export traces to any **OpenTelemetry**-compatible storage, including Grafana, Prometheus, Datadog, and more.
-        Refer to [Export Traces to Other Services](/tracing/production#opentelemetry-collector) for more details.
+        Integrated with various observability platforms such as Databricks, Datadog, Grafana, and Prometheus, MLflow Tracing provides a comprehensive solution for monitoring your GenAI applications in production.
+        Refer to [Monitoring GenAI Application in Production](/tracing/production) for more details.
 
         </div>
 
         <div class="flex-item padding-md">
-          ![Trace Error](/images/llms/tracing/trace-exception.gif)
+          ![Monitoring](https://assets.docs.databricks.com/_static/images/generative-ai/monitoring/monitoring-hero.gif)
         </div>
       </div>
     </div>
 
   </TabItem>
 </Tabs>
+
+## Getting Started
 
 The following is the simplest example of MLflow Tracing with OpenAI Python SDK:
 
@@ -146,9 +148,9 @@ openai.OpenAI().chat.completions.create(
         {"role": "user", "content": "What is the weather like today?"},
     ],
 )
-
-# Then go to MLflow UI (if not started, run `mlflow ui` in your terminal) to see the trace!
 ```
+
+Then go to MLflow UI (if not started, run `mlflow ui` in your terminal) to see the trace!
 
 ## Automatic Tracing
 
@@ -247,7 +249,7 @@ MLflow Traces can be reviewed in several ways:
 
 Trace data are useful for various downstream tasks, such as creating an evaluation dataset for offline evaluation and production monitoring. MLflow provides several APIs to search and retrieve recorded traces programmatically. See [Searching and Retrieving Traces](/tracing/api/search) for more details.
 
-## Tracing in Production
+## Production Monitoring
 
 MLflow Tracing is production ready. Read [Production Tracing](/tracing/production) for the guidance to use it for monitoring models in production and various backend options.
 

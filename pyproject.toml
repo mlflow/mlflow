@@ -46,7 +46,7 @@ dependencies = [
   "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
-  "packaging<25",
+  "packaging<26",
   "pandas<3",
   "protobuf<7,>=3.12.0",
   "pyarrow<20,>=4.0.0",
