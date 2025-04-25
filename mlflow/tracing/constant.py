@@ -34,6 +34,10 @@ class SpanAttributeKey:
     MODEL_ID = "mlflow.modelId"
 
 
+class AssessmentMetadataKey:
+    SOURCE_RUN_ID = "mlflow.assessment.sourceRunId"
+
+
 # All storage backends are guaranteed to support request_metadata key/value up to 250 characters
 MAX_CHARS_IN_TRACE_INFO_METADATA = 250
 # All storage backends are guaranteed to support tag keys up to 250 characters,

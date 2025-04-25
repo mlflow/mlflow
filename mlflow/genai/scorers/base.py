@@ -33,7 +33,6 @@ class Scorer(BaseModel):
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
 
-# TODO: ML-52304: Inherit the following class for every builtin scorer made available
 class BuiltInScorer(Scorer):
     def update_evaluation_config(evaluation_config) -> dict:
         """

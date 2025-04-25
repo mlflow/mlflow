@@ -449,8 +449,8 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
     scope = "test"
     monkeypatch.setenv("MLFLOW_OPENAI_SECRET_SCOPE", scope)
     with (
-        mock.patch("mlflow.openai.is_in_databricks_runtime", return_value=True),
-        mock.patch("mlflow.openai.check_databricks_secret_scope_access"),
+        mock.patch("mlflow.openai.model.is_in_databricks_runtime", return_value=True),
+        mock.patch("mlflow.openai.model.check_databricks_secret_scope_access"),
     ):
         with pytest.warns(FutureWarning, match="MLFLOW_OPENAI_SECRET_SCOPE.+deprecated"):
             mlflow.openai.save_model(model="gpt-4o-mini", task="chat.completions", path=tmp_path)

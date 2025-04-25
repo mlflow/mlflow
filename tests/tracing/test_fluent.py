@@ -1027,7 +1027,7 @@ def test_search_traces_extracts_fields_as_expected():
 
 
 # no spans have the input or output with name,
-# some span has an input but we’re looking for output,
+# some span has an input but we're looking for output,
 @skip_when_testing_trace_sdk
 def test_search_traces_with_input_and_no_output():
     with mlflow.start_span(name="with_input_and_no_output") as span:
@@ -1095,7 +1095,7 @@ def test_search_traces_with_multiple_spans_with_same_name():
     assert df["duplicate_name_2.inputs.z"].tolist() == [7]
 
 
-# Test a field that doesn’t exist for extraction - we shouldn’t throw, just return empty column
+# Test a field that doesn't exist for extraction - we shouldn't throw, just return empty column
 @skip_when_testing_trace_sdk
 def test_search_traces_with_non_existent_field():
     model = DefaultTestModel()
