@@ -22,6 +22,7 @@ import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
+import debounce from 'lodash/debounce';
 
 type Props = {
   activeExperimentIds: string[];
@@ -42,6 +43,18 @@ type State = {
 
 export class ExperimentListView extends Component<Props, State> {
   list?: VList = undefined;
+
+  // To avoid re-render on every key-stroke.
+  private updateUrlDebounced = debounce((searchInput: string) => {
+    const { location, navigate } = this.props;
+    const params = new URLSearchParams(location.search);
+    if (searchInput) {
+      params.set('searchExperiment', searchInput);
+    } else {
+      params.delete('searchExperiment');
+    }
+    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+  }, 1000);
 
   // Read the query parameter "searchExperiment" on mount to initialize state.
   constructor(props: Props) {
@@ -80,15 +93,9 @@ export class ExperimentListView extends Component<Props, State> {
   };
 
   handleSearchInputChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
-    const newSearchInput = event.target.value;
-    // Update local state and then update the URL query parameter.
-    this.setState({ searchInput: newSearchInput }, () => {
-      const { location } = this.props;
-      const searchParams = new URLSearchParams(location.search);
-      searchParams.set('searchExperiment', newSearchInput);
-      const newUrl = `${location.pathname}?${searchParams.toString()}`;
-      this.props.navigate(newUrl, { replace: true });
-    });
+    const nextValue = event.target.value;
+    this.setState({ searchInput: nextValue });
+    this.updateUrlDebounced(nextValue);
   };
 
   updateSelectedExperiment = (experimentId: string, experimentName: string) => {
@@ -97,6 +104,10 @@ export class ExperimentListView extends Component<Props, State> {
       selectedExperimentName: experimentName,
     });
   };
+
+  componentWillUnmount() {
+    this.updateUrlDebounced.cancel();
+  }
 
   handleCreateExperiment = () => {
     this.setState({
