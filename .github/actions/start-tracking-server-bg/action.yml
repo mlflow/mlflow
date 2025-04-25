@@ -32,14 +32,14 @@ runs:
     - name: Wait for server to start
       shell: bash
       run: |
-        echo "Waiting for MLflow server to start..."
-        for i in {1..30}; do
+        echo "Waiting for MLflow server to start... (3 minutes)"
+        for i in {1..60}; do
           if curl -s http://localhost:5000 > /dev/null; then
             echo "MLflow server is up!"
             exit 0
           fi
-          echo "Waiting... ($i/30)"
-          sleep 1
+          echo "Waiting..."
+          sleep 3
         done
         echo "Failed to start MLflow server"
         docker logs mlflow-server
