@@ -57,6 +57,40 @@ def _end_span_err(mlclient: mlflow.MlflowClient, span: LiveSpan, exc: BaseExcept
     mlclient.end_span(span.request_id, span.span_id, status=SpanStatusCode.ERROR)
 
 
+async def _patched_run(original: Any, self_obj: Any, *args: Any, **kwargs: Any) -> Any:
+    cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
+    mlclient = mlflow.MlflowClient()
+
+    inputs = construct_full_inputs(original, self_obj, *args, **kwargs)
+
+    span = None
+    token = None
+    if cfg.log_traces:
+        span = _start_span(
+            mlclient,
+            name=f"{self_obj.__class__.__name__}.run",
+            span_type=SpanType.CHAIN,
+            inputs=inputs,
+            run_id=mlflow.active_run().info.run_id if mlflow.active_run() else None,
+        )
+        token = set_span_in_context(span)
+
+    try:
+        result = await original(self_obj, *args, **kwargs)
+    except Exception as e:
+        if token:
+            detach_span_from_context(token)
+        if span:
+            _end_span_err(mlclient, span, e)
+        raise
+
+    if token:
+        detach_span_from_context(token)
+    if span:
+        _end_span_ok(mlclient, span, outputs=result)
+    return result
+
+
 def _patched_run_sync(original, *args, **kwargs):
     cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
     mlclient = mlflow.MlflowClient()
@@ -208,6 +242,7 @@ def autolog(
     AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
 
     safe_patch(FLAVOUR_NAME, pydantic_ai.Agent, "run_sync", _patched_run_sync)
+    safe_patch(FLAVOUR_NAME, pydantic_ai.Agent, "run", _patched_run)
 
     safe_patch(FLAVOUR_NAME, InstrumentedModel, "request", _patched_llm_request)
     if hasattr(InstrumentedModel, "request_stream"):
