@@ -1,13 +1,14 @@
-# _pydanticai_autolog.py
-
 from __future__ import annotations
 
+import json
 import logging
 from copy import deepcopy
+from dataclasses import asdict
 from typing import Any, AsyncIterator, Optional
 
 import pydantic_ai
 from pydantic_ai.models.instrumented import InstrumentedModel
+from pydantic_ai.tools import Tool
 
 import mlflow
 from mlflow.entities import SpanType
@@ -90,6 +91,51 @@ def _patched_run_sync(original, *args, **kwargs):
     return output
 
 
+async def _patched_tool_run(original, self_obj, message, run_context, tracer):
+    cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
+    if not cfg.log_traces:
+        return await original(self_obj, message, run_context, tracer)
+
+    mlclient = mlflow.MlflowClient()
+    tool_name = self_obj.name
+
+    # TODO: remove this when we have a better way to get the inputs
+    inputs = {
+        "tool_name": self_obj.name,
+        "tool_call_id": message.tool_call_id,
+        "tool_arguments": json.loads(message.args_as_json_str()),
+        "run_context": {
+            "model_class": run_context.model.__class__.__name__,
+            "model_name": getattr(run_context.model, "model_name", None),
+            "prompt": run_context.prompt,
+            "messages": [asdict(m) for m in run_context.messages],
+            "usage": {
+                "request_tokens": run_context.usage.request_tokens,
+                "response_tokens": run_context.usage.response_tokens,
+                "total_tokens": run_context.usage.total_tokens,
+                **(
+                    {"details": run_context.usage.details}
+                    if getattr(run_context.usage, "details", None) is not None
+                    else {}
+                ),
+            },
+            "retry": run_context.retry,
+            "run_step": run_context.run_step,
+        },
+    }
+    span = start_client_span_or_trace(
+        mlclient, name=f"{tool_name}", span_type=SpanType.TOOL, inputs=inputs
+    )
+    try:
+        result = await original(self_obj, message, run_context, tracer)
+    except Exception as e:
+        span.add_event(SpanEvent.from_exception(e))
+        mlclient.end_span(span.request_id, span.span_id, status=SpanStatusCode.ERROR)
+        raise
+    end_client_span_or_trace(mlclient, span, outputs=result)
+    return result
+
+
 async def _patched_llm_request(original: Any, self_obj: Any, *args: Any, **kwargs: Any) -> Any:
     cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
     if not (cfg and cfg.log_traces):
@@ -166,3 +212,4 @@ def autolog(
     safe_patch(FLAVOUR_NAME, InstrumentedModel, "request", _patched_llm_request)
     if hasattr(InstrumentedModel, "request_stream"):
         safe_patch(FLAVOUR_NAME, InstrumentedModel, "request_stream", _patched_llm_request_stream)
+    safe_patch(FLAVOUR_NAME, Tool, "run", _patched_tool_run)
