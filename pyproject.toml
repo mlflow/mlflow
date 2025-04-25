@@ -299,6 +299,7 @@ gam = "gam"          # generalized additive models
 ser = "ser"          # serialization
 yhat = "yhat"        # ŷ
 iternal = "internal" # typo of "internal"
+instumentation = "instrumentation" # typo of "instrumentation"
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]
