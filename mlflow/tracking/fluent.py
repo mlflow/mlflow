@@ -2216,10 +2216,13 @@ def _create_logged_model(
     """
     if source_run_id is None and (run := active_run()):
         source_run_id = run.info.run_id
+
     if experiment_id is None and (run := active_run()):
         experiment_id = run.info.experiment_id
     elif experiment_id is None:
-        experiment_id = _get_experiment_id()
+        experiment_id = _get_experiment_id() or (
+            get_run(source_run_id).info.experiment_id if source_run_id else None
+        )
     resolved_tags = context_registry.resolve_tags(tags)
     return MlflowClient().create_logged_model(
         experiment_id=experiment_id,
@@ -2783,7 +2786,7 @@ def _get_experiment_id_from_env():
             ) from exc
 
 
-def _get_experiment_id():
+def _get_experiment_id() -> Optional[str]:
     if _active_experiment_id:
         return _active_experiment_id
     else:
