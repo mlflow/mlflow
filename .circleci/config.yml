@@ -84,13 +84,13 @@ jobs:
             yarn install
             yarn build-all -- --no-r
             python changed_pages.py
+      - store_artifacts:
+          path: docs/build/
       - run:
           name: Test examples
           working_directory: docs/api_reference
           command: |
             make test-examples
-      - store_artifacts:
-          path: docs/build/
 
   # TODO: This job can be removed once we drop support MLflow Recipes
   # mlflow-recipes:
