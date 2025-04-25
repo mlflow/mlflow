@@ -117,7 +117,7 @@ const ExpandedParamCell = ({ value }: { value: string }) => {
       }}
     >
       <CodeSnippet
-        language="json"
+        language={structuredJSONValue ? "json" : "text"}
         wrapLongLines
         style={{
           padding: theme.spacing.sm,
