@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 import json
 import logging
 from copy import deepcopy
@@ -11,6 +12,7 @@ from pydantic_ai.models.instrumented import InstrumentedModel
 from pydantic_ai.tools import Tool
 
 import mlflow
+import mlflow.tracking.fluent as _fluent
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
@@ -26,8 +28,37 @@ from mlflow.tracing.utils import (
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
+_session_spans: dict[str, tuple[Any, Any]] = {}
+
 _logger = logging.getLogger(__name__)
 FLAVOUR_NAME: str = "pydanticai"
+
+
+def _patched_end_run(original, *args, **kwargs):
+    run = mlflow.active_run()
+    if run and run.info.run_id in _session_spans:
+        span, token = _session_spans.pop(run.info.run_id)
+        detach_span_from_context(token)
+        end_client_span_or_trace(mlflow.MlflowClient(), span, outputs=None)
+
+    status_args = args[:1]
+    return original(*status_args, **kwargs)
+
+
+def _get_or_create_session_span():
+    run = mlflow.active_run()
+    if run is None:
+        mlflow.start_run()
+        atexit.register(mlflow.end_run)
+        run = mlflow.active_run()
+    run_id = run.info.run_id
+    if run_id not in _session_spans:
+        client = mlflow.MlflowClient()
+        span = start_client_span_or_trace(
+            client, name="PydanticAI Session", span_type=SpanType.CHAIN, inputs={}
+        )
+        token = set_span_in_context(span)
+        _session_spans[run_id] = (span, token)
 
 
 def _start_span(
@@ -58,6 +89,8 @@ def _end_span_err(mlclient: mlflow.MlflowClient, span: LiveSpan, exc: BaseExcept
 
 
 async def _patched_run(original: Any, self_obj: Any, *args: Any, **kwargs: Any) -> Any:
+    _get_or_create_session_span()
+
     cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
     mlclient = mlflow.MlflowClient()
 
@@ -92,6 +125,8 @@ async def _patched_run(original: Any, self_obj: Any, *args: Any, **kwargs: Any) 
 
 
 def _patched_run_sync(original, *args, **kwargs):
+    _get_or_create_session_span()
+
     cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
     mlclient = mlflow.MlflowClient()
     active = mlflow.active_run()
@@ -240,6 +275,9 @@ def autolog(
         return
 
     AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
+
+    safe_patch(FLAVOUR_NAME, _fluent, "end_run", _patched_end_run)
+    safe_patch(FLAVOUR_NAME, mlflow, "end_run", _patched_end_run)
 
     safe_patch(FLAVOUR_NAME, pydantic_ai.Agent, "run_sync", _patched_run_sync)
     safe_patch(FLAVOUR_NAME, pydantic_ai.Agent, "run", _patched_run)
