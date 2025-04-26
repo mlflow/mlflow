@@ -9,6 +9,10 @@
   grid-template-columns: repeat(3, minmax(200px, 33%));
 }
 
+.SingleColumn {
+  grid-template-columns: 1fr;
+}
+
 .AutofillColumns {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
@@ -17,14 +21,23 @@
   .MaxThreeColumns {
     grid-template-columns: repeat(2, 1fr);
   }
+  .SingleColumn {
+    grid-template-columns: 1fr;
+  }
 }
 @media (max-width: 750px) {
   .MaxThreeColumns {
     grid-template-columns: 1fr;
   }
+  .SingleColumn {
+    grid-template-columns: 1fr;
+  }
 }
 @media (max-width: 650px) {
   .MaxThreeColumns {
+    grid-template-columns: 1fr;
+  }
+  .SingleColumn {
     grid-template-columns: 1fr;
   }
 }
@@ -164,4 +177,27 @@
   flex-direction: column;
   justify-content: space-between;
   flex: 1;
+}
+
+.PageCardHeader {
+  font-weight: bold;
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.IconContainer {
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+  color: var(--ifm-color-primary);
+  font-size: 1.2rem;
+  width: 24px;
+  height: 24px;
+  justify-content: center;
+}
+
+.IconContainer i {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
