@@ -1,0 +1,247 @@
+---
+sidebar_label: Automatic tracing
+sidebar_position: 1
+---
+
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Automatic Tracing
+
+MLflow Tracing is integrated with various GenAI libraries and provide **one-line automatic tracing** experience for each library (and the combination of them!). Click on the icon below to see detailed examples to integrate MLflow with your favorite library.
+
+## Integrations
+
+Each intergation automatically captures your application's logic and intermediate steps based on your implemenation of the authoring framework / SDK.
+
+<CardGroup isSmall>
+  <SmallLogoCard link="/tracing/integrations/langchain">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/langgraph">
+    <span>![LangGraph Logo](/images/logos/langgraph-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/llama_index">
+    <span>![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/dspy">
+    <span>![DSPy Logo](/images/logos/dspy-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/openai">
+    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/openai-agent">
+    <span>![OpenAI Logo](/images/logos/openai-agent-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/swarm">
+    <span>![OpenAI Swarm Logo](/images/logos/openai-swarm-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/deepseek">
+    <span>![DeepSeek Logo](/images/logos/deepseek-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/bedrock">
+    <span>![Bedrock Logo](/images/logos/bedrock-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/autogen">
+    <span>![AutoGen Logo](/images/logos/autogen-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/gemini">
+    <span>![Gemini Logo](/images/logos/google-gemini-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/litellm">
+    <span>![LiteLLM Logo](/images/logos/litellm-logo.jpg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/anthropic">
+    <span>![Anthropic Logo](/images/logos/anthropic-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/crewai">
+    <span>![CrewAI Logo](/images/logos/crewai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/ollama">
+    <span>![Ollama Logo](/images/logos/ollama-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/groq">
+    <span>![Groq Logo](/images/logos/groq-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/mistral">
+    <span>![Groq Logo](/images/logos/mistral-ai-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/instructor">
+    <span>![Instructor Logo](/images/logos/instructor-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/tracing/integrations/txtai">
+    <span>![txtai Logo](/images/logos/txtai-logo.png)</span>
+  </SmallLogoCard>
+</CardGroup>
+<br />
+
+:::info Hint
+Is your favorite library missing from the list? Consider [contributing to MLflow Tracing](/tracing/integrations/contribute) or [submitting a feature request](https://github.com/mlflow/mlflow/issues/new?assignees=&labels=enhancement&projects=&template=feature_request_template.yaml&title=%5BFR%5D) to our Github repository.
+:::
+
+
+## Combining Manual and Automatic Tracing
+
+The `@mlflow.trace` decorator can be used in conjunction with auto tracing to create powerful, integrated traces. This is particularly useful for:
+
+1. Complex workflows that involve multiple LLM calls
+2. Multi-agent systems where different agents use different LLM providers
+3. Chaining multiple LLM calls together with custom logic in between
+
+### Basic Example
+
+Here's a simple example that combines OpenAI auto-tracing with manually defined spans:
+
+```python
+import mlflow
+import openai
+
+mlflow.openai.autolog()
+
+
+@mlflow.trace(span_type=SpanType.CHAIN)
+def run(question):
+    messages = build_messages()
+    # MLflow automatically generates a span for OpenAI invocation
+    response = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=100,
+        messages=messages,
+    )
+    return parse_response(response)
+
+
+@mlflow.trace
+def build_messages(question):
+    return [
+        {"role": "system", "content": "You are a helpful chatbot."},
+        {"role": "user", "content": question},
+    ]
+
+
+@mlflow.trace
+def parse_response(response):
+    return response.choices[0].message.content
+
+
+run("What is MLflow?")
+```
+
+Running this code generates a single trace that combines the manual spans with the automatic OpenAI tracing:
+
+![](/images/llms/tracing/tracing-auto-manual-mix.png)
+
+### Advanced Example: Multiple LLM Calls
+
+For more complex workflows, you can combine multiple LLM calls into a single trace. Here's an example that demonstrates this pattern:
+
+```python
+import mlflow
+import openai
+from mlflow.entities import SpanType
+
+# Enable auto-tracing for OpenAI
+mlflow.openai.autolog()
+
+@mlflow.trace(span_type=SpanType.CHAIN)
+def process_user_query(query: str):
+    # First LLM call: Analyze the query
+    analysis = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Analyze the user's query and determine if it requires factual information or creative writing."},
+            {"role": "user", "content": query}
+        ]
+    )
+    analysis_result = analysis.choices[0].message.content
+    
+    # Second LLM call: Generate response based on analysis
+    if "factual" in analysis_result.lower():
+        # Use a different model for factual queries
+        response = openai.OpenAI().chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Provide a factual, well-researched response."},
+                {"role": "user", "content": query}
+            ]
+        )
+    else:
+        # Use a different model for creative queries
+        response = openai.OpenAI().chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Provide a creative, engaging response."},
+                {"role": "user", "content": query}
+            ]
+        )
+    
+    return response.choices[0].message.content
+
+# Run the function
+result = process_user_query("Tell me about the history of artificial intelligence")
+```
+
+This example creates a single trace that includes:
+1. A parent span for the entire `process_user_query` function
+2. Two child spans automatically created by the OpenAI autologging:
+   - One for the analysis LLM call
+   - One for the response LLM call
+
+### Multi-Framework Example
+
+You can also combine different LLM providers in a single trace. For example:
+
+```python
+import mlflow
+import openai
+from mlflow.entities import SpanType
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+# Enable auto-tracing for both OpenAI and LangChain
+mlflow.openai.autolog()
+mlflow.langchain.autolog()
+
+@mlflow.trace(span_type=SpanType.CHAIN)
+def multi_provider_workflow(query: str):
+    # First, use OpenAI directly for initial processing
+    analysis = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Analyze the query and extract key topics."},
+            {"role": "user", "content": query}
+        ]
+    )
+    topics = analysis.choices[0].message.content
+    
+    # Then use LangChain for structured processing
+    llm = ChatOpenAI(model="gpt-4o-mini")
+    prompt = ChatPromptTemplate.from_template(
+        "Based on these topics: {topics}\nGenerate a detailed response to: {query}"
+    )
+    chain = prompt | llm
+    response = chain.invoke({"topics": topics, "query": query})
+    
+    return response
+
+# Run the function
+result = multi_provider_workflow("Explain quantum computing")
+```
+
+This example shows how to combine:
+1. Direct OpenAI API calls
+2. LangChain chains
+3. Custom logic between the calls
+
+All of this is captured in a single trace, making it easy to:
+- Debug issues
+- Monitor performance
+- Understand the flow of the request
+- Track which parts of the system are being used
+
+The trace visualization will show the complete hierarchy of spans, making it clear how the different components interact and how long each step takes.
+

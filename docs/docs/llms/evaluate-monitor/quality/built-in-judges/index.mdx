@@ -1,0 +1,669 @@
+---
+sidebar_label: Built in LLM judges
+---
+## Built in LLM judges
+
+## <span style={{color: "red"}}>COPIED FROM DBX - UPDATE - include how to wire these up with custom schemas</span>
+
+
+This article covers the details of each of the AI judges that are built into :re[mai-agent-evaluation], including required inputs and output metrics.
+
+See also:
+
+- [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/llm-judge-metrics.md)
+- [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/advanced-agent-eval.md)
+- [Callable judges Python SDK reference](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#module-databricks.agents.evals.judges)
+
+## AI judges overview
+
+:::note
+
+Not all judges require ground-truth labels. Judges that do not require labels are useful when you have only a set of requests to evaluate your agent.
+
+:::
+
+:::list-table
+
+- - Name of the judge
+  - Quality aspect that the judge assesses
+  - Required inputs
+  - Requires ground truth
+- - `global_guideline_adherence`
+  - [Does the generated response adhere to the global guidelines?](#guideline-adherence)
+  - `request`, `response`, `global_guidelines` (from the `evaluator_config`)
+  - No, but requires `global_guidelines`
+- - `guideline_adherence`
+  - [Does the generated response adhere to the provided per-question guidelines?](#guideline-adherence)
+  - `request`, `response` or `guidelines_context`, `guidelines`
+  - Yes
+- - `correctness`
+  - [Is the generated response accurate (as compared to the ground truth)?](#correctness)
+  - `request`, `response`, `expected_facts[]` or `expected_response`
+  - Yes
+- - `relevance_to_query`
+  - [Does the response address (is it relevant to) the user’s request?](#answer-relevance)
+  - `request`, `response`
+  - No
+- - `context_sufficiency`
+  - [Did the retriever find documents with sufficient information to produce the expected response?](#context-sufficiency)
+  - `request`, `retrieved_context`, `expected_response`
+  - Yes
+- - `safety`
+  - [Is there harmful or toxic content in the response?](#safety)
+  - `request`, `response`
+  - No
+- - `chunk_relevance`
+  - [Did the retriever find chunks that are useful (relevant) in answering the user’s request?](#chunk-relevance)
+
+    _Note: This judge is applied separately to each retrieved chunk, producing a score & rationale for each chunk. These scores are aggregated into a `chunk_relevance/precision` score for each row that represents the % of chunks that are relevant._
+
+  - `request`, `retrieved_context`
+  - No
+
+- - `groundedness`
+  - [Is the generated response grounded in the retrieved context (not hallucinating)?](#groundedness)
+  - `request`, `response`, `trace[retrieved_context]`
+  - No
+- - `document_recall`
+  - [How many of the known relevant documents did the retriever find?](#document-recall)
+  - `retrieved_context`, `expected_retrieved_context[].doc_uri`
+  - Yes
+
+:::
+
+:::note
+
+For multi-turn conversations, AI judges evaluate only the last entry in the conversation.
+
+:::
+
+## <a id="outputs"></a> AI judge outputs
+
+Each judge used in evaluation output the following columns:
+
+| Data field                                       | Type     | Description                                                                                                |
+| ------------------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `response/llm_judged/{judge_name}/rating`        | `string` | `yes` if the judge passes, `no` if the judge fails.                                                        |
+| `response/llm_judged/{judge_name}/rationale`     | `string` | LLM’s written reasoning for `yes` or `no`.                                                                 |
+| `response/llm_judged/{judge_name}/error_message` | `string` | If there was an error computing this assessment, details of the error are here. If no error, this is NULL. |
+
+Each judge will also produce an aggregate metric for the entire run:
+
+| Metric name                                       | Type            | Description                                                 |
+| ------------------------------------------------- | --------------- | ----------------------------------------------------------- |
+| `response/llm_judged/{judge_name}/rating/average` | `float, [0, 1]` | Percentage of all evaluations that were judged to be `yes`. |
+
+## <a id="guideline-adherence"></a>Guideline adherence
+
+**Definition**: Does the response adhere to the provided guidelines?
+
+**Requires ground-truth**: No when using `global_guidelines`. Yes when using per-row `guidelines`.
+
+Guideline adherence evaluates whether the agent’s response follows specific constraints or instructions provided in the guidelines.
+
+Guidelines can be defined in either of the following ways:
+
+- per-row: The response of a specific request must adhere to guidelines defined on that evaluation row.
+- globally: All responses for any request must adhere to global guidelines.
+
+### Required inputs
+
+The input evaluation set must have the following columns:
+
+- `request`
+- `response` if you have not specified the `model` parameter to `mlflow.evaluate()`.
+- per-row `guidelines` or `global_guidelines` defined in the config.
+- [Callable judges only] `guidelines_context` to provide arbitrary context to the judge.
+  - This feature requires `databricks-agents>=0.20.0`.
+
+### Examples
+
+Use per-row guideline adherence from an evaluation set:
+
+```python
+import mlflow
+
+eval_set = [{
+  "request": "What is the capital of France?",
+  "response": "The capital of France is Paris.",
+  # You can also just pass an array of guidelines directly to guidelines, but Databricks recommends naming them with a dictionary.
+  "guidelines": {
+    "english": ["The response must be in English"],
+    "clarity": ["The response must be clear, coherent, and concise"],
+  }
+}]
+
+mlflow.evaluate(
+  data=eval_set,
+  model_type="databricks-agent",
+  evaluator_config={
+      "databricks-agent": {
+          "metrics": ["guideline_adherence"]
+      }
+  }
+)
+```
+
+Use global guideline adherence from an evaluation set:
+
+```python
+import mlflow
+
+eval_set = [{
+  "request": "What is the capital of France?",
+  "response": "The capital of France is Paris.",
+}]
+
+mlflow.evaluate(
+  data=eval_set,
+  model_type="databricks-agent",
+  evaluator_config={
+      "databricks-agent": {
+          "metrics": ["guideline_adherence"],
+          "global_guidelines": ["The response must be in English", "The response must be concise"]
+      }
+  }
+)
+```
+
+Use guideline adherence with the [callable judge SDK](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.evals.judges.guideline_adherence):
+
+```python
+from databricks.agents.evals import judges
+
+assessment = judges.guideline_adherence(
+  request="What is the capital of France?",
+  response="The capital of France is Paris.",
+  # You can also just pass an array of guidelines directly to guidelines, but Databricks recommends naming them with a dictionary.
+  guidelines={
+    "english": ["The response must be in English"],
+    "clarity": ["The response must be clear, coherent, and concise"],
+    "grounded": ["The response must be grounded in the tool call result"],
+  },
+  # `guidelines_context` requires `databricks-agents>=0.20.0`
+  guidelines_context={
+    "tool_call_result": "{'country': 'France', 'capital': 'Paris'}",
+  },
+)
+print(assessment)
+```
+
+### What to do when the response does not adhere to guidelines?
+
+When the response violates the guidelines:
+
+- Identify which guideline was violated and analyze why the agent failed to adhere to it.
+- Adjust the prompt to emphasize adherence to specific guidelines or retrain the model with additional examples that align with the desired behavior.
+- For global guidelines, ensure they are specified correctly in the evaluator configuration.
+
+## <a id="correctness"></a>Correctness
+
+**Definition**: Did the agent respond with a factually accurate answer?
+
+**Requires ground-truth**: Yes, `expected_facts[]` or `expected_response`.
+
+Correctness compares the agent’s actual response to a ground-truth label and is a good way to detect factual errors.
+
+### Required inputs
+
+The input evaluation set must have the following columns:
+
+- `request`
+- `response` if you have not specified the `model` parameter to `mlflow.evaluate()`.
+- [expected_facts](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema.md#expected_facts-guidelines) or [expected_response](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema.md#expected_facts-guidelines)
+
+:::important
+
+Databricks recommends using `expected_facts[]` instead of `expected_response`. `expected_facts[]` represent the minimal set of facts required in a correct response and are easier for subject matter experts to curate.
+
+If you must use `expected_response`, it should include _only_ the minimal set of facts that is required for a correct response. If you copy a response from another source, edit the response to remove any text that is not _required_ for an answer to be considered correct.
+
+Including only the required information, and leaving out information that is not strictly required in the answer, enables Agent Evaluation to provide a more robust signal on output quality.
+
+:::
+
+### Examples
+
+Use correctness from an evaluation set:
+
+```python
+import mlflow
+
+eval_set = [{
+  "request": "What is the difference between reduceByKey and groupByKey in Spark?",
+  "response": "reduceByKey aggregates data before shuffling, whereas groupByKey shuffles all data, making reduceByKey more efficient.",
+  "expected_facts": [
+    "reduceByKey aggregates data before shuffling",
+    "groupByKey shuffles all data",
+  ]
+}]
+
+mlflow.evaluate(
+  data=eval_set,
+  model_type="databricks-agent",
+  evaluator_config={
+      "databricks-agent": {
+          "metrics": ["correctness"]
+      }
+  }
+)
+```
+
+Use correctness with the [callable judge SDK](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.evals.judges.correctness):
+
+```python
+from databricks.agents.evals import judges
+
+assessment = judges.correctness(
+  request="What is the difference between reduceByKey and groupByKey in Spark?",
+  response="reduceByKey aggregates data before shuffling, whereas groupByKey shuffles all data, making reduceByKey more efficient.",
+  expected_facts=[
+    "reduceByKey aggregates data before shuffling",
+    "groupByKey shuffles all data",
+  ]
+)
+print(assessment)
+```
+
+### What to do when a response is incorrect?
+
+When an agent responds with a factually inaccurate answer, you should:
+
+- Understand if any context retrieved by the agent is irrelevant or innacurate. For RAG applications, you can use the [\_](#context-sufficiency) judge to determine if the context is sufficient to generate the `expected_facts` or `expected_response`.
+- If there is sufficient context, adjust the prompt to include relevant information.
+
+## <a id="answer-relevance"></a>Relevance to query
+
+**Definition**: Is the response relevant to the input request?
+
+**Requires ground-truth**: No.
+
+Relevance ensures that the agent’s response directly addresses the user’s input without deviating into unrelated topics.
+
+### Required inputs
+
+The input evaluation set must have the following columns:
+
+- `request`
+- `response` if you have not specified the `model` parameter to `mlflow.evaluate()`.
+
+### Examples
+
+Use relevance from an evaluation set:
+
+```python
+import mlflow
+
+eval_set = [{
+  "request": "What is the capital of France?",
+  "response": "The capital of France is Paris."
+}]
+
+mlflow.evaluate(
+  data=eval_set,
+  model_type="databricks-agent",
+  evaluator_config={
+      "databricks-agent": {
+          "metrics": ["relevance_to_query"]
+      }
+  }
+)
+```
+
+Use relevance with the [callable judge SDK](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.evals.judges.relevance_to_query):
+
+```python
+from databricks.agents.evals import judges
+
+assessment = judges.relevance_to_query(
+  request="What is the capital of France?",
+  response="The capital of France is Paris."
+)
+print(assessment)
+```
+
+### What to do when a response is not relevant?
+
+When the agent provides an irrelevant response, consider the following steps:
+
+- Evaluate the model’s understanding of the request and adjust its retriever, training data, or prompt instructions accordingly.
+
+## <a id="context-sufficiency"></a>Context sufficiency
+
+**Definition**: Are the retrieved documents sufficient to produce the expected response?
+
+**Requires ground-truth**: Yes, `expected_facts` or `expected_response`.
+
+Context sufficiency evaluates whether the retrieved documents provide all necessary information to generate the expected response.
+
+### Required inputs
+
+The input evaluation set must have the following columns:
+
+- `request`
+- `response` if you have not specified the `model` parameter to `mlflow.evaluate()`.
+- `expected_facts` or `expected_response`. See [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema.md#expected-facts) and [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema.md#minimal-facts).
+- `retrieved_context[].content` if you have not specified the `model` parameter to `mlflow.evaluate()`.
+
+### Examples
+
+Use context sufficiency from an evaluation set:
+
+```python
+import mlflow
+
+eval_set = [{
+  "request": "What is the capital of France?",
+  "response": "The capital of France is Paris.",
+  "retrieved_context": [
+    {"content": "Paris is the capital city of France."}
+  ],
+  "expected_facts": [
+    "Paris"
+  ]
+}]
+
+mlflow.evaluate(
+  data=eval_set,
+  model_type="databricks-agent",
+  evaluator_config={
+      "databricks-agent": {
+          "metrics": ["context_sufficiency"]
+      }
+  }
+)
+```
+
+Use context sufficiency with the [callable judge SDK](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.evals.judges.context_sufficiency):
+
+```python
+from databricks.agents.evals import judges
+
+assessment = judges.context_sufficiency(
+  request="What is the capital of France?",
+  retrieved_context=[
+    {"content": "Paris is the capital city of France."}
+  ]
+)
+print(assessment)
+```
+
+### What to do when the context is insufficient?
+
+When the context is insufficient:
+
+- Enhance the retrieval mechanism to ensure that all necessary documents are included.
+- Modify the model prompt to explicitly reference missing information or prioritize relevant context.
+
+## <a id="safety"></a>Safety
+
+**Definition**: Does the response avoid harmful or toxic content?
+
+**Requires ground-truth**: No.
+
+Safety ensures that the agent’s responses do not contain harmful, offensive, or toxic content.
+
+### Required inputs
+
+The input evaluation set must have the following columns:
+
+- `request`
+- `response` if you have not specified the `model` parameter to `mlflow.evaluate()`.
+
+### Examples
+
+Use safety from an evaluation set:
+
+```python
+import mlflow
+
+eval_set = [{
+  "request": "What is the capital of France?",
+  "response": "The capital of France is Paris."
+}]
+
+mlflow.evaluate(
+  data=eval_set,
+  model_type="databricks-agent",
+  evaluator_config={
+      "databricks-agent": {
+          "metrics": ["safety"]
+      }
+  }
+)
+```
+
+Use safety with the [callable judge SDK](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.evals.judges.safety):
+
+```python
+from databricks.agents.evals import judges
+
+assessment = judges.safety(
+  request="What is the capital of France?",
+  response="The capital of France is Paris."
+)
+print(assessment)
+```
+
+### What to do when the response is unsafe?
+
+When the response includes harmful content:
+
+- Analyze the request to identify if it might inadvertently lead to unsafe responses. Modify the input if necessary.
+- Refine the model or prompt to explicitly avoid generating harmful or toxic content.
+- Employ additional safety mechanisms, such as content filters, to intercept unsafe responses before they reach the user.
+
+## <a id="groundedness"></a>Groundedness
+
+**Definition**: Is the response factually consistent with the retrieved context?
+
+**Requires ground-truth**: No.
+
+Groundedness assesses whether the agent’s response is aligned with the information provided in the retrieved context.
+
+### Required inputs
+
+The input evaluation set must have the following columns:
+
+- `request`
+- `response` if you have not specified the `model` parameter to `mlflow.evaluate()`.
+- `retrieved_context[].content` if you do not use the `model` argument in the call to `mlflow.evaluate()`.
+
+### Examples
+
+Use groundedness from an evaluation set:
+
+```python
+import mlflow
+
+eval_set = [{
+  "request": "What is the capital of France?",
+  "response": "The capital of France is Paris.",
+  "retrieved_context": [
+    {"content": "Paris is the capital city of France."}
+  ]
+}]
+
+mlflow.evaluate(
+  data=eval_set,
+  model_type="databricks-agent",
+  evaluator_config={
+      "databricks-agent": {
+          "metrics": ["groundedness"]
+      }
+  }
+)
+```
+
+Use groundedness with the [callable judge SDK](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.evals.judges.groundedness):
+
+```python
+from databricks.agents.evals import judges
+
+assessment = judges.groundedness(
+  request="What is the capital of France?",
+  response="The capital of France is Paris.",
+  retrieved_context=[
+    {"content": "Paris is the capital city of France."}
+  ]
+)
+print(assessment)
+```
+
+### What to do when the response lacks groundedness?
+
+When the response is not grounded:
+
+- Review the retrieved context to ensure it includes the necessary information to generate the expected response.
+- If the context is insufficient, improve the retrieval mechanism or dataset to include relevant documents.
+- Modify the prompt to instruct the model to prioritize using the retrieved context when generating responses.
+
+## <a id="chunk-relevance"></a>Chunk relevance
+
+**Definition**: Are the retrieved chunks relevant to the input request?
+
+**Requires ground-truth**: No.
+
+Chunk relevance measures whether each chunk is relevant to the input request.
+
+### Required inputs
+
+The input evaluation set must have the following columns:
+
+- `request`
+- `retrieved_context[].content` if you have not specified the `model` parameter to `mlflow.evaluate()`.
+
+If you do not use the `model` argument in the call to `mlflow.evaluate()`, you must also provide either `retrieved_context[].content` or `trace`.
+
+### Examples
+
+This example uses the chunk relevancy judge with a custom precision metric to compute a row-level precision score. For more details on custom metrics, see [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/custom-metrics.md)
+
+```python
+import mlflow
+from mlflow.evaluation import Assessment
+
+eval_set = [{
+  "request": "What is the capital of France?",
+  "response": "The capital of France is Paris.",
+  "retrieved_context": [
+    {"content": "Paris is the capital city of France."},
+    {"content": "The best baguettes are in Nice."},
+    {"content": "Mount Everest is  the highest mountain in the world."},
+  ],
+}]
+
+def judged_precision_at_k(request, retrieved_context, k):
+  judged_precisions = [judges.chunk_relevance(request, [doc]) for doc in retrieved_context[:k]]
+  precision_at_k = sum([1 if judgement[0].value =='yes' else 0 for judgement in judged_precisions]) / k
+
+  rationales = [
+    f"""## Chunk ID {i+1}: `{retrieved_context[i]['doc_uri']}`
+    - **{judged_precisions[i][0].value}**: `{judged_precisions[i][0].rationale}`"""
+    for i in range(0, k-1)]
+
+  return Assessment(name=f'judged_precision_at_{k}', value=precision_at_k, rationale='\n'.join(rationales))
+
+@metric
+def judged_precision_at_3(request, retrieved_context):
+  k = 3
+  return judged_precision_at_k(request=request, retrieved_context=retrieved_context,  k=k)
+
+mlflow.evaluate(
+  data=eval_set,
+  model_type="databricks-agent",
+  evaluator_config={
+      "databricks-agent": {
+          "metrics": ["chunk_relevance"]
+      }
+  },
+  extra_metrics=[judged_precision_at_3]
+)
+```
+
+Use `chunk_relevance` with the [callable judge SDK](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.evals.judges.chunk_relevance):
+
+```python
+from databricks.agents.evals import judges
+
+# NOTE: This callable judge returns an assessment per item in the retrieved context.
+assessments = judges.chunk_relevance(
+  request="What is the capital of France?",
+  retrieved_context=[
+    {"content": "Paris is the capital city of France."},
+    {"content": "The chicken crossed the road."},
+  ]
+)
+print(assessments)
+```
+
+### What to do when retrieved chunks are irrelevant?
+
+When irrelevant chunks are retrieved:
+
+- Assess the retriever’s configuration and adjust parameters to prioritize relevance.
+- Refine the retriever’s training data to include more diverse or accurate examples.
+
+## <a id="document-recall"></a>Document recall
+
+**Definition**: How many of the known relevant documents did the retriever find?
+
+**Requires ground-truth**: Yes, `expected_retrieved_context[].doc_uri`.
+
+Document recall measures the proportion of ground truth relevant documents that were retrieved compared to the total number of relevant documents in ground truth.
+
+### Required inputs
+
+The input evaluation set must have the following column:
+
+- `expected_retrieved_context[].doc_uri`
+
+In addition, if you do not use the `model` argument in the call to `mlflow.evaluate()`, you must also provide either `retrieved_context[].doc_uri` or `trace`.
+
+### Examples
+
+Use document recall from an evaluation set:
+
+```python
+import mlflow
+
+eval_set = [{
+  "request": "What is the capital of France?",
+  "expected_retrieved_context": [
+    {"doc_uri": "doc_123"},
+    {"doc_uri": "doc_456"}
+  ],
+  "retrieved_context": [
+    {"doc_uri": "doc_123"}
+  ]
+}]
+
+mlflow.evaluate(
+  data=eval_set,
+  model_type="databricks-agent",
+  evaluator_config={
+      "databricks-agent": {
+          "metrics": ["document_recall"]
+      }
+  }
+)
+```
+
+There is no callable judge SDK for this metric as it does not use an AI judge.
+
+### What to do when document recall is low?
+
+When recall is low:
+
+- Verify that the ground truth data accurately reflects relevant documents.
+- Improve the retriever or adjust search parameters to increase recall.
+
+## <a id="custom"></a>Custom AI judges
+
+You can also create a custom judge to perform assessments specific to your use case.
+
+For details, see:
+
+- [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/advanced-agent-eval.md#custom-judges-guidelines).
+- [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/advanced-agent-eval.md#make-genai-metric-to-custom-metric).
+- [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/custom-metrics.md#no-pii)

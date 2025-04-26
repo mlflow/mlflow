@@ -1,0 +1,30 @@
+---
+sidebar_position: 1
+---
+
+# Version Tracking
+
+
+## <span style={{color: "red"}}>TODO</span>
+
+talk about 
+
+- you have 3 options 
+     - log the entire model's code as a deployable artifact (primarily for dbx, not reccomended elsehwere)
+     - manually log metadata about the version 
+        - prompts, params, etc
+        - talk about how you call `trace(model_id=...)`
+     - leverage auto tracking for git-based repos 
+
+- git based tracking 
+    - we pick up the commit hash (or a dirty tag)
+    - we pick up any prompt versions!
+    - in production you need to set an ENV var or call an api to register the version 
+    - can you create a version manualy??
+    - talk about how it shows up the in UC 
+        - will it??
+
+- why do you do this?
+    - compare performance over time 
+    - more easily a/b test 
+    - track evals to a specific code / prompt version 

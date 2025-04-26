@@ -1,0 +1,64 @@
+---
+sidebar_position: 2
+---
+
+# Manual Tracing
+
+While MLflow's one-line automatic tracing is great for supported frameworks, you might need more control over your traces in several scenarios:
+
+- You need fine-grained control over the structure and hierarchy of your traces
+- You're using custom code or frameworks that aren't automatically traced
+- You need to combine multiple frameworks in a single trace
+- You want to add custom attributes, tags, or metadata to your traces
+- You need to handle complex scenarios like streaming responses or multi-threading
+
+For these cases, MLflow offers a comprehensive Python SDK for manually instrumenting your code and manipulating traces. The SDK provides multiple levels of abstraction to suit different use cases:
+
+1. **High-level APIs (Recommended)**
+   **Using decorators and context managers**
+   
+   The High-level APIs provide a more intuitive and less error-prone way to instrument your code. They automatically handle:
+   - Parent-child relationship detection between spans
+   - Exception handling and error propagation
+   - Input/output logging
+   - Trace lifecycle management
+   - Thread safety and context propagation
+
+   This approach comes in two flavors:
+
+   **Decorator Example:**
+   ```python
+   @mlflow.trace
+   def process_data(data):
+       result = transform(data)
+       return result
+   ```
+
+   **Context Manager Example:**
+   ```python
+   with mlflow.start_span(name="data_processing") as span:
+       span.set_inputs({"data": data})
+       result = process_data(data)
+       span.set_outputs(result)
+   ```
+
+2. **Low-level Client APIs (Advanced)**
+   - Full control over trace lifecycle with `MlflowClient`
+   - Explicit trace and span management
+   - Manual parent-child relationship handling
+   - Suitable for complex distributed scenarios
+
+   **Example:**
+   ```python
+   client = MlflowClient()
+   root_span = client.start_trace("my_trace")
+   child_span = client.start_span(
+       name="processing",
+       request_id=root_span.request_id,
+       parent_id=root_span.span_id
+   )
+   client.end_span(child_span.request_id, child_span.span_id)
+   client.end_trace(root_span.request_id)
+   ```
+
+Refer to the [Tracing How To Guide](/tracing/api/how-to) for more details about the SDK.
