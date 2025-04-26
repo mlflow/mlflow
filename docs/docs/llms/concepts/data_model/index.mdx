@@ -13,7 +13,7 @@ There are two primary entities in MLflow's GenAI data model:
 - Metadata & Tags: Details about the execution environment and code version that generated the trace along with developer-defined key:value pairs 
 - Spans: Step-by-step execution details (LLM calls, retrievers, tools, etc)
 
-[`Traces`](trace) are annotated with [`Assessments`](assessment) that describe their quality and operational performance (latency, cost, etc).  [`Assessments`](assessment) are produced by either:
+[`Traces`](trace) are annotated with [`Assessments`](trace/assessment) that describe their quality and operational performance (latency, cost, etc).  [`Assessments`](assessment) are produced by either:
 * `Scorer`: A developer-defined function that programmatically evaluates traces using either:
   - Deterministic Logic: Rule-based evaluation using predefined criteria (e.g., response length, presence of required fields)
   - LLM Judge-based Logic: Using another LLM to evaluate the quality of responses, simulating a human generated evaluation (e.g., checking factual accuracy, tone, or adherence to guidelines)

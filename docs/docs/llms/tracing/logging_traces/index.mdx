@@ -21,7 +21,7 @@ Generally, we reccomend starting with [automatic tracing](./automatic) and only 
 Determine the best tracing approach for your use case based on how you are writing your application's code:
 
 1. **Using a single GenAI Authoring Library** (e.g., LangGraph, CrewAI, OpenAI Agents, Bedrock Agents, etc)
-   - Use **auotomatic tracing** by adding a one-line integration from our [integrations page](integrations/) for your selected library: `mlflow.<library>.autolog()`
+   - Use **auotomatic tracing** by adding a one-line integration from our [integrations page](../integrations/) for your selected library: `mlflow.<library>.autolog()`
 
 2. **Using an LLM provider's SDKs Directly** (e.g., OpenAI SDK, Anthropic SDK, Bedrock SDK, etc)
    - Enable [automatic tracing](./automatic) for the API library
@@ -34,4 +34,4 @@ Determine the best tracing approach for your use case based on how you are writi
 4. **All other approaches or you have a need for fine-grained control**
    - Use [**Manual Tracing**](manual_tracing/)
         - Start with the [high-level APIs](manual_tracing/fluent-apis) (`@mlflow.trace` decorator and fluent context managers) which provide a balance of control and ease of use
-        - Use the [low-level APIs]((manual_tracing/log-level-api)) only if the high-level APIs don't give you enough control
+        - Use the [low-level APIs](manual_tracing/log-level-api) only if the high-level APIs don't give you enough control
