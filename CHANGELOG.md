@@ -1,5 +1,62 @@
 # CHANGELOG
 
+## 2.22.0 (2025-04-24)
+
+MLflow 2.22.0 brings important bug fixes and improves the UI and tracking capabilities.
+
+Features:
+
+- [Tracking] Supported tracing for OpenAI Responses API.  
+  (#15240, @B-Step62)
+- [Tracking] Introduced `get_last_active_trace`, which affects model serving/monitoring logic.  
+  (#15233, @B-Step62)
+- [Tracking] Introduced async export for Databricks traces (default behavior).  
+  (#15163, @B-Step62)
+- [AI Gateway] Added Gemini embeddings support with corresponding unit tests.  
+  (#15017, @joelrobin18)
+- [Tracking / SQLAlchemy] MySQL SSL connections are now supported with client certs.  
+  (#14839, @aksylumoed)
+- [Models] Added Optuna storage utility for enabling parallel hyperparameter tuning.  
+  (#15243, @XiaohanZhangCMU)
+- [Artifacts] Added support for Azure Data Lake Storage (ADLS) artifact repositories.  
+  (#14723, @serena-ruan)
+- [UI] Artifact views for text now auto-refresh in the UI.  
+  (#14939, @joelrobin18)
+
+Bug Fixes:
+
+- [Tracking / UI] Fixed serialization for structured output in `langchain_tracer` + added unit tests.  
+  (#14971, @joelrobin18)
+- [Server-infra] Enforced password validation for authentication (min. 8 characters).  
+  (#15287, @WeichenXu123)
+- [Deployments] Resolved an issue with the OpenAI Gateway adapter.  
+  (#15286, @WeichenXu123)
+- [Artifacts / Tracking / Server-infra] Normalized paths by stripping trailing slashes.  
+  (#15016, @tarek7669)
+- [Tags] Fixed bug where tag values containing `": "` were being truncated.  
+  (#14896, @harupy)
+
+Small bug fixes and documentation updates:
+
+#15396, #15379, #15292, #15305, #15078, #15251, #15267, #15208, #15104, #15045, #15084, #15055, #15056, #15048, #14946, #14956, #14903, #14854, #14830, @serena-ruan; #15417, #15256, #15186, #15007, @TomeHirata; #15119, @bbqiu; #15413, #15314, #15311, #15303, #15301, #15288, #15275, #15269, #15272, #15268, #15262, #15266, #15264, #15261, #15252, #15249, #15244, #15236, #15235, #15237, #15140, #14982, #14898, #14893, #14861, #14870, #14853, #14849, #14813, #14822, @harupy; #15333, #15298, #15300, #15156, #15019, #14957, @B-Step62; #15313, #15297, #14880, @daniellok-db; #15066, #15074, #14913, @joelrobin18; #15232, @kbolashev; #15242, @dbczumar; #15210, #15178, @WeichenXu123; #15187, #15177, @hubertzub-db; #15059, #15070, #15050, #15012, #14959, #14918, #15005, #14965, #14858, #14930, #14927, #14786, #14883, #14863, #14852, #14788, @Gumichocopengin8; #15134, #15129, #15120, #15117, #15002, #14997, #14996, #14998, #14975, #14874, @mlflow-automation; #14920, #14919, @jaceklaskowski
+
+## 2.21.3 (2025-04-03)
+
+MLflow 2.21.3 includes a few bugi
+
+Bug fixes:
+
+- [Tracking] Fix spark ML save model error in Databricks shared or serverless cluster (#15198, @WeichenXu123)
+- [Tracking] Fix Spark model logging / loading in Databricks shared cluster and serverless (#15075, @WeichenXu123)
+
+Documentation updates:
+
+- [Docs] Add document page for DSPy optimizer tracking (#15143, @TomeHirata)
+
+Small bug fixes and documentation updates:
+
+#15205, @mlflow-app[bot]; #15184, #15157, #15137, @TomeHirata; #15085, @B-Step62; #15118, @bbqiu; #15172, @harupy
+
 ## 2.21.2 (2025-03-26)
 
 MLflow 2.21.2 is a patch release that introduces minor features and bug fixes.
@@ -40,7 +97,7 @@ We are excited to announce the release of MLflow 2.21.0! This release includes a
 
 - 📚 **Documentation Redesign**: [MLflow documentation](https://mlflow.org/docs/latest/) is fully revamped with a new MDX-based website that provides better navigation and makes it easier to find the information you need! (#13645, @daniellok-db)
 - 🤖 **Prompt Registry**: [MLflow Prompt Registry](https://mlflow.org/docs/latest/prompts/) is a powerful tool that streamlines prompt engineering and management in your GenAI applications. It enables you to version, track, and reuse prompts across your organization. (#14795, #14834, #14936, @B-Step62, #14960, #14984, @daniellok-db, #14909, @hubertzub-db)
-- ⚡️ **FastAPI Scoring Server**: The [MLflow inference server](https://mlflow.org/docs/latest/deployment/deploy-model-locally/#serving-frameworks)has been migrated from Flask to FastAPI, enabling ASGI-based scalable inference for improved performance and throughput. (#14307, @TomeHirata)
+- ⚡️ **FastAPI Scoring Server**: The [MLflow inference server](https://mlflow.org/docs/latest/deployment/deploy-model-locally/#serving-frameworks) has been migrated from Flask to FastAPI, enabling ASGI-based scalable inference for improved performance and throughput. (#14307, @TomeHirata)
 - 🔍 **Enhanced Tracing Capabilities**: [MLflow Tracing](https://mlflow.org/docs/latest/tracing/) now supports synchronous/asynchronous generators and auto-tracing for Async OpenAI, providing more flexible and comprehensive tracing options. (#14459, #14400, #14793, @14792, @B-Step62)
 
 Features:

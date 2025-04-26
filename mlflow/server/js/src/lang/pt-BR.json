@@ -7,6 +7,10 @@
     "defaultMessage" : "Baixar dados de métricas",
     "description" : "Experiments > metric charts > download full CSV data modal > title"
   },
+  "+8r+vG" : {
+    "defaultMessage" : "Etiquetas",
+    "description" : "Label for the tags on the registered prompt details page"
+  },
   "+927K0" : {
     "defaultMessage" : "O AutoML removeu as linhas que tinham menos de 16 linhas por etiqueta-alvo",
     "description" : "Action that AutoML took when there is insufficient data per target label"
@@ -18,6 +22,14 @@
   "+ABxga" : {
     "defaultMessage" : "O Endpoint deve ser alfanumérico, com hifens e sublinhados permitidos entre eles.",
     "description" : "Error message for endpoint name if contains invalid characters"
+  },
+  "+Aa5wf" : {
+    "defaultMessage" : "Entre em contato com seu administrador para solicitar permissão para criar um esquema",
+    "description" : "User action recommendation when lacking permission to create a schema"
+  },
+  "+B9EZE" : {
+    "defaultMessage" : "Máscara",
+    "description" : "External model serving configuration form > AI Gateway section > guardrails configuration section > PII behavior dropdown option for mask"
   },
   "+Cr7Gu" : {
     "defaultMessage" : "Métricas de pesquisa",
@@ -50,10 +62,6 @@
   "+RYBrq" : {
     "defaultMessage" : "Promover modelo",
     "description" : "Button text to pomote the model to a different registered model"
-  },
-  "+Wd9fs" : {
-    "defaultMessage" : "O juiz LLM de fundamentação devolve uma avaliação binária e uma justificativa escrita que indicam se a resposta gerada é de fato consistente com o contexto obtido pelo agente.",
-    "description" : "Evaluation results > known type of evaluation result assessment > description of groundedness judge."
   },
   "+dGAnC" : {
     "defaultMessage" : "Pré-visualizar",
@@ -95,10 +103,6 @@
     "defaultMessage" : "Atualizar",
     "description" : "Text for button to update a serving endpoint"
   },
-  "/2InJv" : {
-    "defaultMessage" : "Fundamentada",
-    "description" : "Evaluation results > grounded assessment > positive value label. Displayed if evaluation result is considered as grounded."
-  },
   "/2MZix" : {
     "defaultMessage" : "ID da execução:",
     "description" : "Row title for the run id on the experiment compare runs page"
@@ -122,6 +126,10 @@
   "/ABq+N" : {
     "defaultMessage" : "Desativar notificações",
     "description" : "Text for dropdown for no notifications on model view page"
+  },
+  "/CaNq/" : {
+    "defaultMessage" : "Ocorreu um erro de rede.",
+    "description" : "Generic message for a network error"
   },
   "/CmFh6" : {
     "defaultMessage" : "Esquema",
@@ -163,13 +171,17 @@
     "defaultMessage" : "Tempo (quadro)",
     "description" : "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use wall time axis in all charts"
   },
-  "/Th+n1" : {
-    "defaultMessage" : "Você não tem permissão para gravar neste conjunto de dados de avaliação.",
-    "description" : "Tooltip for when user does not have permission to write to eval dataset"
-  },
   "/VWFZb" : {
     "defaultMessage" : "Compartilhe e disponibilize modelos de aprendizagem automática.",
     "description" : "Text for model registry onboarding on the model list page on Azure"
+  },
+  "/WoeqX" : {
+    "defaultMessage" : "Criada às",
+    "description" : "Label for the creation time on the registered prompt details page"
+  },
+  "/XlqZA" : {
+    "defaultMessage" : "Erro de serviço indisponível",
+    "description" : "Request failed due to service being available (HTTP STATUS 503) generic error message"
   },
   "/Y48BU" : {
     "defaultMessage" : "Compartilhe e gerencie recursos de aprendizagem automática.",
@@ -183,21 +195,17 @@
     "defaultMessage" : "Todas as execuções foram concluídas e adicionadas à tabela abaixo.",
     "description" : "Message displayed to the user when they've completed an AutoML and not registed the result or model to UC"
   },
+  "/fwKFW" : {
+    "defaultMessage" : "Nenhum prompt criado",
+    "description" : "A header for the empty state in the prompts table"
+  },
   "/g45Xz" : {
     "defaultMessage" : "Compartilhe e gerencie modelos de aprendizagem automática.",
     "description" : "Default text for model registry onboarding on the model list page"
   },
-  "/gqx4n" : {
-    "defaultMessage" : "O juiz LLM de segurança devolve uma avaliação binária e uma justificativa escrita que indicam se a resposta gerada tem um conteúdo prejudicial ou tóxico.",
-    "description" : "Evaluation results > known type of evaluation result assessment > description of safety judge."
-  },
   "/iaU14" : {
     "defaultMessage" : "Cancelar atualização",
     "description" : "Title text for cancel update modal on endpoint view page"
-  },
-  "/k6j6v" : {
-    "defaultMessage" : "Confirmar",
-    "description" : "Evaluation review > assessments > confirm assessment button label"
   },
   "/nPZbt" : {
     "defaultMessage" : "{totalTokens} tokens no total",
@@ -219,9 +227,9 @@
     "defaultMessage" : "Homologação",
     "description" : "Column title for staging phase version in the registered model page"
   },
-  "0Bee6A" : {
-    "defaultMessage" : "Nenhuma recuperação registrada",
-    "description" : "Evaluation review > retrieval section > no values"
+  "0DEWOL" : {
+    "defaultMessage" : "Configurações do monitor",
+    "description" : "Monitor Settings title, specifing the header for the monitor settings modal"
   },
   "0ElvS9" : {
     "defaultMessage" : "Eixo Y:",
@@ -238,10 +246,6 @@
   "0HqSXX" : {
     "defaultMessage" : "ID da solicitação",
     "description" : "Experiment page > traces table > request id column header"
-  },
-  "0M7VVC" : {
-    "defaultMessage" : "Irrelevante",
-    "description" : "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
   "0N8/HY" : {
     "defaultMessage" : "Cancelar",
@@ -355,10 +359,6 @@
     "defaultMessage" : "Use os controles acima para selecionar pelo menos um artefato que contenha uma tabela.",
     "description" : "Experiment page > artifact compare view > empty state for no tables selected > subtitle with the hint"
   },
-  "182j4F" : {
-    "defaultMessage" : "Execução de origem",
-    "description" : "Label for the source run column in the logged model details metrics table"
-  },
   "19sxrU" : {
     "defaultMessage" : "Não recomendado para uso em produção: a latência pode ser de minutos à medida que o endpoint aumenta na escala.",
     "description" : "Warning on CPU latency text for scale to zero."
@@ -370,6 +370,10 @@
   "1ECve7" : {
     "defaultMessage" : "Agora, você pode alternar para a visualização do gráfico para comparar execuções",
     "description" : "Tooltip to push users to use the chart view instead of compare view"
+  },
+  "1GSTtH" : {
+    "defaultMessage" : "Detecte e bloqueie ou mascare informações pessoais identificáveis (PII) em dados estruturados e não estruturados. <link>Saiba mais</link>.",
+    "description" : "External model serving configuration form > AI Gateway section > guardrails configuration section > description for PII Detection"
   },
   "1Iq+NW" : {
     "defaultMessage" : "Copiar",
@@ -410,10 +414,6 @@
   "1UVDwT" : {
     "defaultMessage" : "Adicionar comentário",
     "description" : "Text for add comment button on activities list on model version page"
-  },
-  "1Ujhc3" : {
-    "defaultMessage" : "True",
-    "description" : "True assessment label"
   },
   "1WS76w" : {
     "defaultMessage" : "As linhas para o mesmo timestamp são agregadas com base na média na previsão do problema",
@@ -487,17 +487,13 @@
     "defaultMessage" : "Editar",
     "description" : "Edit endpoint button text on endpoint page"
   },
+  "1tRtls" : {
+    "defaultMessage" : "Registrado em",
+    "description" : "Header for the registration time column in the registered prompts table"
+  },
   "1xjS1n" : {
     "defaultMessage" : "Falha no notebook de exploração de dados",
     "description" : "AutoML warning shown when data exploration notebook fails"
-  },
-  "1zStaC" : {
-    "defaultMessage" : "Falta",
-    "description" : "The label for a missing asseessment above a bar-chart in the summary stats."
-  },
-  "2/B9Zg" : {
-    "defaultMessage" : "adicionado {when} por {user}",
-    "description" : "Evaluation review > assessments > detailed history > added history entry"
   },
   "2/Iqz2" : {
     "defaultMessage" : "Disponibilização legada",
@@ -511,10 +507,6 @@
     "defaultMessage" : "Cancelar",
     "description" : "Cancellation button text on the model version stage transition request/approval modal"
   },
-  "27XMby" : {
-    "defaultMessage" : "Falta",
-    "description" : "Missing assessment label"
-  },
   "27oNFE" : {
     "defaultMessage" : "Esquema do modelo",
     "description" : "Heading text for the model schema of the registered model from the experiment run"
@@ -522,6 +514,10 @@
   "28Dnzz" : {
     "defaultMessage" : "Parâmetros",
     "description" : "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > parameters heading"
+  },
+  "28R0Z9" : {
+    "defaultMessage" : "Treinamento",
+    "description" : "AutoML Step title training"
   },
   "2AG1hG" : {
     "defaultMessage" : "Configuração ativa",
@@ -615,10 +611,6 @@
     "defaultMessage" : "Compartilhar",
     "description" : "Text for share button on experiment view page header"
   },
-  "2plDKs" : {
-    "defaultMessage" : "Entrada",
-    "description" : "Evaluation review > evaluations list > input sort option label prefix"
-  },
   "2xz1DU" : {
     "defaultMessage" : "Esta tabela pode ser unida à tabela <code>endpoint_usage</code> para obter o uso de cada endpoint/modelo.",
     "description" : "Endpoint details page > External model details > AI Gateway details > Usage monitoring section > Information about joining tables"
@@ -643,9 +635,17 @@
     "defaultMessage" : "Editar",
     "description" : "Text for the edit button next to the description section title on\n             the model view page"
   },
+  "39i3+I" : {
+    "defaultMessage" : "Tags de política de orçamento serverless",
+    "description" : "Endpoint form summary title for budget policy tags"
+  },
   "3D2Znf" : {
     "defaultMessage" : "Filtrar por {columnNames}",
     "description" : "Experiment page > artifact compare view > search input placeholder"
+  },
+  "3DPb2S" : {
+    "defaultMessage" : "Este exemplo requer a versão {minVersion} ou mais recente do MLflow. Execute {installCommand} em uma célula do notebook se sua versão do MLflow for mais antiga que esta e, em seguida, execute {restartCommand} para reiniciar o kernel.",
+    "description" : "Alert description informing the user of how to upgrade MLflow to the minimum required version"
   },
   "3HTxsL" : {
     "defaultMessage" : "Região",
@@ -683,6 +683,10 @@
     "defaultMessage" : "Colunas com anotações semânticas incompatíveis",
     "description" : "AutoML warning shown for columns with incompatible semantic type annotations"
   },
+  "3Z6K+n" : {
+    "defaultMessage" : "Para instrumentar manualmente seus próprios rastreamentos, o método mais conveniente é usar o decorador de funções {code}. Isso fará com que as entradas e saídas da função sejam capturadas no rastreamento.",
+    "description" : "Description of how to log custom code traces using MLflow. This message is followed by a code example."
+  },
   "3ZD13l" : {
     "defaultMessage" : "Última modificação",
     "description" : "Endpoint details page > External model details > Metadata table > Last modified label"
@@ -698,10 +702,6 @@
   "3geT+I" : {
     "defaultMessage" : "Use as APIs de registro de logs para armazenar resultados de execuções do MLflow.",
     "description" : "Information in the empty state explaining how one could log artifacts output files for the experiment runs"
-  },
-  "3hRurq" : {
-    "defaultMessage" : "nulo",
-    "description" : "No value for a boolean assessment"
   },
   "3kBS89" : {
     "defaultMessage" : "Para recuperar recursos antes da pontuação, chame FeatureStoreClient.score_batch.",
@@ -723,10 +723,6 @@
     "defaultMessage" : "Cancelado",
     "description" : "Canceled button text for served model table toggle on endpoint page"
   },
-  "40u/dZ" : {
-    "defaultMessage" : "Nenhuma entidade disponibilizada.",
-    "description" : "Empty state text for served models table when there are no active served entities"
-  },
   "424G/o" : {
     "defaultMessage" : "Experiências",
     "description" : "Breadcrumb nav item to link to the list of experiments page on runs page"
@@ -738,6 +734,10 @@
   "44XPr5" : {
     "defaultMessage" : "Visualização de gráfico",
     "description" : "Label for the table view toggle button in the logged model list page"
+  },
+  "44f6Jl" : {
+    "defaultMessage" : "DSPy",
+    "description" : "Header for DSPy tab in the MLflow Tracing quickstart guide"
   },
   "44s7uM" : {
     "defaultMessage" : "Última modificação",
@@ -802,14 +802,6 @@
     "defaultMessage" : "Nenhum produtor encontrado.",
     "description" : "Text on the producer section describing no producers exist."
   },
-  "4TDvGX" : {
-    "defaultMessage" : "editado {when} por {user}",
-    "description" : "Evaluation review > assessments > detailed history > edited history entry"
-  },
-  "4Tg5Vr" : {
-    "defaultMessage" : "O juiz LLM de conformidade com as diretrizes determina se a resposta está em conformidade com as diretrizes fornecidas.",
-    "description" : "Evaluation results > known type of evaluation result assessment > guideline adherence judge."
-  },
   "4X56Td" : {
     "defaultMessage" : "rejeitou uma transição de etapa",
     "description" : "Activity title text for rejected transition request in model versions page"
@@ -858,9 +850,9 @@
     "defaultMessage" : "Mostrar alteração em relação à linha de base",
     "description" : "Runs charts > components > cards > RunsChartsDifferenceChartCard > Show change from baseline toggle label"
   },
-  "4uE8hl" : {
-    "defaultMessage" : "Avaliação geral adicionada por LLM como juiz",
-    "description" : "Evaluation review > assessments > tooltip > overall assessment added by LLM-as-a-judge"
+  "4xR6gu" : {
+    "defaultMessage" : "Este endpoint pode acessar os recursos da Databricks em seu nome quando consultado. Certifique-se de que confia no proprietário do endpoint.",
+    "description" : "Notice message for on behalf of user rights endpoints"
   },
   "4yOFcJ" : {
     "defaultMessage" : "Modifique o notebook de exploração de dados e volte a executá-lo para definir o perfil do conjunto de dados completo.",
@@ -885,10 +877,6 @@
   "58xhem" : {
     "defaultMessage" : "Clique para fixar a execução",
     "description" : "A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run"
-  },
-  "59K/P9" : {
-    "defaultMessage" : "A criação de um novo conjunto de dados de avaliação ainda não é compatível.",
-    "description" : "Tooltip for when no eval datasets are found"
   },
   "5B5dhT" : {
     "defaultMessage" : "Validar o modelo antes da implantação",
@@ -917,6 +905,10 @@
   "5Mzn2b" : {
     "defaultMessage" : "Criador",
     "description" : "Label name for creator metadata in model version page"
+  },
+  "5PlfiT" : {
+    "defaultMessage" : "Esta solicitação excede o limite máximo de queries por segundo. Aguarde e tente de novo.",
+    "description" : "Too many requests (HTTP STATUS 429) generic error message"
   },
   "5RWIet" : {
     "defaultMessage" : "Esquema {sectionName}",
@@ -958,9 +950,9 @@
     "defaultMessage" : "Navegador",
     "description" : "SegmentedControl text for the browser call the endpoint section in the modal"
   },
-  "5e1r3Y" : {
-    "defaultMessage" : "Cancelar",
-    "description" : "Evaluation review > assessments > cancel assessment button label"
+  "5fDqTz" : {
+    "defaultMessage" : "O AutoML excluiu estas séries temporais do conjunto de dados devido à insuficiência de dados. Volte a executar o AutoML com um horizonte de tempo mais curto ou com mais dados para estas séries temporais.",
+    "description" : "Action recommended when some time-series have insufficient data after splitting."
   },
   "5iUdnt" : {
     "defaultMessage" : "Detecção de PII",
@@ -970,13 +962,13 @@
     "defaultMessage" : "Avisos",
     "description" : "Header/title of AutoML warnings dashboard"
   },
-  "5jXYY4" : {
-    "defaultMessage" : "Avaliações detalhadas",
-    "description" : "Evaluation review > assessments > detailed assessments > title"
-  },
   "5kYPUa" : {
     "defaultMessage" : "Erros",
     "description" : "Title for the errors chart in the monitoring UI, showing the number of errors per day in a given time window."
+  },
+  "5lxzau" : {
+    "defaultMessage" : "Os logs de serviço históricos não foram gerados ou expiraram. Verifique novamente mais tarde.",
+    "description" : "Description for empty historical service log files modal"
   },
   "5m2VPy" : {
     "defaultMessage" : "Grade de imagens",
@@ -1114,9 +1106,17 @@
     "defaultMessage" : "Carregar modelo",
     "description" : "Code comment which states how to load the model"
   },
+  "6ccsHU" : {
+    "defaultMessage" : "Valores nulos na coluna de divisão",
+    "description" : "AutoML warning shown when null values are found in the split column"
+  },
   "6d5JTO" : {
     "defaultMessage" : "Nenhum rastreamento registrado",
     "description" : "Message displayed when there are no traces logged to the experiment"
+  },
+  "6e9+/R" : {
+    "defaultMessage" : "Tipo de divisão não compatível",
+    "description" : "AutoML warning shown when an unsupported split type is used"
   },
   "6irux9" : {
     "defaultMessage" : "Escolha entre o ARN do perfil da instância ou as chaves de acesso.",
@@ -1146,9 +1146,17 @@
     "defaultMessage" : "O AutoML utilizou uma amostra do conjunto de dados. Caso existam colunas com cardinalidade elevada (por exemplo, colunas de string com muitos valores diferentes), experimente removê-las para aumentar o tamanho da mostra.",
     "description" : "Action that AutoML took given a dataset that was too large"
   },
+  "6tKW1I" : {
+    "defaultMessage" : "Registre automaticamente os rastreamentos das conversas do Bedrock chamando a função {code}. Por exemplo:",
+    "description" : "Description of how to log traces for the Bedrock package using MLflow autologging. This message is followed by a code example."
+  },
   "6tS2zn" : {
     "defaultMessage" : "Selecione um modelo básico popular",
     "description" : "Placeholder text for selecting a popular foundation model dropdown"
+  },
+  "6w4eSj" : {
+    "defaultMessage" : "Nenhuma avaliação encontrada para este período.",
+    "description" : "Message when no assessments are found, with link to docs"
   },
   "6xPc4W" : {
     "defaultMessage" : "Prever em um DataFrame do Spark:",
@@ -1157,10 +1165,6 @@
   "6y36Fr" : {
     "defaultMessage" : "Adicionar novo gráfico",
     "description" : "Title of the modal when adding a new runs comparison chart"
-  },
-  "7+XQ3q" : {
-    "defaultMessage" : "Correção",
-    "description" : "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
   },
   "7/urtn" : {
     "defaultMessage" : "Registre automaticamente rastreamentos para invocações de LangChain ou LangGraph chamando a função {code}. Por exemplo:",
@@ -1202,17 +1206,13 @@
     "defaultMessage" : "Ocorreu um erro ao enviar sua nota.",
     "description" : "Error message text when saving an editable note in MLflow"
   },
+  "7AubNL" : {
+    "defaultMessage" : "Consulte a documentação para saber como configurar métricas para monitorização.",
+    "description" : "Link to the docs for how to setup metrics for monitoring"
+  },
   "7CVkgZ" : {
     "defaultMessage" : "Origem",
     "description" : "Run page > Overview > FinetuneDetails > Run source section label"
-  },
-  "7Dhfxy" : {
-    "defaultMessage" : "Falha",
-    "description" : "The label for a failing asseessment above a bar-chart in the summary stats."
-  },
-  "7DmnoN" : {
-    "defaultMessage" : "Selecione o conjunto de dados de avaliação ao qual deseja adicionar {numLogs} rastreamentos.",
-    "description" : "Description for selecting eval dataset to add traces"
   },
   "7F/CBv" : {
     "defaultMessage" : "Etapa",
@@ -1245,10 +1245,6 @@
   "7PCvDy" : {
     "defaultMessage" : "OK",
     "description" : "Confirmation button text on the model version stage transition request/approval modal"
-  },
-  "7S/ozs" : {
-    "defaultMessage" : "Contexto suficiente",
-    "description" : "Evaluation results > context sufficiency assessment > positive value label. Displayed if retrieved context is sufficient to generate the expected response."
   },
   "7UncLb" : {
     "defaultMessage" : "LlamaIndex",
@@ -1306,9 +1302,17 @@
     "defaultMessage" : "Gráficos de métricas de busca",
     "description" : "Placeholder for chart search input on the logged model chart view"
   },
+  "7x6xu8" : {
+    "defaultMessage" : "Criar prompt",
+    "description" : "Label for the create prompt button on the registered prompts page"
+  },
   "7zNDHj" : {
     "defaultMessage" : "Parâmetros:",
     "description" : "Label text for parameters in parallel coordinates plot in MLflow"
+  },
+  "7zgX/l" : {
+    "defaultMessage" : "Use o botão \"Criar versão do prompt\" para criar uma nova versão do prompt",
+    "description" : "Guidelines for the user on how to create a new prompt version in the prompt versions table"
   },
   "8+t65I" : {
     "defaultMessage" : "Não é possível editar o endpoint quando a atualização pendente está em andamento.",
@@ -1322,6 +1326,10 @@
     "defaultMessage" : "Salvar tags",
     "description" : "Key-value tag editor modal > Manage Tag save button"
   },
+  "80LQWB" : {
+    "defaultMessage" : "Execute o código de treinamento de exemplo:",
+    "description" : "Instruction for running example training code in order to log MLflow 3 models"
+  },
   "81+fJx" : {
     "defaultMessage" : "Não foi possível carregar as informações do modelo devido a um erro.",
     "description" : "Error state text when the model artifact was unable to load"
@@ -1329,10 +1337,6 @@
   "81DxPY" : {
     "defaultMessage" : "Os gráficos de contorno só podem ser renderizados ao comparar um grupo de execuções com três ou mais métricas ou parâmetros únicos. Registre mais métricas ou parâmetros em suas execuções para visualizá-las com um gráfico de contorno.",
     "description" : "Text explanation when contour plot is disabled in comparison pages\n              in MLflow"
-  },
-  "879eOP" : {
-    "defaultMessage" : "Adicionar às avaliações",
-    "description" : "Title for modal to add to evaluation dataset"
   },
   "88l+j9" : {
     "defaultMessage" : "Tem certeza de que quer excluir a versão {versionNum} do modelo? Esta ação não pode ser desfeita.",
@@ -1345,6 +1349,10 @@
   "8BmosX" : {
     "defaultMessage" : "(Falha na atualização)",
     "description" : "Text for failed served model update on the endpoints list page"
+  },
+  "8EK+SZ" : {
+    "defaultMessage" : "Usar",
+    "description" : "A label for a button to display the modal with the usage example of the prompt"
   },
   "8FkuM4" : {
     "defaultMessage" : "Executar a avaliação nos traços",
@@ -1454,6 +1462,10 @@
     "defaultMessage" : "Carregar mais",
     "description" : "Load more button text to load more experiment runs"
   },
+  "9DDsiU" : {
+    "defaultMessage" : "Anthropic",
+    "description" : "Header for Anthropic tab in the MLflow Tracing quickstart guide"
+  },
   "9EEo9X" : {
     "defaultMessage" : "Redefinir exemplo",
     "description" : "Button on Call Endpoint modal to populate the request body with an input example"
@@ -1461,6 +1473,10 @@
   "9HXup+" : {
     "defaultMessage" : "Ativar/desativar visibilidade das execuções",
     "description" : "Experiment page > runs table > toggle visibility of runs > accessible label"
+  },
+  "9IN1I8" : {
+    "defaultMessage" : "Selecionar como versão de comparação",
+    "description" : "Label for selecting compared prompt version in the comparison view"
   },
   "9JyC1e" : {
     "defaultMessage" : "Streaming (Delta Live Tables)",
@@ -1473,6 +1489,10 @@
   "9MMgTU" : {
     "defaultMessage" : "Copiar token",
     "description" : "Copy OAuth token in text in Call Endpoint modal"
+  },
+  "9PmF+p" : {
+    "defaultMessage" : "Fallbacks",
+    "description" : "External model serving configuration form > form summary > AI gateway summary > fallbacks enabled indicator"
   },
   "9QJ69q" : {
     "defaultMessage" : "Chave secreta da API",
@@ -1506,13 +1526,13 @@
     "defaultMessage" : "Registrar",
     "description" : "Confirmation text to register the model"
   },
-  "9cTaBs" : {
-    "defaultMessage" : "Reprovado",
-    "description" : "Failing assessment label"
-  },
   "9dX4XQ" : {
     "defaultMessage" : "Selecione parâmetro ou métrica",
     "description" : "Placeholder text for parameter/metric selector in box plot comparison in MLflow"
+  },
+  "9fUz2t" : {
+    "defaultMessage" : "Algumas ou todas as séries temporais não possuem dados suficientes em todas as divisões de treinamento, validação e teste.",
+    "description" : "AutoML warning shown when certain time-series do not have enough data after the default train/validate/test split or custom split is validated. These time-series are subsequently dropped."
   },
   "9fVZg8" : {
     "defaultMessage" : "Excluir",
@@ -1529,6 +1549,14 @@
   "9mAGv0" : {
     "defaultMessage" : "Nome do modelo",
     "description" : "Text for form title on creating model in the model registry"
+  },
+  "9n4gZv" : {
+    "defaultMessage" : "Você não tem permissão para criar tabela",
+    "description" : "AutoML warning shown when the user doesn't have permission to create a table"
+  },
+  "9pJlQd" : {
+    "defaultMessage" : "Nenhuma versão de prompt foi criada",
+    "description" : "A header for the empty state in the prompt versions table"
   },
   "9tVuSP" : {
     "defaultMessage" : "Execute o AutoML novamente em um conjunto de dados com várias categorias na coluna-alvo.",
@@ -1602,6 +1630,10 @@
     "defaultMessage" : "Recurso",
     "description" : "Title text for the feature name column."
   },
+  "AOoWxS" : {
+    "defaultMessage" : "Erro",
+    "description" : "Title for error fallback component in prompts management UI"
+  },
   "AWld9k" : {
     "defaultMessage" : "Gateway de IA",
     "description" : "Endpoint form summary title for inference table"
@@ -1618,9 +1650,17 @@
     "defaultMessage" : "Model version",
     "description" : "Model version label on the configure inference form"
   },
+  "ApNS0Z" : {
+    "defaultMessage" : "Digite o conteúdo do prompt aqui",
+    "description" : "A placeholder for the prompt content in the prompt creation modal"
+  },
   "Aqq08o" : {
     "defaultMessage" : "HTTP",
     "description" : "Experiment dataset drawer > source type > HTTP source type label"
+  },
+  "Arvaod" : {
+    "defaultMessage" : "Exibindo dados até {date}.",
+    "description" : "Tooltip for the refresh button showing the current date and time"
   },
   "At3XhS" : {
     "defaultMessage" : "Data/hora da criação",
@@ -1646,17 +1686,13 @@
     "defaultMessage" : "Modelo de LLM disponibilizado",
     "description" : "Experiment page > new run modal > served LLM model endpoint label"
   },
-  "AylL48" : {
-    "defaultMessage" : "Tags de política de orçamento",
-    "description" : "Endpoint form summary title for budget policy tags"
+  "AzOnmT" : {
+    "defaultMessage" : "Registre automaticamente rastreamentos para chamadas da API Anthropic chamando a função {code}. Por exemplo:",
+    "description" : "Description of how to log traces for the Anthropic package using MLflow autologging. This message is followed by a code example."
   },
   "B0wNnL" : {
     "defaultMessage" : "Criar",
     "description" : "Text for button to create a serving endpoint"
-  },
-  "B1Upnc" : {
-    "defaultMessage" : "Relevante",
-    "description" : "Evaluation results > chunk relevancy assessment > positive value label. Displayed if evaluation result is considered as relevant to the query."
   },
   "B6Hd2B" : {
     "defaultMessage" : "Nenhum modelo selecionado",
@@ -1665,6 +1701,10 @@
   "B80MC6" : {
     "defaultMessage" : "Gráfico de contorno",
     "description" : "Tab pane title for contour plots on the compare runs page"
+  },
+  "B8RvlZ" : {
+    "defaultMessage" : "Comparando a versão {baseline} com a versão {compared}",
+    "description" : "Label for comparing prompt versions in the prompt comparison view. Variables {baseline} and {compared} are numeric version numbers being compared."
   },
   "BCpX6U" : {
     "defaultMessage" : "Modelos registrados",
@@ -1714,10 +1754,6 @@
     "defaultMessage" : "Cancelar",
     "description" : "Cancel text for update and start endpoint modal on endpoint edit page"
   },
-  "BdV0qk" : {
-    "defaultMessage" : "Juiz humano",
-    "description" : "Label for human judge in the tooltip for the assessment in the evaluation metrics."
-  },
   "Bipp6i" : {
     "defaultMessage" : "Deletar",
     "description" : "OK text for delete endpoint modal on endpoint view page"
@@ -1746,6 +1782,10 @@
     "defaultMessage" : "O AutoML excedeu o tempo limite",
     "description" : "AutoML warning shown when AutoML times before any trials are completed"
   },
+  "BwgPX0" : {
+    "defaultMessage" : "Excluir",
+    "description" : "Label for the delete prompt action on the registered prompt details page"
+  },
   "ByAuqk" : {
     "defaultMessage" : "Endpoints de disponibilização",
     "description" : "Page title for ML endpoint list page"
@@ -1769,10 +1809,6 @@
   "C9NHW+" : {
     "defaultMessage" : "As entidades disponibilizadas devem ter um nome de entidade ou provedor.",
     "description" : "Error message for when served entity name or providers are not provided"
-  },
-  "CBnbqy" : {
-    "defaultMessage" : "Seguinte",
-    "description" : "Evaluation review > assessments > next button"
   },
   "CDOfWP" : {
     "defaultMessage" : "Métricas do sistema",
@@ -1802,17 +1838,13 @@
     "defaultMessage" : "Estado",
     "description" : "Title for state column on endpoint list table"
   },
-  "CX/MSu" : {
-    "defaultMessage" : "Não seguro",
-    "description" : "Evaluation results > safety assessment > negative value label. Displayed if evaluation result is considered as unsafe."
-  },
-  "CX8ytv" : {
-    "defaultMessage" : "Resultado esperado",
-    "description" : "Evaluation review > Response section > expected output > title"
-  },
   "CYs020" : {
     "defaultMessage" : "Valores nulos na coluna de tempo",
     "description" : "AutoML warning shown when the time column has null values"
+  },
+  "Cbgg9B" : {
+    "defaultMessage" : "Mudar de lado",
+    "description" : "A label for button used to switch prompt versions when in side-by-side comparison view"
   },
   "CcZmhi" : {
     "defaultMessage" : "Cancelar",
@@ -1858,10 +1890,6 @@
     "defaultMessage" : "Última versão",
     "description" : "Column title for latest model version in the registered model page"
   },
-  "CsNqVg" : {
-    "defaultMessage" : "Segredo do cliente do Microsoft Entra",
-    "description" : "Label for Microsoft Entra Client Secret input for Open API"
-  },
   "Csmj/2" : {
     "defaultMessage" : "Selecionar todas as execuções",
     "description" : "Experiment page > runs table > select all rows > accessible label"
@@ -1894,6 +1922,10 @@
     "defaultMessage" : "Registrar modelo",
     "description" : "Label for a CTA button for registering a ML model version from a logged model"
   },
+  "D4l4+l" : {
+    "defaultMessage" : "Você não tem permissão para criar modelo",
+    "description" : "AutoML warning shown when the user doesn't have permission to create a model"
+  },
   "D5yPfu" : {
     "defaultMessage" : "Entidades disponibilizadas",
     "description" : "Title for served entities column on endpoint list table"
@@ -1901,6 +1933,10 @@
   "D6XZFV" : {
     "defaultMessage" : "O limite de taxa é definido em QPM (queries por minuto)",
     "description" : "Endpoint details page > Rate limit configuration modal > QPM limit hint"
+  },
+  "D7SSDK" : {
+    "defaultMessage" : "Registre automaticamente rastreamentos para chamadas da API LiteLLM chamando a função {code}. Por exemplo:",
+    "description" : "Description of how to log traces for the LiteLLM package using MLflow autologging. This message is followed by a code example."
   },
   "DCPEUJ" : {
     "defaultMessage" : "Criar endpoint de disponibilização",
@@ -1914,6 +1950,10 @@
     "defaultMessage" : "Nome da Delta Live Table de saída",
     "description" : "Output table name placeholder on the configure inference form"
   },
+  "DHO5TT" : {
+    "defaultMessage" : "Editar tags",
+    "description" : "Label for the edit tags button on the registered prompt details page\""
+  },
   "DJvE8g" : {
     "defaultMessage" : "Informações do cabeçalho da página",
     "description" : "Aria label for the info icon in the page header."
@@ -1921,10 +1961,6 @@
   "DLGEdG" : {
     "defaultMessage" : "Agradecemos por explorar a nova UI do Model Registry. Nossa meta é proporcionar a melhor experiência, e seus comentários são inestimáveis. Compartilhe suas ideias <link>aqui</link>.",
     "description" : "Model registry > Switcher for the new model registry UI containing aliases > disable confirmation modal content"
-  },
-  "DMOaoR" : {
-    "defaultMessage" : "Seguro",
-    "description" : "Evaluation results > safety assessment > positive value label. Displayed if evaluation result is considered as safe."
   },
   "DQp7Kj" : {
     "defaultMessage" : "Bloquear",
@@ -1958,6 +1994,10 @@
     "defaultMessage" : "Apresentando as execuções de {numExperiments} experiments",
     "description" : "Message shown when displaying runs from multiple experiments"
   },
+  "Du8dTv" : {
+    "defaultMessage" : "Alguns modelos podem não ter sido treinados. Execute o AutoML novamente com um horizonte de previsão mais curto.",
+    "description" : "Recommended action for user when AutoML is given time series that are too\n              short"
+  },
   "DxWJOS" : {
     "defaultMessage" : "Execute o AutoML novamente com um conjunto de dados com nomes de colunas únicos.",
     "description" : "Action that AutoML took given a dataset with duplicate column names"
@@ -1965,10 +2005,6 @@
   "E+wms0" : {
     "defaultMessage" : "O tráfego deve somar 100, mas atualmente soma {sum}",
     "description" : "Error message for when traffic split percentages must add up to 100"
-  },
-  "E04c48" : {
-    "defaultMessage" : "nulo",
-    "description" : "No value for a human-tag assessment"
   },
   "E2etXv" : {
     "defaultMessage" : "Excluir",
@@ -2146,6 +2182,10 @@
     "defaultMessage" : "URL",
     "description" : "Dropdown button text to copy endpoint URL"
   },
+  "FTx+Hi" : {
+    "defaultMessage" : "(linha de base)",
+    "description" : "A label displayed next to baseline version in the prompt versions comparison view"
+  },
   "FVr0uu" : {
     "defaultMessage" : "Meus modelos - Registro de modelos",
     "description" : "Select source for the entity in the entity selector when Unity Catalog is enabled; this source is models in the model registry, which eventually will be deprecated, but not anytime soon"
@@ -2166,6 +2206,14 @@
     "defaultMessage" : "Limpar tudo",
     "description" : "String for the clear button to clear any selected parameters and metrics"
   },
+  "FfwElP" : {
+    "defaultMessage" : "Saiba mais",
+    "description" : "Learn more about monitoring link text"
+  },
+  "FiKsFK" : {
+    "defaultMessage" : "Última modificação",
+    "description" : "Header for the last modified column in the registered prompts table"
+  },
   "Fl6fGf" : {
     "defaultMessage" : "Fornecer feedback",
     "description" : "Link to a survey for users to give feedback"
@@ -2174,10 +2222,6 @@
     "defaultMessage" : "Dados de treinamento",
     "description" : "Run Page > FinetuneParamsTable > Training Data"
   },
-  "FnOQ44" : {
-    "defaultMessage" : "{numFilteredEvals} de {numEvals}",
-    "description" : "Text displayed when showing a filtered subset evaluations in the evaluation review page"
-  },
   "FpjDSq" : {
     "defaultMessage" : "Comparar",
     "description" : "Text for compare button to compare versions under details tab\n                       on the model view page"
@@ -2185,6 +2229,10 @@
   "FpvvI9" : {
     "defaultMessage" : "Experimentar no Playground",
     "description" : "Deep link to the AI playground page"
+  },
+  "Fy+g4S" : {
+    "defaultMessage" : "{model_units} unidades de modelo por minuto",
+    "description" : "description of provisioned model units of a served model"
   },
   "FzOnYY" : {
     "defaultMessage" : "Parar execução",
@@ -2214,13 +2262,13 @@
     "defaultMessage" : "Visão das diferenças",
     "description" : "Experiment tracking > runs charts > add chart menu > difference view"
   },
+  "G6IQTa" : {
+    "defaultMessage" : "Você não tem permissão para acessar este recurso.",
+    "description" : "Generic message for a permission error (HTTP STATUS 403)"
+  },
   "G6zUsw" : {
     "defaultMessage" : "Falhou",
     "description" : "\"Failed\" for payload logging on this endpoint"
-  },
-  "G7V4y3" : {
-    "defaultMessage" : "Ocultar detalhes",
-    "description" : "Evaluation review > assessments > hide details button"
   },
   "GAJL1v" : {
     "defaultMessage" : "Esquema de entrada e de saída para seu modelo. <link>Saiba mais</link>",
@@ -2273,10 +2321,6 @@
   "GNMpQz" : {
     "defaultMessage" : "Versão da API OpenAI",
     "description" : "Label for API version input for Open API"
-  },
-  "GRaplV" : {
-    "defaultMessage" : "Suficiência de contexto",
-    "description" : "Evaluation results > known type of evaluation result assessment > context sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Context Sufficiency: mostly sufficient\""
   },
   "GXayIF" : {
     "defaultMessage" : "Prever num DataFrame do pandas:",
@@ -2369,14 +2413,6 @@
   "HOsSgX" : {
     "defaultMessage" : "Mais informações"
   },
-  "HTqHYm" : {
-    "defaultMessage" : "VERDADEIRO",
-    "description" : "Header label for boolean assessment type for True-rate"
-  },
-  "HUC492" : {
-    "defaultMessage" : "Ver view de rastreamento detalhada",
-    "description" : "Evaluation review > see detailed trace view button"
-  },
   "HUf9qJ" : {
     "defaultMessage" : "Tem certeza de que quer excluir {modelName}? Esta ação não pode ser desfeita.",
     "description" : "Confirmation message for delete model modal on model view page"
@@ -2384,6 +2420,10 @@
   "HV1iaK" : {
     "defaultMessage" : "Monitoramento",
     "description" : "A button enabling evaluation results monitoring mode on the experiment page"
+  },
+  "HXqMgU" : {
+    "defaultMessage" : "Data",
+    "description" : "Title for service log date column on service log files table"
   },
   "HZqm8e" : {
     "defaultMessage" : "Atividades",
@@ -2401,10 +2441,6 @@
     "defaultMessage" : "Eixo Y",
     "description" : "Label text for Y-axis in box plot comparison in MLflow"
   },
-  "Hq/vjk" : {
-    "defaultMessage" : "Todos",
-    "description" : "Evaluation review > sidebar list of evaluation results > filter control > option for filtering evaluation results with no filter"
-  },
   "HrS270" : {
     "defaultMessage" : "Para obter mais detalhes, consulte o <link>notebook de exploração de dados</link>.",
     "description" : "Informational text directing users to the data exploration notebook for more AutoML warnings"
@@ -2412,6 +2448,10 @@
   "HtLGKv" : {
     "defaultMessage" : "Lojas online",
     "description" : "Title text for the feature table online stores column."
+  },
+  "HtqsUd" : {
+    "defaultMessage" : "Entre em contato com seu administrador para solicitar permissão para criar um modelo",
+    "description" : "User action recommendation when lacking permission to create a model"
   },
   "HtzD+r" : {
     "defaultMessage" : "Descrição",
@@ -2444,6 +2484,10 @@
   "HzGYm5" : {
     "defaultMessage" : "Aliases",
     "description" : "Aliases section in the metadata on model version page"
+  },
+  "I2BkTq" : {
+    "defaultMessage" : "(Cancelado)",
+    "description" : "AutoML Step description canceled training"
   },
   "I4vohS" : {
     "defaultMessage" : "Você deve excluir as tabelas online publicadas e a Delta Table subjacente separadamente. <link>Saiba mais</link>",
@@ -2521,6 +2565,10 @@
     "defaultMessage" : "Conjuntos de dados",
     "description" : "Filtering label to filter runs based on datasets used"
   },
+  "Id2mFI" : {
+    "defaultMessage" : "A solicitação era inválida.",
+    "description" : "Bad request (HTTP STATUS 400) generic error message"
+  },
   "IdxSB8" : {
     "defaultMessage" : "Imagens",
     "description" : "Experiment tracking > runs charts > charts > image grid multiple key > table header text"
@@ -2540,6 +2588,10 @@
   "Ir/hjw" : {
     "defaultMessage" : "Melhor modelo",
     "description" : "Title for section highlighting the best model resulting from an AutoML experiment"
+  },
+  "IsIgE2" : {
+    "defaultMessage" : "Registre automaticamente os rastreamentos das conversas do Gemini chamando a função {code}. Por exemplo:",
+    "description" : "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
   },
   "Isaf66" : {
     "defaultMessage" : "Detalhes",
@@ -2565,9 +2617,9 @@
     "defaultMessage" : "Especifique sequências que sinalizam ao modelo para parar de gerar texto.",
     "description" : "Experiment page > prompt lab > stop parameter help text"
   },
-  "J961B2" : {
-    "defaultMessage" : "Filtros{numFilters}",
-    "description" : "Evaluation review > evaluations list > filter dropdown button"
+  "J8wA/B" : {
+    "defaultMessage" : "0-{model_units} unidades de modelo por minuto",
+    "description" : "description of provisioned model units of a served model"
   },
   "J9gwwW" : {
     "defaultMessage" : "Agente",
@@ -2588,6 +2640,10 @@
   "JDjcxv" : {
     "defaultMessage" : "Verificadores de integridade de IA",
     "description" : "External model serving configuration form > AI Gateway section > label for checkbox enabling guardrails"
+  },
+  "JEap6P" : {
+    "defaultMessage" : "O horizonte que fornecido é muito longo para uma ou mais séries temporais. O AutoML utilizou um horizonte mais curto para treino e validação nessas séries temporais.",
+    "description" : "Action that AutoML took when user-provided horizon is too long for\n              one or more time series"
   },
   "JFXAqZ" : {
     "defaultMessage" : "Selecione um modelo no dropdown ou digite o nome do modelo que deseja usar. A lista dropdown não é exaustiva. Se o modelo que você deseja usar não estiver listado, insira o nome do modelo.",
@@ -2616,14 +2672,6 @@
   "JYz0Gi" : {
     "defaultMessage" : "Monitorar status",
     "description" : "Label name text for following status metadata in model versions page"
-  },
-  "Jdr//R" : {
-    "defaultMessage" : "STRING",
-    "description" : "Header label for string assessment type"
-  },
-  "Jj2kRy" : {
-    "defaultMessage" : "Não há detalhes para avaliação",
-    "description" : "Evaluation review > assessments > no history"
   },
   "JjZQ+T" : {
     "defaultMessage" : "Catálogo",
@@ -2665,21 +2713,41 @@
     "defaultMessage" : "Os dados de rastreamento não estão disponíveis para rastreamentos em andamento. Aguarde a conclusão do rastreamento.",
     "description" : "Experiment page > traces data drawer > in-progress description"
   },
+  "K2yGwi" : {
+    "defaultMessage" : "Extração de informações importantes",
+    "description" : "Label for Key Information Extraction tile type"
+  },
   "K5rmCE" : {
     "defaultMessage" : "S3",
     "description" : "Experiment dataset drawer > source type > S3 source type label"
+  },
+  "K8LdMX" : {
+    "defaultMessage" : "Registre automaticamente rastreamentos das execuções do CrewAI chamando a função {code}. Por exemplo:",
+    "description" : "Description of how to log traces for the CrewAI package using MLflow autologging. This message is followed by a code example."
   },
   "KADUUT" : {
     "defaultMessage" : "Parâmetros do modelo",
     "description" : "Experiment page > new run modal > served LLM model parameters label"
   },
+  "KGMbzq" : {
+    "defaultMessage" : "Mensagem de commit:",
+    "description" : "A label for the commit message in the prompt details page"
+  },
   "KJbYrw" : {
     "defaultMessage" : "{childRuns, plural, one {{childRuns} execução secundária carregada} other {{childRuns} execuções secundárias carregadas}}",
     "description" : "Experiment page > loaded more runs notification > loaded only child runs"
   },
+  "KKKXHs" : {
+    "defaultMessage" : "Use a IU de disponibilização ou um fluxo de trabalho automatizado para adicionar uma entidade disponibilizada.",
+    "description" : "Empty state text for served entities table when there are no active served entities"
+  },
   "KKQyAU" : {
     "defaultMessage" : "Verificadores de integridade da entrada",
     "description" : "Endpoint details page > External model details > AI Gateway details > input guardrails section label"
+  },
+  "KMVqUP" : {
+    "defaultMessage" : "Etiquetas",
+    "description" : "Header for the tags column in the registered prompts table"
   },
   "KOQzJx" : {
     "defaultMessage" : "Gráfico",
@@ -2692,6 +2760,10 @@
   "KTJuDu" : {
     "defaultMessage" : "Detecte e bloqueie conteúdo inseguro ou prejudicial, como referências a crimes violentos, automutilação ou discurso de ódio.",
     "description" : "Description for AI Gateway Guardrails Output Safety"
+  },
+  "KV3BXl" : {
+    "defaultMessage" : "Selecionar como versão de linha de base",
+    "description" : "Label for selecting baseline prompt version in the comparison view"
   },
   "KWUXoN" : {
     "defaultMessage" : "Serverless",
@@ -2725,9 +2797,9 @@
     "defaultMessage" : "Configurar gráficos",
     "description" : "Experiment page > view controls > global settings for line chart view > dropdown button label"
   },
-  "Kkuttk" : {
-    "defaultMessage" : "Avaliação:",
-    "description" : "Evaluation review > evaluations list > assessment sort option label prefix"
+  "KqYNPi" : {
+    "defaultMessage" : "Nome do modelo",
+    "description" : "Title for served entity name column on service log files table"
   },
   "Krq903" : {
     "defaultMessage" : "Tem certeza de que quer excluir este comentário? Esta ação não pode ser desfeita.",
@@ -2740,10 +2812,6 @@
   "Kwz1fc" : {
     "defaultMessage" : "Artefatos",
     "description" : "Label for the artifacts tab on the logged model details page"
-  },
-  "Kya8N3" : {
-    "defaultMessage" : "Aprovado",
-    "description" : "Passing evaluation status in the evaluations table."
   },
   "KzC+38" : {
     "defaultMessage" : "Exemplos de modelo de prompt",
@@ -2813,10 +2881,6 @@
     "defaultMessage" : "Habilitar a otimização de rotas",
     "description" : "Checkbox to enable route optimization"
   },
-  "LhxSrc" : {
-    "defaultMessage" : "Incorreto",
-    "description" : "Evaluation results > correctness assessment > negative value label. Displayed if evaluation result is considered as incorrect."
-  },
   "Li72QU" : {
     "defaultMessage" : "Adicionar",
     "description" : "Key-value tag table cell > 'add' button label"
@@ -2853,21 +2917,17 @@
     "defaultMessage" : "A métrica primária {metric} não é compatível com a estrutura de treinamento {framework}",
     "description" : "AutoML warning shown when the metric is unsupported for the specified framework"
   },
-  "Ls2ris" : {
-    "defaultMessage" : "Marcar como revisado",
-    "description" : "Evaluation review > assessments > mark as reviewed button"
-  },
   "LsA+3m" : {
     "defaultMessage" : "Llama, OpenAI, Anthropic etc.",
     "description" : "Hint for the foundation model option in the entity selector"
   },
-  "M+HfWb" : {
-    "defaultMessage" : "Irrelevante",
-    "description" : "Evaluation results > chunk relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
-  },
   "M/c4l0" : {
     "defaultMessage" : "Métrica",
     "description" : "Label for a radio button that configures the x-axis on a line chart. This option makes the X-axis a custom metric that the user selects."
+  },
+  "M0zIfe" : {
+    "defaultMessage" : "Aliases",
+    "description" : "Header for the aliases column in the registered prompts table"
   },
   "M1dwxx" : {
     "defaultMessage" : "Versão {version}",
@@ -2877,6 +2937,10 @@
     "defaultMessage" : "cancelou o pedido de transição de etapa",
     "description" : "Activity title text for cancelled transition request in model versions page"
   },
+  "M4YB7I" : {
+    "defaultMessage" : "Colunas com nomes duplicados",
+    "description" : "AutoML warning shown when there are multiple columns with the same name"
+  },
   "M5bYHa" : {
     "defaultMessage" : "Nenhuma métrica disponível",
     "description" : "Text shown in a disabled multi-selector when there are no selectable metrics."
@@ -2884,14 +2948,6 @@
   "M7oW8u" : {
     "defaultMessage" : "Tipo de {t} não compatível",
     "description" : "AutoML warning text shown when the user selects a target or time column with an unsupported type"
-  },
-  "M8pHqP" : {
-    "defaultMessage" : "Falha de causa raiz:",
-    "description" : "Evaluation review > assessments > root cause failure > title"
-  },
-  "MB3kda" : {
-    "defaultMessage" : "{pendingCount, plural, one {{pendingCount} alteração pendente} other {{pendingCount} alterações pendentes}}",
-    "description" : "Evaluation review > assessments > pending entries counter"
   },
   "MBNIRk" : {
     "defaultMessage" : "Atributos",
@@ -2901,10 +2957,6 @@
     "defaultMessage" : "Importada por",
     "description" : "Title text for the feature table imported metadata field."
   },
-  "ML+mQa" : {
-    "defaultMessage" : "Avaliação geral:",
-    "description" : "Evaluation review > assessments > overall assessment > title"
-  },
   "MMfpP9" : {
     "defaultMessage" : "Features",
     "description" : "Text for the features page header title."
@@ -2912,10 +2964,6 @@
   "MNzpv5" : {
     "defaultMessage" : "Por endpoint",
     "description" : "External model serving configuration form > AI Gateway section > label for rate limits per endpoint"
-  },
-  "MQ4Voz" : {
-    "defaultMessage" : "{count, plural, one {Entrada} other {Entradas}}",
-    "description" : "Evaluation review > input section > title"
   },
   "MR5Lcw" : {
     "defaultMessage" : "Base de API OpenAI",
@@ -2973,10 +3021,6 @@
     "defaultMessage" : "Ativar a disponibilização do modelo tempo real por meio de uma interface API REST. Esta opção inicia um cluster de nó único que hospeda todas as versões ativas deste modelo. <link>Saiba mais.</link>",
     "description" : "Enable serving description for serving v1 in enable serving page."
   },
-  "N1G2a5" : {
-    "defaultMessage" : "Fatos esperados",
-    "description" : "Evaluation review > Response section > expected facts > title"
-  },
   "N6ARWx" : {
     "defaultMessage" : "Logs de compilação",
     "description" : "Tab text for build logs on the endpoint page"
@@ -3025,6 +3069,10 @@
     "defaultMessage" : "{fieldName} são idênticos",
     "description" : "Default text in data table where items are identical in the model comparison page"
   },
+  "NKDZXV" : {
+    "defaultMessage" : "Por favor, remova ou substitua os valores nulos na coluna dividida",
+    "description" : "User action recommendation when null values are found in the split column"
+  },
   "NN0ScV" : {
     "defaultMessage" : "Comparando {numRuns} execuções de 1 experiment",
     "description" : "Breadcrumb title for compare runs page with single experiment"
@@ -3057,6 +3105,10 @@
     "defaultMessage" : "Nome",
     "description" : "Text for name column in schema table in model version page"
   },
+  "Nlm9bK" : {
+    "defaultMessage" : "Adicionar tags",
+    "description" : "Label for the add tags button on the registered prompt details page"
+  },
   "Nlsu9D" : {
     "defaultMessage" : "Desativada",
     "description" : "Serving endpoints table > served endpoint row > AI gateway summary > Usage tracking disabled indicator"
@@ -3065,13 +3117,13 @@
     "defaultMessage" : "Registrado em",
     "description" : "Column title text for created at timestamp in model version table"
   },
-  "NnJXK/" : {
-    "defaultMessage" : "Nenhuma avaliação encontrada. Tente limpar seus filtros ativos para ver mais avaliações.",
-    "description" : "Text displayed when no evaluations are found in the evaluation review page"
-  },
   "Nnsm0p" : {
     "defaultMessage" : "Todas as execuções neste experimento foram filtradas. Altere ou limpe os filtros para exibir as execuções.",
     "description" : "Empty state description text for experiment runs page when all runs have been filtered out"
+  },
+  "NoYMjZ" : {
+    "defaultMessage" : "Requer MLflow >= {minVersion}",
+    "description" : "Alert title informing the user of the minimum required MLflow version to run the code example"
   },
   "Nordp4" : {
     "defaultMessage" : "Comentário",
@@ -3109,6 +3161,10 @@
     "defaultMessage" : "Tempo desde que o primeiro valor da métrica foi registrado",
     "description" : "A tooltip line chart configuration for the step function of relative time"
   },
+  "NxAMpB" : {
+    "defaultMessage" : "A política orçamentária selecionada tem um limite de {amount} {type}.",
+    "description" : "Warning indicating that the selected budget policy has a defined limit."
+  },
   "NxOe6z" : {
     "defaultMessage" : "Enviar solicitação",
     "description" : "Send Request button on Call Endpoint modal"
@@ -3133,13 +3189,13 @@
     "defaultMessage" : "Nome do modelo externo",
     "description" : "Endpoint details page > active configuration table > Column headers > External model name"
   },
+  "O7wfe7" : {
+    "defaultMessage" : "Adicionar entidade disponibilizada",
+    "description" : "A CTA button displayed when there are no served entities in the served entities table"
+  },
   "O8LQKU" : {
     "defaultMessage" : "Pelo menos uma entidade disponibilizada é obrigatória.",
     "description" : "Error message for when no served entities are provided"
-  },
-  "O8QEPV" : {
-    "defaultMessage" : "Ver",
-    "description" : "Button to view eval dataset"
   },
   "O9r1RR" : {
     "defaultMessage" : "Hora de início:",
@@ -3168,10 +3224,6 @@
   "OUKAKS" : {
     "defaultMessage" : "Sem resultados. Experimente usar uma palavra-chave diferente ou ajustar seus filtros.",
     "description" : "No result feature tables from search text for feature store page."
-  },
-  "OZXWas" : {
-    "defaultMessage" : "False",
-    "description" : "False value in the evaluations table."
   },
   "Of20iy" : {
     "defaultMessage" : "Nenhum endpoint encontrado",
@@ -3289,13 +3341,13 @@
     "defaultMessage" : "Criada às",
     "description" : "Run page > Overview > Run start time section label"
   },
+  "PPPbd+" : {
+    "defaultMessage" : "Ocorreu um erro do GraphQL.",
+    "description" : "Generic message for a GraphQL error, typically due to query parsing or validation issues"
+  },
   "PRe/8y" : {
     "defaultMessage" : "Nenhum",
     "description" : "Default text for no content in an editable note in MLflow"
-  },
-  "PRmO2N" : {
-    "defaultMessage" : "Clique abaixo para visualizar os logs exportados nas seguintes instâncias de avaliação",
-    "description" : "Notification for successfully exporting logs to evals instances"
   },
   "PUQxu5" : {
     "defaultMessage" : "Selecionar execução de referência"
@@ -3335,6 +3387,10 @@
   "Potju2" : {
     "defaultMessage" : "Restaurar",
     "description" : "String for the restore button to undo the experiments that were deleted"
+  },
+  "Q+zDz1" : {
+    "defaultMessage" : "Etiquetas",
+    "description" : "Endpoint details page > Tile model details > Metadata table > Tags label"
   },
   "Q/evEc" : {
     "defaultMessage" : "Parâmetros ({length})",
@@ -3380,13 +3436,9 @@
     "defaultMessage" : "Nenhum parâmetro corresponde ao filtro de pesquisa",
     "description" : "Run page > Overview > Parameters table > No results after filtering"
   },
-  "QEL+JO" : {
-    "defaultMessage" : "Esta avaliação é a causa raiz da falha geral da avaliação.",
-    "description" : "Root cause assessment hint that explains that this assessment is causing the overall assessment to fail."
-  },
-  "QO4IPr" : {
-    "defaultMessage" : "Pesquisar avaliações por solicitação",
-    "description" : "Placeholder text for the search input in the evaluation results table"
+  "QGvFrd" : {
+    "defaultMessage" : "Atualizado às",
+    "description" : "Label for the last update time on the registered prompt details page"
   },
   "QPADAU" : {
     "defaultMessage" : "Última execução",
@@ -3395,6 +3447,14 @@
   "QPC4hV" : {
     "defaultMessage" : "Use outros parâmetros ou desative o agrupamento de execução para continuar.",
     "description" : "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
+  },
+  "QRybLB" : {
+    "defaultMessage" : "Realize failover automático de solicitações 429/5xx entre entidades disponibilizadas na ordem listada. <link>Saiba mais</link>.",
+    "description" : "External model serving configuration form > AI Gateway section > label for hint explaining fallbacks enablement"
+  },
+  "QS92bf" : {
+    "defaultMessage" : "Adicionar",
+    "description" : "Endpoint details page > Tile model details  > Metadata table > Tags > Add tags CTA"
   },
   "QUMV9L" : {
     "defaultMessage" : "Ativada",
@@ -3428,6 +3488,10 @@
     "defaultMessage" : "{ttl, plural, one {{ttl,number} segundo} other {{ttl,number} segundos}}",
     "description" : "Text content for the online store table time to live metadata field in seconds."
   },
+  "QqY6kD" : {
+    "defaultMessage" : "Bedrock",
+    "description" : "Header for Bedrock tab in the MLflow Tracing quickstart guide"
+  },
   "Qr828b" : {
     "defaultMessage" : "Para baixar todos os dados do MLflow, execute este trecho de código em um notebook do Databricks",
     "description" : "Here is the description on where to run the following code snippet"
@@ -3452,6 +3516,10 @@
     "defaultMessage" : "Métrica",
     "description" : "Label for the metric column in the logged model details metrics table"
   },
+  "R3Lb6z" : {
+    "defaultMessage" : "O recurso solicitado não foi encontrado.",
+    "description" : "Resource not found (HTTP STATUS 404) generic error message"
+  },
   "R3QLUd" : {
     "defaultMessage" : "N/A",
     "description" : "Not applicable version number for feature spec"
@@ -3460,6 +3528,10 @@
     "defaultMessage" : "Comparar execuções",
     "description" : "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > title"
   },
+  "RDSzfl" : {
+    "defaultMessage" : "Chave",
+    "description" : "Label for key input"
+  },
   "RGyatu" : {
     "defaultMessage" : "Cancelar pedido de transição para",
     "description" : "Text for transition cancel request under request column in the\n               pending requests table"
@@ -3467,6 +3539,10 @@
   "RJUaHD" : {
     "defaultMessage" : "Configuração ativa",
     "description" : "Title of table for active configuration of endpoint on endpoint page"
+  },
+  "RJenO+" : {
+    "defaultMessage" : "Criar versão do prompt",
+    "description" : "Label for the create prompt action on the registered prompt details page"
   },
   "RODIYY" : {
     "defaultMessage" : "Filtrar os endpoints de disponibilização por nome",
@@ -3492,6 +3568,10 @@
     "defaultMessage" : "Abrir no dashboard do Lakeview",
     "description" : "Run page > Header > open in lakeview dashboard CTA button label"
   },
+  "RjwyBI" : {
+    "defaultMessage" : "Tipo de peso de amostra não compatível",
+    "description" : "AutoML warning shown when an unsupported sample weight type is used"
+  },
   "RlBbjb" : {
     "defaultMessage" : "Uma chave de tag é necessária",
     "description" : "Key-value tag editor modal > Tag dropdown > Tag key required error message"
@@ -3499,6 +3579,10 @@
   "RlRsah" : {
     "defaultMessage" : "carregando...",
     "description" : "Loading spinner text to show that the artifact loading is in progress"
+  },
+  "Rlwm5V" : {
+    "defaultMessage" : "O nome é obrigatório",
+    "description" : "A validation state for the prompt name in the prompt creation modal"
   },
   "Rs+SVS" : {
     "defaultMessage" : "Pronta",
@@ -3551,6 +3635,10 @@
   "SFBNbC" : {
     "defaultMessage" : "Monitore e proteja os endpoints. <link>Saiba mais</link>. <pricinglink>Saiba mais sobre faturamento</pricinglink>.",
     "description" : "External model serving configuration form > AI Gateway section description"
+  },
+  "SI6n4L" : {
+    "defaultMessage" : "Comparar",
+    "description" : "Label for the compare mode on the registered prompt details page"
   },
   "SJZAR7" : {
     "defaultMessage" : "Chaves de partição",
@@ -3636,13 +3724,13 @@
     "defaultMessage" : "Editar gateway de IA",
     "description" : "Endpoint details page > External model details > AI Gateway details section > Edit button (displayed when AI gateway has existing configuration that can be changed)"
   },
+  "Sviop4" : {
+    "defaultMessage" : "Gemini",
+    "description" : "Header for Gemini tab in the MLflow Tracing quickstart guide"
+  },
   "SzapEm" : {
     "defaultMessage" : "Seus modelos aparecerão aqui assim que você os registrar usando a versão mais recente do MLflow. <link>Saiba mais</link>.",
     "description" : "Placeholder for empty models table on the logged models list page"
-  },
-  "Szo9gx" : {
-    "defaultMessage" : "Adicionar às avaliações ({numEvals})",
-    "description" : "Export evals traces to eval datasets"
   },
   "SzvvXl" : {
     "defaultMessage" : "Falha ao enviar",
@@ -3680,9 +3768,9 @@
     "defaultMessage" : "<link>Recursos</link>",
     "description" : "Text link on the breadcrumbs section that links to the features home page."
   },
-  "T8chxB" : {
-    "defaultMessage" : "Política de orçamento",
-    "description" : "Endpoint budget policy label on endpoint page"
+  "T6FEuJ" : {
+    "defaultMessage" : "ID da instância",
+    "description" : "Title for instance ID column on service log files table"
   },
   "T9pM3E" : {
     "defaultMessage" : "As tabelas de inferência fazem log de todas as solicitações e respostas nas tabelas Delta gerenciadas pelo Unity Catalog. <link>Esquema da tabela de inferências</link>.",
@@ -3703,6 +3791,10 @@
   "TC9IhO" : {
     "defaultMessage" : "Nenhuma execução",
     "description" : "Placeholder text for the runs table on the logged model details page when there are no runs"
+  },
+  "TKtJIK" : {
+    "defaultMessage" : "Página não encontrada",
+    "description" : "Error message shown to the user when they arrive at a non existent URL"
   },
   "TLkF+q" : {
     "defaultMessage" : "Registro pendente",
@@ -3732,6 +3824,10 @@
     "defaultMessage" : "Nome",
     "description" : "UC Models page > Model name column header"
   },
+  "TSXmaB" : {
+    "defaultMessage" : "Criar",
+    "description" : "A label for the confirm button in the create prompt modal in the prompt management UI"
+  },
   "TT0zeT" : {
     "defaultMessage" : "Nenhum monitor encontrado. Crie um monitor seguindo as etapas descritas <link>aqui</link>",
     "description" : "Text displayed when no monitors are found in the experiment evaluation monitoring page"
@@ -3743,10 +3839,6 @@
   "TZMSC3" : {
     "defaultMessage" : "Valores exclusivos nas colunas de strings",
     "description" : "AutoML warning shown when string columns have unique values"
-  },
-  "TannO5" : {
-    "defaultMessage" : "Recuperou {sampledCount} de um total de {totalCount} logs ({percentage}%)",
-    "description" : "Evaluation review > evaluations list > sample info tooltip"
   },
   "Tb6NBp" : {
     "defaultMessage" : "Buscando token OAuth...",
@@ -3812,14 +3904,6 @@
     "defaultMessage" : "Exemplos:",
     "description" : "Text header for examples of mlflow search syntax"
   },
-  "U4s/77" : {
-    "defaultMessage" : "mostrar mais",
-    "description" : "Button to expand alert description"
-  },
-  "U5Qw4S" : {
-    "defaultMessage" : "Política de orçamento",
-    "description" : "Long form section title for the \"budget policy\" section of an endpoint"
-  },
   "U7peTi" : {
     "defaultMessage" : "Usar modelo para inferência",
     "description" : "Button to use model for batch or streaming inference"
@@ -3875,6 +3959,10 @@
   "Uiv7RH" : {
     "defaultMessage" : "Última modificação",
     "description" : "Title for last modified column on endpoint list table"
+  },
+  "Uje7qk" : {
+    "defaultMessage" : "Configuração ativa",
+    "description" : "Endpoint details page > Tile model details > Active configuration table > Title"
   },
   "UmwZQv" : {
     "defaultMessage" : "usando engenharia de prompt",
@@ -4008,6 +4096,10 @@
     "defaultMessage" : "Descrição",
     "description" : "Column title text for description in model version table"
   },
+  "Vn+uJi" : {
+    "defaultMessage" : "Versão",
+    "description" : "Header for the version column in the registered prompts table"
+  },
   "VqRtYq" : {
     "defaultMessage" : "Forneça o segredo em formato de texto simples ou como uma referência <link>Databricks Secret</link>.",
     "description" : "Hint text for plaintext secret or secret reference for OpenAI API key."
@@ -4015,6 +4107,10 @@
   "Vrm3OM" : {
     "defaultMessage" : "Não foram encontradas lojas online.",
     "description" : "Text describing no online stores exists for the feature table."
+  },
+  "VrxfuC" : {
+    "defaultMessage" : "Exemplo de uso",
+    "description" : "A title of the modal showing the usage example of the prompt"
   },
   "Vvn8Cb" : {
     "defaultMessage" : "Abrir conjunto de dados",
@@ -4068,6 +4164,10 @@
     "defaultMessage" : "Rejeitar",
     "description" : "Button text for rejecting pending requests on the model version page"
   },
+  "WM5IeI" : {
+    "defaultMessage" : "Use o botão \"Criar prompt\" para criar um novo prompt",
+    "description" : "Guidelines for the user on how to create a new prompt in the prompts list page"
+  },
   "WNLO44" : {
     "defaultMessage" : "Versão",
     "description" : "Label for the model version of the endpoint"
@@ -4079,6 +4179,10 @@
   "WP1pyQ" : {
     "defaultMessage" : "Criado por",
     "description" : "Column title for created by column for a model in the registered model page"
+  },
+  "WP50re" : {
+    "defaultMessage" : "Cancelar",
+    "description" : "A label for the cancel button in the prompt creation modal in the prompt management UI"
   },
   "WQoyB3" : {
     "defaultMessage" : "Modelo com o melhor desempenho na métrica {evaluationMetric}",
@@ -4104,6 +4208,10 @@
     "defaultMessage" : "Saiba mais",
     "description" : "Learn more link with cloud specific links to the feature store documentation."
   },
+  "WVUF2N" : {
+    "defaultMessage" : "Quer mesmo excluir o prompt?",
+    "description" : "A content for the delete prompt confirmation modal"
+  },
   "WYkCR/" : {
     "defaultMessage" : "Agendar",
     "description" : "Title text for the producer schedule column."
@@ -4124,14 +4232,6 @@
     "defaultMessage" : "Ainda não há endpoints criados. <link>Saiba mais sobre a disponibilização de modelos</link>.",
     "description" : "Endpoints table > empty table with no endpoints in database"
   },
-  "WhqCLD" : {
-    "defaultMessage" : "Você tem alterações não salvas. Quer mesmo sair?",
-    "description" : "Evaluation review > unsaved changes alert message"
-  },
-  "WiaEQ3" : {
-    "defaultMessage" : "Saída do modelo",
-    "description" : "Evaluation review > Response section > model output > title"
-  },
   "WksiYp" : {
     "defaultMessage" : "Tráfego (%)",
     "description" : "Label for the traffic config for the served entity of the endpoint"
@@ -4147,10 +4247,6 @@
   "WpCiO2" : {
     "defaultMessage" : "Nenhuma métrica {metricAggregateType} disponível. Apenas as novas execuções sem valores NaN registados apresentarão valores agregados.",
     "description" : "Tooltip for a metric cell that does not have a valid aggregate value. Examples of {metricAggregateType} are: MIN, MAX"
-  },
-  "Ws58cc" : {
-    "defaultMessage" : "Fundamentação",
-    "description" : "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
   },
   "WsbabI" : {
     "defaultMessage" : "Não ativado",
@@ -4204,6 +4300,10 @@
     "defaultMessage" : "Desativada",
     "description" : "\"Disabled\" for payload logging on this endpoint"
   },
+  "XLSmZx" : {
+    "defaultMessage" : "Criar versão de prompt",
+    "description" : "A header for the create prompt version modal in the prompt management UI"
+  },
   "XX8+x1" : {
     "defaultMessage" : "Ver modelo de prompt",
     "description" : "Experiment page > artifact compare view > run column header prompt metadata > \"view prompt template\" button label"
@@ -4239,6 +4339,13 @@
   "XjrXyl" : {
     "defaultMessage" : "Segurança",
     "description" : "Endpoint details page > External model details > AI Gateway details > indicator for safety feature being enabled"
+  },
+  "XkpMf+" : {
+    "defaultMessage" : "execução de linha de base"
+  },
+  "XlF7yk" : {
+    "defaultMessage" : "Sessões de etiquetagem",
+    "description" : "A button enabling labeling sessions on the experiment page. A labeling session is set of traces or dataset records that require labeling from an SME"
   },
   "XndLXA" : {
     "defaultMessage" : "Proprietário",
@@ -4280,10 +4387,6 @@
     "defaultMessage" : "Criar endpoint de disponibilização",
     "description" : "Text for button that allows the user creating a serving endpoint for a model registered to Unity Catalog"
   },
-  "Y6gWro" : {
-    "defaultMessage" : "O juiz LLM de correção devolve uma avaliação binária e uma justificativa escrita que indicam se a resposta gerada pelo agente é de fato correta e semanticamente semelhante à resposta ground-truth fornecida ou às notas de avaliação.",
-    "description" : "Evaluation results > known type of evaluation result assessment > description of correctness assessment."
-  },
   "Y7zUQp" : {
     "defaultMessage" : "Última publicação",
     "description" : "Title text for the online store last published column."
@@ -4295,10 +4398,6 @@
   "YArB5F" : {
     "defaultMessage" : "Estado do endpoint de disponibilização",
     "description" : "Serving endpoint state label on endpoint page"
-  },
-  "YAu7ya" : {
-    "defaultMessage" : "Se uma solicitação falhar na entidade disponibilizada especificada, envie a solicitação para outras entidades disponibilizadas no endpoint como fallback. As entidades disponibilizadas por fallback são testadas com base na ordem em que são listadas durante a configuração do endpoint. Este recurso está em pré-visualização privada, consulte o <link>documento de integração</link> para obter mais detalhes.",
-    "description" : "External model serving configuration form > AI Gateway section > label for hint explaining fallbacks enablement"
   },
   "YBFyOi" : {
     "defaultMessage" : "É possível que a última execução de um job não tenha sido escrita nesta tabela de recursos.",
@@ -4384,17 +4483,17 @@
     "defaultMessage" : "Refresh automático",
     "description" : "String for the auto-refresh button that refreshes the runs list automatically"
   },
-  "Yd5ANL" : {
-    "defaultMessage" : "APROVADO",
-    "description" : "Header label for pass/fail assessment type for the pass rate"
-  },
-  "Yhydp3" : {
-    "defaultMessage" : "Relevância",
-    "description" : "Evaluation results > known type of evaluation result assessment > relevance assessment. Used to indicate if the result is relevant to query in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Relevance: moderate\""
+  "YfspJh" : {
+    "defaultMessage" : "Este exemplo requer a versão {minVersion} ou mais recente do MLflow. Execute {installCommand} em uma célula de notebook se sua versão do MLflow for mais antiga que esta e reinicie o kernel quando o comando terminar.",
+    "description" : "Alert description informing the user of how to upgrade MLflow to the minimum required version"
   },
   "YiKaCA" : {
     "defaultMessage" : "Filtrar por tabela de recursos, recurso ou descrição...",
     "description" : "Placeholder text on the feature store page search box describing the attributes that the search could be based on."
+  },
+  "Yk2DtU" : {
+    "defaultMessage" : "Tipo de autenticação do provedor personalizado",
+    "description" : "Label for custom provider authentication type input"
   },
   "YkcoeV" : {
     "defaultMessage" : "Apresentando as execuções de {numExperiments} experiments",
@@ -4412,17 +4511,9 @@
     "defaultMessage" : "Tempo relativo (horas)",
     "description" : "Label for the relative axis on the runs compare chart in hours"
   },
-  "YvxyMH" : {
-    "defaultMessage" : "Nenhuma resposta ou alvo registado",
-    "description" : "Evaluation review > Response section > no values"
-  },
   "YzN7kN" : {
     "defaultMessage" : "Versão do modelo",
     "description" : "Model version placeholder on configure inference form"
-  },
-  "Z+425g" : {
-    "defaultMessage" : "Logs exportados com sucesso",
-    "description" : "Notification for successfully exporting logs to evals instances"
   },
   "Z1AxPg" : {
     "defaultMessage" : "Consulte a documentação do <link>ai_query</link> para obter mais detalhes sobre a sintaxe SQL.",
@@ -4472,10 +4563,6 @@
     "defaultMessage" : "Editar recursos do gateway de IA",
     "description" : "External model serving > AI Gateway features edit page > page title"
   },
-  "ZNYFUr" : {
-    "defaultMessage" : "Adere às diretrizes",
-    "description" : "Evaluation results > guideline adherence assessment > positive value label. Displayed if evaluation result adheres to the guidelines."
-  },
   "ZPKPrl" : {
     "defaultMessage" : "Habilitar tabelas de inferência",
     "description" : "External model serving configuration form > AI Gateway section > label for checkbox enabling logging to inference tables"
@@ -4500,10 +4587,6 @@
     "defaultMessage" : "Após a ativação do esquema, só o administrador da conta poderá ler o esquema <code>system.serving</code>.",
     "description" : "Endpoint details page > External model details > AI Gateway details > Usage monitoring section > Information about account admin being the only one with permission to read system.serving schema initially"
   },
-  "Za9+Cg" : {
-    "defaultMessage" : "Aprovado",
-    "description" : "Evaluation results > overall assessment > pass value label. Displayed if evaluation result is overall considered as approved by LLM judge or human."
-  },
   "Zb6BqS" : {
     "defaultMessage" : "Tempo relativo",
     "description" : "Label for the relative axis on the runs compare chart"
@@ -4516,10 +4599,6 @@
     "defaultMessage" : "Tarefa",
     "description" : "Endpoint details page > Foundation model details > Metadata table > Task label"
   },
-  "ZfsnMj" : {
-    "defaultMessage" : "Não fundamentada",
-    "description" : "Evaluation results > grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
-  },
   "ZgAOhX" : {
     "defaultMessage" : "Nome do gráfico",
     "description" : "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Chart name config section"
@@ -4528,9 +4607,9 @@
     "defaultMessage" : "O URL do endpoint otimizado para rota será gerado após a criação",
     "description" : "Route optimized endpoint URL placeholder"
   },
-  "Zk0h+O" : {
-    "defaultMessage" : "Colunas com nomes duplicados",
-    "description" : "AutoML warning shown when the there are multiple columns with the same name"
+  "ZlokCq" : {
+    "defaultMessage" : "Cancelar",
+    "description" : "A label for the cancel button in the delete prompt modal"
   },
   "ZmTtO0" : {
     "defaultMessage" : "A transição desta versão foi de",
@@ -4600,17 +4679,21 @@
     "defaultMessage" : "Excluir",
     "description" : "OK text for delete model modal on model view page"
   },
-  "aAAHaS" : {
-    "defaultMessage" : "Contexto insuficiente",
-    "description" : "Evaluation results > context sufficiency assessment > negative value label. Displayed if retrieved context is insufficient to generate the expected response."
-  },
   "aB6xFd" : {
     "defaultMessage" : "Resultados",
     "description" : "Table subtitle for schema outputs in the model comparison page"
   },
+  "aECE7s" : {
+    "defaultMessage" : "Valores inválidos na coluna de divisão",
+    "description" : "AutoML warning shown when invalid values are found in the split column"
+  },
   "aFMLIO" : {
     "defaultMessage" : "Métricas do sistema",
     "description" : "Run page > Overview > Metrics table > System charts section > title"
+  },
+  "aGxV3k" : {
+    "defaultMessage" : "Texto para texto",
+    "description" : "Label for Text to Text tile type"
   },
   "aHWstb" : {
     "defaultMessage" : "Tabelas de inferência",
@@ -4627,6 +4710,10 @@
   "aJvfWR" : {
     "defaultMessage" : "Ratio of the least frequent label (<code>{leastFrequentLabel}</code>) to the most frequent label (<code>{mostFrequentLabel}</code>) is <code>{ratio}</code>",
     "description" : "AutoML warning shown for classification problem when the labels have an imbalanced ratio"
+  },
+  "aLRRam" : {
+    "defaultMessage" : "Prompts",
+    "description" : "Header title for the registered prompts page"
   },
   "aLUfXi" : {
     "defaultMessage" : "Nome da tabela",
@@ -4651,10 +4738,6 @@
   "aS+6Ly" : {
     "defaultMessage" : "A referência secreta da API deve ser fornecida no formato '{{'secrets/scope/reference'}}' e conter apenas letras e traços.",
     "description" : "Error message for pattern for the secret scope of an api key"
-  },
-  "aUOkOC" : {
-    "defaultMessage" : "O juiz LLM de precisão da relevância dos segmentos determina se os segmentos devolvidos pelo recuperador são relevantes para a solicitação de entrada. A precisão é calculada dividindo o número de fragmentos relevantes devolvidos pelo número total de fragmentos devolvidos. Por exemplo, se o recuperador devolver quatro fragmentos e o juiz LLM determinar que três dos quatro documentos devolvidos são relevantes para o pedido, llm_judged/chunk_relevance/precision é 0,75.",
-    "description" : "Evaluation results > known type of evaluation result assessment > chunk relevance judge."
   },
   "aUoi8K" : {
     "defaultMessage" : "Tags ({length})",
@@ -4748,10 +4831,6 @@
     "defaultMessage" : "Tipo",
     "description" : "Label for type input for OpenAPI"
   },
-  "bCdY2j" : {
-    "defaultMessage" : "Adicionar \"{label}\"",
-    "description" : "Evaluation review > assessments > add new custom value element"
-  },
   "bD7A7i" : {
     "defaultMessage" : "O recurso de armazenamento de recursos do workspace está desativado neste workspace.",
     "description" : "Tooltip message for disabled Hive Metastore option in feature store search page"
@@ -4759,6 +4838,10 @@
   "bDqNJ2" : {
     "defaultMessage" : "O melhor modelo <modelLink>{modelName}</modelLink> foi criado pela execução <runLink>{runName}</runLink>.",
     "description" : "Description of the best model created by an AutoML experiment"
+  },
+  "bGLOtJ" : {
+    "defaultMessage" : "URL do modelo do provedor personalizado",
+    "description" : "Label for custom provider model URL input"
   },
   "bHuphj" : {
     "defaultMessage" : "Consulte os documentos abaixo para saber como personalizar este modelo e implementá-lo para classificação de lote ou em tempo real utilizando o modelo pyfunc",
@@ -4768,13 +4851,13 @@
     "defaultMessage" : "O AutoML usou valores nulos como entrada.",
     "description" : "Action that AutoML took for null values of large null columns"
   },
+  "bKSd3c" : {
+    "defaultMessage" : "Ocorreu um erro desconhecido.",
+    "description" : "Generic message for an unknown error"
+  },
   "bMqmMf" : {
     "defaultMessage" : "mais {numHiddenItems}",
     "description" : "Label for button that expands option group to show all options"
-  },
-  "bO1IlR" : {
-    "defaultMessage" : "Selecionar tudo",
-    "description" : "Description for button to select all rows in table"
   },
   "bQSJKh" : {
     "defaultMessage" : "Permissão negada para {modelName} versão {version}. Erro: \"{errorMsg}\"",
@@ -4816,9 +4899,9 @@
     "defaultMessage" : "Última hora",
     "description" : "Option for the start select dropdown to filter runs from the last hour"
   },
-  "bkWot5" : {
-    "defaultMessage" : "O juiz LLM de suficiência de contexto determina se o contexto obtido é suficiente para gerar a resposta esperada.",
-    "description" : "Evaluation results > known type of evaluation result assessment > context sufficiency judge."
+  "bmd4rb" : {
+    "defaultMessage" : "Última versão",
+    "description" : "Header for the latest version column in the registered prompts table"
   },
   "bqn2bk" : {
     "defaultMessage" : "Resultados",
@@ -4843,14 +4926,6 @@
   "by3z1f" : {
     "defaultMessage" : "Ver detalhes",
     "description" : "Endpoints list page > Suggested models carousel > Dropdown menu > View details button"
-  },
-  "bz+qhb" : {
-    "defaultMessage" : "As políticas de orçamento permitem que os administradores de orçamento imponham determinadas tags de atribuição de custos para compute serverless na disponibilização de modelos. A maioria dos usuários recebe permissão para usar uma única política, que será usada por default. Se você tiver acesso a mais de uma política, poderá selecionar a política para este endpoint clicando no ícone de edição.",
-    "description" : "Endpoint budget policy tooltip on endpoint page"
-  },
-  "bz4brG" : {
-    "defaultMessage" : "Reprovado",
-    "description" : "Failing evaluation status in the evaluations table."
   },
   "c0slEY" : {
     "defaultMessage" : "Clique em uma execução individual para ver todos os modelos associados a ela",
@@ -4915,6 +4990,10 @@
     "defaultMessage" : "O AutoML está executando testes e exploração de dados com uma amostra do conjunto de dados.",
     "description" : "Text for dataset sampled when running"
   },
+  "cQe2Sa" : {
+    "defaultMessage" : "Última modificação",
+    "description" : "Endpoint details page > Tile model details > Metadata table > Last modified label"
+  },
   "cSSMIs" : {
     "defaultMessage" : "Copiar local do artefato",
     "description" : "Copy tooltip to copy experiment artifact location from experiment runs table header"
@@ -4927,13 +5006,17 @@
     "defaultMessage" : "URL",
     "description" : "Endpoint URL label on endpoint page"
   },
-  "ce2Kt3" : {
-    "defaultMessage" : "ID do cliente do Microsoft Entra",
-    "description" : "Label for Microsoft Entra Client ID input for Open API"
+  "ceqHGj" : {
+    "defaultMessage" : "A política orçamentária selecionada excedeu o limite do orçamento.",
+    "description" : "Error indicating that selected budget policy has exceeded its limit."
   },
   "chZ94D" : {
     "defaultMessage" : "Prompts de avaliação",
     "description" : "Run Page > FinetuneParamsTable > Evaluation Prompts"
+  },
+  "cmYzGP" : {
+    "defaultMessage" : "Ignorar",
+    "description" : "A label for the button to dismiss the modal with the usage example of the prompt"
   },
   "cmuOjw" : {
     "defaultMessage" : "Escrita pela última vez em",
@@ -4979,10 +5062,6 @@
     "defaultMessage" : "Configurar",
     "description" : "AutoML Step title configure"
   },
-  "d44IPd" : {
-    "defaultMessage" : "Reabrir revisão",
-    "description" : "Evaluation review > assessments > reopen review tooltip"
-  },
   "d78wwA" : {
     "defaultMessage" : "Fornecer feedback",
     "description" : "Link to a survey for users to give feedback"
@@ -5022,6 +5101,10 @@
   "dIcBbW" : {
     "defaultMessage" : "Segurança de entrada",
     "description" : "Label for enabling AI gateway safety for input data in the serving endpoint create/edit form"
+  },
+  "dN/Ife" : {
+    "defaultMessage" : "Nome do modelo",
+    "description" : "Label for model name input"
   },
   "dQabrL" : {
     "defaultMessage" : "Preço",
@@ -5123,10 +5206,6 @@
     "defaultMessage" : "URL",
     "description" : "Endpoint details page > Foundation model details > Metadata table > URL label"
   },
-  "e9qVjz" : {
-    "defaultMessage" : "Cancelar",
-    "description" : "Evaluation review > assessments > cancel overriding review button"
-  },
   "eBGO2d" : {
     "defaultMessage" : "Sem métricas para apresentar.",
     "description" : "Text shown when there are no metrics to display"
@@ -5155,9 +5234,9 @@
     "defaultMessage" : "A execução do AutoML foi cancelada. Alguns testes podem estar completos. Consulte os links abaixo para mais informações.",
     "description" : "Info text about AutoML is canceled and instructions for next steps"
   },
-  "eIWfRN" : {
-    "defaultMessage" : "Descartar",
-    "description" : "Evaluation review > assessments > discard pending assessments button label"
+  "eI3Aec" : {
+    "defaultMessage" : "Carregando",
+    "description" : "Served Entity: loading servedEntityName"
   },
   "eM4+ab" : {
     "defaultMessage" : "Origem",
@@ -5190,10 +5269,6 @@
   "eQsXm7" : {
     "defaultMessage" : "Últimos 7 dias",
     "description" : "Option for the start select dropdown to filter runs from the last 7 days"
-  },
-  "eSxQmg" : {
-    "defaultMessage" : "Correto",
-    "description" : "Evaluation results > correctness assessment > positive value label. Displayed if evaluation result is considered as correct."
   },
   "eT0HhW" : {
     "defaultMessage" : "Ativada",
@@ -5299,10 +5374,6 @@
     "defaultMessage" : "Agregação: {value}",
     "description" : "Experiment page > group by runs control > current aggregation function tooltip"
   },
-  "fL9439" : {
-    "defaultMessage" : "Alguns modelos podem não ter sido treinados. Execute o AutoML novamente com um horizonte de previsão mais curto.",
-    "description" : "Recommended action for user when AutoML is given time series that are too\n          short"
-  },
   "fMf88R" : {
     "defaultMessage" : "Colunas",
     "description" : "Run page > artifact view > logged table view > columns selector label"
@@ -5310,6 +5381,10 @@
   "fQfjfz" : {
     "defaultMessage" : "As tags associadas à política de orçamento são propagadas automaticamente para os logs de cobrança do endpoint de disponibilização.",
     "description" : "Informational tooltip to advertise that budget policy details on serving endpoints are automatically propagated to that endpoint's billing logs"
+  },
+  "fTyoVx" : {
+    "defaultMessage" : "Nenhum dado encontrado para este intervalo de tempo.",
+    "description" : "Description for when there is no data to show."
   },
   "fWEvZL" : {
     "defaultMessage" : ", . : / - = e espaços em branco não são permitidos",
@@ -5330,10 +5405,6 @@
   "fbK+ir" : {
     "defaultMessage" : "Valores exclusivos nas colunas categóricas",
     "description" : "AutoML warning shown when categorical columns have unique values"
-  },
-  "fclSFa" : {
-    "defaultMessage" : "Exportar",
-    "description" : "Button to export to eval dataset"
   },
   "fcr9me" : {
     "defaultMessage" : "Ver inferência em tempo real existente",
@@ -5394,10 +5465,6 @@
   "fwp4JP" : {
     "defaultMessage" : "Conjuntos de dados usados",
     "description" : "Run page > Overview > Run datasets section label"
-  },
-  "g0tloS" : {
-    "defaultMessage" : "Falta uma avaliação da suficiência do contexto. Provavelmente, isso ocorre porque seu agente não está retornando retrieved_context.",
-    "description" : "Evaluation results > known type of evaluation result assessment > context sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Context Sufficiency: mostly sufficient\""
   },
   "g17Es2" : {
     "defaultMessage" : "Nome",
@@ -5479,14 +5546,6 @@
     "defaultMessage" : "Referência secreta do ID da chave de acesso AWS",
     "description" : "Label for access key input for Amazon Bedrock"
   },
-  "gOUJ0f" : {
-    "defaultMessage" : "Nenhuma apreciação para esta avaliação",
-    "description" : "Text displayed when there is no assessment for a given evaluation"
-  },
-  "gPhm1b" : {
-    "defaultMessage" : "Nenhuma entrada registada",
-    "description" : "Evaluation review > input section > no values"
-  },
   "gRz1nB" : {
     "defaultMessage" : "{count, plural, one {Excluir rastreamento} other {Excluir rastreamentos}}",
     "description" : "Experiment page > traces view controls > Delete traces modal > Title"
@@ -5559,10 +5618,6 @@
     "defaultMessage" : "O gráfico de coordenadas paralelas não aceita valores de string agregados.",
     "description" : "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > title"
   },
-  "gn1eO9" : {
-    "defaultMessage" : "Avaliação adicionada por LLM como juiz",
-    "description" : "Evaluation review > assessments > tooltip > assessment added by LLM-as-a-judge"
-  },
   "gnXH8O" : {
     "defaultMessage" : "Pronta",
     "description" : "Endpoint ready status text on endpoints list page"
@@ -5570,6 +5625,10 @@
   "gpy991" : {
     "defaultMessage" : "URL",
     "description" : "Endpoint details page > External model details > Metadata table > URL label"
+  },
+  "gqfk5C" : {
+    "defaultMessage" : "O usuário não está autorizado.",
+    "description" : "Unauthorized (HTTP STATUS 401) generic error message"
   },
   "gqvy5V" : {
     "defaultMessage" : "Mais de 65535 valores diferentes nas colunas categóricas",
@@ -5579,6 +5638,10 @@
     "defaultMessage" : "Carregar arquivo",
     "description" : "External model serving configuration form > AI Gateway section > guardrails configuration > label for uploading a file containing guardrails words (valid topics or invalid keywords)"
   },
+  "guBsqD" : {
+    "defaultMessage" : "Lista",
+    "description" : "Label for the list mode on the registered prompt details page"
+  },
   "gw6w2l" : {
     "defaultMessage" : "ID do projeto do Google Cloud",
     "description" : "Label for ID input for Google Cloud project"
@@ -5587,9 +5650,25 @@
     "defaultMessage" : "Falha ao parar a execução",
     "description" : "Notification message for failed to stop run"
   },
+  "h1HQ14" : {
+    "defaultMessage" : "Registre automaticamente rastreamentos das execuções do DSPy chamando a função {code}. Por exemplo:",
+    "description" : "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
+  },
+  "h1LHhV" : {
+    "defaultMessage" : "Tamanho",
+    "description" : "Title for size column on service log files table"
+  },
+  "h3CKcv" : {
+    "defaultMessage" : "Versão do modelo",
+    "description" : "Title for served entity version column on service log files table"
+  },
   "h3GmoO" : {
     "defaultMessage" : "Métricas",
     "description" : "Label for the metrics column group in the logged model column selector"
+  },
+  "h3vlVA" : {
+    "defaultMessage" : "Aliases:",
+    "description" : "A label for the aliases list in the prompt details page"
   },
   "h6jAnw" : {
     "defaultMessage" : "Compartilhe e gerencie modelos de aprendizagem automática.",
@@ -5607,13 +5686,17 @@
     "defaultMessage" : "Métricas do sistema",
     "description" : "Run details page > tab selector > Model metrics tab"
   },
-  "hIBLi9" : {
-    "defaultMessage" : "Viola as diretrizes",
-    "description" : "Evaluation results > guideline adherence assessment > negative value label. Displayed if evaluation result does not adhere to the guidelines."
-  },
   "hIMrRz" : {
     "defaultMessage" : "Cancelar atualização",
     "description" : "Cancel update button text on endpoint page"
+  },
+  "hKeTbu" : {
+    "defaultMessage" : "Nome do arquivo",
+    "description" : "Title for file name column on service log files table"
+  },
+  "hOH7iA" : {
+    "defaultMessage" : "Tokens",
+    "description" : "Title for the tokens chart in the monitoring UI, showing average input and output token count per day given a time window."
   },
   "hP0eMi" : {
     "defaultMessage" : "Qualquer tabela Delta com uma chave primária pode ser usada como uma tabela de recursos.",
@@ -5622,10 +5705,6 @@
   "hUSt7h" : {
     "defaultMessage" : "Pré-visualização do URL:",
     "description" : "URL preview text for endpoints create page"
-  },
-  "hW5ehW" : {
-    "defaultMessage" : "A avaliação geral é aprovada quando todos os juízes a aprovarem.",
-    "description" : "Evaluation results > known type of evaluation result assessment > overall assessment > description of overall assessment"
   },
   "hW7XxH" : {
     "defaultMessage" : "Métricas registradas",
@@ -5647,6 +5726,10 @@
     "defaultMessage" : "Resultados da avaliação",
     "description" : "Run details page > tab selector > evaluations tab"
   },
+  "hexB90" : {
+    "defaultMessage" : "Revise os valores da coluna dividida e corrija as entradas inválidas",
+    "description" : "User action recommendation when invalid values are found in the split column"
+  },
   "hf6Iy8" : {
     "defaultMessage" : "Popularidade",
     "description" : "Search page: label for option to sort by popularity"
@@ -5654,6 +5737,10 @@
   "hgZcqQ" : {
     "defaultMessage" : "Avaliação do AutoML",
     "description" : "Title to indicate AutoML evaluation is complete"
+  },
+  "hlpNRa" : {
+    "defaultMessage" : "Nenhum prompt encontrado",
+    "description" : "Label for the empty state in the prompts table when no prompts are found"
   },
   "hm3Z68" : {
     "defaultMessage" : "Desativada",
@@ -5691,6 +5778,10 @@
     "defaultMessage" : "Registre automaticamente os rastreamentos das conversas do AutoGen chamando a função {code}. Por exemplo:",
     "description" : "Description of how to log traces for the AutoGen package using MLflow autologging. This message is followed by a code example."
   },
+  "i0i2tv" : {
+    "defaultMessage" : "Arquivos de logs de serviço históricos para {endpointName}",
+    "description" : "Modal title for historical service log files modal"
+  },
   "i1ovHH" : {
     "defaultMessage" : "Filtre por tabela de recursos, por recurso ou por origem de dados...",
     "description" : "Placeholder text on the feature store page search box describing the attributes that the search could be based on."
@@ -5703,10 +5794,6 @@
     "defaultMessage" : "Registros",
     "description" : "Tab title for the logs tab on the endpoint page"
   },
-  "i7UTwK" : {
-    "defaultMessage" : "A avaliação de correção está faltando. Provavelmente, isso ocorre porque você não forneceu uma resposta esperada (verdade fundamental) ou notas de avaliação.",
-    "description" : "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
-  },
   "i9OADf" : {
     "defaultMessage" : "Parâmetros",
     "description" : "Experiment page > group by runs control > params section label"
@@ -5715,13 +5802,25 @@
     "defaultMessage" : "Baixa",
     "description" : "Text describing a low severity AutoML warning"
   },
+  "iA6mqk" : {
+    "defaultMessage" : "Tipo de problema",
+    "description" : "Endpoint details page > active configuration table > Column headers > Problem Type"
+  },
   "iAwvGx" : {
     "defaultMessage" : "Quer mesmo iniciar <bold>{endpointName}</bold>? Ao iniciar esse endpoint, ele poderá atender às queries assim que os recursos estiverem prontos.",
     "description" : "Confirmation message for start endpoint modal on endpoint view page"
   },
+  "iBQaZu" : {
+    "defaultMessage" : "Execução de origem:",
+    "description" : "A label for the source run in the prompt details page"
+  },
   "iC2Owx" : {
     "defaultMessage" : "Interromper sequências: {stopSequences}",
     "description" : "Experiment page > artifact compare view > run column header prompt metadata > stop sequences parameter"
+  },
+  "iDpAK8" : {
+    "defaultMessage" : "Adicionar tags",
+    "description" : "Label for the add tags button in the registered prompts table"
   },
   "iEToo0" : {
     "defaultMessage" : "Usar para inferência em batch",
@@ -5730,6 +5829,10 @@
   "iF1UfU" : {
     "defaultMessage" : "Nova execução usando notebook",
     "description" : "Experiment page > new notebook run modal > modal title"
+  },
+  "iK14Lr" : {
+    "defaultMessage" : "Segredo do cliente do Microsoft Entra",
+    "description" : "Label for Microsoft Entra Client Secret input for External Model Provider"
   },
   "iLFoPb" : {
     "defaultMessage" : "Estado",
@@ -5742,10 +5845,6 @@
   "iOg8ry" : {
     "defaultMessage" : "Não ativado",
     "description" : "\"Not enabled\" state for route optimization on this endpoint"
-  },
-  "iPTAj8" : {
-    "defaultMessage" : "Recuperação",
-    "description" : "Evaluation review > Retrieval section > title"
   },
   "iQUedL" : {
     "defaultMessage" : "Modelos registrados",
@@ -5827,13 +5926,13 @@
     "defaultMessage" : "Verificadores de integridade da saída",
     "description" : "External model serving configuration form > form summary > AI gateway summary > output guardrails enabled indicator"
   },
+  "j2kK0Y" : {
+    "defaultMessage" : "As políticas de orçamento serverless permitem que os administradores de orçamento imponham determinadas tags de atribuição de custos para compute serverless na disponibilização de modelos. A maioria dos usuários recebe permissão para usar uma única política, que será usada por default. Se você tiver acesso a mais de uma política, poderá selecionar a política para este endpoint clicando no ícone de edição.",
+    "description" : "Endpoint budget policy tooltip on endpoint page"
+  },
   "j3hWDs" : {
     "defaultMessage" : "Localização da tabela",
     "description" : "External model serving configuration form > AI Gateway section > label for inference table location"
-  },
-  "j77+aP" : {
-    "defaultMessage" : "Reprovado",
-    "description" : "Evaluation results > overall assessment > fail value label. Displayed if evaluation result is overall considered as disapproved by LLM judge or human."
   },
   "j7cj5r" : {
     "defaultMessage" : "Adicione pelo menos um artefato de tabela com dados de avaliação ao log. <link>Saiba mais</link>.",
@@ -5871,14 +5970,6 @@
     "defaultMessage" : "{isRun, select, true {Esta tab exibe todos os rastreamentos registrados nesta execução. O MLflow suporta rastreamento automático para muitas estruturas populares de IA generativa. Siga as etapas abaixo para registrar seu primeiro rastreamento. Para mais informações sobre o MLflow Tracing, consulte a documentação do <a>MLflow</a>.} other {Esta aba exibe todos os rastreamentos registrados neste experimento. O MLflow suporta rastreamento automático para muitas estruturas populares de IA generativa. Siga as etapas abaixo para registrar seu primeiro rastreamento. Para mais informações sobre o MLflow Tracing, consulte a documentação do <a>MLflow</a>.}}",
     "description" : "Message that explains the function of the 'Traces' tab in the MLflow UI.This message is followed by a tutorial explaining how to get started with MLflow Tracing."
   },
-  "jMUqD1" : {
-    "defaultMessage" : "Segurança",
-    "description" : "Evaluation results > known type of evaluation result assessment > safety assessment. Used to indicate if the result is safe in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Safety: moderate\""
-  },
-  "jPW0Lj" : {
-    "defaultMessage" : "Falta a avaliação de fundamentação. Provavelmente, isso ocorre porque seu agente não está retornando retrieved_context.",
-    "description" : "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
-  },
   "jPdZ2S" : {
     "defaultMessage" : "Hora de início da última execução de um job.",
     "description" : "Text on the tooltip of the last run column describing the start time of the last job run."
@@ -5887,9 +5978,9 @@
     "defaultMessage" : "Limite as respostas a um conjunto de tópicos que você especificar.",
     "description" : "Description for AI Gateway Guardrails output valid topics"
   },
-  "jTE1Eh" : {
-    "defaultMessage" : "Adicionar às avaliações",
-    "description" : "Export evals traces to eval datasets"
+  "jSsS0I" : {
+    "defaultMessage" : "Ajustando",
+    "description" : "AutoML Step title tuning"
   },
   "jXfgov" : {
     "defaultMessage" : "Todas as execuções estão ocultas. Selecione pelo menos uma execução para ver gráficos.",
@@ -5919,14 +6010,6 @@
     "defaultMessage" : "Tipo de dados",
     "description" : "Title text for the feature data type column."
   },
-  "jjicTa" : {
-    "defaultMessage" : "Você não tem permissão para gravar em um ou mais dos seguintes conjuntos de dados de avaliação.",
-    "description" : "Tooltip for when user does not have permission to write to one or more of the eval datasets"
-  },
-  "jjidVr" : {
-    "defaultMessage" : "{numValue}/{numEvals} para execução “{runName}”",
-    "description" : "Passing assessment tooltip"
-  },
   "jjuya2" : {
     "defaultMessage" : "Não foram encontrados recursos.",
     "description" : "Text describing no feature exists for the online store."
@@ -5939,6 +6022,10 @@
     "defaultMessage" : "Desafixar grupo",
     "description" : "A tooltip for the pin icon button in the runs table next to the pinned run group"
   },
+  "jklaGC" : {
+    "defaultMessage" : "Tarefa",
+    "description" : "Endpoint details page > Tile model details > Metadata table > Task label"
+  },
   "jmU47D" : {
     "defaultMessage" : "Etiquetas",
     "description" : "Long form section title for the \"tags\" section of an endpoint"
@@ -5950,6 +6037,10 @@
   "jq95vC" : {
     "defaultMessage" : "Grupo: {groupName}",
     "description" : "Experiment page > grouped runs table > run group header label"
+  },
+  "jqFRBB" : {
+    "defaultMessage" : "Pré-processamento",
+    "description" : "AutoML Step title preprocessing"
   },
   "js4/Y8" : {
     "defaultMessage" : "Você também pode <link>adicionar ao registro de modelos</link> para controlar as versões",
@@ -5971,9 +6062,17 @@
     "defaultMessage" : "{timeoutMinutes} minutos",
     "description" : "Number of minutes for experiment timeout"
   },
+  "k/7o03" : {
+    "defaultMessage" : "ID do cliente do Microsoft Entra",
+    "description" : "Label for Microsoft Entra Client ID input for External Model Provider"
+  },
   "k253V5" : {
     "defaultMessage" : "Tópicos válidos para entrada",
     "description" : "Label for configuring valid topics for input when configuring AI gateway while creating/editing serving endpoint"
+  },
+  "k3XTHr" : {
+    "defaultMessage" : "Endpoint de disponibilização",
+    "description" : "Serving Endpoint title, specifing the header for the model serving endpoint link"
   },
   "k7btUr" : {
     "defaultMessage" : "Configuração ativa",
@@ -5998,10 +6097,6 @@
   "kH0JxD" : {
     "defaultMessage" : "Você está seguindo esta versão do modelo porque interagiu com ela (por meio de comentários, solicitações de transição etc.)",
     "description" : "Tooltip text message for user that interacted with the model version\n           in the model registry"
-  },
-  "kHN/4I" : {
-    "defaultMessage" : "Editado {timeSince} por {source}. Valor original: {value}",
-    "description" : "Evaluation review > assessments > tooltip > edited by human"
   },
   "kIlkgf" : {
     "defaultMessage" : "Pesquise execuções com uma versão simplificada da cláusula SQL {whereBold}.",
@@ -6039,9 +6134,9 @@
     "defaultMessage" : "Desativar o agrupamento de execução para acessar a visualização de avaliação",
     "description" : "Experiment page > artifact compare view > disabled due to run grouping > description"
   },
-  "keSIQ4" : {
-    "defaultMessage" : "nulo",
-    "description" : "null assessment label"
+  "kgJSBI" : {
+    "defaultMessage" : "Excluir",
+    "description" : "A label for the confirm button in the delete prompt modal"
   },
   "khknxG" : {
     "defaultMessage" : "Entendi",
@@ -6103,6 +6198,10 @@
     "defaultMessage" : "O AutoML ignorou as anotações semânticas incompatíveis.",
     "description" : "Action that AutoML took for columns with incompatible annotations"
   },
+  "lA8QO2" : {
+    "defaultMessage" : "Editar tags",
+    "description" : "Label for the edit tags button in the registered prompts table"
+  },
   "lBUvd1" : {
     "defaultMessage" : "Aviso",
     "description" : "Tag text for dataset sampling warning"
@@ -6155,10 +6254,6 @@
     "defaultMessage" : "Métricas ({length})",
     "description" : "Header for the metrics table on the logged model details page. (Length) is the number of metrics currently displayed."
   },
-  "lQ2nDn" : {
-    "defaultMessage" : "Esta avaliação é gerada por uma métrica personalizada.",
-    "description" : "Custom judge assessment description"
-  },
   "lSnvCt" : {
     "defaultMessage" : "Ações",
     "description" : "Column name text for actions in pending requests table in model\n                   registry"
@@ -6175,10 +6270,6 @@
     "defaultMessage" : "Ocultar gráficos sem dados",
     "description" : "Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
   },
-  "ljfJW4" : {
-    "defaultMessage" : "O horizonte que fornecido é muito longo para uma ou mais séries temporais. O AutoML utilizou um horizonte mais curto para treino e validação nessas séries temporais.",
-    "description" : "Action that AutoML took when user-provided horizon is too long for\n          one or more time series"
-  },
   "llVQ2r" : {
     "defaultMessage" : "Resultados ({numOutputs})",
     "description" : "Input section header for schema table in model version page"
@@ -6187,13 +6278,9 @@
     "defaultMessage" : "Documentos",
     "description" : "Endpoint details page > active configuration table > Docs cell > Label"
   },
-  "lo5Me/" : {
-    "defaultMessage" : "True",
-    "description" : "True value in the evaluations table."
-  },
-  "m1Nb7W" : {
-    "defaultMessage" : "Salvar",
-    "description" : "Evaluation review > assessments > save button"
+  "loe2Ov" : {
+    "defaultMessage" : "Versão {version}",
+    "description" : "A label for the version number in the prompt details page"
   },
   "m4159e" : {
     "defaultMessage" : "Métricas ({length})",
@@ -6202,10 +6289,6 @@
   "m8oAlm" : {
     "defaultMessage" : "O desempenho de LLMs é medido em tokens/segundo, mas pode variar de acordo com as características da solicitação. Para saber mais sobre como referenciamos o desempenho de LLM, leia esta <link>documentação</link>.",
     "description" : "Info popover for the docs of provisioned throughput of the endpoint"
-  },
-  "m8ztHR" : {
-    "defaultMessage" : "Editado {timeSince} por {source}.",
-    "description" : "Evaluation review > assessments > tooltip > edited by human"
   },
   "m9e01X" : {
     "defaultMessage" : "No tags to display.",
@@ -6311,17 +6394,21 @@
     "defaultMessage" : "Conjuntos de dados usados",
     "description" : "Label for the datasets used by a logged model on the logged model details page"
   },
-  "mtYPI8" : {
-    "defaultMessage" : "Adere às diretrizes globais",
-    "description" : "Evaluation results > global guideline adherence assessment > positive value label. Displayed if evaluation result adheres to the global guidelines."
-  },
   "mtxqm8" : {
     "defaultMessage" : "Implantações flexíveis e controladas com a nova IU do Model Registry",
     "description" : "Model registry > OSS Promo modal for model version aliases > modal title"
   },
+  "mu1VJx" : {
+    "defaultMessage" : "Download",
+    "description" : "Title for download column on service log files table"
+  },
   "mv6CY3" : {
     "defaultMessage" : "Sim, salvar e fechar",
     "description" : "Key-value tag editor modal > Unsaved tag message > Yes, save and close button"
+  },
+  "mvuVhG" : {
+    "defaultMessage" : "O modelo de fornecedor personalizado precisa ser compatível com a API da OpenAI.",
+    "description" : "Label for custom providers"
   },
   "myJ8e1" : {
     "defaultMessage" : "Selecionar entidade disponibilizada",
@@ -6355,10 +6442,6 @@
     "defaultMessage" : "Fechar",
     "description" : "Button for closing modal with the logged models quickstart example code"
   },
-  "n2gxpa" : {
-    "defaultMessage" : "Nenhum conjunto de dados de avaliação encontrado. Crie um novo conjunto de dados de avaliação seguindo os passos <link>aqui</link>",
-    "description" : "Description for when no eval datasets are found"
-  },
   "n4m7x9" : {
     "defaultMessage" : "OpenAI",
     "description" : "Header for OpenAI tab in the MLflow Tracing quickstart guide"
@@ -6378,10 +6461,6 @@
   "nCcv4c" : {
     "defaultMessage" : "Nome",
     "description" : "Label for the name of the endpoint"
-  },
-  "nDVJ/n" : {
-    "defaultMessage" : "Aprovado",
-    "description" : "The label for a passing asseessment above a bar-chart in the summary stats."
   },
   "nE137U" : {
     "defaultMessage" : "Atenção à capacidade",
@@ -6423,9 +6502,17 @@
     "defaultMessage" : "Registrado em {registeredDate}",
     "description" : "Label to display at what date the model was registered"
   },
+  "nWPVyw" : {
+    "defaultMessage" : "Configuração de monitoramento",
+    "description" : "Monitoring Config title, specifing the header for the monitoring config"
+  },
   "nWeQCU" : {
     "defaultMessage" : "Mostrar apenas diferenças",
     "description" : "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show differences only toggle"
+  },
+  "nY1YrF" : {
+    "defaultMessage" : "Erro interno do servidor",
+    "description" : "Request failed due to internal server error (HTTP STATUS 500) generic error message"
   },
   "nYKZy4" : {
     "defaultMessage" : "<link>Saiba mais</link>",
@@ -6487,14 +6574,6 @@
     "defaultMessage" : "Tipo",
     "description" : "Column header of AutoML warnings table. Describes type of warning."
   },
-  "nvjkTA" : {
-    "defaultMessage" : "False",
-    "description" : "False assessment label"
-  },
-  "nxzK82" : {
-    "defaultMessage" : "Selecione ou digite uma avaliação",
-    "description" : "Evaluation review > assessments > combobox placeholder"
-  },
   "ny+fBZ" : {
     "defaultMessage" : "Colunas",
     "description" : "Dropdown text to display columns names that could to be rendered for the experiment runs table"
@@ -6507,13 +6586,13 @@
     "defaultMessage" : "A classificação binária foi detectada, mas a etiqueta positiva não foi especificada",
     "description" : "AutoML warning shown when no positive label is specified for binary classification"
   },
-  "o1YajA" : {
-    "defaultMessage" : "ID do tenant do Microsoft Entra",
-    "description" : "Label for Microsoft Entra Tenant ID input for Open API"
-  },
   "o21MFS" : {
     "defaultMessage" : "Valor de log inválido",
     "description" : "Experiment tracking > runs charts > line chart configuration > invalid log value message"
+  },
+  "o4IP1L" : {
+    "defaultMessage" : "Concluído",
+    "description" : "Done button text, specifing the button to close the monitor settings modal"
   },
   "o7dzKo" : {
     "defaultMessage" : "Última modificação",
@@ -6538,10 +6617,6 @@
   "oDT2FP" : {
     "defaultMessage" : "É necessário ampliar o compute.",
     "description" : "Error message if compute scale out is not selected."
-  },
-  "oDwj2g" : {
-    "defaultMessage" : "O juiz LLM de relevância para a query determina se a resposta é relevante para a solicitação de entrada.",
-    "description" : "Evaluation results > known type of evaluation result assessment > description of relevance judge."
   },
   "oHW+ks" : {
     "defaultMessage" : "Descrição",
@@ -6630,9 +6705,9 @@
     "defaultMessage" : "Criar endpoint de disponibilização",
     "description" : "Title for the create serving endpoint page"
   },
-  "ov1whU" : {
-    "defaultMessage" : "Juiz de IA",
-    "description" : "Label for AI judge in the tooltip for the assessment in the evaluation metrics."
+  "ouTk0h" : {
+    "defaultMessage" : "LiteLLM",
+    "description" : "Header for LiteLLM tab in the MLflow Tracing quickstart guide"
   },
   "owr9l2" : {
     "defaultMessage" : "Não foi selecionado grupos por coluna",
@@ -6657,6 +6732,10 @@
   "p2j+mP" : {
     "defaultMessage" : "Monitoramento do uso",
     "description" : "Endpoint details page > External model details > AI Gateway details > Usage monitoring section label"
+  },
+  "p2po2x" : {
+    "defaultMessage" : "Excluir prompt",
+    "description" : "A header for the delete prompt modal"
   },
   "p72Sll" : {
     "defaultMessage" : "Trabalhos",
@@ -6690,6 +6769,10 @@
     "defaultMessage" : "Consumidores",
     "description" : "Title text for the feature consumers section in feature page."
   },
+  "pLedXM" : {
+    "defaultMessage" : "Entre em contato com seu administrador para solicitar permissão para criar uma tabela",
+    "description" : "User action recommendation when lacking permission to create a table"
+  },
   "pRUOaS" : {
     "defaultMessage" : "Eventos",
     "description" : "Tab title for the events tab on the endpoint page"
@@ -6718,6 +6801,10 @@
     "defaultMessage" : "Estágio (descontinuado)",
     "description" : "Label name for the deprecated stage metadata in model version page"
   },
+  "pcNJvo" : {
+    "defaultMessage" : "Você está visualizando artefatos atribuídos a um <link>modelo registado</link> associado a esta execução.",
+    "description" : "Alert message to inform the user that they are viewing artifacts assigned to a logged model associated with this run."
+  },
   "peyOdH" : {
     "defaultMessage" : "Cancelar",
     "description" : "Text for canceling changes on rows in editable form table in MLflow"
@@ -6725,10 +6812,6 @@
   "pfVYNp" : {
     "defaultMessage" : "Reduza o horizonte de previsão ou agregue seus dados para uma frequência de previsão mais baixa (por exemplo, de diária para semanal) para melhorar o desempenho e prever mais adiante no futuro.",
     "description" : "Action that AutoML recommends to user when the horizon is too large"
-  },
-  "pfyUes" : {
-    "defaultMessage" : "Ver detalhes",
-    "description" : "Evaluation review > assessments > see details button"
   },
   "phhBBV" : {
     "defaultMessage" : "{numCores, plural, 0 {0 Cores} one {1 Core} other {# núcleos}}",
@@ -6750,10 +6833,6 @@
     "defaultMessage" : "Parar de avaliar",
     "description" : "Experiment page > artifact compare view > run column header > \"Evaluate all\" button label when the column is being evaluated"
   },
-  "pm1RNL" : {
-    "defaultMessage" : "Aprovado",
-    "description" : "Passing assessment label"
-  },
   "pniESF" : {
     "defaultMessage" : "Navegador",
     "description" : "SegmentedControl text for the browser call the model section on the model version's serving page"
@@ -6761,10 +6840,6 @@
   "poH+mg" : {
     "defaultMessage" : "Nenhuma solicitação pendente.",
     "description" : "Default text in pending requests table when no pending requests for the model version"
-  },
-  "pon/jO" : {
-    "defaultMessage" : "nulo",
-    "description" : "No result from an LLM judge"
   },
   "pqlmyY" : {
     "defaultMessage" : "Método de autenticação",
@@ -6870,10 +6945,6 @@
     "defaultMessage" : "Gateway de IA",
     "description" : "External model serving configuration form > AI Gateway section > title label"
   },
-  "qVQYZH" : {
-    "defaultMessage" : "Mostrar menos",
-    "description" : "Button to close alert description"
-  },
   "qeemlg" : {
     "defaultMessage" : "Importada",
     "description" : "Title text for the feature page imported timestamp field."
@@ -6881,10 +6952,6 @@
   "qkRBUr" : {
     "defaultMessage" : "Suavização de linhas",
     "description" : "Runs charts > line chart > configuration > label for line smoothing slider control. The control allows changing data trace line smoothness from 1 to 100, where 1 is the original data trace and 100 is the smoothest trace. Line smoothing helps eliminate noise in the data."
-  },
-  "qnMgLj" : {
-    "defaultMessage" : "Relevância do fragmento",
-    "description" : "Evaluation results > known type of evaluation result assessment > chunk relevance assessment. Used to indicate if the result is relevant to source data chunk in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Chunk relevance: moderate\""
   },
   "qpEAFw" : {
     "defaultMessage" : "Recursos ({length})",
@@ -6906,13 +6973,13 @@
     "defaultMessage" : "Versão {versionNumber}",
     "description" : "Value for version column on served models table"
   },
+  "r+3/rR" : {
+    "defaultMessage" : "Criado por",
+    "description" : "Endpoint details page > Tile model details > Metadata table > Created by label"
+  },
   "r+KCRg" : {
     "defaultMessage" : "Parâmetro",
     "description" : "Run page > Overview > Parameters table > Key column header"
-  },
-  "r/mP0/" : {
-    "defaultMessage" : "Adicionar justificação (opcional)",
-    "description" : "Evaluation review > assessments > rationale input placeholder"
   },
   "r0kI+i" : {
     "defaultMessage" : "Atualizar",
@@ -6921,6 +6988,10 @@
   "r3/K3V" : {
     "defaultMessage" : "Fazer previsões",
     "description" : "Heading text for the prediction section on the registered model from the experiment run"
+  },
+  "r4a52n" : {
+    "defaultMessage" : "Instale o <code>mlflow</code> a partir da branch <code>mlflow-3</code>:",
+    "description" : "Instruction for installing MLflow from mlflow-3 branch in log MLflow 3 models"
   },
   "r5JI+N" : {
     "defaultMessage" : "Selecione métricas",
@@ -6958,10 +7029,6 @@
     "defaultMessage" : "Otimização de rota",
     "description" : "Long form section title for the \"route optimization\" section of the endpoint create form"
   },
-  "rNkAcB" : {
-    "defaultMessage" : "Relevante",
-    "description" : "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
-  },
   "rPP0Nd" : {
     "defaultMessage" : "Cancelar",
     "description" : "Experiments > metric charts > download full CSV data modal > cancel button > label"
@@ -6973,6 +7040,10 @@
   "rQ9X0I" : {
     "defaultMessage" : "Comprimento do contexto",
     "description" : "Run Page > FinetuneParamsTable > Context Length"
+  },
+  "rQGc4w" : {
+    "defaultMessage" : "Conjuntos de dados",
+    "description" : "A button enabling datasets on the experiment page"
   },
   "rQNdSA" : {
     "defaultMessage" : "O histórico de métricas é excluído após 14 dias",
@@ -6998,10 +7069,6 @@
     "defaultMessage" : "Bate-papo",
     "description" : "Endpoints > Foundation models > \"Chat\" model task label"
   },
-  "rZyNgx" : {
-    "defaultMessage" : "Viola as diretrizes globais",
-    "description" : "Evaluation results > global guideline adherence assessment > negative value label. Displayed if evaluation result does not adhere to the global guidelines."
-  },
   "raa3Ij" : {
     "defaultMessage" : "Modelos registrados",
     "description" : "Text for link back to model page under the header on the model view page"
@@ -7013,10 +7080,6 @@
   "rfrJ1h" : {
     "defaultMessage" : "Usar modelo para inferência em batch",
     "description" : "Use model button text for generating batch inference notebooks"
-  },
-  "rmAWZX" : {
-    "defaultMessage" : "agora mesmo",
-    "description" : "Evaluation review > assessments > tooltip > just now"
   },
   "rnpmHV" : {
     "defaultMessage" : "Se o experimento estiver demorando muito, você pode interrompê-lo.",
@@ -7074,6 +7137,10 @@
     "defaultMessage" : "Rastreamentos",
     "description" : "Run details page > tab selector > Traces tab"
   },
+  "s9wyEi" : {
+    "defaultMessage" : "Tabela de rastreios avaliados",
+    "description" : "Evaluated Traces Table title, specifing the header for the evaluated traces table"
+  },
   "sByLVU" : {
     "defaultMessage" : "Nenhuma execução registrada",
     "description" : "Empty state title text for experiment runs page when no runs are logged in the experiment"
@@ -7106,6 +7173,10 @@
     "defaultMessage" : "Nova execução",
     "description" : "Experiment page > new run modal > modal title"
   },
+  "sM0MBJ" : {
+    "defaultMessage" : "Versão {version}",
+    "description" : "Label for the version of a registered prompt in the registered prompts table"
+  },
   "sMAA2l" : {
     "defaultMessage" : "Nenhum resultado encontrado no Model Registry do workspace. Para encontrar modelos no Unity Catalog, consulte o <link>Explorador de Catálogos</link>",
     "description" : "Models table > no results after filtering, with prompt to check unity catalog"
@@ -7113,6 +7184,14 @@
   "sMxFx9" : {
     "defaultMessage" : "Valores constantes nas colunas",
     "description" : "AutoML warning shown when constant columns are detected, version 2"
+  },
+  "sNzNc3" : {
+    "defaultMessage" : "Token do portador",
+    "description" : "Label for bearer token input"
+  },
+  "sPjdP+" : {
+    "defaultMessage" : "URL",
+    "description" : "Endpoint details page > Tile model details > Metadata table > URL label"
   },
   "sQi+4T" : {
     "defaultMessage" : "Valores altamente assimétricos",
@@ -7141,6 +7220,10 @@
   "sezz5e" : {
     "defaultMessage" : "Excluir uma tabela de recursos pode causar falhas inesperadas nos produtores upstream e consumidores downstream (modelos, endpoints e jobs agendados).",
     "description" : "Text on the feature table deletion modal describing consequences of this operation."
+  },
+  "sgKGyQ" : {
+    "defaultMessage" : "Carregando",
+    "description" : "Served Entity: loading problemType"
   },
   "sgedez" : {
     "defaultMessage" : "O administrador do metastore pode conceder acesso a esta tabela a outros usuários.",
@@ -7218,10 +7301,6 @@
     "defaultMessage" : "Cancelado",
     "description" : "Aborted state text for served model in served models table"
   },
-  "tUAhDM" : {
-    "defaultMessage" : "Conformidade global com as diretrizes",
-    "description" : "Evaluation results > known type of evaluation result assessment > global guideline adherence assessment. Used to indicate if the result adheres to the global guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Global guideline adherence: moderate\""
-  },
   "tbAlJg" : {
     "defaultMessage" : "Ir para a localização externa",
     "description" : "Text for the external location link in the experiment run dataset drawer"
@@ -7257,6 +7336,10 @@
   "tx3aAM" : {
     "defaultMessage" : "Adicionar etiqueta",
     "description" : "Key-value tag editor modal > Add tag button"
+  },
+  "tzA/LZ" : {
+    "defaultMessage" : "Nome",
+    "description" : "Header for the name column in the registered prompts table"
   },
   "u05xv/" : {
     "defaultMessage" : "p50 - {modelName}",
@@ -7314,9 +7397,9 @@
     "defaultMessage" : "Notificar-me sobre",
     "description" : "Notification setting status message when enabled on the model view page"
   },
-  "uPbc0z" : {
-    "defaultMessage" : "Novo conjunto de dados de avaliação",
-    "description" : "Button to create a new eval dataset"
+  "ua6IVs" : {
+    "defaultMessage" : "Erro ao carregar a página de comparação de execuções",
+    "description" : "Title of the error state on the run compare page"
   },
   "ubGTUL" : {
     "defaultMessage" : "O nome é obrigatório.",
@@ -7358,10 +7441,6 @@
     "defaultMessage" : "Mais recente",
     "description" : "Column title for the column displaying the latest metric values for a metric"
   },
-  "uoJWOm" : {
-    "defaultMessage" : "Em geral",
-    "description" : "Evaluation results > known type of evaluation result assessment > overall assessment."
-  },
   "uq6CTI" : {
     "defaultMessage" : "Nenhum perfil disponível",
     "description" : "Text for no profile available in the experiment run dataset drawer"
@@ -7377,6 +7456,10 @@
   "uu4D2o" : {
     "defaultMessage" : "Registros",
     "description" : "Run page > Overview > Job output > Logs link"
+  },
+  "uuQtH8" : {
+    "defaultMessage" : "Estado do endpoint",
+    "description" : "Endpoint details page > Tile model details > Metadata table > Status cell label"
   },
   "uwFEPi" : {
     "defaultMessage" : "As previsões do modelo foram registradas em <tableLink>{tableName}</tableLink>",
@@ -7405,10 +7488,6 @@
   "vBKFgp" : {
     "defaultMessage" : "Eixo X",
     "description" : "Label for X axis in scatter chart configurator in compare runs chart config modal"
-  },
-  "vCUglz" : {
-    "defaultMessage" : "Ações sugeridas",
-    "description" : "Evaluation review > assessments > suggested actions > title"
   },
   "vFeVcH" : {
     "defaultMessage" : "Última vez que um produtor escreveu nesta tabela de recursos.",
@@ -7446,6 +7525,10 @@
     "defaultMessage" : "Artefatos",
     "description" : "Run details page > tab selector > artifacts tab"
   },
+  "vUxxkd" : {
+    "defaultMessage" : "CrewAI",
+    "description" : "Header for CrewAI tab in the MLflow Tracing quickstart guide"
+  },
   "vXxHJQ" : {
     "defaultMessage" : "Ocorreu um erro desconhecido.",
     "description" : "Default error message if server returns yield no error message."
@@ -7454,13 +7537,13 @@
     "defaultMessage" : "Tabela de inferência",
     "description" : "Link to the inference table in UC for this endpoint"
   },
+  "vaJYHp" : {
+    "defaultMessage" : "Pelo menos um campo do formulário tem um valor incorreto. Corrija e tente novamente.",
+    "description" : "Generic error message for an invalid form input"
+  },
   "vf5CIg" : {
     "defaultMessage" : "Somente o proprietário da execução pode pará-la",
     "description" : "Tooltip for the Stop Run button, explaining that the current user is not the owner of the run and not allowed to stop the training run."
-  },
-  "vgfy8y" : {
-    "defaultMessage" : "Adicionar avaliação",
-    "description" : "Evaluation review > assessments > add assessment button label"
   },
   "vi2MM7" : {
     "defaultMessage" : "Todos",
@@ -7534,10 +7617,6 @@
     "defaultMessage" : "Registrar",
     "description" : "Register button text to register the model"
   },
-  "wDFPtr" : {
-    "defaultMessage" : "MÉDIA",
-    "description" : "Header label for numeric assessment type for the average value"
-  },
   "wDwAdX" : {
     "defaultMessage" : "Descrição",
     "description" : "Header for displaying notes for the experiment table"
@@ -7546,6 +7625,10 @@
     "defaultMessage" : "ID de execução de origem",
     "description" : "Label for the source run ID of a logged model on the logged model details page"
   },
+  "wFvyI1" : {
+    "defaultMessage" : "Registrado em:",
+    "description" : "A label for the registration timestamp in the prompt details page"
+  },
   "wHxlAZ" : {
     "defaultMessage" : "Excluir endpoint",
     "description" : "Title text for delete endpoint modal on endpoint view page"
@@ -7553,6 +7636,10 @@
   "wI9LM8" : {
     "defaultMessage" : "Não é possível exibir os dados sem assimetrizar a distribuição da etiqueta-alvo",
     "description" : "AutoML warning shown when data cannot be sampled without skewing the target label distribution"
+  },
+  "wIDhW+" : {
+    "defaultMessage" : "Valor",
+    "description" : "Label for value input"
   },
   "wMG8+P" : {
     "defaultMessage" : "Para buscar tags ou nomes e tags, use uma versão simplificada{newline}da cláusula SQL {whereBold}.",
@@ -7565,6 +7652,10 @@
   "wNHR0W" : {
     "defaultMessage" : "Aliases",
     "description" : "Column title text for model version aliases in model version table"
+  },
+  "wNWrWP" : {
+    "defaultMessage" : "Selecione um tipo de divisão compatível, conforme especificado na documentação.",
+    "description" : "User action recommendation when an unsupported split type is used"
   },
   "wWBxmR" : {
     "defaultMessage" : "O administrador da conta deve ativar o esquema <code>system.serving</code> para usar a monitorização do uso. <link>Saiba mais</link>",
@@ -7594,13 +7685,17 @@
     "defaultMessage" : "Falhou",
     "description" : "Run page > Overview > FinetuneDetails > Run status cell > Value for failed state"
   },
-  "wjOGl2" : {
-    "defaultMessage" : "Colunas",
-    "description" : "Evaluation review > evaluations list > filter dropdown button"
+  "wh+Eos" : {
+    "defaultMessage" : "Criar prompt",
+    "description" : "A header for the create prompt modal in the prompt management UI"
   },
   "wkTKpA" : {
     "defaultMessage" : "Chave",
     "description" : "Placeholder input field text for tag key in endpoint creation form"
+  },
+  "wq+WyH" : {
+    "defaultMessage" : "É necessário conteúdo de prompt",
+    "description" : "A validation state for the prompt content in the prompt creation modal"
   },
   "wqY47G" : {
     "defaultMessage" : "Esquema",
@@ -7609,6 +7704,10 @@
   "wrAijs" : {
     "defaultMessage" : "Obter o token OAuth",
     "description" : "Fetch OAuth token button in Call Endpoint modal"
+  },
+  "wrNl6F" : {
+    "defaultMessage" : "Pré-visualizar",
+    "description" : "Label for the preview mode on the registered prompt details page"
   },
   "wxHQHb" : {
     "defaultMessage" : "Formatos de solicitação compatíveis:",
@@ -7634,9 +7733,9 @@
     "defaultMessage" : "Alterar limite de taxa",
     "description" : "Endpoint details page > Rate limit configuration modal > Modal title"
   },
-  "x6rkyu" : {
-    "defaultMessage" : "Resposta",
-    "description" : "Evaluation review > Response section > title"
+  "x9P7tQ" : {
+    "defaultMessage" : "Use um tipo de peso de amostra compatível, conforme especificado na documentação",
+    "description" : "User action recommendation when an unsupported sample weight type is used"
   },
   "xBVMQz" : {
     "defaultMessage" : "LLM",
@@ -7649,6 +7748,10 @@
   "xCKsQy" : {
     "defaultMessage" : "Dimensionamento de compute",
     "description" : "Title for compute scale-out column on endpoint form"
+  },
+  "xDqRn2" : {
+    "defaultMessage" : "Política de orçamento serverless",
+    "description" : "Long form section title for the \"budget policy\" section of an endpoint"
   },
   "xEJj8d" : {
     "defaultMessage" : "Falha no registro.",
@@ -7682,6 +7785,10 @@
     "defaultMessage" : "Resultado do job",
     "description" : "Run page > Overview > FinetuneDetails > Job output section label"
   },
+  "xRkM1W" : {
+    "defaultMessage" : "Você não tem permissão para criar esquema",
+    "description" : "AutoML warning shown when the user doesn't have permission to create a schema"
+  },
   "xRw7H2" : {
     "defaultMessage" : "Criado por",
     "description" : "Column title text for creator username in model version table"
@@ -7689,10 +7796,6 @@
   "xUnYdk" : {
     "defaultMessage" : "Salvar",
     "description" : "experiment page > description modal > save button"
-  },
-  "xV6NWF" : {
-    "defaultMessage" : "Conformidade com as diretrizes",
-    "description" : "Evaluation results > known type of evaluation result assessment > guideline adherence assessment. Used to indicate if the result adheres to the guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Guideline adherence: moderate\""
   },
   "xWQ6m7" : {
     "defaultMessage" : "Uso de memória GPU (%)",
@@ -7750,6 +7853,10 @@
     "defaultMessage" : "Em andamento",
     "description" : "Experiment page > traces table > status label > in progress"
   },
+  "y6YRhF" : {
+    "defaultMessage" : "Adicionar uma entidade disponibilizada",
+    "description" : "Empty state title for served entities table when there are no active served entities"
+  },
   "yAuDRt" : {
     "defaultMessage" : "A avaliação não é possível porque os valores para as seguintes entradas não podem ser determinados: {missingParamList}. Adicione colunas de entrada às configurações de \"agrupar por\" ou use o botão \"Adicionar linha\" para definir um novo conjunto de parâmetros.",
     "description" : "Experiment page > artifact compare view > text cell > missing evaluation parameter values tooltip"
@@ -7757,6 +7864,10 @@
   "yCncIr" : {
     "defaultMessage" : "Métrica",
     "description" : "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use metric axis in all charts"
+  },
+  "yFBsM9" : {
+    "defaultMessage" : "Política de orçamento serverless",
+    "description" : "Endpoint budget policy label on endpoint page"
   },
   "yGH3Oz" : {
     "defaultMessage" : "Criado em",
@@ -7784,10 +7895,6 @@
   "ySno61" : {
     "defaultMessage" : "Os fragmentos de código abaixo demonstram como fazer previsões com o modelo registrado.",
     "description" : "Subtext heading explaining the below section of the model artifact view on how users can prediction using the registered logged model"
-  },
-  "yTwAJ4" : {
-    "defaultMessage" : "Para instrumentar manualmente seus próprios rastreamentos, o método mais conveniente é usar o decorador de funções {code}. Isso fará com que as entradas e saídas da função sejam capturadas no rastreamento. Por exemplo:",
-    "description" : "Description of how to log custom code traces using MLflow. This message is followed by a code example."
   },
   "ybzBAU" : {
     "defaultMessage" : "Ao treinar os notebooks, o AutoML converteu todas as colunas em um vetor de caraterísticas de comprimento fixo.",
@@ -7825,6 +7932,10 @@
     "defaultMessage" : "Nome da execução",
     "description" : "Experiment page > traces table > run name column header"
   },
+  "ynD6Gv" : {
+    "defaultMessage" : "ID do tenant do Microsoft Entra",
+    "description" : "Label for Microsoft Entra Tenant ID input for External Model Provider"
+  },
   "ynfRrV" : {
     "defaultMessage" : "Desconhecido",
     "description" : "Run page > Overview > FinetuneDetails > Run status cell > Value for unknown state"
@@ -7853,13 +7964,17 @@
     "defaultMessage" : "Modelo do MLflow",
     "description" : "Heading text for mlflow model artifact"
   },
-  "z94r4F" : {
-    "defaultMessage" : "Esta avaliação foi produzida por um avaliador humano.",
-    "description" : "Human judge assessment description"
+  "z42Rsj" : {
+    "defaultMessage" : "Execução de origem",
+    "description" : "Label for the column indicating a run being the source of the logged model's metric (i.e. source run). Displayed in the logged model details metrics table."
   },
   "z9UqPZ" : {
     "defaultMessage" : "Descrição",
     "description" : "Title text for the description section on the model version view page"
+  },
+  "zAuZ2j" : {
+    "defaultMessage" : "Forneça um nome de prompt exclusivo",
+    "description" : "A placeholder for the prompt name in the prompt creation modal"
   },
   "zAvilr" : {
     "defaultMessage" : "Pronta",
@@ -7884,10 +7999,6 @@
   "zJHNK1" : {
     "defaultMessage" : "{modelName} será descontinuado em {deprecationDate}.",
     "description" : "Deprecation message for FMAPIs"
-  },
-  "zLTdCZ" : {
-    "defaultMessage" : "Revisado",
-    "description" : "Evaluation review > assessments > already reviewed indicator"
   },
   "zMhOr3" : {
     "defaultMessage" : "Cancelar",
@@ -7916,10 +8027,6 @@
   "zWwtYm" : {
     "defaultMessage" : "Mais recente",
     "description" : "Run page > Overview > Metrics table > Latest column header"
-  },
-  "zZ9sIi" : {
-    "defaultMessage" : "O juiz LLM de aderência às diretrizes globais determina se a resposta está de acordo com as diretrizes globais fornecidas. Todas as respostas devem aderir às diretrizes globais.",
-    "description" : "Evaluation results > known type of evaluation result assessment > global guideline adherence judge."
   },
   "zaaiiG" : {
     "defaultMessage" : "Nome de implantação do OpenAI",
@@ -7956,6 +8063,10 @@
   "zkfQ4/" : {
     "defaultMessage" : "Nome da entidade disponibilizada",
     "description" : "Title for served entity name column on endpoint events table"
+  },
+  "zmMR5p" : {
+    "defaultMessage" : "Ocorreu um erro ao renderizar este componente.",
+    "description" : "Description for default error message in prompts management UI"
   },
   "zoLqZo" : {
     "defaultMessage" : "Selecionar um modelo",

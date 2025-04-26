@@ -156,9 +156,6 @@ export const TracesView = ({
         experimentIds={experimentIds}
         filter={filter}
         onChangeFilter={setFilter}
-        hiddenColumns={uiState.hiddenColumns ?? []}
-        disabledColumns={allDisabledColumns}
-        toggleHiddenColumn={toggleHiddenColumn}
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
         refreshTraces={refreshCurrentPage}
@@ -183,6 +180,7 @@ export const TracesView = ({
         onResetFilters={() => setFilter('')}
         hiddenColumns={allHiddenColumns}
         disableTokenColumn={!anyTraceContainsTokenCount}
+        disabledColumns={allDisabledColumns}
         setSorting={(sortingSetter) => {
           // If header is clicked enough times, tanstack table switches to "no sort" mode.
           // In that case, we should just reverse the direction of the current sort instead.
@@ -201,6 +199,7 @@ export const TracesView = ({
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
         baseComponentId={baseComponentId}
+        toggleHiddenColumn={toggleHiddenColumn}
       />
       {selectedTraceId && (
         <TraceDataDrawer

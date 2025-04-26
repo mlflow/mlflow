@@ -32,9 +32,7 @@ jest.mock('../runs-charts/components/RunsMetricsLinePlot', () => ({
 }));
 
 jest.mock('../runs-charts/hooks/useIsInViewport', () => ({
-  useIsInViewport: jest
-    .fn()
-    .mockImplementation(() => ({ isInViewport: true, isInViewportDeferred: true, setElementRef: jest.fn() })),
+  useIsInViewport: jest.fn(() => ({ isInViewport: true, isInViewportDeferred: true, setElementRef: jest.fn() })),
 }));
 
 jest.mock('../../../common/utils/FetchUtils', () => ({
@@ -63,7 +61,7 @@ const userEvent = userEventFactory.setup({
 });
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableRunDetailsPageAutoRefresh: jest.fn(),
 }));
 

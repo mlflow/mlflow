@@ -56,7 +56,6 @@ class MlflowCallback(BaseCallback):
         self.optimizer_stack_level = 0
         # call_id: (key, step)
         self._call_id_to_metric_key: dict[str, tuple[str, int]] = {}
-        self._call_id_to_run_id: dict[str, str] = {}
         self._evaluation_counter = defaultdict(int)
 
     def set_dependencies_schema(self, dependencies_schema: dict[str, Any]):
@@ -227,23 +226,20 @@ class MlflowCallback(BaseCallback):
         if not get_autologging_config(FLAVOR_NAME, "log_evals"):
             return
 
+        key = "eval"
+        if callback_metadata := inputs.get("callback_metadata"):
+            if "metric_key" in callback_metadata:
+                key = callback_metadata["metric_key"]
         if self.optimizer_stack_level > 0:
-            key = "eval"
-            if callback_metadata := inputs.get("callback_metadata"):
-                if "metric_key" in callback_metadata:
-                    key = callback_metadata["metric_key"]
             with _lock:
                 # we may want to include optimizer_stack_level in the key
                 # to handle nested optimization
                 step = self._evaluation_counter[key]
                 self._evaluation_counter[key] += 1
-            run = mlflow.start_run(run_name=f"{key}_{step}", nested=True)
             self._call_id_to_metric_key[call_id] = (key, step)
-            self._call_id_to_run_id[call_id] = run.info.run_id
+            mlflow.start_run(run_name=f"{key}_{step}", nested=True)
         else:
-            if mlflow.active_run() is None:
-                run = mlflow.start_run()
-                self._call_id_to_run_id[call_id] = run.info.run_id
+            mlflow.start_run(run_name=key, nested=True)
         if program := inputs.get("program"):
             save_dspy_module_state(program, "model.json")
             log_dspy_module_params(program)
@@ -278,8 +274,8 @@ class MlflowCallback(BaseCallback):
         if score is not None:
             mlflow.log_metric("eval", score)
 
-        if self._call_id_to_run_id.pop(call_id, None):
-            mlflow.end_run()
+        mlflow.end_run()
+        # Log the evaluation score to the parent run if called inside optimization
         if self.optimizer_stack_level > 0 and mlflow.active_run() is not None:
             if call_id not in self._call_id_to_metric_key:
                 return
@@ -293,7 +289,6 @@ class MlflowCallback(BaseCallback):
 
     def reset(self):
         self._call_id_to_metric_key: dict[str, tuple[str, int]] = {}
-        self._call_id_to_run_id: dict[str, str] = {}
         self._evaluation_counter = defaultdict(int)
 
     def _start_span(

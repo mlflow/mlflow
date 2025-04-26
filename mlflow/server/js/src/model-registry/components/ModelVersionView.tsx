@@ -320,6 +320,10 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
   }
 
   renderSourceRunDescription() {
+    // We don't show the source run link if the model version is not created from a run
+    if (!this.props.modelVersion?.run_id) {
+      return null;
+    }
     return (
       <Descriptions.Item
         key="description-key-source-run"

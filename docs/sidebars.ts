@@ -31,6 +31,11 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'introduction/index',
+          label: 'Introduction',
+        },
+        {
+          type: 'doc',
           id: 'getting-started/running-notebooks/index',
         },
         {
@@ -74,7 +79,6 @@ const sidebars: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       collapsed: false,
       items: [
-        
         {
           type: 'category',
           label: 'Deep Learning',

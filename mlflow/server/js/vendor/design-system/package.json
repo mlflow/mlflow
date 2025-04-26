@@ -1,6 +1,6 @@
 {
   "name": "@databricks/design-system",
-  "version": "1.0.0-b5d111bf",
+  "version": "1.0.0-00454544",
   "description": "DuBois Design System",
   "keywords": [],
   "license": "ISC",
@@ -15,24 +15,27 @@
   "main": "dist",
   "types": "dist/index.d.ts",
   "// exports": [
-    "Used by Jest and Internal Tools Next.js, and point to dist. Webpack and Storybook use databricksExports and point to src.",
-    "After Internal Tools full migration to config-webpack (FEINF-4043), we can move to only exports."
+    "Used by Jest and point to dist. Webpack and Storybook use databricksExports and point to src."
   ],
   "exports": {
     "./package.json": "./package.json",
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
     "./development": {
+      "types": "./dist/development/index.d.ts",
       "import": "./dist/development.js",
       "require": "./dist/development.js"
     },
     "./patterns": {
+      "types": "./dist/~patterns/index.d.ts",
       "import": "./dist/patterns.js",
       "require": "./dist/patterns.js"
     },
     "./test-utils/*": {
+      "types": "./dist/test-utils/*/index.d.ts",
       "import": "./dist/test-utils/*",
       "require": "./dist/test-utils/*"
     },
@@ -70,24 +73,20 @@
     "*.css"
   ],
   "files": [
-    "*.ts",
-    "src",
     "dist",
     "test-utils"
   ],
   "scripts": {
     "prepublish": "./scripts/prepublish",
     "postpublish": "./scripts/postpublish",
-    "generate": "npm-run-all generate:icons generate:icons-story",
-    "generate:icons": "svgr -d src/design-system/Icon/__generated/icons --typescript --icon --template src/design-system/Icon/generator/iconTemplate.js src/assets/icons && yarn lint:fix",
-    "generate:icons-story": "node ./src/design-system/Icon/generator/generateIconStory.js",
+    "generate": "npm-run-all generate:icons",
+    "generate:icons": "rm -rf src/design-system/Icon/__generated/icons && svgr -d src/design-system/Icon/__generated/icons --typescript --icon --template src/design-system/Icon/generator/iconTemplate.js src/assets/icons && yarn lint:fix && yarn workspace @databricks/du-bois-storybook generate && yarn workspace @databricks/du-bois-storybook prettier:fix",
     "clean": "rm -rf dist '*.tsbuildinfo'",
-    "build": "yarn build:base --no-emit-types && yarn build:less-colors",
-    "build:dist": "DATABRICKS_DESIGN_SYSTEM_BUILD_SOURCES=true yarn build",
+    "build": "DATABRICKS_DESIGN_SYSTEM_BUILD_SOURCES=false yarn databricks-pkgr build --no-emit-types && yarn build:less-colors",
+    "build:dist": "DATABRICKS_DESIGN_SYSTEM_BUILD_SOURCES=true yarn databricks-pkgr build --no-emit-types && yarn build:less-colors",
     "emit-types": "databricks-pkgr emit-types",
-    "build:ci": "yarn build:base && yarn build:less-colors",
+    "build:ci": "DATABRICKS_DESIGN_SYSTEM_BUILD_SOURCES=true databricks-pkgr build && yarn build:less-colors",
     "build:deps": "yarn workspaces foreach -piR --topological-dev --from @databricks/design-system --exclude @databricks/design-system run build",
-    "build:base": "databricks-pkgr build",
     "build:less-colors": "swc-node ./scripts/less_color_vars_generation.ts",
     "watch": "echo \"\n*******************\nyarn watch is no longer needed for $npm_package_name. Watching is done by the dev-proxy server automatically.\n*******************\n\"; exit 1",
     "gocx-codegen": "../js/scripts/bin/gocx-codegen",
@@ -125,6 +124,7 @@
     "@emotion/cache": "^11.11.0",
     "@emotion/react": "^11.11.3",
     "@faker-js/faker": "^6.0.0-alpha.6",
+    "@jest/globals": "^29.3.1",
     "@jest/types": "^29.3.1",
     "@radix-ui/react-switch": "^1.0.0",
     "@svgr/cli": "^8.1.0",
@@ -138,7 +138,7 @@
     "@types/jest": "^29.2.4",
     "@types/jscodeshift": "^0.11.2",
     "@types/lodash": "^4.17.14",
-    "@types/node": "^16.0.0",
+    "@types/node": "20.15.0",
     "@types/react": "^17.0.50",
     "@types/react-dom": "^17.0.17",
     "@types/react-resizable": "^3.0.3",
@@ -170,7 +170,7 @@
     "resize-observer-polyfill": "^1.5.1",
     "style-loader": "^3.3.1",
     "tsconfig-paths": "^3.9.0",
-    "typescript": "^5.5.4",
+    "typescript": "^5.7.3",
     "usehooks-ts": "^2.9.1",
     "webpack": "^5.75.0",
     "webpack-merge": "^5.8.0"
@@ -216,7 +216,7 @@
     "react-day-picker": "^8.10.1",
     "react-hook-form": "^7.36.0",
     "react-resizable": "^3.0.4",
-    "tslib": "^2.6.3"
+    "tslib": "^2.8.1"
   },
   "stableVersion": "1.7.0"
 }

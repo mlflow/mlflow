@@ -6,11 +6,8 @@ fastai>=2.4.1
 # TODO: Remove `<3.8` once we bump the minimim supported python version of MLflow to 3.9.
 spacy>=3.3.0,<3.8
 # Required by mlflow.tensorflow
-tensorflow>=2.10.0
-# tensorflow-macos>=2.10.0  # Comment out the line above and uncomment this line if setting up dev
-                            # environment on local ARM macOS.
-                            # Only do this for the purpose of setting up the dev environment, do not
-                            # commit this change to the repo.
+tensorflow>=2.10.0; platform_system!="Darwin" or platform_machine!="arm64"
+tensorflow-macos>=2.10.0; platform_system=="Darwin" and platform_machine=="arm64"
 # Required by mlflow.pytorch
 torch>=1.11.0
 torchvision>=0.12.0

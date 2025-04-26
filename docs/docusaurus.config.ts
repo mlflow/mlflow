@@ -114,7 +114,7 @@ const config: Config = {
           label: "for GenAI Apps & Agents",
         },
         {
-          to: `${apiReferencePrefix()}api_reference/`,
+          to: `${apiReferencePrefix()}api_reference/index.html`,
           position: "left",
           label: "API Reference",
         },

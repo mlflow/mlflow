@@ -1,7 +1,7 @@
 import datetime
-import importlib
 import json
 import os
+import subprocess
 import sys
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from unittest import mock
@@ -1098,10 +1098,6 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
     _FunctionPythonModel.__init_subclass__()
     assert mock_warning.call_count == 0
 
-    # Check import does not trigger any warning (from builtin sub-classes)
-    importlib.reload(mlflow.pyfunc.model)
-    assert mock_warning.call_count == 0
-
     # Subclass of ChatModel should not warn (exception to the rule)
     class ChatModelSubclass(ChatModel):
         def predict(self, model_input: list[ChatMessage], params: Optional[ChatParams] = None):
@@ -1120,3 +1116,54 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
             pass
 
     assert mock_warning.call_count == 0
+
+    # Check import does not trigger any warning (from builtin sub-classes)
+    # Note: DO NOT USE importlib.reload as classes in the reloaded
+    # module are different than original ones, which could cause unintended
+    # side effects in other tests.
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-W",
+            "error::UserWarning:mlflow.pyfunc.model",
+            "-c",
+            "import mlflow.pyfunc.model",
+        ]
+    )
+
+
+def test_load_context_type_hint():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            self.context_loaded = True
+
+        def predict(self, model_input: list[str], params=None) -> list[str]:
+            assert getattr(self, "context_loaded", False), "load_context was not executed"
+            return model_input
+
+    input_example = ["Hello", "World"]
+    signature = infer_signature(input_example, input_example)
+
+    with mlflow.start_run() as run:
+        with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
+            mlflow.pyfunc.log_model(
+                "model",
+                python_model=MyModel(),
+                input_example=input_example,
+                signature=signature,
+            )
+        assert not any(
+            "Failed to run the predict function on input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
+        model_uri = f"runs:/{run.info.run_id}/model"
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+    underlying_model = pyfunc_model._model_impl.python_model
+    assert getattr(underlying_model, "context_loaded", False), (
+        "load_context was not called as expected."
+    )
+
+    new_data = ["New", "Data"]
+    prediction = pyfunc_model.predict(new_data)
+    assert prediction == new_data

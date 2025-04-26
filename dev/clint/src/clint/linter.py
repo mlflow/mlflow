@@ -384,7 +384,7 @@ class Linter(ast.NodeVisitor):
                     ),
                 )
 
-            if self._is_at_top_level():
+            if self._is_at_top_level() and not self.in_TYPE_CHECKING:
                 self._check_forbidden_top_level_import(node, root_module)
 
         self.generic_visit(node)
@@ -410,7 +410,7 @@ class Linter(ast.NodeVisitor):
                         ),
                     )
 
-        if self._is_at_top_level():
+        if self._is_at_top_level() and not self.in_TYPE_CHECKING:
             self._check_forbidden_top_level_import(node, node.module)
 
         self.generic_visit(node)
@@ -419,7 +419,9 @@ class Linter(ast.NodeVisitor):
         self, node: Union[ast.Import, ast.ImportFrom], module: str
     ) -> None:
         for file_pat, libs in self.config.forbidden_top_level_imports.items():
-            if fnmatch.fnmatch(str(self.path), file_pat) and module in libs:
+            if fnmatch.fnmatch(str(self.path), file_pat) and any(
+                module.startswith(lib) for lib in libs
+            ):
                 self._check(
                     Location.from_node(node),
                     rules.ForbiddenTopLevelImport(module=module),
@@ -514,11 +516,7 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
     if type_ != "code":
         return []
 
-    lines = cell.get("source")
-    if not lines:
-        return []
-
-    src = "\n".join(lines)
+    src = "\n".join(cell.get("source", []))
     try:
         tree = ast.parse(src)
     except SyntaxError:
@@ -527,7 +525,13 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
 
     linter = Linter(path=path, config=config, ignore=ignore_map(src), cell=index)
     linter.visit(tree)
-    return linter.violations
+    violations = linter.violations
+
+    if not src.strip():
+        violations.append(
+            Violation(rules.EmptyNotebookCell(), path, lineno=1, col_offset=1, cell=index)
+        )
+    return violations
 
 
 def lint_file(path: Path, config: Config) -> list[Violation]:

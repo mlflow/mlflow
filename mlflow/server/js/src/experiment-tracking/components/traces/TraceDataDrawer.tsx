@@ -135,7 +135,7 @@ export const TraceDataDrawer = ({
             image={<DangerIcon />}
             description={
               <FormattedMessage
-                defaultMessage="An error occurred while attemptying to fetch the trace data. Please wait a moment and try again."
+                defaultMessage="An error occurred while attempting to fetch the trace data. Please wait a moment and try again."
                 description="Experiment page > traces data drawer > error state description"
               />
             }
@@ -196,7 +196,7 @@ export const TraceDataDrawer = ({
     >
       <Drawer.Content
         componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracedatadrawer.tsx_222"
-        width="85vw"
+        width="90vw"
         title={title}
         expandContentToFullHeight
       >

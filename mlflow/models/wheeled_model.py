@@ -234,6 +234,7 @@ class WheeledModel:
                     "-r",
                     pip_requirements_path,
                     "--no-cache-dir",
+                    "--progress-bar=off",
                 ],
                 check=True,
                 stdout=subprocess.PIPE,

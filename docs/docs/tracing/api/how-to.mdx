@@ -21,7 +21,7 @@ Jupyter integration is available in **MLflow 2.20 and above**
 ![MLflow Trace UI in Jupyter Notebook](/images/llms/tracing/jupyter-trace-ui.png)
 
 
-The trace UI is also available within Jupyter notebooks! 
+The trace UI is also available within Jupyter notebooks!
 This feature requires using an [MLflow Tracking Server](/tracking/server), as
 this is where the UI assets are fetched from. To get started, simply ensure that the MLflow
 Tracking URI is set to your tracking server (e.g. `mlflow.set_tracking_uri("http://localhost:5000")`).
@@ -205,3 +205,11 @@ with mlflow.start_span(name="foo") as span:
 ```
 
 Note that the async logging does not fully eliminate the performance overhead. Some backend calls still need to be made synchronously and there are other factors such as data serialization. However, async logging can significantly reduce the overall overhead of logging traces, empirically about ~80% for typical workloads.
+
+The following configurations are available for async logging:
+
+| Environment Variable | Description | Default Value |
+|----------------------|-------------|---------------|
+|`MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`|The maximum number of worker threads to use for async trace logging.|`10`|
+|`MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE`|The maximum number of traces that can be queued for logging. Traces will be discarded if the queue is full.|`1000`|
+|`MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`|Timeout in seconds for retrying failed trace logging. Namely, failed traces will be retried up to this timeout with backoff, after which they will be discarded.|`60`|

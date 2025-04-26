@@ -145,45 +145,33 @@ mlflow.end_run()
           tab={<FormattedMessage defaultMessage="Classical ML" description="Example text snippet for classical ML" />}
           key="classical-ml"
         >
-          <CodeSnippet
-            style={{ padding: '5px', height: snippetHeight }}
-            language="python"
-            theme={codeSnippetTheme}
-            actions={
-              <div
-                style={{
-                  marginTop: theme.spacing.sm,
-                  marginRight: theme.spacing.md,
-                }}
-              >
-                <CopyButton copyText={classical_ml_text} showLabel={false} icon={<CopyIcon />} />
-              </div>
-            }
-          >
-            {classical_ml_text}
-          </CodeSnippet>
+          <div style={{ position: 'relative' }}>
+            <CodeSnippet style={{ padding: '5px', height: snippetHeight }} language="python" theme={codeSnippetTheme}>
+              {classical_ml_text}
+            </CodeSnippet>
+            <CopyButton
+              copyText={classical_ml_text}
+              showLabel={false}
+              icon={<CopyIcon />}
+              style={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
+            />
+          </div>
         </LegacyTabPane>
         <LegacyTabPane
           tab={<FormattedMessage defaultMessage="LLM" description="Example text snippet for LLM" />}
           key="llm"
         >
-          <CodeSnippet
-            style={{ padding: '5px', height: snippetHeight }}
-            language="python"
-            theme={codeSnippetTheme}
-            actions={
-              <div
-                style={{
-                  marginTop: theme.spacing.sm,
-                  marginRight: theme.spacing.md,
-                }}
-              >
-                <CopyButton copyText={llm_text} showLabel={false} icon={<CopyIcon />} />
-              </div>
-            }
-          >
-            {llm_text}
-          </CodeSnippet>
+          <div style={{ position: 'relative' }}>
+            <CodeSnippet style={{ padding: '5px', height: snippetHeight }} language="python" theme={codeSnippetTheme}>
+              {llm_text}
+            </CodeSnippet>
+            <CopyButton
+              copyText={llm_text}
+              showLabel={false}
+              icon={<CopyIcon />}
+              style={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
+            />
+          </div>
         </LegacyTabPane>
       </LegacyTabs>
     </Modal>

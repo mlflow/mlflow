@@ -4,7 +4,7 @@ import { ExperimentViewRuns, ExperimentViewRunsProps } from './ExperimentViewRun
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { createExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { render, screen, waitFor } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { setupServer } from '../../../../../common/utils/setup-msw';
@@ -21,12 +21,16 @@ const WAIT_FOR_TIMEOUT = 10_000;
 
 // Enable feature flags
 jest.mock('../../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
+    '../../../../../common/utils/FeatureUtils',
+  ),
 }));
 
 // Mock rows preparation function to enable contract test
 jest.mock('../../utils/experimentPage.row-utils', () => {
-  const module = jest.requireActual('../../utils/experimentPage.row-utils');
+  const module = jest.requireActual<typeof import('../../utils/experimentPage.row-utils')>(
+    '../../utils/experimentPage.row-utils',
+  );
   return {
     ...module,
     useExperimentRunRows: jest.fn(module.useExperimentRunRows),

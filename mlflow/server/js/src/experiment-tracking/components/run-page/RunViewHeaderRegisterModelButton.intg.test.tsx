@@ -122,6 +122,7 @@ describe('RunViewHeaderRegisterModelButton integration', () => {
       'testRunUuid',
       [],
       expect.anything(),
+      undefined,
     );
   });
 });
