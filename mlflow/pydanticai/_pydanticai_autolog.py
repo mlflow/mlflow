@@ -25,7 +25,8 @@ from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _session_spans: dict[str, tuple[Any, Any]] = {}
-
+_GLOBAL_SESSION_KEY = "__GLOBAL_SESSION__"
+_SESSION_NAME: str = "PydanticAI"
 _logger = logging.getLogger(__name__)
 FLAVOUR_NAME: str = "pydanticai"
 
@@ -41,21 +42,37 @@ def _patched_end_run(original, *args, **kwargs):
     return original(*status_args, **kwargs)
 
 
-# TODO: Avoid creating new runs for each tracing
-def _get_or_create_session_span():
+def _get_or_create_session_span() -> None:
     run = mlflow.active_run()
-    if run is None:
-        mlflow.start_run()
-        atexit.register(mlflow.end_run)
-        run = mlflow.active_run()
-    run_id = run.info.run_id
-    if run_id not in _session_spans:
-        client = mlflow.MlflowClient()
-        span = start_client_span_or_trace(
-            client, name="PydanticAI Session", span_type=SpanType.CHAIN, inputs={}
+    session_key = run.info.run_id if run else _GLOBAL_SESSION_KEY
+
+    if session_key in _session_spans:
+        return
+
+    client = mlflow.MlflowClient()
+    span = start_client_span_or_trace(
+        client,
+        name=f"{_SESSION_NAME}",
+        span_type=SpanType.CHAIN,
+        inputs={},
+    )
+    token = set_span_in_context(span)
+    _session_spans[session_key] = (span, token)
+
+    if run:
+        InMemoryTraceManager().get_instance().set_request_metadata(
+            span.request_id, TraceMetadataKey.SOURCE_RUN, run.info.run_id
         )
-        token = set_span_in_context(span)
-        _session_spans[run_id] = (span, token)
+    else:
+
+        def _close_global_session() -> None:
+            _span, _token = _session_spans.pop(_GLOBAL_SESSION_KEY, (None, None))
+            if _token:
+                detach_span_from_context(_token)
+            if _span:
+                end_client_span_or_trace(client, _span, outputs=None)
+
+        atexit.register(_close_global_session)
 
 
 def _start_span(
@@ -92,7 +109,8 @@ async def _patched_run(original: Any, self_obj: Any, *args: Any, **kwargs: Any) 
     mlclient = mlflow.MlflowClient()
 
     inputs = construct_full_inputs(original, self_obj, *args, **kwargs)
-
+    active_run = mlflow.active_run()
+    run_id = active_run.info.run_id if active_run else None
     span = None
     token = None
     if cfg.log_traces:
@@ -101,7 +119,7 @@ async def _patched_run(original: Any, self_obj: Any, *args: Any, **kwargs: Any) 
             name=f"{self_obj.__class__.__name__}.run",
             span_type=SpanType.CHAIN,
             inputs=inputs,
-            run_id=mlflow.active_run().info.run_id if mlflow.active_run() else None,
+            run_id=run_id,
         )
         token = set_span_in_context(span)
 
@@ -267,13 +285,16 @@ async def _patched_mcp_call_tool(original, self_obj, tool_name, arguments):
     if not (cfg and cfg.log_traces):
         return await original(self_obj, tool_name, arguments)
 
+    active_run = mlflow.active_run()
+    run_id = active_run.info.run_id if active_run else None
+
     mlclient = mlflow.MlflowClient()
     span = _start_span(
         mlclient,
         name=f"{self_obj.__class__.__name__}.call_tool",
         span_type=SpanType.TOOL,
         inputs={"tool_name": tool_name, "arguments": arguments},
-        run_id=mlflow.active_run().info.run_id,
+        run_id=run_id,
     )
     try:
         result = await original(self_obj, tool_name, arguments)
@@ -290,14 +311,15 @@ async def _patched_mcp_list_tools(original, self_obj):
 
     if not (cfg and cfg.log_traces):
         return await original(self_obj)
-
+    active_run = mlflow.active_run()
+    run_id = active_run.info.run_id if active_run else None
     mlclient = mlflow.MlflowClient()
     span = _start_span(
         mlclient,
         name=f"{self_obj.__class__.__name__}.list_tools",
         span_type=SpanType.CHAIN,
         inputs={},
-        run_id=mlflow.active_run().info.run_id,
+        run_id=run_id,
     )
     try:
         tools = await original(self_obj)
@@ -315,11 +337,15 @@ def autolog(
     extra_tags: Optional[dict[str, str]] = None,
     disable: bool = False,
     silent: bool = False,
+    session_name: str = _SESSION_NAME,
 ) -> None:
     import pydantic_ai
     from pydantic_ai.mcp import MCPServer
     from pydantic_ai.models.instrumented import InstrumentedModel
     from pydantic_ai.tools import Tool
+
+    global _SESSION_NAME
+    _SESSION_NAME = session_name
 
     if disable:
         return
