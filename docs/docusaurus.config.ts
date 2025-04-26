@@ -105,7 +105,13 @@ const config: Config = {
           type: "docSidebar",
           sidebarId: "docsSidebar",
           position: "left",
-          label: "Docs",
+          label: "for Training Models",
+        },
+        {
+          type: "docSidebar",
+          sidebarId: "genaiSidebar",
+          position: "left",
+          label: "for GenAI Apps & Agents",
         },
         {
           to: `${apiReferencePrefix()}api_reference/`,
