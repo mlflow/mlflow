@@ -211,10 +211,10 @@ const config: Config = {
       "@docusaurus/plugin-client-redirects",
       {
         redirects: [
-          {
-            to: "/tracing",
-            from: ["/llms/tracing"],
-          },
+          // {
+          //   to: "/tracing",
+          //   from: ["/llms/tracing"],
+          // },
           {
             to: "/dataset",
             from: ["/tracking/data-api/index", "/tracking/data-api"],
@@ -223,34 +223,34 @@ const config: Config = {
             to: "/model",
             from: ["/models"],
           },
-          {
-            to: "/tracing/integrations/bedrock",
-            from: ["/llms/bedrock/autologging"],
-          },
+          // {
+          //   to: "/tracing/integrations/bedrock",
+          //   from: ["/llms/bedrock/autologging"],
+          // },
           {
             to: "/getting-started/databricks-trial",
             from: ["/getting-started/community-edition"],
           },
-          {
-            to: "/tracing/integrations/contribute",
-            from: ["/llms/tracing/contribute"],
-          },
-          {
-            to: "/tracing/tutorials/jupyter-trace-demo",
-            from: ["/llms/tracing/notebooks/jupyter-trace-demo"],
-          },
-          {
-            to: "/tracing/tutorials/concept",
-            from: ["/llms/tracing/overview"],
-          },
-          {
-            to: "/tracing/api/search",
-            from: ["/llms/tracing/search-traces"],
-          },
-          {
-            to: "/tracing/tracing-schema",
-            from: ["/llms/tracing/tracing-schema"],
-          },
+          // {
+          //   to: "/tracing/integrations/contribute",
+          //   from: ["/llms/tracing/contribute"],
+          // },
+          // {
+          //   to: "/tracing/tutorials/jupyter-trace-demo",
+          //   from: ["/llms/tracing/notebooks/jupyter-trace-demo"],
+          // },
+          // {
+          //   to: "/tracing/tutorials/concept",
+          //   from: ["/llms/tracing/overview"],
+          // },
+          // {
+          //   to: "/tracing/api/search",
+          //   from: ["/llms/tracing/search-traces"],
+          // },
+          // {
+          //   to: "/tracing/tracing-schema",
+          //   from: ["/llms/tracing/tracing-schema"],
+          // },
           {
             to: "/model-registry",
             from: ["/registry"],
