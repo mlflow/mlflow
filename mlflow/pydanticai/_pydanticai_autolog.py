@@ -7,10 +7,6 @@ from copy import deepcopy
 from dataclasses import asdict
 from typing import Any, AsyncIterator, Optional
 
-import pydantic_ai
-from pydantic_ai.models.instrumented import InstrumentedModel
-from pydantic_ai.tools import Tool
-
 import mlflow
 import mlflow.tracking.fluent as _fluent
 from mlflow.entities import SpanType
@@ -45,6 +41,7 @@ def _patched_end_run(original, *args, **kwargs):
     return original(*status_args, **kwargs)
 
 
+# TODO: Avoid creating new runs for each tracing
 def _get_or_create_session_span():
     run = mlflow.active_run()
     if run is None:
@@ -263,6 +260,54 @@ async def _patched_llm_request_stream(
     _end_span_ok(mlclient, span, outputs=None)
 
 
+async def _patched_mcp_call_tool(original, self_obj, tool_name, arguments):
+    _get_or_create_session_span()
+    cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
+
+    if not (cfg and cfg.log_traces):
+        return await original(self_obj, tool_name, arguments)
+
+    mlclient = mlflow.MlflowClient()
+    span = _start_span(
+        mlclient,
+        name=f"{self_obj.__class__.__name__}.call_tool",
+        span_type=SpanType.TOOL,
+        inputs={"tool_name": tool_name, "arguments": arguments},
+        run_id=mlflow.active_run().info.run_id,
+    )
+    try:
+        result = await original(self_obj, tool_name, arguments)
+    except Exception as e:
+        _end_span_err(mlclient, span, e)
+        raise
+    _end_span_ok(mlclient, span, outputs=result)
+    return result
+
+
+async def _patched_mcp_list_tools(original, self_obj):
+    _get_or_create_session_span()
+    cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
+
+    if not (cfg and cfg.log_traces):
+        return await original(self_obj)
+
+    mlclient = mlflow.MlflowClient()
+    span = _start_span(
+        mlclient,
+        name=f"{self_obj.__class__.__name__}.list_tools",
+        span_type=SpanType.CHAIN,
+        inputs={},
+        run_id=mlflow.active_run().info.run_id,
+    )
+    try:
+        tools = await original(self_obj)
+    except Exception as e:
+        _end_span_err(mlclient, span, e)
+        raise
+    _end_span_ok(mlclient, span, outputs=[t.name for t in tools])
+    return tools
+
+
 @autologging_integration(FLAVOUR_NAME)
 def autolog(
     *,
@@ -271,6 +316,11 @@ def autolog(
     disable: bool = False,
     silent: bool = False,
 ) -> None:
+    import pydantic_ai
+    from pydantic_ai.mcp import MCPServer
+    from pydantic_ai.models.instrumented import InstrumentedModel
+    from pydantic_ai.tools import Tool
+
     if disable:
         return
 
@@ -286,3 +336,6 @@ def autolog(
     if hasattr(InstrumentedModel, "request_stream"):
         safe_patch(FLAVOUR_NAME, InstrumentedModel, "request_stream", _patched_llm_request_stream)
     safe_patch(FLAVOUR_NAME, Tool, "run", _patched_tool_run)
+
+    safe_patch(FLAVOUR_NAME, MCPServer, "call_tool", _patched_mcp_call_tool)
+    safe_patch(FLAVOUR_NAME, MCPServer, "list_tools", _patched_mcp_list_tools)
