@@ -3,9 +3,8 @@ from __future__ import annotations
 import atexit
 import json
 import logging
-from copy import deepcopy
 from dataclasses import asdict
-from typing import Any, AsyncIterator, Optional
+from typing import Any, Callable, Coroutine, TypeVar
 
 import mlflow
 import mlflow.tracking.fluent as _fluent
@@ -24,37 +23,161 @@ from mlflow.tracing.utils import (
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
-_session_spans: dict[str, tuple[Any, Any]] = {}
-_GLOBAL_SESSION_KEY = "__GLOBAL_SESSION__"
-_SESSION_NAME: str = "PydanticAI"
+__all__ = ["autolog"]
+
 _logger = logging.getLogger(__name__)
-FLAVOUR_NAME: str = "pydanticai"
+
+FLAVOUR_NAME = "pydanticai"
+_GLOBAL_SESSION_KEY = "__GLOBAL_SESSION__"
+DEFAULT_SESSION_NAME = "PydanticAI"
+
+_session_spans: dict[str, tuple[LiveSpan, Any]] = {}
+_session_name = DEFAULT_SESSION_NAME
 
 
-def _patched_end_run(original, *args, **kwargs):
-    run = mlflow.active_run()
-    if run and run.info.run_id in _session_spans:
-        span, token = _session_spans.pop(run.info.run_id)
-        detach_span_from_context(token)
-        end_client_span_or_trace(mlflow.MlflowClient(), span, outputs=None)
+def _mlclient() -> mlflow.MlflowClient:
+    return mlflow.MlflowClient()
 
-    status_args = args[:1]
-    return original(*status_args, **kwargs)
+
+def _start_span(
+    *,
+    name: str,
+    span_type: SpanType | str,
+    inputs: dict[str, Any],
+    run_id: str | None = None,
+) -> LiveSpan:
+    """Create a client span, optionally linking it to `run_id`."""
+    span = start_client_span_or_trace(_mlclient(), name=name, span_type=span_type, inputs=inputs)
+    if run_id:
+        InMemoryTraceManager().get_instance().set_request_metadata(
+            span.request_id, TraceMetadataKey.SOURCE_RUN, run_id
+        )
+    return span
+
+
+def _end_span_ok(span: LiveSpan, outputs: Any) -> None:
+    try:
+        end_client_span_or_trace(_mlclient(), span, outputs=outputs)
+    except Exception as exc:
+        _logger.debug("Failed to end span: %s", exc, exc_info=True)
+
+
+def _end_span_err(span: LiveSpan, exc: BaseException) -> None:
+    span.add_event(SpanEvent.from_exception(exc))
+    _mlclient().end_span(span.request_id, span.span_id, status=SpanStatusCode.ERROR)
+
+
+T = TypeVar("T")
+
+
+def _with_span_async(
+    *,
+    span_name: str | Callable[[Any], str],
+    span_type: SpanType | str,
+    capture_inputs: Callable[[tuple[Any, ...], dict[str, Any]], dict[str, Any]],
+) -> Callable[..., Coroutine[Any, Any, T]]:
+    """
+    Returns a function of signature (original, *args, **kwargs) -> Coroutine.
+    """
+
+    async def _wrapper(
+        original: Callable[..., Coroutine[Any, Any, T]],
+        *call_args: Any,
+        **call_kwargs: Any,
+    ) -> T:
+        self_obj, *user_args = call_args
+        cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
+        if not (cfg and cfg.log_traces):
+            return await original(self_obj, *user_args, **call_kwargs)
+
+        # ensure a single session span groups all calls
+        _get_or_create_session_span()
+
+        active_run = mlflow.active_run()
+        run_id = active_run.info.run_id if active_run else None
+
+        # build inputs
+        inputs = capture_inputs(call_args, call_kwargs)
+
+        # compute actual span name
+        name = span_name(self_obj) if callable(span_name) else span_name
+
+        span = _start_span(name=name, span_type=span_type, inputs=inputs, run_id=run_id)
+        token = set_span_in_context(span)
+
+        try:
+            result = await original(self_obj, *user_args, **call_kwargs)
+        except Exception as exc:
+            _end_span_err(span, exc)
+            raise
+        finally:
+            detach_span_from_context(token)
+
+        # close span normally
+        _end_span_ok(span, result)
+        return result
+
+    return _wrapper
+
+
+def _with_span_sync(
+    *,
+    span_name: str | Callable[[Any], str],
+    span_type: SpanType | str,
+    capture_inputs: Callable[[tuple[Any, ...], dict[str, Any]], dict[str, Any]],
+) -> Callable[..., T]:
+    """
+    Returns a function of signature (original, *args, **kwargs) -> T.
+    """
+
+    def _wrapper(
+        original: Callable[..., T],
+        *call_args: Any,
+        **call_kwargs: Any,
+    ) -> T:
+        self_obj, *user_args = call_args
+        cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
+        if not (cfg and cfg.log_traces):
+            return original(self_obj, *user_args, **call_kwargs)
+
+        _get_or_create_session_span()
+
+        active_run = mlflow.active_run()
+        run_id = active_run.info.run_id if active_run else None
+
+        inputs = capture_inputs(call_args, call_kwargs)
+        name = span_name(self_obj) if callable(span_name) else span_name
+
+        span = _start_span(name=name, span_type=span_type, inputs=inputs, run_id=run_id)
+        token = set_span_in_context(span)
+
+        try:
+            result = original(self_obj, *user_args, **call_kwargs)
+        except Exception as exc:
+            _end_span_err(span, exc)
+            raise
+        finally:
+            detach_span_from_context(token)
+
+        _end_span_ok(span, result)
+        return result
+
+    return _wrapper
 
 
 def _get_or_create_session_span() -> None:
+    """
+    Ensure a *single* session-level chain span exists for the current process
+    (or for the active MLflow run).  This groups all nested agent calls so
+    they appear under one trace in the UI.
+    """
     run = mlflow.active_run()
     session_key = run.info.run_id if run else _GLOBAL_SESSION_KEY
-
     if session_key in _session_spans:
         return
 
-    client = mlflow.MlflowClient()
     span = start_client_span_or_trace(
-        client,
-        name=f"{_SESSION_NAME}",
-        span_type=SpanType.CHAIN,
-        inputs={},
+        _mlclient(), name=_session_name, span_type=SpanType.CHAIN, inputs={}
     )
     token = set_span_in_context(span)
     _session_spans[session_key] = (span, token)
@@ -63,305 +186,239 @@ def _get_or_create_session_span() -> None:
         InMemoryTraceManager().get_instance().set_request_metadata(
             span.request_id, TraceMetadataKey.SOURCE_RUN, run.info.run_id
         )
+
     else:
 
         def _close_global_session() -> None:
-            _span, _token = _session_spans.pop(_GLOBAL_SESSION_KEY, (None, None))
-            if _token:
-                detach_span_from_context(_token)
+            _span, _tok = _session_spans.pop(_GLOBAL_SESSION_KEY, (None, None))
+            if _tok:
+                detach_span_from_context(_tok)
             if _span:
-                end_client_span_or_trace(client, _span, outputs=None)
+                end_client_span_or_trace(_mlclient(), _span, outputs=None)
 
         atexit.register(_close_global_session)
 
 
-def _start_span(
-    mlclient: mlflow.MlflowClient,
-    name: str,
-    span_type: str,
-    inputs: dict[str, Any],
-    run_id: Optional[str],
-) -> LiveSpan:
-    span = start_client_span_or_trace(mlclient, name=name, span_type=span_type, inputs=inputs)
-    if run_id:
-        InMemoryTraceManager().get_instance().set_request_metadata(
-            span.request_id, TraceMetadataKey.SOURCE_RUN, run_id
-        )
-    return span
-
-
-def _end_span_ok(mlclient: mlflow.MlflowClient, span: LiveSpan, outputs: Any) -> None:
-    try:
-        end_client_span_or_trace(mlclient, span, outputs=outputs)
-    except Exception as e:
-        _logger.debug("ending span failed: %s", e, exc_info=True)
-
-
-def _end_span_err(mlclient: mlflow.MlflowClient, span: LiveSpan, exc: BaseException) -> None:
-    span.add_event(SpanEvent.from_exception(exc))
-    mlclient.end_span(span.request_id, span.span_id, status=SpanStatusCode.ERROR)
-
-
-async def _patched_run(original: Any, self_obj: Any, *args: Any, **kwargs: Any) -> Any:
-    _get_or_create_session_span()
-
-    cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
-    mlclient = mlflow.MlflowClient()
-
-    inputs = construct_full_inputs(original, self_obj, *args, **kwargs)
-    active_run = mlflow.active_run()
-    run_id = active_run.info.run_id if active_run else None
-    span = None
-    token = None
-    if cfg.log_traces:
-        span = _start_span(
-            mlclient,
-            name=f"{self_obj.__class__.__name__}.run",
-            span_type=SpanType.CHAIN,
-            inputs=inputs,
-            run_id=run_id,
-        )
-        token = set_span_in_context(span)
-
-    try:
-        result = await original(self_obj, *args, **kwargs)
-    except Exception as e:
-        if token:
-            detach_span_from_context(token)
-        if span:
-            _end_span_err(mlclient, span, e)
-        raise
-
-    if token:
+def _patched_end_run(original_end_run, status: str | None = None, *args, **kwargs):
+    """
+    Finish the session span *before* MLflow ends the run so the UI renders
+    everything hierarchically.
+    """
+    run = mlflow.active_run()
+    if run and run.info.run_id in _session_spans:
+        span, token = _session_spans.pop(run.info.run_id)
         detach_span_from_context(token)
-    if span:
-        _end_span_ok(mlclient, span, outputs=result)
-    return result
+        end_client_span_or_trace(_mlclient(), span, outputs=None)
+    return original_end_run(status, *args, **kwargs)
 
 
-def _patched_run_sync(original, *args, **kwargs):
-    _get_or_create_session_span()
+def _capture_inputs(original: Callable, self_obj: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    """Helper passed into decorators so we *consistently* derive span.inputs."""
+    return construct_full_inputs(original, self_obj, *args, **kwargs)
 
-    cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
-    mlclient = mlflow.MlflowClient()
-    active = mlflow.active_run()
-    run_id = active.info.run_id if active else None
-    self_obj, *call_args = args
-    inputs = construct_full_inputs(original, self_obj, *call_args, **kwargs)
 
-    span = None
-    token = None
-    if cfg.log_traces:
-        span = _start_span(
-            mlclient,
-            name=f"{self_obj.__class__.__name__}.run_sync",
+def _patch_agent_methods() -> None:
+    import pydantic_ai
+
+    safe_patch(
+        FLAVOUR_NAME,
+        pydantic_ai.Agent,
+        "run_sync",
+        _with_span_sync(
+            span_name=lambda s: f"{s.__class__.__name__}.run_sync",
             span_type=SpanType.CHAIN,
-            inputs=inputs,
-            run_id=run_id,
-        )
-        token = set_span_in_context(span)
-    try:
-        output = original(self_obj, *call_args, **kwargs)
-    except Exception as e:
-        if token:
-            detach_span_from_context(token)
-        if span:
-            _end_span_err(mlclient, span, e)
-        raise
-    if token:
-        detach_span_from_context(token)
-    if span:
-        _end_span_ok(mlclient, span, outputs=output)
-    return output
+            capture_inputs=lambda args, kwargs: construct_full_inputs(
+                pydantic_ai.Agent.run_sync, args[0], *args[1:], **kwargs
+            ),
+        ),
+    )
+    safe_patch(
+        FLAVOUR_NAME,
+        pydantic_ai.Agent,
+        "run",
+        _with_span_async(
+            span_name=lambda s: f"{s.__class__.__name__}.run",
+            span_type=SpanType.CHAIN,
+            capture_inputs=lambda args, kwargs: construct_full_inputs(
+                pydantic_ai.Agent.run, args[0], *args[1:], **kwargs
+            ),
+        ),
+    )
 
 
-async def _patched_tool_run(original, self_obj, message, run_context, tracer):
-    cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
-    if not cfg.log_traces:
-        return await original(self_obj, message, run_context, tracer)
+def _patch_instrumented_model() -> None:
+    from pydantic_ai.models.instrumented import InstrumentedModel
 
-    mlclient = mlflow.MlflowClient()
-    tool_name = self_obj.name
+    safe_patch(
+        FLAVOUR_NAME,
+        InstrumentedModel,
+        "request",
+        _with_span_async(
+            span_name=lambda s: (
+                f"""{
+                    getattr(
+                        getattr(s, "wrapped", s),
+                        "provider_name",
+                        getattr(s, "wrapped", s).__class__.__name__,
+                    )
+                }.request"""
+            ),
+            span_type=SpanType.LLM,
+            capture_inputs=lambda args, kwargs: construct_full_inputs(
+                InstrumentedModel.request, args[0], *args[1:], **kwargs
+            ),
+        ),
+    )
 
-    # TODO: remove this when we have a better way to get the inputs
-    inputs = {
-        "tool_name": self_obj.name,
-        "tool_call_id": message.tool_call_id,
-        "tool_arguments": json.loads(message.args_as_json_str()),
-        "run_context": {
-            "model_class": run_context.model.__class__.__name__,
-            "model_name": getattr(run_context.model, "model_name", None),
-            "prompt": run_context.prompt,
-            "messages": [asdict(m) for m in run_context.messages],
-            "usage": {
-                "request_tokens": run_context.usage.request_tokens,
-                "response_tokens": run_context.usage.response_tokens,
-                "total_tokens": run_context.usage.total_tokens,
-                **(
-                    {"details": run_context.usage.details}
-                    if getattr(run_context.usage, "details", None) is not None
-                    else {}
+    if hasattr(InstrumentedModel, "request_stream"):
+
+        async def _request_stream_wrapper(original, self_obj, *args, **kwargs):
+            cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
+            if not (cfg and cfg.log_traces):
+                async for item in original(self_obj, *args, **kwargs):
+                    yield item
+                return
+
+            inputs = construct_full_inputs(original, self_obj, *args, **kwargs)
+            span = _start_span(
+                name=(
+                    f"""{
+                        getattr(
+                            getattr(self_obj, "wrapped", self_obj),
+                            "provider_name",
+                            self_obj.__class__.__name__,
+                        )
+                    }.request_stream"""
                 ),
+                span_type=SpanType.LLM,
+                inputs=inputs,
+            )
+            try:
+                async for chunk in original(self_obj, *args, **kwargs):
+                    yield chunk
+            except Exception as exc:
+                _end_span_err(span, exc)
+                raise
+            _end_span_ok(span, outputs=None)
+
+        safe_patch(FLAVOUR_NAME, InstrumentedModel, "request_stream", _request_stream_wrapper)
+
+
+def _patch_tool_run() -> None:
+    from pydantic_ai.tools import Tool
+
+    async def _tool_run_wrapper(original, self_obj, message, run_context, tracer):
+        cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
+        if not (cfg and cfg.log_traces):
+            return await original(self_obj, message, run_context, tracer)
+
+        inputs = {
+            "tool_name": self_obj.name,
+            "tool_call_id": message.tool_call_id,
+            "tool_arguments": json.loads(message.args_as_json_str()),
+            "run_context": {
+                "model_class": run_context.model.__class__.__name__,
+                "model_name": getattr(run_context.model, "model_name", None),
+                "prompt": run_context.prompt,
+                "messages": [asdict(m) for m in run_context.messages],
+                "usage": {
+                    "request_tokens": run_context.usage.request_tokens,
+                    "response_tokens": run_context.usage.response_tokens,
+                    "total_tokens": run_context.usage.total_tokens,
+                    **(
+                        {"details": run_context.usage.details}
+                        if getattr(run_context.usage, "details", None) is not None
+                        else {}
+                    ),
+                },
+                "retry": run_context.retry,
+                "run_step": run_context.run_step,
             },
-            "retry": run_context.retry,
-            "run_step": run_context.run_step,
-        },
-    }
-    span = start_client_span_or_trace(
-        mlclient, name=f"{tool_name}", span_type=SpanType.TOOL, inputs=inputs
-    )
-    try:
-        result = await original(self_obj, message, run_context, tracer)
-    except Exception as e:
-        span.add_event(SpanEvent.from_exception(e))
-        mlclient.end_span(span.request_id, span.span_id, status=SpanStatusCode.ERROR)
-        raise
-    end_client_span_or_trace(mlclient, span, outputs=result)
-    return result
+        }
+        span = _start_span(name=self_obj.name, span_type=SpanType.TOOL, inputs=inputs)
+        try:
+            result = await original(self_obj, message, run_context, tracer)
+        except Exception as exc:
+            _end_span_err(span, exc)
+            raise
+        _end_span_ok(span, result)
+        return result
+
+    safe_patch(FLAVOUR_NAME, Tool, "run", _tool_run_wrapper)
 
 
-async def _patched_llm_request(original: Any, self_obj: Any, *args: Any, **kwargs: Any) -> Any:
-    cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
-    if not (cfg and cfg.log_traces):
-        return await original(self_obj, *args, **kwargs)
+def _patch_mcp_server() -> None:
+    from pydantic_ai.mcp import MCPServer
 
-    mlclient = mlflow.MlflowClient()
-    inputs = construct_full_inputs(original, self_obj, *args, **kwargs)
-    if hasattr(self_obj, "agent"):
-        inputs["_state"] = deepcopy(getattr(self_obj.agent, "_state", {}))
-
-    backend = getattr(self_obj, "wrapped", self_obj)
-    backend_name = backend.__class__.__name__
-    span = _start_span(
-        mlclient,
-        name=f"{backend_name}.request",
-        span_type=SpanType.LLM,
-        inputs=inputs,
-        run_id=None,
-    )
-    try:
-        result = await original(self_obj, *args, **kwargs)
-    except Exception as e:
-        _end_span_err(mlclient, span, e)
-        raise
-    _end_span_ok(mlclient, span, outputs=result)
-    return result
-
-
-async def _patched_llm_request_stream(
-    original: Any, self_obj: Any, *args: Any, **kwargs: Any
-) -> AsyncIterator[Any]:
-    cfg = AutoLoggingConfig.get()
-    if not (cfg and cfg.log_traces):
-        async for chunk in original(self_obj, *args, **kwargs):
-            yield chunk
-        return
-
-    mlclient = mlflow.MlflowClient()
-    inputs = construct_full_inputs(original, self_obj, *args, **kwargs)
-    if hasattr(self_obj, "agent"):
-        inputs["_state"] = deepcopy(getattr(self_obj.agent, "_state", {}))
-
-    span = _start_span(
-        mlclient,
-        name=f"{self_obj.__class__.__name__}.request_stream",
-        span_type=SpanType.LLM,
-        inputs=inputs,
-        run_id=None,
-    )
-    try:
-        async for chunk in original(self_obj, *args, **kwargs):
-            yield chunk
-    except Exception as e:
-        _end_span_err(mlclient, span, e)
-        raise
-    _end_span_ok(mlclient, span, outputs=None)
-
-
-async def _patched_mcp_call_tool(original, self_obj, tool_name, arguments):
-    _get_or_create_session_span()
-    cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
-
-    if not (cfg and cfg.log_traces):
-        return await original(self_obj, tool_name, arguments)
-
-    active_run = mlflow.active_run()
-    run_id = active_run.info.run_id if active_run else None
-
-    mlclient = mlflow.MlflowClient()
-    span = _start_span(
-        mlclient,
-        name=f"{self_obj.__class__.__name__}.call_tool",
+    _mcp_call_tool_decorator = _with_span_async(
+        span_name=lambda self: f"{self.__class__.__name__}.call_tool",
         span_type=SpanType.TOOL,
-        inputs={"tool_name": tool_name, "arguments": arguments},
-        run_id=run_id,
+        capture_inputs=lambda args, kwargs: {
+            "tool_name": args[1],
+            "arguments": args[2],
+        },
     )
-    try:
-        result = await original(self_obj, tool_name, arguments)
-    except Exception as e:
-        _end_span_err(mlclient, span, e)
-        raise
-    _end_span_ok(mlclient, span, outputs=result)
-    return result
 
+    async def _call_tool_patch(original, *args, **kwargs):
+        _get_or_create_session_span()
+        return await _mcp_call_tool_decorator(original, *args, **kwargs)
 
-async def _patched_mcp_list_tools(original, self_obj):
-    _get_or_create_session_span()
-    cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
+    safe_patch(FLAVOUR_NAME, MCPServer, "call_tool", _call_tool_patch)
 
-    if not (cfg and cfg.log_traces):
-        return await original(self_obj)
-    active_run = mlflow.active_run()
-    run_id = active_run.info.run_id if active_run else None
-    mlclient = mlflow.MlflowClient()
-    span = _start_span(
-        mlclient,
-        name=f"{self_obj.__class__.__name__}.list_tools",
+    _mcp_list_tools_decorator = _with_span_async(
+        span_name=lambda self: f"{self.__class__.__name__}.list_tools",
         span_type=SpanType.CHAIN,
-        inputs={},
-        run_id=run_id,
+        capture_inputs=lambda args, kwargs: {},
     )
-    try:
-        tools = await original(self_obj)
-    except Exception as e:
-        _end_span_err(mlclient, span, e)
-        raise
-    _end_span_ok(mlclient, span, outputs=[t.name for t in tools])
-    return tools
+
+    async def _list_tools_patch(original, *args, **kwargs):
+        _get_or_create_session_span()
+        return await _mcp_list_tools_decorator(original, *args, **kwargs)
+
+    safe_patch(FLAVOUR_NAME, MCPServer, "list_tools", _list_tools_patch)
 
 
 @autologging_integration(FLAVOUR_NAME)
 def autolog(
     *,
     log_traces: bool = True,
-    extra_tags: Optional[dict[str, str]] = None,
+    extra_tags: dict[str, str] | None = None,
     disable: bool = False,
     silent: bool = False,
-    session_name: str = _SESSION_NAME,
+    session_name: str = DEFAULT_SESSION_NAME,
 ) -> None:
-    import pydantic_ai
-    from pydantic_ai.mcp import MCPServer
-    from pydantic_ai.models.instrumented import InstrumentedModel
-    from pydantic_ai.tools import Tool
+    """
+    Enable Pydantic-AI auto-instrumentation for MLflow.
 
-    global _SESSION_NAME
-    _SESSION_NAME = session_name
-
+    Parameters
+    ----------
+    log_traces
+        Toggle collection of MLflow traces/spans.
+    extra_tags
+        (Reserved for future use) – extra tags to attach to every span.
+    disable
+        Bypass instrumentation entirely (convenience flag).
+    silent
+        Currently unused – kept for parity with other MLflow flavours.
+    session_name
+        Human-readable name for the root *session* span.
+    """
     if disable:
+        _logger.info("pydantic-ai autologging disabled by caller")
         return
 
+    global _session_name
+    _session_name = session_name
+
+    # store config once so downstream helpers can access it quickly
     AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
 
     safe_patch(FLAVOUR_NAME, _fluent, "end_run", _patched_end_run)
     safe_patch(FLAVOUR_NAME, mlflow, "end_run", _patched_end_run)
 
-    safe_patch(FLAVOUR_NAME, pydantic_ai.Agent, "run_sync", _patched_run_sync)
-    safe_patch(FLAVOUR_NAME, pydantic_ai.Agent, "run", _patched_run)
+    _patch_agent_methods()
+    _patch_instrumented_model()
+    _patch_tool_run()
+    _patch_mcp_server()
 
-    safe_patch(FLAVOUR_NAME, InstrumentedModel, "request", _patched_llm_request)
-    if hasattr(InstrumentedModel, "request_stream"):
-        safe_patch(FLAVOUR_NAME, InstrumentedModel, "request_stream", _patched_llm_request_stream)
-    safe_patch(FLAVOUR_NAME, Tool, "run", _patched_tool_run)
-
-    safe_patch(FLAVOUR_NAME, MCPServer, "call_tool", _patched_mcp_call_tool)
-    safe_patch(FLAVOUR_NAME, MCPServer, "list_tools", _patched_mcp_list_tools)
+    _logger.debug("Pydantic-AI autologging enabled (traces=%s)", log_traces)
