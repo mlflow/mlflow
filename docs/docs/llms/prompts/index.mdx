@@ -45,7 +45,7 @@ import TabItem from "@theme/TabItem";
 
       :::note
 
-          Prompt template text can contain variables in `{{variable}}` format. These variables can be filled with dynamic content when using the prompt in your GenAI application. MLflow also provides a [utility method](/prompts/#q-can-i-use-prompt-templates-with-frameworks-like-langchain-or-llamaindex)
+          Prompt template text can contain variables in `{{variable}}` format. These variables can be filled with dynamic content when using the prompt in your GenAI application. MLflow also provides a [utility method](/llms/prompts/#q-can-i-use-prompt-templates-with-frameworks-like-langchain-or-llamaindex)
           to convert template into single brace format for frameworks like LangChain or LlamaIndex.
 
       :::
@@ -201,7 +201,7 @@ Key attributes of a Prompt object:
 * `Version Metadata`: Optional key-value pairs for adding metadata to the prompt version. For example, you may use this for tracking the author of the prompt version.
 * `Tags`: Optional key-value pairs assigned at the prompt level (across versions)
 for categorization and filtering. For example, you may add tags for project name, language, etc, which apply to all versions of the prompt.
-* `Alias`: An mutable named reference to the prompt. For example, you can create an alias named `production` to refer to the version used in your production system. See [Aliases](/prompts/cm#aliases) for more details.
+* `Alias`: An mutable named reference to the prompt. For example, you can create an alias named `production` to refer to the version used in your production system. See [Aliases](/llms/prompts/cm#aliases) for more details.
 
 
 ## FAQ
@@ -226,7 +226,7 @@ A: No, prompt versions are immutable once created. To update a prompt, create a 
 
 #### Q: Can I use prompt templates with frameworks like LangChain or LlamaIndex?
 
-A: Yes, you can load prompts from MLflow and use them with any framework. For example, the following example demonstrates how to use a prompt registered in MLflow with LangChain. Also refer to [Logging Prompts with LangChain](/prompts/run-and-model#example-1-logging-prompts-with-langchain) for more details.
+A: Yes, you can load prompts from MLflow and use them with any framework. For example, the following example demonstrates how to use a prompt registered in MLflow with LangChain. Also refer to [Logging Prompts with LangChain](/llms/prompts/run-and-model#example-1-logging-prompts-with-langchain) for more details.
 
 ```python
 import mlflow

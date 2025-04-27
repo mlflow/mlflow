@@ -7,9 +7,11 @@ sidebar_label: How judges work
 
 This article explains how :re[agent-evaluation] assesses your AI application’s quality, cost, and latency and provides insights to guide your quality improvements and cost and latency optimizations. It covers the following:
 
-- [How quality is assessed by LLM judges](#quality).
-- [How cost and latency are assessed](#cost-latency).
-- [How metrics are aggregated at the level of an MLflow run for quality, cost, and latency](#metric-calculation).
+- How quality is assessed by LLM judges
+- How cost and latency are assessed
+- How metrics are aggregated at the level of an MLflow run for quality, cost, and latency
+
+## <span style={{color: "red"}}>TODO - fix above LINKs</span>
 
 For reference information about each of the built-in LLM judges, see [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/llm-judge-reference.md).
 
@@ -17,10 +19,11 @@ For reference information about each of the built-in LLM judges, see [\_](https:
 
 :re[agent-evaluation] assesses quality using LLM judges in two steps:
 
-1. LLM judges assess specific quality aspects (such as correctness and groundedness) for each row. For details, see [\_](#step-1).
-1. :re[agent-evaluation] combines individual judge’s assessments into an overall pass/fail score and root cause for any failures. For details, see [\_](#step-2).
+1. LLM judges assess specific quality aspects (such as correctness and groundedness) for each row. For details, see TODO LINK.
+1. :re[agent-evaluation] combines individual judge’s assessments into an overall pass/fail score and root cause for any failures. For details, see TODO LINK.
 
-For LLM judge trust and safety information, see [\_](#llm-judge-trust).
+For LLM judge trust and safety information, see LINK..
+## <span style={{color: "red"}}>TODO - fix above LINK</span>
 
 :::note
 
@@ -34,7 +37,7 @@ For every input row, :re[agent-evaluation] uses a suite of LLM judges to assess 
 
 ![sample-judge-row](https://docs.databricks.com/aws/en/assets/images/generative-ai/sample-judge-row.png)
 
-For details about the LLM judges used, see [\_](#judges).
+For details about the LLM judges used, see [here](/llms/evaluate-monitor/quality/built-in-judges/).
 
 ### <a id="step-2"></a>Step 2: Combine LLM judge assessments to identify the root cause of quality issues
 

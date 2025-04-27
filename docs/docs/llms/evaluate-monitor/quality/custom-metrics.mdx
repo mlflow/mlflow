@@ -14,9 +14,9 @@ This guide explains how to use custom metrics for evaluating AI applications wit
 
 Custom metrics are written in Python and give developers full control to evaluate traces through an AI application. The following metrics are supported:
 
-- [Pass/fail metrics](#pass-fail): `"yes" or "no"` string values render as “Pass” or “Fail” in the UI.
-- [Numeric metrics](#numeric): Ordinal values: integers or floats.
-- [Boolean metrics](#boolean): `True` or `False`.
+- Pass/fail metrics: `"yes" or "no"` string values render as "Pass" or "Fail" in the UI.
+- Numeric metrics: Ordinal values: integers or floats.
+- Boolean metrics: `True` or `False`.
 
 Custom metrics can use:
 
@@ -202,7 +202,7 @@ with mlflow.start_run(run_name="response_similarity"):
 
 ## <a id="boolean"></a>Boolean metrics
 
-Boolean metrics evaluate to `True` or `False`. These are useful for binary decisions, such as checking whether a response meets a simple heuristic. If you want the metric to have a special pass/fail treatment in the UI, see [pass/fail metrics](#pass-fail).
+Boolean metrics evaluate to `True` or `False`. These are useful for binary decisions, such as checking whether a response meets a simple heuristic. If you want the metric to have a special pass/fail treatment in the UI, see pass/fail metrics.
 
 ### Example: Check input requests are properly formatted
 
@@ -445,11 +445,7 @@ Custom metrics will be provided with `tool_calls` which are a list of [ToolCallI
 
 ### Example: Asserting the right tool is called
 
-:::note
-
-This example is not copy-pastable as it does not define the LangGraph agent. See the [attached notebook](#notebook) for the fully-runnable example.
-
-:::
+This example is not copy-pastable as it does not define the LangGraph agent. See the attached notebook for the fully-runnable example.
 
 ```python
 import mlflow

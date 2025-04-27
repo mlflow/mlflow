@@ -151,7 +151,7 @@ with mlflow.start_run(run_name="sensitive_topic make_genai_metric"):
 
 :::note
 
-If you do not need per-chunk assessments, Databricks recommends [creating AI judges from guidelines](#custom-judges-guidelines).
+If you do not need per-chunk assessments, Databricks recommends creating AI judges from guidelines.
 
 :::
 
@@ -259,7 +259,7 @@ per_question_results_df[per_question_results_df["response/llm_judged/no_pii/rati
 
 ## <a id="tune-judges"></a>Provide examples to the built-in LLM judges
 
-You can pass domain-specific examples to the built-in judges by providing a few `"yes"` or `"no"` examples for each type of assessment. These examples are referred to as **few-shot** examples and can help the built-in judges align better with domain-specific rating criteria. See [\_](#create-few-shot).
+You can pass domain-specific examples to the built-in judges by providing a few `"yes"` or `"no"` examples for each type of assessment. These examples are referred to as **few-shot** examples and can help the built-in judges align better with domain-specific rating criteria. See TODO LINK.
 
 Databricks recommends providing at least one `"yes"` and one `"no"` example. The best examples are the following:
 
@@ -355,7 +355,7 @@ evaluator_config={"databricks-agent": {"examples_df": examples_df}}
 
 ### <a id="create-few-shot"></a>Create few-shot examples
 
-The following steps are guidelines to create a set of effective [few-shot examples](#tune-judges).
+The following steps are guidelines to create a set of effective few-shot examples.
 
 1. Try to find groups of similar examples that the judge gets wrong.
 1. For each group, pick a single example and adjust the label or justification to reflect the desired behavior. Databricks recommends providing a rationale that explains the rating.

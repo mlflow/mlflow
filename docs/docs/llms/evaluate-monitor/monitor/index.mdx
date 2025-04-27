@@ -34,7 +34,10 @@ After these prerequisites are met, you can view a page summarizing the results g
 1. Click **Experiments** in the sidebar under the **Machine Learning** section.
 1. Click the MLflow experiment associated with your monitor.
 
-   If you are not sure how to find the name of the relevant experiment, follow the instructions in [\_](#get-metadata) to retrieve the experiment ID and run `mlflow.get_experiment(experiment_id=$YOUR_EXPERIMENT_ID)` in your notebook to find the experiment name.
+   If you are not sure how to find the name of the relevant experiment, follow the instructions in LINK to retrieve the experiment ID and run `mlflow.get_experiment(experiment_id=$YOUR_EXPERIMENT_ID)` in your notebook to find the experiment name.
+
+   ## <span style={{color: "red"}}>TODO - fix above LINK</span>
+
 
 1. Click the **Monitoring** tab.
 1. Select your SQL warehouse using the **Choose a SQL Warehouse** dropdown.
@@ -137,7 +140,8 @@ The function returns a `Monitor` object including the following attributes:
 
 - `endpoint_name` - Name of the endpoint being monitored.
 - `monitoring_config` - Configuration for the monitor. See [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring#setup) for configuration parameters.
-- `experiment_id` - The MLflow experiment where the monitoring results are displayed. See [\_](#view).
+- `experiment_id` - The MLflow experiment where the monitoring results are displayed. See LINK.
+- ## <span style={{color: "red"}}>TODO - fix above LINK</span>
 - `evaluated_traces_table` - :re[UC] table containing monitoring evaluation results.
 
 ## Delete a monitor

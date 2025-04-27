@@ -41,7 +41,7 @@ There are two main ways to use the review app:
 
 - For chat with the bot:
   - [Inference tables](https://docs.databricks.com/aws/en/machine-learning/model-serving/inference-tables.md) must be enabled on the endpoint that is serving the agent.
-  - Each human reviewer must have access to the review app workspace or be synced to your :re[Databricks] account with SCIM. See the next section, [\_](#access-review-app).
+  - Each human reviewer must have access to the review app workspace or be synced to your :re[Databricks] account with SCIM. 
 - For labeling sessions:
   - Each human reviewer must have access to the review app workspace.
 
@@ -51,7 +51,7 @@ There are two main ways to use the review app:
 
 - For chat with the bot:
   - [Inference tables](https://docs.databricks.com/aws/en/ai-gateway/inference-tables.md) must be enabled on the endpoint that is serving the agent.
-  - Each human reviewer must have access to the review app workspace or be synced to your :re[Databricks] account with SCIM. See the next section, [\_](#access-review-app).
+  - Each human reviewer must have access to the review app workspace or be synced to your :re[Databricks] account with SCIM. 
 - For labeling sessions:
   - Each human reviewer must have access to the review app workspace.
 
@@ -70,7 +70,7 @@ There are two main ways to use the review app:
 ### Setup permissions for labeling sessions
 
 Users are automatically granted the appropriate permissions (write access to an experiment and read access to a dataset) when you create a labeling session and provide the `assigned_users` argument.
-For more info, see [\_](#create-a-labeling-session-and-send-for-review) below.
+For more info, see TODO LINK below.
 
 ## Create a review app
 
@@ -81,8 +81,8 @@ For more info, see [\_](#create-a-labeling-session-and-send-for-review) below.
 The code snippet below demonstrates how to create a review app and associate it with a model serving
 endpoint for chatting with the bot. For creating labeling sessions, see
 
-- [\_](#create-a-labeling-session-and-send-for-review) for labeling an evaluation dataset.
-- [\_](#collect-feedback-on-traces) for labeling traces. Note that a live agent is not required for this.
+- TODO LINK for labeling an evaluation dataset.
+- TODO LINK for labeling traces. Note that a live agent is not required for this.
 
 ```python
 from databricks.agents import review_app
