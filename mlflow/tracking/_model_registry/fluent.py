@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.exceptions import MlflowException
@@ -471,6 +471,57 @@ def load_prompt(
 
     return prompt
 
+@experimental
+@require_prompt_registry
+def list_prompts(alias: Optional[str] = None, max_results: Optional[int] = 1000) -> List[Prompt]:
+    """
+    List prompts in the MLflow Prompt Registry.
+    
+    This function retrieves prompts from the MLflow Prompt Registry. By default, it returns
+    the latest version of each registered prompt. If an alias is specified, it returns only
+    prompts that have the given alias.
+    
+    Args:
+        alias: If provided, returns only prompts with this alias. If None, returns the
+              latest version of each prompt.
+        max_results: Maximum number of prompts to return. Must be a positive integer.
+                    Default is 1000.
+        
+    Returns:
+        A list of :py:class:`Prompt <mlflow.entities.Prompt>` objects.
+        
+    Raises:
+        MlflowException: If max_results is not a positive integer.
+        
+    .. note::
+        This API is experimental and may change in future versions.
+        
+    Example:
+    
+    .. code-block:: python
+    
+        import mlflow
+        
+        # List all prompts (latest versions)
+        prompts = mlflow.list_prompts()
+        
+        # List prompts with specific alias
+        production_prompts = mlflow.list_prompts(alias="production")
+        
+        # List with limited results
+        limited_prompts = mlflow.list_prompts(max_results=10)
+        
+        # Iterate through prompts
+        for prompt in prompts:
+            print(f"Name: {prompt.name}")
+            print(f"Version: {prompt.version}")
+            print(f"Template: {prompt.template}")
+            print("-----")
+            
+        # Sort prompts by name
+        sorted_prompts = sorted(prompts, key=lambda p: p.name)
+    """
+    return MlflowClient().list_prompts(alias=alias, max_results=max_results)
 
 @experimental
 @require_prompt_registry
@@ -483,7 +534,6 @@ def delete_prompt(name: str, version: int) -> Prompt:
         version: The version of the prompt to delete.
     """
     return MlflowClient().delete_prompt(name=name, version=version)
-
 
 @experimental
 @require_prompt_registry
