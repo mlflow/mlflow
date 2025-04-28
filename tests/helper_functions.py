@@ -13,7 +13,8 @@ import time
 import uuid
 from contextlib import ExitStack, contextmanager
 from functools import wraps
-from typing import Iterator, Optional
+from pathlib import Path
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -689,17 +690,9 @@ def start_mock_openai_server():
         The base URL of the mock OpenAI server.
     """
     port = get_safe_port()
+    script_path = Path(__file__).parent / "openai" / "mock_openai.py"
     with subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "tests.openai.mock_openai:app",
-            "--host",
-            "localhost",
-            "--port",
-            str(port),
-        ]
+        [sys.executable, script_path, "--host", "localhost", "--port", str(port)]
     ) as proc:
         try:
             base_url = f"http://localhost:{port}"
