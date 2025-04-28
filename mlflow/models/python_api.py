@@ -212,6 +212,7 @@ def predict(
             env_manager="uv",
             output_path="output.json",
         )
+
     """
     # to avoid circular imports
     from mlflow.pyfunc import _PREBUILD_ENV_ROOT_LOCATION
