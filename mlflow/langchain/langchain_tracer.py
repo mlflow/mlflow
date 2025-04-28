@@ -27,8 +27,12 @@ from mlflow.langchain.utils.chat import (
     convert_lc_message_to_chat_message,
 )
 from mlflow.pyfunc.context import Context, maybe_set_prediction_context
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import (
+    SpanAttributeKey,
+    TraceMetadataKey,
+)
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatMessage, ChatTool, FunctionToolDefinition
@@ -206,6 +210,17 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     attributes=serialized_attributes,
                     tags=dependencies_schemas,
                 )
+                # BUG-FIX (#15511):
+                # When we create a *root* span we must tell MLflow which run it
+                # belongs to; otherwise traces from different threads all land
+                # on whatever run happened to be first.
+                active_run = mlflow.active_run()
+                if active_run is not None:
+                    InMemoryTraceManager().get_instance().set_request_metadata(
+                        span.request_id,
+                        TraceMetadataKey.SOURCE_RUN,
+                        active_run.info.run_id,
+                    )
 
             # Attach the span to the current context to mark it "active"
             token = set_span_in_context(span) if _should_attach_span_to_context.get() else None
