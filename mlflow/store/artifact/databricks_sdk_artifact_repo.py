@@ -15,7 +15,8 @@ if TYPE_CHECKING:
 
 
 def _sdk_supports_large_files() -> bool:
-    return Version(importlib.metadata.version("databricks-sdk")) >= Version("0.41.0")
+    # https://github.com/databricks/databricks-sdk-py/commit/7ca3fb7e8643126b74c9f5779dc01fb20c1741fb
+    return Version(importlib.metadata.version("databricks-sdk")) >= Version("0.45.0")
 
 
 # TODO: The following artifact repositories should use this class. Migrate them.
