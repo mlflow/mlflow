@@ -2,6 +2,8 @@ from copy import deepcopy
 
 from mlflow.genai.scorers import BuiltInScorer
 
+GENAI_CONFIG_NAME = "databricks-agent"
+
 
 class _BaseBuiltInScorer(BuiltInScorer):
     """
@@ -11,7 +13,7 @@ class _BaseBuiltInScorer(BuiltInScorer):
 
     def update_evaluation_config(self, evaluation_config) -> dict:
         config = deepcopy(evaluation_config)
-        metrics = config.setdefault("databricks-agents", {}).setdefault("metrics", [])
+        metrics = config.setdefault(GENAI_CONFIG_NAME, {}).setdefault("metrics", [])
         if self.name not in metrics:
             metrics.append(self.name)
         return config
@@ -59,7 +61,7 @@ class _GlobalGuidelineAdherence(_BaseBuiltInScorer):
 
     def update_evaluation_config(self, evaluation_config) -> dict:
         config = super().update_evaluation_config(evaluation_config)
-        config["databricks-agents"]["global_guideline"] = self.global_guideline
+        config[GENAI_CONFIG_NAME]["global_guideline"] = self.global_guideline
         return config
 
 

@@ -7,6 +7,7 @@ from mlflow.genai.evaluation.utils import (
     _convert_to_legacy_eval_set,
 )
 from mlflow.genai.scorers import BuiltInScorer, Scorer
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
 from mlflow.genai.utils.trace_utils import is_model_traced
 from mlflow.models.evaluation.base import (
     _get_model_from_deployment_endpoint_uri,
@@ -102,7 +103,7 @@ def evaluate(
             )
 
     evaluation_config = {
-        "databricks-agents": {
+        GENAI_CONFIG_NAME: {
             "metrics": [],
         }
     }
@@ -123,7 +124,7 @@ def evaluate(
         data=_convert_to_legacy_eval_set(data),
         evaluator_config=evaluation_config,
         extra_metrics=extra_metrics,
-        model_type="databricks-agent",
+        model_type=GENAI_CONFIG_NAME,
     )
 
 
