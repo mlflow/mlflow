@@ -1,6 +1,16 @@
 import pytest
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as GrpcExporter
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter as HttpExporter
+
+# OTLP exporters are not installed in some CI jobs
+try:
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+        OTLPSpanExporter as GrpcExporter,
+    )
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+        OTLPSpanExporter as HttpExporter,
+    )
+except ImportError:
+    GrpcExporter = None
+    HttpExporter = None
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter

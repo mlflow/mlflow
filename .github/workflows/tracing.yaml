@@ -51,10 +51,14 @@ jobs:
           pip install pytest pytest-asyncio
 
       - name: Run core tracing tests
+        # NB: OTLP exporter includes large dependencies, so we want to test it in a separate job
+        #     to avoid overlooking unnecessary dependencies in the core tracing package.
         run: |
-          pytest tests/tracing
+          pytest tests/tracing --ignore tests/tracing/utils/test_otlp.py
 
   # TODO: Add a job to run autologging tests against integrated libraries (latest versions)
 
   # TODO: Add a job to warn large package size increase.
   # package-size:
+
+  # TODO: Add a job to test OTLP export
