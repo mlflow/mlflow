@@ -1,5 +1,5 @@
 from mlflow.llama_index.autolog import autolog
-from mlflow.llama_index.constants import FLAVOR_NAME
+from mlflow.llama_index.constant import FLAVOR_NAME
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 __all__ = ["autolog", "FLAVOR_NAME"]
