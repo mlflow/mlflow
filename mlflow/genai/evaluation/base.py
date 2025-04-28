@@ -17,12 +17,20 @@ from mlflow.models.evaluation.base import (
 if TYPE_CHECKING:
     from genai.evaluation.utils import EvaluationDatasetTypes
 
+try:
+    # `pandas` is not required for `mlflow-skinny`.
+    import pandas as pd
+except ImportError:
+    pass
+
+
 logger = logging.getLogger(__name__)
 
 
 class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
+    result_df: "pd.DataFrame"
 
 
 def evaluate(
@@ -118,13 +126,19 @@ def evaluate(
         logger.info("Annotating predict_fn with tracing since it is not already traced.")
         predict_fn = mlflow.trace(predict_fn)
 
-    mlflow.evaluate(
+    result = mlflow.evaluate(
         model=predict_fn,
         # convert into a pandas dataframe with current evaluation set schema
         data=_convert_to_legacy_eval_set(data),
         evaluator_config=evaluation_config,
         extra_metrics=extra_metrics,
         model_type=GENAI_CONFIG_NAME,
+    )
+
+    return EvaluationResult(
+        run_id=result._run_id,
+        metrics=result.metrics,
+        result_df=result.tables["eval_results"],
     )
 
 
