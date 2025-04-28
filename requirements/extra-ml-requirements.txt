@@ -49,7 +49,8 @@ pmdarima
 # Required by mlflow.diviner
 diviner
 # Required for using Hugging Face datasets with MLflow Tracking
-datasets
+# Avoid datasets < 2.19.1 due to an incompatibility issue https://github.com/huggingface/datasets/issues/6737
+datasets>=2.19.1
 # Required by mlflow.transformers
 transformers
 sentencepiece
