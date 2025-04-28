@@ -8,20 +8,20 @@ import dspy
 from dspy.utils.callback import BaseCallback
 
 import mlflow
-from mlflow.dspy.save import FLAVOR_NAME
+from mlflow.dspy.constant import FLAVOR_NAME
 from mlflow.dspy.util import log_dspy_module_params, save_dspy_module_state
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
-from mlflow.pyfunc.context import get_prediction_context, maybe_set_prediction_context
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import set_span_chat_messages
+from mlflow.tracing.utils import maybe_set_prediction_context, set_span_chat_messages
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
 _lock = threading.Lock()
@@ -40,7 +40,6 @@ class MlflowCallback(BaseCallback):
     """Callback for generating MLflow traces for DSPy components"""
 
     def __init__(self, dependencies_schema: Optional[dict[str, Any]] = None):
-        self._client = mlflow.MlflowClient()
         self._dependencies_schema = dependencies_schema
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
@@ -296,9 +295,14 @@ class MlflowCallback(BaseCallback):
         inputs: dict[str, Any],
         attributes: dict[str, Any],
     ):
-        prediction_context = get_prediction_context()
-        if prediction_context and self._dependencies_schema:
-            prediction_context.update(**self._dependencies_schema)
+        if not IS_TRACING_SDK_ONLY:
+            from mlflow.pyfunc.context import get_prediction_context
+
+            prediction_context = get_prediction_context()
+            if prediction_context and self._dependencies_schema:
+                prediction_context.update(**self._dependencies_schema)
+        else:
+            prediction_context = None
 
         with maybe_set_prediction_context(prediction_context):
             span = start_span_no_context(
