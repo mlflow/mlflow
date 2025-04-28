@@ -571,9 +571,7 @@ openai:
       ">= 1.33.0": "3.10"
     requirements:
       ">= 0.0.0": [
-          "pyspark",
           "tiktoken",
-          "aiohttp",
           "tenacity",
           # Required to run tests/openai/mock_openai.py
           "fastapi",
@@ -664,13 +662,9 @@ langchain:
     maximum: "0.3.24"
     requirements:
       ">= 0.0.0": [
-          "pyspark",
           "openai",
           "google-search-results",
-          "psutil",
           "faiss-cpu",
-          "numexpr",
-          "spacy",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
           # Required to run tests/openai/mock_openai.py
           "fastapi",
