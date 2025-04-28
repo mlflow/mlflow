@@ -36,7 +36,7 @@ from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _get_pip_deps, _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
@@ -44,7 +44,6 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_conda_env_requirements,
     _compare_logged_code_paths,
-    _get_pip_deps,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
     score_model_in_sagemaker_docker_container,

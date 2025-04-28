@@ -289,8 +289,9 @@ def start_run(
             activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
             environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
             or the default experiment as defined by the tracking server.
-        run_name: Name of new run. Used only when ``run_id`` is unspecified. If a new run is
-            created and ``run_name`` is not specified, a random name will be generated for the run.
+        run_name: Name of new run, should be a non-empty string. Used only when ``run_id`` is
+            unspecified. If a new run is created and ``run_name`` is not specified,
+            a random name will be generated for the run.
         nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
         parent_run_id: If specified, the current run will be nested under the the run with
             the specified UUID. The parent run must be in the ACTIVE state.
@@ -2017,7 +2018,7 @@ def create_experiment(
     Create an experiment.
 
     Args:
-        name: The experiment name, which must be a unique string.
+        name: The experiment name, must be a non-empty unique string.
         artifact_location: The location to store run artifacts. If not provided, the server picks
             an appropriate default.
         tags: An optional dictionary of string keys and values to set as tags on the experiment.
@@ -2222,10 +2223,13 @@ def _create_logged_model(
     """
     if source_run_id is None and (run := active_run()):
         source_run_id = run.info.run_id
+
     if experiment_id is None and (run := active_run()):
         experiment_id = run.info.experiment_id
     elif experiment_id is None:
-        experiment_id = _get_experiment_id()
+        experiment_id = _get_experiment_id() or (
+            get_run(source_run_id).info.experiment_id if source_run_id else None
+        )
     resolved_tags = context_registry.resolve_tags(tags)
     return MlflowClient().create_logged_model(
         experiment_id=experiment_id,
@@ -2789,7 +2793,7 @@ def _get_experiment_id_from_env():
             ) from exc
 
 
-def _get_experiment_id():
+def _get_experiment_id() -> Optional[str]:
     if _active_experiment_id:
         return _active_experiment_id
     else:

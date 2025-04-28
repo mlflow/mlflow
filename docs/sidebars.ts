@@ -20,11 +20,6 @@ const sidebars: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'doc',
-      id: 'introduction/index',
-      label: 'Introduction',
-    },
-    {
       type: 'category',
       label: 'MLflow 3.0',
       className: 'sidebar-top-level-category',
@@ -54,6 +49,11 @@ const sidebars: SidebarsConfig = {
           type: 'doc',
           id: 'getting-started/intro-quickstart/index',
           label: 'Quickstart',
+        },
+        {
+          type: 'doc',
+          id: 'introduction/index',
+          label: 'Introduction',
         },
         {
           type: 'doc',
@@ -213,6 +213,11 @@ const sidebars: SidebarsConfig = {
                   dirName: 'llms/llm-evaluate',
                 },
               ],
+            },
+            {
+              type: 'doc',
+              label: 'Production Monitoring',
+              id: 'tracing/production',
             },
             {
               type: 'category',
