@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 from packaging.version import Version
 
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
@@ -28,7 +29,16 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         from databricks.sdk.config import Config
 
         super().__init__(artifact_uri)
-        self.wc = WorkspaceClient(config=Config(enable_experimental_files_api_client=True))
+        self.wc = WorkspaceClient(
+            config=(
+                Config(
+                    enable_experimental_files_api_client=True,
+                    multipart_upload_chunk_size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
+                )
+                if _sdk_supports_large_file_uploads()
+                else None
+            )
+        )
 
     @property
     def files_api(self) -> "FilesAPI":
