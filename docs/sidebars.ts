@@ -27,12 +27,12 @@ const sidebars: SidebarsConfig = {
         {
           type: 'doc',
           id: 'mlflow-3/genai-agent',
-          label: 'Gen AI agent workflow',
+          label: 'Gen AI Development',
         },
         {
           type: 'doc',
           id: 'mlflow-3/deep-learning',
-          label: 'Deep Learning model workflow',
+          label: 'Deep Learning Development',
         },
       ],
       link: {
