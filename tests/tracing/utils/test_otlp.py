@@ -1,8 +1,11 @@
 import time
+
+from mlflow.utils.os import is_windows
+import pytest
+
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.tracing.provider import _get_trace_exporter
-import pytest
 
 # OTLP exporters are not installed in some CI jobs
 try:
@@ -79,7 +82,9 @@ def test_export_to_otel_collector(otel_collector, mock_client, monkeypatch):
             z = mlflow.trace(self.square)(z)
             return z  # noqa: RET504
 
-        @mlflow.trace(span_type=SpanType.LLM, name="add_one_with_custom_name", attributes={"delta": 1})
+        @mlflow.trace(
+            span_type=SpanType.LLM, name="add_one_with_custom_name", attributes={"delta": 1}
+        )
         def add_one(self, z):
             return z + 1
 

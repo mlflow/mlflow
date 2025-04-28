@@ -33,10 +33,9 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
+from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path
-from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import (
