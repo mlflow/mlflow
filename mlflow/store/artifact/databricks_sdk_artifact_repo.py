@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from databricks.sdk.service.files import FilesAPI
 
 
-def _sdk_supports_large_files() -> bool:
+def _sdk_supports_large_file_uploads() -> bool:
     # https://github.com/databricks/databricks-sdk-py/commit/7ca3fb7e8643126b74c9f5779dc01fb20c1741fb
     return Version(importlib.metadata.version("databricks-sdk")) >= Version("0.45.0")
 
@@ -47,7 +47,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         return f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
 
     def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
-        if Path(local_file).stat().st_size > 5 * (1024**3) and not _sdk_supports_large_files:
+        if Path(local_file).stat().st_size > 5 * (1024**3) and not _sdk_supports_large_file_uploads:
             raise MlflowException.invalid_parameter_value(
                 "Databricks SDK version < 0.41.0 does not support uploading files larger than 5GB. "
                 "Please upgrade the databricks-sdk package to version >= 0.41.0."
