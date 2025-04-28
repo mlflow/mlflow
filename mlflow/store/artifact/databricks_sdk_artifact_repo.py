@@ -1,13 +1,21 @@
+import importlib.metadata
 import posixpath
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
+from packaging.version import Version
+
 from mlflow.entities import FileInfo
+from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
 if TYPE_CHECKING:
     from databricks.sdk.service.files import FilesAPI
+
+
+def _sdk_supports_large_files() -> bool:
+    return Version(importlib.metadata.version("databricks-sdk")) >= Version("0.41.0")
 
 
 # TODO: The following artifact repositories should use this class. Migrate them.
@@ -22,7 +30,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         self.wc = WorkspaceClient(config=Config(enable_experimental_files_api_client=True))
 
     @property
-    def files_api(self) -> FilesAPI:
+    def files_api(self) -> "FilesAPI":
         return self.wc.files
 
     def _is_dir(self, path: str) -> bool:
@@ -38,6 +46,12 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         return f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
 
     def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
+        if Path(local_file).stat().st_size > 5 * (1024**3) and not _sdk_supports_large_files:
+            raise MlflowException.invalid_parameter_value(
+                "Databricks SDK version < 0.41.0 does not support uploading files larger than 5GB. "
+                "Please upgrade the databricks-sdk package to version >= 0.41.0."
+            )
+
         with open(local_file, "rb") as f:
             self.files_api.upload(self.full_path(artifact_path), f, overwrite=True)
 
