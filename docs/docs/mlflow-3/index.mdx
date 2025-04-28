@@ -190,9 +190,9 @@ MLflow 3.0 introduces some key API changes while also removes some outdated feat
     </TabItem>
     <TabItem label="MLflow 3.0" value="mlflow_3">
         Pass `name` when logging a model. This allows you to later search for LoggedModels using this name.
+        **It's no longer needed to start a run before logging models.**
         ```python
-        with mlflow.start_run():
-            mlflow.pyfunc.log_model(name="python_model", python_model=python_model, ...)
+        mlflow.pyfunc.log_model(name="python_model", python_model=python_model, ...)
         ```
     </TabItem>
 </Tabs>
