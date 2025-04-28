@@ -737,7 +737,7 @@ def test_capture_imported_modules_extra_env_vars(monkeypatch):
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 10) and importlib.util.find_spec("databricks-agents") is None,
+    sys.version_info < (3, 10) and importlib.util.find_spec("databricks.agents") is None,
     reason="Requires Python 3.10 or higher and databricks.agents",
 )
 def test_infer_pip_requirements_on_databricks_agents(tmp_path):
