@@ -48,7 +48,8 @@ def remote_backend_for_tracing_sdk_test(monkeypatch):
     mlflow.set_tracking_uri("http://localhost:5000")
     experiment = mlflow.set_experiment("trace-unit-test")
 
-    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
+    # Set short max retries to speed up the test in case of failure
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "3")
 
     yield
 
