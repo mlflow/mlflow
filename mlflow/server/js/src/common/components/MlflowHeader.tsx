@@ -86,7 +86,7 @@ export const MlflowHeader = ({
           to={ModelRegistryRoutes.modelListPageRoute}
           style={isModelsActive(location) ? classNames.activeNavLink : undefined}
         >
-          Models
+          Registered Models
         </Link>
         <Link
           to={ExperimentTrackingRoutes.promptsPageRoute}
