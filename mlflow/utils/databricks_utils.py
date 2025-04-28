@@ -28,7 +28,7 @@ from mlflow.legacy_databricks_cli.configure.provider import (
     SparkTaskContextConfigProvider,
 )
 from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.rest_utils import MlflowHostCreds, get_workspace_client
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
     get_db_info_from_uri,
@@ -834,6 +834,30 @@ def get_databricks_host_creds(server_uri=None):
     )
 
 
+def _get_databricks_sdk_workspace_client_if_experimental_files_api_enabled(databricks_profile_uri):
+    """
+    Returns WorkspaceClient if the Databricks SDK should be used and the experimental files
+    API client is enabled.
+    """
+    host_creds = get_databricks_host_creds(databricks_profile_uri)
+    if host_creds.use_databricks_sdk:
+        ws_client = get_workspace_client(
+            host_creds.use_secret_scope_token,
+            host_creds.host,
+            host_creds.token,
+            host_creds.databricks_auth_profile,
+        )
+        # Older Databricks SDK versions don't have the
+        # enable_experimental_files_api_client attribute on the config object
+        if (
+            hasattr(ws_client.config, "enable_experimental_files_api_client")
+            and ws_client.config.enable_experimental_files_api_client
+        ):
+            return ws_client
+        return None
+    return None
+
+
 @_use_repl_context_if_available("mlflowGitRepoUrl")
 def get_git_repo_url():
     try:
@@ -1085,6 +1109,7 @@ def _get_databricks_creds_config(tracking_uri):
     elif profile:
         # If `tracking_uri` is 'databricks://<profile>'
         # MLflow should only read credentials from this profile
+        _logger.warning(f"Liang debug loading from config file {profile}")
         providers = [ProfileConfigProvider(profile)]
     else:
         providers = [

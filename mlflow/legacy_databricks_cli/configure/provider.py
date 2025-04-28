@@ -60,7 +60,9 @@ def _get_path():
 
 def _fetch_from_fs():
     raw_config = ConfigParser()
-    raw_config.read(_get_path())
+    _logger.warning(f"Liang debug get path {_get_path()}")
+    successfully_read = raw_config.read(_get_path())
+    _logger.warning(f"Liang debug successfully_read {successfully_read}")
     return raw_config
 
 
@@ -323,6 +325,10 @@ class ProfileConfigProvider(DatabricksConfigProvider):
             client_secret=client_secret,
             auth_type=auth_type,
         )
+        _logger.warning(
+            f"Liang debug config is valid {config.is_valid}, host {host}, token {token}"
+        )
+
         if config.is_valid:
             return config
         return None
