@@ -5,6 +5,7 @@ import sys
 import traceback
 import weakref
 from collections import OrderedDict, defaultdict, namedtuple
+from dataclasses import dataclass
 from itertools import zip_longest
 from typing import Optional
 from urllib.parse import urlparse
@@ -556,6 +557,13 @@ def _log_estimator_params(param_map):
         mlflow.log_params(truncated)
 
 
+@dataclass
+class PredictionResultInfo:
+    dataset_name: str
+    run_id: str
+    model_id: Optional[str] = None
+
+
 class _AutologgingMetricsManager:
     """
     This class is designed for holding information which is used by autologging metrics
@@ -591,8 +599,8 @@ class _AutologgingMetricsManager:
     """
 
     def __init__(self):
-        # record mapping of id(prediction_result) -> (eval_dataset_name, run_id, model_id)
-        self._pred_result_id_mapping: dict[int, tuple[str, str, str]] = {}
+        # record mapping of id(prediction_result) -> PredictionResultInfo
+        self._pred_result_id_mapping: dict[int, PredictionResultInfo] = {}
         # record mapping of id(model) -> model_id
         self._model_id_mapping: dict[int, str] = {}
         self._eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
@@ -705,10 +713,12 @@ class _AutologgingMetricsManager:
     def register_prediction_result(self, run_id, eval_dataset_name, predict_result, model_id):
         """
         Register the relationship
-         id(prediction_result) --> (eval_dataset_name, run_id, model_id)
+        id(prediction_result) --> PredictionResultInfo(eval_dataset_name, run_id, model_id)
         into map `_pred_result_id_mapping`
         """
-        value = (eval_dataset_name, run_id, model_id)
+        value = PredictionResultInfo(
+            dataset_name=eval_dataset_name, run_id=run_id, model_id=model_id
+        )
         prediction_result_id = id(predict_result)
         self._pred_result_id_mapping[prediction_result_id] = value
 
@@ -719,16 +729,12 @@ class _AutologgingMetricsManager:
         # to clear the ID from the dict for preventing wrong ID mapping.
         weakref.finalize(predict_result, clean_id, prediction_result_id)
 
-    def get_info_for_metric_api_call(self, pred_result_dataset):
+    def get_info_for_metric_api_call(self, pred_result_dataset) -> PredictionResultInfo:
         """
         Given a registered prediction result dataset object,
         return a tuple of (run_id, eval_dataset_name, model_id)
         """
-        if (pred_result_dataset_id := id(pred_result_dataset)) in self._pred_result_id_mapping:
-            dataset_name, run_id, model_id = self._pred_result_id_mapping[pred_result_dataset_id]
-            return run_id, dataset_name, model_id
-        else:
-            return None, None, None
+        return self._pred_result_id_mapping.get(id(pred_result_dataset))
 
     def gen_evaluator_info(self, evaluator):
         """
@@ -1250,9 +1256,17 @@ def autolog(
                 evaluator_info = _AUTOLOGGING_METRICS_MANAGER.gen_evaluator_info(evaluator)
 
                 pred_result_dataset = get_method_call_arg_value(0, "dataset", None, args, kwargs)
-                (run_id, dataset_name, model_id) = (
-                    _AUTOLOGGING_METRICS_MANAGER.get_info_for_metric_api_call(pred_result_dataset)
-                )
+                dataset_name, run_id, model_id = None, None, None
+                if (
+                    prediction_result_info
+                    := _AUTOLOGGING_METRICS_MANAGER.get_info_for_metric_api_call(
+                        pred_result_dataset
+                    )
+                ):
+                    dataset_name = prediction_result_info.dataset_name
+                    run_id = prediction_result_info.run_id
+                    model_id = prediction_result_info.model_id
+
                 if run_id and dataset_name:
                     metric_key = _AUTOLOGGING_METRICS_MANAGER.register_evaluator_call(
                         run_id, metric_name, dataset_name, evaluator_info
