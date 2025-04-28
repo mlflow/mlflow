@@ -11,12 +11,13 @@ from mlflow.genai.scorers import (
     relevance_to_query,
     safety,
 )
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
 
 
 def normalize_config(config):
     config = config.copy()
-    metrics = config.get("databricks-agents", {}).get("metrics", [])
-    config.setdefault("databricks-agents", {})["metrics"] = sorted(metrics)
+    metrics = config.get(GENAI_CONFIG_NAME, {}).get("metrics", [])
+    config.setdefault(GENAI_CONFIG_NAME, {})["metrics"] = sorted(metrics)
     return config
 
 
@@ -48,7 +49,7 @@ def test_scorers_and_rag_scorers_config(scorers):
         evaluation_config = scorer.update_evaluation_config(evaluation_config)
 
     expected = {
-        "databricks-agents": {
+        GENAI_CONFIG_NAME: {
             "metrics": [
                 "chunk_relevance",
                 "context_sufficiency",
