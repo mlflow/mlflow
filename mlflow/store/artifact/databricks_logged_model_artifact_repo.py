@@ -30,10 +30,6 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         r"databricks/mlflow-tracking/(?P<experiment_id>[^/]+)/logged_models/(?P<model_id>[^/]+)(?P<relative_path>/.*)?$"
     )
 
-    @staticmethod
-    def is_logged_model_uri(artifact_uri: str) -> bool:
-        return bool(DatabricksLoggedModelArtifactRepository._URI_REGEX.search(artifact_uri))
-
     def __init__(self, artifact_uri: str) -> None:
         super().__init__(artifact_uri)
         m = self._URI_REGEX.search(artifact_uri)
@@ -51,6 +47,10 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         )
         self.databricks_sdk_repo = DatabricksSdkArtifactRepository(root_path)
         self.databricks_artifact_repo = DatabricksArtifactRepository(artifact_uri)
+
+    @staticmethod
+    def is_logged_model_uri(artifact_uri: str) -> bool:
+        return bool(DatabricksLoggedModelArtifactRepository._URI_REGEX.search(artifact_uri))
 
     def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
         try:
