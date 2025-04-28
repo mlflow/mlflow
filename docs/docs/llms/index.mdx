@@ -11,10 +11,6 @@ MLflow is built specifically to help developers build complex, production-grade 
 
 ## Key challenges
 
-:::note 
-See the [developer workflow](/llms/eval-workflow) to learn more.
-:::
-
 MLflow addresses the 2 inherent challenges in delivering high-quality generative AI:
 
 
@@ -39,62 +35,57 @@ MLflow addresses the 2 inherent challenges in delivering high-quality generative
 ## How MLflow Helps
 
 :::note 
-See the [developer workflow](/llms/eval-workflow) to learn more.
+See MLflow's reccomended [developer workflow](/llms/eval-workflow) to learn how to integrate these capabilities into your workflow.
 :::
+
+
+MLflow unites metrics that reliably measure GenAI quality with operational observability and human feedback, enabling teams to evaluate & improve GenAI quality, cost, and latency so they can deploy GenAI in production with confidence.
 
 <CardGroup singleColumn={true}>
   <PageCard
-    headerText="Tracing"
+    headerText="Monitor quality with LLM judges"
+    icon="fa-gavel"
+    link="/llms/evaluate-monitor/quality"
+    text={[
+      "Capture and convert expert feedback into metrics (LLM judges) that understand your business requirements and measure the nuances of plain-language GenAI outputs. Evaluate, monitor, and improve quality at scale, without waiting for human review."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Debug with end-to-end observability"
     icon="fa-search"
+    link="/llms/tracing"
     text={[
-      "Capture every user request and response plus each step in your app’s logic — retrievals, tool calls, LLM calls, etc — with a one‑line import. Jump straight to all the details you need to diagnose and fix any issue fast." 
+      "Trace your app with OpenTelemetry-compatible SDKs that capture every invocation's inputs, outputs, and execution steps alongside cost, latency, and errors. Quickly debug issues, improve business logic, and optimize performance."
     ]}
     isBoldHeader={true}
   />
   <PageCard
-    headerText="Evaluation Metrics"
-    icon="fa-chart-line"
-    text={[
-      "Use or build LLM‑based scorers that mimic human expert judgment on quality, so you can see how prompt or code tweaks affect quality without a full human review — and run those same scorers on live traffic to monitor quality continuously."
-    ]}
-    isBoldHeader={true}
-  />
-  <PageCard
-    headerText="Human Labeling Workflows"
-    icon="fa-users"
-    text={[
-      "Let users and domain experts label tough cases in a simple UI, turning their feedback into better evaluation metrics and training data."
-    ]}
-    isBoldHeader={true}
-  />
-  <PageCard
-    headerText="Production Monitoring"
-    icon="fa-tachometer-alt"
-    text={[
-      "Turn your quality metrics into live dashboards and alerts that surface quality regressions the moment they appear. Additionally, track latency and cost so you can similarly identify operational issues."
-    ]}
-    isBoldHeader={true}
-  />
-  <PageCard
-    headerText="Iterative Evaluation"
+    headerText="Improve quality by evaluating on production logs"
     icon="fa-sync"
+    link="/llms/evaluate-monitor/eval-datasets"
     text={[
-      "Rapidly test many prompt or code versions offline against historical traffic, then ship only the top‑scoring versions to lift overall quality."
+      "Use production logs to understand user behavior, turning low-quality responses into evaluation datasets and high-quality responses into regression tests. Evaluate new variants to deliver high-quality responses as user behavior evolves."
     ]}
     isBoldHeader={true}
   />
   <PageCard
-    headerText="User Behavior Insights"
-    icon="fa-lightbulb"
+    headerText="Collect human feedback"
+    icon="fa-users"
+    link="/llms/human-feedback"
     text={[
-      "Mine user sessions and feedback to uncover what users want and where they struggle, and feed those insights into your next iteration."
+      "Capture domain expert feedback via web-based UIs and end-user ratings from your app via APIs. Use this feedback to enrich your understanding of how your app should behave and improve your custom LLM-judge metrics."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Enterprise governance"
+    icon="fa-shield-alt"
+    link="/llms/prompts"
+    text={[
+      "MLflow integrates with Unity Catalog to track the lifecycle and lineage of your app's assets - models, prompts, datasets, and metrics - and apply access controls for enterprise-ready governance."
     ]}
     isBoldHeader={true}
   />
 </CardGroup>
-
-
-## Getting started
-
-## <span style={{color: "red"}}>TODO: add this - what are the key things we shuold have ppl do? prob just point to our getting started section??</span>
 

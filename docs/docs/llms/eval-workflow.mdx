@@ -1,9 +1,9 @@
 import { Card, LogoCard, CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
 
 
-# Evaluation-driven development 
+# Ship High-Quality GenAI, Fast
 
-## <span style={{color: "red"}}>TODO: what is the right way to guide users to this page first?</span>
+Traditional software and ML testing approaches don't reliably measure the quality of GenAI's free-form and ever-shifting language inputs and outputs. MLflow unites metrics that reliably measure GenAI quality with operational observability and human feedback, enabling teams to evaluate & improve GenAI quality, cost, and latency so they can deploy GenAI in production with confidence.
 
 ## Why GenAI needs a different development workflow
 
@@ -61,7 +61,7 @@ Classic software testing and monitoring approaches don't cover the unique challe
 
 <CardGroup singleColumn={true}>
   <PageCard
-    headerText="Accuratly measures open‑ended language"
+    headerText="Accurately measures open‑ended language"
     icon="fa-comments"
     text={[
       "Tests must compare the semantic meaning of text-based inputs and outputs - not their specific wording - so phrasing changes don't cause false failures."
@@ -154,20 +154,20 @@ Classic software testing and monitoring approaches don't cover the unique challe
 
 ## MLflow's solution: Evaluation-centric development
 
-Evaluation-centric development is MLflow's response to these challenges and requirements. 
+MLflow helps you ship high-quality GenAI applications through an iterative, quality-driven development approach that addresses the unique challenges of generative AI.
 
 The most effective GenAI development workflows treat production as an extension of development. Teams deploy early versions to pre-production environments where beta testers can interact with the application. This traffic becomes valuable evaluation data, helping identify edge cases, failure modes, and performance bottlenecks that might not emerge in controlled testing. 
 
 This evaluation-driven workflow continues in the production deployment. Teams monitor live traffic, identify new edge cases, failure modes, and performance issues, and use this real-world data to continuously update their evaluation data and improve their models and prompts. This ensures that GenAI applications maintain high quality, stay within cost constraints, and meet latency requirements as they evolve and encounter new scenarios.
 
-MLflow's evaluation-centric workflow allows teams to:
+MLflow's quality-driven workflow allows teams to:
 
 <CardGroup singleColumn={true}>
   <PageCard
-    headerText="Evaluate quality with LLM judges"
+    headerText="Monitor and improve quality with human-aligned LLM judges"
     icon="fa-gavel"
     text={[
-      "Use our built-in LLM judge scorers or build your own LLM judges that mimic your domain expert's judgment on quality to see how prompt or code tweaks affect quality without a full human review — and then use those same scorers on live traffic to monitor quality continuously."
+      "Capture and convert expert feedback into metrics (LLM judges) that understand your business requirements and measure the nuances of plain-language GenAI outputs. Use these metrics to evaluate, monitor, and improve quality in development and production at scale, without waiting for human review."
     ]}
     isBoldHeader={true}
   />
@@ -180,10 +180,10 @@ MLflow's evaluation-centric workflow allows teams to:
     isBoldHeader={true}
   />
   <PageCard
-    headerText="Turn production traces into evaluation datasets"
+    headerText="Adapt to evolving user behavior by turning production logs into evaluation datasets"
     icon="fa-database"
     text={[
-      "Log every user request as a [trace](/tracing/) with a one‑line import and attach user feedback to those traces. Prioritize traces based on user feedback, LLM judge scores, and user intent classification to create evaluation datasets (test cases) that reflect the your app's most important use cases."
+      "Use production logs to understand user behavior, turning low-quality responses into evaluation datasets and high-quality responses into regression tests. Replay these datasets to evaluate new prompts or app variants in development so you can ship the best variants to ensure your application continues to deliver high-quality responses as user behavior evolves."
     ]}
     isBoldHeader={true}
   />
@@ -209,6 +209,44 @@ MLflow's evaluation-centric workflow allows teams to:
 
 ![Evaluation Driven Workflow](/images/genai/eval-driven-dev.png)
 
-## Get started!
+## Get Started!
 
-## <span style={{color: "red"}}>TODO: add in correct links</span>
+Explore MLflow's capabilities for building high-quality GenAI applications:
+
+<CardGroup>
+  <PageCard
+    headerText="Quality Metrics"
+    link="/llms/evaluate-monitor/quality"
+    text={[
+      "Learn about LLM judges and custom metrics for evaluating GenAI applications."
+    ]}
+  />
+  <PageCard
+    headerText="Tracing & Observability"
+    link="/llms/tracing"
+    text={[
+      "Discover how to add comprehensive tracing to your GenAI applications."
+    ]}
+  />
+  <PageCard
+    headerText="Evaluation Datasets"
+    link="/llms/evaluate-monitor/eval-datasets"
+    text={[
+      "Create and manage datasets for systematic evaluation."
+    ]}
+  />
+  <PageCard
+    headerText="Human Feedback"
+    link="/llms/human-feedback"
+    text={[
+      "Collect and leverage expert feedback to improve your GenAI applications."
+    ]}
+  />
+  <PageCard
+    headerText="Governance"
+    link="/llms/governance"
+    text={[
+      "Learn about MLflow's enterprise governance features."
+    ]}
+  />
+</CardGroup>
