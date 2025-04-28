@@ -266,8 +266,9 @@ def start_run(
             activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
             environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
             or the default experiment as defined by the tracking server.
-        run_name: Name of new run. Used only when ``run_id`` is unspecified. If a new run is
-            created and ``run_name`` is not specified, a random name will be generated for the run.
+        run_name: Name of new run, should be a non-empty string. Used only when ``run_id`` is
+            unspecified. If a new run is created and ``run_name`` is not specified,
+            a random name will be generated for the run.
         nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
         parent_run_id: If specified, the current run will be nested under the the run with
             the specified UUID. The parent run must be in the ACTIVE state.
@@ -1801,7 +1802,7 @@ def create_experiment(
     Create an experiment.
 
     Args:
-        name: The experiment name, which must be a unique string.
+        name: The experiment name, must be a non-empty unique string.
         artifact_location: The location to store run artifacts. If not provided, the server picks
             an appropriate default.
         tags: An optional dictionary of string keys and values to set as tags on the experiment.
