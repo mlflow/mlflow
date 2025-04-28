@@ -22,7 +22,11 @@ from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT
 from mlflow.exceptions import InvalidUrlException, MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import (
+    DEFAULT_ARTIFACTS_URI,
+    DEFAULT_GC_INTERVAL,
+    DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+)
 from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
@@ -371,6 +375,24 @@ def _validate_static_prefix(ctx, param, value):
         "Unsupported on Windows."
     ),
 )
+@click.option(
+    "--enable-gc",
+    is_flag=True,
+    default=False,
+    help=(
+        "Enable automatic garbage collection to periodically clean up "
+        "deleted runs and experiments. Use --gc-interval to configure the interval. "
+    ),
+)
+@click.option(
+    "--gc-interval",
+    type=int,
+    default=DEFAULT_GC_INTERVAL,
+    help=(
+        "The interval (in seconds) at which to run garbage collection. "
+        "Defaults to 86400 seconds (24 hours)."
+    ),
+)
 def server(
     backend_store_uri,
     registry_store_uri,
@@ -387,6 +409,8 @@ def server(
     expose_prometheus,
     app_name,
     dev,
+    enable_gc,
+    gc_interval,
 ):
     """
     Run the MLflow tracking server.
@@ -397,6 +421,7 @@ def server(
     (or a specific interface address).
     """
     from mlflow.server import _run_server
+    from mlflow.server.gc_daemon import run_gc_daemon
     from mlflow.server.handlers import initialize_backend_stores
 
     if dev and is_windows():
@@ -427,6 +452,13 @@ def server(
         _logger.error("Error initializing backend store")
         _logger.exception(e)
         sys.exit(1)
+
+    if enable_gc:
+        run_gc_daemon(
+            interval=gc_interval,
+            backend_store_uri=backend_store_uri,
+            artifacts_destination=artifacts_destination,
+        )
 
     try:
         _run_server(
