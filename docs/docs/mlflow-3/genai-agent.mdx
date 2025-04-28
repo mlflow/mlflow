@@ -90,7 +90,7 @@ for question in questions:
 
 logged_model = mlflow.last_logged_model()
 traces = mlflow.search_traces(model_id=logged_model.model_id)
-print(traces)
+traces
 #                            trace_id                                             trace  ...  assessments                        request_id
 # 0  9f1548c66b4647e6ae67336dd1b83fe5  Trace(trace_id=9f1548c66b4647e6ae67336dd1b83fe5)  ...           []  9f1548c66b4647e6ae67336dd1b83fe5
 # 1  c574c9825c6443b09b4c8cf0862f6c9a  Trace(trace_id=c574c9825c6443b09b4c8cf0862f6c9a)  ...           []  c574c9825c6443b09b4c8cf0862f6c9a

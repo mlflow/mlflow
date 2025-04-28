@@ -3132,7 +3132,7 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
             experiment. If multiple LoggedModels with the name exist, the latest one will be
             set as active.
         model_id: The ID of the :py:class:`mlflow.entities.LoggedModel` to set as active.
-            If no LoggedModel with the ID exists, Exception will be raised.
+            If no LoggedModel with the ID exists, an exception will be raised.
 
     Returns:
         :py:class:`mlflow.ActiveModel` object that acts as a context manager wrapping the

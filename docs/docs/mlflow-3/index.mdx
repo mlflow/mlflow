@@ -138,7 +138,7 @@ with mlflow.start_run():
 
 
 traces = mlflow.search_traces(model_id=active_model_id)
-print(traces)
+traces
 #                            trace_id                                             trace  ...  assessments                        request_id
 # 0  7bb4569d3d884e3e87b1d8752276a13c  Trace(trace_id=7bb4569d3d884e3e87b1d8752276a13c)  ...           []  7bb4569d3d884e3e87b1d8752276a13c
 # [1 rows x 12 columns]
