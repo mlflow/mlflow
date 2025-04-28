@@ -8,13 +8,10 @@ import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Callable, Union
+from typing import Callable
 
 from mlflow.utils.async_logging.run_artifact import RunArtifact
 from mlflow.utils.async_logging.run_operations import RunOperations
-
-if TYPE_CHECKING:
-    import PIL.Image
 
 _logger = logging.getLogger(__name__)
 
@@ -31,9 +28,7 @@ class AsyncArtifactsLoggingQueue:
             - artifact: The artifact to be logged.
     """
 
-    def __init__(
-        self, artifact_logging_func: Callable[[str, str, Union["PIL.Image.Image"]], None]
-    ) -> None:
+    def __init__(self, artifact_logging_func: Callable[[str, str], None]) -> None:
         self._queue: Queue[RunArtifact] = Queue()
         self._lock = threading.RLock()
         self._artifact_logging_func = artifact_logging_func
@@ -100,26 +95,27 @@ class AsyncArtifactsLoggingQueue:
         is set with the exception. If the queue is empty, it is ignored.
         """
         try:
-            run_artifact = self._queue.get(timeout=1)
+            run_artifact: RunArtifact = self._queue.get(timeout=1)
         except Empty:
             # Ignore empty queue exception
             return
 
-        def logging_func(run_artifact):
+        def logging_func(run_artifact: RunArtifact):
             try:
                 self._artifact_logging_func(
-                    filename=run_artifact.filename,
-                    artifact_path=run_artifact.artifact_path,
-                    artifact=run_artifact.artifact,
+                    run_artifact.local_filepath,
+                    run_artifact.artifact_path,
                 )
 
                 # Signal the artifact processing is done.
+                run_artifact.close()
                 run_artifact.completion_event.set()
 
             except Exception as e:
                 _logger.error(f"Failed to log artifact {run_artifact.filename}. Exception: {e}")
                 run_artifact.exception = e
                 run_artifact.completion_event.set()
+                run_artifact.close()
 
         self._artifact_logging_worker_threadpool.submit(logging_func, run_artifact)
 
@@ -181,13 +177,10 @@ class AsyncArtifactsLoggingQueue:
         self._artifact_status_check_threadpool = None
         self._stop_data_logging_thread_event = threading.Event()
 
-    def log_artifacts_async(self, filename, artifact_path, artifact) -> RunOperations:
+    def log_artifacts_async(self, artifact: RunArtifact) -> RunOperations:
         """Asynchronously logs runs artifacts.
 
         Args:
-            filename: Filename of the artifact to be logged.
-            artifact_path: Directory within the run's artifact directory in which to log the
-                artifact.
             artifact: The artifact to be logged.
 
         Returns:
@@ -201,12 +194,6 @@ class AsyncArtifactsLoggingQueue:
 
         if not self._is_activated:
             raise MlflowException("AsyncArtifactsLoggingQueue is not activated.")
-        artifact = RunArtifact(
-            filename=filename,
-            artifact_path=artifact_path,
-            artifact=artifact,
-            completion_event=threading.Event(),
-        )
         self._queue.put(artifact)
         operation_future = self._artifact_status_check_threadpool.submit(
             self._wait_for_artifact, artifact

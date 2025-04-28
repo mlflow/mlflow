@@ -48,6 +48,7 @@ from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
+from mlflow.utils.async_logging.run_artifact import RunArtifact
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS, MLFLOW_USER
@@ -939,18 +940,16 @@ class TrackingServiceClient:
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
-    def _log_artifact_async(self, run_id, filename, artifact_path=None, artifact=None):
+    def _log_artifact_async(self, run_id, artifact: RunArtifact):
         """
         Write an artifact to the remote ``artifact_uri`` asynchronously.
 
         Args:
             run_id: String ID of the run.
-            filename: Filename of the artifact to be logged.
-            artifact_path: If provided, the directory in ``artifact_uri`` to write to.
-            artifact: The artifact to be logged.
+            artifact: The artifact to log.
         """
         artifact_repo = self._get_artifact_repo(run_id)
-        artifact_repo._log_artifact_async(filename, artifact_path, artifact)
+        return artifact_repo._log_artifact_async(artifact)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.
