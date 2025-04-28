@@ -205,6 +205,13 @@ def predict(
             extra_envs={"OPENAI_API_KEY": "some_value"},
         )
 
+        # Run prediction with output_path
+        mlflow.models.predict(
+            model_uri=f"runs:/{run_id}/model",
+            input_data={"x": 1, "y": 2},
+            env_manager="uv",
+            output_path="output.json",
+        )
     """
     # to avoid circular imports
     from mlflow.pyfunc import _PREBUILD_ENV_ROOT_LOCATION
