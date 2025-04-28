@@ -40,6 +40,7 @@ def client() -> TestClient:
                             "openai_api_key": "MY_API_KEY",
                         },
                     },
+                    "limit": {"calls": 1, "key": None, "renewal_period": "minute"},
                 },
             ]
         }
@@ -190,6 +191,29 @@ def test_dynamic_route():
                 }
             ],
         }
+
+
+@pytest.mark.parametrize(
+    "endpoint_path",
+    [f"{MLFLOW_GATEWAY_ROUTE_BASE}chat/invocations", "/v1/chat/completions"],
+)
+def test_rate_limit(client: TestClient, endpoint_path: str):
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(model_response)
+    ) as mock_post:
+        resp = client.post(
+            endpoint_path,
+            json={"messages": [{"role": "user", "content": "Tell me a joke"}]},
+        )
+        mock_post.assert_called_once()
+        assert resp.status_code == 200
+        assert resp.json() == test_response
+        # second call
+        resp = client.post(
+            endpoint_path,
+            json={"messages": [{"role": "user", "content": "Tell me a joke again"}]},
+        )
+        assert resp.status_code == 429
 
 
 def test_create_app_from_env_fails_if_MLFLOW_GATEWAY_CONFIG_is_not_set(monkeypatch):
