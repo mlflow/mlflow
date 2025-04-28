@@ -72,9 +72,7 @@ opentelemetry-sdk:
 
 databricks-sdk:
   pip_release: databricks-sdk
-  # The enable_experimental_files_api_client flag only exists in 0.41.0 and newer versions:
-  # https://github.com/databricks/databricks-sdk-py/commit/d907c0cfa45402e7223efe7b633e0dd26f2ca7bd
-  minimum: "0.41.0"
+  minimum: "0.20.0"
   max_major_version: 0
 
 pydantic:
