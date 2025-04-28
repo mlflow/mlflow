@@ -46,7 +46,7 @@ dependencies = [
   "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
-  "packaging<25",
+  "packaging<26",
   "pandas<3",
   "protobuf<7,>=3.12.0",
   "pyarrow<20,>=4.0.0",
@@ -284,19 +284,20 @@ typing-extensions-allowlist = [
 ]
 
 [tool.clint.forbidden-top-level-imports]
-"mlflow/gateway/providers/*" = ["fastapi", "starlette"]
+"mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]
 # Databricks SDK/Agents should not be imported at the top level
 "mlflow/*" = ["databricks"]
 
 # typos
 [tool.typos.default.extend-words]
-als = "als"          # alternating least squares
-mape = "mape"        # mean absolute percentage error
-fpr = "fpr"          # false positive rate
-gam = "gam"          # generalized additive models
-ser = "ser"          # serialization
-yhat = "yhat"        # ŷ
-iternal = "internal" # typo of "internal"
+als = "als"                        # alternating least squares
+mape = "mape"                      # mean absolute percentage error
+fpr = "fpr"                        # false positive rate
+gam = "gam"                        # generalized additive models
+ser = "ser"                        # serialization
+yhat = "yhat"                      # ŷ
+iternal = "internal"               # typo of "internal"
+instumentation = "instrumentation" # typo of "instrumentation"
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]

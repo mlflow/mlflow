@@ -84,13 +84,13 @@ jobs:
             yarn install
             yarn build-all -- --no-r
             python changed_pages.py
+      - store_artifacts:
+          path: docs/build/
       - run:
           name: Test examples
           working_directory: docs/api_reference
           command: |
             make test-examples
-      - store_artifacts:
-          path: docs/build/
 
   # A job to get a free Windows VM for testing. See https://circleci.com/docs/ssh-access-jobs/ for how to set up SSH access.
   windows:

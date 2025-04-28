@@ -1793,6 +1793,15 @@ def test_create_external_model(tmp_path):
     assert mlflow_model.metadata is not None
     assert mlflow_model.metadata.get(mlflow_tags.MLFLOW_MODEL_IS_EXTERNAL) is True
 
+    exp_id = mlflow.create_experiment("test")
+    with mlflow.start_run(experiment_id=exp_id) as run:
+        pass
+    with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value=None) as m:
+        model = mlflow.create_external_model(source_run_id=run.info.run_id)
+        m.assert_called_once()
+
+    assert model.experiment_id == exp_id
+
 
 def test_last_logged_model():
     _reset_last_logged_model_id()

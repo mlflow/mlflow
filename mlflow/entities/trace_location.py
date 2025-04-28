@@ -9,6 +9,13 @@ from mlflow.protos import service_pb2 as pb
 
 @dataclass
 class MlflowExperimentLocation(_MlflowObject):
+    """
+    Represents the location of an MLflow experiment.
+
+    Args:
+        experiment_id: The ID of the MLflow experiment where the trace is stored.
+    """
+
     experiment_id: str
 
     def to_proto(self):
@@ -28,6 +35,14 @@ class MlflowExperimentLocation(_MlflowObject):
 
 @dataclass
 class InferenceTableLocation(_MlflowObject):
+    """
+    Represents the location of a Databricks inference table.
+
+    Args:
+        full_table_name: The fully qualified name of the inference table where
+            the trace is stored, in the format of `<catalog>.<schema>.<table>`.
+    """
+
     full_table_name: str
 
     def to_proto(self):
@@ -64,6 +79,23 @@ class TraceLocationType(str, Enum):
 
 @dataclass
 class TraceLocation(_MlflowObject):
+    """
+    Represents the location where the trace is stored.
+
+    Currently, MLflow supports two types of trace locations:
+
+        - MLflow experiment: The trace is stored in an MLflow experiment.
+        - Inference table: The trace is stored in a Databricks inference table.
+
+    Args:
+        type: The type of the trace location, should be one of the
+            :py:class:`TraceLocationType` enum values.
+        mlflow_experiment: The MLflow experiment location. Set this when the
+            location type is MLflow experiment.
+        inference_table: The inference table location. Set this when the
+            location type is Databricks Inference table.
+    """
+
     type: TraceLocationType
     mlflow_experiment: Optional[MlflowExperimentLocation] = None
     inference_table: Optional[InferenceTableLocation] = None

@@ -1,3 +1,4 @@
+import importlib
 from collections import defaultdict
 from unittest.mock import patch
 
@@ -10,6 +11,9 @@ from mlflow.genai.scorers import Scorer, scorer
 from mlflow.models import Model
 from mlflow.models.evaluation.base import _get_model_from_function
 from mlflow.pyfunc import PyFuncModel
+
+if importlib.util.find_spec("databricks.agents") is None:
+    pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
 
 
 def mock_init_auth(config_instance):
