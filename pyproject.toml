@@ -290,13 +290,14 @@ typing-extensions-allowlist = [
 
 # typos
 [tool.typos.default.extend-words]
-als = "als"          # alternating least squares
-mape = "mape"        # mean absolute percentage error
-fpr = "fpr"          # false positive rate
-gam = "gam"          # generalized additive models
-ser = "ser"          # serialization
-yhat = "yhat"        # ŷ
-iternal = "internal" # typo of "internal"
+als = "als"                        # alternating least squares
+mape = "mape"                      # mean absolute percentage error
+fpr = "fpr"                        # false positive rate
+gam = "gam"                        # generalized additive models
+ser = "ser"                        # serialization
+yhat = "yhat"                      # ŷ
+iternal = "internal"               # typo of "internal"
+instumentation = "instrumentation" # typo of "instrumentation"
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]

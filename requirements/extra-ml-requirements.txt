@@ -4,7 +4,7 @@
 # TODO: Remove `<3.8` once we bump the minimim supported python version of MLflow to 3.9.
 spacy>=3.3.0,<3.8
 # Required by mlflow.tensorflow
-tensorflow-cpu>=2.10.0; platform_system!="Darwin" or platform_machine!="arm64"
+tensorflow>=2.10.0; platform_system!="Darwin" or platform_machine!="arm64"
 tensorflow-macos>=2.10.0; platform_system=="Darwin" and platform_machine=="arm64"
 # Required by mlflow.pytorch
 torch>=1.11.0
