@@ -919,8 +919,7 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call(dataset_iris_bin
 
     logged_models = mlflow.search_logged_models(filter_string="name='model'", output_format="list")
     assert len(logged_models) == 2
-    logged_model1 = logged_models[1]
-    logged_model2 = logged_models[0]
+    logged_model2, logged_model1 = logged_models
 
     metrics1 = get_run_data(run1.info.run_id).metrics
     assert np.isclose(logloss1, metrics1["logLoss_eval_dataset1"])

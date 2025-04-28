@@ -825,6 +825,6 @@ def get_logged_model_by_name(name: str) -> Optional[LoggedModel]:
         The logged model.
     """
     logged_models = mlflow.search_logged_models(
-        filter_string=f"name='{name}'", output_format="list"
+        filter_string=f"name='{name}'", output_format="list", max_results=1
     )
     return logged_models[0] if len(logged_models) >= 1 else None

@@ -591,12 +591,14 @@ class _AutologgingMetricsManager:
     """
 
     def __init__(self):
-        self._pred_result_id_mapping = {}
+        # record mapping of id(prediction_result) -> (eval_dataset_name, run_id, model_id)
+        self._pred_result_id_mapping: dict[int, tuple[str, str, str]] = {}
+        # record mapping of id(model) -> model_id
+        self._model_id_mapping: dict[int, str] = {}
         self._eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
         self._evaluator_call_info = defaultdict(lambda: defaultdict(list))
         self._log_post_training_metrics_enabled = True
         self._metric_info_artifact_need_update = defaultdict(lambda: False)
-        self._model_id_mapping = {}
 
     def should_log_post_training_metrics(self):
         """
@@ -722,8 +724,8 @@ class _AutologgingMetricsManager:
         Given a registered prediction result dataset object,
         return a tuple of (run_id, eval_dataset_name, model_id)
         """
-        if id(pred_result_dataset) in self._pred_result_id_mapping:
-            dataset_name, run_id, model_id = self._pred_result_id_mapping[id(pred_result_dataset)]
+        if (pred_result_dataset_id := id(pred_result_dataset)) in self._pred_result_id_mapping:
+            dataset_name, run_id, model_id = self._pred_result_id_mapping[pred_result_dataset_id]
             return run_id, dataset_name, model_id
         else:
             return None, None, None
