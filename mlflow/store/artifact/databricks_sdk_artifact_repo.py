@@ -1,6 +1,6 @@
 import importlib.metadata
 import posixpath
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
@@ -69,7 +69,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
     def log_artifacts(self, local_dir: str, artifact_path: Optional[str] = None) -> None:
         local_dir = Path(local_dir).resolve()
         futures: list[Future[None]] = []
-        with ThreadPoolExecutor() as executor:
+        with self._create_thread_pool() as executor:
             for f in local_dir.rglob("*"):
                 if not f.is_file():
                     continue
