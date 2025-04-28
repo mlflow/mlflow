@@ -302,7 +302,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 terminalreporter.write(f"{idx}: {child}\n")
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module", autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_envs():
     """
     Clean up virtualenvs and conda environments created during tests to save disk space.
