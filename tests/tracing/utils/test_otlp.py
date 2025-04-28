@@ -1,11 +1,11 @@
 import time
 
-from mlflow.utils.os import is_windows
 import pytest
 
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.tracing.provider import _get_trace_exporter
+from mlflow.utils.os import is_windows
 
 # OTLP exporters are not installed in some CI jobs
 try:

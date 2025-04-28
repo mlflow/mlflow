@@ -2,10 +2,13 @@ import inspect
 import os
 import shutil
 import subprocess
+import tempfile
+import time
 import uuid
 from unittest import mock
 
 import pytest
+import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
@@ -29,31 +32,59 @@ if not IS_TRACING_SDK_ONLY:
     )
 
 
-# A fixture only used for testing mlflow-trace package integration.
+@pytest.fixture(autouse=IS_TRACING_SDK_ONLY, scope="session")
+def remote_backend_for_tracing_sdk_test():
+    """
+    A fixture to start a remote backend for testing mlflow-tracing package integration.
+    Since the tracing SDK has to be tested in an environment that has minimal dependencies,
+    we need to start a tracking backend in an isolated uv environment.
+    """
+    # Use fixed port for simplicity
+    port = 5000
+    # Start a remote backend to test mlflow-tracing package integration.
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with subprocess.Popen(
+            [
+                "uv",
+                "run",
+                "--with",
+                "mlflow",
+                "--python",
+                "3.9",
+                "mlflow",
+                "server",
+                "--port",
+                "5000",
+            ],
+            cwd=temp_dir,
+        ) as process:
+            print("Starting mlflow server on port 5000")  # noqa: T201
+            try:
+                for _ in range(30):
+                    try:
+                        response = requests.get(f"http://localhost:{port}")
+                        if response.ok:
+                            break
+                    except requests.ConnectionError:
+                        print("MLflow server is not responding yet.")  # noqa: T201
+                        time.sleep(1)
+
+                mlflow.set_tracking_uri(f"http://localhost:{port}")
+
+            finally:
+                process.terminate()
+
+
 @pytest.fixture(autouse=IS_TRACING_SDK_ONLY)
-def remote_backend_for_tracing_sdk_test(monkeypatch):
-    # Check remote backend is running or not
-
-    try:
-        import requests
-
-        requests.get("http://localhost:5000")
-    except requests.exceptions.ConnectionError:
-        # error if remote backend is not running
-        raise pytest.UsageError(
-            "Remote backend is not running at http://localhost:5000. When testing mlflow-tracing, "
-            "package, you need to start the remote tracking server in a separate environment. "
-        )
-
+def tmp_experiment_for_tracing_sdk_test():
     mlflow.set_tracking_uri("http://localhost:5000")
-    experiment = mlflow.set_experiment("trace-unit-test")
 
-    # Set short max retries to speed up the test in case of failure
-    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "3")
+    # Generate a random experiment name
+    experiment_name = f"trace-unit-test-{uuid.uuid4().hex}"
+    experiment = mlflow.set_experiment(experiment_name)
 
     yield
 
-    # Remove all traces in the backend
     purge_traces(experiment_id=experiment.experiment_id)
 
 
