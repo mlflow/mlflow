@@ -352,7 +352,7 @@ def _patch_mcp_server() -> None:
 
     _mcp_call_tool_decorator = _with_span_async(
         span_name=lambda self: f"{self.__class__.__name__}.call_tool",
-        span_type=SpanType.TOOL,
+        span_type=SpanType.CHAIN,
         capture_inputs=lambda args, kwargs: {
             "tool_name": args[1],
             "arguments": args[2],
