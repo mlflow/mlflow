@@ -248,7 +248,6 @@ if not IS_TRACING_SDK_ONLY:
     from mlflow.tracking.fluent import (
         ActiveModel,
         ActiveRun,
-        active_run,
         autolog,
         create_experiment,
         create_external_model,
@@ -306,7 +305,6 @@ if not IS_TRACING_SDK_ONLY:
         "ActiveModel",
         "MlflowClient",
         "MlflowException",
-        "active_run",
         "autolog",
         "create_experiment",
         "create_external_model",
