@@ -111,6 +111,7 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
   <thead>
     <tr>
       <th>**Property**</th>
+      <th>**Type**</th>
       <th>**Description**</th>
       <th>**Note**</th>
     </tr>
@@ -118,6 +119,7 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
   <tbody>
     <tr>
       <td>**trace_id**</td>
+      <td>`str`</td>
       <td>
         A unique identifier for the trace. The identifier is used within MLflow
         and integrated system to resolve the event being captured and to provide
@@ -136,12 +138,15 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
     </tr>
     <tr>
       <td>**trace_location**</td>
+      <td><APILink fn="mlflow.entities.TraceLocation" /></td>
       <td>
-        The location where the trace is stored. MLflow currently supports MLflow Experiment or Databricks Inference Table as a trace location.
+        The location where the trace is stored.
       </td>
+      <td>MLflow currently supports MLflow Experiment or Databricks Inference Table as a trace location.</td>
     </tr>
     <tr>
       <td>**request_time**</td>
+      <td>`int`</td>
       <td>
         The time that marks the moment when the root span of the trace was
         created. This is a Unix timestamp in milliseconds.
@@ -157,6 +162,7 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
     </tr>
     <tr>
       <td>**execution_duration**</td>
+      <td>`int`</td>
       <td>
         The time that marks the moment when the call to end the trace is made.
         This is a Unix timestamp in milliseconds.
@@ -169,9 +175,10 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
     </tr>
     <tr>
       <td>**state**</td>
+      <td><APILink fn="mlflow.entities.TraceState" /></td>
       <td>An enumerated value that denotes the state of the trace.</td>
       <td>
-        `TraceStatus` values are one of:
+        `TraceState` values are one of:
 
         - **OK** - The trace and the
         instrumented call were successful.
@@ -187,18 +194,19 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
     </tr>
     <tr>
       <td>**request_preview**</td>
+      <td>`str`</td>
       <td>The `request_preview` property is the input data for the entire trace. The input `str` is a JSON-serialized string that contains the input data for the trace, typically the end-user request that was submitted as a call to the application.</td>
-      <td>Due to the varied structures of inputs that could go to a given application that is being instrumented by MLflow Tracing, all inputs are JSON serialized for compatibility's sake. This allows for the input data to be stored in a consistent format, regardless of the input data's structure.</td>
-      <td>This field can be truncated if it exceeds the length limit.</td>
+      <td>Due to the varied structures of inputs that could go to a given application that is being instrumented by MLflow Tracing, all inputs are JSON serialized for compatibility's sake. This allows for the input data to be stored in a consistent format, regardless of the input data's structure. This field can be truncated if it exceeds the length limit.</td>
     </tr>
     <tr>
       <td>**response_preview**</td>
+      <td>`str`</td>
       <td>The `response_preview` property is the final output data that will be returned to the caller of the invocation of the application.</td>
-      <td>Similar to the request property, this value is a JSON-serialized string to maximize compatibility of disparate formats.</td>
-      <td>This field can be truncated if it exceeds the length limit.</td>
+      <td>Similar to the request property, this value is a JSON-serialized string to maximize compatibility of disparate formats. This field can be truncated if it exceeds the length limit.</td>
     </tr>
     <tr>
       <td>**trace_metadata**</td>
+      <td>`dict[str, str]`</td>
       <td>
         The trace metadata are additional key-value pairs of information that
         are associated with the Trace, set and modified by the tracing backend.
@@ -211,6 +219,7 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
     </tr>
     <tr>
       <td>**tags**</td>
+      <td>`dict[str, str]`</td>
       <td>
         User-defined key-value pairs that can be applied to a trace for applying
         additional context, aid in [search functionality](/tracing/api/search/), or to
@@ -220,6 +229,16 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
       <td>
         These tags are fully mutable and can be changed at any time, even long
         after a trace has been logged to an experiment.
+      </td>
+    </tr>
+    <tr>
+      <td>**assessments**</td>
+      <td>List of <APILink fn="mlflow.entities.Assessment" /></td>
+      <td>
+        A list of assessments associated with the trace.
+      </td>
+      <td>
+        Currently, this property is only supported on Databricks.
       </td>
     </tr>
   </tbody>
