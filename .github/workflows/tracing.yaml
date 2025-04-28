@@ -37,13 +37,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/start-tracking-server-bg
 
       # Install mlflow-tracing SDK from the current directory
       - name: Install mlflow-tracing SDK
         run: |
           pip install pip setuptools --upgrade
-          pip install -e ./packages/tracing
+          pip install ./packages/tracing
 
       - name: Install test dependencies
         run: |
