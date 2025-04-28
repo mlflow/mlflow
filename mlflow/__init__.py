@@ -178,7 +178,7 @@ from mlflow.tracking import (
     is_tracking_uri_set,
     set_tracking_uri,
 )
-from mlflow.tracking.fluent import flush_trace_async_logging, set_experiment
+from mlflow.tracking.fluent import active_run, flush_trace_async_logging, set_experiment
 
 # These are minimal set of APIs to be exposed via `mlflow-tracing` package.
 # APIs listed here must not depend on dependencies that are not part of `mlflow-tracing` package.
@@ -189,6 +189,9 @@ __all__ = [
     "set_tracking_uri",
     "get_tracking_uri",
     "is_tracking_uri_set",
+    # NB: Tracing SDK doesn't support using Runs, however, active_run is used heavily within
+    # the autologging code base.
+    "active_run",
     # Tracing APIs
     "add_trace",
     "delete_trace_tag",
@@ -245,7 +248,6 @@ if not IS_TRACING_SDK_ONLY:
     from mlflow.tracking.fluent import (
         ActiveModel,
         ActiveRun,
-        active_run,
         autolog,
         create_experiment,
         create_external_model,
@@ -303,7 +305,6 @@ if not IS_TRACING_SDK_ONLY:
         "ActiveModel",
         "MlflowClient",
         "MlflowException",
-        "active_run",
         "autolog",
         "create_experiment",
         "create_external_model",
