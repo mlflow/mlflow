@@ -15,10 +15,6 @@
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
   },
-  "+RYBrq": {
-    "defaultMessage": "Promote model",
-    "description": "Button text to pomote the model to a different registered model"
-  },
   "+dGAnC": {
     "defaultMessage": "Preview",
     "description": "Run page > artifact view > logged table view > preview box > title"
@@ -1539,6 +1535,10 @@
     "defaultMessage": "Value",
     "description": "Add new key-value tag modal > Value input label"
   },
+  "OWCfFp": {
+    "defaultMessage": "Promote {sourceModelName} version {sourceModelVersion}",
+    "description": "Modal title to promote the model to a different registered model"
+  },
   "OfLABN": {
     "defaultMessage": "Close",
     "description": "Error modal close button text"
@@ -1650,6 +1650,10 @@
   "QuU1sl": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab text for parallel coordinates plot on the model comparison page"
+  },
+  "Qv7cZx": {
+    "defaultMessage": "Promote model",
+    "description": "Button text to promote the model to a different registered model"
   },
   "R/4/8G": {
     "defaultMessage": "Metric",
@@ -3094,10 +3098,6 @@
   "oBKd1E": {
     "defaultMessage": "Value",
     "description": "Column title for value column in editable tags table view in MLflow"
-  },
-  "oBjwod": {
-    "defaultMessage": "Promote {sourceModelName} version {sourceModelVersion}",
-    "description": "Modal title to pomote the model to a different registered model"
   },
   "oHW+ks": {
     "defaultMessage": "Description",
