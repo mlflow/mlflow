@@ -64,6 +64,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
         self._region_name = self._get_region_name()
         self._s3_upload_extra_args = s3_upload_extra_args if s3_upload_extra_args else {}
+        # Set thread pool size to 1 for serial execution
+        self.chunk_thread_pool._max_workers = 1
+        print(f"rohit: Thread pool size set to 1 for serial execution")
 
     def _refresh_credentials(self):
         if not self._credential_refresh_def:
@@ -159,8 +162,25 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         if environ_extra_args is not None:
             extra_args.update(environ_extra_args)
 
+        print(f"rohit: Starting S3 upload - Bucket: {bucket}, Key: {key}, Local file: {local_file}")
+        print(f"rohit: Extra args for upload: {extra_args}")
+
         def try_func(creds):
-            creds.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
+            try:
+                print(f"rohit: Attempting upload with credentials")
+                creds.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
+                print(f"rohit: Successfully uploaded file to S3 - Bucket: {bucket}, Key: {key}")
+            except Exception as e:
+                error_response = getattr(e, "response", {})
+                error_code = error_response.get("Error", {}).get("Code", "Unknown")
+                error_message = error_response.get("Error", {}).get("Message", str(e))
+                request_id = error_response.get("ResponseMetadata", {}).get("RequestId", "N/A")
+                print(f"rohit: S3 Upload Error - Bucket: {bucket}, Key: {key}")
+                print(f"rohit: Error Code: {error_code}")
+                print(f"rohit: Error Message: {error_message}")
+                print(f"rohit: Request ID: {request_id}")
+                print(f"rohit: Full Error: {str(e)}")
+                raise
 
         _retry_with_new_creds(
             try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
@@ -328,8 +348,33 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         s3_client = self._get_s3_client()
         s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
 
+        print(f"rohit: Starting S3 download - Bucket: {self.bucket}, Remote path: {s3_full_path}, Local path: {local_path}")
+        print(f"rohit: Local path exists: {os.path.exists(local_path)}")
+        print(f"rohit: Local path directory exists: {os.path.exists(os.path.dirname(local_path))}")
+        print(f"rohit: Local path directory permissions: {oct(os.stat(os.path.dirname(local_path)).st_mode)[-3:]}")
+        
+        # Get file size before download
+        try:
+            response = s3_client.head_object(Bucket=self.bucket, Key=s3_full_path)
+            file_size = response.get('ContentLength', 0)
+            print(f"rohit: File size before download: {file_size} bytes ({file_size / (1024*1024):.2f} MB)")
+        except Exception as e:
+            print(f"rohit: Could not get file size: {str(e)}")
+
         def try_func(creds):
-            creds.download_file(self.bucket, s3_full_path, local_path)
+            try:
+                print(f"rohit: Attempting download with credentials")
+                creds.download_file(self.bucket, s3_full_path, local_path)
+                print(f"rohit: Successfully downloaded file from S3")
+            except Exception as e:
+                print(f"rohit: S3 Download Error - Bucket: {self.bucket}, Remote path: {s3_full_path}")
+                print(f"rohit: Error Type: {type(e).__name__}")
+                print(f"rohit: Error Message: {str(e)}")
+                print(f"rohit: Local path: {local_path}")
+                print(f"rohit: Local path exists: {os.path.exists(local_path)}")
+                print(f"rohit: Local path directory exists: {os.path.exists(os.path.dirname(local_path))}")
+                print(f"rohit: Local path directory permissions: {oct(os.stat(os.path.dirname(local_path)).st_mode)[-3:]}")
+                raise
 
         _retry_with_new_creds(
             try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
