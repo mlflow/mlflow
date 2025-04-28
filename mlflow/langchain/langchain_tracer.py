@@ -26,91 +26,27 @@ from mlflow.langchain.utils.chat import (
     convert_lc_generation_to_chat_message,
     convert_lc_message_to_chat_message,
 )
-from mlflow.pyfunc.context import Context, maybe_set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
+from mlflow.tracing.utils import (
+    maybe_set_prediction_context,
+    set_span_chat_messages,
+    set_span_chat_tools,
+)
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatMessage, ChatTool, FunctionToolDefinition
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
-from mlflow.utils.autologging_utils.config import AutoLoggingConfig
+from mlflow.version import IS_TRACING_SDK_ONLY
+
+if not IS_TRACING_SDK_ONLY:
+    from mlflow.pyfunc.context import Context
+
 
 _logger = logging.getLogger(__name__)
 
 _should_attach_span_to_context = ContextVar("should_attach_span_to_context", default=True)
-
-
-def patched_callback_manager_init(original, self, *args, **kwargs):
-    original(self, *args, **kwargs)
-
-    autologging_config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
-    if not autologging_config.log_traces:
-        return
-
-    for handler in self.inheritable_handlers:
-        if isinstance(handler, MlflowLangchainTracer):
-            return
-
-    _handler = MlflowLangchainTracer()
-    self.add_handler(_handler, inherit=True)
-
-
-def patched_callback_manager_merge(original, self, *args, **kwargs):
-    """
-    Patch BaseCallbackManager.merge to avoid a duplicated callback issue.
-
-    In the above patched __init__, we check `inheritable_handlers` to see if the MLflow tracer
-    is already propagated. This works when the `inheritable_handlers` is specified as constructor
-    arguments. However, in the `merge` method, LangChain does not use constructor but set
-    callbacks via the setter method. This causes duplicated callbacks injection.
-    https://github.com/langchain-ai/langchain/blob/d9a069c414a321e7a3f3638a32ecf8a37ec2d188/libs/core/langchain_core/callbacks/base.py#L962-L982
-    """
-    # Get the MLflow callback inherited from parent
-    inherited = self.inheritable_handlers + args[0].inheritable_handlers
-    inherited_mlflow_cb = next(
-        (cb for cb in inherited if isinstance(cb, MlflowLangchainTracer)), None
-    )
-
-    if not inherited_mlflow_cb:
-        return original(self, *args, **kwargs)
-
-    merged = original(self, *args, **kwargs)
-    # If a new MLflow callback is generated inside __init__, remove it
-    duplicate_mlflow_cbs = [
-        cb
-        for cb in merged.inheritable_handlers
-        if isinstance(cb, MlflowLangchainTracer) and cb != inherited_mlflow_cb
-    ]
-    for cb in duplicate_mlflow_cbs:
-        merged.remove_handler(cb)
-
-    return merged
-
-
-def patched_runnable_sequence_batch(original, self, *args, **kwargs):
-    """
-    Patch to terminate span context attachment during batch execution.
-
-    RunnableSequence's batch() methods are implemented in a peculiar way
-    that iterates on steps->items sequentially within the same thread. For example, if a
-    sequence has 2 steps and the batch size is 3, the execution flow will be:
-      - Step 1 for item 1
-      - Step 1 for item 2
-      - Step 1 for item 3
-      - Step 2 for item 1
-      - Step 2 for item 2
-      - Step 2 for item 3
-    Due to this behavior, we cannot attach the span to the context for this particular
-    API, otherwise spans for different inputs will be mixed up.
-    """
-    original_state = _should_attach_span_to_context.get()
-    _should_attach_span_to_context.set(False)
-    try:
-        return original(self, *args, **kwargs)
-    finally:
-        _should_attach_span_to_context.set(original_state)
 
 
 class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstractClass):
@@ -128,7 +64,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
     def __init__(
         self,
-        prediction_context: Optional[Context] = None,
+        prediction_context: Optional["Context"] = None,
     ):
         # NB: The tracer can handle multiple traces in parallel under multi-threading scenarios.
         # DO NOT use instance variables to manage the state of single trace.
@@ -182,36 +118,28 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
         serialized_attributes = self._serialize_invocation_params(attributes)
-        with maybe_set_prediction_context(self._prediction_context):
-            parent = self._get_parent_span(parent_run_id)
-            if parent:
-                span = start_span_no_context(
-                    name=span_name,
-                    parent_span=parent,
-                    span_type=span_type,
-                    inputs=inputs,
-                    attributes=serialized_attributes,
-                )
-            else:
-                # When parent_run_id is None, this is root component so start trace
-                dependencies_schemas = (
-                    self._prediction_context.dependencies_schemas
-                    if self._prediction_context
-                    else None
-                )
-                span = start_span_no_context(
-                    name=span_name,
-                    span_type=span_type,
-                    inputs=inputs,
-                    attributes=serialized_attributes,
-                    tags=dependencies_schemas,
-                )
-                if span.trace_id == NO_OP_SPAN_TRACE_ID:
-                    _logger.debug("No Op span was created, the trace will not be recorded.")
+        dependencies_schemas = (
+            self._prediction_context.dependencies_schemas if self._prediction_context else None
+        )
+        with maybe_set_prediction_context(
+            self._prediction_context
+        ):  # When parent_run_id is None, this is root component so start trace
+            span = start_span_no_context(
+                name=span_name,
+                span_type=span_type,
+                parent_span=self._get_parent_span(parent_run_id),
+                inputs=inputs,
+                attributes=serialized_attributes,
+                tags=dependencies_schemas,
+            )
 
-            # Attach the span to the current context to mark it "active"
-            token = set_span_in_context(span) if _should_attach_span_to_context.get() else None
-            self._run_span_mapping[str(run_id)] = SpanWithToken(span, token)
+            # Debugging purpose
+            if span.trace_id == NO_OP_SPAN_TRACE_ID:
+                _logger.debug("No Op span was created, the trace will not be recorded.")
+
+        # Attach the span to the current context to mark it "active"
+        token = set_span_in_context(span) if _should_attach_span_to_context.get() else None
+        self._run_span_mapping[str(run_id)] = SpanWithToken(span, token)
         return span
 
     def _get_parent_span(self, parent_run_id) -> Optional[LiveSpan]:

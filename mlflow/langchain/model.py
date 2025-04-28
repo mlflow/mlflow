@@ -27,9 +27,10 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
+from mlflow.langchain.constants import FLAVOR_NAME
 from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
-from mlflow.langchain.utils import (
+from mlflow.langchain.utils.logging import (
     _BASE_LOAD_KEY,
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
@@ -102,7 +103,6 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 logger = logging.getLogger(mlflow.__name__)
 
-FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
 
 
