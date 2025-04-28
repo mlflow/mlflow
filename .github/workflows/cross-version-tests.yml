@@ -145,13 +145,21 @@ jobs:
           python-version: ${{ matrix.python }}
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
+        if: ${{ matrix.category != 'tracing' }}
         with:
           java-version: ${{ matrix.java }}
       - name: Install mlflow & test dependencies
         run: |
           pip install -U pip wheel setuptools
-          pip install .[extras]
-          pip install -r requirements/test-requirements.txt
+          # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
+          if [[ "${{ matrix.category }}" == "tracing" ]]; then
+            pip install packages/tracing
+            pip install pytest pytest-asyncio pytest-cov
+          # Other two categories of tests (model/autologging)
+          else
+            pip install .[extras]
+            pip install -r requirements/test-requirements.txt
+          fi
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
@@ -192,13 +200,21 @@ jobs:
           python-version: ${{ matrix.python }}
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
+        if: ${{ matrix.category != 'tracing' }}
         with:
           java-version: ${{ matrix.java }}
       - name: Install mlflow & test dependencies
         run: |
           pip install -U pip wheel setuptools
-          pip install .[extras]
-          pip install -r requirements/test-requirements.txt
+          # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
+          if [[ "${{ matrix.category }}" == "tracing" ]]; then
+            pip install packages/tracing
+            pip install pytest pytest-asyncio pytest-cov
+          # Other two categories of tests (model/autologging)
+          else
+            pip install .[extras]
+            pip install -r requirements/test-requirements.txt
+          fi
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}

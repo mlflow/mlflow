@@ -27,6 +27,8 @@ python dev/set_matrix.py --versions 1.1.1
 
 import argparse
 import functools
+import importlib
+import inspect
 import json
 import os
 import re
@@ -548,6 +550,21 @@ def validate_requirements(
             )
 
 
+def is_flavor_support_tracing(flavor: str) -> bool:
+    """
+    Check if a flavor's autolog() function supports log_traces parameter.
+    """
+    try:
+        module = importlib.import_module(f"mlflow.{flavor}")
+        if not hasattr(module, "autolog"):
+            return False
+
+        sig = inspect.signature(module.autolog)
+        return "log_traces" in sig.parameters
+    except (ImportError, AttributeError):
+        return False
+
+
 def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[MatrixItem]:
     matrix = set()
     for name, flavor_config in config.items():
@@ -607,6 +624,32 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                         free_disk_space=free_disk_space,
                         runs_on=runs_on,
                         pre_test=cfg.pre_test,
+                    )
+                )
+
+            # Add tracing test with the latest stable version
+            if (
+                len(versions) > 0
+                and category == "autologging"
+                and is_flavor_support_tracing(flavor)
+            ):
+                matrix.add(
+                    MatrixItem(
+                        name=f"{name}-tracing",
+                        flavor=flavor,
+                        category="tracing",
+                        job_name="tracing",
+                        install=install,
+                        # --import-mode=importlib is required for testing tracing SDK
+                        # (mlflow-tracing) works properly, without being affected by the environment.
+                        run=run.replace("pytest", "pytest --import-mode=importlib"),
+                        package=package_info.pip_release,
+                        version=versions[-1],
+                        java=java,
+                        supported=versions[-1] <= cfg.maximum,
+                        free_disk_space=free_disk_space,
+                        python=python,
+                        runs_on=runs_on,
                     )
                 )
 
