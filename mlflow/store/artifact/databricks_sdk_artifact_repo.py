@@ -1,15 +1,13 @@
 import posixpath
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
-
-from databricks.sdk import WorkspaceClient
-from databricks.sdk.config import Config
-from databricks.sdk.errors.platform import NotFound
-from databricks.sdk.service.files import FilesAPI
+from typing import TYPE_CHECKING, Optional
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+
+if TYPE_CHECKING:
+    from databricks.sdk.service.files import FilesAPI
 
 
 # TODO: The following artifact repositories should use this class. Migrate them.
@@ -17,6 +15,9 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 #   - databricks_sdk_models_artifact_repo.py
 class DatabricksSdkArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri: str) -> None:
+        from databricks.sdk import WorkspaceClient
+        from databricks.sdk.config import Config
+
         super().__init__(artifact_uri)
         self.wc = WorkspaceClient(config=Config(enable_experimental_files_api_client=True))
 
@@ -25,6 +26,8 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         return self.wc.files
 
     def _is_dir(self, path: str) -> bool:
+        from databricks.sdk.errors.platform import NotFound
+
         try:
             self.files_api.get_directory_metadata(path)
         except NotFound:
