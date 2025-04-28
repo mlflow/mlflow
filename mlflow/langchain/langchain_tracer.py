@@ -20,6 +20,7 @@ from tenacity import RetryCallState
 import mlflow
 from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import (
     convert_lc_generation_to_chat_message,
@@ -131,6 +132,10 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                 attributes=serialized_attributes,
                 tags=dependencies_schemas,
             )
+
+            # Debugging purpose
+            if span.trace_id == NO_OP_SPAN_TRACE_ID:
+                _logger.debug("No Op span was created, the trace will not be recorded.")
 
         # Attach the span to the current context to mark it "active"
         token = set_span_in_context(span) if _should_attach_span_to_context.get() else None
