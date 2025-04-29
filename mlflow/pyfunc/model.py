@@ -282,7 +282,6 @@ class PythonModelContext:
         """
         return self._artifacts
 
-    @experimental
     @property
     def model_config(self):
         """
@@ -293,7 +292,6 @@ class PythonModelContext:
         return self._model_config
 
 
-@experimental
 class ChatModel(PythonModel, metaclass=ABCMeta):
     """
     .. tip::

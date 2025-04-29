@@ -76,7 +76,6 @@ from mlflow.tracking.artifact_utils import (
     _get_root_uri_and_artifact_path,
 )
 from mlflow.utils import databricks_utils
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -132,7 +131,6 @@ def _set_env_vars():
     os.environ.update({k: str(v) for k, v in loaded_license.items() if v is not None})
 
 
-@experimental
 def get_default_pip_requirements():
     """
     Returns:
@@ -182,7 +180,6 @@ def get_default_pip_requirements():
     return deps
 
 
-@experimental
 def get_default_conda_env():
     """
     Returns:
@@ -192,7 +189,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def log_model(
     spark_model,
@@ -496,7 +492,6 @@ def _save_jars_and_lic(dst_dir, store_license=False):
             deps_data_path.joinpath("license.json").write(secrets.json())
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def save_model(
     spark_model,
