@@ -175,7 +175,7 @@ def log_model(
 
                 with mlflow.start_run():
                     logged_model = mlflow.promptflow.log_model(
-                        flow, artifact_path="promptflow_model", model_config=model_config
+                        flow, name="promptflow_model", model_config=model_config
                     )
         prompts: {{ prompts }}
         name: {{ name }}
@@ -281,7 +281,7 @@ def save_model(
 
                 with mlflow.start_run():
                     logged_model = mlflow.promptflow.log_model(
-                        flow, artifact_path="promptflow_model", model_config=model_config
+                        flow, name="promptflow_model", model_config=model_config
                     )
     """
     import promptflow

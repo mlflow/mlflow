@@ -323,7 +323,7 @@ def log_model(
         trained_classifier.predict("He hates covid")
 
         # Log it
-        mlflow.johnsnowlabs.log_model(trained_classifier, "my_trained_model")
+        mlflow.johnsnowlabs.log_model(trained_classifier, name="my_trained_model")
     """
 
     _validate_env_vars()

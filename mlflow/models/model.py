@@ -283,7 +283,7 @@ class ModelInfo:
                 signature = infer_signature(iris.data, iris.target)
                 mlflow.sklearn.log_model(
                     clf,
-                    "iris_rf",
+                    name="iris_rf",
                     signature=signature,
                     registered_model_name="model-with-metadata",
                     metadata={"metadata_key": "metadata_value"},
@@ -535,7 +535,7 @@ class Model:
                 signature = infer_signature(iris.data, iris.target)
                 mlflow.sklearn.log_model(
                     clf,
-                    "iris_rf",
+                    name="iris_rf",
                     signature=signature,
                     registered_model_name="model-with-metadata",
                     metadata={"metadata_key": "metadata_value"},
@@ -1174,7 +1174,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
             signature = mlflow.models.infer_signature(X, y)
             rfr = RandomForestRegressor(**params).fit(X, y)
             mlflow.log_params(params)
-            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+            mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
         model_uri = f"runs:/{run.info.run_id}/sklearn-model"
         # Get model info with model_uri

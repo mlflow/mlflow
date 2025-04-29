@@ -178,7 +178,7 @@ def save_model(
                 opt.step()
                 opt.clear_grad()
         mlflow.log_param("learning_rate", 0.01)
-        mlflow.paddle.log_model(model, "model")
+        mlflow.paddle.log_model(model, name="model")
         sk_path_dir = "./test-out"
         mlflow.paddle.save_model(model, sk_path_dir)
         print("Model saved in run %s" % mlflow.active_run().info.run_id)
@@ -403,7 +403,7 @@ def log_model(
         for epoch_id in range(EPOCH_NUM):
             ...
         mlflow.log_param("learning_rate", 0.01)
-        mlflow.paddle.log_model(model, "model")
+        mlflow.paddle.log_model(model, name="model")
         sk_path_dir = ...
         mlflow.paddle.save_model(model, sk_path_dir)
     """

@@ -346,7 +346,7 @@ def log_model(
         with mlflow.start_run():
             mlflow.sentence_transformers.log_model(
                 model=model,
-                artifact_path="sbert_model",
+                name="sbert_model",
                 signature=signature,
                 input_example=data,
             )

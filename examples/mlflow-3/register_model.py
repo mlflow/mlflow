@@ -10,7 +10,7 @@ with mlflow.start_run():
     model = LinearRegression().fit([[1], [2]], [3, 4])
     model_info = mlflow.sklearn.log_model(
         model,
-        "model",
+        name="model",
         params={
             "alpha": 0.5,
             "l1_ratio": 0.5,
@@ -18,7 +18,7 @@ with mlflow.start_run():
     )
     model_info_2 = mlflow.sklearn.log_model(
         model,
-        "model",
+        name="model",
         step=2,
         params={
             "alpha": 0.5,
@@ -58,7 +58,9 @@ assert mv.model_id == model_info_2.model_id  # model at largest step is register
 # Register model in log_model() directly
 with mlflow.start_run():
     model_1 = LinearRegression().fit([[1], [2]], [3, 4])
-    model_info_1 = mlflow.sklearn.log_model(model_1, "model_1", registered_model_name="model_1")
+    model_info_1 = mlflow.sklearn.log_model(
+        model_1, name="model_1", registered_model_name="model_1"
+    )
 
 m = mlflow.get_logged_model(model_info_1.model_id)
 assert len(json.loads(m.tags["mlflow.modelVersions"])) == 1

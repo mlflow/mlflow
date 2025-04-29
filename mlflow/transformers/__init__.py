@@ -836,7 +836,7 @@ def log_model(
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
                         transformers_model=qa_pipe,
-                        artifact_path="model",
+                        name="model",
                     )
 
             An example of specifying component-level parts of a transformers model is shown below:
@@ -856,7 +856,7 @@ def log_model(
                     }
                     mlflow.transformers.log_model(
                         transformers_model=components,
-                        artifact_path="model",
+                        name="model",
                     )
 
             An example of specifying a local checkpoint path is shown below:
@@ -866,7 +866,7 @@ def log_model(
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
                         transformers_model="path/to/local/checkpoint",
-                        artifact_path="model",
+                        name="model",
                     )
 
         artifact_path: Deprecated. Use `name` instead.
@@ -922,7 +922,7 @@ def log_model(
                 with mlflow.start_run() as run:
                     mlflow.transformers.log_model(
                         transformers_model=en_to_de,
-                        artifact_path="english_to_german_translator",
+                        name="english_to_german_translator",
                         signature=signature,
                         input_example=data,
                     )
@@ -995,7 +995,7 @@ def log_model(
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
                         transformers_model=sentence_pipeline,
-                        artifact_path="my_sentence_generator",
+                        name="my_sentence_generator",
                         task=task,
                         model_config=model_config,
                     )
@@ -1152,7 +1152,7 @@ def persist_pretrained_model(model_uri: str) -> None:
         with mlflow.start_run() as run:
             model = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
             mlflow.transformers.log_model(
-                transformers_model=model, artifact_path="pipeline", save_pretrained=False
+                transformers_model=model, name="pipeline", save_pretrained=False
             )
 
         # The model cannot be registered to the Model Registry as it is

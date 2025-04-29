@@ -1542,7 +1542,10 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
             clf.fit(iris_train, iris.target)
             signature = infer_signature(iris_train, clf.predict(iris_train))
             mlflow.sklearn.log_model(
-                clf, "iris_rf", signature=signature, registered_model_name="model-with-libs"
+                clf,
+                name="iris_rf",
+                signature=signature,
+                registered_model_name="model-with-libs",
             )
 
         # model uri for the above model

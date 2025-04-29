@@ -262,7 +262,7 @@ code_path = "ollama_model.py"
 
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
-        "ollama_model",
+        name="ollama_model",
         python_model=code_path,
         input_example={
             "messages": [{"role": "user", "content": "Hello, how are you?"}]
@@ -454,7 +454,7 @@ code_path = "ollama_model.py"
 
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
-        "ollama_model",
+        name="ollama_model",
         python_model=code_path,
         input_example={
             "messages": [{"role": "user", "content": "Hello, how are you?"}]
@@ -668,7 +668,7 @@ request = {"messages": [{"role": "user", "content": "What is MLflow?"}]}
 
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
-        "ollama_pyfunc_model",
+        name="ollama_pyfunc_model",
         python_model=code_path,
         input_example=(request, params),
     )

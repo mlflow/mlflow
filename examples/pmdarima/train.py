@@ -49,7 +49,7 @@ with mlflow.start_run():
     signature = infer_signature(train, predictions)
 
     model_info = mlflow.pmdarima.log_model(
-        pmdarima_model=arima, artifact_path=ARTIFACT_PATH, signature=signature
+        pmdarima_model=arima, name=ARTIFACT_PATH, signature=signature
     )
     mlflow.log_params(parameters)
     mlflow.log_metrics(metrics)

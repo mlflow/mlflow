@@ -76,7 +76,7 @@ def register_model(
             rfr = RandomForestRegressor(**params).fit(X, y)
             signature = infer_signature(X, rfr.predict(X))
             mlflow.log_params(params)
-            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+            mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
         model_uri = f"runs:/{run.info.run_id}/sklearn-model"
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
         print(f"Name: {mv.name}")
@@ -271,12 +271,12 @@ def search_registered_models(
         with mlflow.start_run():
             mlflow.sklearn.log_model(
                 LogisticRegression(),
-                "Cordoba",
+                name="Cordoba",
                 registered_model_name="CordobaWeatherForecastModel",
             )
             mlflow.sklearn.log_model(
                 LogisticRegression(),
-                "Boston",
+                name="Boston",
                 registered_model_name="BostonWeatherForecastModel",
             )
 
@@ -385,7 +385,7 @@ def search_model_versions(
             with mlflow.start_run():
                 mlflow.sklearn.log_model(
                     LogisticRegression(),
-                    "Cordoba",
+                    name="Cordoba",
                     registered_model_name="CordobaWeatherForecastModel",
                 )
 

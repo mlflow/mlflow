@@ -433,7 +433,7 @@ def test_capture_imported_modules_include_deps_by_params():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=(["input1"], params),
         )
@@ -463,7 +463,7 @@ def test_capture_imported_modules_includes_gateway_extra(module_to_import, shoul
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=([1, 2, 3]),
         )
@@ -484,7 +484,7 @@ def test_gateway_extra_not_captured_when_importing_deployment_client_only():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=([1, 2, 3]),
         )
@@ -660,7 +660,7 @@ def test_capture_imported_modules_with_exception():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             input_example="test",
         )
@@ -687,7 +687,7 @@ def test_capture_imported_modules_raises_when_env_var_set(monkeypatch):
     ):
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
-                "model",
+                name="model",
                 python_model=BadModel(),
                 input_example="test",
             )
@@ -705,7 +705,7 @@ def test_capture_imported_modules_correct(monkeypatch):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             input_example="test",
         )
@@ -725,7 +725,7 @@ def test_capture_imported_modules_extra_env_vars(monkeypatch):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             input_example="test",
             pip_requirements=[],

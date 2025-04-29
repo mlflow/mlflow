@@ -4020,13 +4020,13 @@ class MlflowClient:
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
             # Register model name in the model registry
             name = "RandomForestRegression"
             client = MlflowClient()
@@ -4275,7 +4275,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -4351,7 +4351,7 @@ class MlflowClient:
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Create source model version
             client = MlflowClient()
@@ -4443,7 +4443,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -4524,7 +4524,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -4592,14 +4592,14 @@ class MlflowClient:
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             name = "RandomForestRegression"
@@ -4673,14 +4673,14 @@ class MlflowClient:
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             name = "RandomForestRegression"
@@ -4743,7 +4743,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -4873,7 +4873,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -4939,7 +4939,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -5031,7 +5031,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
             # Register model name in the model registry
             client = MlflowClient()
             client.create_registered_model(name)

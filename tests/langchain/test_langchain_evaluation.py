@@ -121,7 +121,7 @@ def test_langchain_pyfunc_evaluate():
     chain = create_fake_chain()
 
     with mlflow.start_run() as run:
-        model_info = mlflow.langchain.log_model(chain, "model")
+        model_info = mlflow.langchain.log_model(chain, name="model")
         evaluate(
             model_info.model_uri,
             data=_EVAL_DATA,

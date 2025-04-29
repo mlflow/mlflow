@@ -151,7 +151,7 @@ def test_langgraph_chat_agent_save_as_code():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "agent",
+            name="agent",
             python_model="tests/langgraph/sample_code/langgraph_chat_agent.py",
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -200,7 +200,7 @@ def test_langgraph_chat_agent_custom_inputs():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "agent",
+            name="agent",
             python_model="tests/langgraph/sample_code/langgraph_chat_agent_custom_inputs.py",
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)

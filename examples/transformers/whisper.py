@@ -44,7 +44,7 @@ inference_config = {
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=audio_transcription_pipeline,
-        artifact_path="whisper_transcriber",
+        name="whisper_transcriber",
         signature=signature,
         input_example=audio,
         inference_config=inference_config,
