@@ -18,7 +18,7 @@ import pytest
 import mlflow
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
-from mlflow import MlflowClient
+from mlflow import MlflowClient, set_active_model
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
@@ -33,21 +33,26 @@ from mlflow.entities import (
     SourceType,
     ViewType,
 )
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
+    MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_REGISTRY_URI,
     MLFLOW_RUN_ID,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking.fluent import (
     _get_experiment_id,
     _get_experiment_id_from_env,
+    _reset_last_logged_model_id,
     get_run,
     search_runs,
     set_experiment,
@@ -61,6 +66,7 @@ from mlflow.utils.async_logging.async_logging_queue import (
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import multi_context
+from tests.tracing.helper import get_traces
 
 
 def create_run(
@@ -77,7 +83,6 @@ def create_run(
 ):
     return Run(
         RunInfo(
-            run_uuid=run_id,
             run_id=run_id,
             experiment_id=exp_id,
             user_id=uid,
@@ -1302,6 +1307,49 @@ def test_log_input(tmp_path):
     assert dataset_inputs[0].tags[0].value == "train"
 
 
+def test_log_inputs(tmp_path):
+    df1 = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    path1 = tmp_path / "temp1.csv"
+    df1.to_csv(path1)
+    dataset1 = from_pandas(df1, source=path1)
+
+    df2 = pd.DataFrame([[4, 5, 6], [4, 5, 6]], columns=["a", "b", "c"])
+    path2 = tmp_path / "temp2.csv"
+    df2.to_csv(path2)
+    dataset2 = from_pandas(df2, source=path2)
+
+    df3 = pd.DataFrame([[7, 8, 9], [7, 8, 9]], columns=["a", "b", "c"])
+    path3 = tmp_path / "temp3.csv"
+    df3.to_csv(path3)
+    dataset3 = from_pandas(df3, source=path3)
+
+    with start_run() as run:
+        mlflow.log_inputs(
+            [dataset1, dataset2, dataset3],
+            ["train1", "train2", "train3"],
+            [{"foo": "baz"}, None, None],
+            None,
+        )
+
+    logged_inputs = MlflowClient().get_run(run.info.run_id).inputs
+    dataset_inputs = logged_inputs.dataset_inputs
+
+    assert len(dataset_inputs) == 3
+    assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path1)}
+    assert dataset_inputs[0].tags[0].key == "foo"
+    assert dataset_inputs[0].tags[0].value == "baz"
+    assert dataset_inputs[0].tags[1].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
+    assert dataset_inputs[0].tags[1].value == "train1"
+
+    assert json.loads(dataset_inputs[1].dataset.source) == {"uri": str(path2)}
+    assert dataset_inputs[1].tags[0].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
+    assert dataset_inputs[1].tags[0].value == "train2"
+
+    assert json.loads(dataset_inputs[2].dataset.source) == {"uri": str(path3)}
+    assert dataset_inputs[2].tags[0].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
+    assert dataset_inputs[2].tags[0].value == "train3"
+
+
 def test_log_input_metadata_only():
     source_uri = "test:/my/test/uri"
     source = HTTPDatasetSource(url=source_uri)
@@ -1687,3 +1735,313 @@ def test_runs_are_ended_by_run_id():
         mlflow.start_run(run_id=run.info.run_id)
 
     assert mlflow.active_run() is None
+
+
+def test_initialize_logged_model_active_run():
+    with mlflow.start_run() as run:
+        model = mlflow.initialize_logged_model()
+        assert model.source_run_id == run.info.run_id
+        assert model.experiment_id == run.info.experiment_id
+
+    exp_id = mlflow.create_experiment("exp")
+    with mlflow.start_run(experiment_id=exp_id) as run:
+        model = mlflow.initialize_logged_model()
+        assert model.source_run_id == run.info.run_id
+        assert model.experiment_id == run.info.experiment_id
+
+    model = mlflow.initialize_logged_model()
+    assert model.source_run_id is None
+
+
+def test_initialize_logged_model_tags_from_context():
+    expected_tags = {
+        mlflow_tags.MLFLOW_SOURCE_NAME: "source_name",
+        mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
+        mlflow_tags.MLFLOW_GIT_COMMIT: "1234",
+    }
+
+    with (
+        mock.patch(
+            "mlflow.tracking.context.default_context._get_source_name",
+            return_value=expected_tags[mlflow_tags.MLFLOW_SOURCE_NAME],
+        ) as m_get_source_name,
+        mock.patch(
+            "mlflow.tracking.context.default_context._get_source_type",
+            return_value=SourceType.from_string(expected_tags[mlflow_tags.MLFLOW_SOURCE_TYPE]),
+        ) as m_get_source_type,
+        mock.patch(
+            "mlflow.tracking.context.git_context._get_source_version",
+            return_value=expected_tags[mlflow_tags.MLFLOW_GIT_COMMIT],
+        ) as m_get_source_version,
+    ):
+        model = mlflow.initialize_logged_model()
+        assert expected_tags.items() <= model.tags.items()
+        m_get_source_name.assert_called_once()
+        m_get_source_type.assert_called_once()
+        m_get_source_version.assert_called_once()
+
+
+def test_create_external_model(tmp_path):
+    model = mlflow.create_external_model()
+    assert model.status == LoggedModelStatus.READY
+    assert model.tags.get(mlflow_tags.MLFLOW_MODEL_IS_EXTERNAL) == "true"
+
+    # Verify that an MLmodel file is created with metadata indicating that the model's artifacts
+    # are stored externally
+    mlflow.artifacts.download_artifacts(f"models:/{model.model_id}", dst_path=tmp_path)
+    mlflow_model: Model = Model.load(os.path.join(tmp_path, MLMODEL_FILE_NAME))
+    assert mlflow_model.metadata is not None
+    assert mlflow_model.metadata.get(mlflow_tags.MLFLOW_MODEL_IS_EXTERNAL) is True
+
+    exp_id = mlflow.create_experiment("test")
+    with mlflow.start_run(experiment_id=exp_id) as run:
+        pass
+    with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value=None) as m:
+        model = mlflow.create_external_model(source_run_id=run.info.run_id)
+        m.assert_called_once()
+
+    assert model.experiment_id == exp_id
+
+
+def test_last_logged_model():
+    _reset_last_logged_model_id()
+    assert mlflow.last_logged_model() is None
+
+    model = mlflow.initialize_logged_model()
+    assert mlflow.last_logged_model().model_id == model.model_id
+
+    client = MlflowClient()
+    client.set_logged_model_tags(model.model_id, {"tag": "value"})
+    assert mlflow.last_logged_model().tags.get("tag") == "value"
+
+    client.delete_logged_model_tag(model.model_id, "tag")
+    assert "tag" not in mlflow.last_logged_model().tags
+
+    external_model = mlflow.create_external_model()
+    assert mlflow.last_logged_model().model_id == external_model.model_id
+
+    another_model = mlflow.initialize_logged_model()
+    assert mlflow.last_logged_model().model_id == another_model.model_id
+
+    # model created by client should be ignored
+    client.create_logged_model(experiment_id="0")
+    assert mlflow.last_logged_model().model_id == another_model.model_id
+
+    # model created by another thread should be ignored
+    t = threading.Thread(daemon=True, target=lambda: mlflow.initialize_logged_model())
+    t.start()
+    t.join()
+    assert mlflow.last_logged_model().model_id == another_model.model_id
+
+
+def test_last_logged_model_log_model():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    model = mlflow.pyfunc.log_model("model", python_model=Model())
+    assert mlflow.last_logged_model().model_id == model.model_id
+
+
+def test_last_logged_model_autolog():
+    try:
+        from sklearn.linear_model import LinearRegression
+
+        mlflow.sklearn.autolog(log_models=True)
+
+        with mlflow.start_run() as run:
+            lr = LinearRegression()
+            lr.fit([[1], [2]], [3, 4])
+
+        model = mlflow.last_logged_model()
+        assert model is not None
+        assert model.source_run_id == run.info.run_id
+    finally:
+        mlflow.sklearn.autolog(disable=True)
+
+
+def test_set_and_delete_model_tag():
+    _reset_last_logged_model_id()
+
+    model = mlflow.initialize_logged_model()
+    assert mlflow.last_logged_model().model_id == model.model_id
+
+    mlflow.set_logged_model_tags(model.model_id, {"tag": "value"})
+    assert mlflow.last_logged_model().tags.get("tag") == "value"
+
+    mlflow.delete_logged_model_tag(model.model_id, "tag")
+    assert "tag" not in mlflow.last_logged_model().tags
+
+
+def test_search_logged_models():
+    with mock.patch("mlflow.tracking.fluent.MlflowClient") as MockClient:
+        mock_client = MockClient.return_value
+        mock_client.search_logged_models.return_value = PagedList([], None)
+
+        experiment_ids = ["123"]
+        filter_string = "name = 'model'"
+        datasets = [{"dataset_name": "dataset"}]
+        max_results = 50
+        order_by = [{"field_name": "metrics.accuracy", "ascending": False}]
+
+        mlflow.search_logged_models(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            datasets=datasets,
+            max_results=max_results,
+            order_by=order_by,
+            output_format="list",
+        )
+
+        mock_client.search_logged_models.assert_called_once_with(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            datasets=datasets,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=None,
+        )
+
+
+def test_search_logged_models_pagination():
+    def make_search_logged_model_page(models, token):
+        page = mock.Mock()
+        page.to_list.return_value = models
+        page.token = token
+        return page
+
+    with mock.patch("mlflow.tracking.fluent.MlflowClient") as MockClient:
+        mock_client = MockClient.return_value
+        page_1 = make_search_logged_model_page(["model_1", "model_2"], "token_1")
+        page_2 = make_search_logged_model_page(["model_3"], None)
+        mock_client.search_logged_models.side_effect = [page_1, page_2]
+
+        result = mlflow.search_logged_models(experiment_ids=["123"], output_format="list")
+        assert result == [f"model_{i + 1}" for i in range(3)]
+
+        expected_calls = [
+            mock.call(
+                experiment_ids=["123"],
+                filter_string=None,
+                datasets=None,
+                max_results=None,
+                order_by=None,
+                page_token=None,
+            ),
+            mock.call(
+                experiment_ids=["123"],
+                filter_string=None,
+                datasets=None,
+                max_results=None,
+                order_by=None,
+                page_token="token_1",
+            ),
+        ]
+        mock_client.search_logged_models.assert_has_calls(expected_calls)
+
+
+def test_set_active_model():
+    assert mlflow.get_active_model_id() is None
+
+    model = mlflow.create_external_model(name="test_model")
+
+    set_active_model(name=model.name)
+    assert mlflow.get_active_model_id() == model.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+
+    set_active_model(model_id=model.model_id)
+    assert mlflow.get_active_model_id() == model.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+
+    model2 = mlflow.create_external_model(name="test_model")
+    set_active_model(name="test_model")
+    assert mlflow.get_active_model_id() == model2.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == model2.model_id
+
+    set_active_model(name="new_model")
+    logged_model = mlflow.search_logged_models(
+        filter_string="name='new_model'", output_format="list"
+    )[0]
+    assert logged_model.name == "new_model"
+    assert mlflow.get_active_model_id() == logged_model.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
+
+    with set_active_model(model_id=model.model_id) as active_model:
+        assert active_model.model_id == model.model_id
+        assert mlflow.get_active_model_id() == model.model_id
+        assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+        with set_active_model(name="new_model"):
+            assert mlflow.get_active_model_id() == logged_model.model_id
+            assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
+        assert mlflow.get_active_model_id() == model.model_id
+        assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+    assert mlflow.get_active_model_id() == logged_model.model_id
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
+
+
+def test_set_active_model_error():
+    with pytest.raises(MlflowException, match=r"Either name or model_id must be provided"):
+        set_active_model()
+
+    model = mlflow.create_external_model(name="test_model")
+    with pytest.raises(MlflowException, match=r"does not match the provided name"):
+        set_active_model(name="abc", model_id=model.model_id)
+
+    with pytest.raises(MlflowException, match=r"Logged model with ID '1234' not found"):
+        set_active_model(model_id="1234")
+
+
+def test_set_active_model_env_var(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "1234")
+    assert mlflow.get_active_model_id() == "1234"
+
+    with set_active_model(name="abc") as model:
+        model_id = mlflow.get_active_model_id()
+        assert model_id == model.model_id
+        assert MLFLOW_ACTIVE_MODEL_ID.get() == model_id
+    assert mlflow.get_active_model_id() == "1234"
+    assert MLFLOW_ACTIVE_MODEL_ID.get() == "1234"
+
+    monkeypatch.delenv(MLFLOW_ACTIVE_MODEL_ID.name)
+    assert mlflow.get_active_model_id() is None
+    assert MLFLOW_ACTIVE_MODEL_ID.get() is None
+
+
+def test_set_active_model_link_traces():
+    set_active_model(name="test_model")
+    model_id = mlflow.get_active_model_id()
+    assert model_id is not None
+
+    @mlflow.trace
+    def predict(model_input):
+        return model_input
+
+    for i in range(3):
+        predict(model_input=i)
+
+    traces = get_traces()
+    assert len(traces) == 3
+    for trace in traces:
+        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
+
+    # manual start span without model_id
+    with mlflow.start_span():
+        predict(model_input=1)
+    traces = get_traces()
+    assert len(traces) == 4
+    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
+
+    # manual start span with model_id
+    with mlflow.start_span(model_id="1234"):
+        predict(model_input=1)
+
+    traces = get_traces()
+    assert len(traces) == 5
+    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == "1234"
+
+    with set_active_model(name="new_model") as new_model:
+        predict(model_input=1)
+    traces = get_traces()
+    assert len(traces) == 6
+    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == new_model.model_id
+    assert new_model.model_id != model_id

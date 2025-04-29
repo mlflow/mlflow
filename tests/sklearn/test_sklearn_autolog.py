@@ -120,10 +120,14 @@ def fit_func_name(request):
 
 def _get_model_uri(name: str = MODEL_DIR) -> str:
     """
-    Get the model URI for the last active run.
+    Search for the model with the given name and return its URI.
     """
-    last_active_run = mlflow.last_active_run()
-    return f"runs:/{last_active_run.info.run_id}/{name}"
+    if uri := next(
+        m.model_uri for m in mlflow.search_logged_models(output_format="list") if m.name == name
+    ):
+        return uri
+
+    raise ValueError(f"Model with name {name:r} not found")
 
 
 def test_autolog_preserves_original_function_attributes():
@@ -806,11 +810,22 @@ def test_parameter_search_estimators_produce_expected_outputs(
     assert isinstance(best_estimator, sklearn.svm.SVC)
     cv_model = mlflow.sklearn.load_model(f"runs:/{run_id}/{MODEL_DIR}")
     assert isinstance(cv_model, cv_class)
+    # Ensure the params are logged to the estimator
+    cv_model_id = Model.load(_get_model_uri(name="model")).model_id
+    cv_logged_model = mlflow.get_logged_model(cv_model_id)
+    assert expected_cv_params.items() <= cv_logged_model.params.items()
+    assert {
+        TRAINING_SCORE: cv_model.score(X, y),
+        "best_cv_score": cv_model.best_score_,
+    }.items() <= {m.key: m.value for m in cv_logged_model.metrics}.items()
 
     # Ensure that a signature and input example are produced for the best estimator
     model_uri = _get_model_uri(name="best_estimator")
     best_estimator_conf = Model.load(model_uri)
     assert best_estimator_conf.signature == infer_signature(X, best_estimator.predict(X[:5]))
+
+    # Get the LoggedModel of the best estimator
+    logged_best_model = mlflow.get_logged_model(best_estimator_conf.model_id)
 
     input_example = _read_example(best_estimator_conf, model_uri)
     best_estimator.predict(input_example)  # Ensure that input example evaluation succeeds
@@ -835,6 +850,7 @@ def test_parameter_search_estimators_produce_expected_outputs(
 
     # Verify that the best max_tuning_runs of parameter search results
     # have a corresponding MLflow run with the expected data
+    best_child_metrics = None
     for _, result in cv_results_best_n_df.iterrows():
         result_params = result.get("params", {})
         params_search_clause = " and ".join(
@@ -853,6 +869,13 @@ def test_parameter_search_estimators_produce_expected_outputs(
         # Ensure that we do not capture separate metrics for each cross validation split, which
         # would produce very noisy metrics results
         assert len([metric for metric in child_metrics.keys() if metric.startswith("split")]) == 0
+
+        # Verify if the params match the best estimator, then metrics are logged in the model
+        if result_params.items() <= cv_model.best_params_.items():
+            best_child_metrics = child_metrics
+
+    assert best_child_metrics is not None
+    assert best_child_metrics.items() <= {m.key: m.value for m in logged_best_model.metrics}.items()
 
     # Verify that the rest of the parameter search results do not have
     # a corresponding MLflow run.
@@ -1109,7 +1132,7 @@ def test_sklearn_autolog_log_models_configuration(log_models):
 
     run_id = run.info.run_id
     _, _, _, artifacts = get_run_data(run_id)
-    assert (MODEL_DIR in artifacts) == log_models
+    assert (mlflow.last_logged_model() is not None) == log_models
 
 
 @pytest.mark.parametrize("log_datasets", [True, False])
@@ -1706,7 +1729,8 @@ def test_is_metrics_value_loggable():
     assert not is_metric_value_loggable(np.array([1, 2]))
 
 
-def test_log_post_training_metrics_configuration():
+@pytest.mark.parametrize("log_models", [True, False])
+def test_log_post_training_metrics_configuration(log_models):
     from sklearn.linear_model import LogisticRegression
 
     X, y = get_iris()
@@ -1724,6 +1748,11 @@ def test_log_post_training_metrics_configuration():
 
         metrics = get_run_data(run.info.run_id)[1]
         assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
+
+        if log_models:
+            logged_model = mlflow.last_logged_model()
+            assert logged_model is not None
+            assert metrics.items() <= {m.key: m.value for m in logged_model.metrics}.items()
 
 
 class UnpicklableKmeans(sklearn.cluster.KMeans):

@@ -114,8 +114,6 @@ def generate_dockerfile(
                 f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
             )
 
-            install_mlflow_steps += "\n\n" + _java_mlflow_install_step(mlflow_home)
-
     with open(os.path.join(output_dir, "Dockerfile"), "w") as f:
         f.write(
             _DOCKERFILE_TEMPLATE.format(
@@ -128,35 +126,6 @@ def generate_dockerfile(
                 enable_mlserver=enable_mlserver,
                 disable_env_creation=disable_env_creation_at_runtime,
             )
-        )
-
-
-def _java_mlflow_install_step(mlflow_home):
-    maven_proxy = _get_maven_proxy()
-    if mlflow_home:
-        return (
-            "# Install Java mlflow-scoring from local source\n"
-            "RUN cd /opt/mlflow/mlflow/java/scoring && "
-            f"mvn --batch-mode package -DskipTests {maven_proxy} && "
-            "mkdir -p /opt/java/jars && "
-            "mv /opt/mlflow/mlflow/java/scoring/target/"
-            "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
-        )
-    else:
-        return (
-            "# Install Java mlflow-scoring from Maven Central\n"
-            "RUN mvn"
-            " --batch-mode dependency:copy"
-            f" -Dartifact=org.mlflow:mlflow-scoring:{VERSION}:pom"
-            f" -DoutputDirectory=/opt/java {maven_proxy}\n"
-            "RUN mvn"
-            " --batch-mode dependency:copy"
-            f" -Dartifact=org.mlflow:mlflow-scoring:{VERSION}:jar"
-            f" -DoutputDirectory=/opt/java/jars {maven_proxy}\n"
-            f"RUN cp /opt/java/mlflow-scoring-{VERSION}.pom /opt/java/pom.xml\n"
-            "RUN cd /opt/java && mvn "
-            "--batch-mode dependency:copy-dependencies "
-            f"-DoutputDirectory=/opt/java/jars {maven_proxy}\n"
         )
 
 

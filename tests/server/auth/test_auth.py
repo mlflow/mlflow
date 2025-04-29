@@ -16,6 +16,7 @@ import requests
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_TRACKING_PASSWORD,
@@ -472,3 +473,96 @@ def test_create_user_ui(client):
         )
 
         assert "Successfully signed up user" in response.text
+
+
+def test_logged_model(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("exp")
+        model = client.create_logged_model(experiment_id=exp_id)
+        client.finalize_logged_model(model_id=model.model_id, status=LoggedModelStatus.READY)
+        client.set_logged_model_tags(model_id=model.model_id, tags={"key": "value"})
+        client.delete_logged_model_tag(model_id=model.model_id, key="key")
+        models = client.search_logged_models(experiment_ids=[exp_id])
+        assert len(models) == 1
+
+    with User(username2, password2, monkeypatch):
+        loaded_model = client.get_logged_model(model.model_id)
+        assert loaded_model.model_id == model.model_id
+
+        models = client.search_logged_models(experiment_ids=[exp_id])
+        assert len(models) == 1
+
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.finalize_logged_model(model_id=model.model_id, status=LoggedModelStatus.READY)
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.set_logged_model_tags(model_id=model.model_id, tags={"key": "value"})
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.delete_logged_model_tag(model_id=model.model_id, key="key")
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.delete_logged_model(model_id=model.model_id)
+
+
+def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+    readable = [0, 3, 4, 5, 6, 8]
+    with User(username1, password1, monkeypatch):
+        experiment_ids: list[str] = []
+        for i in range(10):
+            experiment_id = client.create_experiment(f"exp-{i}")
+            experiment_ids.append(experiment_id)
+            _send_rest_tracking_post_request(
+                client.tracking_uri,
+                "/api/2.0/mlflow/experiments/permissions/create",
+                json_payload={
+                    "experiment_id": experiment_id,
+                    "username": username2,
+                    "permission": "READ" if (i in readable) else "NO_PERMISSIONS",
+                },
+                auth=(username1, password1),
+            )
+            client.create_logged_model(experiment_id=experiment_id)
+
+        models = client.search_logged_models(experiment_ids=experiment_ids)
+        assert len(models) == 10
+
+        # Pagination
+        models = client.search_logged_models(experiment_ids=experiment_ids, max_results=2)
+        assert len(models) == 2
+        assert models.token is not None
+
+        models = client.search_logged_models(
+            experiment_ids=experiment_ids, max_results=2, page_token=models.token
+        )
+        assert len(models) == 2
+        assert models.token is not None
+
+        models = client.search_logged_models(experiment_ids=experiment_ids, page_token=models.token)
+        assert len(models) == 6
+        assert models.token is None
+
+    with User(username2, password2, monkeypatch):
+        models = client.search_logged_models(experiment_ids=experiment_ids)
+        assert len(models) == len(readable)
+
+        # Pagination
+        models = client.search_logged_models(experiment_ids=experiment_ids, max_results=2)
+        assert len(models) == 2
+        assert models.token is not None
+
+        models = client.search_logged_models(
+            experiment_ids=experiment_ids, max_results=2, page_token=models.token
+        )
+        assert len(models) == 2
+        assert models.token is not None
+
+        models = client.search_logged_models(experiment_ids=experiment_ids, page_token=models.token)
+        assert len(models) == 2
+        assert models.token is None

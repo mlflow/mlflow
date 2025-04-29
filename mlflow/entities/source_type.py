@@ -1,14 +1,13 @@
 class SourceType:
     """Enum for originating source of a :py:class:`mlflow.entities.Run`."""
 
-    NOTEBOOK, JOB, PROJECT, LOCAL, UNKNOWN, RECIPE = range(1, 7)
+    NOTEBOOK, JOB, PROJECT, LOCAL, UNKNOWN = range(1, 6)
 
     _STRING_TO_SOURCETYPE = {
         "NOTEBOOK": NOTEBOOK,
         "JOB": JOB,
         "PROJECT": PROJECT,
         "LOCAL": LOCAL,
-        "RECIPE": RECIPE,
         "UNKNOWN": UNKNOWN,
     }
     SOURCETYPE_TO_STRING = {value: key for key, value in _STRING_TO_SOURCETYPE.items()}

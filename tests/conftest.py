@@ -14,7 +14,11 @@ from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
-from mlflow.tracking.fluent import _last_active_run_id
+from mlflow.tracking.fluent import (
+    _last_active_run_id,
+    _reset_active_model_context,
+    _reset_last_logged_model_id,
+)
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
 
@@ -173,6 +177,14 @@ def clean_up_mlruns_directory(request):
 
 
 @pytest.fixture(autouse=True)
+def clean_up_last_logged_model_id():
+    """
+    Clean up the last logged model ID stored in a thread local var.
+    """
+    _reset_last_logged_model_id()
+
+
+@pytest.fixture(autouse=True)
 def clean_up_last_active_run():
     _last_active_run_id.set(None)
 
@@ -232,3 +244,8 @@ def mock_is_in_databricks(request):
         "mlflow.models.model.is_in_databricks_runtime", return_value=request.param
     ) as mock_databricks:
         yield mock_databricks
+
+
+@pytest.fixture(autouse=True)
+def reset_active_model_context():
+    _reset_active_model_context()

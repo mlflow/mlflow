@@ -35,6 +35,7 @@ def test_creation_and_hydration(run_inputs):
                 "tags": {"key": "value"},
             }
         ],
+        "model_inputs": [],
     }
     assert run_inputs.to_dictionary() == as_dict
     proto = run_inputs.to_proto()

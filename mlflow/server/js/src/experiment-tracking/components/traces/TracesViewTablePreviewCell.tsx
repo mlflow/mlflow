@@ -107,6 +107,7 @@ const ExpandedParamCell = ({ value }: { value: string }) => {
       return null;
     }
   }, [value]);
+
   return (
     <div
       css={{
@@ -116,10 +117,11 @@ const ExpandedParamCell = ({ value }: { value: string }) => {
       }}
     >
       <CodeSnippet
-        language="json"
+        language={structuredJSONValue ? 'json' : 'text'}
         wrapLongLines
         style={{
           padding: theme.spacing.sm,
+          whiteSpace: 'pre-wrap',
         }}
         theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
       >
