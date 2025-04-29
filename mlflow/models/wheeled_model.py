@@ -14,7 +14,6 @@ from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.pyfunc.model import MLMODEL_FILE_NAME, Model
 from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _get_pip_deps,
@@ -29,7 +28,6 @@ _ORIGINAL_REQ_FILE_NAME = "original_requirements.txt"
 _PLATFORM = "platform"
 
 
-@experimental
 class WheeledModel:
     """
     Helper class to create a model with added dependency wheels from an existing registered model.

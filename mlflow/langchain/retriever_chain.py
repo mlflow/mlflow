@@ -12,10 +12,7 @@ from langchain.chains.base import Chain
 from langchain.schema import BaseRetriever, Document
 from pydantic import Extra, Field
 
-from mlflow.utils.annotations import experimental
 
-
-@experimental
 class _RetrieverChain(Chain):
     """
     Chain that wraps a retriever for use with MLflow.

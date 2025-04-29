@@ -3,11 +3,9 @@
 import keras
 
 from mlflow import log_metrics, log_params, log_text
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import ExceptionSafeClass
 
 
-@experimental
 class MlflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
     """Callback for logging Keras metrics/params/model/... to MLflow.
 
