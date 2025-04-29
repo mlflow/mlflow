@@ -1760,12 +1760,7 @@ the `openai` flavor [can be viewed here](/llms/openai).
 The full guide, including tutorials and detailed documentation for using
 the [langchain flavor can be viewed here](/llms/langchain).
 
-### John Snow Labs (`johnsnowlabs`) (Experimental)
-
-:::warning attention
-The `johnsnowlabs` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
-subject to be added as additional functionality is brought to the flavor.
-:::
+### John Snow Labs (`johnsnowlabs`)
 
 The `johnsnowlabs` model flavor gives you access to
 [20.000+ state-of-the-art enterprise NLP models in 200+ languages](https://nlp.johnsnowlabs.com/models)
@@ -2176,16 +2171,11 @@ will cause an `MlflowException` to be raised:
 - If both `horizon` and `n_periods` are provided with different values.
   :::
 
-### Transformers (`transformers`) (Experimental)
+### Transformers (`transformers`)
 
 The full guide, including tutorials and detailed documentation for using the `transformers` flavor is available at [this location](/llms/transformers/).
 
-### SentenceTransformers (`sentence_transformers`) (Experimental)
-
-:::warning attention
-The `sentence_transformers` flavor is in active development and is marked as Experimental. Public APIs may change and new
-features are subject to be added as additional functionality is brought to the flavor.
-:::
+### SentenceTransformers (`sentence_transformers`)
 
 The `sentence_transformers` model flavor enables logging of
 [sentence-transformers models](https://www.sbert.net/docs/pretrained_models.html) in MLflow format via
@@ -2242,12 +2232,7 @@ print(embeddings1)
 """
 ```
 
-### Promptflow (`promptflow`) (Experimental)
-
-:::warning attention
-The `promptflow` flavor is in active development and is marked as Experimental. Public APIs may change and new
-features are subject to be added as additional functionality is brought to the flavor.
-:::
+### Promptflow (`promptflow`)
 
 The `promptflow` model flavor is capable of packaging your flow in MLflow format via the <APILink fn="mlflow.promptflow.save_model" />
 and <APILink fn="mlflow.promptflow.log_model" /> functions. Currently, a `flow.dag.yaml` file is required to be

@@ -8,11 +8,6 @@ import { APILink } from "@site/src/components/APILink";
 
 # 🤗 Transformers within MLflow
 
-:::warning
-The `transformers` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
-subject to be added as additional functionality is brought to the flavor.
-:::
-
 The `transformers` model flavor enables logging of [transformers models, components, and pipelines](https://huggingface.co/docs/transformers/index)
 in MLflow format via the <APILink fn="mlflow.transformers.save_model" /> and <APILink fn="mlflow.transformers.log_model" /> functions. Use of these
 functions also adds the `python_function` flavor to the MLflow Models that they produce, allowing the model to be
@@ -760,12 +755,6 @@ or the other as an allowed input type.
 :::
 
 ## PEFT Models in MLflow Transformers flavor
-
-:::warning
-The PEFT model is supported in MLflow 2.11.0 and above and is still in the experimental stage. The API and behavior may change in future releases.
-Moreover, the [PEFT](https://huggingface.co/docs/peft/en/index) library is under active development, so not all features
-and adapter types might be supported in MLflow.
-:::
 
 [PEFT](https://huggingface.co/docs/peft/en/index) is a library developed by HuggingFace🤗, that provides various optimization methods for pretrained models available on the HuggingFace Hub.
 With PEFT, you can easily apply various optimization techniques like LoRA and QLoRA to reduce the cost of fine-tuning Transformers models.
