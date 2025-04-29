@@ -326,7 +326,6 @@ def make_genai_metric_from_prompt(
     )
 
 
-@experimental
 def make_genai_metric(
     name: str,
     definition: str,

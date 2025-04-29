@@ -31,7 +31,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _set_active_model
 from mlflow.utils import _get_fully_qualified_class_name
-from mlflow.utils.annotations import developer_stable, experimental
+from mlflow.utils.annotations import developer_stable
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
@@ -670,7 +670,6 @@ class EvaluationResult:
         """
         return self._artifacts
 
-    @experimental
     @property
     def tables(self) -> dict[str, "pd.DataFrame"]:
         """
