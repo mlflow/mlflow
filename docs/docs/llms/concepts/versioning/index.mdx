@@ -1,0 +1,62 @@
+# Tracking app versions
+
+MLflow offers several primitives for managing your GenAI application's lifecycle:
+
+
+## Versions
+
+TALK ABOUT HOW THIS IS THE GENAI EQUIV TO "LOGGED MODEL"
+
+A version represents a specific state of your application's code, similar to a Git commit. It captures:
+
+- The exact code state at a point in time
+- The configuration and dependencies used
+- The environment setup
+
+This versioning system allows you to:
+- Track changes to your application over time
+- Compare quality and performance assessments across different versions
+
+Each version is uniquely identified and can be referenced when analyzing traces, making it easier to understand how changes in your code affect your application's behavior.
+
+### Automatic Version Capture
+
+If you are using Git, a version of your application is automatically captured every time your application is run. This process is seamless and requires no additional configuration:
+
+- Each version is automatically linked to the current Git commit hash
+- The system captures the full state of your codebase at runtime
+- All dependencies and their versions are recorded
+- Environment variables and configuration settings are preserved
+
+If you use MLflow's `Prompt` and/or `ModelConfig` primitives, the properties of each primitive (e.g., prompt templates, variables, etc) are attached as metadata to the logged Version.
+
+When deploying to your production environment, PUT IN INSTRUCTIONS ABOUT HOW TO SET THE GIT COMMIT SHA IN AN ENV VAR.
+
+### Manual version captured
+
+TALK ABOUT HOW MANUAL LOGGING WORKS...
+
+## Prompt Registry
+
+PLACEHOLDER TEXT ABOUT THIS!!
+
+The Prompt Registry is MLflow's solution for managing prompts in GenAI applications. It provides:
+
+- **Version Control**: Track prompt changes with Git-inspired versioning
+- **Aliasing**: Use aliases (e.g., `production`, `staging`) to manage different environments
+- **Centralized Management**: Store and reuse prompts across your organization
+- **Integration**: Works with MLflow's model tracking and evaluation features
+
+When you use prompts in your application, they are automatically attached as metadata to your logged versions. This means:
+
+- Every time you run your application, the exact prompt version used is captured
+- You can track how different prompt versions affect your application's performance
+- The prompt history is preserved alongside your application's version history
+- You can easily roll back to previous prompt versions if needed
+
+This tight integration between prompts and versions helps you maintain a complete record of your GenAI application's evolution, including both code and prompt changes.
+
+## Model config 
+
+
+TODO: insert discussion about how to use model config.  I'm not entirely sure how this will work, but having this (alongisde prompt registry) allows us to create a UI-based experimentation workflow that we are starting to hear in the user studies.  Not for DAIS but I want to be set up for moving here quickly.

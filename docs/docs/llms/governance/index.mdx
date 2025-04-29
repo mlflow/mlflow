@@ -1,0 +1,110 @@
+---
+sidebar_position: 1
+---
+
+import { Card, LogoCard, CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
+
+# MLflow Enterprise Governance
+
+MLflow's integration with Unity Catalog provides a comprehensive governance solution for your GenAI applications, enabling centralized management, lineage tracking, and access control for all your AI assets.
+
+## Key Features
+
+<CardGroup singleColumn={true}>
+  <PageCard
+    headerText="Unified Data and AI governance"
+    icon="fa-shield-alt"
+    text={[
+      "Unity Catalog provides central, unified governance over all your data and AI assets - including GenAI and classic/deep learning ML. Enforce access controls and automatically track lineage across your entire AI stack."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Prompt Registry"
+    icon="fa-file-alt"
+    text={[
+      "Track every prompt template, its version history, and deployment lifecycle in the Unity Catalog. Each prompt is linked to its associated apps and evaluation results. Integrate prompts into your app via our SDK to allow non-technical users to edit prompts without code access."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="App Version Registry"
+    icon="fa-code-branch"
+    text={[
+      "Track every application version and its associated prompts and evaluation results in the Unity Catalog. Store the app's code as a deployable asset or link to Git commits to integrate with your existing software development lifecycle."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Evaluation Dataset & Metric Registry"
+    icon="fa-database"
+    text={[
+      "Track and manage evaluation datasets and custom metrics as UC assets with full versioning and access control."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Collaboration & Sharing"
+    icon="fa-users"
+    text={[
+      "Enable cross-organization discovery and sharing of prompts and apps through the unified registry system."
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+## Why MLflow Governance?
+
+<CardGroup singleColumn={true}>
+  <PageCard
+    headerText="Built on top of a data platform"
+    icon="fa-database"
+    text={[
+      "Evaluation and monitoring are workflows that generate data. Easily use the data from your evaluation and monitoring workflows to build dashboards and apps using the features of the Databricks platform."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Integrated and unified governance"
+    icon="fa-shield-alt"
+    text={[
+      "Tightly integrated with Unity Catalog, which offers unified governance across all your data and AI assets - including all assets created by MLflow."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Data Intelligence"
+    icon="fa-brain"
+    text={[
+      "Data Intelligence that helps make the developer workflow for improving quality faster and more efficient - LLM judges that are tuned to your data; topic detection and classification that help understand your users."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Hosted by Databricks"
+    icon="fa-cloud"
+    text={[
+      "Databricks is a trusted vendor and we host the managed version - no need to self-host since we are a trusted vendor."
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+## Next Steps
+
+<CardGroup>
+  <PageCard
+    headerText="Unity Catalog Integration"
+    link="/llms/deployments/uc_integration"
+    text={[
+      "Learn how to integrate MLflow with Unity Catalog for comprehensive governance."
+    ]}
+  />
+  <PageCard
+    headerText="Prompt Registry"
+    link="/llms/prompts"
+    text={[
+      "Discover how to use MLflow's Prompt Registry for managing prompt assets."
+    ]}
+  />
+</CardGroup> 

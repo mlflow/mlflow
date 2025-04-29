@@ -1,0 +1,239 @@
+---
+sidebar_label: How judges work
+---
+
+
+# How quality, cost, and latency are assessed by :re[agent-evaluation]
+
+This article explains how :re[agent-evaluation] assesses your AI application’s quality, cost, and latency and provides insights to guide your quality improvements and cost and latency optimizations. It covers the following:
+
+- How quality is assessed by LLM judges
+- How cost and latency are assessed
+- How metrics are aggregated at the level of an MLflow run for quality, cost, and latency
+
+## <span style={{color: "red"}}>TODO - fix above LINKs</span>
+
+For reference information about each of the built-in LLM judges, see [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/llm-judge-reference.md).
+
+## <a id="quality"></a>How quality is assessed by LLM judges
+
+:re[agent-evaluation] assesses quality using LLM judges in two steps:
+
+1. LLM judges assess specific quality aspects (such as correctness and groundedness) for each row. For details, see TODO LINK.
+1. :re[agent-evaluation] combines individual judge’s assessments into an overall pass/fail score and root cause for any failures. For details, see TODO LINK.
+
+For LLM judge trust and safety information, see LINK..
+## <span style={{color: "red"}}>TODO - fix above LINK</span>
+
+:::note
+
+For multi-turn conversations, LLM judges evaluate only the last entry in the conversation.
+
+:::
+
+### <a id="step-1"></a>Step 1: LLM judges assess each row’s quality
+
+For every input row, :re[agent-evaluation] uses a suite of LLM judges to assess different aspects of quality about agent’s outputs. Each judge produces a yes or no score and a written rationale for that score, as shown in the example below:
+
+![sample-judge-row](https://docs.databricks.com/aws/en/assets/images/generative-ai/sample-judge-row.png)
+
+For details about the LLM judges used, see [here](/llms/evaluate-monitor/quality/built-in-judges/).
+
+### <a id="step-2"></a>Step 2: Combine LLM judge assessments to identify the root cause of quality issues
+
+After running LLM judges, :re[agent-evaluation] analyzes their outputs to assess overall quality and determine a pass/fail quality score on the judge’s collective assessments. If overall quality fails, :re[agent-evaluation] identifies which specific LLM judge caused the failure and provides suggested fixes.
+
+The data is shown in the MLflow UI, and is also available from the MLflow run in a DataFrame returned by the `mlflow.evaluate(...)` call. See [review evaluation output](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluate-agent.md#notebook) for details on how to access the DataFrame.
+
+The following screenshot is an example of a summary analysis in the UI:
+
+![root cause analysis overview](https://docs.databricks.com/aws/en/assets/images/generative-ai/rca-overview.png)
+
+The results for each row are available in the detail view UI:
+
+![root cause analysis detail](https://docs.databricks.com/aws/en/assets/images/generative-ai/rca-detail.png)
+
+### <a id="judges"></a>Built-in AI judges
+
+See [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/llm-judge-reference.md) for details on built-in AI Judges provided by Mosaic AI Agent Evaluation.
+
+The following screenshots show examples of how these judges appear in the UI:
+
+![gen judge detail](https://docs.databricks.com/aws/en/assets/images/generative-ai/gen-judge-detail.png)
+
+![chunk relevance detail](https://docs.databricks.com/aws/en/assets/images/generative-ai/chunk-relevance-detail.png)
+
+### How root cause is determined
+
+If all judges pass, the quality is considered `pass`. If any judge fails, the root cause is determined as the first judge to fail based on the ordered list below. This ordering is used because judge assessments are often correlated in a causal way. For example, if `context_sufficiency` assesses that the retriever has not fetched the right chunks or documents for the input request, then it is likely that the generator will fail to synthesize a good response and therefore `correctness` will also fail.
+
+If ground truth is provided as input, the following order is used:
+
+1. `context_sufficiency`
+1. `groundedness`
+1. `correctness`
+1. `safety`
+1. `guideline_adherence` (if `guidelines` or `global_guidelines` are provided)
+1. Any customer-defined LLM judge
+
+If ground truth is not provided as input, the following order is used:
+
+1. `chunk_relevance` - is there at least 1 relevant chunk?
+1. `groundedness`
+1. `relevant_to_query`
+1. `safety`
+1. `guideline_adherence` (if `guidelines` or `global_guidelines` are provided)
+1. Any customer-defined LLM judge
+
+### How Databricks maintains and improves LLM judge accuracy
+
+Databricks is dedicated to enhancing the quality of our LLM judges. Quality is evaluated by measuring how well the LLM judge agrees with human raters, using the following metrics:
+
+- Increased [Cohen’s Kappa](https://en.wikipedia.org/wiki/Cohen%27s_kappa) (a measure of inter-rater agreement).
+- Increased accuracy (percent of predicted labels that match the human rater’s label).
+- Increased F1 score.
+- Decreased false positive rate.
+- Decreased false negative rate.
+
+To measure these metrics, Databricks uses diverse, challenging examples from academic and proprietary datasets that are representative of customer datasets to benchmark and improve judges against state-of-the-art LLM judge approaches, ensuring continuous improvement and high accuracy.
+
+For more details on how Databricks measures and continuously improves judge quality, see [Databricks announces significant improvements to the built-in LLM judges in Agent Evaluation](https://www.databricks.com/blog/databricks-announces-significant-improvements-built-llm-judges-agent-evaluation).
+
+## <a id="callable-judges"></a>Call judges using the Python SDK
+
+The [databricks-agents SDK](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#module-databricks.agents.evals.judges) includes APIs to directly invoke judges on user inputs. You can use these APIs for a quick and easy experiment to see how the judges work.
+
+Run the following code to install the `databricks-agents` package and restart the python kernel:
+
+```python
+%pip install databricks-agents -U
+dbutils.library.restartPython()
+```
+
+You can then run the following code in your notebook, and edit it as necessary to try out the different judges on your own inputs.
+
+```python
+from databricks.agents.evals import judges
+
+SAMPLE_REQUEST = "What is MLflow?"
+SAMPLE_RESPONSE = "MLflow is an open-source platform"
+SAMPLE_RETRIEVED_CONTEXT = [
+        {
+            "content": "MLflow is an open-source platform, purpose-built to assist machine learning practitioners and teams in handling the complexities of the machine learning process. MLflow focuses on the full lifecycle for machine learning projects, ensuring that each phase is manageable, traceable, and reproducible."
+        }
+    ]
+SAMPLE_EXPECTED_RESPONSE = "MLflow is an open-source platform, purpose-built to assist machine learning practitioners and teams in handling the complexities of the machine learning process. MLflow focuses on the full lifecycle for machine learning projects, ensuring that each phase is manageable, traceable, and reproducible."
+# You can also just pass an array of guidelines directly to guidelines, but Databricks recommends naming them with a dictionary.
+SAMPLE_GUIDELINES = {
+    "english": ["The response must be in English", "The retrieved context must be in English"],
+    "clarity": ["The response must be clear, coherent, and concise"],
+}
+SAMPLE_GUIDELINES_CONTEXT = {
+  "retrieved_context": str(SAMPLE_RETRIEVED_CONTEXT)
+}
+
+# For chunk_relevance, the required inputs are `request`, `response` and `retrieved_context`.
+judges.chunk_relevance(
+  request=SAMPLE_REQUEST,
+  response=SAMPLE_RESPONSE,
+  retrieved_context=SAMPLE_RETRIEVED_CONTEXT,
+)
+
+# For context_sufficiency, the required inputs are `request`, `expected_response` and `retrieved_context`.
+judges.context_sufficiency(
+  request=SAMPLE_REQUEST,
+  expected_response=SAMPLE_EXPECTED_RESPONSE,
+  retrieved_context=SAMPLE_RETRIEVED_CONTEXT,
+)
+
+# For correctness, required inputs are `request`, `response` and `expected_response`.
+judges.correctness(
+  request=SAMPLE_REQUEST,
+  response=SAMPLE_RESPONSE,
+  expected_response=SAMPLE_EXPECTED_RESPONSE
+)
+
+# For relevance_to_query, the required inputs are `request` and `response`.
+judges.relevance_to_query(
+  request=SAMPLE_REQUEST,
+  response=SAMPLE_RESPONSE,
+)
+
+# For groundedness, the required inputs are `request`, `response` and `retrieved_context`.
+judges.groundedness(
+  request=SAMPLE_REQUEST,
+  response=SAMPLE_RESPONSE,
+  retrieved_context=SAMPLE_RETRIEVED_CONTEXT,
+)
+
+# For guideline_adherence, the required inputs are `request`, `response` or `guidelines_context`, and `guidelines`.
+judges.guideline_adherence(
+  request=SAMPLE_REQUEST,
+  response=SAMPLE_RESPONSE,
+  guidelines=SAMPLE_GUIDELINES,
+  # `guidelines_context` requires `databricks-agents>=0.20.0`. It can be specified with or in place of the response.
+  guidelines_context=SAMPLE_GUIDELINES_CONTEXT,
+)
+
+# For safety, the required inputs are `request` and `response`.
+judges.safety(
+  request=SAMPLE_REQUEST,
+  response=SAMPLE_RESPONSE,
+)
+```
+
+## <a id="cost-latency"></a>How cost and latency are assessed
+
+:re[agent-evaluation] measures token counts and execution latency to help you understand your agent’s performance.
+
+### <a id="token-count"></a>Token cost
+
+To assess cost, :re[agent-evaluation] computes the total token count across all LLM generation calls in the trace. This approximates the total cost given as more tokens, which generally leads to more cost. Token counts are only calculated when a `trace` is available. If the `model` argument is included in the call to `mlflow.evaluate()`, a trace is automatically generated. You can also directly provide a `trace` column in the evaluation dataset.
+
+The following token counts are calculated for each row:
+
+| Data field                 | Type      | Description                                                                   |
+| -------------------------- | --------- | ----------------------------------------------------------------------------- |
+| `total_token_count`        | `integer` | Sum of all input and output tokens across all LLM spans in the agent’s trace. |
+| `total_input_token_count`  | `integer` | Sum of all input tokens across all LLM spans in the agent’s trace.            |
+| `total_output_token_count` | `integer` | Sum of all output tokens across all LLM spans in the agent’s trace.           |
+
+### <a id="latency"></a>Execution latency
+
+Computes the entire application’s latency in seconds for the trace. Latency is only calculated when a trace is available. If the `model` argument is included in the call to `mlflow.evaluate()`, a trace is automatically generated. You can also directly provide a `trace` column in the evaluation dataset.
+
+The following latency measurement is calculated for each row:
+
+| Name              | Description                           |
+| ----------------- | ------------------------------------- |
+| `latency_seconds` | End-to-end latency based on the trace |
+
+## <a id="metric-calculation"></a>How metrics are aggregated at the level of an MLflow run for quality, cost, and latency
+
+After computing all per-row quality, cost, and latency assessments, :re[agent-evaluation] aggregates these asessments into per-run metrics that are logged in a MLflow run and summarize the quality, cost, and latency of your agent across all input rows.
+
+:re[agent-evaluation] produces the following metrics:
+
+| Metric name                                                            | Type            | Description                                                                      |
+| ---------------------------------------------------------------------- | --------------- | -------------------------------------------------------------------------------- |
+| `retrieval/llm_judged/chunk_relevance/precision/average`               | `float, [0, 1]` | Average value of `chunk_relevance/precision` across all questions.               |
+| `retrieval/llm_judged/context_sufficiency/rating/percentage`           | `float, [0, 1]` | % of questions where `context_sufficiency/rating` is judged as `yes`.            |
+| `response/llm_judged/correctness/rating/percentage`                    | `float, [0, 1]` | % of questions where `correctness/rating` is judged as `yes`.                    |
+| `response/llm_judged/relevance_to_query/rating/percentage`             | `float, [0, 1]` | % of questions where `relevance_to_query/rating` is judged to be `yes`.          |
+| `response/llm_judged/groundedness/rating/percentage`                   | `float, [0, 1]` | % of questions where `groundedness/rating` is judged as `yes`.                   |
+| `response/llm_judged/guideline_adherence/rating/percentage`            | `float, [0, 1]` | % of questions where `guideline_adherence/rating` is judged as `yes`.            |
+| `response/llm_judged/safety/rating/average`                            | `float, [0, 1]` | % of questions where is `safety/rating` judged to be `yes`.                      |
+| `agent/total_token_count/average`                                      | `int`           | Average value of `total_token_count` across all questions.                       |
+| `agent/input_token_count/average`                                      | `int`           | Average value of `input_token_count` across all questions.                       |
+| `agent/output_token_count/average`                                     | `int`           | Average value of `output_token_count` across all questions.                      |
+| `agent/latency_seconds/average`                                        | `float`         | Average value of `latency_seconds` across all questions.                         |
+| `response/llm_judged/{custom_response_judge_name}/rating/percentage`   | `float, [0, 1]` | % of questions where `{custom_response_judge_name}/rating` is judged as `yes`.   |
+| `retrieval/llm_judged/{custom_retrieval_judge_name}/precision/average` | `float, [0, 1]` | Average value of `{custom_retrieval_judge_name}/precision` across all questions. |
+
+The following screenshots show how the metrics appear in the UI:
+
+![evaluation metrics, values](https://docs.databricks.com/aws/en/assets/images/generative-ai/eval-overview-tab.png)
+
+![evaluation metrics, charts](https://docs.databricks.com/aws/en/assets/images/generative-ai/eval-model-metrics-tab.png)
+
+::include[llm-judge-trust.md]

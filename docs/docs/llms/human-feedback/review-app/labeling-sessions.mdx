@@ -1,0 +1,311 @@
+---
+sidebar_position: 1
+---
+
+# Label existing traces
+
+
+
+
+## <span style={{color: "red"}}>raw dbx content</span>
+
+
+This article describes how to use the review app to collect feedback from subject matter experts (SMEs). You can use the review app to do the following:
+
+- Give your stakeholders the ability to chat with a pre-production generative AI app and give feedback.
+- Create an evaluation dataset, backed by a Delta table in :re[UC].
+- Leverage SMEs to expand and iterate on that evaluation dataset.
+- Leverage SMEs to label production traces to understand quality of your gen AI app.
+
+![Review app preview hero image.](https://assets.docs.databricks.com/_static/images/generative-ai/review-app/review-app-hero.gif)
+
+## What happens in a human evaluation?
+
+The Databricks review app stages an environment where stakeholders can interact with it - in other words, have a conversation, ask questions, provide feedback, and so on.
+
+There are two main ways to use the review app:
+
+1. **Chat with the bot**: Collect questions, answers, and feedback in an inference table so you can further analyze the gen AI app's performance. In this way, the review app helps to ensure the quality and safety of the answers your application provides.
+1. **Label responses in a session**: Collect _feedback_ and _expectations_ from SMEs in a labeling session, stored under an MLFLow run. You can optionally sync these labels to an evaluation dataset.
+
+## Requirements
+
+- Developers must install the `databricks-agents` SDK to set up permissions and configure the review app.
+
+```python
+  %pip install databricks-agents
+  dbutils.library.restartPython()
+```
+
+:::aws-azure
+
+- For chat with the bot:
+  - [Inference tables](https://docs.databricks.com/aws/en/machine-learning/model-serving/inference-tables.md) must be enabled on the endpoint that is serving the agent.
+  - Each human reviewer must have access to the review app workspace or be synced to your :re[Databricks] account with SCIM. 
+- For labeling sessions:
+  - Each human reviewer must have access to the review app workspace.
+
+:::
+
+:::gcp
+
+- For chat with the bot:
+  - [Inference tables](https://docs.databricks.com/aws/en/ai-gateway/inference-tables.md) must be enabled on the endpoint that is serving the agent.
+  - Each human reviewer must have access to the review app workspace or be synced to your :re[Databricks] account with SCIM. 
+- For labeling sessions:
+  - Each human reviewer must have access to the review app workspace.
+
+:::
+
+## <a id="access-review-app"></a>Set up permissions to use the review app
+
+:::note
+
+- To chat with the bot, a human reviewer _does not_ require access to the workspace.
+- For a labeling session, a human reviewer _does_ require access to the workspace.
+
+:::
+
+
+### Setup permissions for labeling sessions
+
+Users are automatically granted the appropriate permissions (write access to an experiment and read access to a dataset) when you create a labeling session and provide the `assigned_users` argument.
+For more info, see TODO LINK below.
+
+## Create a review app
+
+```
+
+### Manually using the Python API
+
+The code snippet below demonstrates how to create a review app and associate it with a model serving
+endpoint for chatting with the bot. For creating labeling sessions, see
+
+- TODO LINK for labeling an evaluation dataset.
+- TODO LINK for labeling traces. Note that a live agent is not required for this.
+
+```python
+from databricks.agents import review_app
+
+# The review app is tied to the current MLFlow experiment.
+my_app = review_app.get_review_app()
+
+# TODO: Replace with your own serving endpoint.
+my_app.add_agent(
+    agent_name="llama-70b",
+    model_serving_endpoint="databricks-meta-llama-3-3-70b-instruct",
+)
+print(my_app.url + "/chat") # For "Chat with the bot".
+```
+
+## Concepts
+
+### Labeling Sessions
+
+A [`LabelingSession`](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.review_app.LabelingSession) is a finite set of traces or dataset records to get labeled by an SME in the review app UI. Traces can come from inference tables for an application in production, or an offline trace in MLFlow experiments. The results are stored as an MLFlow run. Labels are stored as `Assessment`s on MLFlow Traces. Labels with “expectations” can be synced back to an evaluation Dataset.
+
+![Labeling session](https://assets.docs.databricks.com/_static/images/generative-ai/review-app/labeling_session_concept.png)
+
+#### Assessments and labels
+
+When a SME labels a trace, [Assessment](https://mlflow.org/docs/latest/python_api/mlflow.entities.html?highlight=assessment#mlflow.entities.Assessment)s are written to the trace under the `Trace.info.assessments` field. `Assessment`s can have two types:
+
+- `expectation`: Labels that represent what a correct trace should have. For example: `expected_facts` can be used as an `expectation` label, representing the facts that should be present in an ideal response. These `expectation` labels can be synced back to an evaluation dataset so they can be used with `mlflow.evaluate()`.
+- `feedback`: Labels that represent simple feedback on a trace, like "thumbs up" and "thumbs down", or free-form comments. `Assessment`s of type `feedback` are not used with evaluation datasets as they are a human evaluation of a particular MLFLow Trace. These assessments can be read with `mlflow.search_traces()`.
+
+
+### <a id="create-labeling-session"></a>Create a labeling session and send for review
+
+The following example creates a [LabelingSession](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.review_app.LabelingSession) from the dataset above using [ReviewApp.create_labeling_session](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.review_app.ReviewApp.create_labeling_session), configuring the session
+to collect `guidelines` and `expected_facts` from SMEs using the [ReviewApp.label_schemas](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.review_app.ReviewApp.label_schemas) field. You can also create custom label schemas with [ReviewApp.create_label_schema](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.review_app.ReviewApp.create_label_schema)
+
+:::note
+
+- When creating a labeling session, assigned users are:
+  - Given WRITE permission to the MLFlow experiment.
+  - Given QUERY permission to any model serving endpoints associated with the review app.
+- When adding a dataset to a labeling session, assigned users are given SELECT permission to the delta tables of the datasets used to seed the labeling session.
+
+To give permissions for all users in the workspace, set `assigned_users=["users"]`.
+
+:::
+
+```python
+from databricks.agents import review_app
+import mlflow
+
+# The review app is tied to the current MLFlow experiment.
+my_app = review_app.get_review_app()
+
+# You can use the following code to remove any existing agents.
+# for agent in list(my_app.agents):
+#     my_app.remove_agent(agent.agent_name)
+
+# Add the llama3 70b model serving endpoint for labeling. You should replace this with your own model serving endpoint for your
+# own agent.
+# NOTE: An agent is required when labeling an evaluation dataset.
+my_app.add_agent(
+    agent_name="llama-70b",
+    model_serving_endpoint="databricks-meta-llama-3-3-70b-instruct",
+)
+
+# Create a labeling session and collect guidelines and/or expected-facts from SMEs.
+# Note: Each assigned user is given QUERY access to the serving endpoint above and write access.
+# to the MLFlow experiment.
+my_session = my_app.create_labeling_session(
+  name="my_session",
+  agent="llama-70b",
+  assigned_users = ["email1@company.com", "email2@company.com"],
+  label_schemas = [review_app.label_schemas.GUIDELINES, review_app.label_schemas.EXPECTED_FACTS]
+)
+
+# Add the records from the dataset to the labeling session.
+# Note: Each assigned user above is given SELECT access to the UC delta table.
+my_session.add_dataset("cat.schema.my_managed_dataset")
+
+# Share the following URL with your SMEs for them to bookmark. For the given review app linked to an experiment, this URL never changes.
+print(my_app.url)
+
+# You can also link them directly to the labeling session URL, however if you
+# request new labeling sessions from SMEs there will be new URLs. Use the review app
+# URL above to keep a permanent URL.
+print(my_session.url)
+```
+
+At this point, you can send the URLs above to your SMEs.
+
+While your SME is labeling, you can view the status of the labeling with the following code:
+
+```python
+mlflow.search_traces(run_id=my_session.mlflow_run_id)
+```
+
+### Sync labeling session expectations back to the dataset
+
+After the SME has completed labeling, you can sync the `expectation` labels back to the dataset with [LabelingSession.sync_expectations](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.review_app.LabelingSession.sync_expectations). Examples of labels with the type `expectation` include `GUIDELINES`, `EXPECTED_FACTS`, or your own custom label schema that has a type `expectation`.
+
+```python
+my_session.sync_expectations(to_dataset="cat.schema.my_managed_dataset")
+display(spark.read.table("cat.schema.my_managed_dataset"))
+```
+
+You can now use this evaluation dataset:
+
+```python
+eval_results = mlflow.evaluate(
+    model=llama3_agent,
+    data=dataset.to_df(),
+    model_type="databricks-agent"
+)
+```
+
+## Collect feedback on traces
+
+This section describes how to collect labels on MLFlow trace objects that can come from any of the following:
+
+- An MLFlow experiment or run.
+- An inference table.
+- Any MLFlow Python Trace object.
+
+### Collect feedback from an MLFlow experiment or run
+
+This examples creates a set of traces to be labeled by your SMEs.
+
+```python
+import mlflow
+from mlflow.deployments import get_deploy_client
+
+@mlflow.trace(span_type="AGENT")
+def llama3_agent(messages):
+  SYSTEM_PROMPT = """
+    You are a chatbot that answers questions about Databricks.
+    For requests unrelated to Databricks, reject the request.
+  """
+  return get_deploy_client("databricks").predict(
+    endpoint="databricks-meta-llama-3-3-70b-instruct",
+    inputs={"messages": [{"role": "system", "content": SYSTEM_PROMPT}, *messages]}
+  )
+
+# Create a trace to be labeled.
+with mlflow.start_run(run_name="llama3") as run:
+    run_id = run.info.run_id
+    llama3_agent([{"content": "What is databricks?", "role": "user"}])
+    llama3_agent([{"content": "How do I set up a SQL Warehouse?", "role": "user"}])
+```
+
+You can get labels for the trace and create a labeling session from them. This example sets up a labeling session with a single label schema to collect "formality" feedback on the Agent response. The labels from the SME are stored as an [Assessment](https://mlflow.org/docs/latest/python_api/mlflow.entities.html?highlight=assessment#mlflow.entities.Assessment) on the MLFlow Trace.
+
+For more types of schema inputs, see [databricks-agents SDK](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#label-schemas).
+
+```python
+# The review app is tied to the current MLFlow experiment.
+my_app = review_app.get_review_app()
+
+# Use the run_id from above.
+traces = mlflow.search_traces(run_id=run_id)
+
+formality_label_schema = my_app.create_label_schema(
+  name="formal",
+  # Type can be "expectation" or "feedback".
+  type="feedback",
+  title="Is the response formal?",
+  input=review_app.label_schemas.InputCategorical(options=["Yes", "No"]),
+  instruction="Please provide a rationale below.",
+  enable_comment=True
+)
+
+my_session = my_app.create_labeling_session(
+  name="my_session",
+  # NOTE: An `agent` is not required. If you do provide an Agent, your SME can ask follow up questions in a converstion and create new questions in the labeling session.
+  assigned_users=["email1@company.com", "email2@company.com"],
+  # More than one label schema can be provided and the SME will be able to provide information for each one.
+  # We use only the "formal" schema defined above for simplicity.
+  label_schemas=["formal"]
+)
+# NOTE: This copies the traces into this labeling session so that labels do not modify the original traces.
+my_session.add_traces(traces)
+
+# Share the following URL with your SMEs for them to bookmark. For the given review app, linked to an experiment, this URL will never change.
+print(my_app.url)
+
+# You can also link them directly to the labeling session URL, however if you
+# request new labeling sessions from SMEs there will be new URLs. Use the review app
+# URL above to keep a permanent URL.
+print(my_session.url)
+```
+
+After the SME has finished labeling, the resulting traces and assessments become part of the run that is associated with the labeling session.
+
+```python
+mlflow.search_traces(run_id=my_session.mlflow_run_id)
+```
+
+You can now use these assessments to improve your model or update the evaluation dataset.
+
+### Collect feedback from an inference table
+
+This example shows how to add traces directly from the inference table (request payload logs) into a labeling session.
+
+```python
+# CHANGE TO YOUR PAYLOAD REQUEST LOGS TABLE
+PAYLOAD_REQUEST_LOGS_TABLE = "catalog.schema.my_agent_payload_request_logs"
+traces = spark.table(PAYLOAD_REQUEST_LOGS_TABLE).select("trace").limit(3).toPandas()
+
+my_session = my_app.create_labeling_session(
+  name="my_session",
+  assigned_users = ["email1@company.com", "email2@company.com"],
+  label_schemas=[review_app.label_schemas.EXPECTED_FACTS]
+)
+
+# NOTE: This copies the traces into this labeling session so that labels do not modify the original traces.
+my_session.add_traces(traces)
+print(my_session.url)
+```
+
+## <a id="notebook"></a>Example notebooks
+
+The following notebooks illustrate the different ways to use datasets and labeling sessions in :re[mai-agent-evaluation].
+
+::notebook[Review app example notebook]{file='generative-ai/review-app.html'}
+
+::notebook[Agent Evaluation custom metrics, guidelines and domain expert labels notebook]{file='generative-ai/agent-evaluation-metrics-guidelines-review-app.html'}

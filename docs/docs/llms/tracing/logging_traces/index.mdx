@@ -1,0 +1,37 @@
+---
+sidebar_label: Logging Traces
+sidebar_position: 2
+---
+
+# Logging Traces in MLflow
+
+Learn how to instrument your GenAI application with MLflow Tracing to capture and visualize the execution flow of your application. MLflow offers two main approaches to implementing tracing:
+
+1. **Automatic Tracing**: Just add 1 line of code `mlflow.<library>.autolog()` to automatically capture your app's logic.  Automatic tracing works with 19+ [supported libraries and frameworks](../integrations/) out of the box
+2. **Manual Tracing**: Designed for custom logic and complex workflows, manual tracing gives you full control over what gets traced and how using [high-level APIs (decorators and fluent context managers)](manual_tracing/fluent-apis) or [low-level APIs](manual_tracing/log-level-api).
+
+:::note
+Automatic and manual tracing can be used together.  For example, you could use the auto-tracing for OpenAI's SDK and manual tracing to combine multiple LLM calls into a single trace that represents your application's end to end logic.
+:::
+
+## What is the right approach for my use case?
+
+Generally, we reccomend starting with [automatic tracing](./automatic) and only moving to [manual tracing](manual_tracing/) if your application's logic is not accuratly captured or you need more control.
+
+Determine the best tracing approach for your use case based on how you are writing your application's code:
+
+1. **Using a single GenAI Authoring Library** (e.g., LangGraph, CrewAI, OpenAI Agents, Bedrock Agents, etc)
+   - Use **auotomatic tracing** by adding a one-line integration from our [integrations page](../integrations/) for your selected library: `mlflow.<library>.autolog()`
+
+2. **Using an LLM provider's SDKs Directly** (e.g., OpenAI SDK, Anthropic SDK, Bedrock SDK, etc)
+   - Enable [automatic tracing](./automatic) for the API library
+   - Add manual tracing decorators to [combine](manual_tracing/fluent-apis#combining-with-auto-tracing) multiple LLM calls into a single trace
+
+3. **Using Multiple Authoring Frameworks or combining an authoring framework with a LLM provider's SDK** (e.g., LangGraph AND OpenAI SDK, etc)
+   - Enable [automatic tracing](./automatic) for each framework / SDK
+   - Add manual tracing decorators to [combine](manual_tracing/fluent-apis#combining-with-auto-tracing) calls to multiple frameworks or SDKs into a single trace
+
+4. **All other approaches or you have a need for fine-grained control**
+   - Use [**Manual Tracing**](manual_tracing/)
+        - Start with the [high-level APIs](manual_tracing/fluent-apis) (`@mlflow.trace` decorator and fluent context managers) which provide a balance of control and ease of use
+        - Use the [low-level APIs](manual_tracing/log-level-api) only if the high-level APIs don't give you enough control

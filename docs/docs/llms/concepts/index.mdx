@@ -1,0 +1,69 @@
+---
+sidebar_position: 1
+sidebar_label: Overview
+---
+# Concepts
+
+
+## <span style={{color: "red"}}>make sure it has all of these</span>
+
+* Concepts
+- Trace
+    - Assessments
+    - Operational metrics
+    - Tags
+- Evaluation Dataset
+- Evaluation Runs 
+- Scorers
+
+
+
+This page introduces the core concepts of MLflow's GenAI capabilities, providing a foundation for understanding how to build, evaluate, and manage production-ready GenAI applications.
+
+## Data Model
+
+MLflow's GenAI data model consists of two main components:
+
+1. **`Traces` and `Assessments`**: Every execution of your GenAI application is recorded as a `Trace`, which contains detailed metadata, execution steps, and quality evaluations. `Traces` are annotated (by `Scorers` and `Labeling Sessions`) with `Assessments` that evaluate quality and performance through either automated scoring or human review.
+
+2. **`Evaluation Datasets`**: Curated collections of examples used to systematically evaluate your application, containing both high-quality and problematic interactions to help improve performance.
+
+
+[Learn more about the data model](data_model)
+
+## Managing app versions
+
+MLflow provides robust versioning capabilities for your GenAI applications:
+
+1. **`Version`**: Each version captures the complete state of your application, including code, configuration, dependencies, and associated prompts, enabling you to track changes and compare performance across different versions.
+   - **Automatic Version Capture**: When using Git, each application run automatically captures the exact code state, configuration, and dependencies, linked to the current Git commit hash.
+
+2. **`Prompt Registry`**: A dedicated system for managing prompts with version control, aliasing for different environments, and centralized management across your organization.
+
+[Learn more about versioning](versioning)
+
+## Evaluating quality and performance
+
+MLflow provides comprehensive tools for evaluating your GenAI application's quality and performance.  **`Scorers`**, which are programmatic evaluation functions that can use either deterministic logic or LLM judges to write `Assessments` to `Traces`, form the basis of MLflow's capabilities for evaluation of quality and performance during development and production. MLflow includes built-in LLM judges for common scenarios like factual accuracy and safety checks, plus SDKs for creating custom `scorers`.
+
+2. **Production Evaluation**: Automated scoring of traces in production with alerting capabilities and built-in dashboards for monitoring quality metrics.
+
+3. **Development Evaluation**: An evaluation harness for testing changes during development, helping you iterate on prompts while maintaining performance on existing examples.
+
+[Learn more about evaluation](evals)
+
+## Human Labeling
+
+MLflow provides a comprehensive human labeling system to bridge the gap between technical implementation and domain expertise:
+
+1. **`Labeling Sessions`**: A structured workflow for domain experts to evaluate application outputs through the Review App UI, supporting both production traces and offline evaluation datasets.
+
+2. **`Assessments`**: Quality annotations stored on traces that capture:
+   - Feedback on output correctness and quality
+   - Expected values for given inputs
+   - Operational metrics like latency and cost
+
+3. **`LabelingSchemas`**: Customizable frameworks for collecting structured feedback, ensuring consistent evaluation across your organization.
+
+[Learn more about labeling](labeling)
+

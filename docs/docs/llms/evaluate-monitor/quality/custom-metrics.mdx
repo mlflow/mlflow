@@ -1,0 +1,623 @@
+---
+sidebar_label: Custom metrics
+---
+# Custom metrics
+
+## <span style={{color: "red"}}>COPIED FROM DBX - UPDATE</span>
+## <span style={{color: "red"}}>make this page ONLY about truly custom metrics - not wiring up our judges</span>
+
+
+
+This guide explains how to use custom metrics for evaluating AI applications within :re[mosaic-rag-framework]. Custom metrics provide flexibility to define evaluation metrics tailored to your specific business use case, whether based on simple heuristics, advanced logic, or programmatic evaluations.
+
+## Overview
+
+Custom metrics are written in Python and give developers full control to evaluate traces through an AI application. The following metrics are supported:
+
+- Pass/fail metrics: `"yes" or "no"` string values render as "Pass" or "Fail" in the UI.
+- Numeric metrics: Ordinal values: integers or floats.
+- Boolean metrics: `True` or `False`.
+
+Custom metrics can use:
+
+- Any field in the evaluation row.
+- The `custom_expected` field for additional expected values.
+- Complete access to the MLflow trace, including spans, attributes, and outputs.
+
+### Usage
+
+The custom metric is passed to the evaluation framework using the [extra_metrics field in mlflow.evaluate()](https://mlflow.org/docs/latest/python_api/mlflow.html?highlight=extra_metrics#mlflow.evaluate). Example:
+
+```python
+import mlflow
+from databricks.agents.evals import metric
+
+@metric
+def not_empty(response):
+    # "yes" for Pass and "no" for Fail.
+    return "yes" if response.choices[0]['message']['content'].strip() != "" else "no"
+
+@mlflow.trace(span_type="CHAT_MODEL")
+def my_model(request):
+    deploy_client = mlflow.deployments.get_deploy_client("databricks")
+    return deploy_client.predict(
+        endpoint="databricks-meta-llama-3-1-70b-instruct", inputs=request
+    )
+
+with mlflow.start_run(run_name="example_run"):
+    eval_results = mlflow.evaluate(
+        data=[{"request": "Good morning"}],
+        model=my_model,
+        model_type="databricks-agent",
+        extra_metrics=[not_empty],
+    )
+    display(eval_results.tables["eval_results"])
+```
+
+## <a id="decorator"></a> `@metric` decorator
+
+The [@metric](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.evals.metric) decorator allows users to define custom evaluation metrics that can be passed into [mlflow.evaluate()](https://mlflow.org/docs/latest/python_api/mlflow.html?highlight=extra_metrics#mlflow.evaluate) using the `extra_metrics` argument. The evaluation harness invokes the metric function with named arguments based on the signature below:
+
+```python
+def my_metric(
+  *,  # eval harness will always call it with named arguments
+  request: Dict[str, Any],  # The agent's raw input as a serializable object
+  response: Optional[Dict[str, Any]],  # The agent's raw output; directly passed from the eval harness
+  retrieved_context: Optional[List[Dict[str, str]]],  # Retrieved context, either from input eval data or extracted from the trace
+  expected_response: Optional[str],  # The expected output as defined in the evaluation dataset
+  expected_facts: Optional[List[str]],  # A list of expected facts that can be compared against the output
+  expected_retrieved_context: Optional[List[Dict[str, str]]],  # Expected context for retrieval tasks
+  trace: Optional[mlflow.entities.Trace],  # The trace object containing spans and other metadata
+  custom_expected: Optional[Dict[str, Any]],  # A user-defined dictionary of extra expected values
+  tool_calls: Optional[List[ToolCallInvocation]],
+) -> float | bool | str | Assessment
+```
+
+### Explanation of arguments
+
+- **`request`**: The input provided to the agent, formatted as an arbitrary serializable object. This represents the user query or prompt.
+- **`response`**: The raw output from the agent, formatted as an optional arbitrary serializable object. It contains the agent’s generated response for evaluation.
+- **`retrieved_context`**: A list of dictionaries containing context retrieved during the task. This context can come from the input evaluation dataset or the trace, and users can override or customize its extraction via the `trace` field.
+- **`expected_response`**: The string representing the correct or desired response for the task. It acts as the ground truth for comparison against the agent’s response.
+- **`expected_facts`**: A list of facts expected to appear in the agent’s response, useful for fact-checking tasks.
+- **`expected_retrieved_context`**: A list of dictionaries representing the expected retrieval context. This is essential for retrieval-augmented tasks where the correctness of retrieved data matters.
+- **`trace`**: An optional MLflow `Trace` object containing spans, attributes, and other metadata about the agent’s execution. This allows for deep inspection of the internal steps taken by the agent.
+- **`custom_expected`**: A dictionary for passing user-defined expected values. This field provides flexibility to include additional custom expectations that are not covered by the standard fields.
+- **`tool_calls`**: A list of [ToolCallInvocation](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.evals.ToolCallInvocation) that describes which tools were called and what they returned.
+
+### Return value
+
+The return value of the custom metric is a per-row [Assessment](https://github.com/mlflow/mlflow/blob/master/mlflow/evaluation/assessment.py#L12). If you return a primitive, it is wrapped in an `Assessment` with an empty rationale.
+
+- **`float`**: For numeric metrics (e.g., similarity scores, accuracy percentages).
+- **`bool`**: For binary metrics.
+- **`Assessment`** or `list[Assessment]`: A richer output type that supports adding a rationale. If you return a list of assessments, the same metric function can be re-used to return multiple assessments.
+  - `name`: The name of the assessment.
+  - `value`: The value (a float, int, bool, or string).
+  - `rationale`: (Optional) A rationale explaining how this value was computed. This can be useful to show extra reasoning in the UI. This field is useful, for example, when providing reasoning from an LLM that generated this Assessment.
+
+## <a id="pass-fail"></a>Pass/fail metrics
+
+Any string metric that returns `"yes"` and `"no"` is treated as a pass/fail metric and has a special treatment in the UI.
+
+You can also make a pass/fail metric with the [callable judge Python SDK](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#module-databricks.agents.evals.judges). This gives you more control over what parts of the trace to evaluate and which expected fields to use. You can use any of the built-in :re[mai-agent-evaluation] judges. See [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/llm-judge-reference.md).
+
+### <a id="no-pii"></a>Ensure the retrieved context has no PII
+
+This example calls the [guideline_adherence](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.evals.judges.guideline_adherence) judge to ensure that the retrieved context has no PII.
+
+```python
+import mlflow
+import pandas as pd
+from databricks.agents.evals import metric
+from databricks.agents.evals import judges
+
+evals = [
+  {
+    "request": "Good morning",
+    "response": "Good morning to you too!",
+    "retrieved_context": [{
+      "content": "The email address is noreply@databricks.com",
+    }],
+  }, {
+    "request": "Good afternoon",
+    "response": "This is actually the morning!",
+    "retrieved_context": [{
+      "content": "fake retrieved context",
+    }],
+  }
+]
+
+@metric
+def retrieved_context_no_pii(request, response, retrieved_context):
+  retrieved_content = '\n'.join([c['content'] for c in retrieved_context])
+  return judges.guideline_adherence(
+    request=request,
+    guidelines=[
+      "The retrieved context must not contain personally identifiable information.",
+    ],
+    # `guidelines_context` requires `databricks-agents>=0.20.0`
+    guidelines_context={"retrieved_context": retrieved_content},
+  )
+
+with mlflow.start_run(run_name="safety"):
+    eval_results = mlflow.evaluate(
+        data=pd.DataFrame.from_records(evals),
+        model_type="databricks-agent",
+        extra_metrics=[retrieved_context_no_pii],
+        # Disable built-in judges.
+        evaluator_config={
+            'databricks-agent': {
+                "metrics": [],
+            }
+        }
+    )
+    display(eval_results.tables['eval_results'])
+```
+
+## <a id="numeric"></a>Numeric metrics
+
+Numeric metrics evaluate ordinal values, such as floats or integers. Numeric metrics are shown in the UI per row, along with the average value for the evaluation run.
+
+### Example: response similarity
+
+This metric measures similarity between `response` and `expected_response` using the built-in python library `SequenceMatcher`.
+
+```python
+import mlflow
+import pandas as pd
+from databricks.agents.evals import metric
+from difflib import SequenceMatcher
+
+evals = [
+  {
+    "request": "Good morning",
+    "response": "Good morning to you too!",
+    "expected_response": "Hello and good morning to you!"
+  }, {
+    "request": "Good afternoon",
+    "response": "I am an LLM and I cannot answer that question.",
+    "expected_response": "Good afternoon to you too!"
+  }
+]
+
+@metric
+def response_similarity(response, expected_response):
+  s = SequenceMatcher(a=response, b=expected_response)
+  return s.ratio()
+
+with mlflow.start_run(run_name="response_similarity"):
+    eval_results = mlflow.evaluate(
+        data=pd.DataFrame.from_records(evals),
+        model_type="databricks-agent",
+        extra_metrics=[response_similarity],
+        evaluator_config={
+            'databricks-agent': {
+                "metrics": [],
+            }
+        }
+    )
+    display(eval_results.tables['eval_results'])
+```
+
+## <a id="boolean"></a>Boolean metrics
+
+Boolean metrics evaluate to `True` or `False`. These are useful for binary decisions, such as checking whether a response meets a simple heuristic. If you want the metric to have a special pass/fail treatment in the UI, see pass/fail metrics.
+
+### Example: Check input requests are properly formatted
+
+This metric checks if the arbitrary input is formatted as expected and returns `True` if it is.
+
+```python
+import mlflow
+import pandas as pd
+from databricks.agents.evals import metric
+
+evals = [
+  {
+    "request": {"messages": [{"role": "user", "content": "Good morning"}]},
+  }, {
+    "request": {"inputs": ["Good afternoon"]},
+  }, {
+    "request": {"inputs": [1, 2, 3, 4]},
+  }
+]
+
+@metric
+def check_valid_format(request):
+  # Check that the request contains a top-level key called "inputs" with a value of a list
+  return "inputs" in request and isinstance(request.get("inputs"), list)
+
+with mlflow.start_run(run_name="check_format"):
+  eval_results = mlflow.evaluate(
+      data=pd.DataFrame.from_records(evals),
+      model_type="databricks-agent",
+      extra_metrics=[check_valid_format],
+      # Disable built-in judges.
+      evaluator_config={
+          'databricks-agent': {
+              "metrics": [],
+          }
+      }
+  )
+eval_results.tables['eval_results']
+```
+
+### Example: Language-model self-reference
+
+This metric checks if the response mentions “LLM” and returns `True` if it does.
+
+```python
+import mlflow
+import pandas as pd
+from databricks.agents.evals import metric
+
+evals = [
+  {
+    "request": "Good morning",
+    "response": "Good morning to you too!"
+  }, {
+    "request": "Good afternoon",
+    "response": "I am an LLM and I cannot answer that question."
+  }
+]
+
+@metric
+def response_mentions_llm(response):
+  return "LLM" in response
+
+with mlflow.start_run(run_name="response_mentions_llm"):
+    eval_results = mlflow.evaluate(
+        data=pd.DataFrame.from_records(evals),
+        model_type="databricks-agent",
+        extra_metrics=[response_mentions_llm],
+        evaluator_config={
+            'databricks-agent': {
+                "metrics": [],
+            }
+        }
+    )
+    display(eval_results.tables['eval_results'])
+```
+
+## Using `custom_expected`
+
+The `custom_expected` field can be used to pass any other expected information to a custom metric.
+
+### Example: Response length bounded
+
+This example shows how to require that the length of the response be within (min_length, max_length) bounds set for each example. Use `custom_expected` to store any row-level information to be passed to custom metrics when creating an assessment.
+
+```python
+import mlflow
+import pandas as pd
+from databricks.agents.evals import metric
+from databricks.agents.evals import judges
+
+evals = [
+  {
+    "request": "Good morning",
+    "response": "Good night.",
+    "custom_expected": {
+      "max_length": 100,
+      "min_length": 3
+    }
+  }, {
+    "request": "What is the date?",
+    "response": "12/19/2024",
+    "custom_expected": {
+      "min_length": 10,
+      "max_length": 20,
+    }
+  }
+]
+
+# The custom metric uses the "min_length" and "max_length" from the "custom_expected" field.
+@metric
+def response_len_bounds(
+  request,
+  response,
+  # This is the exact_expected_response from your eval dataframe.
+  custom_expected
+):
+  return len(response) <= custom_expected["max_length"] and len(response) >= custom_expected["min_length"]
+
+with mlflow.start_run(run_name="response_len_bounds"):
+    eval_results = mlflow.evaluate(
+        data=pd.DataFrame.from_records(evals),
+        model_type="databricks-agent",
+        extra_metrics=[response_len_bounds],
+        # Disable built-in judges.
+        evaluator_config={
+            'databricks-agent': {
+                "metrics": [],
+            }
+        }
+    )
+    display(eval_results.tables['eval_results'])
+```
+
+## Assertions over traces
+
+Custom metrics can assess any part of an [MLflow trace](https://mlflow.org/docs/latest/python_api/mlflow.entities.html#mlflow.entities.Trace) produced by the agent, including spans, attributes, and outputs.
+
+### Example: Request classification & routing
+
+This example builds an agent that determines whether the user query is a question or a statement and returns it in plain English to the user. In a more realistic scenario, you might use this technique to route different queries to different functionality.
+
+The evaluation set ensures that the query-type classifier produces the right results for a set of inputs by using custom metrics that inspect the MLFlow trace.
+
+This example uses the MLflow [Trace.search_spans](https://mlflow.org/docs/latest/python_api/mlflow.entities.html#mlflow.entities.Trace.search_spans) to find spans with type `KEYWORD`, which is a custom span type that you defined for this agent.
+
+```python
+
+import mlflow
+import pandas as pd
+from mlflow.types.llm import ChatCompletionResponse, ChatCompletionRequest
+from databricks.agents.evals import metric
+from databricks.agents.evals import judges
+from mlflow.evaluation import Assessment
+from mlflow.entities import Trace
+from mlflow.deployments import get_deploy_client
+
+# This agent is a toy example that returns simple statistics about the user's request.
+# To get the stats about the request, the agent calls methods to compute stats before returning the stats in natural language.
+
+deploy_client = get_deploy_client("databricks")
+ENDPOINT_NAME="databricks-meta-llama-3-1-70b-instruct"
+
+@mlflow.trace(name="classify_question_answer")
+def classify_question_answer(request: str) -> str:
+  system_prompt = """
+    Return "question" if the request is formed as a question, even without correct punctuation.
+    Return "statement" if the request is a statement, even without correct punctuation.
+    Return "unknown" otherwise.
+
+    Do not return a preamble, only return a single word.
+  """
+  request = {
+    "messages": [
+      {"role": "system", "content": system_prompt},
+      {"role": "user", "content": request},
+    ],
+    "temperature": .01,
+    "max_tokens": 1000
+  }
+
+  result = deploy_client.predict(endpoint=ENDPOINT_NAME, inputs=request)
+  return result.choices[0]['message']['content']
+
+@mlflow.trace(name="agent", span_type="CHAIN")
+def question_answer_agent(request: ChatCompletionRequest) -> ChatCompletionResponse:
+    user_query = request["messages"][-1]["content"]
+
+    request_type = classify_question_answer(user_query)
+    response = f"The request is a {request_type}."
+
+    return {
+        "messages": [
+            *request["messages"][:-1], # Keep the chat history.
+            {"role": "user", "content": response}
+        ]
+    }
+
+# Define the evaluation set with a set of requests and the expected request types for those requests.
+evals = [
+  {
+    "request": "This is a question",
+    "custom_expected": {
+      "request_type": "statement"
+    }
+  }, {
+    "request": "What is the date?",
+    "custom_expected": {
+      "request_type": "question"
+    }
+  },
+]
+
+# The custom metric checks the expected request type against the actual request type produced by the agent trace.
+@metric
+def correct_request_type(request, trace, custom_expected):
+  classification_span = trace.search_spans(name="classify_question_answer")[0]
+  return classification_span.outputs == custom_expected['request_type']
+
+with mlflow.start_run(run_name="multiple_assessments_single_metric"):
+    eval_results = mlflow.evaluate(
+        data=pd.DataFrame.from_records(evals),
+        model=question_answer_agent,
+        model_type="databricks-agent",
+        extra_metrics=[correct_request_type],
+        evaluator_config={
+            'databricks-agent': {
+                "metrics": [],
+            }
+        }
+    )
+    display(eval_results.tables['eval_results'])
+```
+
+By leveraging these examples, you can design custom metrics to meet your unique evaluation needs.
+
+## Evaluating tool calls
+
+Custom metrics will be provided with `tool_calls` which are a list of [ToolCallInvocation](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#databricks.agents.evals.ToolCallInvocation) that give you information about which tools were called, and what they returned.
+
+### Example: Asserting the right tool is called
+
+This example is not copy-pastable as it does not define the LangGraph agent. See the attached notebook for the fully-runnable example.
+
+```python
+import mlflow
+import pandas as pd
+from databricks.agents.evals import metric
+from databricks.agents.evals import judges
+
+eval_data = pd.DataFrame(
+  [
+    {
+      "request": "what is 3 * 12?",
+      "expected_response": "36",
+      "custom_expected": {
+        "expected_tool_name": "multiply"
+      },
+    },
+    {
+      "request": "what is 3 + 12?",
+      "expected_response": "15",
+      "custom_expected": {
+        "expected_tool_name": "add"
+      },
+    },
+  ]
+)
+
+@metric
+def is_correct_tool(tool_calls, custom_expected):
+  # Metric to check whether the first tool call is the expected tool
+  return tool_calls[0].tool_name == custom_expected["expected_tool_name"]
+
+@metric
+def is_reasonable_tool(request, trace, tool_calls):
+  # Metric using the guideline adherence judge to determine whether the chosen tools are reasonable
+  # given the set of available tools. Note that `guidelines_context` requires `databricks-agents >= 0.20.0`
+
+  return judges.guideline_adherence(
+    request=request["messages"][0]["content"],
+    guidelines=[
+      "The selected tool must be a reasonable tool call with respect to the request and available tools.",
+    ],
+    # `guidelines_context` requires `databricks-agents>=0.20.0`
+    guidelines_context={
+      "available_tools": str(tool_calls[0].available_tools),
+      "chosen_tools": str([tool_call.tool_name for tool_call in tool_calls]),
+    },
+  )
+
+results = mlflow.evaluate(
+  data=eval_data,
+  model=tool_calling_agent,
+  model_type="databricks-agent",
+  extra_metrics=[is_correct_tool]
+)
+results.tables["eval_results"].display()
+```
+
+## Develop custom metrics
+
+As you develop metrics, you need to quickly iterate on the metric without having to execute the agent every time you make a change. To make this simpler, use the following strategy:
+
+1. Generate an answer sheet from the eval dataset agent. This executes the agent for each of the entries in the evaluation set, generating responses and traces that you can use the call the metric directly.
+1. Define the metric.
+1. Call the metric for each value in the answer sheet directly and iterate on the metric definition.
+1. When the metric is behaving as you expect, run `mlflow.evaluate()` on the same answer sheet to verify that the results from running Agent Evaluation are what you expect. The code in this example does not use the `model=` field, so the evaluation uses pre-computed responses.
+1. When you are satisfied with the performance of the metric, enable the `model=` field in `mlflow.evaluate()` to call the agent interactively.
+
+```py
+import mlflow
+import pandas as pd
+from databricks.agents.evals import metric
+from databricks.agents.evals import judges
+from mlflow.evaluation import Assessment
+from mlflow.entities import Trace
+
+evals = [
+  {
+    "request": "What is Databricks?",
+    "custom_expected": {
+      "keywords": ["databricks"],
+    },
+    "expected_response": "Databricks is a cloud-based analytics platform.",
+    "expected_facts": ["Databricks is a cloud-based analytics platform."],
+    "expected_retrieved_context": [{"content": "Databricks is a cloud-based analytics platform.", "doc_uri": "https://databricks.com/doc_uri"}]
+  }, {
+    "request": "When was Databricks founded?",
+    "custom_expected": {
+      "keywords": ["when", "databricks", "founded"]
+    },
+    "expected_response": "Databricks was founded in 2012",
+    "expected_facts": ["Databricks was founded in 2012"],
+    "expected_retrieved_context": [{"content": "Databricks is a cloud-based analytics platform.", "doc_uri": "https://databricks.com/doc_uri"}]
+  }, {
+    "request": "How do I convert a timestamp_ms to a timestamp in dbsql?",
+    "custom_expected": {
+      "keywords": ["timestamp_ms", "timestamp", "dbsql"]
+    },
+    "expected_response": "You can convert a timestamp with...",
+    "expected_facts": ["You can convert a timestamp with..."],
+    "expected_retrieved_context": [{"content": "You can convert a timestamp with...", "doc_uri": "https://databricks.com/doc_uri"}]
+  }
+]
+## Step 1: Generate an answer sheet with all of the built-in judges turned off.
+## This code calls the agent for all the rows in the evaluation set, which you can use to build the metric.
+answer_sheet_df = mlflow.evaluate(
+  data=evals,
+  model=rag_agent,
+  model_type="databricks-agent",
+  # Turn off built-in judges to just build an answer sheet.
+  evaluator_config={"databricks-agent": {"metrics": []}
+  }
+).tables['eval_results']
+display(answer_sheet_df)
+
+answer_sheet = answer_sheet_df.to_dict(orient='records')
+
+## Step 2: Define the metric.
+@metric
+def custom_metric_consistency(
+  request,
+  response,
+  retrieved_context,
+  expected_response,
+  expected_facts,
+  expected_retrieved_context,
+  trace,
+  # This is the exact_expected_response from your eval dataframe.
+  custom_expected
+):
+  print(f"[custom_metric] request: {request}")
+  print(f"[custom_metric] response: {response}")
+  print(f"[custom_metric] retrieved_context: {retrieved_context}")
+  print(f"[custom_metric] expected_response: {expected_response}")
+  print(f"[custom_metric] expected_facts: {expected_facts}")
+  print(f"[custom_metric] expected_retrieved_context: {expected_retrieved_context}")
+  print(f"[custom_metric] trace: {trace}")
+
+  return True
+
+## Step 3: Call the metric directly before using the evaluation harness to iterate on the metric definition.
+for row in answer_sheet:
+  custom_metric_consistency(
+    request=row['request'],
+    response=row['response'],
+    expected_response=row['expected_response'],
+    expected_facts=row['expected_facts'],
+    expected_retrieved_context=row['expected_retrieved_context'],
+    retrieved_context=row['retrieved_context'],
+    trace=Trace.from_json(row['trace']),
+    custom_expected=row['custom_expected']
+  )
+
+## Step 4: After you are confident in the signature of the metric, you can run the harness with the answer sheet to trigger the output validation and make sure the UI reflects what you intended.
+with mlflow.start_run(run_name="exact_expected_response"):
+    eval_results = mlflow.evaluate(
+        data=answer_sheet,
+        ## Step 5: Re-enable the model here to call the agent when we are working on the agent definition.
+        # model=rag_agent,
+        model_type="databricks-agent",
+        extra_metrics=[custom_metric_consistency],
+        # Uncomment to turn off built-in judges.
+        # evaluator_config={
+        #     'databricks-agent': {
+        #         "metrics": [],
+        #     }
+        # }
+    )
+    display(eval_results.tables['eval_results'])
+```
+
+## <a id="notebook"></a>Example notebook
+
+The following example notebook illustrates some different ways to use custom metrics in :re[mai-agent-evaluation].
+
+::notebook[Agent Evaluation custom metrics example notebook]{file='generative-ai/agent-evaluation-custom-metrics.html'}

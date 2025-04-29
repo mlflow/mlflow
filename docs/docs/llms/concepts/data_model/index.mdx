@@ -1,0 +1,37 @@
+# Data Model
+
+There are two primary entities in MLflow's GenAI data model:
+1. **`Traces` (and its attached child entity `Assessments`):** A detailed record of a *every single* execution of your GenAI application and its corresponding quality and performance evaluations.
+2. **`Evaluation Datasets`:** A curated collection of examples that represent both high-quality and problematic interactions with your GenAI application that are used to systematically evaluate and improve your app's performance.
+
+
+![Data Model](/images/genai/data-model.png)
+
+## Traces
+
+`Traces` (and their associated `Assessments`) are used to debug, evaluation, and monitor your application's quality and performance during development and production.  Every time your app is executed - during development, in production, or for evaluation - a [`Trace`](trace) is produced.    Each `Trace` contains:
+- Metadata & Tags: Details about the execution environment and code version that generated the trace along with developer-defined key:value pairs 
+- Spans: Step-by-step execution details (LLM calls, retrievers, tools, etc)
+
+[`Traces`](trace) are annotated with [`Assessments`](trace/assessment) that describe their quality and operational performance (latency, cost, etc).  [`Assessments`](trace/assessment) are produced by either:
+* `Scorer`: A developer-defined function that programmatically evaluates traces using either:
+  - Deterministic Logic: Rule-based evaluation using predefined criteria (e.g., response length, presence of required fields)
+  - LLM Judge-based Logic: Using another LLM to evaluate the quality of responses, simulating a human generated evaluation (e.g., checking factual accuracy, tone, or adherence to guidelines)
+* `Labeling Session`: Human-generated evaluations, done through the Review App's interactive interface.
+
+![Trace Concept](/images/genai/trace-overview.png)
+
+## Evaluation Dataset
+
+An Evaluation Dataset is a curated collection of examples used to evaluate a Gen AI application. Each example in a dataset represents a potentail user interaction with your application, carefully selected to represent both:
+
+- **High-quality examples**: Demonstrating the expected behavior and performance standards
+- **Problematic examples**: Cases where the application needs improvement or fixes
+
+Each dataset record contains:
+- Inputs to the GenAI application e.g., the user's request
+- Expected outputs and behaviors
+  - Note: These expectations are stored using the `Assessment` data model, with a record of of type `expectation`.
+
+
+Datasets are linked to an MLFlow experiment and can be directly used as inputs to `mlflow.evaluate()`. They are backed by Delta tables in Unity Catalog, inheriting the permissions defined by the Delta table.

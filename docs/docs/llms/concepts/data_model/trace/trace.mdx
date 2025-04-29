@@ -1,0 +1,19 @@
+---
+sidebar_position: 2
+---
+
+# Trace
+
+**WIP**
+
+A trace is a detailed record of a *every single* execution of your GenAI application. It captures the step-by-step execution of your application's logic and can be annotated with `Assessments` about the `Trace`'s quality and operational performance (latency, cost, etc).
+
+
+Upon creation, a `Trace` contains the following:
+- **Source:** Details of the execution environment that produced the trace. This can be:
+    - A fingerprint of your local development enviroment (IDE , Notebook, etc)
+    - A fingerprint of your production environment
+    - A pointer to the evaluation run
+- **Version**: A link to the `Version` of your application's code that was used to generate this `Trace`.
+- **Spans:** Details of the step-by-step execution of your application's code, including calls to LLMs, retrievers, tools, and more.  Spans are generated based on how your [instrument](#) your application's code.
+- **Metadata** A combination of automatically logged metadata (such as the timestamp, execution time, etc) and developer-generated key:value tags.

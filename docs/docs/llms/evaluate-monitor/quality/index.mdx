@@ -1,0 +1,81 @@
+---
+sidebar_position: 2
+---
+
+import { Card, LogoCard, CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
+
+# Quality Metrics and Scorers
+
+MLflow provides powerful capabilities for measuring and improving the quality of your GenAI applications through specialized metrics and scorers (LLM judges). These metrics enable you to evaluate the nuanced aspects of language model outputs and ensure your applications deliver high-quality responses.
+
+## Key Features
+
+<CardGroup singleColumn={true}>
+  <PageCard
+    headerText="Define once - use in dev and production"
+    icon="fa-sync"
+    text={[
+      "Use the same metrics in both development and production environments. In development, evaluate every new variant offline to drive iterative improvements and verify changes don't cause regressions. In production, evaluate every live response and set alerts for continuous quality monitoring."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Best-in-class LLM judges - ready to go"
+    icon="fa-check-circle"
+    text={[
+      "Get started quickly with out-of-the-box judges for safety, hallucination, retrieval quality, relevance, and other common aspects of quality evaluation. Our research team has tuned these judges to agree with human experts, giving you accurate, reliable quality evaluation."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Customized LLM judges for your use case"
+    icon="fa-cogs"
+    text={[
+      "Adapt our base judge model to create custom judges tailored to your business requirements that agree with your human experts' judgment. Train judges on your specific domain knowledge and evaluation criteria."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Customized Code-Based Metrics"
+    icon="fa-code"
+    text={[
+      "Further customize evaluation to measure any aspect of your application's quality using our custom metrics SDK. Write Python functions that track any metric, from regex checks to complex business logic tailored to your specific needs."
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+## Getting Started with Quality Metrics
+
+Quality metrics in MLflow fall into several categories:
+
+1. **LLM Judges**: Model-based evaluators that assess outputs on dimensions like relevance, correctness, and safety
+2. **Retrieval Metrics**: Specialized metrics for evaluating RAG application performance
+3. **Custom Metrics**: User-defined metrics for specific domain requirements
+4. **Operational Metrics**: Performance indicators like latency, cost, and error rates
+
+## Next Steps
+
+<CardGroup>
+  <PageCard
+    headerText="Built-in Scorers"
+    link="/llms/llm-evaluate"
+    text={[
+      "Explore MLflow's pre-built scorers for common quality dimensions."
+    ]}
+  />
+  <PageCard
+    headerText="Custom Metrics"
+    link="/llms/llm-evaluate"
+    text={[
+      "Learn how to create your own custom metrics with the MLflow SDK."
+    ]}
+  />
+  <PageCard
+    headerText="Production Monitoring"
+    link="../monitor"
+    text={[
+      "Set up continuous quality monitoring with your metrics."
+    ]}
+  />
+</CardGroup>

@@ -1,0 +1,372 @@
+---
+sidebar_position: 3
+---
+
+
+
+import { APILink } from "@site/src/components/APILink";
+
+# Evaluation Datasets
+
+
+## <span style={{color: "red"}}>todo - dump of most of the dbx content below</span>
+
+
+
+### Datasets
+
+A [Dataset](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#datasets) is a collection of examples used to evaluate a gen AI application. Dataset records contain inputs to a gen AI application and optionally _expectations_ (ground truth labels, like [`expected_facts`](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema.md#expected_facts-guidelines) or [`guidelines`](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema.md#guidelines-guidelines)). Datasets are linked to an MLFlow experiment, and can be directly used as inputs to `mlflow.evaluate()`. Datasets are backed by Delta tables in :re[UC], inheriting the permissions defined by the Delta table. To create a dataset, see [\_](#create-a-dataset).
+
+Example evaluation dataset, showing only inputs and expectations columns:
+
+![Dataset example](https://docs.databricks.com/aws/en/assets/images/dataset_example-bc38b72b42e9efcea5208a2b983948e2.png)
+
+Evaluation datasets have the following schema:
+
+| Column                  | Data Type | Description                                                                                                                                                                          |
+| ----------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| dataset_record_id       | string    | The unique identifier for the record.                                                                                                                                                |
+| inputs                  | string    | Inputs to evaluation as json serialized `dict<str, Any>`.                                                                                                                            |
+| expectations            | string    | Expected values as json serialized `dict<str, Any>`. `expectations` has reserved keys that are used for LLM judges, such as `guidelines`, `expected_facts`, and `expected_response`. |
+| create_time             | timestamp | The time when the record was created.                                                                                                                                                |
+| created_by              | string    | The user who created the record.                                                                                                                                                     |
+| last_update_time        | timestamp | The time when the record was last updated.                                                                                                                                           |
+| last_updated_by         | string    | The user who last updated the record.                                                                                                                                                |
+| source                  | struct    | The source of the dataset record.                                                                                                                                                    |
+| source.human            | struct    | Defined when the source is from a human.                                                                                                                                             |
+| source.human.user_name  | string    | The name of the user associated with the record.                                                                                                                                     |
+| source.document         | string    | Defined when the record was synthesized from a doc.                                                                                                                                  |
+| source.document.doc_uri | string    | The URI of the document.                                                                                                                                                             |
+| source.document.content | string    | The content of the document.                                                                                                                                                         |
+| source.trace            | string    | Defined when the record was created from a trace.                                                                                                                                    |
+| source.trace.trace_id   | string    | The unique identifier for the trace.                                                                                                                                                 |
+| tags                    | map       | Key-value tags for the dataset record.                                                                                                                                               |
+
+
+
+
+## Datasets
+
+This section explains how to do the following:
+
+- Create a dataset and use it for evaluation, without a SME.
+- Request a labeling session from a SME to curate a better evaluation dataset.
+
+### Create a Dataset
+
+The following example creates a [Dataset](https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#dataset) and inserts evaluations. To seed the dataset with synthetic evaluations, see [\_](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/synthesize-evaluation-set.md).
+
+```python
+from databricks.agents import datasets
+import mlflow
+
+# The following call creates an empty dataset. To delete a dataset, use datasets.delete_dataset(uc_table_name).
+dataset = datasets.create_dataset("cat.schema.my_managed_dataset")
+
+# Optionally, insert evaluations.
+# The `guidelines` specified here are saved to the `expectations` field in the dataset.
+eval_set = [{
+  "request": {"messages": [{"role": "user", "content": "What is the capital of France?"}]},
+  "guidelines": ["The response must be in English", "The response must be clear, coherent, and concise"],
+}]
+
+dataset.insert(eval_set)
+```
+
+The data from this dataset is backed by a Delta table in :re[UC] and is visible in Catalog Explorer.
+
+:::note
+
+[Named guidelines](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/llm-judge-reference.md#guideline-adherence) (using a dictionary) are currently not supported in a labeling session.
+
+:::
+
+### Using a dataset for evaluation
+
+The following example reads the dataset from :re[UC], using the evaluation dataset to evaluate a simple system prompt agent.
+
+```python
+import mlflow
+from mlflow.deployments import get_deploy_client
+
+# Define a very simple system-prompt agent to test against our evaluation set.
+@mlflow.trace(span_type="AGENT")
+def llama3_agent(request):
+  SYSTEM_PROMPT = """
+    You are a chatbot that answers questions about Databricks.
+    For requests unrelated to Databricks, reject the request.
+  """
+  return get_deploy_client("databricks").predict(
+    endpoint="databricks-meta-llama-3-3-70b-instruct",
+    inputs={
+      "messages": [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        *request["messages"]
+      ]
+    }
+  )
+
+evals = spark.read.table("cat.schema.my_managed_dataset")
+
+mlflow.evaluate(
+  data=evals,
+  model=llama3_agent,
+  model_type="databricks-agent"
+)
+```
+## what is good 
+
+
+To measure the quality of an agentic application, you need to be able to define a representative set of requests along with criteria that characterize high-quality responses. You do that by providing an evaluation set. This article covers the various options for your evaluation set and some best practices for creating an evaluation set.
+
+Databricks recommends creating a human-labeled evaluation set, which consists of representative questions and ground-truth answers. If your application includes a retrieval step, you can optionally provide the supporting documents on which you expect the response to be based. To help you get started on creating an evaluation set, Databricks provides an SDK to generate high-quality synthetic questions and ground-truth answers that can be used directly in :re[agent-evaluation], or sent to subject-matter experts for review. 
+
+A good evaluation set has the following characteristics:
+
+- Representative: It should accurately reflect the range of requests the application will encounter in production.
+- Challenging: It should include difficult and diverse cases to effectively test the full range of the application’s capabilities.
+- Continually updated: It should be updated regularly to reflect how the application is used and the changing patterns of production traffic.
+
+
+
+## <a id="best-practices"></a> Best practices for developing an evaluation set
+
+- Consider each sample, or group of samples, in the evaluation set as a unit test. That is, each sample should correspond to a specific scenario with an explicit expected outcome. For example, consider testing longer contexts, multi-hop reasoning, and ability to infer answers from indirect evidence.
+- Consider testing adversarial scenarios from malicious users.
+- There is no specific guideline on the number of questions to include in an evaluation set, but clear signals from high-quality data typically perform better than noisy signals from weak data.
+- Consider including examples that are very challenging, even for humans to answer.
+- Whether you are building a general-purpose application or targeting a specific domain, your app will likely encounter a wide variety of questions. The evaluation set should reflect that. For example, if you are creating an application to field specific HR questions, you should still consider testing other domains (for example, operations), to ensure that the application does not hallucinate or provide harmful responses.
+- High-quality, consistent human-generated labels are the best way to ensure that the ground truth values that you provide to the application accurately reflect the desired behavior. Some steps to ensure high-quality human labels are the following:
+  - Aggregate responses (labels) from multiple human labelers for the same question.
+  - Ensure that labeling instructions are clear and that the human labelers are consistent.
+  - Ensure that the conditions for the human-labeling process are identical to the format of requests submitted to the RAG application.
+- Human labelers are by nature noisy and inconsistent, for example due to different interpretations of the question. This is an important part of the process. Using human labeling can reveal interpretations of questions that you had not considered, and that might provide insight into behavior you observe in your application.
+
+
+## <span style={{color: "red"}}>todo - dump of mlflow original content below</span>
+
+
+The `mlflow.data` module is an integral part of the MLflow ecosystem, designed to enhance your machine learning workflow.
+This module enables you to record and retrieve dataset information during model training and evaluation, leveraging MLflow's tracking capabilities.
+
+## Key Interfaces
+
+There are two main abstract components associated with the `mlflow.data` module, `Dataset` and `DatasetSource`:
+
+### Dataset
+
+The `Dataset` abstraction is a metadata tracking object that holds the information about a given logged dataset.
+
+The information stored within a `Dataset` object includes features, targets, and predictions, along with
+metadata like the dataset's name, digest (hash), schema, and profile. You can log this metadata using the <APILink fn="mlflow.log_input" /> API.
+The module provides functions to construct <APILink fn="mlflow.data.dataset.Dataset">`mlflow.data.dataset.Dataset`</APILink> objects from various data types.
+
+There are a number of concrete implementations of this abstract class, including:
+
+- <APILink fn="mlflow.data.spark_dataset.SparkDataset">`mlflow.data.spark_dataset.SparkDataset`</APILink>
+- <APILink fn="mlflow.data.pandas_dataset.PandasDataset">`mlflow.data.pandas_dataset.PandasDataset`</APILink>
+- <APILink fn="mlflow.data.numpy_dataset.NumpyDataset">`mlflow.data.numpy_dataset.NumpyDataset`</APILink>
+- <APILink fn="mlflow.data.huggingface_dataset.HuggingFaceDataset">`mlflow.data.huggingface_dataset.HuggingFaceDataset`</APILink>
+- <APILink fn="mlflow.data.tensorflow_dataset.TensorFlowDataset">`mlflow.data.tensorflow_dataset.TensorFlowDataset`</APILink>
+
+The following example demonstrates how to construct a <APILink fn="mlflow.data.pandas_dataset.PandasDataset">`mlflow.data.pandas_dataset.PandasDataset`</APILink> object from a Pandas DataFrame:
+
+```python
+import mlflow.data
+import pandas as pd
+from mlflow.data.pandas_dataset import PandasDataset
+
+
+dataset_source_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"
+raw_data = pd.read_csv(dataset_source_url, delimiter=";")
+
+# Create an instance of a PandasDataset
+dataset = mlflow.data.from_pandas(
+    raw_data, source=dataset_source_url, name="wine quality - white", targets="quality"
+)
+```
+
+### DatasetSource
+
+The `DatasetSource` is a component of a given Dataset object, providing a linked lineage to the original source of the data.
+
+The `DatasetSource` component of a `Dataset` represents the source of a dataset, such as a directory in S3, a Delta Table, or a URL.
+It is referenced in the `Dataset` for understanding the origin of the data. The `DatasetSource` of a logged
+dataset can be retrieved either by accessing the `source` property of the `Dataset` object, or through using the `mlflow.data.get_source()` API.
+
+:::tip
+Many of the supported autologging-enabled flavors within MLflow will automatically log the source of the dataset when logging the dataset itself.
+:::
+
+:::note
+The example shown below is purely for instructive purposes, as logging a dataset outside of a training run is not a common practice.
+:::
+
+## Example Usage
+
+The following example demonstrates how to use the `log_inputs` API to log a training dataset, retrieve its information, and fetch the data source:
+
+```python
+import mlflow
+import pandas as pd
+from mlflow.data.pandas_dataset import PandasDataset
+
+
+dataset_source_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"
+raw_data = pd.read_csv(dataset_source_url, delimiter=";")
+
+# Create an instance of a PandasDataset
+dataset = mlflow.data.from_pandas(
+    raw_data, source=dataset_source_url, name="wine quality - white", targets="quality"
+)
+
+# Log the Dataset to an MLflow run by using the `log_input` API
+with mlflow.start_run() as run:
+    mlflow.log_input(dataset, context="training")
+
+# Retrieve the run information
+logged_run = mlflow.get_run(run.info.run_id)
+
+# Retrieve the Dataset object
+logged_dataset = logged_run.inputs.dataset_inputs[0].dataset
+
+# View some of the recorded Dataset information
+print(f"Dataset name: {logged_dataset.name}")
+print(f"Dataset digest: {logged_dataset.digest}")
+print(f"Dataset profile: {logged_dataset.profile}")
+print(f"Dataset schema: {logged_dataset.schema}")
+```
+
+The stdout results of the above code snippet are as follows:
+
+```bash
+Dataset name: wine quality - white
+Dataset digest: 2a1e42c4
+Dataset profile: {"num_rows": 4898, "num_elements": 58776}
+Dataset schema: {"mlflow_colspec": [
+    {"type": "double", "name": "fixed acidity"},
+    {"type": "double", "name": "volatile acidity"},
+    {"type": "double", "name": "citric acid"},
+    {"type": "double", "name": "residual sugar"},
+    {"type": "double", "name": "chlorides"},
+    {"type": "double", "name": "free sulfur dioxide"},
+    {"type": "double", "name": "total sulfur dioxide"},
+    {"type": "double", "name": "density"},
+    {"type": "double", "name": "pH"},
+    {"type": "double", "name": "sulphates"},
+    {"type": "double", "name": "alcohol"},
+    {"type": "long", "name": "quality"}
+    ]}
+```
+
+We can navigate to the MLflow UI to see what this looks like for a logged Dataset as well.
+
+![](https://assets.docs.databricks.com/_static/images/tracking/dataset-mlflow-ui.png)
+
+When we want to load the dataset back from the location that it's stored (calling `load` will download the data locally), we
+access the Dataset's source via the following API:
+
+```python
+# Loading the dataset's source
+dataset_source = mlflow.data.get_source(logged_dataset)
+
+local_dataset = dataset_source.load()
+
+print(f"The local file where the data has been downloaded to: {local_dataset}")
+
+# Load the data again
+loaded_data = pd.read_csv(local_dataset, delimiter=";")
+```
+
+The print statement from above resolves to the local file that was created when calling `load`.
+
+```bash
+The local file where the data has been downloaded to:
+/var/folders/cd/n8n0rm2x53l_s0xv_j_xklb00000gp/T/tmpuxwtrul1/winequality-white.csv
+```
+
+## Using Datasets with other MLflow Features
+
+The `mlflow.data` module serves the crucial role of associating datasets with MLflow runs. Aside from the obvious utility of having a record
+associated with an MLflow run to the dataset that was used during training, there are some integrations within MLflow that allow for direct
+usage of Datasets that have been logged with the <APILink fn="mlflow.log_input" /> API.
+
+### How to use a Dataset with MLflow evaluate
+
+:::note
+The integration of Datasets with MLflow evaluate was introduced in MLflow 2.8.0. Previous versions do not have this functionality.
+:::
+
+To see how this integration functions, let's take a look at a fairly simple and typical classification task.
+
+```python
+import pandas as pd
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+import xgboost
+
+import mlflow
+from mlflow.data.pandas_dataset import PandasDataset
+
+
+dataset_source_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"
+raw_data = pd.read_csv(dataset_source_url, delimiter=";")
+
+# Extract the features and target data separately
+y = raw_data["quality"]
+X = raw_data.drop("quality", axis=1)
+
+# Split the data into training and test sets
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.33, random_state=17
+)
+
+# Create a label encoder object
+le = LabelEncoder()
+
+# Fit and transform the target variable
+y_train_encoded = le.fit_transform(y_train)
+y_test_encoded = le.transform(y_test)
+
+# Fit an XGBoost binary classifier on the training data split
+model = xgboost.XGBClassifier().fit(X_train, y_train_encoded)
+
+# Build the Evaluation Dataset from the test set
+y_test_pred = model.predict(X=X_test)
+
+eval_data = X_test
+eval_data["label"] = y_test
+
+# Assign the decoded predictions to the Evaluation Dataset
+eval_data["predictions"] = le.inverse_transform(y_test_pred)
+
+# Create the PandasDataset for use in mlflow evaluate
+pd_dataset = mlflow.data.from_pandas(
+    eval_data, predictions="predictions", targets="label"
+)
+
+mlflow.set_experiment("White Wine Quality")
+
+# Log the Dataset, model, and execute an evaluation run using the configured Dataset
+with mlflow.start_run() as run:
+    mlflow.log_input(pd_dataset, context="training")
+
+    mlflow.xgboost.log_model(
+        artifact_path="white-wine-xgb", xgb_model=model, input_example=X_test
+    )
+
+    result = mlflow.evaluate(data=pd_dataset, predictions=None, model_type="classifier")
+```
+
+:::note
+Using the <APILink fn="mlflow.evaluate" /> API will automatically log the dataset used for the evaluation to the MLflow run. An explicit call to
+log the input is not required.
+:::
+
+Navigating to the MLflow UI, we can see how the Dataset, model, metrics, and a classification-specific confusion matrix are all logged
+to the run.
+
+<div className="center-div" style={{ width: "80%" }}>
+  ![](https://assets.docs.databricks.com/_static/images/tracking/dataset-evaluate.png)
+</div>

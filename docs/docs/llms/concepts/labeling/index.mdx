@@ -1,0 +1,35 @@
+# Human Labeling
+
+Human labeling is a crucial component of MLflow's GenAI evaluation framework that enables domain experts and stakeholders to provide quality assessments of GenAI application outputs. This is essential because developers often aren't domain experts in their application's expected or correct outputs.
+
+## Core Components
+
+### Labeling Sessions
+A `LabelingSession` is a finite set of traces or dataset records to be labeled by subject matter experts (SMEs) through the Review App UI. Traces can come from:
+- Inference tables for applications in production
+- Offline traces in MLflow experiments
+
+### Assessments
+Labels are stored as `Assessments` on MLflow Traces. There are three types of assessments:
+- `feedback`: Quality annotations about outputs (e.g., response correctness)
+- `expectation`: Expected values for given inputs
+- `operational`: Execution-related annotations (e.g., latency, cost)
+
+## Workflow
+
+1. Create a labeling session with assigned domain experts and stakeholders
+2. Define the `LabelingSchemas`
+3. Add `Traces` to the labeling session
+4. Collect feedback and assessments through the interactive interface
+5. Optionally sync labeled expectations back to evaluation datasets for systematic evaluation
+
+## Data Storage and Access
+
+- All data is written to traces and can be viewed through existing Trace UIs
+- Labeled expectations can be synced back to evaluation datasets
+- Results are stored as MLflow runs
+- Labels are stored as Assessments on MLflow Traces
+
+This human labeling system bridges the gap between technical implementation and domain expertise, ensuring GenAI applications meet quality standards and business requirements.
+
+

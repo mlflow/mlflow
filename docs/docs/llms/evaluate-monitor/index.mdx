@@ -1,0 +1,139 @@
+---
+sidebar_position: 0
+---
+
+import { Card, LogoCard, CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
+
+# Overview
+
+MLflow's evaluation and monitoring capabilities enable you to systematically measure, improve, and track the quality of your GenAI applications throughout their lifecycle. By combining production logging with structured evaluation workflows, you can continuously enhance your application's performance based on real-world usage.
+
+## Create Metrics to measure Quality
+
+<CardGroup singleColumn={true}>
+  <PageCard
+    headerText="Define once - use in dev and production"
+    icon="fa-sync"
+    text={[
+      "Use the same metrics in both development and production environments. In development, evaluate every new variant offline to drive iterative improvements and verify changes don't cause regressions. In production, evaluate every live response and set alerts for continuous quality monitoring."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Best-in-class LLM judges - ready to go"
+    icon="fa-gavel"
+    text={[
+      "Get started quickly with out-of-the-box judges for safety, hallucination, retrieval quality, relevance, and other common aspects of quality evaluation. Our research team has tuned these judges to agree with human experts, giving you accurate, reliable quality evaluation."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Customized LLM judges for your use case"
+    icon="fa-cogs"
+    text={[
+      "Adapt our base judge model to create custom judges tailored to your business requirements that agree with your human experts' judgment. Train judges on your specific domain knowledge and evaluation criteria."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Customized Code-Based Metrics"
+    icon="fa-code"
+    text={[
+      "Further customize evaluation to measure any aspect of your application's quality using our custom metrics SDK. Write Python functions that track any metric, from regex checks to complex business logic tailored to your specific needs."
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+## Evaluate During Development
+
+<CardGroup singleColumn={true}>
+  <PageCard
+    headerText="Curate evaluation datasets from production logs"
+    icon="fa-database"
+    text={[
+      "Curate top-scoring traces into regression datasets and low-scoring traces needing improvement into evaluation datasets. Manually add examples and track lineage and version history for comprehensive test coverage."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Test new app and prompt variants"
+    icon="fa-code-branch"
+    text={[
+      "Use MLflow's Evaluation SDK to test new variants (prompts, models, code changes) against evaluation and regression datasets. Every variant is linked to its evaluation results so you can track improvements over time."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="Intuitive evaluation review UIs"
+    icon="fa-eye"
+    text={[
+      "Review evaluation results using MLflow's UI that visualizes record-by-record results, compares diffs between variants, and provides judge-driven insights into root causes to validate changes and identify improvement opportunities."
+    ]}
+    isBoldHeader={true}
+  />
+  <PageCard
+    headerText="CI/CD integration"
+    icon="fa-cogs"
+    text={[
+      "Automatically run evaluations in CI/CD workflows to systematically validate every PR drives quality improvements, not regressions."
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+## Monitor in Production
+
+<CardGroup singleColumn={true}>
+  <PageCard
+    headerText="Continuous quality monitoring"
+    icon="fa-tachometer-alt"
+    text={[
+      "Set up dashboards and alerts that continuously monitor the quality of your production GenAI applications. Automatically evaluate each response using the same metrics used during development to ensure consistency and detect quality regressions immediately."
+    ]}
+    isBoldHeader={true}
+  />
+  
+  <PageCard
+    headerText="Alerts on quality metrics"
+    icon="fa-bell"
+    text={[
+      "Configure alerts that notify your team when quality metrics fall below acceptable thresholds. Set up customized triggers based on hallucination rates, relevance scores, or any custom metrics you've defined to catch issues before users notice them."
+    ]}
+    isBoldHeader={true}
+  />
+</CardGroup>
+
+## Explore Evaluation and Monitoring
+
+<CardGroup>
+  <PageCard
+    headerText="Quality Metrics"
+    link="quality"
+    text={[
+      "Learn about LLM judges and custom metrics for evaluating GenAI applications."
+    ]}
+  />
+  <PageCard
+    headerText="Evaluation Datasets"
+    link="eval-datasets"
+    text={[
+      "Discover how to create and manage datasets for systematic evaluation."
+    ]}
+  />
+  <PageCard
+    headerText="Monitor"
+    link="monitor"
+    text={[
+      "Set up continuous monitoring of your production GenAI applications."
+    ]}
+  />
+  <PageCard
+    headerText="Evaluate"
+    link="evaluate"
+    text={[
+      "Learn how to run structured evaluations and compare variants."
+    ]}
+  />
+</CardGroup>
+

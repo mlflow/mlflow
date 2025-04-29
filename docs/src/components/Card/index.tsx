@@ -2,11 +2,12 @@ import clsx from "clsx";
 import styles from "./card.module.css";
 import Link from "@docusaurus/Link";
 
-export const CardGroup = ({ children, isSmall }): JSX.Element => (
+export const CardGroup = ({ children, isSmall, singleColumn }): JSX.Element => (
   <div
     className={clsx(
       styles.CardGroup,
-      isSmall ? styles.AutofillColumns : styles.MaxThreeColumns
+      isSmall ? styles.AutofillColumns : styles.MaxThreeColumns,
+      singleColumn && styles.SingleColumn
     )}
   >
     {children}
@@ -30,7 +31,7 @@ export const Card = ({ children, link = "" }): JSX.Element => {
   );
 };
 
-export const PageCard = ({ headerText, link, text }): JSX.Element => (
+export const PageCard = ({ headerText, link, text, isBoldHeader = false, icon }): JSX.Element => (
   <Card link={link}>
     <span>
       <div
@@ -52,6 +53,11 @@ export const PageCard = ({ headerText, link, text }): JSX.Element => (
           )}
           style={{ marginLeft: "-4px", marginTop: "-4px" }}
         >
+          {icon && (
+            <span className={styles.IconContainer}>
+              <i className={`fas ${icon}`}></i>
+            </span>
+          )}
           <div
             className={clsx(
               styles.BoxRoot,
@@ -61,12 +67,12 @@ export const PageCard = ({ headerText, link, text }): JSX.Element => (
             )}
             style={{ pointerEvents: "auto" }}
           >
-            <span className="">{headerText}</span>
+            <span className={isBoldHeader ? styles.PageCardHeader : ""}>{headerText}</span>
           </div>
         </div>
       </div>
       <span className={clsx(styles.TextColor, styles.CardBody)}>
-        <p>{text}</p>
+        <p dangerouslySetInnerHTML={{ __html: text }} />
       </span>
     </span>
   </Card>

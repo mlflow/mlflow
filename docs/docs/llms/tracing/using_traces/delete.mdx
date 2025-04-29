@@ -1,0 +1,22 @@
+import { APILink } from "@site/src/components/APILink";
+
+# Delete Traces
+
+You can delete traces based on specific criteria using the <APILink fn="mlflow.client.MlflowClient.delete_traces">`MlflowClient.delete_traces`</APILink> method. This method allows you to delete traces by **experiment ID**,
+**maximum timestamp**, or **request IDs**.
+
+:::tip
+Deleting a trace is an irreversible process. Ensure that the setting provided within the `delete_traces` API meet the intended range for deletion.
+:::
+
+```python
+import time
+
+# Get the current timestamp in milliseconds
+current_time = int(time.time() * 1000)
+
+# Delete traces older than a specific timestamp
+deleted_count = client.delete_traces(
+    experiment_id="1", max_timestamp_millis=current_time, max_traces=10
+)
+```
