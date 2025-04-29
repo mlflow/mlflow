@@ -1493,7 +1493,6 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
     _enforce_schema(data, expected_schema)
 
 
-@experimental
 def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
     """
     Given a registered model_uri (e.g. models:/<model_name>/<model_version>), this utility

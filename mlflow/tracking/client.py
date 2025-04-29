@@ -2953,7 +2953,6 @@ class MlflowClient:
             return pd.read_parquet(artifact_path)
         raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
 
-    @experimental
     def log_table(
         self,
         run_id: str,
@@ -3137,7 +3136,6 @@ class MlflowClient:
             # Set the tag with the updated list
             self.set_tag(run_id, MLFLOW_LOGGED_ARTIFACTS, json.dumps(current_tag_value))
 
-    @experimental
     def load_table(
         self,
         experiment_id: str,

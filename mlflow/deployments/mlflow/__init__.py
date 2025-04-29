@@ -19,7 +19,6 @@ from mlflow.environment_variables import (
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.utils.annotations import experimental
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 from mlflow.utils.uri import join_paths
@@ -28,7 +27,6 @@ if TYPE_CHECKING:
     from mlflow.deployments.server.config import Endpoint
 
 
-@experimental
 class MlflowDeploymentClient(BaseDeploymentClient):
     """
     Client for interacting with the MLflow AI Gateway.
@@ -140,7 +138,6 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         augmented_raise_for_status(response)
         return response.json()
 
-    @experimental
     def get_endpoint(self, endpoint) -> "Endpoint":
         """
         Gets a specified endpoint configured for the MLflow AI Gateway.
@@ -201,7 +198,6 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         next_page_token = response_json.get("next_page_token")
         return PagedList(routes, next_page_token)
 
-    @experimental
     def list_endpoints(self) -> "list[Endpoint]":
         """
         List endpoints configured for the MLflow AI Gateway.
@@ -238,7 +234,6 @@ class MlflowDeploymentClient(BaseDeploymentClient):
                 break
         return endpoints
 
-    @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None) -> dict[str, Any]:
         """
         Submit a query to a configured provider endpoint.
