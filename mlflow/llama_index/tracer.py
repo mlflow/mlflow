@@ -38,8 +38,12 @@ from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.llama_index.chat import get_chat_messages_from_event
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import (
+    SpanAttributeKey,
+    TraceMetadataKey,
+)
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.pydantic_utils import model_dump_compat
@@ -183,6 +187,17 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                     inputs=input_args,
                     attributes=attributes,
                 )
+                # BUG-FIX (#15511 - LLAMA-INDEX):
+                # When we create a *root* span we must tell MLflow which run it
+                # belongs to; otherwise traces from different threads all land
+                # on whatever run happened to be first.
+                active_run = mlflow.active_run()
+                if active_run is not None:
+                    InMemoryTraceManager().get_instance().set_request_metadata(
+                        span.request_id,
+                        TraceMetadataKey.SOURCE_RUN,
+                        active_run.info.run_id,
+                    )
 
             token = set_span_in_context(span)
             self._span_id_to_token[span.span_id] = token
