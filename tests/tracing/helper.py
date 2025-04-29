@@ -136,6 +136,9 @@ def get_traces(experiment_id=None) -> list[Trace]:
 
 
 def purge_traces(experiment_id=None):
+    if len(get_traces(experiment_id)) == 0:
+        return
+
     # Delete all traces from the backend
     TracingClient().delete_traces(
         experiment_id=experiment_id or _get_experiment_id(),
