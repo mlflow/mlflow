@@ -21,8 +21,6 @@ from mlflow.tracing.utils import (
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
-__all__ = ["autolog"]
-
 _logger = logging.getLogger(__name__)
 
 FLAVOUR_NAME = "pydanticai"
