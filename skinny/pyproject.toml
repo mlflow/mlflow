@@ -34,7 +34,7 @@ dependencies = [
   "importlib_metadata<9,>=3.7.0,!=4.7.0",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
-  "packaging<25",
+  "packaging<26",
   "protobuf<7,>=3.12.0",
   "pydantic<3,>=1.10.8",
   "pyyaml<7,>=5.1",
@@ -124,8 +124,6 @@ mlflow = [
   "pyspark/ml/log_model_allowlist.txt",
   "server/auth/basic_auth.ini",
   "server/auth/db/migrations/alembic.ini",
-  "recipes/resources/**/*",
-  "recipes/cards/templates/**/*",
   "models/notebook_resources/**/*",
 ]
 

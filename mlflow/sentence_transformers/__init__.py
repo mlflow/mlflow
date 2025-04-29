@@ -131,7 +131,6 @@ def save_model(
     extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
-    example_no_conversion: Optional[bool] = None,
 ) -> None:
     """
     .. note::
@@ -171,7 +170,6 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
-        example_no_conversion: {{ example_no_conversion }}
     """
     import sentence_transformers
 
@@ -186,9 +184,7 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    saved_example = _save_example(
-        mlflow_model, input_example, path, no_conversion=example_no_conversion
-    )
+    saved_example = _save_example(mlflow_model, input_example, path)
 
     if task is not None:
         signature = ModelSignature(
@@ -305,7 +301,7 @@ def _get_transformers_model_name(model_name_or_path):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path: str,
+    artifact_path: Optional[str] = None,
     task: Optional[str] = None,
     inference_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
@@ -317,8 +313,13 @@ def log_model(
     extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
-    example_no_conversion: Optional[bool] = None,
     prompts: Optional[list[Union[str, Prompt]]] = None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     .. note::
@@ -354,7 +355,7 @@ def log_model(
 
     Args:
         model: A trained ``sentence-transformers`` model.
-        artifact_path: Local path destination for the serialized model to be saved.
+        artifact_path: Deprecated. Use `name` instead.
         task: MLflow inference task type for ``sentence-transformers`` model. Candidate task type
             is `llm/v1/embeddings`.
         inference_config:
@@ -386,14 +387,20 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
-        example_no_conversion: {{ example_no_conversion }}
         prompts: {{ prompts }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
     """
     if task is not None:
         metadata = _verify_task_and_update_metadata(task, metadata)
 
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.sentence_transformers,
         registered_model_name=registered_model_name,
         await_registration_for=await_registration_for,
@@ -406,8 +413,12 @@ def log_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        example_no_conversion=example_no_conversion,
         prompts=prompts,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 

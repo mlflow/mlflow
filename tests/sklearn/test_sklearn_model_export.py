@@ -275,17 +275,14 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
         with mlflow.start_run():
             conda_env = os.path.join(tmp.path(), "conda_env.yaml")
             _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
-            mlflow.sklearn.log_model(
+            model_info = mlflow.sklearn.log_model(
                 sklearn_logreg_model.model,
                 artifact_path,
                 conda_env=conda_env,
                 registered_model_name="AdsModel1",
             )
-            active_run = mlflow.active_run()
-            run_id = active_run.info.run_id
             [(args, kwargs)] = mock_create_mv.call_args_list
-            expected_source = os.path.join(active_run.info.artifact_uri, artifact_path)
-            assert args[1:] == ("AdsModel1", expected_source, run_id, [], None, None)
+            assert args[1:] == ("AdsModel1", model_info.model_uri, None, [], None, None)
             assert kwargs["local_model_path"].startswith(tempfile.gettempdir())
 
 

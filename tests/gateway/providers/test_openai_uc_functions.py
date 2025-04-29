@@ -19,7 +19,7 @@ from tests.gateway.tools import (
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "openai",
             "name": "gpt-4o-mini",

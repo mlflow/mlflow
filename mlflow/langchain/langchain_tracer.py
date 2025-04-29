@@ -21,6 +21,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import (
     convert_lc_generation_to_chat_message,
@@ -44,7 +45,8 @@ _should_attach_span_to_context = ContextVar("should_attach_span_to_context", def
 def patched_callback_manager_init(original, self, *args, **kwargs):
     original(self, *args, **kwargs)
 
-    if not AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME).log_traces:
+    autologging_config = AutoLoggingConfig.init(mlflow.langchain.FLAVOR_NAME)
+    if not autologging_config.log_traces:
         return
 
     for handler in self.inheritable_handlers:
@@ -186,7 +188,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             if parent:
                 span = self._mlflow_client.start_span(
                     name=span_name,
-                    request_id=parent.request_id,
+                    trace_id=parent.trace_id,
                     parent_id=parent.span_id,
                     span_type=span_type,
                     inputs=inputs,
@@ -206,6 +208,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     attributes=serialized_attributes,
                     tags=dependencies_schemas,
                 )
+                if span.trace_id == NO_OP_SPAN_TRACE_ID:
+                    _logger.debug("No Op span was created, the trace will not be recorded.")
 
             # Attach the span to the current context to mark it "active"
             token = set_span_in_context(span) if _should_attach_span_to_context.get() else None
@@ -237,7 +241,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         try:
             with maybe_set_prediction_context(self._prediction_context):
                 self._mlflow_client.end_span(
-                    request_id=span.request_id,
+                    trace_id=span.trace_id,
                     span_id=span.span_id,
                     outputs=outputs,
                     attributes=attributes,

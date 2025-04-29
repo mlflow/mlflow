@@ -360,6 +360,10 @@ def get_single_trace_endpoint(request_id):
     return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}"
 
 
+def get_logged_model_endpoint(model_id: str) -> str:
+    return f"{_REST_API_PATH_PREFIX}/mlflow/logged-models/{model_id}"
+
+
 def get_trace_info_endpoint(request_id):
     return f"{get_single_trace_endpoint(request_id)}/info"
 

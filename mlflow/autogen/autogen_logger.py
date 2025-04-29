@@ -136,7 +136,7 @@ class MlflowAutogenLogger(BaseLogger):
                     raise e
                 finally:
                     self._client.end_trace(
-                        request_id=span.request_id, outputs=result, status=span.status
+                        trace_id=span.trace_id, outputs=result, status=span.status
                     )
                     # Clear the state to start a new chat session
                     self._chat_state.clear()
@@ -154,7 +154,7 @@ class MlflowAutogenLogger(BaseLogger):
                     raise e
                 finally:
                     self._client.end_span(
-                        request_id=span.request_id,
+                        trace_id=span.trace_id,
                         span_id=span.span_id,
                         outputs=result,
                         status=span.status,
@@ -191,7 +191,7 @@ class MlflowAutogenLogger(BaseLogger):
             return NoOpSpan()
 
         return self._client.start_span(
-            request_id=self._chat_state.session_span.request_id,
+            trace_id=self._chat_state.session_span.trace_id,
             # Tentatively set the parent ID to the session root span, because we
             # cannot create a span without a parent span (otherwise it will start
             # a new trace). The actual parent will be determined once the chat
@@ -219,7 +219,7 @@ class MlflowAutogenLogger(BaseLogger):
                     start_time_ns=self._chat_state.last_message_timestamp,
                 )
                 self._client.end_span(
-                    request_id=span.request_id,
+                    trace_id=span.trace_id,
                     span_id=span.span_id,
                     outputs=kwargs,
                     end_time_ns=event_end_time,
@@ -265,7 +265,7 @@ class MlflowAutogenLogger(BaseLogger):
             start_time_ns=start_time_ns,
         )
         self._client.end_span(
-            request_id=span.request_id,
+            trace_id=span.trace_id,
             span_id=span.span_id,
             outputs=response,
             end_time_ns=time.time_ns(),

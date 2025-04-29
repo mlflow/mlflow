@@ -1,5 +1,7 @@
 import logging
+from unittest import mock
 
+import mlflow
 from mlflow.tracing.utils.warning import suppress_warning
 
 
@@ -28,3 +30,32 @@ def test_suppress_token_detach_warning(caplog):
 
     assert caplog.records[2].message == "Failed to detach context"
     assert caplog.records[2].levelname == "DEBUG"
+
+
+@mock.patch("mlflow.tracing.utils.warning.warnings")
+def test_request_id_backward_compatible(mock_warnings):
+    client = mlflow.MlflowClient()
+
+    # Invalid usage with deprecated request_id -> warning
+    parent_span = client.start_trace(name="test")
+    child_span = client.start_span(
+        request_id=parent_span.trace_id,
+        name="child",
+        parent_id=parent_span.span_id,
+    )
+    assert child_span.trace_id == parent_span.trace_id
+    mock_warnings.warn.assert_called_once()
+    warning_msg = mock_warnings.warn.call_args[0][0]
+    assert "start_span" in warning_msg
+    mock_warnings.reset_mock()
+
+    client.end_span(request_id=parent_span.trace_id, span_id=child_span.span_id)
+    client.end_trace(request_id=parent_span.trace_id)
+
+    assert mock_warnings.warn.call_count == 2
+    mock_warnings.reset_mock()
+
+    # Valid usage without request_id -> no warning
+    trace = mlflow.get_trace(parent_span.trace_id)
+    mock_warnings.warn.assert_not_called()
+    assert trace.info.trace_id == parent_span.trace_id
