@@ -1,4 +1,5 @@
 import time
+from unittest import mock
 
 import pytest
 
@@ -68,7 +69,7 @@ def test_get_otlp_exporter_invalid_protocol(monkeypatch):
 
 
 @pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
-def test_export_to_otel_collector(otel_collector, mock_client, monkeypatch):
+def test_export_to_otel_collector(otel_collector, monkeypatch):
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:4317/v1/traces")
@@ -92,10 +93,12 @@ def test_export_to_otel_collector(otel_collector, mock_client, monkeypatch):
             time.sleep(0.1)
             return res
 
-    # Create a trace
-    model = TestModel()
-    model.predict(2, 5)
-    time.sleep(10)
+    mock_client = mock.MagicMock()
+    with mock.patch("mlflow.tracing.fluent.TracingClient", return_value=mock_client):
+        # Create a trace
+        model = TestModel()
+        model.predict(2, 5)
+        time.sleep(10)
 
     # Tracer should be configured to export to OTLP
     exporter = _get_trace_exporter()
