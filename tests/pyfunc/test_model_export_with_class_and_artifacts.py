@@ -82,7 +82,11 @@ def get_model_class():
         def load_context(self, context):
             super().load_context(context)
 
-            self.model = mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
+            self.model = (
+                mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
+                if context.artifacts and "sk_model" in context.artifacts
+                else None
+            )
 
         def predict(self, context, model_input, params=None):
             return self.predict_fn(self.model, model_input)
@@ -176,6 +180,9 @@ def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
     )
 
 
+@pytest.mark.skip(
+    reason="In MLflow 3.0, `log_model` does not start a run. Consider removing this test."
+)
 def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model_no_run"
     with mlflow.start_run():
@@ -631,15 +638,20 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
 
 
-def test_log_model_with_pip_requirements(main_scoped_model_class, tmp_path):
+def test_log_model_with_pip_requirements(sklearn_knn_model, main_scoped_model_class, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     python_model = main_scoped_model_class(predict_fn=None)
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=python_model, pip_requirements=str(req_file)
+            "model",
+            python_model=python_model,
+            pip_requirements=str(req_file),
+            artifacts={"sk_model": sklearn_model_path},
         )
         _assert_pip_requirements(
             model_info.model_uri,
@@ -650,7 +662,10 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmp_path):
     # List of requirements
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=python_model, pip_requirements=[f"-r {req_file}", "b"]
+            "model",
+            python_model=python_model,
+            pip_requirements=[f"-r {req_file}", "b"],
+            artifacts={"sk_model": sklearn_model_path},
         )
         _assert_pip_requirements(
             model_info.model_uri,
@@ -661,7 +676,10 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmp_path):
     # Constraints file
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=python_model, pip_requirements=[f"-c {req_file}", "b"]
+            "model",
+            python_model=python_model,
+            pip_requirements=[f"-c {req_file}", "b"],
+            artifacts={"sk_model": sklearn_model_path},
         )
         _assert_pip_requirements(
             model_info.model_uri,
@@ -1109,38 +1127,6 @@ def test_model_with_code_path_containing_main(tmp_path):
     assert "__main__" in sys.modules
     mlflow.pyfunc.load_model(model_info.model_uri)
     assert "__main__" in sys.modules
-
-
-def test_deprecation_warning_for_code_path(tmp_path):
-    pyfunc_model_path = tmp_path.joinpath("pyfunc_model")
-    directory = tmp_path.joinpath("model_with_main")
-    directory.mkdir()
-    main = directory.joinpath("__main__.py")
-    main.write_text("# empty main")
-
-    with pytest.warns(UserWarning, match="The `code_path` argument is replaced by `code_paths`"):
-        mlflow.pyfunc.save_model(
-            path=pyfunc_model_path,
-            code_path=[str(directory)],
-            python_model=mlflow.pyfunc.model.PythonModel(),
-        )
-
-
-def test_error_when_both_code_path_and_code_paths_specified():
-    error_msg = "Both `code_path` and `code_paths` have been specified"
-    with pytest.raises(MlflowException, match=error_msg):
-        mlflow.pyfunc.save_model(
-            path="some_path",
-            code_path="some_code_path",
-            code_paths=["some_code_path"],
-        )
-    with pytest.raises(MlflowException, match=error_msg):
-        with mlflow.start_run():
-            mlflow.pyfunc.log_model(
-                "some_path",
-                code_path="some_code_path",
-                code_paths=["some_code_path"],
-            )
 
 
 def test_model_save_load_with_metadata(tmp_path):
@@ -2469,3 +2455,19 @@ def test_both_resources_and_auth_policy():
                     DatabricksServingEndpoint(endpoint_name="databricks-mixtral-8x7b-instruct")
                 ],
             )
+
+
+def test_load_model_warning():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str]):
+            return model_input
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            python_model=Model(),
+            name="model",
+            input_example=["a", "b", "c"],
+        )
+
+    with pytest.warns(UserWarning, match=r"`runs:/<run_id>/artifact_path` is deprecated"):
+        mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")

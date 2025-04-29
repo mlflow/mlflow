@@ -163,6 +163,7 @@ def format_docstring(param_docs):
 # `{{ ... }}` represents a placeholder.
 LOG_MODEL_PARAM_DOCS = ParamDocs(
     {
+        "name": "Model name.",
         "conda_env": (
             """Either a dictionary representation of a Conda environment or the path to a conda
 environment yaml file. If provided, this describes the environment this model should be run in.
@@ -250,11 +251,6 @@ DataFrame and then serialized to json using the Pandas split-oriented
 format, or a numpy array where the example will be serialized to json
 by converting it to a list. Bytes are base64-encoded. When the ``signature`` parameter is
 ``None``, the input example is used to infer a model signature.
-"""
-        ),
-        "example_no_conversion": (
-            """This parameter is deprecated and will be removed in a future release.
-It's no longer used and can be safely removed. Input examples are not converted anymore.
 """
         ),
         "prompt_template": (
@@ -372,6 +368,11 @@ usage.
         Experimental: This parameter may change or be removed in a future release without warning.
             """
         ),
+        "params": "A dictionary of parameters to log with the model.",
+        "tags": "A dictionary of tags to log with the model.",
+        "model_type": "The type of the model.",
+        "step": "The step at which to log the model outputs and metrics",
+        "model_id": "The ID of the model.",
         "prompts": """\
 A list of prompt URIs registered in the MLflow Prompt Registry, to be associated with the model.
 Each prompt URI should be in the form ``prompt:/<name>/<version>``. The prompts should be

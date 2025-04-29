@@ -236,6 +236,14 @@ def maybe_get_dependencies_schemas() -> Optional[dict]:
         return context.dependencies_schemas
 
 
+def maybe_get_logged_model_id() -> Optional[str]:
+    """
+    Get the logged model ID associated with the current prediction context.
+    """
+    if context := _try_get_prediction_context():
+        return context.model_id
+
+
 def exclude_immutable_tags(tags: dict[str, str]) -> dict[str, str]:
     """Exclude immutable tags e.g. "mlflow.user" from the given tags."""
     return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
@@ -402,7 +410,7 @@ def start_client_span_or_trace(
     if parent_span := parent_span or mlflow.get_current_active_span():
         return client.start_span(
             name=name,
-            request_id=parent_span.request_id,
+            trace_id=parent_span.trace_id,
             parent_id=parent_span.span_id,
             span_type=span_type,
             inputs=inputs,
@@ -432,7 +440,7 @@ def end_client_span_or_trace(
     """
     if span.parent_id is not None:
         return client.end_span(
-            request_id=span.request_id,
+            trace_id=span.trace_id,
             span_id=span.span_id,
             outputs=outputs,
             attributes=attributes,
@@ -443,7 +451,7 @@ def end_client_span_or_trace(
         span.set_status(status)
         span.set_outputs(outputs)
         return client.end_trace(
-            request_id=span.request_id,
+            trace_id=span.trace_id,
             outputs=outputs,
             attributes=attributes,
             status=status,

@@ -56,7 +56,7 @@ def test_database_operational_error(exception, monkeypatch):
     # This test patches parts of SQLAlchemy and sqlite3.dbapi to simulate a
     # SQLAlchemy OperationalError. PEP 249 describes OperationalError as:
     #
-    # > Exception raised for errors that are related to the database’s operation
+    # > Exception raised for errors that are related to the database's operation
     # > and not necessarily under the control of the programmer, e.g. an
     # > unexpected disconnect occurs, the data source name is not found, a
     # > transaction could not be processed, a memory allocation error occurred

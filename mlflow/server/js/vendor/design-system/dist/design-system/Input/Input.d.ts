@@ -7,17 +7,20 @@ import type { ValidationState } from '../types';
 interface InputStylesOptions {
     useFocusWithin?: boolean;
 }
-export declare const getInputStyles: (clsPrefix: string, theme: Theme, { validationState, type, hasValue, useNewShadows, }: {
+export declare const getInputStyles: (clsPrefix: string, theme: Theme, { validationState, type, hasValue, useNewShadows, useNewFormUISpacing, useNewBorderRadii, }: {
     validationState?: ValidationState;
     type?: string;
     hasValue?: boolean;
     useNewShadows?: boolean;
+    useNewFormUISpacing?: boolean;
+    useNewBorderRadii?: boolean;
 }, { useFocusWithin }: InputStylesOptions) => CSSObject;
-export declare const getInputEmotionStyles: (clsPrefix: string, theme: Theme, { validationState, type, hasValue, useNewShadows, }: {
+export declare const getInputEmotionStyles: (clsPrefix: string, theme: Theme, { validationState, type, hasValue, useNewShadows, useNewBorderRadii, }: {
     validationState?: ValidationState;
     type?: string;
     hasValue?: boolean;
     useNewShadows: boolean;
+    useNewBorderRadii?: boolean;
 }) => SerializedStyles;
 export declare const Input: React.ForwardRefExoticComponent<InputProps & React.RefAttributes<AntDInput>>;
 export {};

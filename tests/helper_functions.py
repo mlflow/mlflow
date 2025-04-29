@@ -13,6 +13,7 @@ import time
 import uuid
 from contextlib import ExitStack, contextmanager
 from functools import wraps
+from typing import Iterator, Optional
 from unittest import mock
 
 import pytest
@@ -20,6 +21,7 @@ import requests
 import yaml
 
 import mlflow
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
@@ -52,7 +54,7 @@ def random_int(lo=1, hi=1e10):
     return random.randint(lo, hi)
 
 
-def random_str(size=10):
+def random_str(size=12):
     msg = (
         "UUID4 generated strings have a high potential for collision at small sizes. "
         "10 is set as the lower bounds for random string generation to prevent non-deterministic "
@@ -730,3 +732,99 @@ def start_mock_openai_server():
             yield base_url
         finally:
             proc.kill()
+
+
+def _is_hf_hub_healthy() -> bool:
+    """
+    Check if the Hugging Face Hub is healthy by attempting to load a small dataset.
+    """
+    try:
+        import datasets
+        from huggingface_hub import HfApi
+    except ImportError:
+        # Cannot import datasets or huggingface_hub, so we assume the hub is healthy.
+        return True
+
+    try:
+        dataset = next(HfApi().list_datasets(filter="size_categories:n<1K", limit=1))
+        datasets.load_dataset(dataset.id)
+        return True
+    except requests.exceptions.RequestException:
+        return False
+
+
+def _iter_pr_files() -> Iterator[str]:
+    if "GITHUB_ACTIONS" not in os.environ:
+        return
+
+    if os.environ.get("GITHUB_EVENT_NAME") != "pull_request":
+        return
+
+    with open(os.environ["GITHUB_EVENT_PATH"]) as f:
+        pr_data = json.load(f)
+
+    pull_number = pr_data["pull_request"]["number"]
+    repo = pr_data["repository"]["full_name"]
+    page = 1
+    per_page = 100
+    headers = {"Authorization": token} if (token := os.environ.get("GITHUB_TOKEN")) else None
+    while True:
+        resp = requests.get(
+            f"https://api.github.com/repos/{repo}/pulls/{pull_number}/files",
+            params={"per_page": per_page, "page": page},
+            headers=headers,
+        )
+        try:
+            resp.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            _logger.warning(
+                f"Failed to fetch PR files: {e}. Skipping the check for Hugging Face Hub health."
+            )
+            return
+
+        files = [f["filename"] for f in resp.json()]
+        yield from files
+        if len(files) < per_page:
+            break
+        page += 1
+
+
+@functools.lru_cache(maxsize=1)
+def _should_skip_hf_test() -> bool:
+    if "CI" not in os.environ:
+        # This is not a CI run. Do not skip tests.
+        return False
+
+    if any(("huggingface" in f or "transformers" in f) for f in _iter_pr_files()):
+        # This PR modifies huggingface-related files. Do not skip tests.
+        return False
+
+    # Skip tests if the Hugging Face Hub is unhealthy.
+    return not _is_hf_hub_healthy()
+
+
+def skip_if_hf_hub_unhealthy():
+    return pytest.mark.skipif(
+        _should_skip_hf_test(),
+        reason=(
+            "Skipping test because Hugging Face Hub is unhealthy. "
+            "See https://status.huggingface.co/ for more information."
+        ),
+    )
+
+
+def get_logged_model_by_name(name: str) -> Optional[LoggedModel]:
+    """
+    Get a logged model by name. If multiple logged models with
+    the same name exist, get the latest one.
+
+    Args:
+        name: The name of the logged model.
+
+    Returns:
+        The logged model.
+    """
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"name='{name}'", output_format="list", max_results=1
+    )
+    return logged_models[0] if len(logged_models) >= 1 else None

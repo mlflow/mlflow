@@ -39,7 +39,7 @@ class MockDatabricksServingEndpointClient:
 
 def _is_partner_package_installed():
     try:
-        import langchain_databricks  # noqa: F401
+        import databricks_langchain  # noqa: F401
 
         return True
     except ImportError:
@@ -145,7 +145,7 @@ def get_vector_search(
     index = MockVectorSearchIndex(endpoint_name, index_name, has_embedding_endpoint)
 
     if use_partner_package:
-        from langchain_databricks import DatabricksVectorSearch
+        from databricks_langchain import DatabricksVectorSearch
 
         with mock.patch("databricks.vector_search.client.VectorSearchClient") as mock_client:
             mock_client().get_index.return_value = index
@@ -165,10 +165,10 @@ def get_vector_search(
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_databricks_retriever(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     if use_partner_package:
-        from langchain_databricks import DatabricksEmbeddings
+        from databricks_langchain import DatabricksEmbeddings
         from langchain_openai import ChatOpenAI
 
         remove_langchain_community(monkeypatch)
@@ -257,7 +257,7 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch, use_partner_p
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_retriever_with_embedding_endpoint_in_index(use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     vectorstore = get_vector_search(
         use_partner_package=use_partner_package,
@@ -337,14 +337,14 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_multiple_dependency_from_agent(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
     from langchain.tools.retriever import create_retriever_tool
 
     if use_partner_package:
-        from langchain_databricks import ChatDatabricks
+        from databricks_langchain import ChatDatabricks
 
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):
@@ -465,10 +465,10 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch, use_partner_package
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     if use_partner_package:
-        from langchain_databricks import ChatDatabricks
+        from databricks_langchain import ChatDatabricks
 
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):
@@ -484,10 +484,10 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_packag
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     if use_partner_package:
-        from langchain_databricks import ChatDatabricks
+        from databricks_langchain import ChatDatabricks
 
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):

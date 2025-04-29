@@ -25,6 +25,7 @@ from mlflow import pyfunc
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
+from mlflow.entities import LoggedModelInput
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -139,7 +140,7 @@ def get_global_custom_objects():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     custom_objects=None,
     conda_env=None,
     code_paths=None,
@@ -152,6 +153,12 @@ def log_model(
     saved_model_kwargs=None,
     keras_model_kwargs=None,
     metadata=None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a TF2 core model (inheriting tf.Module) or a Keras model in MLflow Model format.
@@ -186,7 +193,7 @@ def log_model(
 
     Args:
         model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
-        artifact_path: The run-relative path to which to log model artifacts.
+        artifact_path: Deprecated. Use `name` instead.
         custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
             custom classes or functions associated with the Keras model. MLflow saves
             these custom layers using CloudPickle and restores them automatically
@@ -207,6 +214,12 @@ def log_model(
         saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
         keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
         metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -215,6 +228,7 @@ def log_model(
 
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.tensorflow,
         model=model,
         conda_env=conda_env,
@@ -229,6 +243,11 @@ def log_model(
         saved_model_kwargs=saved_model_kwargs,
         keras_model_kwargs=keras_model_kwargs,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
@@ -994,7 +1013,6 @@ def _setup_callbacks(callbacks, log_every_epoch, log_every_n_steps):
 
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    every_n_iter=1,
     log_models=True,
     log_datasets=True,
     disable=False,
@@ -1056,8 +1074,6 @@ def autolog(
     autologging by calling `mlflow.tensorflow.autolog(disable=True)`.
 
     Args:
-        every_n_iter: deprecated, please use ``log_every_epoch`` instead. Per ``every_n_iter``
-            steps, metrics will be logged.
         log_models: If ``True``, trained models are logged as MLflow model artifacts.
             If ``False``, trained models are not logged.
         log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
@@ -1117,14 +1133,6 @@ def autolog(
     """
     import tensorflow as tf
 
-    if every_n_iter != 1:
-        _logger.warning(
-            "The `every_n_iter` parameter is deprecated, please use `log_every_epoch` and "
-            "`log_every_n_steps` instead. Automatically set `log_every_n_steps` to `every_n_iter`."
-        )
-        log_every_epoch = False
-        log_every_n_steps = every_n_iter
-
     if Version(tf.__version__) < Version("2.3"):
         _logger.error(
             "Could not log to MLflow because your Tensorflow version is below 2.3, detected "
@@ -1159,7 +1167,7 @@ def autolog(
         except Exception:
             return None
 
-    def _log_early_stop_callback_metrics(callback, history):
+    def _log_early_stop_callback_metrics(callback, history, model_id=None):
         from mlflow import log_metrics
 
         if callback is None or not callback.model.stop_training:
@@ -1170,7 +1178,7 @@ def autolog(
             return
 
         stopped_epoch, restore_best_weights, _ = callback_attrs
-        log_metrics({"stopped_epoch": stopped_epoch}, synchronous=False)
+        log_metrics({"stopped_epoch": stopped_epoch}, synchronous=False, model_id=model_id)
 
         if not restore_best_weights or callback.best_weights is None:
             return
@@ -1185,7 +1193,7 @@ def autolog(
         # the best epoch. In keras > 2.6.0, the best epoch can be obtained via the `best_epoch`
         # attribute of an `EarlyStopping` instance: https://github.com/keras-team/keras/pull/15197
         restored_epoch = initial_epoch + monitored_metric.index(callback.best)
-        log_metrics({"restored_epoch": restored_epoch}, synchronous=False)
+        log_metrics({"restored_epoch": restored_epoch}, synchronous=False, model_id=model_id)
         restored_index = history.epoch.index(restored_epoch)
         restored_metrics = {
             key: metrics[restored_index] for key, metrics in history.history.items()
@@ -1193,9 +1201,9 @@ def autolog(
         # Checking that a metric history exists
         metric_key = next(iter(history.history), None)
         if metric_key is not None:
-            log_metrics(restored_metrics, stopped_epoch + 1, synchronous=False)
+            log_metrics(restored_metrics, stopped_epoch + 1, synchronous=False, model_id=model_id)
 
-    def _log_keras_model(history, args):
+    def _log_keras_model(history, args, model_id=None):
         def _infer_model_signature(input_data_slice):
             # In certain TensorFlow versions, calling `predict()` on model may modify
             # the `stop_training` attribute, so we save and restore it accordingly
@@ -1239,6 +1247,7 @@ def autolog(
             ),
             saved_model_kwargs=saved_model_kwargs,
             keras_model_kwargs=keras_model_kwargs,
+            model_id=model_id,
         )
 
     def _patched_inference(original, inst, *args, **kwargs):
@@ -1317,6 +1326,10 @@ def autolog(
             early_stop_callback = _get_early_stop_callback(callbacks)
             _log_early_stop_callback_params(early_stop_callback)
 
+            model_id = None
+            if log_models:
+                model_id = mlflow.initialize_logged_model("model").model_id
+
             if log_datasets:
                 try:
                     context_tags = context_registry.resolve_tags()
@@ -1336,9 +1349,9 @@ def autolog(
                         validation_data = args[7]
                     else:
                         validation_data = None
-                    _log_tensorflow_dataset(x, source, "train", targets=y)
+                    _log_tensorflow_dataset(x, source, "train", targets=y, model_id=model_id)
                     if validation_data is not None:
-                        _log_tensorflow_dataset(validation_data, source, "eval")
+                        _log_tensorflow_dataset(validation_data, source, "eval", model_id=model_id)
 
                 except Exception as e:
                     _logger.warning(
@@ -1349,11 +1362,12 @@ def autolog(
             history = original(inst, *args, **kwargs)
 
             if log_models:
-                _log_keras_model(history, args)
+                _log_keras_model(history, args, model_id=model_id)
 
             _log_early_stop_callback_metrics(
                 callback=early_stop_callback,
                 history=history,
+                model_id=model_id,
             )
             # Ensure all data are logged.
             # Shut down the async logging (instead of flushing)
@@ -1387,7 +1401,9 @@ def autolog(
     )
 
 
-def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targets=None):
+def _log_tensorflow_dataset(
+    tensorflow_dataset, source, context, name=None, targets=None, model_id=None
+):
     import tensorflow as tf
 
     # create a dataset
@@ -1413,7 +1429,8 @@ def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targ
         )
         return
 
-    mlflow.log_input(dataset, context)
+    model = None if model_id is None else LoggedModelInput(model_id=model_id)
+    mlflow.log_input(dataset, context, model=model)
 
 
 def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):

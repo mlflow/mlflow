@@ -1,26 +1,48 @@
 import json
 import logging
-from typing import Optional
+from typing import Any, Optional
 
-from mlflow.entities import DatasetInput, Experiment, Metric, Run, RunInfo, TraceInfo, ViewType
+from mlflow.entities import (
+    DatasetInput,
+    Experiment,
+    LoggedModel,
+    LoggedModelInput,
+    LoggedModelOutput,
+    LoggedModelParameter,
+    LoggedModelStatus,
+    LoggedModelTag,
+    Metric,
+    Run,
+    RunInfo,
+    TraceInfo,
+    ViewType,
+)
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     CreateAssessment,
     CreateExperiment,
+    CreateLoggedModel,
     CreateRun,
     DeleteAssessment,
     DeleteExperiment,
+    DeleteLoggedModel,
+    DeleteLoggedModelTag,
     DeleteRun,
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
     EndTrace,
+    FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
+    GetLoggedModel,
     GetMetricHistory,
+    GetOnlineTraceDetails,
     GetRun,
     GetTraceInfo,
     GetTraceInfoV3,
@@ -28,17 +50,22 @@ from mlflow.protos.service_pb2 import (
     LogInputs,
     LogMetric,
     LogModel,
+    LogOutputs,
     LogParam,
     MlflowService,
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
+    SearchLoggedModels,
     SearchRuns,
     SearchTraces,
+    SearchUnifiedTraces,
     SetExperimentTag,
+    SetLoggedModelTags,
     SetTag,
     SetTraceTag,
     StartTrace,
+    StartTraceV3,
     TraceRequestMetadata,
     TraceTag,
     UpdateAssessment,
@@ -48,12 +75,13 @@ from mlflow.protos.service_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.utils.proto_json_utils import message_to_json, set_pb_value
+from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
     get_create_assessment_endpoint,
+    get_logged_model_endpoint,
     get_set_trace_tag_endpoint,
     get_single_assessment_endpoint,
     get_single_trace_endpoint,
@@ -79,7 +107,7 @@ class RestStore(AbstractStore):
         super().__init__()
         self.get_host_creds = get_host_creds
 
-    def _call_endpoint(self, api, json_body, endpoint=None):
+    def _call_endpoint(self, api, json_body=None, endpoint=None):
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{request_id}/info.
@@ -264,6 +292,30 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(StartTrace, req_body)
         return TraceInfo.from_proto(response_proto.trace_info)
 
+    def start_trace_v3(self, trace: Trace) -> TraceInfoV3:
+        """
+        Start a trace using the V3 API format.
+
+        NB: This method is named "Start" for internal reason in the backend, but actually
+        should be called at the end of the trace. We will migrate this to "CreateTrace"
+        API in the future to avoid confusion.
+
+        Args:
+            trace: The Trace object to create.
+
+        Returns:
+            The returned TraceInfoV3 object from the backend.
+        """
+        req_body = message_to_json(StartTraceV3(trace=trace.to_proto()))
+        response_proto = self._call_endpoint(
+            # NB: _call_endpoint doesn't handle versioning between v2 and v3 endpoint
+            # yet, so manually passing the v3 endpoint here.
+            StartTraceV3,
+            req_body,
+            endpoint="/api/3.0/mlflow/traces",
+        )
+        return TraceInfoV3.from_proto(response_proto.trace.trace_info)
+
     def end_trace(
         self,
         request_id: str,
@@ -346,25 +398,41 @@ class RestStore(AbstractStore):
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
+        if should_query_v3:
+            trace_v3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
+            trace_v3_endpoint = get_trace_assessment_endpoint(request_id)
+            try:
+                trace_v3_response_proto = self._call_endpoint(
+                    GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
+                )
+                return TraceInfoV3.from_proto(trace_v3_response_proto)
+            except Exception:
+                # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
+                _logger.debug(
+                    f"Failed to fetch trace info from V3 API for request ID {request_id!r}.",
+                    exc_info=True,
+                )
         req_body = message_to_json(GetTraceInfo(request_id=request_id))
         endpoint = get_trace_info_endpoint(request_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
-        assessments = None
-        if should_query_v3:
-            try:
-                tracev3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
-                tracev3_endpoint = get_trace_assessment_endpoint(request_id)
-                tracev3_response_proto = self._call_endpoint(
-                    GetTraceInfoV3, tracev3_req_body, endpoint=tracev3_endpoint
-                )
-                assessments = [
-                    Assessment.from_proto(a)
-                    for a in tracev3_response_proto.trace.trace_info.assessments
-                ]
-            except Exception:
-                # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
-                pass
-        return TraceInfo.from_proto(response_proto.trace_info, assessments=assessments)
+        return TraceInfo.from_proto(response_proto.trace_info)
+
+    def get_online_trace_details(
+        self,
+        trace_id: str,
+        sql_warehouse_id: str,
+        source_inference_table: str,
+        source_databricks_request_id: str,
+    ):
+        req = GetOnlineTraceDetails(
+            trace_id=trace_id,
+            sql_warehouse_id=sql_warehouse_id,
+            source_inference_table=source_inference_table,
+            source_databricks_request_id=source_databricks_request_id,
+        )
+        req_body = message_to_json(req)
+        response_proto = self._call_endpoint(GetOnlineTraceDetails, req_body)
+        return response_proto.trace_data
 
     def search_traces(
         self,
@@ -373,18 +441,53 @@ class RestStore(AbstractStore):
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
+        model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
     ):
-        st = SearchTraces(
+        if sql_warehouse_id is None:
+            request = SearchTraces(
+                experiment_ids=experiment_ids,
+                filter=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
+            req_body = message_to_json(request)
+            response_proto = self._call_endpoint(SearchTraces, req_body)
+        else:
+            response_proto = self._search_unified_traces(
+                model_id=model_id,
+                sql_warehouse_id=sql_warehouse_id,
+                experiment_ids=experiment_ids,
+                filter_string=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
+        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+        return trace_infos, response_proto.next_page_token or None
+
+    def _search_unified_traces(
+        self,
+        model_id: str,
+        sql_warehouse_id: str,
+        experiment_ids: list[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ):
+        request = SearchUnifiedTraces(
+            model_id=model_id,
+            sql_warehouse_id=sql_warehouse_id,
             experiment_ids=experiment_ids,
             filter=filter_string,
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
         )
-        req_body = message_to_json(st)
-        response_proto = self._call_endpoint(SearchTraces, req_body)
-        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
-        return trace_infos, response_proto.next_page_token or None
+        req_body = message_to_json(request)
+        return self._call_endpoint(SearchUnifiedTraces, req_body)
 
     def set_trace_tag(self, request_id: str, key: str, value: str):
         """
@@ -470,10 +573,10 @@ class RestStore(AbstractStore):
             assessment.assessment_name = name
             mask.paths.append("assessment_name")
         if expectation is not None:
-            set_pb_value(assessment.expectation.value, expectation.value)
+            assessment.expectation.CopyFrom(expectation.to_proto())
             mask.paths.append("expectation")
         if feedback is not None:
-            set_pb_value(assessment.feedback.value, feedback.value)
+            assessment.feedback.CopyFrom(feedback.to_proto())
             mask.paths.append("feedback")
         if rationale is not None:
             assessment.rationale = rationale
@@ -521,6 +624,9 @@ class RestStore(AbstractStore):
                 value=metric.value,
                 timestamp=metric.timestamp,
                 step=metric.step,
+                model_id=metric.model_id,
+                dataset_name=metric.dataset_name,
+                dataset_digest=metric.dataset_digest,
             )
         )
         self._call_endpoint(LogMetric, req_body)
@@ -663,7 +769,186 @@ class RestStore(AbstractStore):
         )
         self._call_endpoint(LogModel, req_body)
 
-    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: Optional[str] = None,
+        source_run_id: Optional[str] = None,
+        tags: Optional[list[LoggedModelTag]] = None,
+        params: Optional[list[LoggedModelParameter]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        """
+        Create a new logged model.
+
+        Args:
+            experiment_id: ID of the experiment to which the model belongs.
+            name: Name of the model. If not specified, a random name will be generated.
+            source_run_id: ID of the run that produced the model.
+            tags: Tags to set on the model.
+            params: Parameters to set on the model.
+            model_type: Type of the model.
+
+        Returns:
+            The created model.
+        """
+        req_body = message_to_json(
+            CreateLoggedModel(
+                experiment_id=experiment_id,
+                name=name,
+                model_type=model_type,
+                source_run_id=source_run_id,
+                params=[p.to_proto() for p in params or []],
+                tags=[t.to_proto() for t in tags or []],
+            )
+        )
+        response_proto = self._call_endpoint(CreateLoggedModel, req_body)
+        return LoggedModel.from_proto(response_proto.model)
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
+        return LoggedModel.from_proto(response_proto.model)
+
+    def delete_logged_model(self, model_id) -> None:
+        request = DeleteLoggedModel(model_id=model_id)
+        endpoint = get_logged_model_endpoint(model_id)
+        self._call_endpoint(
+            DeleteLoggedModel, endpoint=endpoint, json_body=message_to_json(request)
+        )
+
+    def search_logged_models(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str] = None,
+        datasets: Optional[list[dict[str, Any]]] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[LoggedModel]:
+        """
+        Search for logged models that match the specified search criteria.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            datasets: List of dictionaries to specify datasets on which to apply metrics filters.
+                The following fields are supported:
+
+                name (str): Required. Name of the dataset.
+                digest (str): Optional. Digest of the dataset.
+            max_results: Maximum number of logged models desired.
+            order_by: List of dictionaries to specify the ordering of the search results.
+                The following fields are supported:
+
+                field_name (str): Required. Name of the field to order by, e.g. "metrics.accuracy".
+                ascending: (bool): Optional. Whether the order is ascending or not.
+                dataset_name: (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the name of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name will be considered for ordering.
+                    This field may only be set if ``field_name`` refers to a metric.
+                dataset_digest (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the digest of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name and digest will be considered for
+                    ordering. This field may only be set if ``dataset_name`` is also set.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
+        """
+        req_body = message_to_json(
+            SearchLoggedModels(
+                experiment_ids=experiment_ids,
+                filter=filter_string,
+                datasets=[
+                    SearchLoggedModels.Dataset(
+                        dataset_name=d["dataset_name"],
+                        dataset_digest=d.get("dataset_digest"),
+                    )
+                    for d in datasets or []
+                ],
+                max_results=max_results,
+                order_by=[
+                    SearchLoggedModels.OrderBy(
+                        field_name=d["field_name"],
+                        ascending=d.get("ascending", True),
+                        dataset_name=d.get("dataset_name"),
+                        dataset_digest=d.get("dataset_digest"),
+                    )
+                    for d in order_by or []
+                ],
+                page_token=page_token,
+            )
+        )
+        response_proto = self._call_endpoint(SearchLoggedModels, req_body)
+        models = [LoggedModel.from_proto(x) for x in response_proto.models]
+        return PagedList(models, response_proto.next_page_token or None)
+
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        json_body = message_to_json(
+            FinalizeLoggedModel(model_id=model_id, status=status.to_proto())
+        )
+        response_proto = self._call_endpoint(
+            FinalizeLoggedModel, json_body=json_body, endpoint=endpoint
+        )
+        return LoggedModel.from_proto(response_proto.model)
+
+    def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
+        """
+        Set tags on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            tags: Tags to set on the model.
+
+        Returns:
+            None
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        json_body = message_to_json(SetLoggedModelTags(tags=[tag.to_proto() for tag in tags]))
+        self._call_endpoint(SetLoggedModelTags, json_body=json_body, endpoint=f"{endpoint}/tags")
+
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            key: Key of the tag to delete.
+
+        Returns:
+            The model with the specified tag removed.
+        """
+        endpoint = get_logged_model_endpoint(model_id)
+        self._call_endpoint(DeleteLoggedModelTag, endpoint=f"{endpoint}/tags/{key}")
+
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
+    ):
         """
         Log inputs, such as datasets, to the specified run.
 
@@ -671,10 +956,33 @@ class RestStore(AbstractStore):
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
                 as inputs to the run.
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log.
 
         Returns:
             None.
         """
-        datasets_protos = [dataset.to_proto() for dataset in datasets]
-        req_body = message_to_json(LogInputs(run_id=run_id, datasets=datasets_protos))
+        datasets_protos = [dataset.to_proto() for dataset in datasets or []]
+        models_protos = [model.to_proto() for model in models or []]
+        req_body = message_to_json(
+            LogInputs(
+                run_id=run_id,
+                datasets=datasets_protos,
+                models=models_protos,
+            )
+        )
         self._call_endpoint(LogInputs, req_body)
+
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
+        """
+        Log outputs, such as models, to the specified run.
+
+        Args:
+            run_id: String id for the run
+            models: List of :py:class:`mlflow.entities.LoggedModelOutput` instances to log
+                as outputs of the run.
+
+        Returns:
+            None.
+        """
+        req_body = message_to_json(LogOutputs(run_id=run_id, models=[m.to_proto() for m in models]))
+        self._call_endpoint(LogOutputs, req_body)

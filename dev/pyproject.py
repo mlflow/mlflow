@@ -134,7 +134,7 @@ def build(package_type: PackageType) -> None:
             "description": (
                 "MLflow is an open source platform for the complete machine learning lifecycle"
             ),
-            "readme": "README.md",
+            "readme": "README_SKINNY.md" if package_type == PackageType.SKINNY else "README.md",
             "license": {
                 "file": "LICENSE.txt",
             },
@@ -237,9 +237,7 @@ def build(package_type: PackageType) -> None:
                         "pyspark/ml/log_model_allowlist.txt",
                         "server/auth/basic_auth.ini",
                         "server/auth/db/migrations/alembic.ini",
-                        "recipes/resources/**/*",
-                        "recipes/cards/templates/**/*",
-                        "models/resources/**/*",
+                        "models/notebook_resources/**/*",
                     ]
                     + extra_package_data
                 },
@@ -253,7 +251,9 @@ def build(package_type: PackageType) -> None:
             f.write(package_type.description() + "\n")
             f.write(toml.dumps(data))
 
-        Path("skinny/README.md").write_text(SKINNY_README.lstrip() + Path("README.md").read_text())
+        Path("skinny/README_SKINNY.md").write_text(
+            SKINNY_README.lstrip() + Path("README.md").read_text()
+        )
         for f in ["LICENSE.txt", "MANIFEST.in", "mlflow"]:
             symlink = Path("skinny", f)
             if symlink.exists():

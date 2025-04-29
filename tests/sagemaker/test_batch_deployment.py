@@ -109,25 +109,6 @@ def test_batch_deployment_with_unsupported_flavor_raises_exception(pretrained_mo
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_batch_deployment_with_missing_flavor_raises_exception(pretrained_model):
-    missing_flavor = "mleap"
-    with pytest.raises(
-        MlflowException,
-        match="The specified model does not contain the specified deployment flavor",
-    ) as exc:
-        mfs.deploy_transform_job(
-            job_name="missing-flavor",
-            model_uri=pretrained_model.model_uri,
-            s3_input_data_type="Some Data Type",
-            s3_input_uri="Some Input Uri",
-            content_type="Some Content Type",
-            s3_output_path="Some Output Path",
-            flavor=missing_flavor,
-        )
-
-    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-
-
 def test_batch_deployment_of_model_with_no_supported_flavors_raises_exception(pretrained_model):
     logged_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
     model_config_path = os.path.join(logged_model_path, "MLmodel")

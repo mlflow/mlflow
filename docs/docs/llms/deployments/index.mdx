@@ -7,7 +7,7 @@ import { APILink } from "@site/src/components/APILink";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 
-# MLflow AI Gateway (Experimental)
+# MLflow AI Gateway
 
 :::warning
 MLflow AI Gateway does not support Windows.
@@ -118,7 +118,7 @@ Save this file to a location on the system that is going to be running the MLflo
 
 You're now ready to start the gateway server!
 
-Use the MLflow AI Gateway `start-server` command and specify the path to your configuration file:
+Use the MLflow AI Gateway `start` command and specify the path to your configuration file:
 
 ```sh
 mlflow gateway start --config-path config.yaml --port {port} --host {host} --workers {worker count}

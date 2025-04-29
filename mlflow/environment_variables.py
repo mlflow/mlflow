@@ -32,6 +32,9 @@ class _EnvironmentVariable:
     def unset(self):
         os.environ.pop(self.name, None)
 
+    def is_set(self):
+        return self.name in os.environ
+
     def get(self):
         """
         Reads the value of the environment variable if it exists and converts it to the desired
@@ -161,11 +164,6 @@ MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_GCS_DOWNLOAD_CHUNK
 #: (default: ``None``). If None, the chunk size is automatically determined by the
 #: ``google-cloud-storage`` package.
 MLFLOW_GCS_UPLOAD_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_GCS_UPLOAD_CHUNK_SIZE", int, None)
-
-#: (Deprecated, please use ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT``)
-#: Specifies the default timeout to use when downloading/uploading a file from/to GCS
-#: (default: ``None``). If None, ``google.cloud.storage.constants._DEFAULT_TIMEOUT`` is used.
-MLFLOW_GCS_DEFAULT_TIMEOUT = _EnvironmentVariable("MLFLOW_GCS_DEFAULT_TIMEOUT", int, None)
 
 #: Specifies whether to disable model logging and loading via mlflowdbfs.
 #: (default: ``None``)
@@ -455,25 +453,9 @@ MLFLOW_CONDA_HOME = _EnvironmentVariable("MLFLOW_CONDA_HOME", str, None)
 #: (default: ``conda``)
 MLFLOW_CONDA_CREATE_ENV_CMD = _EnvironmentVariable("MLFLOW_CONDA_CREATE_ENV_CMD", str, "conda")
 
-#: Specifies the execution directory for recipes.
-#: (default: ``None``)
-MLFLOW_RECIPES_EXECUTION_DIRECTORY = _EnvironmentVariable(
-    "MLFLOW_RECIPES_EXECUTION_DIRECTORY", str, None
-)
-
-#: Specifies the target step to execute for recipes.
-#: (default: ``None``)
-MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME = _EnvironmentVariable(
-    "MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME", str, None
-)
-
 #: Specifies the flavor to serve in the scoring server.
 #: (default ``None``)
 MLFLOW_DEPLOYMENT_FLAVOR_NAME = _EnvironmentVariable("MLFLOW_DEPLOYMENT_FLAVOR_NAME", str, None)
-
-#: Specifies the profile to use for recipes.
-#: (default: ``None``)
-MLFLOW_RECIPES_PROFILE = _EnvironmentVariable("MLFLOW_RECIPES_PROFILE", str, None)
 
 #: Specifies the MLflow Run context
 #: (default: ``None``)
@@ -737,3 +719,38 @@ MLFLOW_MYSQL_SSL_CERT = _EnvironmentVariable("MLFLOW_MYSQL_SSL_CERT", str, None)
 #: Used when creating a SQLAlchemy engine for MySQL
 #: (default: ``None``)
 MLFLOW_MYSQL_SSL_KEY = _EnvironmentVariable("MLFLOW_MYSQL_SSL_KEY", str, None)
+
+
+#: Specifies whether to enable async trace logging to Databricks Tracing Server.
+#: TODO: Update OSS MLflow Server to logging async by default
+#: Default: ``True``.
+MLFLOW_ENABLE_ASYNC_TRACE_LOGGING = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", True
+)
+
+#: Maximum number of worker threads to use for async trace logging.
+#: (default: ``10``)
+MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS", int, 10
+)
+
+#: Maximum number of export tasks to queue for async trace logging.
+#: When the queue is full, new export tasks will be dropped.
+#: (default: ``1000``)
+MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", int, 1000
+)
+
+
+#: Timeout seconds for retrying async trace logging.
+#: (default: ``60``)
+MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 60
+)
+
+
+#: Specified the ID of the LoggedModel to link traces to.
+#: This should only by used by MLflow internally or in standalone environments such
+#: as Databricks serving.
+#: (default: ``None``)
+MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("MLFLOW_ACTIVE_MODEL_ID", str, None)

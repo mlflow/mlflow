@@ -1,5 +1,4 @@
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
 from unittest import mock
 
 import pytest
@@ -7,15 +6,13 @@ from opentelemetry import trace
 
 import mlflow
 from mlflow.exceptions import MlflowTracingException
-from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
+from mlflow.tracing.destination import Databricks, MlflowExperiment
 from mlflow.tracing.export.databricks import DatabricksSpanExporter
-from mlflow.tracing.export.databricks_agent_legacy import DatabricksAgentSpanExporter
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
 )
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
-from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
@@ -26,6 +23,8 @@ from mlflow.tracing.provider import (
     start_span_in_context,
     trace_disabled,
 )
+
+from tests.tracing.helper import get_traces, purge_traces
 
 
 @pytest.fixture
@@ -116,47 +115,25 @@ def test_set_destination_databricks():
     assert isinstance(processors[0].span_exporter, DatabricksSpanExporter)
 
 
-def test_set_destination_legacy_databricks_agent():
-    @dataclass
-    class DatabricksAgentMonitoring(TraceDestination):
-        databricks_monitor_id: str
-
-        @property
-        def type(self):
-            return "databricks_agent_monitoring"
-
-    mlflow.tracing.set_destination(
-        destination=DatabricksAgentMonitoring(databricks_monitor_id="foo")
-    )
-
-    tracer = _get_tracer("test")
-    processors = tracer.span_processor._span_processors
-    assert len(processors) == 1
-    assert isinstance(processors[0], DatabricksSpanProcessor)
-    assert isinstance(processors[0].span_exporter, DatabricksAgentSpanExporter)
-    assert processors[0].span_exporter._databricks_monitor_id == "foo"
-
-
 def test_disable_enable_tracing():
     @mlflow.trace
     def test_fn():
         pass
 
     test_fn()
-    assert len(TRACE_BUFFER) == 1
+    assert len(get_traces()) == 1
     assert isinstance(_get_tracer(__name__), trace.Tracer)
-    TRACE_BUFFER.clear()
+    purge_traces()
 
     mlflow.tracing.disable()
     test_fn()
-    assert len(TRACE_BUFFER) == 0
+    assert len(get_traces()) == 0
     assert isinstance(_get_tracer(__name__), trace.NoOpTracer)
 
     mlflow.tracing.enable()
     test_fn()
-    assert len(TRACE_BUFFER) == 1
+    assert len(get_traces()) == 1
     assert isinstance(_get_tracer(__name__), trace.Tracer)
-    TRACE_BUFFER.clear()
 
     # enable() / disable() should only raise MlflowTracingException
     with mock.patch(
@@ -187,7 +164,7 @@ def test_trace_disabled_decorator(enabled_initially):
         return 0
 
     test_fn()
-    assert len(TRACE_BUFFER) == 0
+    assert len(get_traces()) == 0
     assert call_count == 1
 
     # Recover the initial state
@@ -204,7 +181,7 @@ def test_trace_disabled_decorator(enabled_initially):
         test_fn_raise()
     assert call_count == 2
 
-    assert len(TRACE_BUFFER) == 0
+    assert len(get_traces()) == 0
     assert is_tracing_enabled() == enabled_initially
 
     # @trace_disabled should not block the decorated function even

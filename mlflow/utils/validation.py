@@ -7,6 +7,7 @@ import logging
 import numbers
 import posixpath
 import re
+from typing import Optional
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt import PROMPT_TEXT_TAG_KEY
@@ -623,6 +624,13 @@ def _validate_username(username):
         raise MlflowException("Username cannot be empty.", INVALID_PARAMETER_VALUE)
 
 
+def _validate_password(password) -> None:
+    if password is None or len(password) < 12:
+        raise MlflowException.invalid_parameter_value(
+            "Password must be a string longer than 12 characters."
+        )
+
+
 def _validate_trace_tag(key, value):
     _validate_tag_name(key)
     key = _validate_length_limit("key", MAX_TRACE_TAG_KEY_LENGTH, key)
@@ -637,5 +645,18 @@ def _validate_experiment_artifact_location_length(artifact_location: str):
             "Invalid artifact path length. The length of the artifact path cannot be "
             f"greater than {max_length} characters. To configure this limit, please set the "
             "MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH environment variable.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_logged_model_name(name: Optional[str]) -> None:
+    if name is None:
+        return
+
+    bad_chars = ("/", ":", ".", "%", '"', "'")
+    if not name or any(c in name for c in bad_chars):
+        raise MlflowException(
+            f"Invalid model name ({name!r}) provided. Model name must be a non-empty string "
+            f"and cannot contain the following characters: {bad_chars}",
             INVALID_PARAMETER_VALUE,
         )

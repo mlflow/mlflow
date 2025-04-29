@@ -38,7 +38,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
 from mlflow.types import ParamSchema, Schema
 from mlflow.utils import reraise
-from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
     MlflowInvalidInputException,
@@ -105,7 +104,6 @@ def load_model_with_mlflow_config(model_uri):
 
 # Keep this method to maintain compatibility with MLServer
 # https://github.com/SeldonIO/MLServer/blob/caa173ab099a4ec002a7c252cbcc511646c261a6/runtimes/mlflow/mlserver_mlflow/runtime.py#L13C5-L13C31
-@deprecated("infer_and_parse_data", "2.6.0")
 def infer_and_parse_json_input(json_input, schema: Schema = None):
     """
     Args:

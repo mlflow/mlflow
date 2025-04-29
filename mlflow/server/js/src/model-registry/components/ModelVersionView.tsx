@@ -320,6 +320,10 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
   }
 
   renderSourceRunDescription() {
+    // We don't show the source run link if the model version is not created from a run
+    if (!this.props.modelVersion?.run_id) {
+      return null;
+    }
     return (
       <Descriptions.Item
         key="description-key-source-run"
@@ -495,7 +499,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     }
   }
 
-  renderPomoteModelButton() {
+  renderPromoteModelButton() {
     const { modelVersion, usingNextModelsUI, navigate } = this.props;
     return usingNextModelsUI ? <PromoteModelButton modelVersion={modelVersion} /> : null;
   }
@@ -517,7 +521,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     return (
       <PageHeader title={title} breadcrumbs={breadcrumbs}>
         {!this.shouldHideDeleteOption() && <OverflowMenu menu={menu} />}
-        {this.renderPomoteModelButton()}
+        {this.renderPromoteModelButton()}
       </PageHeader>
     );
   }

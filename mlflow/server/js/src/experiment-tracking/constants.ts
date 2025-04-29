@@ -85,6 +85,8 @@ export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
 
+export const MONITORING_BETA_EXPIRATION_DATE = new Date('2025-06-24T00:00:00');
+
 export enum MLflowRunSourceType {
   PROMPT_ENGINEERING = 'PROMPT_ENGINEERING',
 }
