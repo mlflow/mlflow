@@ -974,6 +974,7 @@ def _verify_run(store, run_id, run_data):
     # key without actually deleting it from self.run_data
     _run_info = run_info.copy()
     _run_info.pop("deleted_time", None)
+    _run_info.pop("run_uuid", None)
     assert _run_info == dict(run.info)
 
 
@@ -1876,7 +1877,7 @@ def test_malformed_metric(store):
         pytest.raises(
             MlflowException,
             match=f"Metric 'test' is malformed; persisted metric data contained "
-            f"4 fields. Expected 2 or 3 fields. "
+            f"4 fields. Expected 2, 3, or 5 fields. "
             f"Experiment id: {exp_id}",
         ),
     ):

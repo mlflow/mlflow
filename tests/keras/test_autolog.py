@@ -172,14 +172,19 @@ def test_custom_autolog_behavior(
     )
     assert len(validation_loss_history) == num_epochs
 
-    if not log_models:
-        # Test the model is not logged.
+    logged_model = mlflow.last_logged_model()
+    if log_models:
+        assert logged_model is not None
+        assert run_metrics.items() <= {m.key: m.value for m in logged_model.metrics}.items()
+    else:
+        assert logged_model is None
         assert "mlflow.log-model.history" not in mlflow_run.data.tags
 
 
+@pytest.mark.parametrize("log_models", [True, False])
 @pytest.mark.parametrize("log_datasets", [True, False])
-def test_keras_autolog_log_datasets(log_datasets):
-    mlflow.keras.autolog(log_datasets=log_datasets)
+def test_keras_autolog_log_datasets(log_datasets, log_models):
+    mlflow.keras.autolog(log_datasets=log_datasets, log_models=log_models)
 
     # Prepare data for a 2-class classification.
     data = np.random.uniform(size=(20, 28, 28, 3)).astype(np.float32)
@@ -190,7 +195,8 @@ def test_keras_autolog_log_datasets(log_datasets):
     model.fit(data, label, epochs=2)
     flush_async_logging()
     client = mlflow.MlflowClient()
-    dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
+    run_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs
+    dataset_inputs = run_inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
         feature_schema = Schema(
@@ -214,3 +220,11 @@ def test_keras_autolog_log_datasets(log_datasets):
         assert dataset_inputs[0].dataset.schema == expected
     else:
         assert len(dataset_inputs) == 0
+    if log_models:
+        if log_datasets:
+            assert len(run_inputs.model_inputs) == 1
+            assert run_inputs.model_inputs[0].model_id == mlflow.last_logged_model().model_id
+        else:
+            assert mlflow.last_logged_model() is not None
+    else:
+        assert len(run_inputs.model_inputs) == 0

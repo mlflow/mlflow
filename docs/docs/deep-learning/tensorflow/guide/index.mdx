@@ -70,8 +70,9 @@ documentation <APILink fn="mlflow.tensorflow.autolog" /> for full customization 
 The way we autolog Tensorflow is by registering a custom callback to the Keras model via monkey patch.
 Briefly we attach a MLflow callback to the Keras model that works similarly to normal Keras callbacks.
 At training start, training parameters including epochs, batch_size, learning_rate and model information
-such as model summary will be logged. In addition, the callback will be triggered per `every_n_iter`
-epochs to log the training metrics, and after the training finishes, the trained model will be saved to MLflow.
+such as model summary will be logged. In addition, the callback will be triggered per epoch or per
+`log_every_n_steps` steps to log the training metrics, and after the training finishes,
+the trained model will be saved to MLflow.
 
 ## Logging to MLflow with Keras Callback
 

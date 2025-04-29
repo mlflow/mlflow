@@ -46,7 +46,7 @@ def sklearn_knn_model(iris_data):
 
 def test_model_save_load():
     m = Model(
-        artifact_path="some/path",
+        artifact_path="model",
         run_id="123",
         flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2}},
         signature=ModelSignature(
@@ -62,7 +62,7 @@ def test_model_save_load():
     assert x.get_output_schema() is None
 
     n = Model(
-        artifact_path="some/path",
+        artifact_path="model",
         run_id="123",
         flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2}},
         signature=ModelSignature(
@@ -86,7 +86,7 @@ def test_model_save_load():
 
 def test_model_load_remote(tmp_path, mock_s3_bucket):
     model = Model(
-        artifact_path="some/path",
+        artifact_path="model",
         run_id="123",
         flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2}},
         signature=ModelSignature(
@@ -129,7 +129,7 @@ def _log_model_with_signature_and_example(
 
     with mlflow.start_run(experiment_id=experiment_id) as run:
         model = Model.log(
-            "some/path",
+            "model",
             TestFlavor,
             signature=sig,
             input_example=input_example,
@@ -155,7 +155,6 @@ def test_model_log():
 
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.run_id == r.info.run_id
-        assert loaded_model.artifact_path == "some/path"
         assert loaded_model.flavors == {
             "flavor1": {"a": 1, "b": 2},
             "flavor2": {"x": 1, "y": 2},
@@ -171,6 +170,24 @@ def test_model_log():
         assert loaded_example == input_example
 
         assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
+
+
+def test_model_log_without_run(tmp_path):
+    model_info = Model.log("model", TestFlavor)
+    assert model_info.run_id is None
+
+
+def test_model_log_with_active_run(tmp_path):
+    with mlflow.start_run() as run:
+        model_info = Model.log("model", TestFlavor)
+    assert model_info.run_id == run.info.run_id
+
+
+def test_model_log_inactive_run_id(tmp_path):
+    experiment_id = mlflow.create_experiment("test", artifact_location=str(tmp_path))
+    run = mlflow.MlflowClient().create_run(experiment_id=experiment_id)
+    model_info = Model.log("model", TestFlavor, run_id=run.info.run_id)
+    assert model_info.run_id == run.info.run_id
 
 
 def test_model_log_calls_maybe_render_agent_eval_recipe(tmp_path):
@@ -194,24 +211,14 @@ def test_model_info():
 
         experiment_id = mlflow.create_experiment("test")
         with mlflow.start_run(experiment_id=experiment_id) as run:
-            model_info = Model.log(
-                "some/path", TestFlavor, signature=sig, input_example=input_example
-            )
-        model_uri = f"runs:/{run.info.run_id}/some/path"
+            model_info = Model.log("model", TestFlavor, signature=sig, input_example=input_example)
+        model_uri = f"models:/{model_info.model_id}"
 
         model_info_fetched = mlflow.models.get_model_info(model_uri)
-        with pytest.warns(
-            FutureWarning,
-            match="Field signature_dict is deprecated since v1.28.1. Use signature instead",
-        ):
-            assert model_info_fetched.signature_dict == sig.to_dict()
-
         local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path(""))
 
         assert model_info.run_id == run.info.run_id
         assert model_info_fetched.run_id == run.info.run_id
-        assert model_info.artifact_path == "some/path"
-        assert model_info_fetched.artifact_path == "some/path"
         assert model_info.model_uri == model_uri
         assert model_info_fetched.model_uri == model_uri
 
@@ -232,7 +239,6 @@ def test_model_info():
         assert x == input_example
 
         model_signature = model_info_fetched.signature
-        assert model_info.signature_dict == sig.to_dict()
         assert model_signature.to_dict() == sig.to_dict()
 
         assert model_info.mlflow_version == loaded_model.mlflow_version
@@ -242,11 +248,11 @@ def test_model_info():
 def test_model_info_with_model_version(tmp_path):
     experiment_id = mlflow.create_experiment("test", artifact_location=str(tmp_path))
     with mlflow.start_run(experiment_id=experiment_id):
-        model_info = Model.log("some/path", TestFlavor, registered_model_name="model_abc")
+        model_info = Model.log("model", TestFlavor, registered_model_name="model_abc")
         assert model_info.registered_model_version == 1
-        model_info = Model.log("some/path", TestFlavor, registered_model_name="model_abc")
+        model_info = Model.log("model", TestFlavor, registered_model_name="model_abc")
         assert model_info.registered_model_version == 2
-        model_info = Model.log("some/path", TestFlavor)
+        model_info = Model.log("model", TestFlavor)
         assert model_info.registered_model_version is None
 
 
@@ -260,7 +266,7 @@ def test_model_metadata():
 
 def test_load_model_without_mlflow_version():
     with TempDir(chdr=True) as tmp:
-        model = Model(artifact_path="some/path", run_id="1234", mlflow_version=None)
+        model = Model(artifact_path="model", run_id="1234", mlflow_version=None)
         path = tmp.path("MLmodel")
         with open(path, "w") as out:
             model.to_yaml(out)
@@ -557,7 +563,7 @@ class LegacyTestFlavor:
 
 def test_legacy_flavor(mock_is_in_databricks):
     with mlflow.start_run():
-        model_info = Model.log("some/path", LegacyTestFlavor)
+        model_info = Model.log("model", LegacyTestFlavor)
 
     artifact_path = _download_artifact_from_uri(model_info.model_uri)
     metadata_path = os.path.join(artifact_path, "metadata")
@@ -624,6 +630,27 @@ def test_model_resources():
         local_path, _ = _log_model_with_signature_and_example(tmp, None, None, resources=resources)
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.resources == expected_resources
+
+
+def test_save_load_model_with_run_uri():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: list[str], params=None):
+            return model_input
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "test_model",
+            python_model=MyModel(),
+            input_example=["a", "b", "c"],
+        )
+    mlflow_model = Model.load(f"runs:/{run.info.run_id}/test_model/MLmodel")
+    assert mlflow_model.load_input_example() == ["a", "b", "c"]
+
+    model = Model.load(f"runs:/{run.info.run_id}/test_model")
+    assert model == mlflow_model
+
+    model = Model.load(f"runs:/{run.info.run_id}/test_model/")
+    assert model == mlflow_model
 
 
 def test_save_model_with_prompts():

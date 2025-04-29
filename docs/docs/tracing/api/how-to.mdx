@@ -99,10 +99,10 @@ and the <APILink fn="mlflow.client.MlflowClient.delete_trace_tag">`MlflowClient.
 
 ```python
 # Set a tag on a trace
-client.set_trace_tag(request_id=request_id, key="tag_key", value="tag_value")
+client.set_trace_tag(trace_id=trace_id, key="tag_key", value="tag_value")
 
 # Delete a tag from a trace
-client.delete_trace_tag(request_id=request_id, key="tag_key")
+client.delete_trace_tag(trace_id=trace_id, key="tag_key")
 ```
 
 ### Setting Tags via the MLflow UI
@@ -114,7 +114,7 @@ Alternatively, you can update or delete tags on a trace from the MLflow UI. To d
 ## Delete Traces
 
 You can delete traces based on specific criteria using the <APILink fn="mlflow.client.MlflowClient.delete_traces">`MlflowClient.delete_traces`</APILink> method. This method allows you to delete traces by **experiment ID**,
-**maximum timestamp**, or **request IDs**.
+**maximum timestamp**, or **trace IDs**.
 
 :::tip
 Deleting a trace is an irreversible process. Ensure that the setting provided within the `delete_traces` API meet the intended range for deletion.

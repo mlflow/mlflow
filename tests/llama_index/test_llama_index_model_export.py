@@ -514,7 +514,7 @@ def test_save_load_as_code_with_model_config(index_code_path, model_config):
 def test_save_engine_with_engine_type_issues_warning(model_path):
     index_code_path = "tests/llama_index/sample_code/query_engine_with_reranker.py"
 
-    with mock.patch("mlflow.llama_index._logger") as mock_logger:
+    with mock.patch("mlflow.llama_index.model._logger") as mock_logger:
         mlflow.llama_index.save_model(
             llama_index_model=index_code_path,
             path=model_path,

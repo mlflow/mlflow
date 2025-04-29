@@ -52,6 +52,19 @@ def _is_log_model(node: ast.AST) -> bool:
     return False
 
 
+def _is_set_active_model(node: ast.AST) -> bool:
+    """
+    Is this node a call to `set_active_model`?
+    """
+    if isinstance(node, ast.Name):
+        return "set_active_model" == node.id
+
+    elif isinstance(node, ast.Attribute):
+        return "set_active_model" == node.attr
+
+    return False
+
+
 @dataclass
 class Violation:
     rule: rules.Rule
@@ -413,6 +426,11 @@ class Linter(ast.NodeVisitor):
         if self._is_at_top_level() and not self.in_TYPE_CHECKING:
             self._check_forbidden_top_level_import(node, node.module)
 
+        if self.path.parts[0] != "tests" and not self.is_mlflow_init_py:
+            for alias in node.names:
+                if alias.name.split(".")[-1] == "set_active_model":
+                    self._check_forbidden_set_active_model_usage(node)
+
         self.generic_visit(node)
 
     def _check_forbidden_top_level_import(
@@ -426,6 +444,15 @@ class Linter(ast.NodeVisitor):
                     Location.from_node(node),
                     rules.ForbiddenTopLevelImport(module=module),
                 )
+
+    def _check_forbidden_set_active_model_usage(
+        self,
+        node: Union[ast.Import, ast.ImportFrom],
+    ) -> None:
+        self._check(
+            Location.from_node(node),
+            rules.ForbiddenSetActiveModelUsage(),
+        )
 
     def visit_Call(self, node: ast.Call) -> None:
         if (
@@ -450,6 +477,9 @@ class Linter(ast.NodeVisitor):
 
         if rules.UseSysExecutable.check(node):
             self._check(Location.from_node(node), rules.UseSysExecutable())
+
+        if self.path.parts[0] != "tests" and _is_set_active_model(node.func):
+            self._check(Location.from_node(node), rules.ForbiddenSetActiveModelUsage())
 
         self.generic_visit(node)
 
