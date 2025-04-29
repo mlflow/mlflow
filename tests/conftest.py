@@ -2,6 +2,7 @@ import inspect
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -21,6 +22,7 @@ from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.autologging.fixtures import enable_test_mode
+from tests.helper_functions import get_safe_port
 from tests.tracing.helper import purge_traces
 
 if not IS_TRACING_SDK_ONLY:
@@ -39,8 +41,7 @@ def remote_backend_for_tracing_sdk_test():
     Since the tracing SDK has to be tested in an environment that has minimal dependencies,
     we need to start a tracking backend in an isolated uv environment.
     """
-    # Use fixed port for simplicity
-    port = 5000
+    port = get_safe_port()
     # Start a remote backend to test mlflow-tracing package integration.
     with tempfile.TemporaryDirectory() as temp_dir:
         with subprocess.Popen(
@@ -50,11 +51,12 @@ def remote_backend_for_tracing_sdk_test():
                 "--with",
                 "mlflow",
                 "--python",
-                "3.9",
+                # Get current python version
+                f"{sys.version_info.major}.{sys.version_info.minor}",
                 "mlflow",
                 "server",
                 "--port",
-                "5000",
+                str(port),
             ],
             cwd=temp_dir,
         ) as process:
@@ -68,20 +70,25 @@ def remote_backend_for_tracing_sdk_test():
                     except requests.ConnectionError:
                         print("MLflow server is not responding yet.")  # noqa: T201
                         time.sleep(1)
+                else:
+                    raise RuntimeError("Failed to start server")
 
                 mlflow.set_tracking_uri(f"http://localhost:{port}")
+
+                yield
 
             finally:
                 process.terminate()
 
 
 @pytest.fixture(autouse=IS_TRACING_SDK_ONLY)
-def tmp_experiment_for_tracing_sdk_test():
-    mlflow.set_tracking_uri("http://localhost:5000")
-
+def tmp_experiment_for_tracing_sdk_test(monkeypatch):
     # Generate a random experiment name
     experiment_name = f"trace-unit-test-{uuid.uuid4().hex}"
     experiment = mlflow.set_experiment(experiment_name)
+
+    # Reduce retries for speed up tests
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "1")
 
     yield
 

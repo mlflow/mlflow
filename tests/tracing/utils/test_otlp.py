@@ -16,8 +16,7 @@ try:
         OTLPSpanExporter as HttpExporter,
     )
 except ImportError:
-    GrpcExporter = None
-    HttpExporter = None
+    pytest.skip("OTLP exporters are not installed", allow_module_level=True)
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
