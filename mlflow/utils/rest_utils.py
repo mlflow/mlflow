@@ -161,6 +161,7 @@ def http_request(
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
     headers = dict(**resolve_request_headers())
+    headers["x-databricks-traffic-id"] = "testenv://liteswap/shaylan-liteswap-allow-hex-int"
     if extra_headers:
         headers = dict(**headers, **extra_headers)
 
