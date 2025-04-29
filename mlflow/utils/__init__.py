@@ -5,7 +5,9 @@ import subprocess
 from contextlib import closing
 from itertools import islice
 from sys import version_info
+import cProfile
 
+import mlflow
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER  # noqa: F401
 
 PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
@@ -269,3 +271,50 @@ class AttrDict(dict):
 
 def get_parent_module(module):
     return module[0 : module.rindex(".")]
+
+
+from contextlib import contextmanager
+
+
+@contextmanager
+def print_time(tag=None):
+    from datetime import datetime
+    import time
+    beg_time = datetime.now().strftime("%H:%M:%S:%f")
+    beg_time_s = time.time()
+
+    try:
+        yield
+    finally:
+        dbg_str = f"DBG: tag:{tag} at {beg_time}, cost {time.time() - beg_time_s:.2f} seconds."
+        print(dbg_str, flush=True)
+
+
+@contextmanager
+def gen_flamegraph(name, disable=False):
+    import os
+    udf_enable_debug = os.environ.get("UDF_ENABLE_DEBUG", "False").lower() == "true"
+
+    if not udf_enable_debug:
+        disable = True
+
+    disable = True
+    if disable:
+        try:
+            yield
+            return
+        finally:
+            pass
+
+    with cProfile.Profile() as pr:
+        import tempfile
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            yield
+        finally:
+            stats_file = os.path.join(tmp_dir, f"{name}.prof")
+            svg_file = os.path.join(tmp_dir, f"{name}.svg")
+            pr.dump_stats(stats_file)
+            subprocess.run(["flameprof", "-o", svg_file, stats_file])
+            client = mlflow.MlflowClient()
+            client.log_artifact(run_id=os.environ["MLFLOW_UDF_RUN_ID"], local_path=svg_file)
