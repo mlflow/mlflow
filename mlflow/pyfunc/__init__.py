@@ -955,7 +955,6 @@ class PyFuncModel:
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self._predict_stream_fn(data)
 
-    @experimental
     def unwrap_python_model(self):
         """
         Unwrap the underlying Python model object.
@@ -1022,13 +1021,11 @@ class PyFuncModel:
             raise MlflowException("Model is missing metadata.")
         return self._model_meta
 
-    @experimental
     @property
     def model_config(self):
         """Model's flavor configuration"""
         return self._model_meta.flavors[FLAVOR_NAME].get(MODEL_CONFIG, {})
 
-    @experimental
     @property
     def loader_module(self):
         """Model's flavor configuration"""

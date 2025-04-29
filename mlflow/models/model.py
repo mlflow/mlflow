@@ -257,7 +257,6 @@ class ModelInfo:
             raise TypeError(f"env_vars must be a list of strings. Got: {value}")
         self._env_vars = value
 
-    @experimental
     @property
     def metadata(self) -> Optional[dict[str, Any]]:
         """
@@ -506,7 +505,6 @@ class Model:
         self.flavors[name] = params
         return self
 
-    @experimental
     @property
     def metadata(self) -> Optional[dict[str, Any]]:
         """
@@ -551,7 +549,6 @@ class Model:
 
         return self._metadata
 
-    @experimental
     @metadata.setter
     def metadata(self, value: Optional[dict[str, Any]]) -> None:
         self._metadata = value

@@ -1684,7 +1684,6 @@ def log_image(
     MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp, synchronous)
 
 
-@experimental
 def log_table(
     data: Union[dict[str, Any], "pandas.DataFrame"],
     artifact_file: str,
@@ -1737,7 +1736,6 @@ def log_table(
     MlflowClient().log_table(run_id, data, artifact_file)
 
 
-@experimental
 def load_table(
     artifact_file: str,
     run_ids: Optional[list[str]] = None,
