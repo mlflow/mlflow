@@ -457,3 +457,12 @@ def end_client_span_or_trace(
             status=status,
             end_time_ns=end_time_ns,
         )
+
+
+def set_model_id(model_id: str):
+    from mlflow.models.model import _MODEL_TRACKER
+
+    model = mlflow.get_logged_model(model_id)
+
+    _MODEL_TRACKER.set(model, model_id)
+    _MODEL_TRACKER.set_active_model_id(model)
