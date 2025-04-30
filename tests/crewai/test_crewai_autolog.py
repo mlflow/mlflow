@@ -424,7 +424,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     chat_attributes = span_4.get_attribute("mlflow.chat.messages")
 
-    if Version(crewai.__version__) < Version("0.117.0"):
+    if Version(crewai.__version__) < Version("0.114.0"):
         assert len(chat_attributes) == 4
     else:
         assert len(chat_attributes) == 5
@@ -435,7 +435,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert chat_attributes[2]["role"] == "assistant"
     assert "Tool Answer" in chat_attributes[2]["content"]
 
-    if Version(crewai.__version__) < Version("0.117.0"):
+    if Version(crewai.__version__) < Version("0.114.0"):
         assert chat_attributes[3]["role"] == "assistant"
         assert _LLM_ANSWER in chat_attributes[3]["content"]
     else:
