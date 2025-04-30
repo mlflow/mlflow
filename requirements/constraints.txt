@@ -3,5 +3,5 @@
 transformers!=4.51.0
 # https://github.com/BerriAI/litellm/issues/10373
 litellm!=1.67.4
-# databricks-sdk 0.51.0 has a breaking change that's incompatible databricks-agents<=0.21.0
+# databricks-sdk 0.51.0 introduces a breaking change that is incompatible with databricks-agents<=0.21.0
 databricks-sdk!=0.51.0
