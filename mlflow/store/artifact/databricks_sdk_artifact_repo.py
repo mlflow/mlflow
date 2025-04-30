@@ -21,7 +21,6 @@ def _sdk_supports_large_file_uploads() -> bool:
 
 
 # TODO: The following artifact repositories should use this class. Migrate them.
-#   - uc_volume_artifact_repo.py
 #   - databricks_sdk_models_artifact_repo.py
 class DatabricksSdkArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri: str) -> None:
