@@ -26,7 +26,8 @@ jobs:
   r:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     if: github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     defaults:
       run:
