@@ -44,10 +44,10 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
                 else None
             )
         )
-        wc._config.multipart_upload_batch_url_count = int(
+        wc.files._config.multipart_upload_batch_url_count = int(
             os.environ.get("DATABRICKS_MULTIPART_UPLOAD_BATCH_URL_COUNT", "1")
         )
-        wc._config.multipart_upload_chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+        wc.files._config.multipart_upload_chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
         self.wc = wc
 
     @property
