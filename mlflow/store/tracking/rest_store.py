@@ -403,10 +403,47 @@ class RestStore(AbstractStore):
             trace_v3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
             trace_v3_endpoint = get_trace_assessment_endpoint(request_id)
             print(f"### DEBUG REST STORE - Using V3 endpoint: {trace_v3_endpoint}")
+            print(f"### DEBUG REST STORE - V3 request body: {trace_v3_req_body}")
+            
             try:
+                # Add debug to inspect the raw response
+                import sys
+                import traceback
+                import inspect
+                
+                # First try to get the raw response to see what we're dealing with
+                from mlflow.utils.rest_utils import http_request
+                host_creds = self.get_host_creds()
+                _, method = _METHOD_TO_INFO[GetTraceInfoV3]
+                
+                print("### DEBUG REST STORE - Making direct HTTP request to capture raw response")
+                raw_response = http_request(
+                    host_creds=host_creds, 
+                    endpoint=trace_v3_endpoint, 
+                    method=method,
+                    params=json.loads(trace_v3_req_body) if method == "GET" else None,
+                    json=json.loads(trace_v3_req_body) if method != "GET" else None
+                )
+                
+                print(f"### DEBUG REST STORE - Raw V3 response status: {raw_response.status_code}")
+                print(f"### DEBUG REST STORE - Raw V3 response headers: {dict(raw_response.headers)}")
+                
+                # Truncate response text if it's too long, but capture the structure
+                raw_text = raw_response.text
+                if len(raw_text) > 1000:
+                    print(f"### DEBUG REST STORE - Raw V3 response (truncated): {raw_text[:500]}...{raw_text[-500:]}")
+                else:
+                    print(f"### DEBUG REST STORE - Raw V3 response: {raw_text}")
+                
+                # Now try the normal flow
                 trace_v3_response_proto = self._call_endpoint(
                     GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
                 )
+                
+                # If we get here, inspect the proto structure
+                print(f"### DEBUG REST STORE - V3 response proto fields: {[f.name for f in trace_v3_response_proto.DESCRIPTOR.fields]}")
+                print(f"### DEBUG REST STORE - V3 response proto has trace_id: {'trace_id' in [f.name for f in trace_v3_response_proto.DESCRIPTOR.fields]}")
+                
                 trace_info_v3 = TraceInfoV3.from_proto(trace_v3_response_proto)
                 print(f"### DEBUG REST STORE - V3 response has {len(trace_info_v3.assessments)} assessments")
                 for idx, assessment in enumerate(trace_info_v3.assessments):
@@ -414,7 +451,19 @@ class RestStore(AbstractStore):
                 return trace_info_v3
             except Exception as e:
                 # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
-                print(f"### DEBUG REST STORE - Failed to fetch V3 info: {str(e)}")
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                print(f"### DEBUG REST STORE - Failed to fetch V3 info: {type(e).__name__}: {str(e)}")
+                print(f"### DEBUG REST STORE - Exception traceback: {''.join(tb_lines)}")
+                
+                # Try to inspect the response proto structure that we're expecting
+                try:
+                    response_proto = GetTraceInfoV3.Response()
+                    print(f"### DEBUG REST STORE - Expected V3 response fields: {[f.name for f in response_proto.DESCRIPTOR.fields]}")
+                    print(f"### DEBUG REST STORE - Response proto expects trace_id: {'trace_id' in [f.name for f in response_proto.DESCRIPTOR.fields]}")
+                except Exception as proto_err:
+                    print(f"### DEBUG REST STORE - Error inspecting proto: {proto_err}")
+                
                 _logger.debug(
                     f"Failed to fetch trace info from V3 API for request ID {request_id!r}.",
                     exc_info=True,
