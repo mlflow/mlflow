@@ -2244,6 +2244,22 @@ def finalize_logged_model(model_id: str, status: LoggedModelStatus) -> LoggedMod
 
     Returns:
         The updated model.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+        from mlflow.entities import LoggedModelStatus
+
+        model = mlflow.create_external_model(name="model")
+        loaded_model = mlflow.finalize_logged_model(
+            model_id=model.model_id,
+            status=LoggedModelStatus.READY,
+        )
+        assert loaded_model.status == LoggedModelStatus.READY
+
     """
     return MlflowClient().finalize_logged_model(model_id, status)
 
@@ -2258,6 +2274,18 @@ def get_logged_model(model_id: str) -> LoggedModel:
 
     Returns:
         The logged model.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+        model = mlflow.create_external_model(name="model")
+        loaded_model = mlflow.get_logged_model(model_id=model.model_id)
+        assert loaded_model.model_id == model.model_id
+
     """
     return MlflowClient().get_logged_model(model_id)
 
@@ -2363,6 +2391,23 @@ def search_logged_models(
 
     Returns:
         The search results in the specified output format.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+        mlflow.create_external_model(name="model")
+        models = mlflow.search_logged_models(filter_string="name = 'model'")
+        assert len(models) == 1
+        mlflow.create_external_model(name="another_model")
+        models = mlflow.search_logged_models(filter_string="name = 'another_model'")
+        assert len(models) == 1
+        models = mlflow.search_logged_models()
+        assert len(models) == 2
+
     """
     experiment_ids = experiment_ids or [_get_experiment_id()]
     client = MlflowClient()
@@ -2455,6 +2500,18 @@ def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
 
     Returns:
         None
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+        model = mlflow.create_external_model(name="my_model")
+        mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
+        model = mlflow.get_logged_model(model.model_id)
+        assert model.tags == {"key": "value"}
     """
     MlflowClient().set_logged_model_tags(model_id, tags)
 
@@ -2467,6 +2524,20 @@ def delete_logged_model_tag(model_id: str, key: str) -> None:
         model_id: ID of the model.
         key: Tag key to delete.
 
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+        model = mlflow.create_external_model(name="my_model")
+        mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
+        model = mlflow.get_logged_model(model.model_id)
+        assert model.tags == {"key": "value"}
+        mlflow.delete_logged_model_tag(model.model_id, "key")
+        model = mlflow.get_logged_model(model.model_id)
+        assert model.tags == {}
     """
     MlflowClient().delete_logged_model_tag(model_id, key)
 
