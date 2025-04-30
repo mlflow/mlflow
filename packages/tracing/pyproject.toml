@@ -59,6 +59,7 @@ include = [
   "mlflow.litellm*",
   "mlflow.llama_index*",
   "mlflow.mistral*",
+  "mlflow.openai*",
   # Other necessary modules
   "mlflow.azure*",
   "mlflow.entities*",

@@ -71,7 +71,7 @@ mlflow.openai.autolog()
 
 # Call the OpenAI API as usual
 response = client.chat.completions.create(
-    model="gpt-o1-mini",
+    model="gpt-4o-mini",
     messages=[{"role": "user", "content": "Hello, how are you?"}],
 )
 ```
