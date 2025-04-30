@@ -579,7 +579,7 @@ async def test_autolog_link_traces_to_loaded_model_chat_completions(client):
                 mlflow.openai.log_model(
                     "gpt-4o-mini",
                     "chat.completions",
-                    "model",
+                    name="model",
                     temperature=temp,
                     messages=[{"role": "system", "content": "You are an MLflow expert."}],
                 )
@@ -617,7 +617,7 @@ async def test_autolog_link_traces_to_loaded_model_completions(client):
                 mlflow.openai.log_model(
                     "gpt-4o-mini",
                     "completions",
-                    "model",
+                    name="model",
                     temperature=temp,
                     prompt="Say {text}",
                 )
@@ -655,7 +655,7 @@ async def test_autolog_link_traces_to_loaded_model_embeddings(client):
                 mlflow.openai.log_model(
                     "text-embedding-ada-002",
                     "embeddings",
-                    "model",
+                    name="model",
                     encoding_format=encoding_format,
                 )
             )
@@ -698,7 +698,7 @@ def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(monkeypatch, mock
                 mlflow.openai.log_model(
                     "text-embedding-ada-002",
                     "embeddings",
-                    "model",
+                    name="model",
                     encoding_format=encoding_format,
                 )
             )
@@ -738,7 +738,7 @@ def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai):
                 mlflow.openai.log_model(
                     "text-embedding-ada-002",
                     "embeddings",
-                    "model",
+                    name="model",
                     encoding_format=encoding_format,
                 )
             )

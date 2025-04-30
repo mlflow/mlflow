@@ -20,7 +20,7 @@ def test_register_model_with_runs_uri():
             return model_input
 
     with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=TestModel())
+        mlflow.pyfunc.log_model(name="model", python_model=TestModel())
 
     register_model(f"runs:/{run.info.run_id}/model", "Model 1")
     mv = MlflowClient().get_model_version("Model 1", "1")
@@ -104,7 +104,7 @@ def test_register_model_with_tags():
             return model_input
 
     with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=TestModel())
+        mlflow.pyfunc.log_model(name="model", python_model=TestModel())
 
     register_model(f"runs:/{run.info.run_id}/model", "Model 1", tags=tags)
     mv = MlflowClient().get_model_version("Model 1", "1")

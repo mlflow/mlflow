@@ -98,7 +98,6 @@ from mlflow.transformers.signature import (
 from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils import _truncate_and_ellipsize
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     disable_discrete_autologging,
@@ -189,7 +188,6 @@ AudioInput = Union[str, bytes, np.ndarray]
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 def get_default_pip_requirements(model) -> list[str]:
     """
     Args:
@@ -258,7 +256,6 @@ def _validate_transformers_model_dict(transformers_model):
         )
 
 
-@experimental
 def get_default_conda_env(model):
     """
     Returns:
@@ -268,7 +265,6 @@ def get_default_conda_env(model):
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(model))
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
@@ -773,7 +769,6 @@ def save_model(
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
@@ -836,7 +831,7 @@ def log_model(
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
                         transformers_model=qa_pipe,
-                        artifact_path="model",
+                        name="model",
                     )
 
             An example of specifying component-level parts of a transformers model is shown below:
@@ -856,7 +851,7 @@ def log_model(
                     }
                     mlflow.transformers.log_model(
                         transformers_model=components,
-                        artifact_path="model",
+                        name="model",
                     )
 
             An example of specifying a local checkpoint path is shown below:
@@ -866,7 +861,7 @@ def log_model(
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
                         transformers_model="path/to/local/checkpoint",
-                        artifact_path="model",
+                        name="model",
                     )
 
         artifact_path: Deprecated. Use `name` instead.
@@ -922,7 +917,7 @@ def log_model(
                 with mlflow.start_run() as run:
                     mlflow.transformers.log_model(
                         transformers_model=en_to_de,
-                        artifact_path="english_to_german_translator",
+                        name="english_to_german_translator",
                         signature=signature,
                         input_example=data,
                     )
@@ -995,7 +990,7 @@ def log_model(
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
                         transformers_model=sentence_pipeline,
-                        artifact_path="my_sentence_generator",
+                        name="my_sentence_generator",
                         task=task,
                         model_config=model_config,
                     )
@@ -1047,7 +1042,6 @@ def log_model(
     )
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 def load_model(
     model_uri: str, dst_path: Optional[str] = None, return_type="pipeline", device=None, **kwargs
@@ -1152,7 +1146,7 @@ def persist_pretrained_model(model_uri: str) -> None:
         with mlflow.start_run() as run:
             model = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
             mlflow.transformers.log_model(
-                transformers_model=model, artifact_path="pipeline", save_pretrained=False
+                transformers_model=model, name="pipeline", save_pretrained=False
             )
 
         # The model cannot be registered to the Model Registry as it is
@@ -1685,7 +1679,6 @@ def _try_import_conversational_pipeline():
         return
 
 
-@experimental
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
@@ -2902,7 +2895,6 @@ class _TransformersWrapper:
         )
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,

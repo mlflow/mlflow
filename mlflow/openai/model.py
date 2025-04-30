@@ -502,7 +502,7 @@ def log_model(
                 model="gpt-4o-mini",
                 task=openai.chat.completions,
                 messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
-                artifact_path="model",
+                name="model",
             )
             model = mlflow.pyfunc.load_model(info.model_uri)
             df = pd.DataFrame({"animal": ["cats", "dogs"]})
@@ -513,7 +513,7 @@ def log_model(
             info = mlflow.openai.log_model(
                 model="text-embedding-ada-002",
                 task=openai.embeddings,
-                artifact_path="embeddings",
+                name="embeddings",
             )
             model = mlflow.pyfunc.load_model(info.model_uri)
             print(model.predict(["hello", "world"]))

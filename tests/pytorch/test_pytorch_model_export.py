@@ -231,7 +231,7 @@ def test_signature_and_examples_are_saved_correctly(sequential_model, data, iris
 def test_log_model(sequential_model, data, sequential_predicted):
     try:
         artifact_path = "pytorch"
-        model_info = mlflow.pytorch.log_model(sequential_model, artifact_path)
+        model_info = mlflow.pytorch.log_model(sequential_model, name=artifact_path)
 
         sequential_model_loaded = mlflow.pytorch.load_model(model_uri=model_info.model_uri)
         test_predictions = _predict(sequential_model_loaded, data)
@@ -247,7 +247,7 @@ def test_log_model_calls_register_model(module_scoped_subclassed_model):
     with mlflow.start_run(), register_model_patch:
         model_info = mlflow.pytorch.log_model(
             module_scoped_subclassed_model,
-            artifact_path,
+            name=artifact_path,
             pickle_module=custom_pickle_module,
             registered_model_name="AdsModel1",
         )
@@ -265,7 +265,7 @@ def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
     with mlflow.start_run(), register_model_patch:
         mlflow.pytorch.log_model(
             module_scoped_subclassed_model,
-            artifact_path,
+            name=artifact_path,
             pickle_module=custom_pickle_module,
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
@@ -467,7 +467,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     with mlflow.start_run():
         model_info = mlflow.pytorch.log_model(
             sequential_model,
-            artifact_path,
+            name=artifact_path,
             conda_env=pytorch_custom_env,
         )
         model_path = _download_artifact_from_uri(model_info.model_uri)
@@ -492,7 +492,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
     with mlflow.start_run():
         model_info = mlflow.pytorch.log_model(
             sequential_model,
-            artifact_path,
+            name=artifact_path,
             conda_env=pytorch_custom_env,
         )
         model_path = _download_artifact_from_uri(model_info.model_uri)
@@ -514,7 +514,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     sequential_model,
 ):
     with mlflow.start_run():
-        model_info = mlflow.pytorch.log_model(sequential_model, "model")
+        model_info = mlflow.pytorch.log_model(sequential_model, name="model")
 
     _assert_pip_requirements(model_info.model_uri, mlflow.pytorch.get_default_pip_requirements())
 
@@ -555,7 +555,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
     with mlflow.start_run():
         model_info = mlflow.pytorch.log_model(
             module_scoped_subclassed_model,
-            "pytorch_model",
+            name="pytorch_model",
             code_paths=[__file__],
             input_example=data[0],
         )
@@ -592,7 +592,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
     with mlflow.start_run():
         model_info = mlflow.pytorch.log_model(
             main_scoped_subclassed_model,
-            "pytorch_model",
+            name="pytorch_model",
             pickle_module=mlflow_pytorch_pickle_module,
             input_example=data[0],
         )
@@ -711,7 +711,7 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
     with mlflow.start_run():
         model_info = mlflow.pytorch.log_model(
             module_scoped_subclassed_model,
-            artifact_path,
+            name=artifact_path,
             pickle_module=custom_pickle_module,
         )
         model_uri = model_info.model_uri
@@ -781,7 +781,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     """
     artifact_path = "pytorch_model"
     with mlflow.start_run():
-        model_info = mlflow.pytorch.log_model(module_scoped_subclassed_model, artifact_path)
+        model_info = mlflow.pytorch.log_model(module_scoped_subclassed_model, name=artifact_path)
         model_path = _download_artifact_from_uri(model_info.model_uri)
 
     model_conf_path = os.path.join(model_path, "MLmodel")
@@ -849,7 +849,7 @@ def test_pyfunc_serve_and_score(data):
     train_model(model=model, data=data)
 
     with mlflow.start_run():
-        model_info = mlflow.pytorch.log_model(model, "model", input_example=data[0])
+        model_info = mlflow.pytorch.log_model(model, name="model", input_example=data[0])
 
     inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
@@ -889,7 +889,7 @@ def test_pyfunc_serve_and_score_transformers():
 
     with mlflow.start_run():
         model_info = mlflow.pytorch.log_model(
-            model, "model", input_example=np.array(input_ids.tolist())
+            model, name="model", input_example=np.array(input_ids.tolist())
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -928,7 +928,7 @@ def create_extra_files(tmp_path):
 def test_extra_files_log_model(create_extra_files, sequential_model):
     extra_files, contents_expected = create_extra_files
     with mlflow.start_run():
-        mlflow.pytorch.log_model(sequential_model, "models", extra_files=extra_files)
+        mlflow.pytorch.log_model(sequential_model, name="models", extra_files=extra_files)
 
         model_uri = "runs:/{run_id}/{model_path}".format(
             run_id=mlflow.active_run().info.run_id, model_path="models"
@@ -979,7 +979,7 @@ def test_log_model_invalid_extra_file_path(sequential_model):
     ):
         mlflow.pytorch.log_model(
             sequential_model,
-            "models",
+            name="models",
             extra_files=["non_existing_file.txt"],
         )
 
@@ -992,7 +992,7 @@ def test_log_model_invalid_extra_file_type(sequential_model):
     ):
         mlflow.pytorch.log_model(
             sequential_model,
-            "models",
+            name="models",
             extra_files="non_existing_file.txt",
         )
 
@@ -1088,7 +1088,7 @@ def test_log_model_with_code_paths(sequential_model):
         mock.patch("mlflow.pytorch._add_code_from_conf_to_system_path") as add_mock,
     ):
         model_info = mlflow.pytorch.log_model(
-            sequential_model, artifact_path, code_paths=[__file__]
+            sequential_model, name=artifact_path, code_paths=[__file__]
         )
         _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.pytorch.FLAVOR_NAME)
         mlflow.pytorch.load_model(model_info.model_uri)
@@ -1121,7 +1121,7 @@ def test_model_log_with_metadata(sequential_model):
     with mlflow.start_run():
         model_info = mlflow.pytorch.log_model(
             sequential_model,
-            artifact_path,
+            name=artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
 
@@ -1136,7 +1136,7 @@ def test_model_log_with_signature_inference(sequential_model, data):
 
     with mlflow.start_run():
         model_info = mlflow.pytorch.log_model(
-            sequential_model, artifact_path, input_example=example_
+            sequential_model, name=artifact_path, input_example=example_
         )
 
     assert model_info.signature == ModelSignature(
@@ -1163,7 +1163,7 @@ def test_model_log_with_signature_inference(sequential_model, data):
 def test_load_model_to_device(sequential_model):
     with mock.patch("mlflow.pytorch._load_model") as load_model_mock:
         with mlflow.start_run():
-            model_info = mlflow.pytorch.log_model(sequential_model, "pytorch")
+            model_info = mlflow.pytorch.log_model(sequential_model, name="pytorch")
             model_config = {"device": "cuda"}
             if ENABLE_LEGACY_DESERIALIZATION:
                 model_config["weights_only"] = False

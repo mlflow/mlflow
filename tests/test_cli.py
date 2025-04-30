@@ -506,7 +506,7 @@ def test_mlflow_models_serve(enable_mlserver):
             # We need MLServer to be present on the Conda environment, so we'll
             # add that as an extra requirement.
             mlflow.pyfunc.log_model(
-                "model",
+                name="model",
                 python_model=model,
                 extra_pip_requirements=[
                     "mlserver>=1.2.0,!=1.3.1",
@@ -515,7 +515,7 @@ def test_mlflow_models_serve(enable_mlserver):
                 ],
             )
         else:
-            mlflow.pyfunc.log_model("model", python_model=model)
+            mlflow.pyfunc.log_model(name="model", python_model=model)
         model_uri = mlflow.get_artifact_uri("model")
 
     data = pd.DataFrame({"a": [0]})

@@ -1839,7 +1839,7 @@ def test_last_logged_model_log_model():
         def predict(self, context, model_input):
             return model_input
 
-    model = mlflow.pyfunc.log_model("model", python_model=Model())
+    model = mlflow.pyfunc.log_model(name="model", python_model=Model())
     assert mlflow.last_logged_model().model_id == model.model_id
 
 

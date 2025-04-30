@@ -225,7 +225,7 @@ def log_model(
                 with mlflow.start_run() as run:
                     model_info = mlflow.spark.log_model(
                         lor_model,
-                        "model",
+                        name="model",
                         signature=signature,
                     )
 
@@ -283,7 +283,7 @@ def log_model(
         lr = LogisticRegression(maxIter=10, regParam=0.001)
         pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
         model = pipeline.fit(training)
-        mlflow.spark.log_model(model, "spark-model")
+        mlflow.spark.log_model(model, name="spark-model")
     """
     _validate_model(spark_model)
     from pyspark.ml import PipelineModel

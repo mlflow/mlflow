@@ -420,7 +420,7 @@ def log_model(
             signature = infer_signature(iris.data, sk_model.predict(iris.data))
 
             # log model
-            mlflow.sklearn.log_model(sk_model, "sk_models", signature=signature)
+            mlflow.sklearn.log_model(sk_model, name="sk_models", signature=signature)
 
     """
     return Model.log(

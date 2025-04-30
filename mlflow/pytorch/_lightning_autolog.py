@@ -564,7 +564,7 @@ def patched_fit(original, self, *args, **kwargs):
             )
             mlflow.pytorch.log_model(
                 self.model,
-                "model",
+                name="model",
                 registered_model_name=registered_model_name,
                 model_id=model_id,
             )
