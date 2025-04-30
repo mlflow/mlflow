@@ -398,24 +398,40 @@ class RestStore(AbstractStore):
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
+        print(f"### DEBUG REST STORE - get_trace_info called for {request_id}, should_query_v3={should_query_v3}")
         if should_query_v3:
             trace_v3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
             trace_v3_endpoint = get_trace_assessment_endpoint(request_id)
+            print(f"### DEBUG REST STORE - Using V3 endpoint: {trace_v3_endpoint}")
             try:
                 trace_v3_response_proto = self._call_endpoint(
                     GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
                 )
-                return TraceInfoV3.from_proto(trace_v3_response_proto)
-            except Exception:
+                trace_info_v3 = TraceInfoV3.from_proto(trace_v3_response_proto)
+                print(f"### DEBUG REST STORE - V3 response has {len(trace_info_v3.assessments)} assessments")
+                for idx, assessment in enumerate(trace_info_v3.assessments):
+                    print(f"### DEBUG REST STORE - Assessment {idx}: name={assessment.name}, feedback={assessment.feedback}")
+                return trace_info_v3
+            except Exception as e:
                 # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
+                print(f"### DEBUG REST STORE - Failed to fetch V3 info: {str(e)}")
                 _logger.debug(
                     f"Failed to fetch trace info from V3 API for request ID {request_id!r}.",
                     exc_info=True,
                 )
+        print(f"### DEBUG REST STORE - Using V2 endpoint")
         req_body = message_to_json(GetTraceInfo(request_id=request_id))
         endpoint = get_trace_info_endpoint(request_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
-        return TraceInfo.from_proto(response_proto.trace_info)
+        trace_info = TraceInfo.from_proto(response_proto.trace_info)
+        print(f"### DEBUG REST STORE - V2 response has {len(trace_info.assessments)} assessments")
+        print(f"### DEBUG REST STORE - V2 response has {len(trace_info.tags)} tags")
+        # Check if assessment tags are present
+        assessment_tags = {k: v for k, v in trace_info.tags.items() if k.startswith("mlflow.assessment.")}
+        print(f"### DEBUG REST STORE - Found {len(assessment_tags)} assessment tags")
+        if assessment_tags:
+            print(f"### DEBUG REST STORE - Assessment tag example: {next(iter(assessment_tags.items()))}")
+        return trace_info
 
     def get_online_trace_details(
         self,

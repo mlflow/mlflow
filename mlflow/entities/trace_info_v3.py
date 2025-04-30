@@ -113,7 +113,21 @@ class TraceInfoV3(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto) -> "TraceInfoV3":
-        return cls(
+        print(f"### DEBUG TraceInfoV3.from_proto - trace_id: {proto.trace_id}")
+        print(f"### DEBUG TraceInfoV3.from_proto - assessments count: {len(proto.assessments)}")
+        
+        # Debug assessments in proto
+        for idx, assessment_proto in enumerate(proto.assessments):
+            print(f"### DEBUG TraceInfoV3.from_proto - Assessment proto {idx}: "
+                  f"name={assessment_proto.assessment_name}, "
+                  f"has_feedback={assessment_proto.HasField('feedback')}, "
+                  f"has_expectation={assessment_proto.HasField('expectation')}")
+        
+        # Debug tags in proto
+        assessment_tags = {k: v for k, v in proto.tags.items() if k.startswith("mlflow.assessment.")}
+        print(f"### DEBUG TraceInfoV3.from_proto - found {len(assessment_tags)} assessment tags")
+        
+        trace_info_v3 = cls(
             trace_id=proto.trace_id,
             client_request_id=proto.client_request_id,
             trace_location=TraceLocation.from_proto(proto.trace_location),
@@ -131,6 +145,9 @@ class TraceInfoV3(_MlflowObject):
             tags=dict(proto.tags),
             assessments=[Assessment.from_proto(a) for a in proto.assessments],
         )
+        
+        print(f"### DEBUG TraceInfoV3.from_proto - Created object with {len(trace_info_v3.assessments)} assessments")
+        return trace_info_v3
 
     # Aliases for backward compatibility with V2 format
     @property
