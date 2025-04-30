@@ -46,7 +46,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     strategy:
       fail-fast: false
       matrix:
