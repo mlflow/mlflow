@@ -10,8 +10,6 @@ import { DialogComboboxOptionListCheckboxItem } from '@databricks/design-system'
 import { DialogComboboxOptionList } from '@databricks/design-system';
 import { useImageSliderStepMarks } from '../../hooks/useImageSliderStepMarks';
 import { RunsChartsRunData } from '../RunsCharts.common';
-import { Slider } from 'antd';
-import { useDesignSystemTheme } from '@databricks/design-system';
 import { LineSmoothSlider } from '@mlflow/mlflow/src/experiment-tracking/components/LineSmoothSlider';
 
 export const RunsChartsConfigureImageChart = ({
@@ -108,10 +106,9 @@ export const RunsChartsConfigureImageChart = ({
           max={maxMark}
           min={minMark}
           marks={stepMarks}
-          defaultValue={state.step}
+          value={state.step}
           disabled={Object.keys(stepMarks).length <= 1}
           onChange={updateStep}
-          step={null}
         />
       </RunsChartsConfigureField>
     </>

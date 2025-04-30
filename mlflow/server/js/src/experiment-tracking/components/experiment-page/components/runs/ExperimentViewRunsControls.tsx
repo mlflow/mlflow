@@ -8,9 +8,7 @@ import { ExperimentViewRunsControlsFilters } from './ExperimentViewRunsControlsF
 import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import { ToggleButton, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { ExperimentViewRunsSortSelector } from './ExperimentViewRunsSortSelector';
 import { ExperimentViewRunsColumnSelector } from './ExperimentViewRunsColumnSelector';
-import { shouldUseNewExperimentPageSortSelector } from '../../../../../common/utils/FeatureUtils';
 import { ExperimentViewRunsModeSwitch } from './ExperimentViewRunsModeSwitch';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import Utils from '../../../../../common/utils/Utils';
@@ -35,7 +33,7 @@ type ExperimentViewRunsControlsProps = {
   expandRows: boolean;
   updateExpandRows: (expandRows: boolean) => void;
 
-  requestError: ErrorWrapper | null;
+  requestError: ErrorWrapper | Error | null;
 
   refreshRuns: () => void;
   uiState: ExperimentPageUIState;
@@ -111,7 +109,7 @@ export const ExperimentViewRunsControls = React.memo(
           display: 'flex',
           gap: theme.spacing.sm,
           flexDirection: 'column' as const,
-          marginTop: uiState.viewMaximized ? undefined : theme.spacing.md,
+          marginTop: uiState.viewMaximized ? undefined : theme.spacing.sm,
           marginBottom: showCombinedRuns ? theme.spacing.sm : 0,
         }}
       >
@@ -147,20 +145,12 @@ export const ExperimentViewRunsControls = React.memo(
             hideEmptyCharts={uiState.hideEmptyCharts}
             additionalControls={
               <>
-                {shouldUseNewExperimentPageSortSelector() ? (
-                  <ExperimentViewRunsSortSelectorV2
-                    orderByAsc={orderByAsc}
-                    orderByKey={orderByKey}
-                    metricKeys={filteredMetricKeys}
-                    paramKeys={filteredParamKeys}
-                  />
-                ) : (
-                  <ExperimentViewRunsSortSelector
-                    orderByAsc={orderByAsc}
-                    orderByKey={orderByKey}
-                    sortOptions={sortOptions}
-                  />
-                )}
+                <ExperimentViewRunsSortSelectorV2
+                  orderByAsc={orderByAsc}
+                  orderByKey={orderByKey}
+                  metricKeys={filteredMetricKeys}
+                  paramKeys={filteredParamKeys}
+                />
 
                 {!isComparingRuns && (
                   <ExperimentViewRunsColumnSelector

@@ -42,7 +42,9 @@ class IterativePrune:
     def load_base_model(self):
         path = Path(_download_artifact_from_uri(self.base_model_path))
         model_file_path = os.path.join(path, "data/model.pth")
-        return torch.load(model_file_path)
+        # Since torch 2.6, the default value of weights_only became True.
+        # To prevent UnpicklingError from happening, need to explicitly set weights_only=False.
+        return torch.load(model_file_path, weights_only=False)
 
     def initialize_ax_client(self):
         self.ax_client = AxClient()

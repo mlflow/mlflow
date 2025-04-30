@@ -3,6 +3,8 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
+      - id: trailing-whitespace
+        files: \.mdx
       - id: end-of-file-fixer
         files: \.(proto|txt|sh|rst)$
         exclude: ^examples/
@@ -10,7 +12,7 @@ repos:
     rev: "v2.7.1"
     hooks:
       - id: prettier
-        files: '^(?!CHANGELOG.md|mlflow/pypi_package_index.json|docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
+        files: '^(?!mlflow/pypi_package_index.json|docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
         require_serial: true
   - repo: local
@@ -43,7 +45,7 @@ repos:
         name: blacken-docs
         entry: blacken-docs
         language: system
-        files: '\.(rst|md)$'
+        files: '\.(rst|md|mdx)$'
         stages: [pre-commit]
         require_serial: true
 
@@ -141,8 +143,7 @@ repos:
       - id: typos
         name: typos
         entry: dev/typos.sh
-        # TODO: Add more file types
-        files: '\.py$'
+        files: '\.(py$|mdx?$)'
         language: system
         stages: [pre-commit]
         require_serial: true

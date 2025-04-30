@@ -2,8 +2,7 @@ import { Empty, useDesignSystemTheme } from '@databricks/design-system';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useUpdateRunsChartsUIConfiguration } from '../hooks/useRunsChartsUIConfiguration';
 import { RunsChartsCardConfig } from '../runs-charts.types';
-import type { RunsChartsProps } from './RunsCharts';
-import { isEmptyChartCard } from './RunsCharts.common';
+import { isEmptyChartCard, RunsChartsRunData } from './RunsCharts.common';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { Global } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
@@ -14,7 +13,9 @@ import {
   useRunsChartsDraggableGridStateContext,
 } from './RunsChartsDraggableCardsGridContext';
 import { RunsChartsDraggablePreview } from './RunsChartsDraggablePreview';
-import { DRAGGABLE_CARD_TRANSITION_NAME } from './cards/ChartCard.common';
+import { DRAGGABLE_CARD_TRANSITION_NAME, type RunsChartCardSetFullscreenFn } from './cards/ChartCard.common';
+import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
+import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
 
 const rowHeightSuggestions = [300, 330, 360, 400, 500];
 
@@ -26,21 +27,18 @@ const getColumnSuggestions = (containerWidth: number, gapSize = 8) =>
 
 const PlaceholderSymbol = Symbol('placeholder');
 
-interface RunsChartsDraggableCardsGridProps
-  extends Pick<
-    RunsChartsProps,
-    | 'onStartEditChart'
-    | 'onRemoveChart'
-    | 'setFullScreenChart'
-    | 'sectionId'
-    | 'groupBy'
-    | 'autoRefreshEnabled'
-    | 'hideEmptyCharts'
-    | 'chartRunData'
-    | 'cardsConfig'
-    | 'globalLineChartConfig'
-  > {
+interface RunsChartsDraggableCardsGridProps {
+  onRemoveChart: (chart: RunsChartsCardConfig) => void;
+  onStartEditChart: (chart: RunsChartsCardConfig) => void;
   sectionConfig: ChartSectionConfig;
+  setFullScreenChart: RunsChartCardSetFullscreenFn;
+  sectionId: string;
+  groupBy: RunsGroupByConfig | null;
+  autoRefreshEnabled?: boolean;
+  hideEmptyCharts?: boolean;
+  globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
+  chartRunData: RunsChartsRunData[];
+  cardsConfig: RunsChartsCardConfig[];
 }
 
 // Renders draggable cards grid in a single chart section

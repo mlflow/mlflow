@@ -546,19 +546,19 @@ def test_log_and_load_transformers_pipeline(small_qa_pipeline, tmp_path, should_
         _mlflow_conda_env(conda_env, additional_pip_deps=["transformers"])
         model_info = mlflow.transformers.log_model(
             small_qa_pipeline,
-            artifact_path,
+            name=artifact_path,
             conda_env=str(conda_env),
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        assert model_info.model_uri == model_uri
-        reloaded_model = mlflow.transformers.load_model(model_uri=model_uri, return_type="pipeline")
+        reloaded_model = mlflow.transformers.load_model(
+            model_uri=model_info.model_uri, return_type="pipeline"
+        )
         assert (
             reloaded_model(
                 {"question": "Who's house?", "context": "The house is owned by a man named Run."}
             )["answer"]
             == "Run"
         )
-        model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
+        model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_info.model_uri))
         model_config = Model.load(str(model_path.joinpath("MLmodel")))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
@@ -587,16 +587,15 @@ def test_transformers_log_model_calls_register_model(small_qa_pipeline, tmp_path
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["transformers", "torch", "torchvision"])
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             small_qa_pipeline,
-            artifact_path,
+            name=artifact_path,
             conda_env=str(conda_env),
             registered_model_name="Question-Answering Model 1",
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
-            model_uri=model_uri,
+            model_uri=model_info.model_uri,
             registered_model_name="Question-Answering Model 1",
         )
 
@@ -622,7 +621,7 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
         _mlflow_conda_env(conda_env, additional_pip_deps=["tensorflow", "transformers"])
         mlflow.transformers.log_model(
             model,
-            artifact_path,
+            name=artifact_path,
             conda_env=str(conda_env),
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
@@ -646,31 +645,31 @@ def test_transformers_log_with_pip_requirements(small_multi_modal_pipeline, tmp_
     requirements_file = tmp_path.joinpath("requirements.txt")
     requirements_file.write_text("coolpackage")
     with mlflow.start_run():
-        mlflow.transformers.log_model(
-            small_multi_modal_pipeline, "model", pip_requirements=str(requirements_file)
+        model_info = mlflow.transformers.log_model(
+            small_multi_modal_pipeline, name="model", pip_requirements=str(requirements_file)
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "coolpackage"], strict=True
+            model_info.model_uri, [expected_mlflow_version, "coolpackage"], strict=True
         )
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             small_multi_modal_pipeline,
-            "model",
+            name="model",
             pip_requirements=[f"-r {requirements_file}", "alsocool"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "coolpackage", "alsocool"],
             strict=True,
         )
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             small_multi_modal_pipeline,
-            "model",
+            name="model",
             pip_requirements=[f"-c {requirements_file}", "constrainedcool"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "constrainedcool", "-c constraints.txt"],
             ["coolpackage"],
             strict=True,
@@ -685,33 +684,33 @@ def test_transformers_log_with_extra_pip_requirements(small_multi_modal_pipeline
     requirements_file = tmp_path.joinpath("requirements.txt")
     requirements_file.write_text("coolpackage")
     with mlflow.start_run():
-        mlflow.transformers.log_model(
-            small_multi_modal_pipeline, "model", extra_pip_requirements=str(requirements_file)
+        model_info = mlflow.transformers.log_model(
+            small_multi_modal_pipeline, name="model", extra_pip_requirements=str(requirements_file)
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_requirements, "coolpackage"],
             strict=True,
         )
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             small_multi_modal_pipeline,
-            "model",
+            name="model",
             extra_pip_requirements=[f"-r {requirements_file}", "alsocool"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, *default_requirements, "coolpackage", "alsocool"],
             strict=True,
         )
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             small_multi_modal_pipeline,
-            "model",
+            name="model",
             extra_pip_requirements=[f"-c {requirements_file}", "constrainedcool"],
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [
                 expected_mlflow_version,
                 *default_requirements,
@@ -730,7 +729,7 @@ def test_transformers_log_with_duplicate_extra_pip_requirements(small_multi_moda
         with mlflow.start_run():
             mlflow.transformers.log_model(
                 small_multi_modal_pipeline,
-                "model",
+                name="model",
                 extra_pip_requirements=["transformers==1.1.0"],
             )
 
@@ -788,12 +787,12 @@ def test_transformers_tf_model_log_without_conda_env_uses_default_env_with_expec
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.transformers.log_model(small_qa_tf_pipeline, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.transformers.log_model(small_qa_tf_pipeline, name=artifact_path)
     _assert_pip_requirements(
-        model_uri, mlflow.transformers.get_default_pip_requirements(small_qa_tf_pipeline.model)
+        model_info.model_uri,
+        mlflow.transformers.get_default_pip_requirements(small_qa_tf_pipeline.model),
     )
-    pip_requirements = _get_deps_from_requirement_file(model_uri)
+    pip_requirements = _get_deps_from_requirement_file(model_info.model_uri)
     assert "tensorflow" in pip_requirements
     assert "torch" not in pip_requirements
     # Accelerate installs Pytorch along with it, so it should not be present in the requirements
@@ -805,12 +804,12 @@ def test_transformers_pt_model_log_without_conda_env_uses_default_env_with_expec
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.transformers.log_model(small_qa_pipeline, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.transformers.log_model(small_qa_pipeline, name=artifact_path)
     _assert_pip_requirements(
-        model_uri, mlflow.transformers.get_default_pip_requirements(small_qa_pipeline.model)
+        model_info.model_uri,
+        mlflow.transformers.get_default_pip_requirements(small_qa_pipeline.model),
     )
-    pip_requirements = _get_deps_from_requirement_file(model_uri)
+    pip_requirements = _get_deps_from_requirement_file(model_info.model_uri)
     assert "tensorflow" not in pip_requirements
     assert "torch" in pip_requirements
 
@@ -821,8 +820,10 @@ def test_log_model_with_code_paths(small_qa_pipeline):
         mlflow.start_run(),
         mock.patch("mlflow.transformers._add_code_from_conf_to_system_path") as add_mock,
     ):
-        mlflow.transformers.log_model(small_qa_pipeline, artifact_path, code_paths=[__file__])
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.transformers.log_model(
+            small_qa_pipeline, name=artifact_path, code_paths=[__file__]
+        )
+        model_uri = model_info.model_uri
         _compare_logged_code_paths(__file__, model_uri, mlflow.transformers.FLAVOR_NAME)
         mlflow.transformers.load_model(model_uri)
         add_mock.assert_called()
@@ -1152,7 +1153,7 @@ def test_text2text_generation_pipeline_with_params_with_errors(
 
 def test_text2text_generation_pipeline_with_inferred_schema(text2text_generation_pipeline):
     with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(text2text_generation_pipeline, "my_model")
+        model_info = mlflow.transformers.log_model(text2text_generation_pipeline, name="my_model")
     pyfunc_loaded = mlflow.pyfunc.load_model(model_info.model_uri)
 
     assert pyfunc_loaded.predict("muppet board nails hammer") == [
@@ -1648,11 +1649,10 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
 def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
     artifact_path = "qa_model"
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             small_qa_pipeline,
-            artifact_path,
+            name=artifact_path,
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
     inference_payload = json.dumps(
         {
@@ -1672,7 +1672,7 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
         }
     )
     response = pyfunc_serve_and_score_model(
-        model_uri,
+        model_info.model_uri,
         data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
@@ -1691,7 +1691,7 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
     )
 
     response = pyfunc_serve_and_score_model(
-        model_uri,
+        model_info.model_uri,
         data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
@@ -1752,7 +1752,7 @@ def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             small_vision_model,
-            artifact_path,
+            name=artifact_path,
         )
     pyfunc_inference_payload = json.dumps({"inputs": inference_payload})
     response = pyfunc_serve_and_score_model(
@@ -1783,7 +1783,7 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             text_classification_pipeline,
-            artifact_path,
+            name=artifact_path,
             signature=signature,
         )
 
@@ -1823,7 +1823,7 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             text_classification_pipeline,
-            artifact_path,
+            name=artifact_path,
             signature=signature,
         )
 
@@ -1852,11 +1852,11 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
 def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
     artifact_path = "zero_shot_classifier_model"
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             zero_shot_pipeline,
-            artifact_path,
+            name=artifact_path,
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_uri = model_info.model_uri
 
     inference_payload = json.dumps(
         {
@@ -1877,7 +1877,6 @@ def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    # The length is 3 because it's a single row df cast to dict.
     assert len(values.to_dict()) == 3
     assert len(values.to_dict()["labels"]) == 2
 
@@ -1909,11 +1908,10 @@ def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
 def test_table_question_answering_pyfunc_predict(table_question_answering_pipeline):
     artifact_path = "table_qa_model"
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             table_question_answering_pipeline,
-            artifact_path,
+            name=artifact_path,
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
     table = {
         "Fruit": ["Apples", "Bananas", "Oranges", "Watermelon 'small'", "Blueberries"],
@@ -1931,7 +1929,7 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
     )
 
     response = pyfunc_serve_and_score_model(
-        model_uri,
+        model_info.model_uri,
         data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
@@ -1953,7 +1951,7 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
         }
     )
     response = pyfunc_serve_and_score_model(
-        model_uri,
+        model_info.model_uri,
         data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
@@ -1974,7 +1972,7 @@ def test_feature_extraction_pipeline(feature_extraction_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             feature_extraction_pipeline,
-            artifact_path,
+            name=artifact_path,
             signature=signature,
             input_example=["A sentence", "Another sentence"],
         )
@@ -2011,7 +2009,7 @@ def test_feature_extraction_pipeline_pyfunc_predict(feature_extraction_pipeline)
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             feature_extraction_pipeline,
-            artifact_path,
+            name=artifact_path,
         )
 
     inference_payload = json.dumps({"inputs": ["sentence one", "sentence two"]})
@@ -2508,7 +2506,7 @@ def test_whisper_model_serve_and_score(whisper_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             whisper_pipeline,
-            "whisper",
+            name="whisper",
             save_pretrained=False,
         )
 
@@ -2574,7 +2572,7 @@ def test_whisper_model_support_timestamps(whisper_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             whisper_pipeline,
-            "whisper_timestamps",
+            name="whisper_timestamps",
             model_config=model_config,
             input_example=(audio, model_config),
         )
@@ -2653,7 +2651,7 @@ def test_audio_classification_pipeline(audio_classification_pipeline, with_input
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             audio_classification_pipeline,
-            "audio_classification",
+            name="audio_classification",
             input_example=audio if with_input_example else None,
             save_pretrained=False,
         )
@@ -2718,7 +2716,7 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             small_vision_model,
-            artifact_path,
+            name=artifact_path,
             signature=infer_signature(
                 image_url,
                 mlflow.transformers.generate_signature_output(small_vision_model, image_url),
@@ -2793,15 +2791,14 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
     assert signature_with_params == expected_signature
 
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             small_qa_pipeline,
-            artifact_path,
+            name=artifact_path,
             signature=signature_with_params,
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
     response = pyfunc_serve_and_score_model(
-        model_uri,
+        model_info.model_uri,
         data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
@@ -2891,7 +2888,7 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot():
             This method initializes the tokenizer and language model
             using the specified snapshot location.
             """
-            snapshot_location = context.artifacts["bert-tiny-model"]
+            snapshot_location = context.artifacts["bert-tiny-model"].removeprefix("hf:/")
             # Initialize tokenizer and language model
             tokenizer = transformers.AutoTokenizer.from_pretrained(snapshot_location)
             model = transformers.BertForQuestionAnswering.from_pretrained(snapshot_location)
@@ -2910,9 +2907,9 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot():
 
     data = {"question": "Who's house?", "context": "The house is owned by Run."}
     pyfunc_artifact_path = "question_answering_model"
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            pyfunc_artifact_path,
+            name=pyfunc_artifact_path,
             python_model=QAModel(),
             artifacts={"bert-tiny-model": "hf:/prajjwal1/bert-tiny"},
             input_example=data,
@@ -2922,15 +2919,11 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot():
             extra_pip_requirements=["transformers", "torch", "numpy"],
         )
 
-        pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
-        assert model_info.model_uri == pyfunc_model_uri
-        pyfunc_model_path = _download_artifact_from_uri(
-            f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
-        )
+        pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
         assert len(os.listdir(os.path.join(pyfunc_model_path, "artifacts"))) != 0
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
 
-    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
     assert loaded_pyfunc_model.predict(data)["answer"] != ""
 
@@ -2959,7 +2952,7 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
             r"with artifact_uri: hf:/invalid-repo-id.",
         ):
             mlflow.pyfunc.log_model(
-                "pyfunc_artifact_path",
+                name="pyfunc_artifact_path",
                 python_model=TestModel(),
                 artifacts={"some-model": "hf:/invalid-repo-id"},
             )
@@ -3138,7 +3131,7 @@ def test_text_generation_log_model_with_mismatched_task(text_generation_pipeline
         with mlflow.start_run():
             mlflow.transformers.log_model(
                 text_generation_pipeline,
-                "model",
+                name="model",
                 # Task argument and metadata task are different
                 task=None,
                 metadata={"task": "llm/v1/chat"},
@@ -3230,7 +3223,7 @@ def test_text_generation_task_completions_serve(text_generation_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             text_generation_pipeline,
-            "model",
+            name="model",
             task="llm/v1/completions",
         )
 
@@ -3304,7 +3297,7 @@ def test_llm_v1_task_embeddings_serve(feature_extraction_pipeline, request_paylo
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             feature_extraction_pipeline,
-            "model",
+            name="model",
             input_examples=["Football", "Soccer"],
             task="llm/v1/embeddings",
         )
@@ -3493,7 +3486,7 @@ def test_text_generation_task_chat_serve(text_generation_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             text_generation_pipeline,
-            "model",
+            name="model",
             task="llm/v1/chat",
         )
 
@@ -3586,7 +3579,7 @@ def test_persist_pretrained_model(mock_tmpdir, small_qa_tf_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             small_qa_tf_pipeline,
-            "model",
+            name="model",
             save_pretrained=False,
             pip_requirements=["mlflow"],  # For speed up logging
         )
@@ -3625,7 +3618,7 @@ def test_small_qa_pipeline_copy_metadata_in_databricks(
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             small_qa_pipeline,
-            artifact_path,
+            name=artifact_path,
         )
     artifact_path = mlflow.artifacts.download_artifacts(
         artifact_uri=model_info.model_uri, dst_path=tmp_path.as_posix()
@@ -3645,7 +3638,7 @@ def test_peft_pipeline_copy_metadata_in_databricks(mock_is_in_databricks, peft_p
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             peft_pipeline,
-            artifact_path,
+            name=artifact_path,
         )
 
     artifact_path = mlflow.artifacts.download_artifacts(
@@ -3872,7 +3865,7 @@ def test_log_model_skip_validating_serving_input_for_local_checkpoint(
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             model,
-            "model",
+            name="model",
             task="fill-mask",
             input_example=["How are you?"],
         )

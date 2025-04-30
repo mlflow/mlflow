@@ -260,6 +260,8 @@ module.exports = function () {
         jestConfig.setupFiles = ['jest-canvas-mock'];
         jestConfig.setupFilesAfterEnv.push('<rootDir>/scripts/env-mocks.js');
         jestConfig.setupFilesAfterEnv.push('<rootDir>/scripts/setup-jest-dom-matchers.js');
+        jestConfig.setupFilesAfterEnv.push('<rootDir>/scripts/setup-testing-library.js');
+        jestConfig.setupFilesAfterEnv.push('<rootDir>/src/setupTests.js');
         // Adjust config to work with dependencies using ".mjs" file extensions
         jestConfig.moduleFileExtensions.push('mjs');
         // Remove when this issue is resolved: https://github.com/gsoft-inc/craco/issues/393
@@ -272,15 +274,12 @@ module.exports = function () {
 
         const moduleNameMapper = {
           ...jestConfig.moduleNameMapper,
+          '@databricks/design-system/(.+)': '<rootDir>/node_modules/@databricks/design-system/dist/$1',
           '@databricks/web-shared/(.*)': '<rootDir>/src/shared/web-shared/$1',
           '@mlflow/mlflow/(.*)': '<rootDir>/$1',
         };
 
         jestConfig.moduleNameMapper = moduleNameMapper;
-        jestConfig.setupFilesAfterEnv = [
-          '<rootDir>/scripts/jest/react-versions/index.ts',
-          ...(jestConfig.setupFilesAfterEnv || []),
-        ];
 
         return jestConfig;
       },

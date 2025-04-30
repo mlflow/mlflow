@@ -28,10 +28,18 @@ For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 
 import contextlib
+from typing import TYPE_CHECKING
 
 from mlflow.version import VERSION
 
 __version__ = VERSION
+
+import mlflow.mismatch
+
+# `check_version_mismatch` must be called here before importing any other modules
+with contextlib.suppress(Exception):
+    mlflow.mismatch._check_version_mismatch()
+
 from mlflow import (
     artifacts,  # noqa: F401
     client,  # noqa: F401
@@ -55,8 +63,8 @@ catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
 diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
-fastai = LazyLoader("mlflow.fastai", globals(), "mlflow.fastai")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
+groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
 h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
 keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
@@ -66,19 +74,17 @@ litellm = LazyLoader("mlflow.litellm", globals(), "mlflow.litellm")
 llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
-mleap = LazyLoader("mlflow.mleap", globals(), "mlflow.mleap")
+mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
 paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
 pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
 promptflow = LazyLoader("mlflow.promptflow", globals(), "mlflow.promptflow")
 prophet = LazyLoader("mlflow.prophet", globals(), "mlflow.prophet")
-promptlab = LazyLoader("mlflow.promptlab", globals(), "mlflow.promptlab")
 pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
 rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
-recipes = LazyLoader("mlflow.recipes", globals(), "mlflow.recipes")
 sentence_transformers = LazyLoader(
     "mlflow.sentence_transformers",
     globals(),
@@ -90,8 +96,54 @@ spacy = LazyLoader("mlflow.spacy", globals(), "mlflow.spacy")
 spark = LazyLoader("mlflow.spark", globals(), "mlflow.spark")
 statsmodels = LazyLoader("mlflow.statsmodels", globals(), "mlflow.statsmodels")
 tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
+# TxtAI integration is defined at https://github.com/neuml/mlflow-txtai
+txtai = LazyLoader("mlflow.txtai", globals(), "mlflow_txtai")
 transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
 xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
+
+if TYPE_CHECKING:
+    # Do not move this block above the lazy-loaded modules above.
+    # All the lazy-loaded modules above must be imported here for code completion to work in IDEs.
+    from mlflow import (  # noqa: F401
+        anthropic,
+        autogen,
+        bedrock,
+        catboost,
+        crewai,
+        diviner,
+        dspy,
+        gemini,
+        groq,
+        h2o,
+        johnsnowlabs,
+        keras,
+        langchain,
+        lightgbm,
+        litellm,
+        llama_index,
+        llm,
+        metrics,
+        mistral,
+        onnx,
+        openai,
+        paddle,
+        pmdarima,
+        promptflow,
+        prophet,
+        pyfunc,
+        pyspark,
+        pytorch,
+        rfunc,
+        sentence_transformers,
+        shap,
+        sklearn,
+        spacy,
+        spark,
+        statsmodels,
+        tensorflow,
+        transformers,
+        xgboost,
+    )
 
 if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
@@ -116,39 +168,62 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
 from mlflow.models.evaluation.validation import validate_evaluation_results
 from mlflow.projects import run
+from mlflow.tracing.assessment import (
+    delete_expectation,
+    delete_feedback,
+    log_expectation,
+    log_feedback,
+    update_expectation,
+    update_feedback,
+)
 from mlflow.tracing.fluent import (
     add_trace,
     get_current_active_span,
     get_last_active_trace,
+    get_last_active_trace_id,
     get_trace,
+    log_trace,
     search_traces,
     start_span,
     trace,
     update_current_trace,
 )
 from mlflow.tracking._model_registry.fluent import (
+    delete_prompt,
+    delete_prompt_alias,
+    load_prompt,
     register_model,
+    register_prompt,
     search_model_versions,
     search_registered_models,
+    set_prompt_alias,
 )
 from mlflow.tracking.fluent import (
+    ActiveModel,
     ActiveRun,
     active_run,
     autolog,
     create_experiment,
+    create_external_model,
     delete_experiment,
+    delete_logged_model_tag,
     delete_run,
     delete_tag,
     end_run,
+    finalize_logged_model,
     flush_artifact_async_logging,
     flush_async_logging,
     flush_trace_async_logging,
+    get_active_model_id,
     get_artifact_uri,
     get_experiment,
     get_experiment_by_name,
+    get_logged_model,
     get_parent_run,
     get_run,
+    initialize_logged_model,
     last_active_run,
+    last_logged_model,
     load_table,
     log_artifact,
     log_artifacts,
@@ -156,17 +231,22 @@ from mlflow.tracking.fluent import (
     log_figure,
     log_image,
     log_input,
+    log_inputs,
     log_metric,
     log_metrics,
+    log_outputs,
     log_param,
     log_params,
     log_table,
     log_text,
     search_experiments,
+    search_logged_models,
     search_runs,
+    set_active_model,
     set_experiment,
     set_experiment_tag,
     set_experiment_tags,
+    set_logged_model_tags,
     set_tag,
     set_tags,
     start_run,
@@ -178,11 +258,13 @@ from mlflow.utils.doctor import doctor
 
 __all__ = [
     "ActiveRun",
+    "ActiveModel",
     "MlflowClient",
     "MlflowException",
     "active_run",
     "autolog",
     "create_experiment",
+    "create_external_model",
     "delete_experiment",
     "delete_run",
     "delete_tag",
@@ -191,19 +273,25 @@ __all__ = [
     "enable_system_metrics_logging",
     "end_run",
     "evaluate",
+    "finalize_logged_model",
     "flush_async_logging",
     "flush_artifact_async_logging",
     "flush_trace_async_logging",
+    "get_active_model_id",
     "get_artifact_uri",
     "get_experiment",
     "get_experiment_by_name",
     "get_last_active_trace",
+    "get_logged_model",
+    "get_last_active_trace_id",
     "get_parent_run",
     "get_registry_uri",
     "get_run",
     "get_tracking_uri",
+    "initialize_logged_model",
     "is_tracking_uri_set",
     "last_active_run",
+    "last_logged_model",
     "load_table",
     "log_artifact",
     "log_artifacts",
@@ -211,6 +299,8 @@ __all__ = [
     "log_figure",
     "log_image",
     "log_input",
+    "log_inputs",
+    "log_outputs",
     "log_metric",
     "log_metrics",
     "log_param",
@@ -222,9 +312,11 @@ __all__ = [
     "register_model",
     "run",
     "search_experiments",
+    "search_logged_models",
     "search_model_versions",
     "search_registered_models",
     "search_runs",
+    "set_active_model",
     "set_experiment",
     "set_experiment_tag",
     "set_experiment_tags",
@@ -245,7 +337,23 @@ __all__ = [
     "start_span",
     "trace",
     "add_trace",
+    "log_trace",
     "update_current_trace",
+    # Assessment APIs
+    "delete_expectation",
+    "delete_feedback",
+    "log_expectation",
+    "log_feedback",
+    "update_expectation",
+    "update_feedback",
+    # Prompt Registry APIs
+    "delete_prompt",
+    "load_prompt",
+    "register_prompt",
+    "set_prompt_alias",
+    "delete_prompt_alias",
+    "set_logged_model_tags",
+    "delete_logged_model_tag",
 ]
 
 

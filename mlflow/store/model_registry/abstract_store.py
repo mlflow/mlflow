@@ -1,10 +1,13 @@
 import logging
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
+from typing import Optional
 
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import has_prompt_tag
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
@@ -38,7 +41,7 @@ class AbstractStore:
     # CRUD API for RegisteredModel objects
 
     @abstractmethod
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -47,6 +50,7 @@ class AbstractStore:
             tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                 instances associated with this registered model.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -55,13 +59,14 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """
         Update description of the registered model.
 
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -179,6 +184,8 @@ class AbstractStore:
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
+        model_params: Optional[list[LoggedModelParameter]] = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -197,6 +204,9 @@ class AbstractStore:
                 a redundant download from the source location when logging
                 and registering a model via a single
                 mlflow.<flavor>.log_model(..., registered_model_name) call
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
+            model_params: The parameters of the model (from an Experiment) that is being promoted
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -428,9 +438,10 @@ class AbstractStore:
         self._await_model_version_creation_impl(mv, await_creation_for)
 
     def _await_model_version_creation_impl(self, mv, await_creation_for, hint=""):
+        entity_type = "Prompt" if has_prompt_tag(mv.tags) else "Model"
         _logger.info(
-            f"Waiting up to {await_creation_for} seconds for model version to finish creation. "
-            f"Model name: {mv.name}, version {mv.version}",
+            f"Waiting up to {await_creation_for} seconds for {entity_type.lower()} version to "
+            f"finish creation. {entity_type} name: {mv.name}, version {mv.version}",
         )
         max_time = time() + await_creation_for
         pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
@@ -447,6 +458,6 @@ class AbstractStore:
             sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS)
         if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
             raise MlflowException(
-                f"Model version creation failed for model name: {mv.name} version: "
-                f"{mv.version} with status: {mv.status} and message: {mv.status_message}"
+                f"{entity_type} version creation failed for {entity_type.lower()} name: {mv.name} "
+                f"version: {mv.version} with status: {mv.status} and message: {mv.status_message}"
             )

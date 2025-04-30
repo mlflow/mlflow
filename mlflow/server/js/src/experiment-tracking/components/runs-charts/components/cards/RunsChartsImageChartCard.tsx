@@ -5,12 +5,8 @@ import {
   RunsChartCardWrapper,
   RunsChartsChartsDragGroup,
   RunsChartCardFullScreenProps,
-  ChartRunsCountIndicator,
 } from './ChartCard.common';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
-import { DifferenceViewPlot } from '../charts/DifferenceViewPlot';
 import { useConfirmChartCardConfigurationFn } from '../../hooks/useRunsChartsUIConfiguration';
-import { useIntl, FormattedMessage } from 'react-intl';
 import { RunsChartsCardConfig, RunsChartsImageCardConfig } from '../../runs-charts.types';
 import { ImageGridPlot } from '../charts/ImageGridPlot';
 import { useDesignSystemTheme } from '@databricks/design-system';
@@ -46,18 +42,6 @@ export const RunsChartsImageChartCard = ({
   const containerRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  useEffect(() => {
-    const resizeObserver = new ResizeObserver((entries) => {
-      setContainerWidth(entries[0].contentRect.width);
-    });
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [containerRef]);
-
   // Optimizations for smoother slider experience. Maintain a local copy of config, and update
   // the global state only after the user has finished dragging the slider.
   const [tmpConfig, setTmpConfig] = useState(config);
@@ -78,16 +62,11 @@ export const RunsChartsImageChartCard = ({
     setFullScreenChart?.({
       config,
       title: chartName,
-      subtitle: <ChartRunsCountIndicator runsOrGroups={chartRunData} />,
+      subtitle: null,
     });
   };
 
-  const slicedRuns = useMemo(() => {
-    if (shouldUseNewRunRowsVisibilityModel()) {
-      return chartRunData.filter(({ hidden }) => !hidden).reverse();
-    }
-    return chartRunData.slice(0, config.runsCountToCompare || 10).reverse();
-  }, [chartRunData, config]);
+  const slicedRuns = useMemo(() => chartRunData.filter(({ hidden }) => !hidden).reverse(), [chartRunData]);
 
   const setCardConfig = (setter: (current: RunsChartsCardConfig) => RunsChartsImageCardConfig) => {
     confirmChartCardConfiguration(setter(config));
@@ -119,14 +98,15 @@ export const RunsChartsImageChartCard = ({
         flexDirection: 'column',
         height: fullScreen ? '100%' : undefined,
         width: '100%',
-        overflow: 'auto',
+        overflow: 'hidden',
+        marginTop: theme.spacing.sm,
+        gap: theme.spacing.md,
       }}
     >
       <div
         ref={containerRef}
         css={{
-          cursor: 'pointer',
-          height: `calc(100% - ${theme.spacing.md * 2}px)`,
+          flex: 1,
           overflow: 'auto',
         }}
       >
@@ -135,7 +115,6 @@ export const RunsChartsImageChartCard = ({
           groupBy={groupBy}
           cardConfig={tmpConfig}
           setCardConfig={setCardConfig}
-          containerWidth={containerWidth}
         />
       </div>
       <div
@@ -146,16 +125,18 @@ export const RunsChartsImageChartCard = ({
           gap: theme.spacing.md,
         }}
       >
-        <div css={{ width: '350px' }}>
+        <div css={{ flex: 1 }}>
           <LineSmoothSlider
-            defaultValue={tmpConfig.step}
+            value={tmpConfig.step}
             onChange={tmpStepChange}
             max={maxMark}
             min={minMark}
             marks={stepMarks}
-            step={null}
             disabled={Object.keys(stepMarks).length <= 1}
             onAfterChange={updateStep}
+            css={{
+              '&[data-orientation="horizontal"]': { width: 'auto' },
+            }}
           />
         </div>
       </div>
@@ -165,6 +146,8 @@ export const RunsChartsImageChartCard = ({
   if (fullScreen) {
     return chartBody;
   }
+
+  const cardBodyToRender = chartBody;
 
   return (
     <RunsChartCardWrapper
@@ -179,7 +162,7 @@ export const RunsChartsImageChartCard = ({
       toggleFullScreenChart={toggleFullScreenChart}
       {...reorderProps}
     >
-      {chartBody}
+      {cardBodyToRender}
     </RunsChartCardWrapper>
   );
 };

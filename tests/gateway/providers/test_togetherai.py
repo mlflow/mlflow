@@ -17,7 +17,7 @@ from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "togetherai",
             "name": "mistralai/Mixtral-8x7B-Instruct-v0.1",
@@ -173,7 +173,7 @@ async def test_completions_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": "test"},
+                        "text": "test",
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -185,7 +185,11 @@ async def test_completions_stream(resp):
             },
             {
                 "choices": [
-                    {"delta": {"role": None, "content": "test"}, "finish_reason": None, "index": 0}
+                    {
+                        "text": "test",
+                        "finish_reason": None,
+                        "index": 0,
+                    }
                 ],
                 "created": 1,
                 "id": "test-id",
@@ -195,7 +199,7 @@ async def test_completions_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": "test"},
+                        "text": "test",
                         "finish_reason": "length",
                         "index": 0,
                     }
@@ -297,7 +301,7 @@ async def test_wrong_logprobs_type_error():
 def embeddings_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "togetherai",
             "name": "togethercomputer/m2-bert-80M-8k-retrieval",
@@ -367,7 +371,7 @@ async def test_embeddings():
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "togetherai",
             "name": "mistralai/Mixtral-8x7B-Instruct-v0.1",

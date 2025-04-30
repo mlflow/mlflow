@@ -1,4 +1,4 @@
-import { ApolloError } from '@apollo/client';
+import { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 
 interface CommonGraphQLApiError {
   code: string | null;

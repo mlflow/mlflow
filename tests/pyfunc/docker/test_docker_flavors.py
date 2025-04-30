@@ -33,7 +33,6 @@ if _MLFLOW_RUN_SLOW_TESTS.get():
         diviner_data,
         grouped_prophet,
     )
-    from tests.fastai.test_fastai_model_export import fastai_model as fastai_model_raw  # noqa: F401
     from tests.h2o.test_h2o_model_export import h2o_iris_model  # noqa: F401
     from tests.helper_functions import get_safe_port
     from tests.langchain.test_langchain_model_export import fake_chat_model  # noqa: F401
@@ -109,14 +108,15 @@ def start_container(port: int):
                 response = requests.get(url=f"http://localhost:{port}/ping")
                 if response.ok:
                     break
-            except requests.exceptions.ConnectionError:
-                time.sleep(5)
+            except requests.exceptions.ConnectionError as e:
+                sys.stdout.write(f"An exception occurred when calling the server: {e}\n")
 
             container.reload()  # update container status
             if container.status == "exited":
                 raise Exception("Container exited unexpectedly.")
 
             sys.stdout.write(f"Container status: {container.status}\n")
+            time.sleep(5)
 
         else:
             raise TimeoutError("Failed to start server.")
@@ -133,13 +133,11 @@ def start_container(port: int):
     [
         "catboost",
         "diviner",
-        "fastai",
         "h2o",
         # "johnsnowlabs", # Couldn't test JohnSnowLab locally due to license issue
         "keras",
         "langchain",
         "lightgbm",
-        # "mleap", # Mleap model logging is deprecated since 2.6.1
         "onnx",
         # "openai", # OPENAI API KEY is not necessarily available for everyone
         "paddle",
@@ -206,17 +204,6 @@ def diviner_model(model_path, grouped_prophet):
         diviner_model=grouped_prophet,
         path=model_path,
         input_example={"horizon": 10, "frequency": "D"},
-    )
-    return model_path
-
-
-@pytest.fixture
-def fastai_model(model_path, fastai_model_raw):
-    save_model_with_latest_mlflow_version(
-        flavor="fastai",
-        fastai_learner=fastai_model_raw.model,
-        path=model_path,
-        input_example=fastai_model_raw.inference_dataframe[:1],
     )
     return model_path
 

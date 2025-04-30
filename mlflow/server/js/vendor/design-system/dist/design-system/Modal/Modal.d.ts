@@ -1,4 +1,5 @@
 import type { ModalProps as AntDModalProps } from 'antd';
+import React from 'react';
 import type { ButtonProps } from '../Button';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
 import type { AnalyticsEventPropsWithStartInteraction, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';

@@ -1035,14 +1035,13 @@ def test_infer_param_schema():
     with pytest.raises(MlflowException, match=r"Binary type is not supported for parameters"):
         _infer_param_schema({"a": b"str_a"})
 
-    # Raise error for invalid parameters types - tuple, 2D array, dictionary
+    # Raise error for invalid parameters types - tuple, 2D array
     test_parameters = {
         "a": "str_a",
         "b": (1, 2, 3),
         "c": True,
         "d": [[1, 2], [3, 4]],
         "e": [[[1, 2], [3], []]],
-        "f": {"a": 1, "b": 2},
     }
     with pytest.raises(MlflowException, match=r".*") as e:
         _infer_param_schema(test_parameters)
@@ -1065,12 +1064,52 @@ def test_infer_param_schema():
             "to be 1D array or scalar, got 3D array'))"
         )
     )
-    assert e.match(
-        re.escape(
-            "('f', {'a': 1, 'b': 2}, MlflowException('Expected parameters "
-            "to be 1D array or scalar, got dict'))"
-        )
+
+
+def test_param_schema_for_dicts():
+    data = {
+        "config": {
+            "thread_id": "1",
+            "batch_size": 32,
+            "messages": [{"role": "user", "content": "hello"}],
+        }
+    }
+    schema = _infer_param_schema(data)
+    object_schema = Object(
+        [
+            Property("thread_id", DataType.string),
+            Property("batch_size", DataType.long),
+            Property(
+                "messages",
+                Array(
+                    Object(
+                        [
+                            Property("role", DataType.string),
+                            Property("content", DataType.string),
+                        ]
+                    )
+                ),
+            ),
+        ]
     )
+    assert schema == ParamSchema(
+        [
+            ParamSpec(
+                "config",
+                object_schema,
+                data["config"],
+            )
+        ]
+    )
+    assert schema.to_dict() == [
+        {
+            "name": "config",
+            "default": data["config"],
+            "shape": None,
+        }
+        | object_schema.to_dict()
+    ]
+    assert ParamSchema.from_json(json.dumps(schema.to_dict())) == schema
 
 
 def test_infer_param_schema_with_errors():
@@ -1879,6 +1918,18 @@ def test_convert_dataclass_to_schema_invalid():
         (
             {"a": {"x": None}},
             Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
+        ),
+        (
+            {"a": {"x": pd.NA}},
+            Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
+        ),
+        (
+            pd.DataFrame({"a": [True, None]}),
+            Schema([ColSpec(type=DataType.boolean, name="a", required=False)]),
+        ),
+        (
+            pd.DataFrame({"a": [True, None]}).astype("boolean"),
+            Schema([ColSpec(type=DataType.boolean, name="a", required=False)]),
         ),
         (
             [

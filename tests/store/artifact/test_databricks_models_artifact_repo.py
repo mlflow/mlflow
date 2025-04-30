@@ -5,7 +5,6 @@ from unittest.mock import ANY
 import pytest
 import requests
 
-from mlflow import MlflowClient
 from mlflow.entities import FileInfo
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.environment_variables import MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE
@@ -13,6 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.databricks_models_artifact_repo import (
     DatabricksModelsArtifactRepository,
 )
+from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.utils.file_utils import _Chunk
 
 DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE = (
@@ -63,7 +63,7 @@ def test_init_with_stage_uri_containing_profile(stage_uri_with_profile):
         "run12345",
     )
     get_latest_versions_patch = mock.patch.object(
-        MlflowClient, "get_latest_versions", return_value=[model_version_detailed]
+        ModelRegistryClient, "get_latest_versions", return_value=[model_version_detailed]
     )
     with get_latest_versions_patch:
         repo = DatabricksModelsArtifactRepository(stage_uri_with_profile)
@@ -125,7 +125,7 @@ def test_init_with_stage_uri_and_profile_is_inferred(stage_uri_without_profile):
         "run12345",
     )
     get_latest_versions_patch = mock.patch.object(
-        MlflowClient, "get_latest_versions", return_value=[model_version_detailed]
+        ModelRegistryClient, "get_latest_versions", return_value=[model_version_detailed]
     )
     with (
         get_latest_versions_patch,

@@ -14,7 +14,6 @@ import logging
 import os
 import posixpath
 import shutil
-import warnings
 from functools import partial
 from typing import Any, Optional
 
@@ -69,7 +68,6 @@ _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
 _TORCH_STATE_DICT_FILE_NAME = "state_dict.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
 _EXTRA_FILES_KEY = "extra_files"
-_REQUIREMENTS_FILE_KEY = "requirements_file"
 _TORCH_CPU_DEVICE_NAME = "cpu"
 _TORCH_DEFAULT_GPU_DEVICE_NAME = "cuda"
 
@@ -116,7 +114,7 @@ def get_default_conda_env():
 
         # Log PyTorch model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model", signature=signature)
+            mlflow.pytorch.log_model(model, name="model", signature=signature)
 
         # Fetch the associated conda environment
         env = mlflow.pytorch.get_default_conda_env()
@@ -138,7 +136,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="torch"))
 def log_model(
     pytorch_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     pickle_module=None,
@@ -146,11 +144,16 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    requirements_file=None,
     extra_files=None,
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -177,8 +180,7 @@ def log_model(
                 - The package(s) listed in the model's Conda environment, specified by the
                   ``conda_env`` parameter.
                 - One or more of the files specified by the ``code_paths`` parameter.
-
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
@@ -193,22 +195,6 @@ def log_model(
             being created and is in ``READY`` status. By default, the function waits for five
             minutes.  Specify 0 or None to skip waiting.
 
-        requirements_file:
-
-            .. warning::
-
-                ``requirements_file`` has been deprecated. Please use ``pip_requirements`` instead.
-
-            A string containing the path to requirements file. Remote URIs are resolved to absolute
-            filesystem paths. For example, consider the following ``requirements_file`` string:
-
-            .. code-block:: python
-
-                requirements_file = "s3://my-bucket/path/to/my_file"
-
-            In this case, the ``"my_file"`` requirements file is downloaded from S3. If ``None``,
-            no requirements file is added to the model.
-
         extra_files: A list containing the paths to corresponding extra files, if ``None``, no
             extra files are added to the model. Remote URIs are resolved to absolute filesystem
             paths. For example, consider the following ``extra_files`` list:
@@ -222,6 +208,12 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: kwargs to pass to ``torch.save`` method.
 
     Returns:
@@ -265,11 +257,11 @@ def log_model(
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model")
+            mlflow.pytorch.log_model(model, name="model")
 
             # convert to scripted model and log the model
             scripted_pytorch_model = torch.jit.script(model)
-            mlflow.pytorch.log_model(scripted_pytorch_model, "scripted_model")
+            mlflow.pytorch.log_model(scripted_pytorch_model, name="scripted_model")
 
         # Fetch the logged model artifacts
         print(f"run_id: {run.info.run_id}")
@@ -295,6 +287,7 @@ def log_model(
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.pytorch,
         pytorch_model=pytorch_model,
         conda_env=conda_env,
@@ -304,11 +297,15 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
-        requirements_file=requirements_file,
         extra_files=extra_files,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
@@ -323,7 +320,6 @@ def save_model(
     pickle_module=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    requirements_file=None,
     extra_files=None,
     pip_requirements=None,
     extra_pip_requirements=None,
@@ -355,21 +351,6 @@ def save_model(
             model at loading time.
         signature: {{ signature }}
         input_example: {{ input_example }}
-        requirements_file:
-
-            .. warning::
-
-                ``requirements_file`` has been deprecated. Please use ``pip_requirements`` instead.
-
-            A string containing the path to requirements file. Remote URIs are resolved to absolute
-            filesystem paths. For example, consider the following ``requirements_file`` string:
-
-            .. code-block:: python
-
-                requirements_file = "s3://my-bucket/path/to/my_file"
-
-            In this case, the ``"my_file"`` requirements file is downloaded from S3. If ``None``,
-            no requirements file is added to the model.
 
         extra_files: A list containing the paths to corresponding extra files. Remote URIs
             are resolved to absolute filesystem paths.
@@ -498,24 +479,6 @@ def save_model(
                 posixpath.join(path, _EXTRA_FILES_KEY),
             )
 
-    if requirements_file:
-        warnings.warn(
-            "`requirements_file` has been deprecated. Please use `pip_requirements` instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-
-        if not isinstance(requirements_file, str):
-            raise TypeError("Path to requirements file should be a string")
-
-        with TempDir() as tmp_requirements_dir:
-            _download_artifact_from_uri(
-                artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
-            )
-            rel_path = os.path.basename(requirements_file)
-            torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
-            shutil.move(tmp_requirements_dir.path(rel_path), path)
-
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         model_data=model_data_subpath,
@@ -565,9 +528,8 @@ def save_model(
     if pip_constraints:
         write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
-    if not requirements_file:
-        # Save `requirements.txt`
-        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
@@ -662,7 +624,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model")
+            mlflow.pytorch.log_model(model, name="model")
 
         # Inference after loading the logged model
         model_uri = f"runs:/{run.info.run_id}/model"
@@ -695,7 +657,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
-def _load_pyfunc(path, model_config=None):  # noqa: D417
+def _load_pyfunc(path, model_config=None, weights_only=False):  # noqa: D417
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
@@ -716,6 +678,15 @@ def _load_pyfunc(path, model_config=None):  # noqa: D417
             device = _TORCH_DEFAULT_GPU_DEVICE_NAME
         else:
             device = _TORCH_CPU_DEVICE_NAME
+
+    # in pytorch >= 2.6.0, the `weights_only` kwarg default has been changed from
+    # `False` to `True`. this can cause pickle deserialization errors when loading
+    # models, unless the model classes have been explicitly marked as safe using
+    # `torch.serialization.add_safe_globals()`
+    if Version(torch.__version__) >= Version("2.6.0"):
+        return _PyTorchWrapper(
+            _load_model(path, device=device, weights_only=weights_only), device=device
+        )
 
     return _PyTorchWrapper(_load_model(path, device=device), device=device)
 

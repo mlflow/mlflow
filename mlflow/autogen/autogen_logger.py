@@ -54,6 +54,16 @@ class ChatState:
         self.pending_spans = []
 
 
+def _catch_exception(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            _logger.error(f"Error occurred during AutoGen tracing: {e}")
+
+    return wrapper
+
+
 class MlflowAutogenLogger(BaseLogger):
     def __init__(self):
         self._client = MlflowClient()
@@ -62,6 +72,7 @@ class MlflowAutogenLogger(BaseLogger):
     def start(self) -> str:
         return "session_id"
 
+    @_catch_exception
     def log_new_agent(self, agent: ConversableAgent, init_args: dict[str, Any]) -> None:
         """
         This handler is called whenever a new agent instance is created.
@@ -125,7 +136,7 @@ class MlflowAutogenLogger(BaseLogger):
                     raise e
                 finally:
                     self._client.end_trace(
-                        request_id=span.request_id, outputs=result, status=span.status
+                        trace_id=span.trace_id, outputs=result, status=span.status
                     )
                     # Clear the state to start a new chat session
                     self._chat_state.clear()
@@ -143,7 +154,7 @@ class MlflowAutogenLogger(BaseLogger):
                     raise e
                 finally:
                     self._client.end_span(
-                        request_id=span.request_id,
+                        trace_id=span.trace_id,
                         span_id=span.span_id,
                         outputs=result,
                         status=span.status,
@@ -180,7 +191,7 @@ class MlflowAutogenLogger(BaseLogger):
             return NoOpSpan()
 
         return self._client.start_span(
-            request_id=self._chat_state.session_span.request_id,
+            trace_id=self._chat_state.session_span.trace_id,
             # Tentatively set the parent ID to the session root span, because we
             # cannot create a span without a parent span (otherwise it will start
             # a new trace). The actual parent will be determined once the chat
@@ -193,6 +204,7 @@ class MlflowAutogenLogger(BaseLogger):
             start_time_ns=start_time_ns,
         )
 
+    @_catch_exception
     def log_event(self, source: Union[str, Agent], name: str, **kwargs: dict[str, Any]):
         event_end_time = time.time_ns()
         if name == "received_message":
@@ -207,7 +219,7 @@ class MlflowAutogenLogger(BaseLogger):
                     start_time_ns=self._chat_state.last_message_timestamp,
                 )
                 self._client.end_span(
-                    request_id=span.request_id,
+                    trace_id=span.trace_id,
                     span_id=span.span_id,
                     outputs=kwargs,
                     end_time_ns=event_end_time,
@@ -221,6 +233,7 @@ class MlflowAutogenLogger(BaseLogger):
             self._chat_state.last_message = kwargs
             self._chat_state.last_message_timestamp = event_end_time
 
+    @_catch_exception
     def log_chat_completion(
         self,
         invocation_id: uuid.UUID,
@@ -252,7 +265,7 @@ class MlflowAutogenLogger(BaseLogger):
             start_time_ns=start_time_ns,
         )
         self._client.end_span(
-            request_id=span.request_id,
+            trace_id=span.trace_id,
             span_id=span.span_id,
             outputs=response,
             end_time_ns=time.time_ns(),
@@ -260,17 +273,22 @@ class MlflowAutogenLogger(BaseLogger):
         self._chat_state.pending_spans.append(span)
 
     # The following methods are not used but are required to implement the BaseLogger interface.
+    @_catch_exception
     def log_function_use(self, *args: Any, **kwargs: Any):
         pass
 
+    @_catch_exception
     def log_new_wrapper(self, wrapper, init_args):
         pass
 
+    @_catch_exception
     def log_new_client(self, client, wrapper, init_args):
         pass
 
+    @_catch_exception
     def stop(self) -> None:
         pass
 
+    @_catch_exception
     def get_connection(self):
         pass

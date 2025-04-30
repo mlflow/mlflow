@@ -1,7 +1,7 @@
 from typing import Optional
 
-from mlflow.gateway.base_models import ResponseModel
-from mlflow.gateway.schemas.chat import BaseRequestPayload
+from mlflow.gateway.base_models import RequestModel, ResponseModel
+from mlflow.types.chat import BaseRequestPayload
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
@@ -15,7 +15,7 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 }
 
 
-class RequestPayload(BaseRequestPayload):
+class RequestPayload(BaseRequestPayload, RequestModel):
     prompt: str
     model: Optional[str] = None
 
@@ -75,7 +75,7 @@ class StreamDelta(ResponseModel):
 class StreamChoice(ResponseModel):
     index: int
     finish_reason: Optional[str] = None
-    delta: StreamDelta
+    text: Optional[str] = None
 
 
 _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {

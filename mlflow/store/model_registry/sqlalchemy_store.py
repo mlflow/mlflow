@@ -1,10 +1,12 @@
 import logging
 import urllib
+from typing import Any, Optional, Union
 
 import sqlalchemy
 from sqlalchemy.future import select
 
 import mlflow.store.db.utils
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.model_registry.model_version_stages import (
     ALL_STAGES,
     DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS,
@@ -12,7 +14,9 @@ from mlflow.entities.model_registry.model_version_stages import (
     STAGE_DELETED_INTERNAL,
     get_canonical_stage,
 )
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import handle_resource_already_exist_error, has_prompt_tag
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
@@ -35,12 +39,14 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelAlias,
     SqlRegisteredModelTag,
 )
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
     _validate_model_alias_name,
     _validate_model_name,
+    _validate_model_renaming,
     _validate_model_version,
     _validate_model_version_tag,
     _validate_registered_model_tag,
@@ -151,7 +157,7 @@ class SqlAlchemyStore(AbstractStore):
         # loading_relationships.html#relationship-loading-techniques
         return [sqlalchemy.orm.subqueryload(SqlModelVersion.model_version_tags)]
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -160,6 +166,7 @@ class SqlAlchemyStore(AbstractStore):
             tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                 instances associated with this registered model.
             description: Description of the version.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -186,10 +193,10 @@ class SqlAlchemyStore(AbstractStore):
                 session.add(registered_model)
                 session.flush()
                 return registered_model.to_mlflow_entity()
-            except sqlalchemy.exc.IntegrityError as e:
-                raise MlflowException(
-                    f"Registered Model (name={name}) already exists. Error: {e}",
-                    RESOURCE_ALREADY_EXISTS,
+            except sqlalchemy.exc.IntegrityError:
+                existing_model = self.get_registered_model(name)
+                handle_resource_already_exist_error(
+                    name, has_prompt_tag(existing_model._tags), has_prompt_tag(tags)
                 )
 
     @classmethod
@@ -220,13 +227,14 @@ class SqlAlchemyStore(AbstractStore):
             )
         return rms[0]
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """
         Update description of the registered model.
 
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -253,7 +261,7 @@ class SqlAlchemyStore(AbstractStore):
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
 
         """
-        _validate_model_name(new_name)
+        _validate_model_renaming(new_name)
         with self.ManagedSessionMaker() as session:
             sql_registered_model = self._get_registered_model(session, name)
             try:
@@ -394,6 +402,12 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
         rm_query = select(SqlRegisteredModel).filter(*attribute_filters)
+
+        if not cls._is_querying_prompt(parsed_filters):
+            rm_query = cls._update_query_to_exclude_prompts(
+                rm_query, tag_filters, dialect, SqlRegisteredModel, SqlRegisteredModelTag
+            )
+
         if tag_filters:
             sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
             tag_filter_query = (
@@ -480,6 +494,12 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
         mv_query = select(SqlModelVersion).filter(*attribute_filters)
+
+        if not cls._is_querying_prompt(parsed_filters):
+            mv_query = cls._update_query_to_exclude_prompts(
+                mv_query, tag_filters, dialect, SqlModelVersion, SqlModelVersionTag
+            )
+
         if tag_filters:
             sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
             tag_filter_query = (
@@ -498,6 +518,59 @@ class SqlAlchemyStore(AbstractStore):
             )
         else:
             return mv_query
+
+    @classmethod
+    def _update_query_to_exclude_prompts(
+        cls,
+        query: Any,
+        tag_filters: dict[str, list[Any]],
+        dialect: str,
+        main_db_model: Union[SqlModelVersion, SqlRegisteredModel],
+        tag_db_model: Union[SqlModelVersionTag, SqlRegisteredModelTag],
+    ):
+        """
+        Update query to exclude all prompt rows and return only normal model or model versions.
+
+        Prompts and normal models are distinguished by the `mlflow.prompt.is_prompt` tag.
+        The search API should only return normal models by default. However, simply filtering
+        rows using the tag like this does not work because models do not have the prompt tag.
+
+            tags.`mlflow.prompt.is_prompt` != 'true'
+            tags.`mlflow.prompt.is_prompt` = 'false'
+
+        To workaround this, we need to use a subquery to get all prompt rows and then use an
+        anti-join for excluding prompts.
+        """
+        # If the tag filter contains the prompt tag, remove it
+        tag_filters.pop(IS_PROMPT_TAG_KEY, [])
+
+        # Filter to get all prompt rows
+        equal = SearchUtils.get_sql_comparison_func("=", dialect)
+        prompts_subquery = (
+            select(tag_db_model.name)
+            .filter(
+                equal(tag_db_model.key, IS_PROMPT_TAG_KEY),
+                equal(tag_db_model.value, "true"),
+            )
+            .group_by(tag_db_model.name)
+            .subquery()
+        )
+        return query.join(
+            prompts_subquery, main_db_model.name == prompts_subquery.c.name, isouter=True
+        ).filter(prompts_subquery.c.name.is_(None))
+
+    @classmethod
+    def _is_querying_prompt(cls, parsed_filters: list[dict[str, Any]]) -> bool:
+        for f in parsed_filters:
+            if f["type"] != "tag" or f["key"] != IS_PROMPT_TAG_KEY:
+                continue
+
+            return (f["comparator"] == "=" and f["value"].lower() == "true") or (
+                f["comparator"] == "!=" and f["value"].lower() == "false"
+            )
+
+        # Query should return only normal models by default
+        return False
 
     @classmethod
     def _parse_search_registered_models_order_by(cls, order_by_list):
@@ -570,7 +643,14 @@ class SqlAlchemyStore(AbstractStore):
                 expected_stages = {get_canonical_stage(stage) for stage in ALL_STAGES}
             else:
                 expected_stages = {get_canonical_stage(stage) for stage in stages}
-            return [mv for mv in latest_versions if mv.current_stage in expected_stages]
+            mvs = [mv for mv in latest_versions if mv.current_stage in expected_stages]
+
+            # Populate aliases for each model version
+            for mv in mvs:
+                model_aliases = sql_registered_model.registered_model_aliases
+                mv.aliases = [alias.alias for alias in model_aliases if alias.version == mv.version]
+
+            return mvs
 
     @classmethod
     def _get_registered_model_tag(cls, session, name, key):
@@ -638,6 +718,8 @@ class SqlAlchemyStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
+        model_params: Optional[list[LoggedModelParameter]] = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -651,6 +733,9 @@ class SqlAlchemyStore(AbstractStore):
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
             local_model_path: Unused.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
+            model_params: The parameters of the model (from an Experiment) that is being promoted
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -671,9 +756,17 @@ class SqlAlchemyStore(AbstractStore):
         if urllib.parse.urlparse(source).scheme == "models":
             parsed_model_uri = _parse_model_uri(source)
             try:
-                storage_location = self.get_model_version_download_uri(
-                    parsed_model_uri.name, parsed_model_uri.version
-                )
+                if parsed_model_uri.model_id is not None:
+                    # TODO: Propagate tracking URI to file sqlalchemy directly, rather than relying
+                    # on global URI (individual MlflowClient instances may have different tracking
+                    # URIs)
+                    model = MlflowClient().get_logged_model(parsed_model_uri.model_id)
+                    storage_location = model.artifact_location
+                    run_id = run_id or model.source_run_id
+                else:
+                    storage_location = self.get_model_version_download_uri(
+                        parsed_model_uri.name, parsed_model_uri.version
+                    )
             except Exception as e:
                 raise MlflowException(
                     f"Unable to fetch model from model URI source artifact location '{source}'."

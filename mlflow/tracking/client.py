@@ -9,7 +9,9 @@ import json
 import logging
 import os
 import posixpath
+import random
 import re
+import string
 import sys
 import tempfile
 import urllib
@@ -24,6 +26,10 @@ from mlflow.entities import (
     DatasetInput,
     Experiment,
     FileInfo,
+    LoggedModel,
+    LoggedModelInput,
+    LoggedModelOutput,
+    LoggedModelStatus,
     Metric,
     Param,
     Run,
@@ -36,12 +42,30 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel
+from mlflow.entities.assessment import (
+    Assessment,
+    Expectation,
+    Feedback,
+)
+from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, NoOpSpan, create_mlflow_span
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan, create_mlflow_span
+from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import (
+    IS_PROMPT_TAG_KEY,
+    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
+    PROMPT_TEXT_TAG_KEY,
+)
+from mlflow.prompt.registry_utils import (
+    has_prompt_tag,
+    require_prompt_registry,
+    translate_prompt_exception,
+    validate_prompt_name,
+)
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
@@ -60,11 +84,11 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFA
 from mlflow.tracing.constant import (
     TRACE_REQUEST_ID_PREFIX,
     SpanAttributeKey,
-    TraceTagKey,
 )
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import exclude_immutable_tags, get_otel_attribute
+from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -73,6 +97,7 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils import is_uuid
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
@@ -108,6 +133,13 @@ _STAGES_DEPRECATION_WARNING = (
     "deprecation of model registry stages, see our migration guide here: https://mlflow.org/docs/"
     "latest/model-registry.html#migrating-from-stages"
 )
+
+
+def _model_not_found(name: str) -> MlflowException:
+    return MlflowException(
+        f"Registered Model with name={name!r} not found.",
+        RESOURCE_DOES_NOT_EXIST,
+    )
 
 
 class MlflowClient:
@@ -392,22 +424,390 @@ class MlflowClient:
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
 
+    ##### Prompt Registry #####
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def register_prompt(
+        self,
+        name: str,
+        template: str,
+        commit_message: Optional[str] = None,
+        version_metadata: Optional[dict[str, str]] = None,
+        tags: Optional[dict[str, str]] = None,
+    ) -> Prompt:
+        """
+        Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
+
+        A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name
+        and template text at minimum. With MLflow Prompt Registry, you can create, manage,
+        and version control prompts with the MLflow's robust model tracking framework.
+
+        If there is no registered prompt with the given name, a new prompt will be created.
+        Otherwise, a new version of the existing prompt will be created.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            # Your prompt registry URI
+            client = MlflowClient(registry_uri="sqlite:///prompt_registry.db")
+
+            # Register a new prompt
+            client.register_prompt(
+                name="my_prompt",
+                template="Respond to the user's message as a {{style}} AI.",
+                version_metadata={"author": "Alice"},
+            )
+
+            # Load the prompt from the registry
+            prompt = client.load_prompt("my_prompt")
+
+            # Use the prompt in your application
+            import openai
+
+            openai_client = openai.OpenAI()
+            openai_client.chat.completion.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": prompt.format(style="friendly")},
+                    {"role": "user", "content": "Hello, how are you?"},
+                ],
+            )
+
+            # Update the prompt with a new version
+            prompt = client.register_prompt(
+                name="my_prompt",
+                template="Respond to the user's message as a {{style}} AI. {{greeting}}",
+                commit_message="Add a greeting to the prompt.",
+                version_metadata={"author": "Bob"},
+            )
+
+        Args:
+            name: The name of the prompt.
+            template: The template text of the prompt. It can contain variables enclosed in
+                double curly braces, e.g. {{variable}}, which will be replaced with actual values
+                by the `format` method.
+            commit_message: A message describing the changes made to the prompt, similar to a
+                Git commit message. Optional.
+            version_metadata: A dictionary of metadata associated with the **prompt version**.
+                This is useful for storing version-specific information, such as the author of
+                the changes. Optional.
+            tags: A dictionary of tags associated with the entire prompt. This is different from
+                the `version_metadata` as it is not tied to a specific version of the prompt,
+                but to the prompt as a whole. For example, you can use tags to add an application
+                name for which the prompt is created. Since the application uses the prompt in
+                multiple versions, it makes sense to use tags instead of version-specific metadata.
+                Optional.
+
+        Returns:
+            A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
+        """
+        registry_client = self._get_registry_client()
+
+        validate_prompt_name(name)
+
+        is_new_prompt = False
+        rm = None
+        tags = tags or {}
+        try:
+            rm = registry_client.get_registered_model(name)
+        except MlflowException:
+            # Create a new prompt (model) entry
+            registry_client.create_registered_model(
+                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true", **tags}
+            )
+            is_new_prompt = True
+
+        # Check if the registered model is a prompt
+        if rm and not has_prompt_tag(rm._tags):
+            raise MlflowException(
+                f"Model '{name}' exists with the same name. MLflow does not allow registering "
+                "a prompt with the same name as an existing model. Please choose a different "
+                "name for the prompt.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        # Update the prompt tags
+        if not is_new_prompt:
+            for key, value in tags.items():
+                registry_client.set_registered_model_tag(name, key, value)
+
+        # Version metadata is represented as ModelVersion tags in the registry
+        version_metadata = version_metadata or {}
+        version_metadata.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
+
+        try:
+            mv: ModelVersion = registry_client.create_model_version(
+                name=name,
+                description=commit_message,
+                source="dummy-source",  # Required field, but not used for prompts
+                tags=version_metadata,
+            )
+        except Exception:
+            if is_new_prompt:
+                # When a model version creation fails for the first version of a prompt,
+                # delete the registered model to avoid leaving a prompt with no versions
+                registry_client.delete_registered_model(name)
+            raise
+
+        # Fetch the prompt-level tags from the registered model
+        prompt_tags = registry_client.get_registered_model(name)._tags
+
+        return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def load_prompt(
+        self, name_or_uri: str, version: Optional[int] = None, allow_missing: bool = False
+    ) -> Prompt:
+        """
+        Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
+
+        The prompt can be specified by name and version, or by URI.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient(registry_uri="sqlite:///prompt_registry.db")
+
+            # Load the latest version of the prompt by name
+            prompt = client.load_prompt("my_prompt")
+
+            # Load a specific version of the prompt by name and version
+            prompt = client.load_prompt("my_prompt", version=1)
+
+            # Load a specific version of the prompt by URI
+            prompt = client.load_prompt("prompts:/my_prompt/1")
+
+        Args:
+            name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
+            version: The version of the prompt. If not specified, the latest version will be loaded.
+            allow_missing: If True, return None instead of raising Exception if the specified prompt
+                is not found.
+        """
+        if name_or_uri.startswith("prompts:/"):
+            if version is not None:
+                raise MlflowException(
+                    "The `version` argument should not be specified when loading a prompt by URI.",
+                    INVALID_PARAMETER_VALUE,
+                )
+            name, version = self.parse_prompt_uri(name_or_uri)
+        else:
+            name = name_or_uri
+
+        registry_client = self._get_registry_client()
+        try:
+            mv = (
+                registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
+                if version is None
+                else registry_client.get_model_version(name, version)
+            )
+        except MlflowException as exc:
+            if allow_missing and exc.error_code == "RESOURCE_DOES_NOT_EXIST":
+                return None
+            raise
+
+        # Fetch the prompt-level tags from the registered model
+        prompt_tags = registry_client.get_registered_model(name)._tags
+
+        return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def delete_prompt(self, name: str, version: int):
+        """
+        Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
+
+        Args:
+            name: The name of the prompt.
+            version: The version of the prompt to delete.
+        """
+        registry_client = self._get_registry_client()
+
+        self._validate_prompt(name, version)
+        registry_client.delete_model_version(name, version)
+
+        # If no more versions are left, delete the registered model
+        if not registry_client.get_latest_versions(name, stages=ALL_STAGES):
+            registry_client.delete_registered_model(name)
+
+    # TODO: Use model_id in MLflow 3.0
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def log_prompt(self, run_id: str, prompt: Union[str, Prompt]) -> None:
+        """
+        Associate a prompt registered within the MLflow Prompt Registry with an MLflow Run.
+
+        .. warning::
+
+            This API is not thread-safe. If you are logging prompts from multiple threads,
+            consider using a lock to ensure that only one thread logs a prompt to a run at a time.
+
+        Args:
+            run_id: The ID of the run to log the prompt to.
+            prompt: A Prompt object or the prompt URI in the format "prompts:/name/version".
+        """
+        if isinstance(prompt, str):
+            prompt = self.load_prompt(prompt)
+        elif isinstance(prompt, Prompt):
+            # NB: We need to load the prompt once from the registry because the tags in
+            # local prompt object may not be in sync with the registry.
+            prompt = self.load_prompt(prompt.uri)
+        elif not isinstance(prompt, Prompt):
+            raise MlflowException.invalid_parameter_value(
+                "The `prompt` argument must be a Prompt object or a prompt URI.",
+            )
+
+        if run_id_tags := prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY):
+            run_ids = run_id_tags.split(",")
+            if run_id not in run_ids:
+                run_ids.append(run_id)
+        else:
+            run_ids = [run_id]
+
+        self._get_registry_client().set_model_version_tag(
+            prompt.name, prompt.version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
+        )
+
+    # TODO: Use model_id in MLflow 3.0
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def detach_prompt_from_run(self, run_id: str, prompt_uri: str) -> None:
+        """
+        Detach a prompt registered within the MLflow Prompt Registry from an MLflow Run.
+
+        Args:
+            run_id: The ID of the run to log the prompt to.
+            prompt_uri: The prompt URI in the format "prompts:/name/version".
+        """
+        prompt = self.load_prompt(prompt_uri)
+        run_id_tags = prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
+        run_ids = run_id_tags.split(",") if run_id_tags else []
+
+        if run_id not in run_ids:
+            raise MlflowException(
+                f"Run '{run_id}' is not associated with prompt '{prompt_uri}'.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        run_ids.remove(run_id)
+
+        name, version = self.parse_prompt_uri(prompt_uri)
+        if run_ids:
+            self._get_registry_client().set_model_version_tag(
+                name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
+            )
+        else:
+            self._get_registry_client().delete_model_version_tag(
+                name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY
+            )
+
+    # TODO: Use model_id in MLflow 3.0
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def list_logged_prompts(self, run_id: str) -> list[Prompt]:
+        """
+        List all prompts associated with an MLflow Run.
+
+        Args:
+            run_id: The ID of the run to list the prompts for.
+
+        Returns:
+            A list of :py:class:`Prompt <mlflow.entities.Prompt>` objects associated with the run.
+        """
+        mvs = self.search_model_versions(
+            filter_string=(
+                f"tags.`{PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY}` LIKE '%{run_id}%' "
+                f"AND tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
+            )
+        )
+        # NB: We don't support pagination here because the number of prompts associated
+        # with a Run is expected to be small.
+        return [Prompt.from_model_version(mv) for mv in mvs]
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def set_prompt_alias(self, name: str, alias: str, version: int) -> None:
+        """
+        Set an alias for a :py:class:`Prompt <mlflow.entities.Prompt>`.
+
+        Args:
+            name: The name of the prompt.
+            alias: The alias to set for the prompt.
+            version: The version of the prompt.
+        """
+        self._validate_prompt(name, version)
+        self._get_registry_client().set_registered_model_alias(name, alias, version)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def delete_prompt_alias(self, name: str, alias: str) -> None:
+        """
+        Delete an alias for a :py:class:`Prompt <mlflow.entities.Prompt>`.
+
+        Args:
+            name: The name of the prompt.
+            alias: The alias to delete for the prompt.
+        """
+        self._get_registry_client().delete_registered_model_alias(name, alias)
+
+    def _validate_prompt(self, name: str, version: int):
+        registry_client = self._get_registry_client()
+        mv = registry_client.get_model_version(name, version)
+
+        if IS_PROMPT_TAG_KEY not in mv.tags:
+            raise MlflowException(f"Prompt '{name}' does not exist.", RESOURCE_DOES_NOT_EXIST)
+
+    def parse_prompt_uri(self, uri: str) -> tuple[str, str]:
+        """
+        Parse prompt URI into prompt name and prompt version.
+        - 'prompt:/<name>/<version>' -> ('<name>', '<version>')
+        - 'prompt:/<name>@<alias>' -> ('<name>', '<version>')
+        """
+        parsed = urllib.parse.urlparse(uri)
+
+        if parsed.scheme != "prompts":
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid prompt URI: {uri}. Expected schema 'prompts:/<name>/<version>'"
+            )
+
+        # Replace schema to 'models:/' to reuse the model URI parsing logic
+        try:
+            return get_model_name_and_version(self, f"models:{parsed.path}")
+        except MlflowException:
+            raise MlflowException(f"Prompt '{uri}' does not exist.", RESOURCE_DOES_NOT_EXIST)
+
+    ##### Tracing #####
+
     def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
         return self._tracking_client._upload_trace_data(trace_info, trace_data)
 
-    @experimental
     def delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[list[str]] = None,
+        trace_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
 
-        - Either `max_timestamp_millis` or `request_ids` must be specified, but not both.
-        - `max_traces` can't be specified if `request_ids` is specified.
+        - Either `max_timestamp_millis` or `trace_ids` must be specified, but not both.
+        - `max_traces` can't be specified if `trace_ids` is specified.
 
         Args:
             experiment_id: ID of the associated experiment.
@@ -416,7 +816,7 @@ class MlflowClient:
             max_traces: The maximum number of traces to delete. If max_traces is specified, and
                 it is less than the number of traces that would be deleted based on the
                 max_timestamp_millis, the oldest traces will be deleted first.
-            request_ids: A set of request IDs to delete.
+            trace_ids: A set of trace IDs to delete.
 
         Returns:
             The number of traces deleted.
@@ -443,23 +843,23 @@ class MlflowClient:
                 experiment_id="0", max_timestamp_millis=some_timestamp, max_traces=2
             )
 
-            # Delete traces based on request_ids
-            client.delete_traces(experiment_id="0", request_ids=["id_1", "id_2"])
+            # Delete traces based on trace_ids
+            client.delete_traces(experiment_id="0", trace_ids=["id_1", "id_2"])
         """
         return self._tracking_client.delete_traces(
             experiment_id=experiment_id,
             max_timestamp_millis=max_timestamp_millis,
             max_traces=max_traces,
-            request_ids=request_ids,
+            request_ids=trace_ids,
         )
 
-    @experimental
-    def get_trace(self, request_id: str, display=True) -> Trace:
+    @request_id_backward_compatible
+    def get_trace(self, trace_id: str, display=True) -> Trace:
         """
-        Get the trace matching the specified ``request_id``.
+        Get the trace matching the specified ``trace_id``.
 
         Args:
-            request_id: String ID of the trace to fetch.
+            trace_id: String ID of the trace to fetch.
             display: If ``True``, display the trace on the notebook.
 
         Returns:
@@ -471,15 +871,20 @@ class MlflowClient:
             from mlflow import MlflowClient
 
             client = MlflowClient()
-            request_id = "12345678"
-            trace = client.get_trace(request_id)
+            trace_id = "12345678"
+            trace = client.get_trace(trace_id)
         """
-        trace = self._tracking_client.get_trace(request_id)
+        if is_databricks_uri(str(self.tracking_uri)) and is_uuid(trace_id):
+            raise MlflowException.invalid_parameter_value(
+                "Traces from inference tables can only be loaded using SQL or "
+                "the search_traces() API."
+            )
+
+        trace = self._tracking_client.get_trace(trace_id)
         if display:
             get_display_handler().display_traces([trace])
         return trace
 
-    @experimental
     def search_traces(
         self,
         experiment_ids: list[str],
@@ -488,6 +893,9 @@ class MlflowClient:
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
+        include_spans: bool = True,
+        model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -502,6 +910,13 @@ class MlflowClient:
             run_id: A run id to scope the search. When a trace is created under an active run,
                 it will be associated with the run and you can filter on the run id to retrieve
                 the trace.
+            include_spans: If ``True``, include spans in the returned traces. Otherwise, only
+                the trace metadata is returned, e.g., trace ID, start time, end time, etc,
+                without any spans.
+            model_id: If specified, return traces associated with the model ID.
+            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
+                searching traces in inference tables.
+
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -511,24 +926,39 @@ class MlflowClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
-        traces = self._tracking_client.search_traces(
+        if model_id is not None:
+            if filter_string:
+                raise MlflowException(
+                    message=(
+                        "Cannot specify both `model_id` or `filter_string` in the search_traces "
+                        "call."
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            filter_string = (
+                f"request_metadata.`mlflow.modelId` = '{model_id}'"
+                if sql_warehouse_id is None
+                else None
+            )
+
+        return self._tracking_client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
             run_id=run_id,
+            include_spans=include_spans,
+            model_id=model_id,
+            sql_warehouse_id=sql_warehouse_id,
         )
 
-        get_display_handler().display_traces(traces)
-        return traces
-
-    @experimental
     def start_trace(
         self,
         name: str,
         span_type: str = SpanType.UNKNOWN,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: Optional[Any] = None,
         attributes: Optional[dict[str, str]] = None,
         tags: Optional[dict[str, str]] = None,
         experiment_id: Optional[str] = None,
@@ -547,7 +977,7 @@ class MlflowClient:
         .. attention::
 
             A trace started with this method must be ended by calling
-            ``MlflowClient().end_trace(request_id)``. Otherwise the trace will be not recorded.
+            ``MlflowClient().end_trace(trace_id)``. Otherwise the trace will be not recorded.
 
         Args:
             name: The name of the trace (and the root span).
@@ -576,23 +1006,23 @@ class MlflowClient:
             client = MlflowClient()
 
             root_span = client.start_trace("my_trace")
-            request_id = root_span.request_id
+            trace_id = root_span.trace_id
 
             # Create a child span
             child_span = client.start_span(
-                "child_span", request_id=request_id, parent_id=root_span.span_id
+                "child_span", trace_id=trace_id, parent_id=root_span.span_id
             )
             # Do something...
-            client.end_span(request_id=request_id, span_id=child_span.span_id)
+            client.end_span(trace_id=trace_id, span_id=child_span.span_id)
 
-            client.end_trace(request_id)
+            client.end_trace(trace_id)
         """
         # Validate no active trace is set in the global context. If there is an active trace,
         # the span created by this method will be a child span under the active trace rather than
         # a root span of a new trace, which is not desired behavior.
         if span := mlflow.get_current_active_span():
             raise MlflowException(
-                f"Another trace is already set in the global context with ID {span.request_id}. "
+                f"Another trace is already set in the global context with ID {span.trace_id}. "
                 "It appears that you have already started a trace using fluent APIs like "
                 "`@mlflow.trace()` or `with mlflow.start_span()`. However, it is not allowed "
                 "to call MlflowClient.start_trace() under an active trace created by fluent APIs "
@@ -612,8 +1042,8 @@ class MlflowClient:
             otel_span = mlflow.tracing.provider.start_detached_span(
                 name, experiment_id=experiment_id, start_time_ns=start_time_ns
             )
-            request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
-            mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
+            trace_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
+            mlflow_span = create_mlflow_span(otel_span, trace_id, span_type)
 
             # # If the span is a no-op span i.e. tracing is disabled, do nothing
             if isinstance(mlflow_span, NoOpSpan):
@@ -626,7 +1056,7 @@ class MlflowClient:
             trace_manager = InMemoryTraceManager.get_instance()
             tags = exclude_immutable_tags(tags or {})
             # Update trace tags for trace in in-memory trace manager
-            with trace_manager.get_trace(request_id) as trace:
+            with trace_manager.get_trace(trace_id) as trace:
                 trace.info.tags.update(tags)
             # Register new span in the in-memory trace manager
             trace_manager.register_span(mlflow_span)
@@ -640,11 +1070,11 @@ class MlflowClient:
             )
             return NoOpSpan()
 
-    @experimental
+    @request_id_backward_compatible
     def end_trace(
         self,
-        request_id: str,
-        outputs: Optional[dict[str, Any]] = None,
+        trace_id: str,
+        outputs: Optional[Any] = None,
         attributes: Optional[dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
         end_time_ns: Optional[int] = None,
@@ -658,7 +1088,7 @@ class MlflowClient:
         no effect.
 
         Args:
-            request_id: The ID of the trace to end.
+            trace_id: The ID of the trace to end.
             outputs: Outputs to set on the trace.
             attributes: A dictionary of attributes to set on the trace. If the trace already
                 has attributes, the new attributes will be merged with the existing ones.
@@ -673,33 +1103,33 @@ class MlflowClient:
         # NB: If the specified request ID is of no-op span, this means something went wrong in
         #     the span start logic. We should simply ignore it as the upstream should already
         #     have logged the error.
-        if request_id == NO_OP_SPAN_REQUEST_ID:
+        if trace_id == NO_OP_SPAN_TRACE_ID:
             return
 
         trace_manager = InMemoryTraceManager.get_instance()
-        root_span_id = trace_manager.get_root_span_id(request_id)
+        root_span_id = trace_manager.get_root_span_id(trace_id)
 
         if root_span_id is None:
-            trace = self.get_trace(request_id=request_id)
+            trace = self.get_trace(trace_id=trace_id)
             if trace is None:
                 raise MlflowException(
-                    f"Trace with ID {request_id} not found.",
+                    f"Trace with ID {trace_id} not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             elif trace.info.status in TraceStatus.end_statuses():
                 raise MlflowException(
-                    f"Trace with ID {request_id} already finished.",
+                    f"Trace with ID {trace_id} already finished.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-        self.end_span(request_id, root_span_id, outputs, attributes, status, end_time_ns)
+        self.end_span(trace_id, root_span_id, outputs, attributes, status, end_time_ns)
 
     @experimental
     def _log_trace(self, trace: Trace) -> str:
         """
         Log the complete Trace object to the backend store.
 
-        # NB: Since the backend API is used directly here, customization of request ID's
+        # NB: Since the backend API is used directly here, customization of trace ID's
         # are not possible with this internal API. A backend-generated ID will be generated
         # directly with this invocation, instead of the one from the given trace object.
 
@@ -707,65 +1137,42 @@ class MlflowClient:
             trace: The trace object to log.
 
         Returns:
-            The request ID of the logged trace.
+            The trace ID of the logged trace.
         """
+        from mlflow.tracking.fluent import _get_experiment_id
+
+        # If the trace is created outside MLflow experiment (e.g. model serving), it does
+        # not have an experiment ID, but we need to log it to the tracking server.
+        experiment_id = trace.info.experiment_id or _get_experiment_id()
+
         # Create trace info entry in the backend
         # Note that the backend generates a new request ID for the trace. Currently there is
         # no way to insert the trace with a specific request ID given by the user.
         new_info = self._tracking_client.start_trace(
-            experiment_id=trace.info.experiment_id,
+            experiment_id=experiment_id,
             timestamp_ms=trace.info.timestamp_ms,
             request_metadata={},
             tags={},
         )
         self._tracking_client.end_trace(
-            request_id=new_info.request_id,
+            request_id=new_info.trace_id,
             # Compute the end time of the original trace
             timestamp_ms=trace.info.timestamp_ms + trace.info.execution_time_ms,
             status=trace.info.status,
             request_metadata=trace.info.request_metadata,
             tags=trace.info.tags,
         )
-
-        # Upload trace data
-        self._upload_trace_spans_as_tag(new_info, trace.data)
         self._upload_trace_data(new_info, trace.data)
+        return new_info.trace_id
 
-        return new_info.request_id
-
-    def _upload_trace_spans_as_tag(self, trace_info: TraceInfo, trace_data: TraceData):
-        # When a trace is logged, we set a mlflow.traceSpans tag via SetTraceTag API
-        # https://databricks.atlassian.net/browse/ML-40306
-        parsed_spans = []
-        for span in trace_data.spans:
-            parsed_span = {}
-
-            parsed_span["name"] = span.name
-            parsed_span["type"] = span.span_type
-            span_inputs = span.inputs
-            if span_inputs and isinstance(span_inputs, dict):
-                parsed_span["inputs"] = list(span_inputs.keys())
-            span_outputs = span.outputs
-            if span_outputs and isinstance(span_outputs, dict):
-                parsed_span["outputs"] = list(span_outputs.keys())
-
-            parsed_spans.append(parsed_span)
-
-        # Directly set the tag on the trace in the backend
-        self._tracking_client.set_trace_tag(
-            trace_info.request_id,
-            TraceTagKey.TRACE_SPANS,
-            json.dumps(parsed_spans, ensure_ascii=False),
-        )
-
-    @experimental
+    @request_id_backward_compatible
     def start_span(
         self,
         name: str,
-        request_id: str,
+        trace_id: str,
         parent_id: str,
         span_type: str = SpanType.UNKNOWN,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: Optional[Any] = None,
         attributes: Optional[dict[str, Any]] = None,
         start_time_ns: Optional[int] = None,
     ) -> Span:
@@ -813,14 +1220,14 @@ class MlflowClient:
                 with mlflow.start_span("parent_span") as parent_span:
                     child_span = client.start_span(
                         name="child_span",
-                        request_id=parent_span.request_id,
+                        trace_id=parent_span.trace_id,
                         parent_id=parent_span.span_id,
                     )
 
                     # Do something...
 
                     client.end_span(
-                        request_id=parent_span.request_id,
+                        trace_id=parent_span.trace_id,
                         span_id=child_span.span_id,
                     )
 
@@ -833,7 +1240,7 @@ class MlflowClient:
 
         Args:
             name: The name of the span.
-            request_id: The ID of the trace to attach the span to. This is synonym to
+            trace_id: The ID of the trace to attach the span to. This is synonym to
                 trace_id` in OpenTelemetry.
             parent_id: The ID of the parent span. The parent span can be a span created by
                 both fluent APIs like `with mlflow.start_span()`, and imperative APIs like this.
@@ -863,7 +1270,7 @@ class MlflowClient:
             # Create a child span
             child_span = client.start_span(
                 "child_span",
-                request_id=span.request_id,
+                trace_id=span.trace_id,
                 parent_id=span.span_id,
                 inputs={"x": x},
             )
@@ -871,16 +1278,16 @@ class MlflowClient:
             y = x**2
 
             client.end_span(
-                request_id=child_span.request_id,
+                trace_id=child_span.trace_id,
                 span_id=child_span.span_id,
                 attributes={"factor": 2},
                 outputs={"y": y},
             )
 
-            client.end_trace(span.request_id)
+            client.end_trace(span.trace_id)
         """
         # If parent span is no-op span, the child should also be no-op too
-        if request_id == NO_OP_SPAN_REQUEST_ID:
+        if trace_id == NO_OP_SPAN_TRACE_ID:
             return NoOpSpan()
 
         if not parent_id:
@@ -890,14 +1297,14 @@ class MlflowClient:
                 "to start a new trace and root span.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        if not request_id:
+        if not trace_id:
             raise MlflowException(
-                "Request ID must be provided to start a span.",
+                "Trace ID must be provided to start a span.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
         trace_manager = InMemoryTraceManager.get_instance()
-        if not (parent_span := trace_manager.get_span_from_id(request_id, parent_id)):
+        if not (parent_span := trace_manager.get_span_from_id(trace_id, parent_id)):
             raise MlflowException(
                 f"Parent span with ID '{parent_id}' not found.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
@@ -910,7 +1317,7 @@ class MlflowClient:
                 start_time_ns=start_time_ns,
             )
 
-            span = create_mlflow_span(otel_span, request_id, span_type)
+            span = create_mlflow_span(otel_span, trace_id, span_type)
             span.set_attributes(attributes or {})
             if inputs is not None:
                 span.set_inputs(inputs)
@@ -924,12 +1331,12 @@ class MlflowClient:
             )
             return NoOpSpan()
 
-    @experimental
+    @request_id_backward_compatible
     def end_span(
         self,
-        request_id: str,
+        trace_id: str,
         span_id: str,
-        outputs: Optional[dict[str, Any]] = None,
+        outputs: Optional[Any] = None,
         attributes: Optional[dict[str, Any]] = None,
         status: Union[SpanStatus, str] = "OK",
         end_time_ns: Optional[int] = None,
@@ -938,7 +1345,7 @@ class MlflowClient:
         End the span with the given trace ID and span ID.
 
         Args:
-            request_id: The ID of the trace to end.
+            trace_id: The ID of the trace to end.
             span_id: The ID of the span to end.
             outputs: Outputs to set on the span.
             attributes: A dictionary of attributes to set on the span. If the span already has
@@ -952,18 +1359,17 @@ class MlflowClient:
             end_time_ns: The end time of the span in nano seconds since the UNIX epoch.
                 If not provided, the current time will be used.
         """
-        if request_id == NO_OP_SPAN_REQUEST_ID:
+        if trace_id == NO_OP_SPAN_TRACE_ID:
             return
 
         trace_manager = InMemoryTraceManager.get_instance()
-        span = trace_manager.get_span_from_id(request_id, span_id)
+        span = trace_manager.get_span_from_id(trace_id, span_id)
 
         if span is None:
             raise MlflowException(
                 f"Span with ID {span_id} is not found or already finished.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
-
         span.set_attributes(attributes or {})
         if outputs is not None:
             span.set_outputs(outputs)
@@ -1005,6 +1411,22 @@ class MlflowClient:
             tags=tags or {},
         )
 
+    def _start_trace_v3(self, trace: Trace) -> TraceInfoV3:
+        """
+        Start a trace using the V3 API format.
+
+        NB: This method is named "Start" for internal reason in the backend, but actually
+        should be called at the end of the trace. We will migrate this to "CreateTrace"
+        API in the future to avoid confusion.
+
+        Args:
+            trace: The Trace object to create.
+
+        Returns:
+            The returned TraceInfoV3 object from the backend.
+        """
+        return self._tracking_client.start_trace_v3(trace=trace)
+
     def _upload_ended_trace_info(
         self,
         trace_info: TraceInfo,
@@ -1019,21 +1441,21 @@ class MlflowClient:
             The updated TraceInfo object.
         """
         return self._tracking_client.end_trace(
-            request_id=trace_info.request_id,
+            request_id=trace_info.trace_id,
             timestamp_ms=trace_info.timestamp_ms + trace_info.execution_time_ms,
             status=trace_info.status,
             request_metadata=trace_info.request_metadata,
             tags=trace_info.tags or {},
         )
 
-    @experimental
-    def set_trace_tag(self, request_id: str, key: str, value: str):
+    @request_id_backward_compatible
+    def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace ID.
 
         The trace can be an active one or the one that has already ended and recorded in the
         backend. Below is an example of setting a tag on an active trace. You can replace the
-        ``request_id`` parameter to set a tag on an already ended trace.
+        ``trace_id`` parameter to set a tag on an already ended trace.
 
         .. code-block:: python
             :test:
@@ -1043,11 +1465,11 @@ class MlflowClient:
             client = MlflowClient()
 
             root_span = client.start_trace("my_trace")
-            client.set_trace_tag(root_span.request_id, "key", "value")
-            client.end_trace(root_span.request_id)
+            client.set_trace_tag(root_span.trace_id, "key", "value")
+            client.end_trace(root_span.trace_id)
 
         Args:
-            request_id: The ID of the trace to set the tag on.
+            trace_id: The ID of the trace to set the tag on.
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
             value: The string value of the tag. Must be at most 250 characters long, otherwise
@@ -1056,27 +1478,33 @@ class MlflowClient:
         if key.startswith("mlflow."):
             raise MlflowException(
                 f"Tags starting with 'mlflow.' are reserved and cannot be set. "
-                f"Attempted to set tag with key '{key}' on trace with ID '{request_id}'.",
+                f"Attempted to set tag with key '{key}' on trace with ID '{trace_id}'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+        if not isinstance(value, str):
+            _logger.warning(
+                "Received non-string value for trace tag. Please note that non-string tag values"
+                "will automatically be stringified when the trace is logged."
+            )
+
         # Trying to set the tag on the active trace first
-        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+        with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
                 trace.info.tags[key] = str(value)
                 return
 
         # If the trace is not active, try to set the tag on the trace in the backend
-        self._tracking_client.set_trace_tag(request_id, key, value)
+        self._tracking_client.set_trace_tag(trace_id, key, value)
 
-    @experimental
-    def delete_trace_tag(self, request_id: str, key: str) -> None:
+    @request_id_backward_compatible
+    def delete_trace_tag(self, trace_id: str, key: str) -> None:
         """
         Delete a tag on the trace with the given trace ID.
 
         The trace can be an active one or the one that has already ended and recorded in the
         backend. Below is an example of deleting a tag on an active trace. You can replace the
-        ``request_id`` parameter to delete a tag on an already ended trace.
+        ``trace_id`` parameter to delete a tag on an already ended trace.
 
         .. code-block:: python
             :test:
@@ -1086,28 +1514,75 @@ class MlflowClient:
             client = MlflowClient()
 
             root_span = client.start_trace("my_trace", tags={"key": "value"})
-            client.delete_trace_tag(root_span.request_id, "key")
-            client.end_trace(root_span.request_id)
+            client.delete_trace_tag(root_span.trace_id, "key")
+            client.end_trace(root_span.trace_id)
 
         Args:
-            request_id: The ID of the trace to delete the tag from.
+            trace_id: The ID of the trace to delete the tag from.
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
         # Trying to delete the tag on the active trace first
-        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+        with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
                 if key in trace.info.tags:
                     trace.info.tags.pop(key)
                     return
                 else:
                     raise MlflowException(
-                        f"Tag with key {key} not found in trace with ID {request_id}.",
+                        f"Tag with key {key} not found in trace with ID {trace_id}.",
                         error_code=RESOURCE_DOES_NOT_EXIST,
                     )
 
         # If the trace is not active, try to delete the tag on the trace in the backend
-        self._tracking_client.delete_trace_tag(request_id, key)
+        self._tracking_client.delete_trace_tag(trace_id, key)
+
+    def log_assessment(
+        self,
+        trace_id: str,
+        name: str,
+        source: AssessmentSource,
+        expectation: Optional[Expectation] = None,
+        feedback: Optional[Feedback] = None,
+        rationale: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+        span_id: Optional[str] = None,
+    ) -> Assessment:
+        assessment = Assessment(
+            # assessment_id must be None when creating a new assessment
+            trace_id=trace_id,
+            name=name,
+            source=source,
+            expectation=expectation,
+            feedback=feedback,
+            rationale=rationale,
+            metadata=metadata,
+            span_id=span_id,
+        )
+        return self._tracking_client.create_assessment(assessment)
+
+    def update_assessment(
+        self,
+        trace_id: str,
+        assessment_id: str,
+        name: Optional[str] = None,
+        expectation: Optional[Expectation] = None,
+        feedback: Optional[Feedback] = None,
+        rationale: Optional[str] = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> Assessment:
+        return self._tracking_client.update_assessment(
+            trace_id=trace_id,
+            assessment_id=assessment_id,
+            name=name,
+            expectation=expectation,
+            feedback=feedback,
+            rationale=rationale,
+            metadata=metadata,
+        )
+
+    def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
+        return self._tracking_client.delete_assessment(trace_id, assessment_id)
 
     def search_experiments(
         self,
@@ -1488,6 +1963,9 @@ class MlflowClient:
         timestamp: Optional[int] = None,
         step: Optional[int] = None,
         synchronous: Optional[bool] = None,
+        dataset_name: Optional[str] = None,
+        dataset_digest: Optional[str] = None,
+        model_id: Optional[str] = None,
     ) -> Optional[RunOperations]:
         """
         Log a metric against the run ID.
@@ -1510,6 +1988,11 @@ class MlflowClient:
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+            dataset_name: The name of the dataset associated with the metric. If specified,
+                ``dataset_digest`` must also be provided.
+            dataset_digest: The digest of the dataset associated with the metric. If specified,
+                ``dataset_name`` must also be provided.
+            model_id: The ID of the model associated with the metric.
 
         Returns:
             When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
@@ -1563,7 +2046,15 @@ class MlflowClient:
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
         return self._tracking_client.log_metric(
-            run_id, key, value, timestamp, step, synchronous=synchronous
+            run_id,
+            key,
+            value,
+            timestamp,
+            step,
+            synchronous=synchronous,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+            model_id=model_id,
         )
 
     def log_param(
@@ -1912,6 +2403,7 @@ class MlflowClient:
         self,
         run_id: str,
         datasets: Optional[Sequence[DatasetInput]] = None,
+        models: Optional[Sequence[LoggedModelInput]] = None,
     ) -> None:
         """
         Log one or more dataset inputs to a run.
@@ -1919,11 +2411,15 @@ class MlflowClient:
         Args:
             run_id: String ID of the run.
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log.
 
         Raises:
             mlflow.MlflowException: If any errors occur.
         """
-        self._tracking_client.log_inputs(run_id, datasets)
+        self._tracking_client.log_inputs(run_id, datasets, models)
+
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
+        self._tracking_client.log_outputs(run_id, models)
 
     def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
         """Write a local file or directory to the remote ``artifact_uri``.
@@ -2403,7 +2899,11 @@ class MlflowClient:
 
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
-            filename_uuid = uuid.uuid4()
+            filename_uuid = str(uuid.uuid4())
+            # TODO: reconsider the separator used here since % has special meaning in URL encoding.
+            # See https://github.com/mlflow/mlflow/issues/14136 for more details.
+            # Construct a filename uuid that does not start with hex digits
+            filename_uuid = f"{random.choice(string.ascii_lowercase[6:])}{filename_uuid[1:]}"
             uncompressed_filename = (
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )
@@ -2453,7 +2953,6 @@ class MlflowClient:
             return pd.read_parquet(artifact_path)
         raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
 
-    @experimental
     def log_table(
         self,
         run_id: str,
@@ -2637,7 +3136,6 @@ class MlflowClient:
             # Set the tag with the updated list
             self.set_tag(run_id, MLFLOW_LOGGED_ARTIFACTS, json.dumps(current_tag_value))
 
-    @experimental
     def load_table(
         self,
         experiment_id: str,
@@ -2846,6 +3344,11 @@ class MlflowClient:
 
         """
         return self._tracking_client.list_artifacts(run_id, path)
+
+    def list_logged_model_artifacts(
+        self, model_id: str, path: Optional[str] = None
+    ) -> list[FileInfo]:
+        return self._tracking_client.list_logged_model_artifacts(model_id, path)
 
     def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
         """
@@ -3106,7 +3609,11 @@ class MlflowClient:
     # Registered Model Methods
 
     def create_registered_model(
-        self, name: str, tags: Optional[dict[str, Any]] = None, description: Optional[str] = None
+        self,
+        name: str,
+        tags: Optional[dict[str, Any]] = None,
+        description: Optional[str] = None,
+        deployment_job_id: Optional[str] = None,
     ) -> RegisteredModel:
         """
         Create a new registered model in backend store.
@@ -3116,6 +3623,7 @@ class MlflowClient:
             tags: A dictionary of key-value pairs that are converted into
                 :py:class:`mlflow.entities.model_registry.RegisteredModelTag` objects.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -3151,7 +3659,12 @@ class MlflowClient:
             description: This sentiment analysis model classifies the tone-happy, sad, angry.
 
         """
-        return self._get_registry_client().create_registered_model(name, tags, description)
+        if has_prompt_tag(tags):
+            raise MlflowException.invalid_parameter_value("Prompts cannot be registered as models.")
+
+        return self._get_registry_client().create_registered_model(
+            name, tags, description, deployment_job_id
+        )
 
     def rename_registered_model(self, name: str, new_name: str) -> RegisteredModel:
         """Update registered model name.
@@ -3203,10 +3716,11 @@ class MlflowClient:
             tags: {'nlp.framework': 'Spark NLP'}
             description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
+        self._raise_if_prompt(name)
         self._get_registry_client().rename_registered_model(name, new_name)
 
     def update_registered_model(
-        self, name: str, description: Optional[str] = None
+        self, name: str, description: Optional[str] = None, deployment_job_id: Optional[str] = None
     ) -> RegisteredModel:
         """
         Updates metadata for RegisteredModel entity. Input field ``description`` should be non-None.
@@ -3215,6 +3729,7 @@ class MlflowClient:
         Args:
             name: Name of the registered model to update.
             description: (Optional) New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -3254,11 +3769,9 @@ class MlflowClient:
             tags: {'nlp.framework': 'Spark NLP'}
             description: This sentiment analysis model classifies tweets' tone: happy, sad, angry.
         """
-        if description is None:
-            raise MlflowException("Attempting to update registered model with no new field values.")
-
+        self._raise_if_prompt(name)
         return self._get_registry_client().update_registered_model(
-            name=name, description=description
+            name=name, description=description, deployment_job_id=deployment_job_id
         )
 
     def delete_registered_model(self, name: str):
@@ -3316,6 +3829,7 @@ class MlflowClient:
             tags: {'t2': 't2'}
             description: description2
         """
+        self._raise_if_prompt(name)
         self._get_registry_client().delete_registered_model(name)
 
     def search_registered_models(
@@ -3454,7 +3968,13 @@ class MlflowClient:
             tags: {'nlp.framework': 'Spark NLP'}
             description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
-        return self._get_registry_client().get_registered_model(name)
+        rm = self._get_registry_client().get_registered_model(name)
+
+        # Prompt should not be returned as a registered model
+        if has_prompt_tag(rm._tags):
+            raise _model_not_found(name)
+
+        return rm
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
     def get_latest_versions(
@@ -3498,13 +4018,13 @@ class MlflowClient:
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
             # Register model name in the model registry
             name = "RandomForestRegression"
             client = MlflowClient()
@@ -3529,6 +4049,7 @@ class MlflowClient:
             run_id: 31165664be034dc698c52a4bdeb71663
             current_stage: None
         """
+        self._raise_if_prompt(name)
         return self._get_registry_client().get_latest_versions(name, stages)
 
     def set_registered_model_tag(self, name, key, value) -> None:
@@ -3576,6 +4097,7 @@ class MlflowClient:
             name: SocialMediaTextAnalyzer
             tags: {'nlp.framework1': 'Spark NLP', 'nlp.framework2': 'VADER'}
         """
+        self._raise_if_prompt(name)
         self._get_registry_client().set_registered_model_tag(name, key, value)
 
     def delete_registered_model_tag(self, name: str, key: str) -> None:
@@ -3626,6 +4148,7 @@ class MlflowClient:
             name: name2
             tags: {}
         """
+        self._raise_if_prompt(name)
         self._get_registry_client().delete_registered_model_tag(name, key)
 
     # Model Version Methods
@@ -3640,7 +4163,11 @@ class MlflowClient:
         description: Optional[str] = None,
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         local_model_path: Optional[str] = None,
+        model_id: Optional[str] = None,
     ) -> ModelVersion:
+        if has_prompt_tag(tags):
+            raise MlflowException.invalid_parameter_value("Prompts cannot be registered as models.")
+
         tracking_uri = self._tracking_client.tracking_uri
         if (
             not run_link
@@ -3656,23 +4183,29 @@ class MlflowClient:
             else:
                 run_link = get_databricks_run_url(tracking_uri, run_id)
         new_source = source
-        if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
-            # Print out some info for user since the copy may take a while for large models.
-            eprint(
-                "=== Copying model files from the source location to the model"
-                + " registry workspace ==="
-            )
-            new_source = _upload_artifacts_to_databricks(
-                source, run_id, tracking_uri, self._registry_uri
-            )
-            # NOTE: we can't easily delete the target temp location due to the async nature
-            # of the model version creation - printing to let the user know.
-            eprint(
-                f"=== Source model files were copied to {new_source}"
-                + " in the model registry workspace. You may want to delete the files once the"
-                + " model version is in 'READY' status. You can also find this location in the"
-                + " `source` field of the created model version. ==="
-            )
+        if is_databricks_uri(self._registry_uri):
+            if tracking_uri != self._registry_uri:
+                # Print out some info for user since the copy may take a while for large models.
+                eprint(
+                    "=== Copying model files from the source location to the model"
+                    + " registry workspace ==="
+                )
+                new_source = _upload_artifacts_to_databricks(
+                    source, run_id, tracking_uri, self._registry_uri
+                )
+                # NOTE: we can't easily delete the target temp location due to the async nature
+                # of the model version creation - printing to let the user know.
+                eprint(
+                    f"=== Source model files were copied to {new_source}"
+                    + " in the model registry workspace. You may want to delete the files once the"
+                    + " model version is in 'READY' status. You can also find this location in the"
+                    + " `source` field of the created model version. ==="
+                )
+            elif model_id is not None:
+                logged_model = self.get_logged_model(model_id)
+                # models:/<model_id> source is not supported by WSMR
+                new_source = logged_model.artifact_location
+
         return self._get_registry_client().create_model_version(
             name=name,
             source=new_source,
@@ -3682,6 +4215,7 @@ class MlflowClient:
             description=description,
             await_creation_for=await_creation_for,
             local_model_path=local_model_path,
+            model_id=model_id,
         )
 
     def create_model_version(
@@ -3693,6 +4227,7 @@ class MlflowClient:
         run_link: Optional[str] = None,
         description: Optional[str] = None,
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        model_id: Optional[str] = None,
     ) -> ModelVersion:
         """
         Create a new model version from given source.
@@ -3711,6 +4246,8 @@ class MlflowClient:
             await_creation_for: Number of seconds to wait for the model version to finish being
                 created and is in ``READY`` status. By default, the function
                 waits for five minutes. Specify 0 or None to skip waiting.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                      registered model version, if applicable.
 
         Returns:
             Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
@@ -3736,7 +4273,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -3770,6 +4307,7 @@ class MlflowClient:
             run_link=run_link,
             description=description,
             await_creation_for=await_creation_for,
+            model_id=model_id,
         )
 
     def copy_model_version(self, src_model_uri, dst_name) -> ModelVersion:
@@ -3811,7 +4349,7 @@ class MlflowClient:
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Create source model version
             client = MlflowClient()
@@ -3853,6 +4391,14 @@ class MlflowClient:
                 f"Failed to fetch model version from source model URI: '{src_model_uri}'. "
                 f"Error: {e}"
             ) from e
+
+        if has_prompt_tag(src_mv._tags):
+            # Prompt should not be used as a model version
+            raise MlflowException(
+                f"Model with uri '{src_model_uri}' not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
         return client.copy_model_version(src_mv=src_mv, dst_name=dst_name)
 
     def update_model_version(
@@ -3895,7 +4441,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -3924,6 +4470,7 @@ class MlflowClient:
         if description is None:
             raise MlflowException("Attempting to update model version with no new field values.")
 
+        self._raise_if_prompt(name)
         return self._get_registry_client().update_model_version(
             name=name, version=version, description=description
         )
@@ -3975,7 +4522,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -4003,6 +4550,7 @@ class MlflowClient:
             Description: A new version of the model using ensemble trees
             Stage: Staging
         """
+        self._raise_if_prompt(name)
         return self._get_registry_client().transition_model_version_stage(
             name, version, stage, archive_existing_versions
         )
@@ -4042,14 +4590,14 @@ class MlflowClient:
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             name = "RandomForestRegression"
@@ -4092,6 +4640,7 @@ class MlflowClient:
             run_id: 9165d4f8aa0a4d069550824bdc55caaf
             current_stage: None
         """
+        self._raise_if_prompt(name)
         self._get_registry_client().delete_model_version(name, version)
 
     def get_model_version(self, name: str, version: str) -> ModelVersion:
@@ -4122,14 +4671,14 @@ class MlflowClient:
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
                 rfr = RandomForestRegressor(**params).fit(X, y)
                 signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             name = "RandomForestRegression"
@@ -4158,7 +4707,10 @@ class MlflowClient:
             Version: 2
 
         """
-        return self._get_registry_client().get_model_version(name, version)
+        mv = self._get_registry_client().get_model_version(name, version)
+        if has_prompt_tag(mv._tags):
+            raise _model_not_found(name)
+        return mv
 
     def get_model_version_download_uri(self, name: str, version: str) -> str:
         """
@@ -4189,7 +4741,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -4205,6 +4757,7 @@ class MlflowClient:
 
             Download URI: runs:/027d7bbe81924c5a82b3e4ce979fcab7/sklearn-model
         """
+        self._raise_if_prompt(name)
         return self._get_registry_client().get_model_version_download_uri(name, version)
 
     def search_model_versions(
@@ -4318,7 +4871,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -4384,7 +4937,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -4417,6 +4970,7 @@ class MlflowClient:
             Tags: {'t': '1', 't1': '1'}
         """
         _validate_model_version_or_stage_exists(version, stage)
+        self._raise_if_prompt(name)
         if stage:
             warnings.warn(
                 "The `stage` parameter of the `set_model_version_tag` API is deprecated. "
@@ -4475,7 +5029,7 @@ class MlflowClient:
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+                mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
             # Register model name in the model registry
             client = MlflowClient()
             client.create_registered_model(name)
@@ -4507,6 +5061,7 @@ class MlflowClient:
             Tags: {}
         """
         _validate_model_version_or_stage_exists(version, stage)
+        self._raise_if_prompt(name)
         if stage:
             warnings.warn(
                 "The `stage` parameter of the `delete_model_version_tag` API is deprecated. "
@@ -4606,6 +5161,7 @@ class MlflowClient:
         _validate_model_name(name)
         _validate_model_alias_name(alias)
         _validate_model_version(version)
+        self._raise_if_prompt(name)
         self._get_registry_client().set_registered_model_alias(name, alias, version)
 
     def delete_registered_model_alias(self, name: str, alias: str) -> None:
@@ -4702,6 +5258,7 @@ class MlflowClient:
         """
         _validate_model_name(name)
         _validate_model_alias_name(alias)
+        self._raise_if_prompt(name)
         self._get_registry_client().delete_registered_model_alias(name, alias)
 
     def get_model_version_by_alias(self, name: str, alias: str) -> ModelVersion:
@@ -4789,4 +5346,186 @@ class MlflowClient:
             Aliases: ["test-alias"]
         """
         _validate_model_name(name)
-        return self._get_registry_client().get_model_version_by_alias(name, alias)
+        mv = self._get_registry_client().get_model_version_by_alias(name, alias)
+
+        if has_prompt_tag(mv._tags):
+            raise _model_not_found(name)
+
+        return mv
+
+    def _raise_if_prompt(self, name: str) -> None:
+        """
+        Validate if the given name is registered as a Prompt rather than a Registered Model.
+        """
+        rm = self.get_registered_model(name)
+        if has_prompt_tag(rm._tags):
+            raise _model_not_found(name)
+
+    @experimental
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: Optional[str] = None,
+        source_run_id: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+        params: Optional[dict[str, str]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        """
+        Create a new logged model.
+
+        Args:
+            experiment_id: ID of the experiment to which the model belongs.
+            name: Name of the model. If not specified, a random name will be generated.
+            source_run_id: ID of the run that produced the model.
+            tags: Tags to set on the model.
+            params: Parameters to set on the model.
+            model_type: The type of the model. This is a user-defined string that can be used to
+                        search and compare related models. For example, setting
+                        ``model_type="agent"`` enables you to easily search for this model and
+                        compare it to other models of type ``"agent"`` in the future.
+
+        Returns:
+            The created model.
+        """
+        return self._tracking_client.create_logged_model(
+            experiment_id, name, source_run_id, tags, params, model_type
+        )
+
+    @experimental
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
+        return self._tracking_client.finalize_logged_model(model_id, status)
+
+    @experimental
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
+        return self._tracking_client.get_logged_model(model_id)
+
+    @experimental
+    def delete_logged_model(self, model_id: str) -> None:
+        """
+        Delete the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to delete.
+        """
+        return self._tracking_client.delete_logged_model(model_id)
+
+    @experimental
+    def set_logged_model_tags(self, model_id: str, tags: dict[str, Any]) -> None:
+        """
+        Set tags on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            tags: Tags to set on the model.
+
+        Returns:
+            None
+        """
+        self._tracking_client.set_logged_model_tags(model_id, tags)
+
+    @experimental
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            key: Tag key to delete.
+
+        """
+        return self._tracking_client.delete_logged_model_tag(model_id, key)
+
+    def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+        return self._tracking_client.log_model_artifacts(model_id, local_dir)
+
+    @experimental
+    def search_logged_models(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str] = None,
+        datasets: Optional[list[dict[str, Any]]] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[LoggedModel]:
+        """
+        Search for logged models that match the specified search criteria.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A SQL-like filter string to parse. The filter string syntax supports:
+
+                - Entity specification:
+                    - attributes: `attribute_name` (default if no prefix is specified)
+                    - metrics: `metrics.metric_name`
+                    - parameters: `params.param_name`
+                    - tags: `tags.tag_name`
+                - Comparison operators:
+                    - For numeric entities (metrics and numeric attributes): <, <=, >, >=, =, !=
+                    - For string entities (params, tags, string attributes): =, !=, LIKE, ILIKE
+                - Multiple conditions can be joined with 'AND'
+                - String values must be enclosed in single quotes
+
+                Example filter strings:
+                    - `creation_time > 100`
+                    - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
+                    - `tags.release LIKE 'v1.%'`
+                    - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
+            datasets: List of dictionaries to specify datasets on which to apply metrics filters
+                For example, a filter string with `metrics.accuracy > 0.9` and dataset with name
+                "test_dataset" means we will return all logged models with accuracy > 0.9 on the
+                test_dataset. Metric values from ANY dataset matching the criteria are considered.
+                If no datasets are specified, then metrics across all datasets are considered in
+                the filter. The following fields are supported:
+
+                dataset_name (str):
+                    Required. Name of the dataset.
+                dataset_digest (str):
+                    Optional. Digest of the dataset.
+            max_results: Maximum number of logged models desired.
+            order_by: List of dictionaries to specify the ordering of the search results.
+                The following fields are supported:
+
+                field_name (str):
+                    Required. Name of the field to order by, e.g. "metrics.accuracy".
+                ascending (bool):
+                    Optional. Whether the order is ascending or not.
+                dataset_name (str):
+                    Optional. If ``field_name`` refers to a metric, this field
+                    specifies the name of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name will be considered for ordering.
+                    This field may only be set if ``field_name`` refers to a metric.
+                dataset_digest (str):
+                    Optional. If ``field_name`` refers to a metric, this field
+                    specifies the digest of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name and digest will be considered for
+                    ordering. This field may only be set if ``dataset_name`` is also set.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
+        """
+        return self._tracking_client.search_logged_models(
+            experiment_ids, filter_string, datasets, max_results, order_by, page_token
+        )

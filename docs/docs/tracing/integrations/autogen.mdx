@@ -1,0 +1,109 @@
+---
+sidebar_position: 6
+sidebar_label: AutoGen
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing AutoGen🤖
+
+![AutoGen Tracing via autolog](/images/llms/autogen/autogen-trace.png)
+
+[AutoGen](https://microsoft.github.io/autogen/0.2/) is an open-source framework for building event-driven, distributed, scalable, and resilient AI agent systems.
+
+[MLflow Tracing](../) provides automatic tracing capability for AutoGen, an open-source multi-agent framework. By enabling auto tracing
+for AutoGen by calling the <APILink fn="mlflow.autogen.autolog" /> function, MLflow will capture nested traces and log them to the active MLflow Experiment upon agents execution.
+
+```python
+import mlflow
+
+mlflow.autogen.autolog()
+```
+
+MLflow captures the following information about the multi-agent execution:
+
+* Which agent is called at different turns
+* Messages passed between agents
+* LLM and tool calls made by each agent, organized per an agent and a turn
+* Latencies
+* Any exception if raised
+
+### Basic Example
+
+```python
+import os
+from typing import Annotated, Literal
+
+from autogen import ConversableAgent
+
+import mlflow
+
+# Turn on auto tracing for AutoGen
+mlflow.autogen.autolog()
+
+# Optional: Set a tracking URI and an experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("AutoGen")
+
+
+# Define a simple multi-agent workflow using AutoGen
+config_list = [
+    {
+        "model": "gpt-4o-mini",
+        # Please set your OpenAI API Key to the OPENAI_API_KEY env var before running this example
+        "api_key": os.environ.get("OPENAI_API_KEY"),
+    }
+]
+
+Operator = Literal["+", "-", "*", "/"]
+
+
+def calculator(a: int, b: int, operator: Annotated[Operator, "operator"]) -> int:
+    if operator == "+":
+        return a + b
+    elif operator == "-":
+        return a - b
+    elif operator == "*":
+        return a * b
+    elif operator == "/":
+        return int(a / b)
+    else:
+        raise ValueError("Invalid operator")
+
+
+# First define the assistant agent that suggests tool calls.
+assistant = ConversableAgent(
+    name="Assistant",
+    system_message="You are a helpful AI assistant. "
+    "You can help with simple calculations. "
+    "Return 'TERMINATE' when the task is done.",
+    llm_config={"config_list": config_list},
+)
+
+# The user proxy agent is used for interacting with the assistant agent
+# and executes tool calls.
+user_proxy = ConversableAgent(
+    name="Tool Agent",
+    llm_config=False,
+    is_termination_msg=lambda msg: msg.get("content") is not None
+    and "TERMINATE" in msg["content"],
+    human_input_mode="NEVER",
+)
+
+# Register the tool signature with the assistant agent.
+assistant.register_for_llm(name="calculator", description="A simple calculator")(
+    calculator
+)
+user_proxy.register_for_execution(name="calculator")(calculator)
+response = user_proxy.initiate_chat(
+    assistant, message="What is (44231 + 13312 / (230 - 20)) * 4?"
+)
+```
+
+### Disable auto-tracing
+
+Auto tracing for AutoGen can be disabled globally by calling `mlflow.autogen.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

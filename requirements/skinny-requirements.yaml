@@ -26,7 +26,7 @@ pyyaml:
 protobuf:
   pip_release: protobuf
   minimum: "3.12.0"
-  max_major_version: 5
+  max_major_version: 6
 
 requests:
   pip_release: requests
@@ -35,7 +35,7 @@ requests:
 
 packaging:
   pip_release: packaging
-  max_major_version: 24
+  max_major_version: 25
 
 importlib_metadata:
   pip_release: importlib_metadata
@@ -77,10 +77,18 @@ databricks-sdk:
 
 pydantic:
   pip_release: pydantic
-  minimum: "1.0"
+  minimum: "1.10.8"
   max_major_version: 2
 
 typing-extensions:
   pip_release: typing-extensions
   minimum: "4.0.0"
   max_major_version: 4
+
+fastapi:
+  pip_release: fastapi
+  max_major_version: 0
+
+uvicorn:
+  pip_release: uvicorn
+  max_major_version: 0

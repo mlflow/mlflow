@@ -9,10 +9,15 @@ from functools import partial
 from json import JSONEncoder
 from typing import Any, Optional
 
+import pydantic
 from google.protobuf.descriptor import FieldDescriptor
+from google.protobuf.duration_pb2 import Duration
 from google.protobuf.json_format import MessageToJson, ParseDict
+from google.protobuf.struct_pb2 import NULL_VALUE, Value
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _PROTOBUF_INT64_FIELDS = [
     FieldDescriptor.TYPE_INT64,
@@ -123,6 +128,42 @@ def message_to_json(message):
     return json.dumps(json_dict_with_int64_as_numbers, indent=2)
 
 
+def proto_timestamp_to_milliseconds(timestamp: str) -> int:
+    """
+    Converts a timestamp string (e.g. "2025-04-15T08:49:18.699Z") to milliseconds.
+    """
+    t = Timestamp()
+    t.FromJsonString(timestamp)
+    return t.ToMilliseconds()
+
+
+def milliseconds_to_proto_timestamp(milliseconds: int) -> str:
+    """
+    Converts milliseconds to a timestamp string (e.g. "2025-04-15T08:49:18.699Z").
+    """
+    t = Timestamp()
+    t.FromMilliseconds(milliseconds)
+    return t.ToJsonString()
+
+
+def proto_duration_to_milliseconds(duration: str) -> int:
+    """
+    Converts a duration string (e.g. "1.5s") to milliseconds.
+    """
+    d = Duration()
+    d.FromJsonString(duration)
+    return d.ToMilliseconds()
+
+
+def milliseconds_to_proto_duration(milliseconds: int) -> str:
+    """
+    Converts milliseconds to a duration string (e.g. "1.5s").
+    """
+    d = Duration()
+    d.FromMilliseconds(milliseconds)
+    return d.ToJsonString()
+
+
 def _stringify_all_experiment_ids(x):
     """Converts experiment_id fields which are defined as ints into strings in the given json.
     This is necessary for backwards- and forwards-compatibility with MLflow clients/servers
@@ -157,6 +198,53 @@ def parse_dict(js_dict, message):
     ParseDict(js_dict=js_dict, message=message, ignore_unknown_fields=True)
 
 
+def set_pb_value(proto: Value, value: Any):
+    """
+    DO NOT USE THIS FUNCTION. Preserved for backwards compatibility.
+
+    Set a value to the google.protobuf.Value object.
+    """
+    if isinstance(value, dict):
+        for key, val in value.items():
+            set_pb_value(proto.struct_value.fields[key], val)
+    elif isinstance(value, list):
+        for idx, val in enumerate(value):
+            pb = Value()
+            set_pb_value(pb, val)
+            proto.list_value.values.append(pb)
+    elif isinstance(value, bool):
+        proto.bool_value = value
+    elif isinstance(value, (int, float)):
+        proto.number_value = value
+    elif isinstance(value, str):
+        proto.string_value = value
+    elif value is None:
+        proto.null_value = NULL_VALUE
+
+    else:
+        raise ValueError(f"Unsupported value type: {type(value)}")
+
+
+def parse_pb_value(proto: Value) -> Optional[Any]:
+    """
+    DO NOT USE THIS FUNCTION. Preserved for backwards compatibility.
+
+    Extract a value from the google.protobuf.Value object.
+    """
+    if proto.HasField("struct_value"):
+        return {key: parse_pb_value(val) for key, val in proto.struct_value.fields.items()}
+    elif proto.HasField("list_value"):
+        return [parse_pb_value(val) for val in proto.list_value.values]
+    elif proto.HasField("bool_value"):
+        return proto.bool_value
+    elif proto.HasField("number_value"):
+        return proto.number_value
+    elif proto.HasField("string_value"):
+        return proto.string_value
+
+    return None
+
+
 class NumpyEncoder(JSONEncoder):
     """Special json encoder for numpy types.
     Note that some numpy types doesn't have native python equivalence,
@@ -187,6 +275,8 @@ class NumpyEncoder(JSONEncoder):
             return np.datetime_as_string(o), True
         if isinstance(o, (pd.Timestamp, datetime.date, datetime.datetime, datetime.time)):
             return o.isoformat(), True
+        if isinstance(o, pydantic.BaseModel):
+            return o.model_dump() if IS_PYDANTIC_V2_OR_NEWER else o.dict(), True
         return o, False
 
     def default(self, o):

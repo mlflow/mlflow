@@ -226,8 +226,91 @@ def langchain_local_model_dir(tmp_path):
     return tmp_path
 
 
+@pytest.fixture(params=[True, False])  # True tests with resources and False tests with auth policy
+def langchain_local_model_dir_with_resources(request, tmp_path):
+    fake_signature = ModelSignature(
+        inputs=Schema([ColSpec(DataType.string)]), outputs=Schema([ColSpec(DataType.string)])
+    )
+    if request.param:
+        fake_mlmodel_contents = {
+            "artifact_path": "some-artifact-path",
+            "run_id": "abc123",
+            "signature": fake_signature.to_dict(),
+            "resources": {
+                "databricks": {
+                    "serving_endpoint": [
+                        {"name": "embedding_endpoint"},
+                        {"name": "llm_endpoint"},
+                        {"name": "chat_endpoint"},
+                    ],
+                    "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
+                    "function": [
+                        {"name": "test.schema.test_function"},
+                        {"name": "test.schema.test_function_2"},
+                    ],
+                    "uc_connection": [{"name": "test_connection"}],
+                    "table": [
+                        {"name": "test.schema.test_table"},
+                        {"name": "test.schema.test_table_2"},
+                    ],
+                }
+            },
+        }
+    else:
+        fake_mlmodel_contents = {
+            "artifact_path": "some-artifact-path",
+            "run_id": "abc123",
+            "signature": fake_signature.to_dict(),
+            "auth_policy": {
+                "system_auth_policy": {
+                    "resources": {
+                        "databricks": {
+                            "serving_endpoint": [
+                                {"name": "embedding_endpoint"},
+                                {"name": "llm_endpoint"},
+                                {"name": "chat_endpoint"},
+                            ],
+                            "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
+                            "function": [
+                                {"name": "test.schema.test_function"},
+                                {"name": "test.schema.test_function_2"},
+                            ],
+                            "uc_connection": [{"name": "test_connection"}],
+                            "table": [
+                                {"name": "test.schema.test_table"},
+                                {"name": "test.schema.test_table_2"},
+                            ],
+                        }
+                    },
+                },
+                "user_auth_policy": {
+                    "api_scopes": [
+                        "serving.serving-endpoints,vectorsearch.vector-search-endpoints,vectorsearch.vector-search-indexes"
+                    ]
+                },
+            },
+        }
+    with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
+        yaml.dump(fake_mlmodel_contents, handle)
+
+    model_version_dependencies = [
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
+        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function"},
+        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function_2"},
+        {"type": "DATABRICKS_UC_CONNECTION", "name": "test_connection"},
+        {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table"},
+        {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table_2"},
+    ]
+
+    return (tmp_path, model_version_dependencies)
+
+
 @pytest.fixture
-def langchain_local_model_dir_with_resources(tmp_path):
+def langchain_local_model_dir_with_invoker_resources(tmp_path):
     fake_signature = ModelSignature(
         inputs=Schema([ColSpec(DataType.string)]), outputs=Schema([ColSpec(DataType.string)])
     )
@@ -242,14 +325,17 @@ def langchain_local_model_dir_with_resources(tmp_path):
                     {"name": "llm_endpoint"},
                     {"name": "chat_endpoint"},
                 ],
-                "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
+                "vector_search_index": [
+                    {"name": "index1", "on_behalf_of_user": False},
+                    {"name": "index2"},
+                ],
                 "function": [
-                    {"name": "test.schema.test_function"},
+                    {"name": "test.schema.test_function", "on_behalf_of_user": True},
                     {"name": "test.schema.test_function_2"},
                 ],
-                "uc_connection": [{"name": "test_connection"}],
+                "uc_connection": [{"name": "test_connection", "on_behalf_of_user": False}],
                 "table": [
-                    {"name": "test.schema.test_table"},
+                    {"name": "test.schema.test_table", "on_behalf_of_user": True},
                     {"name": "test.schema.test_table_2"},
                 ],
             }
@@ -257,7 +343,19 @@ def langchain_local_model_dir_with_resources(tmp_path):
     }
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
-    return tmp_path
+
+    model_version_dependencies = [
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
+        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function_2"},
+        {"type": "DATABRICKS_UC_CONNECTION", "name": "test_connection"},
+        {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table_2"},
+    ]
+
+    return (tmp_path, model_version_dependencies)
 
 
 @pytest.fixture
@@ -345,6 +443,8 @@ def test_create_model_version_with_langchain_dependencies(store, langchain_local
 
 
 def test_create_model_version_with_resources(store, langchain_local_model_dir_with_resources):
+    source, model_version_dependencies = langchain_local_model_dir_with_resources
+    source = str(source)
     access_key_id = "fake-key"
     secret_access_key = "secret-key"
     session_token = "session-token"
@@ -356,24 +456,75 @@ def test_create_model_version_with_resources(store, langchain_local_model_dir_wi
         )
     )
     storage_location = "s3://blah"
-    source = str(langchain_local_model_dir_with_resources)
     model_name = "model_1"
     version = "1"
     tags = [
         ModelVersionTag(key="key", value="value"),
         ModelVersionTag(key="anotherKey", value="some other value"),
     ]
-    model_version_dependencies = [
-        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
-        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
-        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function"},
-        {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function_2"},
-        {"type": "DATABRICKS_UC_CONNECTION", "name": "test_connection"},
-        {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table"},
-        {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table_2"},
+
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
+    with (
+        mock.patch(
+            "mlflow.utils.rest_utils.http_request",
+            side_effect=get_request_mock(
+                name=model_name,
+                version=version,
+                temp_credentials=aws_temp_creds,
+                storage_location=storage_location,
+                source=source,
+                tags=tags,
+                model_version_dependencies=model_version_dependencies,
+            ),
+        ) as request_mock,
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
+            return_value=mock_artifact_repo,
+        ) as optimized_s3_artifact_repo_class_mock,
+        mock.patch.dict("sys.modules", {"boto3": {}}),
+    ):
+        store.create_model_version(name=model_name, source=source, tags=tags)
+        # Verify that s3 artifact repo mock was called with expected args
+        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
+            artifact_uri=storage_location,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+            credential_refresh_def=ANY,
+            s3_upload_extra_args={},
+        )
+        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock,
+            name=model_name,
+            source=source,
+            version=version,
+            tags=tags,
+            model_version_dependencies=model_version_dependencies,
+        )
+
+
+def test_create_model_version_with_invoker_resources(
+    store, langchain_local_model_dir_with_invoker_resources
+):
+    source, model_version_dependencies = langchain_local_model_dir_with_invoker_resources
+    source = str(source)
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    model_name = "model_1"
+    version = "1"
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
     ]
 
     mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
@@ -580,7 +731,32 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
         store.create_model_version(name="mymodel", source=str(tmp_path))
 
 
-def test_create_model_version_with_sse_kms_client(store, langchain_local_model_dir):
+@pytest.mark.parametrize(
+    ("encryption_details", "extra_args"),
+    [
+        (
+            SseEncryptionDetails(
+                algorithm=SseEncryptionAlgorithm.AWS_SSE_S3,
+            ),
+            {
+                "ServerSideEncryption": "AES256",
+            },
+        ),
+        (
+            SseEncryptionDetails(
+                algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
+                aws_kms_key_arn="some:arn:test:key/key_id",
+            ),
+            {
+                "ServerSideEncryption": "aws:kms",
+                "SSEKMSKeyId": "key_id",
+            },
+        ),
+    ],
+)
+def test_create_model_version_with_sse_kms_client(
+    store, langchain_local_model_dir, encryption_details, extra_args
+):
     access_key_id = "fake-key"
     secret_access_key = "secret-key"
     session_token = "session-token"
@@ -590,12 +766,7 @@ def test_create_model_version_with_sse_kms_client(store, langchain_local_model_d
             secret_access_key=secret_access_key,
             session_token=session_token,
         ),
-        encryption_details=EncryptionDetails(
-            sse_encryption_details=SseEncryptionDetails(
-                algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
-                aws_kms_key_arn="some:arn:test:key/key_id",
-            )
-        ),
+        encryption_details=EncryptionDetails(sse_encryption_details=encryption_details),
     )
     storage_location = "s3://blah"
     source = str(langchain_local_model_dir)
@@ -641,17 +812,36 @@ def test_create_model_version_with_sse_kms_client(store, langchain_local_model_d
         store.create_model_version(name=model_name, source=source, tags=tags)
 
         mock_s3_client.upload_file.assert_called_once_with(
-            Filename=ANY,
-            Bucket=ANY,
-            Key=ANY,
-            ExtraArgs={
-                "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": "key_id",
-            },
+            Filename=ANY, Bucket=ANY, Key=ANY, ExtraArgs=extra_args
         )
 
 
-def test_create_model_version_with_sse_kms_store(store, langchain_local_model_dir):
+@pytest.mark.parametrize(
+    ("encryption_details", "extra_args"),
+    [
+        (
+            SseEncryptionDetails(
+                algorithm=SseEncryptionAlgorithm.AWS_SSE_S3,
+            ),
+            {
+                "ServerSideEncryption": "AES256",
+            },
+        ),
+        (
+            SseEncryptionDetails(
+                algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
+                aws_kms_key_arn="some:arn:test:key/key_id",
+            ),
+            {
+                "ServerSideEncryption": "aws:kms",
+                "SSEKMSKeyId": "key_id",
+            },
+        ),
+    ],
+)
+def test_create_model_version_with_sse_kms_store(
+    store, langchain_local_model_dir, encryption_details, extra_args
+):
     access_key_id = "fake-key"
     secret_access_key = "secret-key"
     session_token = "session-token"
@@ -661,12 +851,7 @@ def test_create_model_version_with_sse_kms_store(store, langchain_local_model_di
             secret_access_key=secret_access_key,
             session_token=session_token,
         ),
-        encryption_details=EncryptionDetails(
-            sse_encryption_details=SseEncryptionDetails(
-                algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
-                aws_kms_key_arn="some:arn:test:key/key_id",
-            )
-        ),
+        encryption_details=EncryptionDetails(sse_encryption_details=encryption_details),
     )
     storage_location = "s3://blah"
     source = str(langchain_local_model_dir)
@@ -712,10 +897,7 @@ def test_create_model_version_with_sse_kms_store(store, langchain_local_model_di
             secret_access_key=secret_access_key,
             session_token=session_token,
             credential_refresh_def=ANY,
-            s3_upload_extra_args={
-                "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": "key_id",
-            },
+            s3_upload_extra_args=extra_args,
         )
 
 

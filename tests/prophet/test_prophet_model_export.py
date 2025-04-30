@@ -223,18 +223,16 @@ def test_prophet_log_model(prophet_model, tmp_path, should_start_run):
         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
 
         model_info = mlflow.prophet.log_model(
-            prophet_model.model, artifact_path, conda_env=str(conda_env)
+            prophet_model.model, name=artifact_path, conda_env=str(conda_env)
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        assert model_info.model_uri == model_uri
-        reloaded_prophet_model = mlflow.prophet.load_model(model_uri=model_uri)
+        reloaded_prophet_model = mlflow.prophet.load_model(model_uri=model_info.model_uri)
 
         np.testing.assert_array_equal(
             generate_forecast(prophet_model.model, FORECAST_HORIZON),
             generate_forecast(reloaded_prophet_model, FORECAST_HORIZON),
         )
 
-        model_path = Path(_download_artifact_from_uri(artifact_uri=model_uri))
+        model_path = Path(_download_artifact_from_uri(artifact_uri=model_info.model_uri))
         model_config = Model.load(str(model_path.joinpath("MLmodel")))
         assert pyfunc.FLAVOR_NAME in model_config.flavors
         assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
@@ -251,16 +249,15 @@ def test_log_model_calls_register_model(prophet_model, tmp_path):
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
-        mlflow.prophet.log_model(
+        model_info = mlflow.prophet.log_model(
             prophet_model.model,
-            artifact_path,
+            name=artifact_path,
             conda_env=str(conda_env),
             registered_model_name="ProphetModel1",
         )
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
-            model_uri=model_uri,
+            model_uri=model_info.model_uri,
             registered_model_name="ProphetModel1",
         )
 
@@ -271,7 +268,7 @@ def test_log_model_no_registered_model_name(prophet_model, tmp_path):
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
-        mlflow.prophet.log_model(prophet_model.model, artifact_path, conda_env=str(conda_env))
+        mlflow.prophet.log_model(prophet_model.model, name=artifact_path, conda_env=str(conda_env))
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -308,27 +305,27 @@ def test_log_model_with_pip_requirements(prophet_model, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.prophet.log_model(prophet_model.model, "model", pip_requirements=str(req_file))
-        _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
+        model_info = mlflow.prophet.log_model(
+            prophet_model.model, name="model", pip_requirements=str(req_file)
         )
+        _assert_pip_requirements(model_info.model_uri, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.prophet.log_model(
-            prophet_model.model, "model", pip_requirements=[f"-r {req_file}", "b"]
+        model_info = mlflow.prophet.log_model(
+            prophet_model.model, name="model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
+            model_info.model_uri, [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.prophet.log_model(
-            prophet_model.model, "model", pip_requirements=[f"-c {req_file}", "b"]
+        model_info = mlflow.prophet.log_model(
+            prophet_model.model, name="model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "b", "-c constraints.txt"],
             ["a"],
             strict=True,
@@ -343,27 +340,29 @@ def test_log_model_with_extra_pip_requirements(prophet_model, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.prophet.log_model(prophet_model.model, "model", extra_pip_requirements=str(req_file))
+        model_info = mlflow.prophet.log_model(
+            prophet_model.model, name="model", extra_pip_requirements=str(req_file)
+        )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
+            model_info.model_uri, [expected_mlflow_version, *default_reqs, "a"]
         )
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.prophet.log_model(
-            prophet_model.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
+        model_info = mlflow.prophet.log_model(
+            prophet_model.model, name="model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
+            model_info.model_uri, [expected_mlflow_version, *default_reqs, "a", "b"]
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.prophet.log_model(
-            prophet_model.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
+        model_info = mlflow.prophet.log_model(
+            prophet_model.model, name="model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
-            model_uri=mlflow.get_artifact_uri("model"),
+            model_uri=model_info.model_uri,
             requirements=[expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"],
             constraints=["a"],
             strict=False,
@@ -382,9 +381,8 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.prophet.log_model(prophet_model.model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-    _assert_pip_requirements(model_uri, mlflow.prophet.get_default_pip_requirements())
+        model_info = mlflow.prophet.log_model(prophet_model.model, name=artifact_path)
+    _assert_pip_requirements(model_info.model_uri, mlflow.prophet.get_default_pip_requirements())
 
 
 def test_pyfunc_serve_and_score(prophet_model):
@@ -402,7 +400,7 @@ def test_pyfunc_serve_and_score(prophet_model):
         ) + (["pandas<2"] if Version(prophet.__version__) < Version("1.1") else [])
         model_info = mlflow.prophet.log_model(
             prophet_model.model,
-            artifact_path,
+            name=artifact_path,
             extra_pip_requirements=extra_pip_requirements,
             input_example=inference_data,
         )
@@ -433,10 +431,11 @@ def test_log_model_with_code_paths(prophet_model):
         mlflow.start_run(),
         mock.patch("mlflow.prophet._add_code_from_conf_to_system_path") as add_mock,
     ):
-        mlflow.prophet.log_model(prophet_model.model, artifact_path, code_paths=[__file__])
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.prophet.FLAVOR_NAME)
-        mlflow.prophet.load_model(model_uri)
+        model_info = mlflow.prophet.log_model(
+            prophet_model.model, name=artifact_path, code_paths=[__file__]
+        )
+        _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.prophet.FLAVOR_NAME)
+        mlflow.prophet.load_model(model_info.model_uri)
         add_mock.assert_called()
 
 
@@ -461,14 +460,13 @@ def test_model_log_with_metadata(prophet_model):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.prophet.log_model(
+        model_info = mlflow.prophet.log_model(
             prophet_model.model,
-            artifact_path,
+            name=artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
@@ -479,8 +477,7 @@ def test_model_log_with_signature_inference(prophet_model):
     signature = infer_signature(horizon_df, model.predict(horizon_df))
 
     with mlflow.start_run():
-        mlflow.prophet.log_model(model, artifact_path, input_example=horizon_df)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.prophet.log_model(model, name=artifact_path, input_example=horizon_df)
 
-    model_info = Model.load(model_uri)
-    assert model_info.signature == signature
+    loaded_model = Model.load(model_info.model_uri)
+    assert loaded_model.signature == signature

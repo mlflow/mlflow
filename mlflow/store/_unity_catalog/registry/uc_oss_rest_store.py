@@ -2,6 +2,7 @@ import functools
 import os
 import shutil
 from contextlib import contextmanager
+from typing import Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -103,7 +104,7 @@ class UnityCatalogOssStore(BaseRestStore):
     def _get_all_endpoints_from_method(self, method):
         return _METHOD_TO_ALL_INFO[method]
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -111,6 +112,7 @@ class UnityCatalogOssStore(BaseRestStore):
             name: Name of the new model. This is expected to be unique in the backend store.
             tags: Not supported for Unity Catalog OSS yet.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -133,13 +135,14 @@ class UnityCatalogOssStore(BaseRestStore):
         registered_model_info = self._call_endpoint(CreateRegisteredModel, req_body)
         return get_registered_model_from_uc_oss_proto(registered_model_info)
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """
         Update description of the registered model.
 
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -265,6 +268,7 @@ class UnityCatalogOssStore(BaseRestStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ):
         with self._local_model_dir(source, local_model_path) as local_model_dir:
             [catalog_name, schema_name, model_name] = name.split(".")
@@ -297,6 +301,7 @@ class UnityCatalogOssStore(BaseRestStore):
 
     def update_model_version(self, name, version, description):
         full_name = get_full_name_from_sc(name, None)
+        version = int(version)
         req_body = message_to_json(
             UpdateModelVersion(
                 full_name=full_name,
@@ -320,6 +325,7 @@ class UnityCatalogOssStore(BaseRestStore):
 
     def delete_model_version(self, name, version):
         full_name = get_full_name_from_sc(name, None)
+        version = int(version)
         req_body = message_to_json(DeleteModelVersion(full_name=full_name, version=version))
         endpoint, method = _METHOD_TO_INFO[DeleteModelVersion]
         return self._edit_endpoint_and_call(
@@ -335,6 +341,7 @@ class UnityCatalogOssStore(BaseRestStore):
     # which contains the storage location
     def _get_model_version_endpoint_response(self, name, version):
         full_name = get_full_name_from_sc(name, None)
+        version = int(version)
         req_body = message_to_json(GetModelVersion(full_name=full_name, version=version))
         endpoint, method = _METHOD_TO_INFO[GetModelVersion]
         return self._edit_endpoint_and_call(

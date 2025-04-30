@@ -7,6 +7,7 @@ import mlflow
 from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, _ModelType
 from mlflow.models.evaluation.default_evaluator import (
     BuiltInEvaluator,
+    _extract_output_and_other_columns,
     _extract_predict_fn,
     _get_aggregate_metrics_values,
 )
@@ -51,7 +52,9 @@ class RegressorEvaluator(BuiltInEvaluator):
 
     def _generate_model_predictions(self, model, input_df):
         if predict_fn := _extract_predict_fn(model):
-            return predict_fn(input_df)
+            preds = predict_fn(input_df)
+            y_pred, _, _ = _extract_output_and_other_columns(preds, self.predictions)
+            return y_pred
         else:
             return self.dataset.predictions_data
 

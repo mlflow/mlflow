@@ -5,10 +5,11 @@ Revises: 2d6e25af4d3e
 Create Date: 2023-10-23 15:26:53.062080
 
 """
-from alembic import op
-import sqlalchemy as sa
-from mlflow.store.model_registry.dbmodels.models import SqlModelVersion
 
+import sqlalchemy as sa
+from alembic import op
+
+from mlflow.store.model_registry.dbmodels.models import SqlModelVersion
 
 # revision identifiers, used by Alembic.
 revision = "acf3f17fdcc7"

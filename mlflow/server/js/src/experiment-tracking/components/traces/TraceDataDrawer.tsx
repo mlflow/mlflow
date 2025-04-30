@@ -24,11 +24,15 @@ export const TraceDataDrawer = ({
   traceInfo,
   loadingTraceInfo,
   onClose,
+  selectedSpanId,
+  onSelectSpan,
 }: {
   requestId: string;
   traceInfo?: ModelTraceInfo;
   loadingTraceInfo?: boolean;
   onClose: () => void;
+  selectedSpanId?: string;
+  onSelectSpan?: (selectedSpanId?: string) => void;
 }) => {
   const {
     traceData,
@@ -61,18 +65,20 @@ export const TraceDataDrawer = ({
       return getTraceDisplayName(traceInfoToUse as ModelTraceInfo);
     }
     return requestId;
-  }, [loadingTraceInfo, loadingInternalTracingInfo, traceInfoToUse, requestId, theme]);
+  }, [
+    // Memo dependency list
+    loadingTraceInfo,
+    loadingInternalTracingInfo,
+    traceInfoToUse,
+    requestId,
+  ]);
 
   // Construct the model trace object with the trace info and trace data
   const combinedModelTrace = useMemo(
     () =>
       traceData
         ? {
-            // We're assigning values redunantly due to a name change in the upstream interface,
-            // will be cleaned up shortly
-            trace_info: traceInfoToUse || {},
             info: traceInfoToUse || {},
-            trace_data: traceData,
             data: traceData,
           }
         : undefined,
@@ -120,7 +126,7 @@ export const TraceDataDrawer = ({
             image={<DangerIcon />}
             description={
               <FormattedMessage
-                defaultMessage="An error occurred while attemptying to fetch the trace data. Please wait a moment and try again."
+                defaultMessage="An error occurred while attempting to fetch the trace data. Please wait a moment and try again."
                 description="Experiment page > traces data drawer > error state description"
               />
             }
@@ -151,6 +157,7 @@ export const TraceDataDrawer = ({
       );
     }
     if (combinedModelTrace) {
+      // TODO: pass onSelectSpan or stop using iframe for OSS tracing page to enable spanId query params in the OSS tracing UI
       return (
         <div
           css={{
@@ -180,7 +187,7 @@ export const TraceDataDrawer = ({
     >
       <Drawer.Content
         componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracedatadrawer.tsx_222"
-        width="85vw"
+        width="90vw"
         title={title}
         expandContentToFullHeight
       >

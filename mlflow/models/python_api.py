@@ -8,9 +8,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import (
-    is_databricks_connect,
-)
+from mlflow.utils.databricks_utils import is_databricks_connect, is_in_databricks_runtime
 from mlflow.utils.file_utils import TempDir
 
 _logger = logging.getLogger(__name__)
@@ -39,8 +37,8 @@ def build_docker(
     .. important::
 
         Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**
-        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o",
-        "mleap", "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
+        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o"
+        "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
         that uses SparkML, please specify ``install-java=True`` to enforce Java installation.
         For earlier versions, Java is always installed to the image.
 
@@ -48,7 +46,7 @@ def build_docker(
     .. warning::
 
         If ``model_uri`` is unspecified, the resulting image doesn't support serving models with
-        the RFunc or Java MLeap model servers.
+        the RFunc server.
 
     NB: by default, the container will start nginx and gunicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),
@@ -117,6 +115,25 @@ def predict(
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
+
+    .. note::
+
+        To increase verbosity for debugging purposes (in order to inspect the full dependency
+        resolver operations when processing transient dependencies), consider setting the following
+        environment variables:
+
+        .. code-block:: bash
+
+            # For virtualenv
+            export PIP_VERBOSE=1
+
+            # For uv
+            export RUST_LOG=uv=debug
+
+        See also:
+
+        - https://pip.pypa.io/en/stable/topics/configuration/#environment-variables
+        - https://docs.astral.sh/uv/configuration/environment
 
     Args:
         model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
@@ -188,6 +205,14 @@ def predict(
             extra_envs={"OPENAI_API_KEY": "some_value"},
         )
 
+        # Run prediction with output_path
+        mlflow.models.predict(
+            model_uri=f"runs:/{run_id}/model",
+            input_data={"x": 1, "y": 2},
+            env_manager="uv",
+            output_path="output.json",
+        )
+
     """
     # to avoid circular imports
     from mlflow.pyfunc import _PREBUILD_ENV_ROOT_LOCATION
@@ -235,19 +260,28 @@ def predict(
         pyfunc_backend_env_root_config = {"create_env_root_dir": True}
 
     def _predict(_input_path: str):
-        return get_flavor_backend(
-            model_uri,
-            env_manager=env_manager,
-            install_mlflow=install_mlflow,
-            **pyfunc_backend_env_root_config,
-        ).predict(
-            model_uri=model_uri,
-            input_path=_input_path,
-            output_path=output_path,
-            content_type=content_type,
-            pip_requirements_override=pip_requirements_override,
-            extra_envs=extra_envs,
-        )
+        try:
+            return get_flavor_backend(
+                model_uri,
+                env_manager=env_manager,
+                install_mlflow=install_mlflow,
+                **pyfunc_backend_env_root_config,
+            ).predict(
+                model_uri=model_uri,
+                input_path=_input_path,
+                output_path=output_path,
+                content_type=content_type,
+                pip_requirements_override=pip_requirements_override,
+                extra_envs=extra_envs,
+            )
+        except Exception as e:
+            if is_in_databricks_runtime() and "Permission denied" in str(e):
+                raise MlflowException(
+                    "The virtual environment cannot be retrieved. To resolve this issue, either "
+                    "detach your notebook from your running environment and reattach, or restart "
+                    "your compute resource to build a new environment."
+                ) from e
+            raise
 
     if input_data is not None and input_path is not None:
         raise MlflowException.invalid_parameter_value(

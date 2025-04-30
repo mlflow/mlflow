@@ -335,25 +335,23 @@ def test_infer_signature_with_input_example(input_is_tabular, output_shape, expe
     example = pd.DataFrame({"feature": ["value"]}) if input_is_tabular else np.array([[1]])
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(model, artifact_path, input_example=example)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.sklearn.log_model(model, name=artifact_path, input_example=example)
 
-    mlflow_model = Model.load(model_uri)
+    mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == expected_signature
 
 
 def test_infer_signature_from_example_can_be_disabled():
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
+        model_info = mlflow.sklearn.log_model(
             DummySklearnModel(output_shape=()),
-            artifact_path,
+            name=artifact_path,
             input_example=np.array([[1]]),
             signature=False,
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    mlflow_model = Model.load(model_uri)
+    mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature is None
 
 
@@ -369,9 +367,11 @@ def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
 
     with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
         with mlflow.start_run():
-            mlflow.sklearn.log_model(ErrorModel(), "model", input_example=np.array([[1]]))
-        mock_warning.assert_called_once()
-        assert "Failed to validate serving input example" in mock_warning.call_args[0][0]
+            mlflow.sklearn.log_model(ErrorModel(), name="model", input_example=np.array([[1]]))
+        assert any(
+            "Failed to validate serving input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
 
 
 @pytest.fixture(scope="module")
@@ -405,10 +405,11 @@ def test_infer_signature_on_multi_column_input_examples(input_example, iris_mode
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(iris_model, artifact_path, input_example=input_example)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.sklearn.log_model(
+            iris_model, name=artifact_path, input_example=input_example
+        )
 
-    mlflow_model = Model.load(model_uri)
+    mlflow_model = Model.load(model_info.model_uri)
     input_columns = mlflow_model.signature.inputs.inputs
     assert len(input_columns) == 4
     assert all(col.type == DataType.double for col in input_columns)
@@ -432,10 +433,11 @@ def test_infer_signature_on_scalar_input_examples(input_example):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(IdentitySklearnModel(), artifact_path, input_example=input_example)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.sklearn.log_model(
+            IdentitySklearnModel(), name=artifact_path, input_example=input_example
+        )
 
-    mlflow_model = Model.load(model_uri)
+    mlflow_model = Model.load(model_info.model_uri)
     signature = mlflow_model.signature
     assert isinstance(signature, ModelSignature)
     assert signature.inputs.inputs[0].name is None
@@ -445,4 +447,4 @@ def test_infer_signature_on_scalar_input_examples(input_example):
         outputs=Schema([ColSpec(name=0, type=t)]),
     )
     # test that a single string still passes pyfunc schema enforcement
-    mlflow.pyfunc.load_model(model_uri).predict(input_example)
+    mlflow.pyfunc.load_model(model_info.model_uri).predict(input_example)

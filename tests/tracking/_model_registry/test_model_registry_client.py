@@ -63,7 +63,7 @@ def test_create_registered_model(mock_store):
         "Model 1", tags=tags, description=description
     )
     result = newModelRegistryClient().create_registered_model("Model 1", tags_dict, description)
-    mock_store.create_registered_model.assert_called_once_with("Model 1", tags, description)
+    mock_store.create_registered_model.assert_called_once_with("Model 1", tags, description, None)
     assert result.name == "Model 1"
     assert result.tags == tags_dict
 
@@ -79,7 +79,9 @@ def test_update_registered_model(mock_store):
     result = newModelRegistryClient().update_registered_model(
         name=name, description=new_description
     )
-    mock_store.update_registered_model.assert_called_with(name=name, description=new_description)
+    mock_store.update_registered_model.assert_called_with(
+        name=name, description=new_description, deployment_job_id=None
+    )
     assert result.description == new_description
 
     mock_store.update_registered_model.return_value = RegisteredModel(
@@ -89,7 +91,7 @@ def test_update_registered_model(mock_store):
         name=name, description=new_description_2
     )
     mock_store.update_registered_model.assert_called_with(
-        name=name, description="New Description 2"
+        name=name, description="New Description 2", deployment_job_id=None
     )
     assert result.description == new_description_2
 
@@ -123,8 +125,9 @@ def test_search_registered_models(mock_store):
         [RegisteredModel("Model 1"), RegisteredModel("Model 2")], ""
     )
     result = newModelRegistryClient().search_registered_models(filter_string="test filter")
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
     mock_store.search_registered_models.assert_called_with(
-        "test filter", SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, None, None
+        f"test filter AND {prompt_filter}", SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, None, None
     )
     assert len(result) == 2
     assert result.token == ""
@@ -136,7 +139,7 @@ def test_search_registered_models(mock_store):
         page_token="next one",
     )
     mock_store.search_registered_models.assert_called_with(
-        "another filter", 12, ["A", "B DESC"], "next one"
+        f"another filter AND {prompt_filter}", 12, ["A", "B DESC"], "next one"
     )
     assert len(result) == 2
     assert result.token == ""
@@ -146,7 +149,7 @@ def test_search_registered_models(mock_store):
         "page 2 token",
     )
     result = newModelRegistryClient().search_registered_models(max_results=5)
-    mock_store.search_registered_models.assert_called_with(None, 5, None, None)
+    mock_store.search_registered_models.assert_called_with(prompt_filter, 5, None, None)
     assert [rm.name for rm in result] == ["model A", "Model zz", "Model b"]
     assert result.token == "page 2 token"
 
@@ -260,7 +263,14 @@ def test_create_model_version(mock_store):
         name, "uri:/for/source", "run123", tags_dict, None, description
     )
     mock_store.create_model_version.assert_called_once_with(
-        name, "uri:/for/source", "run123", tags, None, description, local_model_path=None
+        name,
+        "uri:/for/source",
+        "run123",
+        tags,
+        None,
+        description,
+        local_model_path=None,
+        model_id=None,
     )
 
     assert result.name == name
@@ -287,7 +297,7 @@ def test_create_model_version_no_run_id(mock_store):
         name, "uri:/for/source", tags=tags_dict, run_link=None, description=description
     )
     mock_store.create_model_version.assert_called_once_with(
-        name, "uri:/for/source", None, tags, None, description, local_model_path=None
+        name, "uri:/for/source", None, tags, None, description, local_model_path=None, model_id=None
     )
 
     assert result.name == name

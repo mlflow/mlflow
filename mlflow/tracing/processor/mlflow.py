@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Any, Optional
+from typing import Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -11,7 +11,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
-    MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS,
+    MAX_CHARS_IN_TRACE_INFO_METADATA,
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
     TRUNCATION_SUFFIX,
@@ -24,6 +24,7 @@ from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
+    maybe_get_logged_model_id,
     maybe_get_request_id,
 )
 from mlflow.tracking.client import MlflowClient
@@ -31,7 +32,7 @@ from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunCon
 from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
-from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.tracking.fluent import _get_experiment_id, get_active_model_id
 from mlflow.utils.mlflow_tags import TRACE_RESOLVE_TAGS_ALLOWLIST
 
 _logger = logging.getLogger(__name__)
@@ -44,9 +45,15 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
     This processor is used when the tracing destination is MLflow Tracking Server.
     """
 
-    def __init__(self, span_exporter: SpanExporter, client: Optional[MlflowClient] = None):
+    def __init__(
+        self,
+        span_exporter: SpanExporter,
+        client: Optional[MlflowClient] = None,
+        experiment_id: Optional[str] = None,
+    ):
         self.span_exporter = span_exporter
         self._client = client or MlflowClient()
+        self._experiment_id = experiment_id
         self._trace_manager = InMemoryTraceManager.get_instance()
 
         # We issue a warning when a trace is created under the default experiment.
@@ -68,6 +75,14 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 on it.
         """
         request_id = self._trace_manager.get_request_id_from_trace_id(span.context.trace_id)
+
+        if not request_id and span.parent is not None:
+            _logger.debug(
+                "Received a non-root span but the request ID is not found."
+                "The trace has likely been halted due to a timeout expiration."
+            )
+            return
+
         if not request_id:
             # If the user started trace/span with fixed start time, this attribute is set
             start_time_ns = get_otel_attribute(span, SpanAttributeKey.START_TIME_NS)
@@ -87,8 +102,8 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
     def _start_trace(self, span: OTelSpan, start_time_ns: Optional[int]) -> TraceInfo:
         from mlflow.tracking.fluent import _get_latest_active_run
 
-        experiment_id = get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID)
         metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
+
         # If the span is started within an active MLflow run, we should record it as a trace tag
         # Note `mlflow.active_run()` can only get thread-local active run,
         # but tracing routine might be applied to model inference worker threads
@@ -99,14 +114,11 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         # all threads and set it as the tracing source run.
         if run := _get_latest_active_run():
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
-            if experiment_id is None:
-                # if we're inside a run, the run's experiment id should
-                # take precedence over the environment experiment id
-                experiment_id = run.info.experiment_id
 
-        if experiment_id is None:
-            experiment_id = _get_experiment_id()
+        if model_id := maybe_get_logged_model_id():
+            metadata[TraceMetadataKey.MODEL_ID] = model_id
 
+        experiment_id = self._get_experiment_id_for_trace(span)
         if experiment_id == DEFAULT_EXPERIMENT_ID and not self._issued_default_exp_warning:
             _logger.warning(
                 "Creating a trace within the default experiment with id "
@@ -159,17 +171,44 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             return
 
         request_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+        # TODO: We should remove the model ID from the span attributes
+        model_id = get_otel_attribute(span, SpanAttributeKey.MODEL_ID)
         with self._trace_manager.get_trace(request_id) as trace:
             if trace is None:
                 _logger.debug(f"Trace data with request ID {request_id} not found.")
                 return
 
-            self._update_trace_info(trace, span)
+            self._update_trace_info(trace, span, model_id)
             deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
         super().on_end(span)
 
-    def _update_trace_info(self, trace: _Trace, root_span: OTelReadableSpan):
+    def _get_experiment_id_for_trace(self, span: OTelReadableSpan) -> str:
+        """
+        Determine the experiment ID to associate with the trace.
+
+        The experiment ID can be configured in multiple ways, in order of precedence:
+          1. An experiment ID specified via the span creation API i.e. MlflowClient().start_trace()
+          2. An experiment ID specified via the processor constructor
+          3. An experiment ID of an active run.
+          4. The default experiment ID
+        """
+        from mlflow.tracking.fluent import _get_latest_active_run
+
+        if experiment_id := get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID):
+            return experiment_id
+
+        if self._experiment_id:
+            return self._experiment_id
+
+        if run := _get_latest_active_run():
+            return run.info.experiment_id
+
+        return _get_experiment_id()
+
+    def _update_trace_info(
+        self, trace: _Trace, root_span: OTelReadableSpan, model_id: Optional[str]
+    ):
         """Update the trace info with the final values from the root span."""
         # The trace/span start time needs adjustment to exclude the latency of
         # the backend API call. We already adjusted the span start time in the
@@ -187,31 +226,19 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 ),
             }
         )
+        # model_id is used in start_span and passed as attribute, so it should
+        # be used even if active_model_id exists
+        if model_id is not None:
+            trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = model_id
+        elif active_model_id := get_active_model_id():
+            trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = active_model_id
 
     def _truncate_metadata(self, value: Optional[str]) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""
         if not value:
             return ""
 
-        if len(value) > MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS:
-            trunc_length = MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS - len(TRUNCATION_SUFFIX)
+        if len(value) > MAX_CHARS_IN_TRACE_INFO_METADATA:
+            trunc_length = MAX_CHARS_IN_TRACE_INFO_METADATA - len(TRUNCATION_SUFFIX)
             value = value[:trunc_length] + TRUNCATION_SUFFIX
         return value
-
-    def _create_trace_info(
-        self,
-        request_id: str,
-        span: OTelSpan,
-        experiment_id: Optional[str] = None,
-        request_metadata: Optional[dict[str, Any]] = None,
-        tags: Optional[dict[str, str]] = None,
-    ) -> TraceInfo:
-        return TraceInfo(
-            request_id=request_id,
-            experiment_id=experiment_id,
-            timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
-            execution_time_ms=None,
-            status=TraceStatus.IN_PROGRESS,
-            request_metadata=request_metadata or {},
-            tags=tags or {},
-        )

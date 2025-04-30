@@ -11,12 +11,15 @@ from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServer
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse
+from tests.helper_functions import skip_if_hf_hub_unhealthy
+
+pytestmark = skip_if_hf_hub_unhealthy()
 
 
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "huggingface-text-generation-inference",
             "name": "hf-tgi",
@@ -28,7 +31,7 @@ def completions_config():
 def embedding_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "huggingface-text-generation-inference",
             "name": "hf-tgi",
@@ -40,7 +43,7 @@ def embedding_config():
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "huggingface-text-generation-inference",
             "name": "hf-tgi",

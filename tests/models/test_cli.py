@@ -31,7 +31,7 @@ from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
 )
-from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.conda import _get_conda_env_name
@@ -60,7 +60,6 @@ no_conda = ["--env-manager", "local"] if sys.platform == "win32" else []
 install_mlflow = ["--install-mlflow"] if not no_conda else []
 
 extra_options = no_conda + install_mlflow
-gunicorn_options = "--timeout 60 -w 5"
 
 
 def env_with_tracking_uri():
@@ -142,23 +141,19 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         assert "No suitable flavor backend was found for the model." in prc.stderr
 
 
-def test_serve_gunicorn_opts(iris_data, sk_model):
+def test_serve_uvicorn_opts(iris_data, sk_model):
     if sys.platform == "win32":
         pytest.skip("This test requires gunicorn which is not available on windows.")
-    with mlflow.start_run() as active_run:
+    with mlflow.start_run():
         x, _ = iris_data
-        mlflow.sklearn.log_model(
-            sk_model, "model", registered_model_name="imlegit", input_example=pd.DataFrame(x)
+        model_info = mlflow.sklearn.log_model(
+            sk_model, name="model", registered_model_name="test", input_example=pd.DataFrame(x)
         )
-        run_id = active_run.info.run_id
 
-    model_uris = [
-        "models:/{name}/{stage}".format(name="imlegit", stage="None"),
-        f"runs:/{run_id}/model",
-    ]
+    model_uris = ["models:/test/None", model_info.model_uri]
     for model_uri in model_uris:
         with TempDir() as tpm:
-            output_file_path = tpm.path("stoudt")
+            output_file_path = tpm.path("stdout")
             inference_payload = load_serving_example(model_uri)
             with open(output_file_path, "w") as output_file:
                 scoring_response = pyfunc_serve_and_score_model(
@@ -166,7 +161,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
                     inference_payload,
                     content_type=CONTENT_TYPE_JSON,
                     stdout=output_file,
-                    extra_args=["-w", "3"],
+                    extra_args=["-w", "3", "--env-manager", "local"],
                 )
             with open(output_file_path) as output_file:
                 stdout = output_file.read()
@@ -175,7 +170,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
         expected = sk_model.predict(x)
         assert all(expected == actual)
         expected_command_pattern = re.compile(
-            "gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app"
+            r"uvicorn.*--workers 3.*mlflow\.pyfunc\.scoring_server\.app:app"
         )
         assert expected_command_pattern.search(stdout) is not None
 
@@ -183,7 +178,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
 def test_predict(iris_data, sk_model):
     with TempDir(chdr=True) as tmp:
         with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+            mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
             model_uri = f"runs:/{active_run.info.run_id}/model"
         model_registry_uri = "models:/impredicting/None"
         input_json_path = tmp.path("input.json")
@@ -357,7 +352,7 @@ def test_predict(iris_data, sk_model):
 
 def test_predict_check_content_type(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
     model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input.json"
     input_csv_path = tmp_path / "input.csv"
@@ -399,7 +394,7 @@ def test_predict_check_content_type(iris_data, sk_model, tmp_path):
 
 def test_predict_check_input_path(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
     model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input with space.json"
     input_csv_path = tmp_path / "input.csv"
@@ -494,7 +489,7 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
 
 def test_predict_check_output_path(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
     model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input.json"
     input_csv_path = tmp_path / "input.csv"
@@ -538,7 +533,7 @@ def test_prepare_env_passes(sk_model):
 
     with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, "model")
+            mlflow.sklearn.log_model(sk_model, name="model")
             model_uri = f"runs:/{active_run.info.run_id}/model"
 
         # With conda
@@ -579,7 +574,7 @@ def test_prepare_env_fails(sk_model):
     with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(
-                sk_model, "model", pip_requirements=["does-not-exist-dep==abc"]
+                sk_model, name="model", pip_requirements=["does-not-exist-dep==abc"]
             )
             model_uri = f"runs:/{active_run.info.run_id}/model"
 
@@ -605,10 +600,10 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model, name="model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
-            mlflow.sklearn.log_model(sk_model, "model")
+            mlflow.sklearn.log_model(sk_model, name="model")
         model_uri = f"runs:/{active_run.info.run_id}/model"
     extra_args = ["--install-mlflow"]
     if enable_mlserver:
@@ -633,10 +628,10 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model, name="model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
-            mlflow.sklearn.log_model(sk_model, "model", extra_pip_requirements=["/opt/mlflow"])
+            mlflow.sklearn.log_model(sk_model, name="model", extra_pip_requirements=["/opt/mlflow"])
         model_uri = f"runs:/{active_run.info.run_id}/model"
 
     x, _ = iris_data
@@ -659,7 +654,7 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
 def test_build_docker_virtualenv(iris_data, sk_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sk_model, "model", extra_pip_requirements=["/opt/mlflow"]
+            sk_model, name="model", extra_pip_requirements=["/opt/mlflow"]
         )
 
     x, _ = iris_data
@@ -681,10 +676,10 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model, name="model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
-            mlflow.sklearn.log_model(sk_model, "model", extra_pip_requirements=["/opt/mlflow"])
+            mlflow.sklearn.log_model(sk_model, name="model", extra_pip_requirements=["/opt/mlflow"])
         model_uri = f"runs:/{active_run.info.run_id}/model"
     x, _ = iris_data
     df = pd.DataFrame(x)
@@ -699,9 +694,7 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
         env=env_with_tracking_uri(),
     )
     host_port = get_safe_port()
-    scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
-        image_name, host_port, gunicorn_options
-    )
+    scoring_proc = pyfunc_serve_from_docker_image_with_env_override(image_name, host_port)
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver)
 
 
@@ -713,7 +706,6 @@ def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
     scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
         image_name,
         host_port,
-        gunicorn_options,
         extra_docker_run_options=["-v", f"{model_path}:/opt/ml/model"],
     )
     x = iris_data[0]
@@ -725,9 +717,9 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
     with RestEndpoint(proc=scoring_proc, port=host_port, validate_version=False) as endpoint:
         for content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV]:
             scoring_response = endpoint.invoke(df, content_type)
-            assert (
-                scoring_response.status_code == 200
-            ), f"Failed to serve prediction, got response {scoring_response.text}"
+            assert scoring_response.status_code == 200, (
+                f"Failed to serve prediction, got response {scoring_response.text}"
+            )
             np.testing.assert_array_equal(
                 np.array(json.loads(scoring_response.text)["predictions"]), sk_model.predict(x)
             )
@@ -790,7 +782,7 @@ def test_host_invalid_value():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model", python_model=MyModel(), registered_model_name="model"
+            name="test_model", python_model=MyModel(), registered_model_name="model"
         )
 
     with mock.patch(
@@ -871,7 +863,7 @@ def test_signature_enforcement_with_model_serving(input_schema, output_schema, p
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model", python_model=MyModel(), signature=signature
+            name="test_model", python_model=MyModel(), signature=signature
         )
 
     inference_payload = json.dumps({"inputs": ["test"]})
@@ -902,9 +894,9 @@ def assert_base_model_reqs():
             return ["test"]
 
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=MyModel())
 
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_info.model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_info.model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     requirements_txt_file = local_paths.requirements
@@ -932,7 +924,7 @@ def test_update_requirements_cli_adds_reqs_successfully():
         catch_exceptions=False,
     )
 
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     # the tool should overwrite mlflow, add coolpackage, and leave cloudpickle alone
@@ -958,7 +950,7 @@ def test_update_requirements_cli_removes_reqs_successfully():
         catch_exceptions=False,
     )
 
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     # the tool should remove mlflow and leave cloudpickle alone
@@ -990,7 +982,7 @@ def test_update_model_requirements_add():
         model_uri, "add", ["mlflow>=2.9, !=2.9.0", "coolpackage[extra]==8.8.8"]
     )
 
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     # the tool should overwrite mlflow, add coolpackage, and leave cloudpickle alone
@@ -1011,7 +1003,7 @@ def test_update_model_requirements_remove():
     model_uri = assert_base_model_reqs()
 
     update_model_requirements(model_uri, "remove", ["mlflow"])
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     # the tool should remove mlflow and leave cloudpickle alone

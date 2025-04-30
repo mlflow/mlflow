@@ -163,6 +163,7 @@ def format_docstring(param_docs):
 # `{{ ... }}` represents a placeholder.
 LOG_MODEL_PARAM_DOCS = ParamDocs(
     {
+        "name": "Model name.",
         "conda_env": (
             """Either a dictionary representation of a Conda environment or the path to a conda
 environment yaml file. If provided, this describes the environment this model should be run in.
@@ -252,11 +253,6 @@ by converting it to a list. Bytes are base64-encoded. When the ``signature`` par
 ``None``, the input example is used to infer a model signature.
 """
         ),
-        "example_no_conversion": (
-            """This parameter is deprecated and will be removed in a future release.
-It's no longer used and can be safely removed. Input examples are not converted anymore.
-"""
-        ),
         "prompt_template": (
             """A string that, if provided, will be used to format the user's input prior
 to inference. The string should contain a single placeholder, ``{prompt}``, which will be
@@ -329,7 +325,9 @@ instead only saving the reference to the HuggingFace Hub model repository and it
 This is useful when you load the pretrained model from HuggingFace Hub and want to log or save
 it to MLflow without modifying the model weights. In such case, specifying this flag to
 ``False`` will save the storage space and reduce time to save the model. Please refer to the
-:ref:`Storage-Efficient Model Logging <transformers-save-pretrained-guide>` for more detailed usage.
+`Storage-Efficient Model Logging
+<../../llms/transformers/large-models.html#transformers-save-pretrained-guide>`_ for more detailed
+usage.
 
 
 .. warning::
@@ -338,7 +336,8 @@ it to MLflow without modifying the model weights. In such case, specifying this 
     registered to the MLflow Model Registry. In order to convert the model to the one that
     can be registered, you can use :py:func:`mlflow.transformers.persist_pretrained_model()`
     to download the model weights from the HuggingFace Hub and save it in the existing model
-    artifacts. Please refer to :ref:`Transformers flavor documentation <persist-pretrained-guide>`
+    artifacts. Please refer to `Transformers flavor documentation
+    <../../llms/transformers/large-models.html#persist-pretrained-guide>`_
     for more detailed usage.
 
     .. code-block:: python
@@ -357,6 +356,55 @@ it to MLflow without modifying the model weights. In such case, specifying this 
     its commit hash are logged instead.
 """
         ),
+        "auth_policy": (
+            """Specifies the authentication policy for the model, which includes two key components.
+            Note that only one of `auth_policy` or `resources` should be defined.
+
+                - **System Auth Policy**: A list of resources required to serve this model.
+                - **User Auth Policy**: A minimal list of scopes that the user should have access to
+                    ,in order to invoke this model.
+
+    .. Note::
+        Experimental: This parameter may change or be removed in a future release without warning.
+            """
+        ),
+        "params": "A dictionary of parameters to log with the model.",
+        "tags": "A dictionary of tags to log with the model.",
+        "model_type": "The type of the model.",
+        "step": "The step at which to log the model outputs and metrics",
+        "model_id": "The ID of the model.",
+        "prompts": """\
+A list of prompt URIs registered in the MLflow Prompt Registry, to be associated with the model.
+Each prompt URI should be in the form ``prompt:/<name>/<version>``. The prompts should be
+registered in the MLflow Prompt Registry before being associated with the model.
+
+This will create a mutual link between the model and the prompt. The associated prompts can be
+seen in the model's metadata stored in the MLmodel file. From the Prompt Registry UI, you can
+navigate to the model as well.
+
+.. code-block:: python
+
+    import mlflow
+
+    prompt_template = "Hi, {name}! How are you doing today?"
+
+    # Register a prompt in the MLflow Prompt Registry
+    mlflow.prompts.register_prompt("my_prompt", prompt_template, description="A simple prompt")
+
+    # Log a model with the registered prompt
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name=MyModel(),
+            artifact_path="model",
+            prompts=["prompt:/my_prompt/1"]
+        )
+
+    print(model_info.prompts)
+    # Output: ['prompt:/my_prompt/1']
+
+    # Load the prompt
+    prompt = mlflow.load_prompt(model_info.prompts[0])
+""",
     }
 )
 

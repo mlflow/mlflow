@@ -1,3 +1,4 @@
+import type { Column, ColumnSizingInstance } from '@tanstack/react-table';
 import type { CSSProperties } from 'react';
 import React from 'react';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
@@ -19,9 +20,13 @@ export interface TableHeaderProps extends HTMLDataAttributes, React.HTMLAttribut
     className?: string;
     /** Child nodes for the table header */
     children?: React.ReactNode | React.ReactNode[];
-    /** Whether the table header should include a resize handler */
+    /** Whether the table header should include a resize handler
+     * @deprecated Provide `header`, `column`, and `setColumnSizing` props instead.
+     */
     resizable?: boolean;
-    /** Event handler to be passed down to <TableHeaderResizeHandle /> */
+    /** Event handler to be passed down to <TableHeaderResizeHandle />
+     * @deprecated Provide `header`, `column`, and `setColumnSizing` props instead.
+     */
     resizeHandler?: React.PointerEventHandler<HTMLDivElement>;
     /** Whether the header is currently being resized */
     isResizing?: boolean;
@@ -30,11 +35,14 @@ export interface TableHeaderProps extends HTMLDataAttributes, React.HTMLAttribut
     /** If the content of this header should be wrapped with Typography. Should only be set to false if
      * content is not a text (e.g. images) or you really need to render custom content. */
     wrapContent?: boolean;
-    hasAdjustableWidthHeader?: boolean;
-    /**  Handler to increase the width of the column, **/
-    increaseWidthHandler?: () => void;
-    /**  Handler to decrease the width of the column, **/
-    decreaseWidthHandler?: () => void;
+    /** Column resize method */
+    setColumnSizing?: ColumnSizingInstance['setColumnSizing'];
+    /** Header metadata required for column resizing */
+    header?: {
+        getResizeHandler: () => React.PointerEventHandler<HTMLDivElement>;
+    };
+    /** Column metadata required for column resizing */
+    column?: Pick<Column<any, any>, 'id' | 'getSize' | 'getCanResize'>;
 }
 export declare const TableHeader: React.ForwardRefExoticComponent<TableHeaderProps & React.RefAttributes<HTMLDivElement>>;
 //# sourceMappingURL=TableHeader.d.ts.map

@@ -17,7 +17,7 @@ from typing import Any, Optional
 
 import mlflow
 import mlflow.version
-from mlflow import mleap, pyfunc
+from mlflow import pyfunc
 from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
 from mlflow.environment_variables import (
     MLFLOW_DEPLOYMENT_FLAVOR_NAME,
@@ -70,9 +70,7 @@ def _get_preferred_deployment_flavor(model_config):
     Returns:
         The name of the preferred deployment flavor for the specified model
     """
-    if mleap.FLAVOR_NAME in model_config.flavors:
-        return mleap.FLAVOR_NAME
-    elif pyfunc.FLAVOR_NAME in model_config.flavors:
+    if pyfunc.FLAVOR_NAME in model_config.flavors:
         return pyfunc.FLAVOR_NAME
     else:
         raise MlflowException(
@@ -198,7 +196,7 @@ def _deploy(
 
     This function creates a SageMaker endpoint. For more information about the input data
     formats accepted by this endpoint, see the
-    :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
+    `MLflow deployment tools documentation <../../deployment/deploy-model-to-sagemaker.html>`_.
 
     Args:
         app_name: Name of the deployed application.
@@ -2152,7 +2150,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         This function creates a SageMaker endpoint. For more information about the input data
         formats accepted by this endpoint, see the
-        :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
+        `MLflow deployment tools documentation <../../deployment/deploy-model-to-sagemaker.html>`_.
 
         Args:
             name: Name of the deployed application.

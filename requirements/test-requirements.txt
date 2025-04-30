@@ -3,6 +3,7 @@
 pip>=20.1
 ## Test-only dependencies
 pytest==8.1.1
+pytest-asyncio
 pytest-repeat
 pytest-cov
 pytest-timeout
@@ -16,8 +17,6 @@ plotly
 kaleido
 # Required by tuning tests
 hyperopt
-# Required by recipes tests
-ipython
 # Required by automl tests
 flaml[automl]
 # Required by evaluator tests
@@ -45,3 +44,5 @@ opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-otlp-proto-http
 # TODO: remove this once XGBoost releases >2.1.3
 scikit-learn<1.6
+# Required for testing mlflow.server.auth
+Flask-WTF<2

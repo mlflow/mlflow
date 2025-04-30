@@ -1,4 +1,5 @@
 import contextlib
+import functools
 import importlib
 import inspect
 import logging
@@ -21,8 +22,8 @@ from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS, FLAVOR_TO_MODULE_NA
 from mlflow.utils.autologging_utils.client import MlflowAutologgingQueueingClient  # noqa: F401
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
-    set_mlflow_events_and_warnings_behavior_globally,
-    set_non_mlflow_warnings_behavior_for_current_thread,
+    MlflowEventsAndWarningsBehaviorGlobally,
+    NonMlflowWarningsBehaviorForCurrentThread,
 )
 
 # Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
@@ -31,7 +32,6 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 from mlflow.utils.autologging_utils.safety import (  # noqa: F401
     ExceptionSafeAbstractClass,
     ExceptionSafeClass,
-    PatchFunction,
     exception_safe_function_for_class,
     is_testing,
     picklable_exception_safe_function,
@@ -73,6 +73,11 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "litellm",
     "openai",
     "dspy",
+    "autogen",
+    "gemini",
+    "anthropic",
+    "crewai",
+    "bedrock",
 ]
 
 # Global lock for turning on / off autologging
@@ -249,8 +254,9 @@ class BatchMetricsLogger:
     `record_metrics()` or `flush()`.
     """
 
-    def __init__(self, run_id=None, tracking_uri=None):
+    def __init__(self, run_id=None, tracking_uri=None, model_id=None):
         self.run_id = run_id
+        self.model_id = model_id
         self.client = MlflowClient(tracking_uri)
 
         # data is an array of Metric objects
@@ -313,7 +319,9 @@ class BatchMetricsLogger:
             step = 0
 
         for key, value in metrics.items():
-            self.data.append(Metric(key, value, int(current_timestamp * 1000), step))
+            self.data.append(
+                Metric(key, value, int(current_timestamp * 1000), step, model_id=self.model_id)
+            )
 
         if self._should_flush():
             self.flush()
@@ -322,7 +330,7 @@ class BatchMetricsLogger:
 
 
 @contextlib.contextmanager
-def batch_metrics_logger(run_id):
+def batch_metrics_logger(run_id: Optional[str] = None, model_id: Optional[str] = None):
     """
     Context manager that yields a BatchMetricsLogger object, which metrics can be logged against.
     The BatchMetricsLogger keeps metrics in a list until it decides they should be logged, at
@@ -337,9 +345,10 @@ def batch_metrics_logger(run_id):
 
     Args:
         run_id: ID of the run that the metrics will be logged to.
+        model_id: ID of the model that the metrics will be associated with.
     """
 
-    batch_metrics_logger = BatchMetricsLogger(run_id)
+    batch_metrics_logger = BatchMetricsLogger(run_id, model_id=model_id)
     yield batch_metrics_logger
     batch_metrics_logger.flush()
 
@@ -444,7 +453,7 @@ def autologging_integration(name):
             # MLflow event logger, and enforce silent mode if applicable (i.e. if the corresponding
             # autologging integration was called with `silent=True`)
             with (
-                set_mlflow_events_and_warnings_behavior_globally(
+                MlflowEventsAndWarningsBehaviorGlobally(
                     # MLflow warnings emitted during autologging setup / enablement are likely
                     # actionable and relevant to the user, so they should be emitted as normal
                     # when `silent=False`. For reference, see recommended warning and event logging
@@ -453,7 +462,7 @@ def autologging_integration(name):
                     disable_event_logs=is_silent_mode,
                     disable_warnings=is_silent_mode,
                 ),
-                set_non_mlflow_warnings_behavior_for_current_thread(
+                NonMlflowWarningsBehaviorForCurrentThread(
                     # non-MLflow warnings emitted during autologging setup / enablement are not
                     # actionable for the user, as they are a byproduct of the autologging
                     # implementation. Accordingly, they should be rerouted to `logger.warning()`.
@@ -514,9 +523,10 @@ def autologging_is_disabled(integration_name):
 
     if (
         integration_name in FLAVOR_TO_MODULE_NAME
+        and get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
         and not is_flavor_supported_for_associated_package_versions(integration_name)
     ):
-        return get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
+        return True
 
     return False
 
@@ -554,6 +564,24 @@ def disable_autologging():
         yield
     finally:
         _AUTOLOGGING_GLOBALLY_DISABLED = False
+
+
+def disable_autologging_globally(fn):
+    """
+    Decorator that temporarily disables autologging globally for all integrations
+    while the decorated function is executed.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        global _AUTOLOGGING_GLOBALLY_DISABLED
+        _AUTOLOGGING_GLOBALLY_DISABLED = True
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _AUTOLOGGING_GLOBALLY_DISABLED = False
+
+    return wrapper
 
 
 @contextlib.contextmanager

@@ -14,13 +14,13 @@ from mlflow.tracing.utils import encode_span_id, encode_trace_id
 
 
 def test_create_live_span():
-    request_id = "tr-12345"
+    trace_id = "tr-12345"
 
     tracer = _get_tracer("test")
     with tracer.start_as_current_span("parent") as parent_span:
-        span = create_mlflow_span(parent_span, request_id=request_id, span_type=SpanType.LLM)
+        span = create_mlflow_span(parent_span, trace_id=trace_id, span_type=SpanType.LLM)
         assert isinstance(span, LiveSpan)
-        assert span.request_id == request_id
+        assert span.trace_id == trace_id
         assert span._trace_id == encode_trace_id(parent_span.context.trace_id)
         assert span.span_id == encode_span_id(parent_span.context.span_id)
         assert span.name == "parent"
@@ -41,7 +41,7 @@ def test_create_live_span():
         span.set_attribute("non_serializable", non_serializable)
         assert span.get_attribute("non_serializable") == str(non_serializable)
         assert parent_span._attributes == {
-            "mlflow.traceRequestId": json.dumps(request_id),
+            "mlflow.traceRequestId": json.dumps(trace_id),
             "mlflow.spanInputs": '{"input": 1}',
             "mlflow.spanOutputs": "2",
             "mlflow.spanType": '"LLM"',
@@ -60,14 +60,14 @@ def test_create_live_span():
 
         # Test child span
         with tracer.start_as_current_span("child") as child_span:
-            span = create_mlflow_span(child_span, request_id=request_id)
+            span = create_mlflow_span(child_span, trace_id=trace_id)
             assert isinstance(span, LiveSpan)
             assert span.name == "child"
             assert span.parent_id == encode_span_id(parent_span.context.span_id)
 
 
 def test_create_non_live_span():
-    request_id = "tr-12345"
+    trace_id = "tr-12345"
     parent_span_context = trace_api.SpanContext(
         trace_id=12345, span_id=111, is_remote=False, trace_flags=trace_api.TraceFlags(1)
     )
@@ -78,7 +78,7 @@ def test_create_non_live_span():
         ),
         parent=parent_span_context,
         attributes={
-            "mlflow.traceRequestId": json.dumps(request_id),
+            "mlflow.traceRequestId": json.dumps(trace_id),
             "mlflow.spanInputs": '{"input": 1, "nested": {"foo": "bar"}}',
             "mlflow.spanOutputs": "2",
             "key": "3",
@@ -86,12 +86,12 @@ def test_create_non_live_span():
         start_time=99999,
         end_time=100000,
     )
-    span = create_mlflow_span(readable_span, request_id)
+    span = create_mlflow_span(readable_span, trace_id)
 
     assert isinstance(span, Span)
     assert not isinstance(span, LiveSpan)
     assert not isinstance(span, NoOpSpan)
-    assert span.request_id == request_id
+    assert span.trace_id == trace_id
     assert span._trace_id == encode_trace_id(12345)
     assert span.span_id == encode_span_id(222)
     assert span.name == "test"
@@ -109,23 +109,23 @@ def test_create_non_live_span():
 
 
 def test_create_noop_span():
-    request_id = "tr-12345"
+    trace_id = "tr-12345"
 
     @trace_disabled
     def f():
         tracer = _get_tracer("test")
         with tracer.start_as_current_span("span") as otel_span:
-            span = create_mlflow_span(otel_span, request_id=request_id)
+            span = create_mlflow_span(otel_span, trace_id=trace_id)
         assert isinstance(span, NoOpSpan)
 
     # create from None
-    span = create_mlflow_span(None, request_id=request_id)
+    span = create_mlflow_span(None, trace_id=trace_id)
     assert isinstance(span, NoOpSpan)
 
 
 def test_create_raise_for_invalid_otel_span():
     with pytest.raises(MlflowException, match=r"The `otel_span` argument must be"):
-        create_mlflow_span(otel_span=123, request_id="tr-12345")
+        create_mlflow_span(otel_span=123, trace_id="tr-12345")
 
 
 @pytest.mark.parametrize(
@@ -146,19 +146,22 @@ def test_set_status_raise_for_invalid_value():
 
 
 def test_dict_conversion():
-    request_id = "tr-12345"
-
-    tracer = _get_tracer("test")
-    with tracer.start_as_current_span("parent") as parent_span:
-        span = LiveSpan(parent_span, request_id=request_id, span_type=SpanType.LLM)
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+            span.set_outputs(2)
+            span.set_attribute("key", 3)
+            span.set_status("OK")
+            span.add_event(SpanEvent("test_event", timestamp=0, attributes={"foo": "bar"}))
 
     span_dict = span.to_dict()
     recovered_span = Span.from_dict(span_dict)
 
-    assert span.request_id == recovered_span.request_id
+    assert span.trace_id == recovered_span.trace_id
     assert span._trace_id == recovered_span._trace_id
     assert span.span_id == recovered_span.span_id
     assert span.name == recovered_span.name
+    assert span.span_type == recovered_span.span_type
     assert span.start_time_ns == recovered_span.start_time_ns
     assert span.end_time_ns == recovered_span.end_time_ns
     assert span.parent_id == recovered_span.parent_id
@@ -173,12 +176,73 @@ def test_dict_conversion():
         recovered_span.set_status("OK")
 
 
+def test_dict_conversion_with_exception_event():
+    with pytest.raises(ValueError, match="Test exception"):
+        with mlflow.start_span("test") as span:
+            raise ValueError("Test exception")
+
+    span_dict = span.to_dict()
+    recovered_span = Span.from_dict(span_dict)
+
+    assert span.request_id == recovered_span.request_id
+    assert span._trace_id == recovered_span._trace_id
+    assert span.span_id == recovered_span.span_id
+    assert span.name == recovered_span.name
+    assert span.span_type == recovered_span.span_type
+    assert span.start_time_ns == recovered_span.start_time_ns
+    assert span.end_time_ns == recovered_span.end_time_ns
+    assert span.parent_id == recovered_span.parent_id
+    assert span.status == recovered_span.status
+    assert span.inputs == recovered_span.inputs
+    assert span.outputs == recovered_span.outputs
+    assert span.attributes == recovered_span.attributes
+    assert span.events == recovered_span.events
+
+    # Loaded span should not implement setter methods
+    with pytest.raises(AttributeError, match="set_status"):
+        recovered_span.set_status("OK")
+
+
+def test_from_v2_dict():
+    span = Span.from_dict(
+        {
+            "name": "test",
+            "context": {
+                "span_id": "8a90fc46e65ea5a4",
+                "trace_id": "0125978dc5c5a9456d7ca9ef1f7cf4af",
+            },
+            "parent_id": None,
+            "start_time": 1738662897576578992,
+            "end_time": 1738662899068969049,
+            "status_code": "OK",
+            "status_message": "",
+            "attributes": {
+                "mlflow.traceRequestId": '"tr-123"',
+                "mlflow.spanType": '"LLM"',
+                "mlflow.spanInputs": '{"input": 1}',
+                "mlflow.spanOutputs": "2",
+                "key": "3",
+            },
+            "events": [],
+        }
+    )
+
+    assert span.request_id == "tr-123"
+    assert span.name == "test"
+    assert span.span_type == SpanType.LLM
+    assert span.parent_id is None
+    assert span.status == SpanStatus(SpanStatusCode.OK, description="")
+    assert span.inputs == {"input": 1}
+    assert span.outputs == 2
+    assert span.events == []
+
+
 def test_to_immutable_span():
-    request_id = "tr-12345"
+    trace_id = "tr-12345"
 
     tracer = _get_tracer("test")
     with tracer.start_as_current_span("parent") as parent_span:
-        live_span = LiveSpan(parent_span, request_id=request_id, span_type=SpanType.LLM)
+        live_span = LiveSpan(parent_span, trace_id=trace_id, span_type=SpanType.LLM)
         live_span.set_inputs({"input": 1})
         live_span.set_outputs(2)
         live_span.set_attribute("key", 3)
@@ -188,7 +252,7 @@ def test_to_immutable_span():
     span = live_span.to_immutable_span()
 
     assert isinstance(span, Span)
-    assert span.request_id == request_id
+    assert span.trace_id == trace_id
     assert span._trace_id == encode_trace_id(parent_span.context.trace_id)
     assert span.span_id == encode_span_id(parent_span.context.span_id)
     assert span.name == "parent"
@@ -205,14 +269,14 @@ def test_to_immutable_span():
         span.set_attribute("OK")
 
 
-def test_from_dict_raises_when_request_id_is_empty():
+def test_from_dict_raises_when_trace_id_is_empty():
     with pytest.raises(MlflowException, match=r"Failed to create a Span object from "):
         Span.from_dict(
             {
                 "name": "predict",
                 "context": {
-                    "trace_id": "0x12345",
-                    "span_id": "0x12345",
+                    "trace_id": "12345",
+                    "span_id": "12345",
                 },
                 "parent_id": None,
                 "start_time": 0,

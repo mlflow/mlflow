@@ -402,3 +402,9 @@ def test_get_store_raises_on_uc_uri(store_uri):
         "supported in the current version of the MLflow client",
     ):
         mlflow.tracking.MlflowClient()
+
+
+@pytest.mark.parametrize("tracking_uri", ["file:///tmp/mlruns", "sqlite:///tmp/mlruns.db", ""])
+def test_set_get_tracking_uri_consistency(tracking_uri):
+    mlflow.set_tracking_uri(tracking_uri)
+    assert mlflow.get_tracking_uri() == tracking_uri

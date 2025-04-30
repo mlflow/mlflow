@@ -34,7 +34,12 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
     if _isinstance_with_multiple_modules(
         vectorstore,
         "DatabricksVectorSearch",
-        ["langchain_databricks", "langchain_community.vectorstores", "langchain.vectorstores"],
+        [
+            "databricks_langchain",
+            "langchain_databricks",
+            "langchain_community.vectorstores",
+            "langchain.vectorstores",
+        ],
     ):
         index = vectorstore.index
         yield DatabricksVectorSearchIndex(index_name=index.name)
@@ -45,7 +50,12 @@ def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None
     if _isinstance_with_multiple_modules(
         embeddings,
         "DatabricksEmbeddings",
-        ["langchain_databricks", "langchain_community.embeddings", "langchain.embeddings"],
+        [
+            "databricks_langchain",
+            "langchain_databricks",
+            "langchain_community.embeddings",
+            "langchain.embeddings",
+        ],
     ):
         yield DatabricksServingEndpoint(endpoint_name=embeddings.endpoint)
 
@@ -147,14 +157,24 @@ def _extract_databricks_dependencies_from_chat_model(chat_model) -> Generator[Re
     if _isinstance_with_multiple_modules(
         chat_model,
         "ChatDatabricks",
-        ["langchain_databricks", "langchain.chat_models", "langchain_community.chat_models"],
+        [
+            "databricks_langchain",
+            "langchain_databricks",
+            "langchain.chat_models",
+            "langchain_community.chat_models",
+        ],
     ):
         yield DatabricksServingEndpoint(endpoint_name=chat_model.endpoint)
 
 
 def _extract_databricks_dependencies_from_tool_nodes(tool_node) -> Generator[Resource, None, None]:
     try:
-        from langgraph.prebuilt.tool_node import ToolNode
+        try:
+            # LangGraph >= 0.3
+            from langgraph.prebuilt import ToolNode
+        except ImportError:
+            # LangGraph < 0.3
+            from langgraph.prebuilt.tool_node import ToolNode
 
         if isinstance(tool_node, ToolNode):
             yield from _extract_databricks_dependencies_from_tools(
@@ -169,7 +189,7 @@ def _isinstance_with_multiple_modules(
 ) -> bool:
     """
     Databricks components are defined in different modules in LangChain e.g.
-    langchain, langchain_community, langchain_databricks due to historical migrations.
+    langchain, langchain_community, databricks_langchain due to historical migrations.
     To keep backward compatibility, we need to check if the object is an instance of the
     class defined in any of those different modules.
 
@@ -388,9 +408,9 @@ def _detect_databricks_dependencies(lc_model, log_errors_as_warnings=True) -> li
     Detects the databricks dependencies of a langchain model and returns a list of
     detected endpoint names and index names.
 
-    lc_model can be an arbitrary [chain that is built with LCEL](https://python.langchain.com
-    /docs/modules/chains#lcel-chains), which is a langchain_core.runnables.RunnableSerializable.
-    [Legacy chains](https://python.langchain.com/docs/modules/chains#legacy-chains) have limited
+    lc_model can be an arbitrary `chain that is built with LCEL <https://python.langchain.com/docs/modules/chains#lcel-chains>`_,
+    which is a langchain_core.runnables.RunnableSerializable.
+    `Legacy chains <https://python.langchain.com/docs/modules/chains#legacy-chains>`_ have limited
     support. Only RetrievalQA, StuffDocumentsChain, ReduceDocumentsChain, RefineDocumentsChain,
     MapRerankDocumentsChain, MapReduceDocumentsChain, BaseConversationalRetrievalChain are
     supported. If you need to support a custom chain, you need to monkey patch

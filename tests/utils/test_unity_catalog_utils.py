@@ -2,6 +2,7 @@ import pytest
 
 from mlflow.entities.model_registry import (
     ModelVersion,
+    ModelVersionDeploymentJobState,
     ModelVersionTag,
     RegisteredModel,
     RegisteredModelAlias,
@@ -57,6 +58,16 @@ def test_model_version_from_uc_proto():
             ModelVersionTag(key="key1", value="value"),
             ModelVersionTag(key="key2", value=""),
         ],
+        metrics=[],
+        model_id="",
+        params=[],
+        deployment_job_state=ModelVersionDeploymentJobState(
+            "",
+            "",
+            "DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED",
+            "DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED",
+            "",
+        ),
     )
     uc_proto = ProtoModelVersion(
         name="name",
@@ -96,6 +107,13 @@ def test_model_version_search_from_uc_proto():
         status_message="status_message",
         aliases=[],
         tags=[],
+        deployment_job_state=ModelVersionDeploymentJobState(
+            "",
+            "",
+            "DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED",
+            "DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED",
+            "",
+        ),
     )
     uc_proto = ProtoModelVersion(
         name="name",
@@ -173,6 +191,8 @@ def test_registered_model_from_uc_proto():
             RegisteredModelTag(key="key1", value="value"),
             RegisteredModelTag(key="key2", value=""),
         ],
+        deployment_job_id="",
+        deployment_job_state="DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED",
     )
     uc_proto = ProtoRegisteredModel(
         name="name",
@@ -280,6 +300,18 @@ def test_registered_model_and_registered_model_search_equality():
             {
                 "ServerSideEncryption": "aws:kms",
                 "SSEKMSKeyId": "key_id",
+            },
+        ),
+        (
+            TemporaryCredentials(
+                encryption_details=EncryptionDetails(
+                    sse_encryption_details=SseEncryptionDetails(
+                        algorithm=SseEncryptionAlgorithm.AWS_SSE_S3,
+                    )
+                )
+            ),
+            {
+                "ServerSideEncryption": "AES256",
             },
         ),
     ],

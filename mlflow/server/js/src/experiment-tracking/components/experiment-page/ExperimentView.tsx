@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
 import NotFoundPage from '../NotFoundPage';
 import { PermissionDeniedView } from '../PermissionDeniedView';
-import { TracesView } from '../traces/TracesView';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
 import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
 import { useExperiments } from './hooks/useExperiments';
@@ -14,7 +13,11 @@ import { searchDatasetsApi } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 import { ExperimentPageUIStateContextProvider } from './contexts/ExperimentPageUIStateContext';
 import { first } from 'lodash';
-import { isExperimentLoggedModelsUIEnabled, shouldEnableTracingUI } from '../../../common/utils/FeatureUtils';
+import {
+  isExperimentEvalResultsMonitoringUIEnabled,
+  isExperimentLoggedModelsUIEnabled,
+  shouldEnableTracingUI,
+} from '../../../common/utils/FeatureUtils';
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
 import { usePersistExperimentPageViewState } from './hooks/usePersistExperimentPageViewState';
 import { useDispatch } from 'react-redux';
@@ -65,10 +68,10 @@ export const ExperimentView = () => {
   } = useExperimentRuns(uiState, searchFacets, experimentIds);
 
   useEffect(() => {
-    // If the logged models UI is enabled, fetch the experiments only if they are not already loaded.
+    // If the new tabbed UI is enabled, fetch the experiments only if they are not already loaded.
     // Helps with the smooth page transition.
     if (
-      isExperimentLoggedModelsUIEnabled() &&
+      (isExperimentLoggedModelsUIEnabled() || isExperimentEvalResultsMonitoringUIEnabled()) &&
       experimentIds.every((id) => experiments.find((exp) => exp.experimentId === id))
     ) {
       return;
@@ -183,5 +186,3 @@ export const ExperimentView = () => {
 const styles = {
   experimentViewWrapper: { height: '100%', display: 'flex', flexDirection: 'column' as const },
 };
-
-export default ExperimentView;

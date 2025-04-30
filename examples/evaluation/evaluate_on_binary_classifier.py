@@ -24,12 +24,11 @@ eval_data["label"] = y_test
 
 with mlflow.start_run() as run:
     # Log the XGBoost binary classifier model to MLflow
-    mlflow.sklearn.log_model(model, "model", signature=signature)
-    model_uri = mlflow.get_artifact_uri("model")
+    model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     # Evaluate the logged model
     result = mlflow.evaluate(
-        model_uri,
+        model_info.model_uri,
         eval_data,
         targets="label",
         model_type="classifier",

@@ -44,12 +44,11 @@ sudo apt clean
 df -h
 
 python --version
-pip install --upgrade pip wheel
+pip install --upgrade pip!=25.1 setuptools wheel
 pip --version
 
 if [[ "$SKINNY" == "true" ]]; then
-  cat pyproject.skinny.toml > pyproject.toml
-  pip install . --upgrade
+  pip install ./skinny
 else
   pip install .[extras] --upgrade
 fi

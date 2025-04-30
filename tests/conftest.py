@@ -11,10 +11,14 @@ from opentelemetry import trace as trace_api
 import mlflow
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
-from mlflow.tracing.fluent import TRACE_BUFFER
-from mlflow.tracing.provider import reset_tracer_setup
+from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.tracking.fluent import (
+    _last_active_run_id,
+    _reset_active_model_context,
+    _reset_last_logged_model_id,
+)
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
 
@@ -56,12 +60,12 @@ def reset_tracing():
     yield
 
     # Reset OpenTelemetry and MLflow tracer setup
-    reset_tracer_setup()
+    mlflow.tracing.reset()
 
     # Clear other global state and singletons
-    TRACE_BUFFER.clear()
+    _set_last_active_trace_id(None)
     _TRACE_BUFFER.clear()
-    InMemoryTraceManager._instance = None
+    InMemoryTraceManager.reset()
     IPythonTraceDisplayHandler._instance = None
 
 
@@ -111,10 +115,10 @@ def clean_up_leaked_runs():
     """
     try:
         yield
-        assert (
-            not mlflow.active_run()
-        ), "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
-            mlflow.active_run().info, mlflow.active_run().data
+        assert not mlflow.active_run(), (
+            "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
+                mlflow.active_run().info, mlflow.active_run().data
+            )
         )
     finally:
         while mlflow.active_run():
@@ -172,6 +176,19 @@ def clean_up_mlruns_directory(request):
             subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
 
 
+@pytest.fixture(autouse=True)
+def clean_up_last_logged_model_id():
+    """
+    Clean up the last logged model ID stored in a thread local var.
+    """
+    _reset_last_logged_model_id()
+
+
+@pytest.fixture(autouse=True)
+def clean_up_last_active_run():
+    _last_active_run_id.set(None)
+
+
 @pytest.fixture
 def mock_s3_bucket():
     """
@@ -227,3 +244,8 @@ def mock_is_in_databricks(request):
         "mlflow.models.model.is_in_databricks_runtime", return_value=request.param
     ) as mock_databricks:
         yield mock_databricks
+
+
+@pytest.fixture(autouse=True)
+def reset_active_model_context():
+    _reset_active_model_context()

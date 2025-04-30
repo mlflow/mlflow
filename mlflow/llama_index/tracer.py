@@ -37,10 +37,12 @@ import mlflow
 from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.llama_index.chat import get_chat_messages_from_event
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
+from mlflow.utils.pydantic_utils import model_dump_compat
 
 _logger = logging.getLogger(__name__)
 
@@ -123,9 +125,9 @@ def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None, token=None
     try:
         if span.parent_id is None:
             # NB: Initiate the new client every time to handle tracking URI updates.
-            MlflowClient().end_trace(span.request_id, status=status, outputs=outputs)
+            MlflowClient().end_trace(span.trace_id, status=status, outputs=outputs)
         else:
-            MlflowClient().end_span(span.request_id, span.span_id, status=status, outputs=outputs)
+            MlflowClient().end_span(span.trace_id, span.span_id, status=status, outputs=outputs)
     finally:
         # We should detach span even when end_span / end_trace API call fails
         if token:
@@ -167,7 +169,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             if parent_span:
                 # NB: Initiate the new client every time to handle tracking URI updates.
                 span = MlflowClient().start_span(
-                    request_id=parent_span.request_id,
+                    trace_id=parent_span.trace_id,
                     parent_id=parent_span.span_id,
                     name=id_.partition("-")[0],
                     span_type=span_type,
@@ -184,6 +186,16 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
             token = set_span_in_context(span)
             self._span_id_to_token[span.span_id] = token
+
+            # NB: The tool definition is passed to LLM via kwargs, but it is not set
+            # to the LLM/Chat start event. Therefore, we need to handle it here.
+            tools = input_args.get("kwargs", {}).get("tools")
+            if tools and span_type in [SpanType.LLM, SpanType.CHAT_MODEL]:
+                try:
+                    set_span_chat_tools(span, tools)
+                except Exception as e:
+                    _logger.debug(f"Failed to set tools for {span}: {e}")
+
             return _LlamaSpan(id_=id_, parent_id=parent_span_id, mlflow_span=span)
         except BaseException as e:
             _logger.debug(f"Failed to create a new span: {e}", exc_info=True)
@@ -383,20 +395,24 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     def _(self, event: LLMCompletionStartEvent, span: LiveSpan):
         span.set_attribute("prompt", event.prompt)
         span.set_attribute("model_dict", event.model_dict)
+        self._extract_and_set_chat_messages(span, event)
 
     @_handle_event.register
     def _(self, event: LLMCompletionEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
+        self._extract_and_set_chat_messages(span, event)
         self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
     def _(self, event: LLMChatStartEvent, span: LiveSpan):
         span.set_attribute(SpanAttributeKey.SPAN_TYPE, SpanType.CHAT_MODEL)
         span.set_attribute("model_dict", event.model_dict)
+        self._extract_and_set_chat_messages(span, event)
 
     @_handle_event.register
     def _(self, event: LLMChatEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
+        self._extract_and_set_chat_messages(span, event)
         self._span_handler.resolve_pending_stream_span(span, event)
 
     @_handle_event.register
@@ -426,7 +442,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         if raw := response.raw:
             # The raw response can be a Pydantic model or a dictionary
             if isinstance(raw, pydantic.BaseModel):
-                raw = raw.model_dump() if IS_PYDANTIC_V2_OR_NEWER else raw.dict()
+                raw = model_dump_compat(raw)
 
             if usage := raw.get("usage"):
                 return usage
@@ -439,6 +455,13 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
                 if (v := additional_kwargs.get(k)) is not None:
                     usage[k] = v
         return usage
+
+    def _extract_and_set_chat_messages(self, span: LiveSpan, event: BaseEvent):
+        try:
+            messages = get_chat_messages_from_event(event)
+            set_span_chat_messages(span, messages, append=True)
+        except Exception as e:
+            _logger.debug(f"Failed to set chat messages to the span: {e}", exc_info=True)
 
 
 _StreamEndEvent = Union[LLMChatEndEvent, LLMCompletionEndEvent, ExceptionEvent]

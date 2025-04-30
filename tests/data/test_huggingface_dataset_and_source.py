@@ -1,5 +1,7 @@
 import json
 import os
+import time
+from unittest import mock
 
 import datasets
 import pandas as pd
@@ -15,6 +17,34 @@ from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
+
+from tests.helper_functions import skip_if_hf_hub_unhealthy
+
+pytestmark = skip_if_hf_hub_unhealthy()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def mock_datasets_load_dataset():
+    """
+    `datasets.load_dataset` is flaky and sometimes fails with a network error.
+    This fixture retries the call up to 5 times with exponential backoff.
+    """
+
+    original = datasets.load_dataset
+
+    def load_dataset(*args, **kwargs):
+        for i in range(5):
+            try:
+                return original(*args, **kwargs)
+            except Exception:
+                if i < 4:
+                    time.sleep(2**i)
+                    continue
+                raise
+
+    with mock.patch("datasets.load_dataset", wraps=load_dataset) as mock_load_dataset:
+        yield
+        mock_load_dataset.assert_called()
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset():

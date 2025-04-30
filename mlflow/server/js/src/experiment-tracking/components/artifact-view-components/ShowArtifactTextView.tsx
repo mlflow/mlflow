@@ -14,12 +14,15 @@ import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 
 const LARGE_ARTIFACT_SIZE = 100 * 1024;
+// Refresh interval in milliseconds
+const AUTO_REFRESH_INTERVAL = 5000;
 
 type Props = DesignSystemHocProps & {
   runUuid: string;
   path: string;
   size?: number;
   getArtifact?: (...args: any[]) => any;
+  autoRefreshEnabled?: boolean; // Add autoRefreshEnabled prop from parent
 } & LoggedModelArtifactViewerProps;
 
 type State = {
@@ -30,6 +33,7 @@ type State = {
 };
 
 class ShowArtifactTextView extends Component<Props, State> {
+  private refreshInterval: number | null = null;
   constructor(props: Props) {
     super(props);
     this.fetchArtifacts = this.fetchArtifacts.bind(this);
@@ -48,11 +52,40 @@ class ShowArtifactTextView extends Component<Props, State> {
 
   componentDidMount() {
     this.fetchArtifacts();
+    if (this.props.autoRefreshEnabled) {
+      this.startAutoRefresh();
+    }
   }
 
   componentDidUpdate(prevProps: Props) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
       this.fetchArtifacts();
+    }
+
+    // Handle auto-refresh toggling
+    if (prevProps.autoRefreshEnabled !== this.props.autoRefreshEnabled) {
+      if (this.props.autoRefreshEnabled) {
+        this.startAutoRefresh();
+      } else {
+        this.stopAutoRefresh();
+      }
+    }
+  }
+
+  componentWillUnmount() {
+    this.stopAutoRefresh();
+  }
+
+  startAutoRefresh() {
+    if (this.refreshInterval === null) {
+      this.refreshInterval = window.setInterval(this.fetchArtifacts, AUTO_REFRESH_INTERVAL);
+    }
+  }
+
+  stopAutoRefresh() {
+    if (this.refreshInterval !== null) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
     }
   }
 
@@ -96,7 +129,11 @@ class ShowArtifactTextView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    this.setState({ loading: true });
+    // Don't set loading to true if auto-refreshing to avoid flickering
+    if (!this.props.autoRefreshEnabled) {
+      this.setState({ loading: true });
+    }
+
     const { isLoggedModelsMode, loggedModelId, path, runUuid } = this.props;
 
     const artifactLocation =
@@ -107,7 +144,10 @@ class ShowArtifactTextView extends Component<Props, State> {
     this.props
       .getArtifact?.(artifactLocation)
       .then((text: string) => {
-        this.setState({ text: text, loading: false });
+        this.setState({
+          text: text,
+          loading: false,
+        });
       })
       .catch((error: Error) => {
         this.setState({ error: error, loading: false });

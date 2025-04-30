@@ -9,14 +9,15 @@ import anthropic
 import autogen
 import boto3
 import dspy
-import fastai
-import google.generativeai
+import google.genai
+import groq
 import keras
 import langchain
 import lightgbm
 import lightning
 import litellm
 import llama_index.core
+import mistralai
 import openai
 import pyspark
 import pyspark.ml
@@ -47,7 +48,6 @@ from tests.helper_functions import start_mock_openai_server
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
     keras: mlflow.keras,
-    fastai: mlflow.fastai,
     sklearn: mlflow.sklearn,
     xgboost: mlflow.xgboost,
     lightgbm: mlflow.lightgbm,
@@ -67,8 +67,10 @@ library_to_mlflow_module_genai = {
     autogen: mlflow.autogen,
     dspy: mlflow.dspy,
     litellm: mlflow.litellm,
-    google.generativeai: mlflow.gemini,
+    google.genai: mlflow.gemini,
     boto3: mlflow.bedrock,
+    groq: mlflow.groq,
+    mistralai: mlflow.mistral,
 }
 
 library_to_mlflow_module_traditional_ai = {
@@ -111,6 +113,8 @@ def reset_global_states():
 
     # TODO: Remove this when we run ci with Python >= 3.10
     mlflow.utils.import_hooks._post_import_hooks.pop("crewai", None)
+    # TODO: Remove this line when we stop supporting google.generativeai
+    mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
@@ -434,10 +438,10 @@ def test_autolog_genai_auto_tracing(mock_openai, is_databricks, disable, other_l
 
     # GenAI should not be enabled by mlflow.autolog even if disable=False on Databricks
     if is_databricks or disable:
-        trace = mlflow.get_last_active_trace()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         assert trace is None
     else:
-        trace = mlflow.get_last_active_trace()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         assert trace is not None
         assert trace.info.status == "OK"
         assert len(trace.data.spans) == 1

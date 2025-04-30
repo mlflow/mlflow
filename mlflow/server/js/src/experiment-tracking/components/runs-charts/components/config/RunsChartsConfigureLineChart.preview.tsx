@@ -1,4 +1,3 @@
-import { LegacySkeleton } from '@databricks/design-system';
 import { useCallback, useMemo, useRef } from 'react';
 import { connect } from 'react-redux';
 import { ReduxState } from '../../../../../redux-types';
@@ -11,19 +10,16 @@ import {
 import { RunsMetricsLinePlot } from '../RunsMetricsLinePlot';
 import { RunsChartsTooltipMode, useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import { RunsChartsLineCardConfig, RunsChartsLineChartYAxisType } from '../../runs-charts.types';
-import {
-  shouldEnableChartExpressions,
-  shouldEnableDeepLearningUIPhase3,
-  shouldEnableManualRangeControls,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldEnableChartExpressions } from '../../../../../common/utils/FeatureUtils';
 import { useSampledMetricHistory } from '../../hooks/useSampledMetricHistory';
 import { compact, isUndefined, uniq } from 'lodash';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { useGroupedChartRunData } from '../../../runs-compare/hooks/useGroupedChartRunData';
 import { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 import { useLineChartGlobalConfig } from '../hooks/useLineChartGlobalConfig';
+import { RunsChartCardLoadingPlaceholder } from '../cards/ChartCard.common';
 
-export const RunsChartsConfigureLineChartPreviewImpl = ({
+const RunsChartsConfigureLineChartPreviewImpl = ({
   previewData,
   cardConfig,
   metricsByRunUuid,
@@ -38,9 +34,6 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
 
   metricsByRunUuid: Record<string, MetricHistoryByName>;
 }) => {
-  const usingMultipleRunsHoverTooltip = shouldEnableDeepLearningUIPhase3();
-  const usingManualRangeControls = shouldEnableManualRangeControls();
-
   const { lineSmoothness, selectedXAxisMetricKey, xAxisKey } = useLineChartGlobalConfig(
     cardConfig,
     globalLineChartConfig,
@@ -120,11 +113,11 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
 
   const { setTooltip, resetTooltip } = useRunsChartsTooltip(
     cardConfig,
-    usingMultipleRunsHoverTooltip ? RunsChartsTooltipMode.MultipleTracesWithScanline : RunsChartsTooltipMode.Simple,
+    RunsChartsTooltipMode.MultipleTracesWithScanline,
   );
 
   if (isLoading) {
-    return <LegacySkeleton />;
+    return <RunsChartCardLoadingPlaceholder />;
   }
 
   const checkValidRange = (
@@ -156,8 +149,8 @@ export const RunsChartsConfigureLineChartPreviewImpl = ({
       useDefaultHoverBox={false}
       onHover={setTooltip}
       onUnhover={resetTooltip}
-      xRange={usingManualRangeControls ? xRange : undefined}
-      yRange={usingManualRangeControls ? yRange : undefined}
+      xRange={xRange}
+      yRange={yRange}
     />
   );
 };

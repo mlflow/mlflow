@@ -5,6 +5,7 @@ import posixpath
 from unittest import mock
 
 import pytest
+from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobPrefix, BlobProperties, BlobServiceClient
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
@@ -419,3 +420,98 @@ def test_trace_data(mock_client, tmp_path):
         side_effect=lambda x: try_read_trace_data(trace_data_path),
     ):
         assert repo.download_trace_data() == mock_trace_data
+
+
+def test_delete_artifacts_single_file(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    # Mock the list_blobs method to return a single file
+    blob_props = BlobProperties()
+    blob_props.name = posixpath.join(TEST_ROOT_PATH, "file")
+    mock_client.get_container_client().list_blobs.return_value = [blob_props]
+
+    repo.delete_artifacts("file")
+
+    mock_client.get_container_client().delete_blob.assert_called_with(blob_props.name)
+
+
+def test_delete_artifacts_directory(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    # Mock the list_blobs method to return multiple files in a directory
+    blob_props_1 = BlobProperties()
+    blob_props_1.name = posixpath.join(TEST_ROOT_PATH, "dir/file1")
+    blob_props_2 = BlobProperties()
+    blob_props_2.name = posixpath.join(TEST_ROOT_PATH, "dir/file2")
+    mock_client.get_container_client().list_blobs.return_value = [blob_props_1, blob_props_2]
+
+    repo.delete_artifacts("dir")
+
+    mock_client.get_container_client().delete_blob.assert_any_call(blob_props_1.name)
+    mock_client.get_container_client().delete_blob.assert_any_call(blob_props_2.name)
+
+
+def test_delete_artifacts_nonexistent_path(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    # Mock the list_blobs method to return an empty list
+    mock_client.get_container_client().list_blobs.return_value = []
+
+    with pytest.raises(MlflowException, match="No such file or directory"):
+        repo.delete_artifacts("nonexistent_path")
+
+
+def test_delete_artifacts_failure(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    # Mock the list_blobs method to return a single file
+    blob_props = BlobProperties()
+    blob_props.name = posixpath.join(TEST_ROOT_PATH, "file")
+    mock_client.get_container_client().list_blobs.return_value = [blob_props]
+
+    # Mock the delete_blob method to raise an exception
+    mock_client.get_container_client().delete_blob.side_effect = ResourceNotFoundError(
+        "Deletion failed"
+    )
+
+    with pytest.raises(MlflowException, match=f"No such file or directory: '{blob_props.name}'"):
+        repo.delete_artifacts("file")
+
+
+def test_delete_artifacts_folder(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    # Mock the list_blobs method to return multiple files in a folder
+    blob_props_1 = BlobProperties()
+    blob_props_1.name = posixpath.join(TEST_ROOT_PATH, "folder/file1")
+    blob_props_2 = BlobProperties()
+    blob_props_2.name = posixpath.join(TEST_ROOT_PATH, "folder/file2")
+    mock_client.get_container_client().list_blobs.return_value = [blob_props_1, blob_props_2]
+
+    repo.delete_artifacts("folder")
+
+    mock_client.get_container_client().delete_blob.assert_any_call(blob_props_1.name)
+    mock_client.get_container_client().delete_blob.assert_any_call(blob_props_2.name)
+
+
+def test_delete_artifacts_folder_with_nested_folders_and_files(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    # Mock the list_blobs method to return multiple files in a folder with nested folders and files
+    blob_props_1 = BlobProperties()
+    blob_props_1.name = posixpath.join(TEST_ROOT_PATH, "folder/nested_folder/file1")
+    blob_props_2 = BlobProperties()
+    blob_props_2.name = posixpath.join(TEST_ROOT_PATH, "folder/nested_folder/file2")
+    blob_props_3 = BlobProperties()
+    blob_props_3.name = posixpath.join(TEST_ROOT_PATH, "folder/nested_folder/nested_file")
+    mock_client.get_container_client().list_blobs.return_value = [
+        blob_props_1,
+        blob_props_2,
+        blob_props_3,
+    ]
+
+    repo.delete_artifacts("folder")
+
+    mock_client.get_container_client().delete_blob.assert_any_call(blob_props_1.name)
+    mock_client.get_container_client().delete_blob.assert_any_call(blob_props_2.name)
+    mock_client.get_container_client().delete_blob.assert_any_call(blob_props_3.name)

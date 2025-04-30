@@ -5,9 +5,14 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
+from typing import Optional
 
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import (
+    add_prompt_filter_string,
+    is_prompt_supported_registry,
+)
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -43,7 +48,7 @@ class ModelRegistryClient:
 
     # Registered Model Methods
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """Create a new registered model in backend store.
 
         Args:
@@ -51,6 +56,7 @@ class ModelRegistryClient:
             tags: A dictionary of key-value pairs that are converted into
                 :py:class:`mlflow.entities.model_registry.RegisteredModelTag` objects.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -61,9 +67,9 @@ class ModelRegistryClient:
         #       Those are constraints applicable to any backend, given the model URI format.
         tags = tags if tags else {}
         tags = [RegisteredModelTag(key, str(value)) for key, value in tags.items()]
-        return self.store.create_registered_model(name, tags, description)
+        return self.store.create_registered_model(name, tags, description, deployment_job_id)
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """Updates description for RegisteredModel entity.
 
         Backend raises exception if a registered model with given name does not exist.
@@ -71,12 +77,15 @@ class ModelRegistryClient:
         Args:
             name: Name of the registered model to update.
             description: New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
 
         """
-        return self.store.update_registered_model(name=name, description=description)
+        return self.store.update_registered_model(
+            name=name, description=description, deployment_job_id=deployment_job_id
+        )
 
     def rename_registered_model(self, name, new_name):
         """Update registered model name.
@@ -125,6 +134,10 @@ class ModelRegistryClient:
             obtained via the ``token`` attribute of the object.
 
         """
+        if is_prompt_supported_registry(self.registry_uri):
+            # Adjust filter string to include or exclude prompts
+            filter_string = add_prompt_filter_string(filter_string, False)
+
         return self.store.search_registered_models(filter_string, max_results, order_by, page_token)
 
     def get_registered_model(self, name):
@@ -189,6 +202,7 @@ class ModelRegistryClient:
         description=None,
         await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ):
         """Create a new model version from given source.
 
@@ -208,6 +222,8 @@ class ModelRegistryClient:
                 to the model registry to avoid a redundant download from the source location when
                 logging and registering a model via a single
                 mlflow.<flavor>.log_model(..., registered_model_name) call.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                      registered model version, if applicable.
 
         Returns:
             Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
@@ -226,12 +242,15 @@ class ModelRegistryClient:
                 run_link,
                 description,
                 local_model_path=local_model_path,
+                model_id=model_id,
             )
         else:
             # Fall back to calling create_model_version without
             # local_model_path since old model registry store implementations may not
             # support the local_model_path argument.
-            mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
+            mv = self.store.create_model_version(
+                name, source, run_id, tags, run_link, description, model_id=model_id
+            )
         if await_creation_for and await_creation_for > 0:
             self.store._await_model_version_creation(mv, await_creation_for)
         return mv

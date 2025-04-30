@@ -2,17 +2,14 @@ import inspect
 import logging
 import socket
 import subprocess
+import uuid
 from contextlib import closing
 from itertools import islice
 from sys import version_info
 
-import pydantic
-from packaging.version import Version
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER  # noqa: F401
 
 PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
-
-
-IS_PYDANTIC_V2_OR_NEWER = Version(pydantic.__version__).major >= 2
 
 
 _logger = logging.getLogger(__name__)
@@ -273,3 +270,14 @@ class AttrDict(dict):
 
 def get_parent_module(module):
     return module[0 : module.rindex(".")]
+
+
+def is_uuid(s: str) -> bool:
+    """
+    Returns True if the specified string is a UUID, False otherwise.
+    """
+    try:
+        uuid.UUID(s)
+        return True
+    except ValueError:
+        return False
