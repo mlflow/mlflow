@@ -714,7 +714,7 @@ def test_log_model(mlflow_client):
         mlflow.set_tracking_uri(mlflow_client.tracking_uri)
         with mlflow.start_run(experiment_id=experiment_id) as run:
             for i, m in enumerate(model_paths):
-                mlflow.pyfunc.log_model(m, loader_module="mlflow.pyfunc")
+                mlflow.pyfunc.log_model(name=m, loader_module="mlflow.pyfunc")
                 mlflow.pyfunc.save_model(
                     m,
                     mlflow_model=Model(artifact_path=m, run_id=run.info.run_id),
@@ -1645,7 +1645,7 @@ def test_logging_model_with_local_artifact_uri(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     with mlflow.start_run() as run:
         assert run.info.artifact_uri.startswith("file://")
-        mlflow.sklearn.log_model(LogisticRegression(), "model", registered_model_name="rmn")
+        mlflow.sklearn.log_model(LogisticRegression(), name="model", registered_model_name="rmn")
         mlflow.pyfunc.load_model("models:/rmn/1")
 
 

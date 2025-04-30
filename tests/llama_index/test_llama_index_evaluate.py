@@ -75,7 +75,7 @@ def test_llama_index_pyfunc_evaluate(engine_type, single_index):
     with mlflow.start_run() as run:
         model_info = mlflow.llama_index.log_model(
             single_index,
-            "llama_index",
+            name="llama_index",
             engine_type=engine_type,
         )
 

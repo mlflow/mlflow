@@ -471,7 +471,7 @@ def test_autolog_set_retriever_schema():
             return self.prog(question=question)
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(CoT(), "model")
+        model_info = mlflow.dspy.log_model(CoT(), name="model")
 
     # Reset retriever schema
     _clear_retriever_schema()
@@ -519,7 +519,7 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
     input_example = "What castle did David Gregory inherit?"
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(RAG(), "model", input_example=input_example)
+        model_info = mlflow.dspy.log_model(RAG(), name="model", input_example=input_example)
 
     request_id, response, trace_dict = score_in_model_serving(
         model_info.model_uri,
@@ -873,7 +873,7 @@ def test_autolog_link_traces_loaded_model_custom_module():
     model_infos = []
     for _ in range(5):
         with mlflow.start_run():
-            model_infos.append(mlflow.dspy.log_model(dspy_model, "model"))
+            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model"))
 
     for model_info in model_infos:
         loaded_model = mlflow.dspy.load_model(model_info.model_uri)
@@ -896,7 +896,7 @@ def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
     model_infos = []
     for _ in range(5):
         with mlflow.start_run():
-            model_infos.append(mlflow.dspy.log_model(dspy_model, "model"))
+            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model"))
 
     for model_info in model_infos:
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -921,7 +921,7 @@ def test_autolog_link_traces_active_model():
     model_infos = []
     for _ in range(5):
         with mlflow.start_run():
-            model_infos.append(mlflow.dspy.log_model(dspy_model, "model"))
+            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model"))
 
     for model_info in model_infos:
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)

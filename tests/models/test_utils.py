@@ -57,7 +57,7 @@ def test_adding_libraries_to_model_default(sklearn_knn_model):
         run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
         )
 
@@ -81,7 +81,7 @@ def test_adding_libraries_to_model_new_run(sklearn_knn_model):
         original_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
         )
 
@@ -108,7 +108,7 @@ def test_adding_libraries_to_model_run_id_passed(sklearn_knn_model):
         original_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
         )
 
@@ -136,7 +136,7 @@ def test_adding_libraries_to_model_new_model_name(sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
         )
 
@@ -164,7 +164,7 @@ def test_adding_libraries_to_model_when_version_source_None(sklearn_knn_model):
         original_run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
         )
 

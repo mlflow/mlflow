@@ -151,7 +151,7 @@ def test_model_log_load(tmp_path, sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
         )
         model_path = _download_artifact_from_uri(model_uri, tmp_path)
@@ -187,7 +187,7 @@ def test_model_save_load(tmp_path, sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
         )
         model_path = _download_artifact_from_uri(model_uri, model_download_path)
@@ -218,7 +218,7 @@ def test_logging_and_saving_wheeled_model_throws(tmp_path, sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
         )
 
@@ -327,7 +327,7 @@ def test_serving_wheeled_model(sklearn_knn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
             model,
-            artifact_path,
+            name=artifact_path,
             registered_model_name=model_name,
             input_example=pd.DataFrame(inference_data),
         )
@@ -395,7 +395,7 @@ def test_copy_metadata(mock_is_in_databricks, sklearn_knn_model):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
             sklearn_knn_model.model,
-            "model",
+            name="model",
             registered_model_name="sklearn_knn_model",
         )
 

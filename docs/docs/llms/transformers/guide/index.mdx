@@ -192,7 +192,7 @@ signature = mlflow.models.infer_signature(
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=conversational_pipeline,
-        artifact_path="chatbot",
+        name="chatbot",
         task="conversational",
         signature=signature,
         input_example="A clever and witty question",
@@ -487,7 +487,7 @@ transformers_model = {"model": model, "tokenizer": tokenizer}
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=transformers_model,
-        artifact_path="text_classifier",
+        name="text_classifier",
         task=task,
     )
 
@@ -525,7 +525,7 @@ translation_pipeline = transformers.pipeline(
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=translation_pipeline,
-        artifact_path="french_translator",
+        name="french_translator",
     )
 
 translation_components = mlflow.transformers.load_model(
@@ -620,7 +620,7 @@ my_pipeline = transformers.pipeline(
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=my_pipeline,
-        artifact_path="my_pipeline",
+        name="my_pipeline",
         torch_dtype=torch.bfloat16,
     )
 
@@ -667,7 +667,7 @@ my_pipeline = transformers.pipeline(
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=my_pipeline,
-        artifact_path="my_pipeline",
+        name="my_pipeline",
         torch_dtype=torch.bfloat16,
     )
 
@@ -734,7 +734,7 @@ signature = infer_signature(url, generate_signature_output(my_audio_pipeline, ur
 with mlflow.start_run():
     mlflow.transformers.log_model(
         transformers_model=my_audio_pipeline,
-        artifact_path="my_transcriber",
+        name="my_transcriber",
         signature=signature,
     )
 ```
@@ -809,7 +809,7 @@ with mlflow.start_run():
             "model": peft_model,
             "tokenizer": tokenizer,
         },
-        artifact_path="peft_model",
+        name="peft_model",
     )
 
 # Load the PEFT model

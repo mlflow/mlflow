@@ -237,7 +237,7 @@ def save_model(
                 with mlflow.start_run() as run:
                     logged_model = mlflow.langchain.log_model(
                         qa,
-                        artifact_path="retrieval_qa",
+                        name="retrieval_qa",
                         loader_fn=load_retriever,
                         persist_dir=persist_dir,
                     )
@@ -544,7 +544,7 @@ def log_model(
                 with mlflow.start_run() as run:
                     logged_model = mlflow.langchain.log_model(
                         qa,
-                        artifact_path="retrieval_qa",
+                        name="retrieval_qa",
                         loader_fn=load_retriever,
                         persist_dir=persist_dir,
                     )

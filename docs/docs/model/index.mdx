@@ -153,7 +153,7 @@ class MyModel(mlflow.pyfunc.PythonModel):
 
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
-        "model", python_model=MyModel(), input_example="data"
+        name="model", python_model=MyModel(), input_example="data"
     )
 ```
 
@@ -299,7 +299,7 @@ model_path = "my_model.py"
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
         python_model=model_path,  # Define the model as the path to the Python file
-        artifact_path="my_model",
+        name="my_model",
     )
 
 # Loading the model behaves exactly as if an instance of MyModel had been logged
@@ -605,7 +605,7 @@ with mlflow.start_run():
     params = glm_classifier.params
     mlflow.log_params(params)
     mlflow.log_metrics(metrics_to_log)
-    model_info = mlflow.h2o.log_model(glm_classifier, artifact_path="h2o_model_info")
+    model_info = mlflow.h2o.log_model(glm_classifier, name="h2o_model_info")
 
 # load h2o model and make a prediction
 h2o_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -725,7 +725,7 @@ for epoch in range(epochs):
 
 with mlflow.start_run() as run:
     signature = infer_signature(X.numpy(), net(X).detach().numpy())
-    model_info = mlflow.pytorch.log_model(net, "model", signature=signature)
+    model_info = mlflow.pytorch.log_model(net, name="model", signature=signature)
 
 pytorch_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
 
@@ -765,7 +765,7 @@ with mlflow.start_run():
     signature = infer_signature(X, lr.predict(X))
 
     model_info = mlflow.sklearn.log_model(
-        sk_model=lr, artifact_path="model", signature=signature
+        sk_model=lr, name="model", signature=signature
     )
 
 sklearn_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -824,7 +824,7 @@ lr_model = lr.fit(training)
 
 # Serialize the Model
 with mlflow.start_run():
-    model_info = mlflow.spark.log_model(lr_model, "spark-model")
+    model_info = mlflow.spark.log_model(lr_model, name="spark-model")
 
 # Load saved model
 lr_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -946,7 +946,7 @@ onnx_model = onnx.load_model("model.onnx")
 # log the model into a mlflow run
 with mlflow.start_run():
     signature = infer_signature(X.numpy(), net(X).detach().numpy())
-    model_info = mlflow.onnx.log_model(onnx_model, "model", signature=signature)
+    model_info = mlflow.onnx.log_model(onnx_model, name="model", signature=signature)
 
 # load the logged model and make a prediction
 onnx_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1005,7 +1005,7 @@ with mlflow.start_run():
     mlflow.log_params(clf_params)
     signature = infer_signature(X_train, xgb_classifier.predict(X_train))
     model_info = mlflow.xgboost.log_model(
-        xgb_classifier, "iris-classifier", signature=signature
+        xgb_classifier, name="iris-classifier", signature=signature
     )
 
 # Load saved model and make predictions
@@ -1072,7 +1072,7 @@ with mlflow.start_run():
     mlflow.log_metrics(feature_importance_metrics)
     signature = infer_signature(X_train, lgb_classifier.predict(X_train))
     model_info = mlflow.lightgbm.log_model(
-        lgb_classifier, "iris-classifier", signature=signature
+        lgb_classifier, name="iris-classifier", signature=signature
     )
 
 # Load saved model and make predictions
@@ -1119,7 +1119,7 @@ signature = infer_signature(X, predictions)
 
 # log the model into a mlflow run
 with mlflow.start_run():
-    model_info = mlflow.catboost.log_model(model, "model", signature=signature)
+    model_info = mlflow.catboost.log_model(model, name="model", signature=signature)
 
 # load the logged model and make a prediction
 catboost_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -1263,7 +1263,7 @@ def mlflow_logger():
                 mlflow.log_metrics(metrics, step=step)
 
         def finalize():
-            uri = mlflow.spacy.log_model(nlp, "mlflow_textcat_example")
+            uri = mlflow.spacy.log_model(nlp, name="mlflow_textcat_example")
             mlflow.end_run()
 
         return log_step, finalize
@@ -1370,7 +1370,7 @@ mlflow.statsmodels.autolog(
 
 with mlflow.start_run():
     res = model.fit(method="pinv", use_t=True)
-    model_info = mlflow.statsmodels.log_model(res, artifact_path="OLS_model")
+    model_info = mlflow.statsmodels.log_model(res, name="OLS_model")
 
 # load the pyfunc model
 statsmodels_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -1437,7 +1437,7 @@ with mlflow.start_run():
     mlflow.log_params(res.params)
     mlflow.log_metric("aic", res.aic)
     mlflow.log_metric("bic", res.bic)
-    model_info = mlflow.statsmodels.log_model(res, artifact_path="ARIMA_model")
+    model_info = mlflow.statsmodels.log_model(res, name="ARIMA_model")
 
 # load the pyfunc model
 statsmodels_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -1555,7 +1555,7 @@ with mlflow.start_run():
     # Log the Prophet model with MLflow
     model_info = mlflow.prophet.log_model(
         prophet_model,
-        artifact_path="prophet_model",
+        name="prophet_model",
         input_example=train[["ds"]].head(10),
     )
 
@@ -1821,7 +1821,7 @@ johnsnowlabs_model.predict(["I hate COVID,", "I love COVID"])
 
 # 5) Export model with pyfunc and johnsnowlabs flavors
 with mlflow.start_run():
-    model_info = mlflow.johnsnowlabs.log_model(johnsnowlabs_model, model_save_path)
+    model_info = mlflow.johnsnowlabs.log_model(johnsnowlabs_model, name=model_save_path)
 
 # 6) Load model with johnsnowlabs flavor
 mlflow.johnsnowlabs.load_model(model_info.model_uri)
@@ -2217,7 +2217,7 @@ signature = mlflow.models.infer_signature(
 with mlflow.start_run():
     logged_model = mlflow.sentence_transformers.log_model(
         model=model,
-        artifact_path="sbert_model",
+        name="sbert_model",
         signature=signature,
         input_example=example_sentences,
     )
@@ -2281,7 +2281,7 @@ flow_folder = Path(__file__).parent / "basic"
 flow = load_flow(flow_folder)
 
 with mlflow.start_run():
-    logged_model = mlflow.promptflow.log_model(flow, artifact_path="promptflow_model")
+    logged_model = mlflow.promptflow.log_model(flow, name="promptflow_model")
 
 loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
 print(loaded_model.predict({"text": "Python Hello World!"}))
@@ -2329,7 +2329,7 @@ eval_data["label"] = y_test
 
 with mlflow.start_run() as run:
     # Log the baseline model to MLflow
-    mlflow.sklearn.log_model(model, "model", signature=signature)
+    mlflow.sklearn.log_model(model, name="model", signature=signature)
     model_uri = mlflow.get_artifact_uri("model")
 
     # Evaluate the logged model
@@ -2374,7 +2374,7 @@ mlflow.log_param("system_prompt", system_prompt)
 logged_model = mlflow.openai.log_model(
     model="gpt-4o-mini",
     task=openai.chat.completions,
-    artifact_path="model",
+    name="model",
     messages=[
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": "{question}"},
@@ -2730,7 +2730,7 @@ def prediction_target_scatter(eval_df, _builtin_metrics, artifacts_dir):
 
 
 with mlflow.start_run() as run:
-    mlflow.sklearn.log_model(lin_reg, "model", signature=signature)
+    mlflow.sklearn.log_model(lin_reg, name="model", signature=signature)
     model_uri = mlflow.get_artifact_uri("model")
     result = mlflow.evaluate(
         model=model_uri,
@@ -2922,7 +2922,7 @@ candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
 
 with mlflow.start_run(run_name="candidate") as run:
     candidate_model_uri = mlflow.sklearn.log_model(
-        candidate_model, "candidate_model", signature=signature
+        candidate_model, name="candidate_model", signature=signature
     ).model_uri
 
     candidate_result = mlflow.evaluate(
@@ -2937,7 +2937,7 @@ baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
 
 with mlflow.start_run(run_name="baseline") as run:
     baseline_model_uri = mlflow.sklearn.log_model(
-        baseline_model, "baseline_model", signature=signature
+        baseline_model, name="baseline_model", signature=signature
     ).model_uri
 
     baseline_result = mlflow.evaluate(
@@ -3179,7 +3179,7 @@ assert model.predict(input_example) == ["Hello", "Hi"]
 # Log the model
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
-        artifact_path="model",
+        name="model",
         python_model=model,
         input_example=input_example,
     )
@@ -3355,7 +3355,7 @@ data = {"question": "Who's house?", "context": "The house is owned by Run."}
 pyfunc_artifact_path = "question_answering_model"
 with mlflow.start_run() as run:
     model_info = mlflow.pyfunc.log_model(
-        artifact_path=pyfunc_artifact_path,
+        name=pyfunc_artifact_path,
         python_model=QAModel(),
         artifacts={"bert-tiny-model": "hf:/prajjwal1/bert-tiny"},
         input_example=data,
@@ -4002,7 +4002,7 @@ class MyModel(mlflow.pyfunc.PythonModel):
 
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
-        "model",
+        name="model",
         python_model=MyModel(),
         input_example=["a", "b", "c"],
     )

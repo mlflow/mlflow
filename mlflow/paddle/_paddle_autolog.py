@@ -132,7 +132,7 @@ def patched_fit(original, self, *args, **kwargs):
             mlflow.paddle.FLAVOR_NAME, "registered_model_name", None
         )
         mlflow.paddle.log_model(
-            self, "model", registered_model_name=registered_model_name, model_id=model_id
+            self, name="model", registered_model_name=registered_model_name, model_id=model_id
         )
 
     client.flush(synchronous=True)

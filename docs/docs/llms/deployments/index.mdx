@@ -1327,7 +1327,7 @@ result = llm_chain.run(adjective="funny")
 print(result)
 
 with mlflow.start_run():
-    model_info = mlflow.langchain.log_model(llm_chain, "model")
+    model_info = mlflow.langchain.log_model(llm_chain, name="model")
 
 model = mlflow.pyfunc.load_model(model_info.model_uri)
 print(model.predict([{"adjective": "funny"}]))
@@ -1384,7 +1384,7 @@ with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
         python_model=predict,
         registered_model_name="anthropic_completions",
-        artifact_path="anthropic_completions",
+        name="anthropic_completions",
         input_example=input_example,
         signature=signature,
     )

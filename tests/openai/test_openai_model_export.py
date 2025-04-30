@@ -57,7 +57,7 @@ def test_log_model():
         model_info = mlflow.openai.log_model(
             "gpt-4o-mini",
             "chat.completions",
-            "model",
+            name="model",
             temperature=0.9,
             messages=[{"role": "system", "content": "You are an MLflow expert."}],
         )
@@ -545,7 +545,7 @@ def test_embeddings_pyfunc_server_and_score():
         model_info = mlflow.openai.log_model(
             "text-embedding-ada-002",
             embeddings(),
-            "model",
+            name="model",
             input_example=df,
         )
     inference_payload = load_serving_example(model_info.model_uri)
