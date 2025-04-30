@@ -114,7 +114,6 @@ class TraceInfoV3(_MlflowObject):
     @classmethod
     def from_proto(cls, proto) -> "TraceInfoV3":
         proto = proto.trace.trace_info
-        
         return cls(
             trace_id=proto.trace_id,
             client_request_id=proto.client_request_id,
