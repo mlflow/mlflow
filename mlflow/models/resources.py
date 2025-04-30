@@ -222,7 +222,7 @@ class DatabricksTable(DatabricksResource):
          table_name (str): The name of the table used by the model
          on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accessed with the permissions of the creator
+        None or False, the resource is accessed with the permissions of the creator
     """
 
     @property
