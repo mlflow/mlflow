@@ -18,7 +18,7 @@ class Scorer(BaseModel):
         outputs=None,
         expectations=None,
         trace=None,
-    ) -> Union[float, bool, str, Assessment, list[Assessment]]:
+    ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
         """
 
         Args:
@@ -73,12 +73,10 @@ def scorer(
     class CustomScorer(Scorer):
         def __call__(self, *, inputs, outputs=None, expectations=None, trace=None):
             result = func(inputs=inputs, outputs=outputs, expectations=expectations, trace=trace)
-            if not isinstance(result, (float, bool, str, Assessment)):
+            if not isinstance(result, (int, float, bool, str, Assessment, list[Assessment])):
                 raise ValueError(
-                    (
-                        f"{func.__name__} must return one of float, bool, str, ",
-                        f"or Assessment. Got {type(result).__name__}",
-                    )
+                    f"{func.__name__} must return one of int, float, bool, str, "
+                    f"Assessment, or list[Assessment]. Got {type(result).__name__}"
                 )
             return result
 
