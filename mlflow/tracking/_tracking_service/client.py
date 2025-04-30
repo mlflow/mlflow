@@ -378,10 +378,13 @@ class TrackingServiceClient:
             # an unnecessary duplicate call to GET trace_info if not necessary.
             is_online_trace = is_uuid(trace_info.request_id)
             if is_databricks and not is_online_trace:
+                print("Downloading trace info with assessments")
                 trace_info_with_assessments = self.get_trace_info(
                     trace_info.request_id, should_query_v3=True
                 )
                 trace_info.assessments = trace_info_with_assessments.assessments
+                print("Downloaded trace info with assessments")
+                print("assessments",trace_info.assessments)
 
             if not include_spans:
                 return Trace(trace_info, TraceData(spans=[]))
