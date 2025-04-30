@@ -55,24 +55,6 @@ def document_recall():
     return _DocumentRecall()
 
 
-class _GlobalGuidelineAdherence(_BaseBuiltInScorer):
-    name: str = "global_guideline_adherence"
-    global_guideline: str
-
-    def update_evaluation_config(self, evaluation_config) -> dict:
-        config = super().update_evaluation_config(evaluation_config)
-        config[GENAI_CONFIG_NAME]["global_guideline"] = self.global_guideline
-        return config
-
-
-def global_guideline_adherence(guideline: str):
-    """
-    Guideline adherence evaluates whether the agent’s response follows specific constraints or
-    instructions provided in the guidelines.
-    """
-    return _GlobalGuidelineAdherence(global_guideline=guideline)
-
-
 class _Groundedness(_BaseBuiltInScorer):
     name: str = "groundedness"
 
@@ -95,6 +77,23 @@ def guideline_adherence():
     or instructions provided in the guidelines.
     """
     return _GuidelineAdherence()
+
+
+class _GlobalGuidelineAdherence(_GuidelineAdherence):
+    global_guidelines: list[str]
+
+    def update_evaluation_config(self, evaluation_config) -> dict:
+        config = super().update_evaluation_config(evaluation_config)
+        config[GENAI_CONFIG_NAME]["global_guidelines"] = self.global_guidelines
+        return config
+
+
+def global_guideline_adherence(global_guidelines: list[str]):
+    """
+    Guideline adherence evaluates whether the agent’s response follows specific constraints or
+    instructions provided in the guidelines.
+    """
+    return _GlobalGuidelineAdherence(global_guidelines=global_guidelines)
 
 
 class _RelevanceToQuery(_BaseBuiltInScorer):
