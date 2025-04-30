@@ -627,6 +627,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                     )
                 )
 
+            print(versions, category, is_flavor_support_tracing(flavor))
             # Add tracing test with the latest stable version
             if (
                 len(versions) > 0
@@ -652,8 +653,6 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                         runs_on=runs_on,
                     )
                 )
-
-                raise ValueError("test2")
 
             if package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)
