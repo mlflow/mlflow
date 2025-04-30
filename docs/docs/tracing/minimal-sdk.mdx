@@ -10,7 +10,7 @@ import TabItem from "@theme/TabItem";
 
 # Lightweight Tracing SDK Optimized for Production Usage
 
-MLflow offers a lightweight tracing SDK package called `mlflow-tracing` that includes only the essential functionality for tracing and monitoring your GenAI applications. This package is designed for production environments where minimizing dependencies and deployment size is crucial.
+MLflow offers a lightweight tracing SDK package called `mlflow-tracing` that includes only the essential functionality for tracing and monitoring of your GenAI applications. This package is designed for production environments where minimizing dependencies and deployment size is ideal.
 
 ## Why Use the Lightweight SDK?
 
@@ -22,11 +22,11 @@ MLflow offers a lightweight tracing SDK package called `mlflow-tracing` that inc
     />
     <TitleCard
         title="🔧 Simplified Dependency Management"
-        description="A smaller set of dependencies means less work keeping up with dependency updates, security patches, and breaking changes from upstream libraries."
+        description="A smaller set of dependencies means less work keeping up with dependency updates, security patches, and potential breaking changes from upstream libraries.  It also reduces the chances of dependency collisions and incompatibilities."
     />
     <TitleCard
         title="📦 Portability"
-        description="With the less number of dependencies, MLflow Tracing can be easily deployed across different environments and platforms, without worrying about compatibility issues."
+        description="With a fewer number of dependencies, MLflow Tracing can be seamlessly deployed across differing environments and platforms, without worrying about compatibility issues."
     />
     <TitleCard
         title="🔒 Fewer Security Risks"
@@ -44,7 +44,7 @@ pip install mlflow-tracing
 
 :::warning
 
-Do not install the full `mlflow` package together with the lightweight SDK, as this may cause version conflicts.
+Do not install the full `mlflow` package together with the lightweight `mlflow-tracing` SDK, as this may cause version conflicts and namespace resolution issues.
 
 :::
 
@@ -84,7 +84,7 @@ The lightweight SDK works with various observability platforms. Choose your favo
         <div class="flex-item">
 
           [Databricks Lakehouse Monitoring for GenAI](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring) is a go-to solution for monitoring your
-          GenAI application with MLflow Tracing. It provides an instant access to a fully functional monitoring dashboard for operational excellence and quality analysis.
+          GenAI application with MLflow Tracing. It provides an access to a robust, fully functional monitoring dashboard for operational excellence and quality analysis.
 
           Lakehouse Monitoring for GenAI can be used regardless of whether your application is hosted on Databricks or not.
 
@@ -103,10 +103,10 @@ The lightweight SDK works with various observability platforms. Choose your favo
       <div class="flex-row">
         <div class="flex-item">
 
-          MLflow is a **fully open-source project**, allowing you to self-host your own MLflow server and keep your data private. This is a great option if you want to have full control over your data and infrastructure.
+          MLflow is a **fully open-source project**, allowing you to self-host your own MLflow server in your own infrastructure. This is a great option if you want to have full control over your data and are restricted in using cloud-based services.
 
           In self-hosting mode, you will be responsible for running the tracking server instance
-          and scaling it to your needs. We **strongly recommend** using SQL-based tracking server
+          and scaling it to your needs. We **strongly recommend** using a SQL-based tracking server
           on top of the performant database of your choice to minimize the operational overhead
           and high availability. Please refer to the [tracking server setup guide](/tracking#tracking-setup) for more guidance.
 
@@ -122,7 +122,7 @@ The lightweight SDK works with various observability platforms. Choose your favo
       <div class="flex-row">
         <div class="flex-item">
 
-          MLflow Tracing is **built on OpenTelemetry tracing spec**, an industry-standard framework for observability, making it vendor neutral solution for monitoring your GenAI applications.
+          MLflow Tracing is **built on the OpenTelemetry tracing spec**, an industry-standard framework for observability, making it vendor-neutral solution for monitoring your GenAI applications.
 
           If you are using OpenTelemetry as a part of observability tech stack in your
           team or organization, you can use MLflow Tracing without any additional
@@ -180,7 +180,7 @@ The lightweight SDK includes all essential tracing functionalities for monitorin
 <CardGroup cols={1}>
     <TitleCard
         title="⚡️ Automatic Tracing for 15+ AI libraries"
-        description="MLflow Tracing SDK supports one-line integration with 15+ AI libraries including OpenAI, LangChain, LlamaIndex, Anthropic, Amazon Bedrock, DSPy, and more. This
+        description="MLflow Tracing SDK supports one-line integration with all of the most popular LLM/GenAI libraries including OpenAI, LangChain, LlamaIndex, Amazon Bedrock, DSPy, and any LLM provides that conforms to OpenAI API format. This
         automatic tracing capability allows you to monitor your GenAI application with MLflow Tracing with minimal effort and switch between different libraries easily."
         link="/tracing/integrations/"
     />
@@ -188,13 +188,13 @@ The lightweight SDK includes all essential tracing functionalities for monitorin
         title="⚙️ Manual Instrumentation"
         description="MLflow Tracing SDK provides a simple and intuitive API for manually
         instrumenting your GenAI application. Manual instrumentation and automatic tracing can
-        be used together, allowing you to trace an advanced applications with custom code and
+        be used together, allowing you to trace advanced applications containing custom code and have
         fine-grained control over the tracing behavior."
         link="/tracing/api/manual-instrumentation"
     />
     <TitleCard
         title="✍ Tagging and Filtering Traces"
-        description="By annotating traces with custom tags, you can add more context to your traces for grouping and searching for them later. This is useful when you want to trace
+        description="By annotating traces with custom tags, you can add more context to your traces to group them and simplify the process of searching for them later. This is useful when you want to trace
         an application that runs across multiple request sessions."
         link="/tracing/session"
     />
