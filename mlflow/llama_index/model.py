@@ -392,7 +392,7 @@ def log_model(
                 with mlflow.start_run() as run:
                     model_info = mlflow.llama_index.log_model(
                         index,
-                        artifact_path="index",
+                        name="index",
                         engine_type="chat",
                         model_config={"top_k": 10},
                     )
@@ -409,7 +409,7 @@ def log_model(
                 with mlflow.start_run() as run:
                     model_info = mlflow.llama_index.log_model(
                         "model.py",
-                        artifact_path="model",
+                        name="model",
                         model_config={"qdrant_host": "localhost", "qdrant_port": 6333},
                     )
 

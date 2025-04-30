@@ -225,7 +225,7 @@ def get_pipeline_model_uri():
     pipeline.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(pipeline, "pipeline_model")
+        model_info = mlflow.sklearn.log_model(pipeline, name="pipeline_model")
         return model_info.model_uri
 
 
@@ -240,7 +240,7 @@ def get_linear_regressor_model_uri():
     reg.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(reg, "reg_model")
+        model_info = mlflow.sklearn.log_model(reg, name="reg_model")
         return model_info.model_uri
 
 
@@ -255,7 +255,7 @@ def get_spark_linear_regressor_model_uri():
     spark_reg_model = reg.fit(spark_df)
 
     with mlflow.start_run():
-        model_info = mlflow.spark.log_model(spark_reg_model, "spark_reg_model")
+        model_info = mlflow.spark.log_model(spark_reg_model, name="spark_reg_model")
         return model_info.model_uri
 
 
@@ -270,7 +270,7 @@ def multiclass_logistic_regressor_model_uri_by_max_iter(max_iter):
     clf.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(clf, f"clf_model_{max_iter}_iters")
+        model_info = mlflow.sklearn.log_model(clf, name=f"clf_model_{max_iter}_iters")
         return model_info.model_uri
 
 
@@ -285,7 +285,7 @@ def get_binary_logistic_regressor_model_uri():
     clf.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(clf, "bin_clf_model")
+        model_info = mlflow.sklearn.log_model(clf, name="bin_clf_model")
         return model_info.model_uri
 
 
@@ -300,7 +300,7 @@ def get_svm_model_url():
     clf.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(clf, "svm_model")
+        model_info = mlflow.sklearn.log_model(clf, name="svm_model")
         return model_info.model_uri
 
 
@@ -376,7 +376,7 @@ def test_pyfunc_evaluate_logs_traces():
     )
 
     with mlflow.start_run() as run:
-        model_info = mlflow.pyfunc.log_model("model", python_model=Model())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
         evaluate(
             model_info.model_uri,
             eval_data,
@@ -1349,7 +1349,7 @@ def test_evaluate_stdin_scoring_server():
     model.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
 
     with mock.patch("mlflow.pyfunc.check_port_connectivity", return_value=False):
         mlflow.evaluate(
@@ -1382,7 +1382,7 @@ def test_evaluate_xgboost_classifier():
     model = xgb.train({"objective": "multi:softmax", "num_class": 3}, data, num_boost_round=5)
 
     with mlflow.start_run() as run:
-        model_info = mlflow.xgboost.log_model(model, "model")
+        model_info = mlflow.xgboost.log_model(model, name="model")
         mlflow.evaluate(
             model_info.model_uri,
             X.assign(y=y),
@@ -1407,7 +1407,7 @@ def test_evaluate_lightgbm_regressor():
     model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
 
     with mlflow.start_run() as run:
-        model_info = mlflow.lightgbm.log_model(model, "model")
+        model_info = mlflow.lightgbm.log_model(model, name="model")
         mlflow.evaluate(
             model_info.model_uri,
             X.assign(y=y),
@@ -1555,7 +1555,7 @@ def test_evaluate_with_loaded_pyfunc_model():
     model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
 
     with mlflow.start_run() as run:
-        model_info = mlflow.lightgbm.log_model(model, "model")
+        model_info = mlflow.lightgbm.log_model(model, name="model")
         loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
         mlflow.evaluate(
             loaded_model,
@@ -2152,7 +2152,7 @@ def test_metrics_logged_to_model_on_evaluation(
     with mlflow.start_run():
         # Log the model and retrieve its model_id
         model_info = mlflow.sklearn.log_model(
-            mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri), "model"
+            mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri), name="model"
         )
         model_id = model_info.model_id
 
@@ -2180,7 +2180,7 @@ def test_evaluate_with_model_id(iris_dataset):
     with mlflow.start_run():
         model = sklearn.linear_model.LogisticRegression()
         model.fit(iris_dataset._constructor_args["data"], iris_dataset._constructor_args["targets"])
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
         model_id = model_info.model_id
 
     # Evaluate the model with the specified model ID
@@ -2226,7 +2226,7 @@ def test_evaluate_model_id_consistency_check(multiclass_logistic_regressor_model
         model.fit(iris_dataset._constructor_args["data"], iris_dataset._constructor_args["targets"])
         model_info = mlflow.sklearn.log_model(
             model,
-            "model",
+            name="model",
         )
         model_uri = model_info.model_uri
         model_id = model_info.model_uuid
@@ -2373,7 +2373,7 @@ def test_mlflow_evaluate_logs_traces_to_active_model():
         # model_id of the passed model takes precedence over active model
         assert mlflow.get_active_model_id() is not None
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=model,
             input_example="What is MLflow?",
         )

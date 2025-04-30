@@ -50,7 +50,7 @@ with mlflow.start_run() as run:
     logged_model = mlflow.openai.log_model(
         model="gpt-4o-mini",
         task=openai.chat.completions,
-        artifact_path="model",
+        name="model",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "{question}"},

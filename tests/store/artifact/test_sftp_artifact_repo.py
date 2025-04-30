@@ -213,7 +213,7 @@ def test_log_and_download_sklearn_model(tmp_path):
         artifact_location=f"sftp://{tmp_path}",
     )
     with mlflow.start_run(experiment_id=experiment_id):
-        model_uri = mlflow.sklearn.log_model(original, "model").model_uri
+        model_uri = mlflow.sklearn.log_model(original, name="model").model_uri
         downloaded = mlflow.sklearn.load_model(model_uri)
 
     assert_allclose(original.predict(X), downloaded.predict(X))

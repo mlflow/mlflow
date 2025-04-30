@@ -159,9 +159,7 @@ with mlflow.start_run(run_name=run_name) as run:
     mlflow.log_metrics(metrics)
 
     # Log an instance of the trained model for later use
-    mlflow.sklearn.log_model(
-        sk_model=rf, input_example=X_val, artifact_path=artifact_path
-    )
+    mlflow.sklearn.log_model(sk_model=rf, input_example=X_val, name=artifact_path)
 ```
 
 To aid in visualizing how MLflow tracking API calls add in to an ML training code base, see the figure below.

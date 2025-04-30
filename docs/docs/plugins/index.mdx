@@ -355,7 +355,7 @@ db_uri = "mssql+pyodbc://username:password@host:port/database?driver=ODBC+Driver
 client.create_experiment(exp_name, artifact_location=db_uri)
 mlflow.set_experiment(exp_name)
 
-mlflow.onnx.log_model(onnx, "model")
+mlflow.onnx.log_model(onnx, name="model")
 ```
 
 The first time an artifact is logged in the artifact store, the plugin automatically creates an `artifacts` table in the database specified by the database URI and stores the artifact there as a BLOB.
@@ -392,7 +392,7 @@ class Mod(mlflow.pyfunc.PythonModel):
 exp_name = "myexp"
 mlflow.create_experiment(exp_name, artifact_location="oss://mlflow-test/")
 mlflow.set_experiment(exp_name)
-mlflow.pyfunc.log_model("model_test", python_model=Mod())
+mlflow.pyfunc.log_model(name="model_test", python_model=Mod())
 ```
 
 In the example provided above, the `log_model` operation creates three entries in the OSS storage
@@ -429,7 +429,7 @@ mlflow.create_experiment(
     exp_name, artifact_location="xet://<your_username>/mlflow-test/main"
 )
 mlflow.set_experiment(exp_name)
-mlflow.pyfunc.log_model("model_test", python_model=Mod())
+mlflow.pyfunc.log_model(name="model_test", python_model=Mod())
 ```
 
 In the example provided above, the `log_model` operation creates three entries in the OSS storage `xet://mlflow-test/$RUN_ID/artifacts/model_test/`, the MLmodel file
@@ -551,9 +551,7 @@ classifier = pipeline(
 )
 
 with mlflow.start_run():
-    mlflow.transformers.log_model(
-        transformers_model=classifier, artifact_path=MODEL_NAME
-    )
+    mlflow.transformers.log_model(transformers_model=classifier, name=MODEL_NAME)
 mlflow.end_run()
 ```
 

@@ -1555,9 +1555,11 @@ def test_pyfunc_model_registry_with_file_store(store):
 
     mlflow.set_registry_uri(path_to_local_file_uri(store.root_directory))
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("foo", python_model=MyModel(), registered_model_name="model1")
-        mlflow.pyfunc.log_model("foo", python_model=MyModel(), registered_model_name="model2")
-        mlflow.pyfunc.log_model("model", python_model=MyModel(), registered_model_name="model1")
+        mlflow.pyfunc.log_model(name="foo", python_model=MyModel(), registered_model_name="model1")
+        mlflow.pyfunc.log_model(name="foo", python_model=MyModel(), registered_model_name="model2")
+        mlflow.pyfunc.log_model(
+            name="model", python_model=MyModel(), registered_model_name="model1"
+        )
 
     with mlflow.start_run():
         mlflow.log_param("A", "B")

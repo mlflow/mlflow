@@ -89,7 +89,7 @@ def test_autolog_should_not_generate_traces_during_logging_loading(single_index)
 
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            single_index, "model", input_example="Hello", engine_type="query"
+            single_index, name="model", input_example="Hello", engine_type="query"
         )
     loaded = mlflow.pyfunc.load_model(model_info.model_uri)
 
@@ -125,7 +125,7 @@ def test_autolog_link_traces_to_loaded_model_engine(
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
-                    code_path, f"model_{i}", input_example="Hello", engine_type=engine_type
+                    code_path, name=f"model_{i}", input_example="Hello", engine_type=engine_type
                 )
             )
 
@@ -150,7 +150,7 @@ def test_autolog_link_traces_to_loaded_model_index_query(single_index, is_stream
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
-                    single_index, f"model_{i}", input_example="Hello", engine_type="query"
+                    single_index, name=f"model_{i}", input_example="Hello", engine_type="query"
                 )
             )
 
@@ -177,7 +177,7 @@ async def test_autolog_link_traces_to_loaded_model_index_query_async(single_inde
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
-                    single_index, f"model_{i}", input_example="Hello", engine_type="query"
+                    single_index, name=f"model_{i}", input_example="Hello", engine_type="query"
                 )
             )
 
@@ -213,7 +213,7 @@ def test_autolog_link_traces_to_loaded_model_index_chat(single_index, chat_mode)
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
-                    single_index, f"model_{i}", input_example="Hello", engine_type="chat"
+                    single_index, name=f"model_{i}", input_example="Hello", engine_type="chat"
                 )
             )
 
@@ -237,7 +237,7 @@ def test_autolog_link_traces_to_loaded_model_index_retriever(single_index):
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
-                    single_index, f"model_{i}", input_example="Hello", engine_type="retriever"
+                    single_index, name=f"model_{i}", input_example="Hello", engine_type="retriever"
                 )
             )
 
@@ -265,7 +265,7 @@ async def test_autolog_link_traces_to_loaded_model_workflow():
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             "tests/llama_index/sample_code/simple_workflow.py",
-            "model",
+            name="model",
             input_example={"topic": "Hello"},
         )
     loaded_workflow = mlflow.llama_index.load_model(model_info.model_uri)
@@ -288,7 +288,7 @@ def test_autolog_link_traces_to_loaded_model_workflow_pyfunc():
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             "tests/llama_index/sample_code/simple_workflow.py",
-            "model",
+            name="model",
             input_example={"topic": "Hello"},
         )
     loaded_workflow = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -313,7 +313,7 @@ def test_autolog_link_traces_to_active_model():
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             "tests/llama_index/sample_code/simple_workflow.py",
-            "model",
+            name="model",
             input_example={"topic": "Hello"},
         )
     loaded_workflow = mlflow.pyfunc.load_model(model_info.model_uri)

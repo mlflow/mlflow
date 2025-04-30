@@ -16,7 +16,7 @@ predictions = model.predict(X_train)
 signature = infer_signature(X_train, predictions)
 
 with mlflow.start_run() as run:
-    model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+    model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
     print(model_info.name)
 
     # Evaluate the model URI

@@ -168,7 +168,7 @@ with mlflow.start_run() as run:
     # Log the sklearn model and register as version 1
     mlflow.sklearn.log_model(
         sk_model=model,
-        artifact_path="sklearn-model",
+        name="sklearn-model",
         signature=signature,
         registered_model_name="sk-learn-random-forest-reg-model",
     )
@@ -627,7 +627,7 @@ reg_model_name = "SklearnLinearRegression"
 print("--")
 mlflow.sklearn.log_model(
     loaded_model,
-    "sk_learn",
+    name="sk_learn",
     serialization_format="cloudpickle",
     signature=signature,
     registered_model_name=reg_model_name,
@@ -767,7 +767,7 @@ with mlflow.start_run(run_name="Vader Sentiment Analysis") as run:
 
 # Use the saved model path to log and register into the model registry
 mlflow.pyfunc.log_model(
-    artifact_path=model_path,
+    name=model_path,
     python_model=vader_model,
     registered_model_name=reg_model_name,
     conda_env=conda_env,

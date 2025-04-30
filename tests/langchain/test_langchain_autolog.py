@@ -94,7 +94,7 @@ def model_infos():
     for model in models:
         with mlflow.start_run():
             model_infos.append(
-                mlflow.langchain.log_model(model, "model", input_example={"product": "MLflow"})
+                mlflow.langchain.log_model(model, name="model", input_example={"product": "MLflow"})
             )
     return model_infos
 
@@ -231,7 +231,7 @@ def test_llmchain_autolog_should_not_generate_trace_while_saving_models(tmp_path
     # Either save_model or log_model should not generate traces
     mlflow.langchain.save_model(model, path=tmp_path / "model", input_example=question)
     with mlflow.start_run():
-        mlflow.langchain.log_model(model, "model", input_example=question)
+        mlflow.langchain.log_model(model, name="model", input_example=question)
 
     traces = get_traces()
     assert len(traces) == 0
@@ -667,7 +667,7 @@ def test_tracing_source_run_in_pyfunc_model_predict():
     model = create_openai_runnable()
     input = {"product": "MLflow"}
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(model, "model")
+        model_info = mlflow.langchain.log_model(model, name="model")
 
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with mlflow.start_run() as run:
@@ -906,7 +906,7 @@ def test_set_retriever_schema_work_for_langchain_model():
 
     model = create_openai_runnable()
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(model, "model", input_example="MLflow")
+        model_info = mlflow.langchain.log_model(model, name="model", input_example="MLflow")
 
     mlflow.langchain.autolog()
 
@@ -958,7 +958,7 @@ def test_langchain_auto_tracing_in_serving_runnable():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             chain,
-            "model",
+            name="model",
             input_example={"product": "MLflow"},
         )
 
@@ -1008,7 +1008,7 @@ def test_langchain_auto_tracing_in_serving_agent():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langchain/sample_code/openai_agent.py",
-            "langchain_model",
+            name="langchain_model",
             input_example=input_example,
         )
 
