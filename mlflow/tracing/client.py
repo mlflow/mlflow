@@ -8,6 +8,7 @@ from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import (
     MlflowException,
@@ -82,6 +83,21 @@ class TracingClient:
             request_metadata=request_metadata,
             tags=tags,
         )
+
+    def start_trace_v3(self, trace: Trace) -> TraceInfoV3:
+        """
+        Start a trace using the V3 API format.
+        NB: This method is named "Start" for internal reason in the backend, but actually
+        should be called at the end of the trace. We will migrate this to "CreateTrace"
+        API in the future to avoid confusion.
+
+        Args:
+            trace: The Trace object to create.
+
+        Returns:
+            The returned TraceInfoV3 object from the backend.
+        """
+        return self.store.start_trace_v3(trace=trace)
 
     def end_trace(
         self,

@@ -10,11 +10,10 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, Optional, Union
 
 from cachetools import TTLCache
-from mlflow.tracing.utils.warning import request_id_backward_compatible
 from opentelemetry import trace as trace_api
 
 from mlflow.entities import NoOpSpan, SpanType, Trace
-from mlflow.entities.span import NO_OP_SPAN_REQUEST_ID, LiveSpan, create_mlflow_span
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
@@ -39,6 +38,7 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
+from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 
@@ -502,7 +502,7 @@ def start_span_no_context(
 
     """
     # If parent span is no-op span, the child should also be no-op too
-    if parent_span and parent_span.request_id == NO_OP_SPAN_REQUEST_ID:
+    if parent_span and parent_span.trace_id == NO_OP_SPAN_TRACE_ID:
         return NoOpSpan()
 
     try:
@@ -517,11 +517,11 @@ def start_span_no_context(
         )
 
         if parent_span:
-            request_id = parent_span.request_id
+            trace_id = parent_span.trace_id
         else:
-            request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
+            trace_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
 
-        mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
+        mlflow_span = create_mlflow_span(otel_span, trace_id, span_type)
 
         # # If the span is a no-op span i.e. tracing is disabled, do nothing
         if isinstance(mlflow_span, NoOpSpan):
@@ -534,7 +534,7 @@ def start_span_no_context(
         trace_manager = InMemoryTraceManager.get_instance()
         if tags := exclude_immutable_tags(tags or {}):
             # Update trace tags for trace in in-memory trace manager
-            with trace_manager.get_trace(request_id) as trace:
+            with trace_manager.get_trace(trace_id) as trace:
                 trace.info.tags.update(tags)
 
         # Register new span in the in-memory trace manager
