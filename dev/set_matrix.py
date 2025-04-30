@@ -626,7 +626,6 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                         pre_test=cfg.pre_test,
                     )
                 )
-            raise ValueError("test")
 
             # Add tracing test with the latest stable version
             if (
@@ -653,6 +652,8 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                         runs_on=runs_on,
                     )
                 )
+
+                raise ValueError("test2")
 
             if package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)
