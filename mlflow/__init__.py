@@ -54,6 +54,7 @@ if not IS_TRACING_SDK_ONLY:
 
 from mlflow import tracing  # noqa: F401
 from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
+from mlflow.exceptions import MlflowException
 from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
@@ -231,7 +232,6 @@ if not IS_TRACING_SDK_ONLY:
         set_system_metrics_samples_before_logging,
         set_system_metrics_sampling_interval,
     )
-    from mlflow.exceptions import MlflowException
     from mlflow.models import evaluate
     from mlflow.models.evaluation.validation import validate_evaluation_results
     from mlflow.projects import run

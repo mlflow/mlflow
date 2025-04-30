@@ -5,8 +5,6 @@
 [![Slack](https://img.shields.io/badge/slack-@mlflow--users-CF0E5B.svg?logo=slack&logoColor=white&labelColor=3F0E40&style=for-the-badge)](https://mlflow.org/community/#slack)
 [![Twitter](https://img.shields.io/twitter/follow/MLflow?style=for-the-badge&labelColor=00ACEE&logo=twitter&logoColor=white)](https://twitter.com/MLflow)
 
-![Trace Hero](https://mlflow.org/docs/latest/assets/images/tracing-top-dcca046565ab33be6afe0447dd328c22.gif)
-
 MLflow Tracing (`mlflow-tracing`) is an open-source, lightweight Python package that only includes the minimum set of dependencies and functionality
 to instrument your code/models/agents with [MLflow Tracing Feature](https://mlflow.org/docs/latest/tracing). It is designed to be a perfect fit for production environments where you want:
 
@@ -44,7 +42,7 @@ pip install mlflow-tracing
 To install from the source code, run the following command:
 
 ```bash
-pip install git+https://github.com/mlflow/mlflow.git#subdirectory=packages/tracing"
+pip install git+https://github.com/mlflow/mlflow.git#subdirectory=packages/tracing
 ```
 
 > **NOTE:** It is **not** recommended to co-install this package with the full MLflow package together, as it may cause version mismatches issues.
