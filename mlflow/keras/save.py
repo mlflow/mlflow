@@ -23,7 +23,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import TensorSpec
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -100,7 +99,6 @@ def _export_keras_model(model, path, signature):
     export_archive.write_out(path)
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
@@ -275,7 +273,6 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
@@ -347,7 +344,7 @@ def log_model(
             ]
         )
         with mlflow.start_run() as run:
-            mlflow.keras.log_model(model, "model")
+            mlflow.keras.log_model(model, name="model")
     """
     return Model.log(
         artifact_path=artifact_path,

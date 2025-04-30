@@ -88,7 +88,6 @@ from mlflow.utils._unity_catalog_utils import (
     uc_model_version_tag_from_mlflow_tags,
     uc_registered_model_tag_from_mlflow_tags,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds, is_databricks_uri
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
@@ -274,7 +273,6 @@ def _fetch_langchain_dependency_from_model_info(databricks_dependencies, key):
     return databricks_dependencies.get(key, [])
 
 
-@experimental
 class UcModelRegistryStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls

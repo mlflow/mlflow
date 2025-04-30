@@ -24,7 +24,7 @@ model.prepare(optim, paddle.nn.MSELoss())
 model.fit(train_dataset, epochs=6, batch_size=8, verbose=1)
 
 with mlflow.start_run() as run:
-    mlflow.paddle.log_model(model, "model")
+    mlflow.paddle.log_model(model, name="model")
     print(f"Model saved in run {run.info.run_id}")
 
     # load model

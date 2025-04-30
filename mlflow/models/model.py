@@ -257,7 +257,6 @@ class ModelInfo:
             raise TypeError(f"env_vars must be a list of strings. Got: {value}")
         self._env_vars = value
 
-    @experimental
     @property
     def metadata(self) -> Optional[dict[str, Any]]:
         """
@@ -283,7 +282,7 @@ class ModelInfo:
                 signature = infer_signature(iris.data, iris.target)
                 mlflow.sklearn.log_model(
                     clf,
-                    "iris_rf",
+                    name="iris_rf",
                     signature=signature,
                     registered_model_name="model-with-metadata",
                     metadata={"metadata_key": "metadata_value"},
@@ -506,7 +505,6 @@ class Model:
         self.flavors[name] = params
         return self
 
-    @experimental
     @property
     def metadata(self) -> Optional[dict[str, Any]]:
         """
@@ -535,7 +533,7 @@ class Model:
                 signature = infer_signature(iris.data, iris.target)
                 mlflow.sklearn.log_model(
                     clf,
-                    "iris_rf",
+                    name="iris_rf",
                     signature=signature,
                     registered_model_name="model-with-metadata",
                     metadata={"metadata_key": "metadata_value"},
@@ -551,7 +549,6 @@ class Model:
 
         return self._metadata
 
-    @experimental
     @metadata.setter
     def metadata(self, value: Optional[dict[str, Any]]) -> None:
         self._metadata = value
@@ -1174,7 +1171,7 @@ def get_model_info(model_uri: str) -> ModelInfo:
             signature = mlflow.models.infer_signature(X, y)
             rfr = RandomForestRegressor(**params).fit(X, y)
             mlflow.log_params(params)
-            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+            mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
 
         model_uri = f"runs:/{run.info.run_id}/sklearn-model"
         # Get model info with model_uri

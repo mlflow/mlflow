@@ -96,7 +96,7 @@ def test_openai_pyfunc_evaluate(client):
         model_info = mlflow.openai.log_model(
             "gpt-4o-mini",
             "chat.completions",
-            "model",
+            name="model",
             messages=[{"role": "system", "content": "You are an MLflow expert."}],
         )
 

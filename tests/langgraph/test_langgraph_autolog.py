@@ -14,7 +14,7 @@ def test_langgraph_save_as_code():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langgraph/sample_code/langgraph_prebuilt.py",
-            "langgraph",
+            name="langgraph",
             input_example=input_example,
         )
 
@@ -63,7 +63,7 @@ def test_langgraph_tracing_prebuilt():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langgraph/sample_code/langgraph_prebuilt.py",
-            "langgraph",
+            name="langgraph",
             input_example=input_example,
         )
 
@@ -111,7 +111,7 @@ def test_langgraph_tracing_diy_graph():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langgraph/sample_code/langgraph_diy.py",
-            "langgraph",
+            name="langgraph",
         )
 
     loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
@@ -135,7 +135,7 @@ def test_langgraph_tracing_with_custom_span():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langgraph/sample_code/langgraph_with_custom_span.py",
-            "langgraph",
+            name="langgraph",
             input_example=input_example,
         )
 
@@ -181,7 +181,7 @@ def test_langgraph_chat_agent_trace():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "agent",
+            name="agent",
             python_model="tests/langgraph/sample_code/langgraph_chat_agent.py",
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)

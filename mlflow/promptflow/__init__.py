@@ -29,7 +29,6 @@ from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -94,7 +93,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
@@ -175,7 +173,7 @@ def log_model(
 
                 with mlflow.start_run():
                     logged_model = mlflow.promptflow.log_model(
-                        flow, artifact_path="promptflow_model", model_config=model_config
+                        flow, name="promptflow_model", model_config=model_config
                     )
         prompts: {{ prompts }}
         name: {{ name }}
@@ -213,7 +211,6 @@ def log_model(
     )
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
@@ -281,7 +278,7 @@ def save_model(
 
                 with mlflow.start_run():
                     logged_model = mlflow.promptflow.log_model(
-                        flow, artifact_path="promptflow_model", model_config=model_config
+                        flow, name="promptflow_model", model_config=model_config
                     )
     """
     import promptflow
@@ -467,7 +464,6 @@ def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):  # noqa: 
     return _PromptflowModelWrapper(model=model, model_config=model_config)
 
 
-@experimental
 def load_model(model_uri, dst_path=None):
     """
     Load a Promptflow model from a local file or a run.

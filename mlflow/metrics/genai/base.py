@@ -2,10 +2,8 @@ from dataclasses import dataclass
 from typing import Optional, Union
 
 from mlflow.metrics.genai.prompt_template import PromptTemplate
-from mlflow.utils.annotations import experimental
 
 
-@experimental
 @dataclass
 class EvaluationExample:
     """

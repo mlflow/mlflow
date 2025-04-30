@@ -138,7 +138,7 @@ model.save(model_path)
 # Example usage
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
-        artifact_path="document_similarity_model",
+        name="document_similarity_model",
         python_model=DocumentSimilarityModel(),
         artifacts={"model_path": model_path},
     )

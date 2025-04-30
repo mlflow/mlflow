@@ -120,7 +120,7 @@ def train_model(params, epochs, train_x, train_y, valid_x, valid_y, test_x, test
         mlflow.log_metric("eval_rmse", eval_rmse)
 
         # Log model
-        mlflow.tensorflow.log_model(model, "model", signature=signature)
+        mlflow.tensorflow.log_model(model, name="model", signature=signature)
 
         return {"loss": eval_rmse, "status": STATUS_OK, "model": model}
 ```
@@ -181,7 +181,7 @@ with mlflow.start_run():
     # Log the best parameters, loss, and model
     mlflow.log_params(best)
     mlflow.log_metric("eval_rmse", best_run["loss"])
-    mlflow.tensorflow.log_model(best_run["model"], "model", signature=signature)
+    mlflow.tensorflow.log_model(best_run["model"], name="model", signature=signature)
 
     # Print out the best parameters and corresponding loss
     print(f"Best parameters: {best}")

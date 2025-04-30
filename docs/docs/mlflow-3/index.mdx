@@ -138,7 +138,7 @@ with mlflow.start_run():
 
 
 traces = mlflow.search_traces(model_id=active_model_id)
-print(traces)
+traces
 #                            trace_id                                             trace  ...  assessments                        request_id
 # 0  7bb4569d3d884e3e87b1d8752276a13c  Trace(trace_id=7bb4569d3d884e3e87b1d8752276a13c)  ...           []  7bb4569d3d884e3e87b1d8752276a13c
 # [1 rows x 12 columns]
@@ -190,9 +190,16 @@ MLflow 3.0 introduces some key API changes while also removes some outdated feat
     </TabItem>
     <TabItem label="MLflow 3.0" value="mlflow_3">
         Pass `name` when logging a model. This allows you to later search for LoggedModels using this name.
+
+        :::note
+
+            MLflow no longer requires starting a Run before logging models, because Models become
+            first citizen entity in MLflow 3. You can directly call the `log_model` API without
+            `mlflow.start_run()` context manager to log a model.
+
+        :::
         ```python
-        with mlflow.start_run():
-            mlflow.pyfunc.log_model(name="python_model", python_model=python_model, ...)
+        mlflow.pyfunc.log_model(name="python_model", python_model=python_model, ...)
         ```
     </TabItem>
 </Tabs>
