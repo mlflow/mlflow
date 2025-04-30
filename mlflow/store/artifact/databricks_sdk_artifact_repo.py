@@ -30,7 +30,6 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         from databricks.sdk.config import Config
 
         super().__init__(artifact_uri)
-        print("👉👉👉", os.environ.get("DATABRICKS_MULTIPART_UPLOAD_BATCH_URL_COUNT"))  # noqa: T201
         wc = WorkspaceClient(
             config=(
                 Config(
