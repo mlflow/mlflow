@@ -98,16 +98,47 @@ class TraceInfo(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto, assessments=None):
-        return cls(
+        print(f"### DEBUG TraceInfo.from_proto - got proto for trace_id: {proto.request_id}")
+        print(f"### DEBUG TraceInfo.from_proto - assessments param is: {assessments}")
+        
+        # Extract tags into a dictionary
+        tags = {tag.key: tag.value for tag in proto.tags}
+        
+        # Extract assessments from tags if none provided
+        if not assessments:
+            assessment_tags = {k: v for k, v in tags.items() if k.startswith("mlflow.assessment.")}
+            print(f"### DEBUG TraceInfo.from_proto - found {len(assessment_tags)} assessment tags")
+            
+            if assessment_tags:
+                try:
+                    import json
+                    from mlflow.entities.assessment import Assessment
+                    
+                    print("### DEBUG TraceInfo.from_proto - attempting to extract assessments from tags")
+                    extracted_assessments = []
+                    for key, value in assessment_tags.items():
+                        try:
+                            assessment_data = json.loads(value)
+                            # Print but don't extract actual assessment objects yet - just debug
+                            print(f"### DEBUG TraceInfo.from_proto - parsed assessment data: {assessment_data.get('assessment_name')}")
+                        except json.JSONDecodeError as e:
+                            print(f"### DEBUG TraceInfo.from_proto - Error parsing assessment from tag {key}: {e}")
+                except Exception as e:
+                    print(f"### DEBUG TraceInfo.from_proto - Error extracting assessments: {str(e)}")
+        
+        trace_info = cls(
             request_id=proto.request_id,
             experiment_id=proto.experiment_id,
             timestamp_ms=proto.timestamp_ms,
             execution_time_ms=proto.execution_time_ms,
             status=TraceStatus.from_proto(proto.status),
             request_metadata={attr.key: attr.value for attr in proto.request_metadata},
-            tags={tag.key: tag.value for tag in proto.tags},
+            tags=tags,
             assessments=assessments or [],
         )
+        
+        print(f"### DEBUG TraceInfo.from_proto - created TraceInfo with {len(trace_info.assessments)} assessments")
+        return trace_info
 
     def to_dict(self):
         """

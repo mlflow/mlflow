@@ -106,7 +106,40 @@ class Trace(_MlflowObject):
         return bundle
 
     def to_pandas_dataframe_row(self) -> dict[str, Any]:
-        return {
+        print(f"### DEBUG Trace.to_pandas_dataframe_row - trace_id: {self.info.trace_id}")
+        print(f"### DEBUG Trace.to_pandas_dataframe_row - assessments count: {len(self.info.assessments)}")
+        
+        if hasattr(self.info, 'tags'):
+            assessment_tags = {k: v for k, v in self.info.tags.items() if k.startswith("mlflow.assessment.")}
+            print(f"### DEBUG Trace.to_pandas_dataframe_row - found {len(assessment_tags)} assessment tags")
+            if assessment_tags and not self.info.assessments:
+                print("### DEBUG Trace.to_pandas_dataframe_row - WARNING: Has assessment tags but no assessments!")
+        
+        # Check if any assessments would be missed
+        if hasattr(self.info, 'tags') and hasattr(self.info, 'assessments'):
+            tag_assessment_count = len([k for k in self.info.tags.keys() if k.startswith("mlflow.assessment.")])
+            if tag_assessment_count > 0 and len(self.info.assessments) == 0:
+                print(f"### DEBUG CRITICAL: {tag_assessment_count} assessment tags found but assessments array is empty!")
+                
+                # Try to extract assessments from tags
+                print("### DEBUG Attempting to extract assessments from tags...")
+                try:
+                    import json
+                    from mlflow.entities.assessment import Assessment
+                    
+                    extracted_assessments = []
+                    for key, value in self.info.tags.items():
+                        if key.startswith('mlflow.assessment.'):
+                            try:
+                                assessment_data = json.loads(value)
+                                print(f"### DEBUG Assessment data parsed from tag: {assessment_data.get('assessment_name')}")
+                                # Just report, don't modify for now
+                            except json.JSONDecodeError as e:
+                                print(f"### DEBUG Error parsing assessment from tag {key}: {e}")
+                except Exception as e:
+                    print(f"### DEBUG Error extracting assessments: {str(e)}")
+        
+        row_data = {
             "trace_id": self.info.trace_id,
             "trace": self,
             "timestamp_ms": self.info.timestamp_ms,
@@ -122,6 +155,9 @@ class Trace(_MlflowObject):
             # Ref: https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
             "request_id": self.info.request_id,
         }
+        
+        print(f"### DEBUG Trace.to_pandas_dataframe_row - returned row with assessments length: {len(row_data['assessments'])}")
+        return row_data
 
     def _deserialize_json_attr(self, value: str):
         try:
@@ -254,3 +290,34 @@ class Trace(_MlflowObject):
         """
 
         return ProtoTrace(trace_info=self.info.to_proto())
+
+    def extract_assessments_from_tags(self):
+        """Extract assessment objects from tags that start with 'mlflow.assessment.'"""
+        if not hasattr(self.info, 'tags'):
+            print("### DEBUG extract_assessments_from_tags - no tags field found")
+            return []
+            
+        try:
+            import json
+            from mlflow.entities.assessment import Assessment
+            
+            assessment_tags = {k: v for k, v in self.info.tags.items() if k.startswith('mlflow.assessment.')}
+            print(f"### DEBUG extract_assessments_from_tags - found {len(assessment_tags)} assessment tags")
+            
+            extracted_assessments = []
+            for key, value in assessment_tags.items():
+                try:
+                    assessment_data = json.loads(value)
+                    print(f"### DEBUG extract_assessments_from_tags - extracting assessment: {assessment_data.get('assessment_name')}")
+                    assessment = Assessment.from_dictionary(assessment_data)
+                    extracted_assessments.append(assessment)
+                except (json.JSONDecodeError, KeyError, TypeError) as e:
+                    print(f"### DEBUG extract_assessments_from_tags - Error parsing assessment from tag {key}: {e}")
+            
+            print(f"### DEBUG extract_assessments_from_tags - extracted {len(extracted_assessments)} assessments")
+            # Update the assessments field with what we've extracted
+            self.info.assessments = extracted_assessments
+            return extracted_assessments
+        except Exception as e:
+            print(f"### DEBUG extract_assessments_from_tags - Error: {str(e)}")
+            return []

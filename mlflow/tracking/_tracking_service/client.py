@@ -368,6 +368,7 @@ class TrackingServiceClient:
         sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         is_databricks = is_databricks_uri(self.tracking_uri)
+        print(f"### DEBUG search_traces - is_databricks: {is_databricks}")
 
         def download_trace_extra_fields(trace_info: TraceInfo) -> Optional[Trace]:
             """
@@ -377,17 +378,32 @@ class TrackingServiceClient:
             # Only the Databricks backend supports additional assessments; avoid making
             # an unnecessary duplicate call to GET trace_info if not necessary.
             is_online_trace = is_uuid(trace_info.request_id)
+            print(f"### DEBUG download_trace_extra_fields - trace_id: {trace_info.request_id}, is_online_trace: {is_online_trace}")
+            
             if is_databricks and not is_online_trace:
+                print(f"### DEBUG - Calling get_trace_info with should_query_v3=True for trace_id: {trace_info.request_id}")
                 trace_info_with_assessments = self.get_trace_info(
                     trace_info.request_id, should_query_v3=True
                 )
+                print(f"### DEBUG - Result from get_trace_info: assessments count: {len(trace_info_with_assessments.assessments)}")
+                print(f"### DEBUG - Assessments from get_trace_info: {trace_info_with_assessments.assessments}")
+                
+                # Store original tag count for debugging
+                original_tag_count = len(trace_info.tags)
+                
+                # Copy assessments
                 trace_info.assessments = trace_info_with_assessments.assessments
+                
+                print(f"### DEBUG - After setting, trace_info has {len(trace_info.assessments)} assessments")
+                print(f"### DEBUG - Tags before: {original_tag_count}, tags after: {len(trace_info.tags)}")
 
             if not include_spans:
+                print("### DEBUG - Not including spans, returning early")
                 return Trace(trace_info, TraceData(spans=[]))
 
             try:
                 if is_databricks and is_online_trace:
+                    print(f"### DEBUG - Getting online trace details for {trace_info.request_id}")
                     trace_data = self.get_online_trace_details(
                         trace_info.request_id,
                         sql_warehouse_id=sql_warehouse_id,
@@ -400,7 +416,12 @@ class TrackingServiceClient:
                     )
                     trace_data = TraceData.from_dict(json.loads(trace_data))
                 else:
+                    print(f"### DEBUG - Downloading trace data for {trace_info.request_id}")
                     trace_data = self._download_trace_data(trace_info)
+                    
+                trace = Trace(trace_info, trace_data)
+                print(f"### DEBUG - Created Trace object with {len(trace_info.assessments)} assessments")
+                return trace
             except MlflowTraceDataException as e:
                 _logger.warning(
                     (
