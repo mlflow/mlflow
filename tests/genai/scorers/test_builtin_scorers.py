@@ -142,7 +142,7 @@ def test_global_guideline_adherence():
         [guideline_adherence(), global_guideline_adherence(["Be polite", "Be kind"])],
     ],
 )
-def test_scorers_and_rag_scorers_config(scorers):
+def test_guideline_adherence_scorers(scorers):
     evaluation_config = {}
     for scorer in scorers:
         evaluation_config = scorer.update_evaluation_config(evaluation_config)
