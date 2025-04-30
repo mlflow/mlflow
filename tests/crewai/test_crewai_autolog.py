@@ -423,15 +423,28 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     chat_attributes = span_4.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 4
+
+    if Version(crewai.__version__) < Version("0.117.0"):
+        assert len(chat_attributes) == 4
+    else:
+        assert len(chat_attributes) == 5
     assert chat_attributes[0]["role"] == "system"
     assert _AGENT_1_GOAL in chat_attributes[0]["content"]
     assert chat_attributes[1]["role"] == "user"
     assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
     assert chat_attributes[2]["role"] == "assistant"
     assert "Tool Answer" in chat_attributes[2]["content"]
-    assert chat_attributes[3]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[3]["content"]
+
+    if Version(crewai.__version__) < Version("0.117.0"):
+        assert chat_attributes[3]["role"] == "assistant"
+        assert _LLM_ANSWER in chat_attributes[3]["content"]
+    else:
+        # Since 0.114.0 CrewAI includes Tool call observation in the LLM calls
+        # https://github.com/crewAIInc/crewAI/commit/efe27bd570d91f00af59f1d605d87e7b82c2bc88
+        assert chat_attributes[3]["role"] == "assistant"
+        assert '{"argument": "a"}' in chat_attributes[3]["content"]
+        assert chat_attributes[4]["role"] == "assistant"
+        assert _LLM_ANSWER in chat_attributes[4]["content"]
 
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
