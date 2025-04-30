@@ -31,7 +31,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
 
         super().__init__(artifact_uri)
         print("👉👉👉", os.environ.get("DATABRICKS_MULTIPART_UPLOAD_BATCH_URL_COUNT"))  # noqa: T201
-        self.wc = WorkspaceClient(
+        wc = WorkspaceClient(
             config=(
                 Config(
                     enable_experimental_files_api_client=True,
@@ -44,6 +44,11 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
                 else None
             )
         )
+        wc._config.multipart_upload_batch_url_count = int(
+            os.environ.get("DATABRICKS_MULTIPART_UPLOAD_BATCH_URL_COUNT", "1")
+        )
+        wc._config.multipart_upload_chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+        self.wc = wc
 
     @property
     def files_api(self) -> "FilesAPI":
