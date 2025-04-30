@@ -113,7 +113,10 @@ class TraceInfoV3(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto) -> "TraceInfoV3":
-        print(f"### DEBUG TraceInfoV3.from_proto - proto: {proto}")
+        # Handle nested structure from V3 API response
+        if hasattr(proto, 'trace') and hasattr(proto.trace, 'trace_info'):
+            print(f"### DEBUG TraceInfoV3.from_proto - Found nested structure, using proto.trace.trace_info")
+            proto = proto.trace.trace_info
         
         # Debug assessments in proto
         for idx, assessment_proto in enumerate(proto.assessments):
