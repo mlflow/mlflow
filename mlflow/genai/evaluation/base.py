@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
@@ -27,6 +28,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
@@ -110,11 +112,7 @@ def evaluate(
                 )
             )
 
-    evaluation_config = {
-        GENAI_CONFIG_NAME: {
-            "metrics": [],
-        }
-    }
+    evaluation_config = {}
     for _scorer in builtin_scorers:
         evaluation_config = _scorer.update_evaluation_config(evaluation_config)
 
