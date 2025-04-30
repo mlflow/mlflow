@@ -35,10 +35,10 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
             config=(
                 Config(
                     enable_experimental_files_api_client=True,
-                    multipart_upload_chunk_size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
-                    multipart_upload_batch_url_count=int(
-                        os.environ.get("DATABRICKS_MULTIPART_UPLOAD_BATCH_URL_COUNT")
-                    ),
+                    # multipart_upload_chunk_size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
+                    # multipart_upload_batch_url_count=int(
+                    #     os.environ.get("DATABRICKS_MULTIPART_UPLOAD_BATCH_URL_COUNT")
+                    # ),
                 )
                 if _sdk_supports_large_file_uploads()
                 else None
