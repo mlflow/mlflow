@@ -12,6 +12,8 @@ from mlflow.entities.span import SpanType
 
 from tests.tracing.helper import get_traces
 
+IS_OLDER_THAN_0_114 = Version(crewai.__version__) < Version("0.114.0")
+
 # This is a special word for CrewAI to complete the agent execution: https://github.com/crewAIInc/crewAI/blob/c6a6c918e0eba167be1fb82831c73dd664c641e3/src/crewai/agents/parser.py#L7
 _FINAL_ANSWER_KEYWORD = "Final Answer:"
 
@@ -424,7 +426,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     chat_attributes = span_4.get_attribute("mlflow.chat.messages")
 
-    if Version(crewai.__version__) < Version("0.114.0"):
+    if IS_OLDER_THAN_0_114:
         assert len(chat_attributes) == 4
     else:
         assert len(chat_attributes) == 5
@@ -435,7 +437,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert chat_attributes[2]["role"] == "assistant"
     assert "Tool Answer" in chat_attributes[2]["content"]
 
-    if Version(crewai.__version__) < Version("0.114.0"):
+    if IS_OLDER_THAN_0_114:
         assert chat_attributes[3]["role"] == "assistant"
         assert _LLM_ANSWER in chat_attributes[3]["content"]
     else:
