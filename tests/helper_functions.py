@@ -14,7 +14,7 @@ import uuid
 from contextlib import ExitStack, contextmanager
 from functools import wraps
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Optional
 from unittest import mock
 
 import pytest
