@@ -105,7 +105,7 @@ class DatabricksUCConnection(DatabricksResource):
         used to create the tool which was used to build the model.
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resources is accessed with the permissions of the creator
     """
 
     @property
@@ -124,7 +124,7 @@ class DatabricksServingEndpoint(DatabricksResource):
         endpoint_name (str): The name of all the databricks endpoints used by the model.
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resources is accessed with the permissions of the creator
     """
 
     @property
@@ -144,7 +144,7 @@ class DatabricksVectorSearchIndex(DatabricksResource):
         used by the model
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resources is accessed with the permissions of the creator
     """
 
     @property
@@ -163,7 +163,7 @@ class DatabricksSQLWarehouse(DatabricksResource):
         warehouse_id (str): The id of the sql warehouse used by the model
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resources is accessed with the permissions of the creator
     """
 
     @property
@@ -182,7 +182,7 @@ class DatabricksFunction(DatabricksResource):
         function_name (str): The name of the function used by the model
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resources is accessed with the permissions of the creator
     """
 
     @property
@@ -201,7 +201,7 @@ class DatabricksGenieSpace(DatabricksResource):
         genie_space_id (str): The genie space id
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resources is accessed with the permissions of the creator
     """
 
     @property
@@ -222,7 +222,7 @@ class DatabricksTable(DatabricksResource):
          table_name (str): The name of the table used by the model
          on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resources is accessed with the permissions of the creator
     """
 
     @property
