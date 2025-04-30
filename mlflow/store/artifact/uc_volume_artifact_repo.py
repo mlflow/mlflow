@@ -27,7 +27,8 @@ class UCVolumesArtifactRepository(DatabricksSdkArtifactRepository):
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        super().__init__("/" + strip_scheme(artifact_uri).strip("/"))
+        uri = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
+        super().__init__("/" + strip_scheme(uri).strip("/"))
 
 
 def uc_volume_artifact_repo_factory(artifact_uri):
