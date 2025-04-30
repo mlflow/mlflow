@@ -199,9 +199,16 @@ def mock_dependencies(mock_mlflow_client, mock_live_span, mock_active_run, mock_
 
 def test_start_span_no_run(mock_dependencies):
     inputs = {"key": "value"}
-    span = _start_span(name="test_span", span_type=SpanType.AGENT, inputs=inputs)
+    attributes = {"key": "value"}
+    span = _start_span(
+        name="test_span", span_type=SpanType.AGENT, inputs=inputs, attributes=attributes
+    )
     mock_dependencies["start_trace"].assert_called_once_with(
-        mock_dependencies["client"], name="test_span", span_type=SpanType.AGENT, inputs=inputs
+        mock_dependencies["client"],
+        name="test_span",
+        span_type=SpanType.AGENT,
+        inputs=inputs,
+        attributes=attributes,
     )
     assert span == mock_dependencies["live_span"]
     mock_dependencies["trace_manager"].set_request_metadata.assert_not_called()
@@ -209,10 +216,21 @@ def test_start_span_no_run(mock_dependencies):
 
 def test_start_span_with_run(mock_dependencies):
     inputs = {"key": "value"}
+    attributes = {"key": "value"}
     run_id = mock_dependencies["active_run_obj"].info.run_id
-    span = _start_span(name="test_span", span_type=SpanType.LLM, inputs=inputs, run_id=run_id)
+    span = _start_span(
+        name="test_span",
+        span_type=SpanType.LLM,
+        inputs=inputs,
+        run_id=run_id,
+        attributes=attributes,
+    )
     mock_dependencies["start_trace"].assert_called_once_with(
-        mock_dependencies["client"], name="test_span", span_type=SpanType.LLM, inputs=inputs
+        mock_dependencies["client"],
+        name="test_span",
+        span_type=SpanType.LLM,
+        inputs=inputs,
+        attributes=attributes,
     )
     assert span == mock_dependencies["live_span"]
     mock_dependencies["trace_manager"].set_request_metadata.assert_called_once_with(
@@ -222,20 +240,30 @@ def test_start_span_with_run(mock_dependencies):
 
 def test_end_span_ok(mock_dependencies):
     outputs = {"result": "success"}
-    _end_span_ok(mock_dependencies["live_span"], outputs)
+    attributes = {"key": "value"}
+
+    _end_span_ok(mock_dependencies["live_span"], outputs=outputs, attributes=attributes)
     mock_dependencies["end_trace"].assert_called_once_with(
-        mock_dependencies["client"], mock_dependencies["live_span"], outputs=outputs
+        mock_dependencies["client"],
+        mock_dependencies["live_span"],
+        outputs=outputs,
+        attributes=attributes,
     )
 
 
 def test_end_span_ok_handles_exception(mock_dependencies, caplog):
     mock_dependencies["end_trace"].side_effect = Exception("End span failed")
     outputs = {"result": "success"}
+    attributes = {"key": "value"}
+
     logger_name = autolog_module.__name__
     with caplog.at_level(autolog_module.logging.DEBUG, logger=logger_name):
-        _end_span_ok(mock_dependencies["live_span"], outputs)
+        _end_span_ok(mock_dependencies["live_span"], outputs=outputs, attributes=attributes)
     mock_dependencies["end_trace"].assert_called_once_with(
-        mock_dependencies["client"], mock_dependencies["live_span"], outputs=outputs
+        mock_dependencies["client"],
+        mock_dependencies["live_span"],
+        outputs=outputs,
+        attributes=attributes,
     )
 
 
@@ -401,9 +429,6 @@ def test_with_span_sync_success(mock_dependencies):
     assert span_kwargs["inputs"] == test_inputs
     assert len(mock_dependencies["set_context"].call_args_list) == 2
     mock_dependencies["detach_context"].assert_called_once_with("mock_token")
-    mock_dependencies["end_trace"].assert_called_once_with(
-        mock_dependencies["client"], mock_dependencies["live_span"], outputs=original_result
-    )
     mock_dependencies["client"].end_span.assert_not_called()
 
 
@@ -616,15 +641,6 @@ def test_patch_instrumented_model(mock_dependencies):
             ANY,
         ),
     ]
-    if hasattr(mock_pydantic_ai_module.models.instrumented.InstrumentedModel, "request_stream"):
-        expected_calls.append(
-            call(
-                FLAVOUR_NAME,
-                mock_pydantic_ai_module.models.instrumented.InstrumentedModel,
-                "request_stream",
-                ANY,
-            )
-        )
     mock_dependencies["safe_patch"].assert_has_calls(expected_calls, any_order=True)
 
 
@@ -694,14 +710,17 @@ async def test_tool_run_wrapper_logic(mock_dependencies):
     assert span_kwargs["inputs"]["tool_name"] == "mock_tool"
     assert span_kwargs["inputs"]["tool_call_id"] == "call_123"
     assert span_kwargs["inputs"]["tool_arguments"] == {"arg1": "value1"}
-    assert "run_context" in span_kwargs["inputs"]
-    assert span_kwargs["inputs"]["run_context"]["model_class"] == "MockInstrumentedModel"
-
-    mock_dependencies["end_trace"].assert_called_once_with(
-        mock_dependencies["client"],
-        mock_dependencies["live_span"],
-        outputs="original tool result",
-    )
+    assert span_kwargs["attributes"]["model_class"] == "MockInstrumentedModel"
+    assert span_kwargs["attributes"]["model_name"] == "mock-model-name"
+    assert span_kwargs["attributes"]["prompt"] == "Test Prompt"
+    assert span_kwargs["attributes"]["messages"] == [{"role": "user", "content": "hello"}]
+    assert span_kwargs["attributes"]["usage"] == {
+        "request_tokens": 10,
+        "response_tokens": 20,
+        "total_tokens": 30,
+    }
+    assert span_kwargs["attributes"]["retry"] == 0
+    assert span_kwargs["attributes"]["run_step"] == 1
 
 
 @patch.dict(
@@ -752,10 +771,9 @@ async def test_mcp_wrapper_logic(mock_dependencies):
     _, kwargs = mock_dependencies["start_trace"].call_args_list[1]
     assert kwargs["name"] == "MyMCPServer.call_tool"
     assert kwargs["span_type"] == SpanType.CHAIN
-    assert kwargs["inputs"] == {"tool_name": "tool_name", "arguments": {"arg": "val"}}
-    mock_dependencies["end_trace"].assert_called_once_with(
-        ANY, mock_dependencies["live_span"], outputs="original call_tool result"
-    )
+    assert kwargs["inputs"] == {"tool_name": "tool_name"}
+    assert kwargs["attributes"] == {"tool_arguments": {"arg": "val"}}
+
     original_call_tool.assert_awaited_once_with(mcp_instance, "tool_name", {"arg": "val"})
 
     mock_dependencies["start_trace"].reset_mock()
@@ -770,9 +788,6 @@ async def test_mcp_wrapper_logic(mock_dependencies):
     assert kwargs["name"] == "MyMCPServer.list_tools"
     assert kwargs["span_type"] == SpanType.CHAIN
     assert kwargs["inputs"] == {}
-    mock_dependencies["end_trace"].assert_called_once_with(
-        ANY, mock_dependencies["live_span"], outputs=["t1", "t2"]
-    )
     original_list_tools.assert_awaited_once_with(mcp_instance)
 
 

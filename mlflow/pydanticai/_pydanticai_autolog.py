@@ -1,8 +1,8 @@
 import atexit
 import json
 import logging
-from dataclasses import asdict
-from typing import Any, Callable, Coroutine, TypeVar
+from dataclasses import asdict, is_dataclass
+from typing import Any, Callable, Coroutine, Optional, TypeVar
 
 import mlflow
 import mlflow.tracking.fluent as _fluent
@@ -35,15 +35,65 @@ def _mlclient() -> mlflow.MlflowClient:
     return mlflow.MlflowClient()
 
 
+def _normalize_result(result: Any) -> dict[str, Any]:
+    """
+    Turn any result (dict, dataclass, object) into a flat dict we can .get() on.
+    """
+    if isinstance(result, dict):
+        return result
+    if is_dataclass(result):
+        return asdict(result)
+    if hasattr(result, "__dict__"):
+        return vars(result)
+    return {"value": result}
+
+
+def _format_attribute_name(path: str) -> str:
+    parts = path.split(".")
+    return " ".join(p.lstrip("_").capitalize() for p in parts)
+
+
+def _flatten_attributes(raw: dict[str, Any], exclude: Optional[dict[str, Any]]) -> dict[str, Any]:
+    flat: dict[str, Any] = {}
+
+    def _recurse(obj: dict[str, Any], prefix: str = ""):
+        for k, v in obj.items():
+            full_key = f"{prefix}.{k}" if prefix else k
+            if k in exclude:
+                continue
+            if isinstance(v, dict):
+                _recurse(v, full_key)
+            else:
+                name = _format_attribute_name(full_key)
+                flat[name] = v
+
+    _recurse(raw)
+    return flat
+
+
+def _capture_output_attributes(result, exclude: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """
+    Given the raw result, normalize it to a dict,
+    pull out the "output" section, then flatten
+    all of its nested fields into individual attrs.
+    """
+    raw = _normalize_result(result)
+    output_dict = raw.get("output", raw)
+    return _flatten_attributes(output_dict, exclude=exclude)
+
+
 def _start_span(
     *,
     name: str,
     span_type: SpanType | str,
     inputs: dict[str, Any],
+    attributes: dict[str, Any] | None = None,
     run_id: str | None = None,
 ) -> LiveSpan:
     """Create a client span, optionally linking it to `run_id`."""
-    span = start_client_span_or_trace(_mlclient(), name=name, span_type=span_type, inputs=inputs)
+    span = start_client_span_or_trace(
+        _mlclient(), name=name, span_type=span_type, inputs=inputs, attributes=attributes
+    )
     if run_id:
         InMemoryTraceManager().get_instance().set_request_metadata(
             span.request_id, TraceMetadataKey.SOURCE_RUN, run_id
@@ -51,9 +101,9 @@ def _start_span(
     return span
 
 
-def _end_span_ok(span: LiveSpan, outputs: Any) -> None:
+def _end_span_ok(span: LiveSpan, outputs: Any, attributes: Optional[dict[str, Any]] = None) -> None:
     try:
-        end_client_span_or_trace(_mlclient(), span, outputs=outputs)
+        end_client_span_or_trace(_mlclient(), span, outputs=outputs, attributes=attributes)
     except Exception as exc:
         _logger.debug("Failed to end span: %s", exc, exc_info=True)
 
@@ -71,6 +121,7 @@ def _with_span_async(
     span_name: str | Callable[[Any], str],
     span_type: SpanType | str,
     capture_inputs: Callable[[tuple[Any, ...], dict[str, Any]], dict[str, Any]],
+    capture_input_attributes: Callable[[Any], dict[str, Any]] = lambda args, kwargs: {},
 ) -> Callable[..., Coroutine[Any, Any, T]]:
     """
     Returns a function of signature (original, *args, **kwargs) -> Coroutine.
@@ -92,13 +143,13 @@ def _with_span_async(
         active_run = mlflow.active_run()
         run_id = active_run.info.run_id if active_run else None
 
+        name = span_name(self_obj) if callable(span_name) else span_name
         # build inputs
         inputs = capture_inputs(call_args, call_kwargs)
-
-        # compute actual span name
-        name = span_name(self_obj) if callable(span_name) else span_name
-
-        span = _start_span(name=name, span_type=span_type, inputs=inputs, run_id=run_id)
+        attributes = capture_input_attributes(call_args, call_kwargs)
+        span = _start_span(
+            name=name, span_type=span_type, inputs=inputs, run_id=run_id, attributes=attributes
+        )
         token = set_span_in_context(span)
 
         try:
@@ -109,8 +160,9 @@ def _with_span_async(
         finally:
             detach_span_from_context(token)
 
-        # close span normally
-        _end_span_ok(span, result)
+        output = _normalize_result(result).get("output", result)
+        output_attributes = _capture_output_attributes(output, exclude={"output"})
+        _end_span_ok(span, outputs={"output": output}, attributes=output_attributes)
         return result
 
     return _wrapper
@@ -121,6 +173,7 @@ def _with_span_sync(
     span_name: str | Callable[[Any], str],
     span_type: SpanType | str,
     capture_inputs: Callable[[tuple[Any, ...], dict[str, Any]], dict[str, Any]],
+    capture_input_attributes: Callable[[Any], dict[str, Any]] = lambda args, kwargs: {},
 ) -> Callable[..., T]:
     """
     Returns a function of signature (original, *args, **kwargs) -> T.
@@ -140,11 +193,13 @@ def _with_span_sync(
 
         active_run = mlflow.active_run()
         run_id = active_run.info.run_id if active_run else None
-
-        inputs = capture_inputs(call_args, call_kwargs)
         name = span_name(self_obj) if callable(span_name) else span_name
+        inputs = capture_inputs(call_args, call_kwargs)
+        attributes = capture_input_attributes(call_args, call_kwargs)
 
-        span = _start_span(name=name, span_type=span_type, inputs=inputs, run_id=run_id)
+        span = _start_span(
+            name=name, span_type=span_type, inputs=inputs, run_id=run_id, attributes=attributes
+        )
         token = set_span_in_context(span)
 
         try:
@@ -155,7 +210,9 @@ def _with_span_sync(
         finally:
             detach_span_from_context(token)
 
-        _end_span_ok(span, result)
+        output = _normalize_result(result).get("output", result)
+        output_attributes = _capture_output_attributes(output, exclude={"output"})
+        _end_span_ok(span, outputs={"output": output}, attributes=output_attributes)
         return result
 
     return _wrapper
@@ -223,9 +280,8 @@ def _patch_agent_methods() -> None:
         _with_span_sync(
             span_name=lambda s: f"{s.__class__.__name__}.run_sync",
             span_type=SpanType.CHAIN,
-            capture_inputs=lambda args, kwargs: construct_full_inputs(
-                pydantic_ai.Agent.run_sync, args[0], *args[1:], **kwargs
-            ),
+            capture_inputs=lambda args, kwargs: {"message": args[1]} if len(args) > 1 else {},
+            capture_input_attributes=lambda args, kwargs: kwargs,
         ),
     )
     safe_patch(
@@ -235,9 +291,8 @@ def _patch_agent_methods() -> None:
         _with_span_async(
             span_name=lambda s: f"{s.__class__.__name__}.run",
             span_type=SpanType.CHAIN,
-            capture_inputs=lambda args, kwargs: construct_full_inputs(
-                pydantic_ai.Agent.run, args[0], *args[1:], **kwargs
-            ),
+            capture_inputs=lambda args, kwargs: {"message": args[1]} if len(args) > 1 else {},
+            capture_input_attributes=lambda args, kwargs: kwargs,
         ),
     )
 
@@ -260,44 +315,41 @@ def _patch_instrumented_model() -> None:
                 }.request"""
             ),
             span_type=SpanType.LLM,
-            capture_inputs=lambda args, kwargs: construct_full_inputs(
-                InstrumentedModel.request, args[0], *args[1:], **kwargs
-            ),
+            capture_inputs=lambda args, kwargs: {"message": args[1]} if len(args) > 1 else {},
+            capture_input_attributes=lambda args, kwargs: dict(kwargs),
         ),
     )
 
-    if hasattr(InstrumentedModel, "request_stream"):
 
-        async def _request_stream_wrapper(original, self_obj, *args, **kwargs):
-            cfg = AutoLoggingConfig.init(flavor_name=FLAVOUR_NAME)
-            if not (cfg and cfg.log_traces):
-                async for item in original(self_obj, *args, **kwargs):
-                    yield item
-                return
+def _get_tool_run_attributes(
+    self_obj: Any, message: Any, run_context: Any
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    inputs = {
+        "tool_name": self_obj.name,
+        "tool_call_id": message.tool_call_id,
+        "tool_arguments": json.loads(message.args_as_json_str()),
+    }
 
-            inputs = construct_full_inputs(original, self_obj, *args, **kwargs)
-            span = _start_span(
-                name=(
-                    f"""{
-                        getattr(
-                            getattr(self_obj, "wrapped", self_obj),
-                            "provider_name",
-                            self_obj.__class__.__name__,
-                        )
-                    }.request_stream"""
-                ),
-                span_type=SpanType.LLM,
-                inputs=inputs,
-            )
-            try:
-                async for chunk in original(self_obj, *args, **kwargs):
-                    yield chunk
-            except Exception as exc:
-                _end_span_err(span, exc)
-                raise
-            _end_span_ok(span, outputs=None)
+    attributes = {
+        "model_class": run_context.model.__class__.__name__,
+        "model_name": getattr(run_context.model, "model_name", None),
+        "prompt": run_context.prompt,
+        "messages": [asdict(m) for m in run_context.messages],
+        "usage": {
+            "request_tokens": run_context.usage.request_tokens,
+            "response_tokens": run_context.usage.response_tokens,
+            "total_tokens": run_context.usage.total_tokens,
+            **(
+                {"details": run_context.usage.details}
+                if getattr(run_context.usage, "details", None) is not None
+                else {}
+            ),
+        },
+        "retry": run_context.retry,
+        "run_step": run_context.run_step,
+    }
 
-        safe_patch(FLAVOUR_NAME, InstrumentedModel, "request_stream", _request_stream_wrapper)
+    return inputs, attributes
 
 
 def _patch_tool_run() -> None:
@@ -308,36 +360,20 @@ def _patch_tool_run() -> None:
         if not (cfg and cfg.log_traces):
             return await original(self_obj, message, run_context, tracer)
 
-        inputs = {
-            "tool_name": self_obj.name,
-            "tool_call_id": message.tool_call_id,
-            "tool_arguments": json.loads(message.args_as_json_str()),
-            "run_context": {
-                "model_class": run_context.model.__class__.__name__,
-                "model_name": getattr(run_context.model, "model_name", None),
-                "prompt": run_context.prompt,
-                "messages": [asdict(m) for m in run_context.messages],
-                "usage": {
-                    "request_tokens": run_context.usage.request_tokens,
-                    "response_tokens": run_context.usage.response_tokens,
-                    "total_tokens": run_context.usage.total_tokens,
-                    **(
-                        {"details": run_context.usage.details}
-                        if getattr(run_context.usage, "details", None) is not None
-                        else {}
-                    ),
-                },
-                "retry": run_context.retry,
-                "run_step": run_context.run_step,
-            },
-        }
-        span = _start_span(name=self_obj.name, span_type=SpanType.TOOL, inputs=inputs)
+        inputs, attributes = _get_tool_run_attributes(self_obj, message, run_context)
+
+        span = _start_span(
+            name=self_obj.name, span_type=SpanType.TOOL, inputs=inputs, attributes=attributes
+        )
         try:
             result = await original(self_obj, message, run_context, tracer)
         except Exception as exc:
             _end_span_err(span, exc)
             raise
-        _end_span_ok(span, result)
+
+        output = _normalize_result(result).get("output", result)
+        output_attributes = _capture_output_attributes(output, exclude={"output"})
+        _end_span_ok(span, outputs={"output": output}, attributes=output_attributes)
         return result
 
     safe_patch(FLAVOUR_NAME, Tool, "run", _tool_run_wrapper)
@@ -351,7 +387,9 @@ def _patch_mcp_server() -> None:
         span_type=SpanType.CHAIN,
         capture_inputs=lambda args, kwargs: {
             "tool_name": args[1],
-            "arguments": args[2],
+        },
+        capture_input_attributes=lambda args, kwargs: {
+            "tool_arguments": args[2],
         },
     )
 
@@ -365,6 +403,7 @@ def _patch_mcp_server() -> None:
         span_name=lambda self: f"{self.__class__.__name__}.list_tools",
         span_type=SpanType.CHAIN,
         capture_inputs=lambda args, kwargs: {},
+        capture_input_attributes=lambda args, kwargs: {},
     )
 
     async def _list_tools_patch(original, *args, **kwargs):
