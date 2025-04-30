@@ -113,6 +113,10 @@ class TraceInfoV3(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto) -> "TraceInfoV3":
+        if hasattr(proto, 'trace') and hasattr(proto.trace, 'trace_info'):
+            print(f"### DEBUG TraceInfoV3.from_proto has nested structure, using proto.trace.trace_info")
+            proto = proto.trace.trace_info
+        
         return cls(
             trace_id=proto.trace_id,
             client_request_id=proto.client_request_id,
