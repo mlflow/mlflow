@@ -94,7 +94,7 @@ def test_evaluate_parameters():
 
 
 @pytest.mark.parametrize(
-    "scorer, expected_metric",
+    ("scorer", "expected_metric"),
     [
         (chunk_relevance(), "chunk_relevance"),
         (context_sufficiency(), "context_sufficiency"),
