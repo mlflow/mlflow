@@ -109,11 +109,13 @@ jobs:
         run: |
           pip install ${{ steps.build-dist.outputs.sdist-path }}
           python -c "import mlflow; print(mlflow.__version__)"
+          python -c "from mlflow import *"
 
       - name: Test installation from wheel
         run: |
           pip install --force-reinstall ${{ steps.build-dist.outputs.wheel-path }}
           python -c "import mlflow; print(mlflow.__version__)"
+          python -c "from mlflow import *"
 
       - name: Test installation from GitHub
         env:
