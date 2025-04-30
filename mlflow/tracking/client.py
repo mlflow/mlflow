@@ -873,7 +873,7 @@ class MlflowClient:
                 "the search_traces() API."
             )
 
-        trace = self._tracking_client.get_trace(trace_id)
+        trace = self._tracing_client.get_trace(trace_id)
         if display:
             get_display_handler().display_traces([trace])
         return trace
