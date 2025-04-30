@@ -410,6 +410,7 @@ class RestStore(AbstractStore):
                 import sys
                 import traceback
                 import inspect
+                import json
                 
                 # First try to get the raw response to see what we're dealing with
                 from mlflow.utils.rest_utils import http_request
@@ -435,7 +436,30 @@ class RestStore(AbstractStore):
                 else:
                     print(f"### DEBUG REST STORE - Raw V3 response: {raw_text}")
                 
+                # Parse the JSON response to better analyze its structure
+                try:
+                    raw_json = json.loads(raw_text)
+                    print(f"### DEBUG REST STORE - V3 Raw JSON keys: {list(raw_json.keys())}")
+                    
+                    # Check for nested structure
+                    if 'trace' in raw_json:
+                        print(f"### DEBUG REST STORE - Found nested 'trace' key in response")
+                        print(f"### DEBUG REST STORE - Trace keys: {list(raw_json['trace'].keys())}")
+                        
+                        if 'trace_info' in raw_json['trace']:
+                            print(f"### DEBUG REST STORE - Found nested 'trace_info' within 'trace'")
+                            trace_info = raw_json['trace']['trace_info']
+                            print(f"### DEBUG REST STORE - Trace info keys: {list(trace_info.keys())}")
+                            
+                            if 'assessments' in trace_info:
+                                print(f"### DEBUG REST STORE - Found {len(trace_info['assessments'])} assessments in trace_info")
+                                if trace_info['assessments']:
+                                    print(f"### DEBUG REST STORE - Sample assessment keys: {list(trace_info['assessments'][0].keys())}")
+                except Exception as json_err:
+                    print(f"### DEBUG REST STORE - Failed to parse JSON response: {json_err}")
+                
                 # Now try the normal flow
+                print("### DEBUG REST STORE - Now attempting standard proto parsing via _call_endpoint")
                 trace_v3_response_proto = self._call_endpoint(
                     GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
                 )
@@ -444,11 +468,40 @@ class RestStore(AbstractStore):
                 print(f"### DEBUG REST STORE - V3 response proto fields: {[f.name for f in trace_v3_response_proto.DESCRIPTOR.fields]}")
                 print(f"### DEBUG REST STORE - V3 response proto has trace_id: {'trace_id' in [f.name for f in trace_v3_response_proto.DESCRIPTOR.fields]}")
                 
-                trace_info_v3 = TraceInfoV3.from_proto(trace_v3_response_proto)
-                print(f"### DEBUG REST STORE - V3 response has {len(trace_info_v3.assessments)} assessments")
-                for idx, assessment in enumerate(trace_info_v3.assessments):
-                    print(f"### DEBUG REST STORE - Assessment {idx}: name={assessment.name}, feedback={assessment.feedback}")
-                return trace_info_v3
+                # Examine if there's a nested structure in the proto 
+                if hasattr(trace_v3_response_proto, 'trace'):
+                    print(f"### DEBUG REST STORE - V3 proto has 'trace' attribute")
+                    trace_proto = trace_v3_response_proto.trace
+                    if hasattr(trace_proto, 'trace_info'):
+                        print(f"### DEBUG REST STORE - V3 proto has nested 'trace.trace_info' structure")
+                        print(f"### DEBUG REST STORE - Proto trace_info fields: {[f.name for f in trace_proto.trace_info.DESCRIPTOR.fields]}")
+                
+                # Log debug about TraceInfoV3.from_proto before calling it
+                from mlflow.entities.trace_info_v3 import TraceInfoV3
+                print("### DEBUG REST STORE - Examining TraceInfoV3.from_proto implementation")
+                print(f"### DEBUG REST STORE - TraceInfoV3 expects fields: {inspect.signature(TraceInfoV3.from_proto)}")
+                
+                try:
+                    trace_info_v3 = TraceInfoV3.from_proto(trace_v3_response_proto)
+                    print(f"### DEBUG REST STORE - V3 response has {len(trace_info_v3.assessments)} assessments")
+                    for idx, assessment in enumerate(trace_info_v3.assessments):
+                        print(f"### DEBUG REST STORE - Assessment {idx}: name={assessment.name}, feedback={assessment.feedback}")
+                    return trace_info_v3
+                except Exception as parse_err:
+                    print(f"### DEBUG REST STORE - Failed in TraceInfoV3.from_proto: {type(parse_err).__name__}: {str(parse_err)}")
+                    # Try alternate approach if there's a nested structure
+                    if hasattr(trace_v3_response_proto, 'trace') and hasattr(trace_v3_response_proto.trace, 'trace_info'):
+                        print(f"### DEBUG REST STORE - Trying to parse nested trace.trace_info instead")
+                        try:
+                            trace_info_v3 = TraceInfoV3.from_proto(trace_v3_response_proto.trace.trace_info)
+                            print(f"### DEBUG REST STORE - Succeeded with nested approach! Found {len(trace_info_v3.assessments)} assessments")
+                            # Don't actually return this - just for logging
+                        except Exception as nested_err:
+                            print(f"### DEBUG REST STORE - Failed with nested approach too: {nested_err}")
+                    
+                    # Re-raise the original error to preserve behavior
+                    raise parse_err
+                
             except Exception as e:
                 # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
                 exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -463,6 +516,14 @@ class RestStore(AbstractStore):
                     print(f"### DEBUG REST STORE - Response proto expects trace_id: {'trace_id' in [f.name for f in response_proto.DESCRIPTOR.fields]}")
                 except Exception as proto_err:
                     print(f"### DEBUG REST STORE - Error inspecting proto: {proto_err}")
+                
+                # Also check TraceInfoV3 class structure
+                try:
+                    from mlflow.entities.trace_info_v3 import TraceInfoV3
+                    print(f"### DEBUG REST STORE - TraceInfoV3 attributes: {dir(TraceInfoV3)}")
+                    print(f"### DEBUG REST STORE - TraceInfoV3.from_proto signature: {inspect.signature(TraceInfoV3.from_proto)}")
+                except Exception as class_err:
+                    print(f"### DEBUG REST STORE - Error inspecting TraceInfoV3 class: {class_err}")
                 
                 _logger.debug(
                     f"Failed to fetch trace info from V3 API for request ID {request_id!r}.",
@@ -479,7 +540,14 @@ class RestStore(AbstractStore):
         assessment_tags = {k: v for k, v in trace_info.tags.items() if k.startswith("mlflow.assessment.")}
         print(f"### DEBUG REST STORE - Found {len(assessment_tags)} assessment tags")
         if assessment_tags:
-            print(f"### DEBUG REST STORE - Assessment tag example: {next(iter(assessment_tags.items()))}")
+            print(f"### DEBUG REST STORE - Assessment tag examples:")
+            for i, (k, v) in enumerate(assessment_tags.items()):
+                if i < 3:  # Show up to 3 examples
+                    print(f"### DEBUG REST STORE -   {k} = {v}")
+            
+            # Check if we can extract assessments from tags as a temporary fix
+            print(f"### DEBUG REST STORE - Assessment data exists in tags but not in assessments array")
+            
         return trace_info
 
     def get_online_trace_details(

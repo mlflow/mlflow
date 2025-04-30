@@ -113,8 +113,7 @@ class TraceInfoV3(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto) -> "TraceInfoV3":
-        print(f"### DEBUG TraceInfoV3.from_proto - trace_id: {proto.trace_id}")
-        print(f"### DEBUG TraceInfoV3.from_proto - assessments count: {len(proto.assessments)}")
+        print(f"### DEBUG TraceInfoV3.from_proto - proto: {proto}")
         
         # Debug assessments in proto
         for idx, assessment_proto in enumerate(proto.assessments):
