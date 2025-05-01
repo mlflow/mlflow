@@ -5414,7 +5414,7 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
     # Log multiple metrics
     metrics = [
         Metric(
-            key=f"metric_{i}",
+            key=f"metric{i + 3}",
             value=3,
             timestamp=int(time.time() * 1000),
             step=5,
