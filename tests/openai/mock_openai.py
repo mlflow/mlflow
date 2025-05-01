@@ -1,4 +1,5 @@
 import json
+from enum import Enum
 from typing import Any, Optional, Union
 
 import fastapi
@@ -8,7 +9,17 @@ from starlette.responses import StreamingResponse
 from mlflow.types.chat import ChatCompletionRequest
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
-EMPTY_CHOICES = "EMPTY_CHOICES"
+
+class ChatChunkVariant(str, Enum):
+    EMPTY_CHOICES = "EMPTY_CHOICES"
+    CHOICE_DELTA_NONE = "CHOICE_DELTA_NONE"
+    CHOICE_DELTA_CONTENT_NONE = "CHOICE_DELTA_CONTENT_NONE"
+
+
+class CompletionsChunkVariant(str, Enum):
+    EMPTY_CHOICES = "EMPTY_CHOICES"
+    CHOICE_EMPTY_TEXT = "CHOICE_EMPTY_TEXT"
+
 
 app = fastapi.FastAPI()
 
@@ -88,6 +99,30 @@ def _make_chat_stream_chunk_empty_choices():
     }
 
 
+def _make_chat_stream_chunk_choice_delta_none():
+    return {
+        "id": "chatcmpl-123",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [{}],
+        "usage": None,
+    }
+
+
+def _make_chat_stream_chunk_choice_delta_content_none():
+    return {
+        "id": "chatcmpl-123",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [{"delta": {}}],
+        "usage": None,
+    }
+
+
 async def chat_response_stream():
     yield _make_chat_stream_chunk("Hello")
     yield _make_chat_stream_chunk(" world")
@@ -98,13 +133,32 @@ async def chat_response_stream_empty_choices():
     yield _make_chat_stream_chunk("Hello")
 
 
+async def chat_response_stream_choice_delta_none():
+    yield _make_chat_stream_chunk("Hello")
+    yield _make_chat_stream_chunk_choice_delta_none()
+
+
+async def chat_response_stream_choice_delta_content_none():
+    yield _make_chat_stream_chunk("Hello")
+    yield _make_chat_stream_chunk_choice_delta_content_none()
+
+
 @app.post("/chat/completions", response_model_exclude_unset=True)
 async def chat(payload: ChatCompletionRequest):
     if payload.stream:
         # SSE stream
-        if EMPTY_CHOICES == payload.messages[0].content:
+        if ChatChunkVariant.EMPTY_CHOICES == payload.messages[0].content:
             content = (
                 f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_empty_choices()
+            )
+        elif ChatChunkVariant.CHOICE_DELTA_NONE == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_choice_delta_none()
+            )
+        elif ChatChunkVariant.CHOICE_DELTA_CONTENT_NONE == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n"
+                async for d in chat_response_stream_choice_delta_content_none()
             )
         else:
             content = (f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream())
@@ -360,6 +414,18 @@ def _make_completions_stream_chunk_empty_choices():
     }
 
 
+def _make_completions_stream_chunk_choice_empty_text():
+    return {
+        "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
+        "object": "text_completion",
+        "created": 1589478378,
+        "model": "gpt-4o-mini",
+        "choices": [{"text": ""}],
+        "system_fingerprint": None,
+        "usage": None,
+    }
+
+
 async def completions_response_stream():
     yield _make_completions_stream_chunk("Hello")
     yield _make_completions_stream_chunk(" world")
@@ -370,13 +436,23 @@ async def completions_response_stream_empty_choices():
     yield _make_completions_stream_chunk("Hello")
 
 
+async def completions_response_stream_choice_empty_text():
+    yield _make_completions_stream_chunk("Hello")
+    yield _make_completions_stream_chunk_choice_empty_text()
+
+
 @app.post("/completions")
 def completions(payload: CompletionsPayload):
     if payload.stream:
-        if EMPTY_CHOICES == payload.prompt:
+        if CompletionsChunkVariant.EMPTY_CHOICES == payload.prompt:
             content = (
                 f"data: {json.dumps(d)}\n\n"
                 async for d in completions_response_stream_empty_choices()
+            )
+        elif CompletionsChunkVariant.CHOICE_EMPTY_TEXT == payload.prompt:
+            content = (
+                f"data: {json.dumps(d)}\n\n"
+                async for d in completions_response_stream_choice_empty_text()
             )
         else:
             content = (f"data: {json.dumps(d)}\n\n" async for d in completions_response_stream())
