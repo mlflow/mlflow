@@ -1894,8 +1894,13 @@ class SqlAlchemyStore(AbstractStore):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid order by field name: {field_name}"
                     )
-                ob = col.asc() if ascending else col.desc()
-                order_by_clauses.append(ob.nulls_last())
+                # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
+                order_by_clauses.extend(
+                    [
+                        col.is_(None).asc(),  # Sort nulls last
+                        col.asc() if ascending else col.desc(),
+                    ]
+                )
                 continue
 
             entity, name = field_name.split(".", 1)
@@ -1938,8 +1943,13 @@ class SqlAlchemyStore(AbstractStore):
             subquery = select(subquery.c).where(subquery.c.rank == 1).subquery()
 
             models = models.outerjoin(subquery)
-            ob = subquery.c.metric_value.asc() if ascending else subquery.c.metric_value.desc()
-            order_by_clauses.append(ob.nulls_last())
+            # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
+            order_by_clauses.extend(
+                [
+                    subquery.c.metric_value.is_(None).asc(),  # Sort nulls last
+                    subquery.c.metric_value.asc() if ascending else subquery.c.metric_value.desc(),
+                ]
+            )
 
         if not has_creation_timestamp:
             order_by_clauses.append(SqlLoggedModel.creation_timestamp_ms.desc())
