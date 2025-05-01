@@ -845,7 +845,6 @@ smolagents:
     module_name: "smolagents"
     install_dev: |
       pip install "git+https://github.com/huggingface/smolagents"
-      pip install "smolagents[telemetry]"
   autologging:
     minimum: "1.14.0"
     maximum: "1.14.0"
