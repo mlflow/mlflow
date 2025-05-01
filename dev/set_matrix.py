@@ -629,6 +629,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 )
 
             # Add tracing test with the latest stable version
+            print(flavor, versions, category, is_flavor_support_tracing(flavor))
             if (
                 len(versions) > 0
                 and category == "autologging"
@@ -653,6 +654,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                         runs_on=runs_on,
                     )
                 )
+                print(f"Added matrix item {name}-tracing")
 
             if package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)
@@ -737,6 +739,7 @@ def generate_matrix(args):
             groups[(item.name, item.category)].append(item)
         matrix = {max(group, key=lambda x: x.version) for group in groups.values()}
 
+    print(f"Filtered matri: {matrix}")
     return set(matrix)
 
 
