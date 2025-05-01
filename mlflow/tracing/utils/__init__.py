@@ -6,6 +6,7 @@ import json
 import logging
 import uuid
 from collections import Counter
+from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional, Union
@@ -13,19 +14,18 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from opentelemetry import trace as trace_api
 from packaging.version import Version
 
-import mlflow
-from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
 
 SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
-    from mlflow.client import MlflowClient
     from mlflow.entities import LiveSpan
+    from mlflow.pyfunc.context import Context
     from mlflow.types.chat import ChatMessage, ChatTool
 
 
@@ -268,6 +268,21 @@ def construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
     return arguments
 
 
+@contextmanager
+def maybe_set_prediction_context(context: Optional["Context"]):
+    """
+    Set the prediction context if the given context
+    is not None. Otherwise no-op.
+    """
+    if not IS_TRACING_SDK_ONLY and context:
+        from mlflow.pyfunc.context import set_prediction_context
+
+        with set_prediction_context(context):
+            yield
+    else:
+        yield
+
+
 def set_span_chat_messages(
     span: LiveSpan,
     messages: Union[dict, ChatMessage],
@@ -393,67 +408,3 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
             sanitized_tools.append(tool.model_dump_compat(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
-
-
-def start_client_span_or_trace(
-    client: MlflowClient,
-    name: str,
-    span_type: str,
-    parent_span: Optional[LiveSpan] = None,
-    inputs: Optional[dict[str, Any]] = None,
-    attributes: Optional[dict[str, Any]] = None,
-    start_time_ns: Optional[int] = None,
-) -> LiveSpan:
-    """
-    An utility to start a span or trace using MlflowClient based on the current active span.
-    """
-    if parent_span := parent_span or mlflow.get_current_active_span():
-        return client.start_span(
-            name=name,
-            trace_id=parent_span.trace_id,
-            parent_id=parent_span.span_id,
-            span_type=span_type,
-            inputs=inputs,
-            attributes=attributes,
-            start_time_ns=start_time_ns,
-        )
-    else:
-        return client.start_trace(
-            name=name,
-            span_type=span_type,
-            inputs=inputs,
-            attributes=attributes,
-            start_time_ns=start_time_ns,
-        )
-
-
-def end_client_span_or_trace(
-    client: MlflowClient,
-    span: LiveSpan,
-    outputs: Optional[dict[str, Any]] = None,
-    attributes: Optional[dict[str, Any]] = None,
-    status: str = SpanStatusCode.OK,
-    end_time_ns: Optional[int] = None,
-) -> LiveSpan:
-    """
-    An utility to end a span or trace using MlflowClient based on the current active span.
-    """
-    if span.parent_id is not None:
-        return client.end_span(
-            trace_id=span.trace_id,
-            span_id=span.span_id,
-            outputs=outputs,
-            attributes=attributes,
-            status=status,
-            end_time_ns=end_time_ns,
-        )
-    else:
-        span.set_status(status)
-        span.set_outputs(outputs)
-        return client.end_trace(
-            trace_id=span.trace_id,
-            outputs=outputs,
-            attributes=attributes,
-            status=status,
-            end_time_ns=end_time_ns,
-        )

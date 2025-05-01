@@ -5,7 +5,6 @@ import pytest
 
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.processor.inference_table import (
     _HEADER_REQUEST_ID_KEY,
@@ -13,7 +12,15 @@ from mlflow.tracing.processor.inference_table import (
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
-from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
+from tests.tracing.helper import (
+    create_mock_otel_span,
+    create_test_trace_info,
+    skip_module_when_testing_trace_sdk,
+)
+
+skip_module_when_testing_trace_sdk()
+
+from mlflow.pyfunc.context import Context, set_prediction_context
 
 _TRACE_ID = 12345
 _REQUEST_ID = f"tr-{_TRACE_ID}"

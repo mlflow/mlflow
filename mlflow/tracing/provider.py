@@ -244,14 +244,13 @@ def _setup_tracer_provider(disabled=False):
     #  3. MLflow will pick the implementation based on given destination id.
     if _MLFLOW_TRACE_USER_DESTINATION is not None:
         if isinstance(_MLFLOW_TRACE_USER_DESTINATION, MlflowExperiment):
-            from mlflow import MlflowClient
             from mlflow.tracing.export.mlflow import MlflowSpanExporter
             from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 
-            client = MlflowClient(tracking_uri=_MLFLOW_TRACE_USER_DESTINATION.tracking_uri)
-            exporter = MlflowSpanExporter(client)
+            tracking_uri = _MLFLOW_TRACE_USER_DESTINATION.tracking_uri
+            exporter = MlflowSpanExporter(tracking_uri)
             processor = MlflowSpanProcessor(
-                exporter, client, _MLFLOW_TRACE_USER_DESTINATION.experiment_id
+                exporter, tracking_uri, _MLFLOW_TRACE_USER_DESTINATION.experiment_id
             )
 
         elif isinstance(_MLFLOW_TRACE_USER_DESTINATION, Databricks):

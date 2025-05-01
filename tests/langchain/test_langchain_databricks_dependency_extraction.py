@@ -61,7 +61,7 @@ def remove_langchain_community(monkeypatch):
 def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch):
     from langchain_community.llms import Databricks
 
-    from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
+    from mlflow.langchain.utils.logging import IS_PICKLE_SERIALIZATION_RESTRICTED
 
     monkeypatch.setattr(
         "langchain_community.llms.databricks._DatabricksServingEndpointClient",

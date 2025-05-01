@@ -9,6 +9,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.dspy.constant import FLAVOR_NAME
 from mlflow.dspy.wrapper import DspyChatModelWrapper, DspyModelWrapper
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
@@ -45,8 +46,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-
-FLAVOR_NAME = "dspy"
 
 _MODEL_SAVE_PATH = "model"
 _MODEL_DATA_PATH = "data"
