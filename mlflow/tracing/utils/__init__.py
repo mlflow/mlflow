@@ -25,10 +25,8 @@ SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
     from mlflow.entities import LiveSpan
+    from mlflow.pyfunc.context import Context
     from mlflow.types.chat import ChatMessage, ChatTool
-
-    if not IS_TRACING_SDK_ONLY:
-        from mlflow.pyfunc.context import Context
 
 
 def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:

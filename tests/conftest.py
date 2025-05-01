@@ -62,7 +62,7 @@ def remote_backend_for_tracing_sdk_test():
         ) as process:
             print("Starting mlflow server on port 5000")  # noqa: T201
             try:
-                for _ in range(30):
+                for _ in range(60):
                     try:
                         response = requests.get(f"http://localhost:{port}")
                         if response.ok:
