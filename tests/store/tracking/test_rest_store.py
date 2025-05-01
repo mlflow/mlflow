@@ -1,7 +1,7 @@
+import datetime
 import json
 import time
 from unittest import mock
-import datetime
 
 import pytest
 
@@ -389,7 +389,7 @@ def test_requestor():
         request_id = "tr-123"
         # Successful V3 API call (no fallback)
         store.get_trace_info(request_id, should_query_v3=True)
-        
+
         # Verify the V3 API was called
         v3_expected_message = GetTraceInfoV3(trace_id=request_id)
         _verify_requests(
@@ -399,7 +399,7 @@ def test_requestor():
             "GET",
             message_to_json(v3_expected_message),
         )
-    
+
     # Now test the fallback path by raising an exception from the V3 call
     with mock_http_request() as mock_http:
         request_id = "tr-123"
@@ -414,20 +414,20 @@ def test_requestor():
             response.status_code = 200
             response.text = "{}"
             return response
-        
+
         mock_http.side_effect = side_effect
-        
+
         # Now when we call get_trace_info, it should try V3 first, fail, then fall back to V2
         store.get_trace_info(request_id, should_query_v3=True)
-        
+
         # Check call arguments to verify V2 fallback was used
         assert len(mock_http.call_args_list) == 2
-        
+
         # First call should be to V3 API
         v3_call = mock_http.call_args_list[0]
         assert v3_call[1]["endpoint"] == "/api/2.0/mlflow/traces/tr-123"
         assert v3_call[1]["params"] == {"trace_id": "tr-123"}
-        
+
         # Second call should be to V2 API
         v2_call = mock_http.call_args_list[1]
         assert v2_call[1]["endpoint"] == "/api/2.0/mlflow/traces/tr-123/info"
@@ -974,24 +974,24 @@ def test_get_trace_info_v3_api():
         trace_metadata={"key1": "value1"},
         tags={"tag1": "value1"}
     )
-    
-    with mock.patch("mlflow.entities.trace_info_v3.TraceInfoV3.from_proto", 
+
+    with mock.patch("mlflow.entities.trace_info_v3.TraceInfoV3.from_proto",
                    return_value=trace_info_v3) as mock_from_proto:
-        
+
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
-        
+
         with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
             # Set up the mock to return a dummy response with a trace field
             mock_response = mock.MagicMock()
             mock_response.trace.trace_info = mock.MagicMock()
             mock_call_endpoint.return_value = mock_response
-            
+
             # Call the method we're testing
             result = store.get_trace_info(trace_id, should_query_v3=True)
-            
+
             # Verify mock_from_proto was called with the trace_info from the response
             mock_from_proto.assert_called_once_with(mock_response.trace.trace_info)
-            
+
             # Verify we get the expected object back
             assert result is trace_info_v3
             assert isinstance(result, TraceInfoV3)
