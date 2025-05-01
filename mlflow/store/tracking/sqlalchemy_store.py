@@ -2473,7 +2473,7 @@ def _get_orderby_clauses(order_by_list, session):
                 ordering_joins.append(subquery)
                 order_value = subquery.c.value
 
-            # sqlite does not support NULLS LAST expression, so we sort first by
+            # MySQL does not support NULLS LAST expression, so we sort first by
             # presence of the field (and is_nan for metrics), then by actual value
             # As the subqueries are created independently and used later in the
             # same main query, the CASE WHEN columns need to have unique names to
