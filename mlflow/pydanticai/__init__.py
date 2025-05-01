@@ -1,3 +1,3 @@
-from mlflow.pydanticai._pydanticai_autolog import autolog
+from mlflow.pydanticai.autolog import autolog
 
-__all__ = ["autolog", "FLAVOUR_NAME"]
+__all__ = ["autolog"]
