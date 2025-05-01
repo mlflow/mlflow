@@ -21,7 +21,6 @@ def _sdk_supports_large_file_uploads() -> bool:
 
 
 # TODO: The following artifact repositories should use this class. Migrate them.
-#   - uc_volume_artifact_repo.py
 #   - databricks_sdk_models_artifact_repo.py
 class DatabricksSdkArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri: str) -> None:
@@ -64,7 +63,12 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
             )
 
         with open(local_file, "rb") as f:
-            self.files_api.upload(self.full_path(artifact_path), f, overwrite=True)
+            name = Path(local_file).name
+            self.files_api.upload(
+                self.full_path(posixpath.join(artifact_path, name) if artifact_path else name),
+                f,
+                overwrite=True,
+            )
 
     def log_artifacts(self, local_dir: str, artifact_path: Optional[str] = None) -> None:
         local_dir = Path(local_dir).resolve()
@@ -73,13 +77,17 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
             for f in local_dir.rglob("*"):
                 if not f.is_file():
                     continue
-                rel_path = f.relative_to(local_dir).as_posix()
+
+                paths: list[str] = []
+                if artifact_path:
+                    paths.append(artifact_path)
+                if f.parent != local_dir:
+                    paths.append(str(f.parent.relative_to(local_dir)))
+
                 fut = executor.submit(
                     self.log_artifact,
                     local_file=f,
-                    artifact_path=(
-                        posixpath.join(artifact_path, rel_path) if artifact_path else rel_path
-                    ),
+                    artifact_path=posixpath.join(*paths) if paths else None,
                 )
                 futures.append(fut)
 
