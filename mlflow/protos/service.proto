@@ -6,8 +6,8 @@ import "scalapb/scalapb.proto";
 import "databricks.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
+import "assessments.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
@@ -462,6 +462,22 @@ service MlflowService {
     };
   }
 
+  // Logs outputs, such as datasets and models, from an MLflow Run.
+  //
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
+  rpc logOutputs (LogOutputs) returns (LogOutputs.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/outputs"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Log Outputs",
+    };
+  }
+
   rpc searchDatasets(SearchDatasets) returns (SearchDatasets.Response) {
     option (rpc) = {
       endpoints: [{
@@ -543,6 +559,44 @@ service MlflowService {
     };
   }
 
+  // Create a trace using the V3 API format
+  rpc startTraceV3 (StartTraceV3) returns (StartTraceV3.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces"
+        since { major: 3, minor: 0 }
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  // Edge endpoint used to search for online traces from an inference table.
+  rpc searchUnifiedTraceHandler(SearchUnifiedTraces) returns (SearchUnifiedTraces.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/unified-traces"
+        since {major: 2, minor: 0},
+      }],
+        visibility: PUBLIC_UNDOCUMENTED,
+        rpc_doc_title: "Search Unified Traces",
+      };
+  }
+
+  // Edge endpoint used to retrieve for online trace from an inference table.
+  rpc getOnlineTraceDetails(GetOnlineTraceDetails) returns (GetOnlineTraceDetails.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/get-online-trace-details"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Online Trace Details",
+    };
+  }
+
   rpc deleteTraces(DeleteTraces) returns (DeleteTraces.Response) {
     option (rpc) = {
       endpoints: [{
@@ -552,6 +606,105 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Delete Traces",
+    };
+  }
+
+  rpc createLoggedModel(CreateLoggedModel) returns (CreateLoggedModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/logged-models"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create Logged Model",
+    };
+  }
+
+  rpc finalizeLoggedModel(FinalizeLoggedModel) returns (FinalizeLoggedModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/logged-models/{model_id}"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Finalize Logged Model",
+    };
+  }
+
+  rpc getLoggedModel(GetLoggedModel) returns (GetLoggedModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/logged-models/{model_id}"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Logged Model",
+    };
+  }
+
+  rpc deleteLoggedModel(DeleteLoggedModel) returns (DeleteLoggedModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/logged-models/{model_id}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete a Logged Model",
+    };
+  }
+
+  // Search for Logged Models that satisfy specified search criteria.
+  rpc searchLoggedModels (SearchLoggedModels) returns (SearchLoggedModels.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/logged-models/search"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Search LoggedModels",
+    };
+  }
+
+  rpc setLoggedModelTags(SetLoggedModelTags) returns (SetLoggedModelTags.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/logged-models/{model_id}/tags"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Set Logged Model Tag",
+    };
+  }
+
+  rpc deleteLoggedModelTag(DeleteLoggedModelTag) returns (DeleteLoggedModelTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/logged-models/{model_id}/tags/{tag_key}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Logged Model Tag",
+    };
+  }
+
+  // List artifacts for a LoggedModel. Takes an optional ``artifact_path`` prefix which if specified,
+  // the response contains only artifacts with the specified prefix.
+  rpc listLoggedModelArtifacts (ListLoggedModelArtifacts) returns (ListLoggedModelArtifacts.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/logged-models/{model_id}/artifacts/directories"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "List Artifacts for Logged Models",
     };
   }
 
@@ -667,6 +820,22 @@ message Metric {
 
   // Step at which to log the metric.
   optional int64 step = 4 [default = 0];
+
+  // The name of the dataset associated with the metric.
+  // E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  optional string dataset_name = 5 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  // Dataset digest of the dataset associated with the metric,
+  // e.g. an md5 hash of the dataset that uniquely identifies it
+  // within datasets of the same name.
+  optional string dataset_digest = 6 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  // The ID of the LoggedModel or Registered Model Version associated with
+  // the metric, if applicable.
+  optional string model_id = 7 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  // The ID of the run containing the metric.
+  optional string run_id = 8 [(visibility) = PUBLIC_UNDOCUMENTED];
 }
 
 // Param associated with a run.
@@ -686,6 +855,8 @@ message Run {
   optional RunData data = 2;
   // Run inputs.
   optional RunInputs inputs = 3;
+  // Run outputs.
+  optional RunOutputs outputs = 4;
 }
 
 // Run data (metrics, params, and tags).
@@ -703,6 +874,14 @@ message RunData {
 message RunInputs {
   // Dataset inputs to the Run.
   repeated DatasetInput dataset_inputs = 1;
+  // Model inputs to the Run.
+  repeated ModelInput model_inputs = 2;
+}
+
+// Outputs of a Run.
+message RunOutputs {
+  // Model outputs of the Run.
+  repeated ModelOutput model_outputs = 1;
 }
 
 // Tag for a run.
@@ -796,6 +975,12 @@ message DatasetInput {
   optional Dataset dataset = 2 [(validate_required) = true];
 }
 
+// Represents a LoggedModel or Registered Model Version input to a Run.
+message ModelInput {
+  // The unique identifier of the model.
+  optional string model_id = 1 [(validate_required) = true];
+}
+
 // Tag for an input.
 message InputTag {
   // The tag key.
@@ -829,6 +1014,15 @@ message Dataset {
   // in a table, the mean / std / mode of each column in a table, or the number of elements
   // in an array.
   optional string profile = 6;
+}
+
+// Represents a LoggedModel output of a Run.
+message ModelOutput {
+  // The unique identifier of the model.
+  optional string model_id = 1 [(validate_required) = true];
+
+  // Step at which the model was produced.
+  optional int64 step = 2 [(validate_required) = true];
 }
 
 message CreateExperiment {
@@ -1043,6 +1237,18 @@ message LogMetric {
 
   // Step at which to log the metric
   optional int64 step = 5 [default = 0];
+
+  // ID of the logged model associated with the metric, if applicable
+  optional string model_id = 7 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  // The name of the dataset associated with the metric.
+  // E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  optional string dataset_name = 8 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  // Dataset digest of the dataset associated with the metric,
+  // e.g. an md5 hash of the dataset that uniquely identifies it
+  // within datasets of the same name.
+  optional string dataset_digest = 9 [(visibility) = PUBLIC_UNDOCUMENTED];
 
   message Response {}
 }
@@ -1335,6 +1541,23 @@ message LogInputs {
   // Dataset inputs
   repeated DatasetInput datasets = 2;
 
+  // Model inputs
+  // (Currently undocumented for LoggedModels private preview)
+  repeated ModelInput models = 3 [(visibility) = PUBLIC_UNDOCUMENTED];
+
+  message Response {
+  }
+}
+
+message LogOutputs {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the Run from which to log outputs.
+  optional string run_id = 1 [(validate_required) = true];
+
+  // Model outputs from the Run.
+  repeated ModelOutput models = 2;
+
   message Response {
   }
 }
@@ -1377,81 +1600,15 @@ message AssessmentError {
   optional string error_message = 2;
 }
 
-// An expectation for the values or guidelines for the outputs that a model or agent should produce
-// from the inputs contained in the trace.
-message Expectation {
-  // Value of the expectation-based assessment.
-  // We use google.protobuf.Value to support a flexible schema of expectation values.
-  optional google.protobuf.Value value = 2;
-}
-
-// Feedback provided on the model / agent output(s) contained in the trace
-message Feedback {
-  // Value of the feedback-based assessment.
-  // We use google.protobuf.Value to support a flexible schema of feedback values.
-  // Supported initial types:
-  // - Numeric values like integers or floats
-  // - Boolean values
-  // - Text value (can contain json text the user wishes to store, but it will only be searchable as text)
-  // - Non-empty list values containing only strings
-  // - Other values like structs, non-string lists etc. will be rejected for now
-  optional google.protobuf.Value value = 2;
-}
-
-// Data and metadata for an assessment of a trace.
-message Assessment {
-  // Unique ID of the assessment.
-  // NB: This is not marked as required field via "validate_required", because the message is
-  //  used in the context of creating a new assessment, where the ID is not known.
-  optional string assessment_id = 1;
-
-  // Name of the assessment. The name must not contain ".".
-  optional string assessment_name = 2 [(validate_required) = true];
-  // ID of the trace this assessment is associated with.
-  optional string trace_id = 3;
-
-  // ID of the span if the assessment is for a particular span (optional).
-  optional string span_id = 4;
-
-  // The source this assessment came from.
-  optional AssessmentSource source = 5;
-
-  // The creation time of this assessment.
-  optional google.protobuf.Timestamp create_time = 6;
-
-  // The last update time of this assessment.
-  optional google.protobuf.Timestamp last_update_time = 7;
-
-  // An Assessment can either be human/code/judge Feedback, human-generated Expectation, or an error.
-  // The name of the Feedback or Expectation must be the same with the assessment_name.
-  oneof value {
-    // The feedback on the trace from this assessment.
-    Feedback feedback = 9;
-    // A representation of the guidelines and/or expected response from the agent.
-    Expectation expectation = 10;
-  }
-
-  // Justification for the assessment.
-  optional string rationale = 11;
-
-  // An error encountered while computing the assessment.
-  optional AssessmentError error = 12;
-  
-  // Additional metadata describing the assessment and store additional information,
-  // such as the chunk relevance chunk_index. This metadata is required to be JSON-serializable.
-  map<string, string> metadata = 13;
-}
-
-
 message CreateAssessment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // The assessment to create.
-  optional Assessment assessment = 1 [(validate_required) = true];;
+  optional assessments.Assessment assessment = 1 [(validate_required) = true];;
 
   message Response {
     // The created assessment.
-    optional Assessment assessment = 1;
+    optional assessments.Assessment assessment = 1;
   }
 }
 
@@ -1460,14 +1617,14 @@ message UpdateAssessment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // The Assessment containing the fields which should be updated.
-  optional Assessment assessment = 1 [(validate_required) = true];
+  optional assessments.Assessment assessment = 1 [(validate_required) = true];
 
   // The list of the assessment fields to update. These should correspond to the values (or lack thereof) present in `assessment`.
   optional google.protobuf.FieldMask update_mask = 2 [(validate_required) = true];
 
   message Response {
     // The Assessment after the update.
-    optional Assessment assessment = 1;
+    optional assessments.Assessment assessment = 1;
   }
 }
 
@@ -1631,6 +1788,60 @@ message SearchTraces {
   }
 }
 
+message SearchUnifiedTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string model_id = 1 [(validate_required) = true];
+
+  optional string sql_warehouse_id = 2 [(validate_required) = true];
+
+  // TODO: Eventually we want to provide an API that only uses model_id
+  repeated string experiment_ids = 3;
+
+  // A filter expression over trace attributes and tags that allows returning a subset of
+  // traces. The syntax is a subset of SQL that supports ANDing together binary operations
+  // Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.
+  optional string filter = 4;
+
+  // Maximum number of traces desired. Max threshold is 500.
+  optional int32 max_results = 5 [default = 100];
+
+  // List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
+  repeated string order_by = 6;
+
+  // Token indicating the page of traces to fetch. This is a unified token that encodes both online and offline traces
+  // tokens.
+  optional string page_token = 7;
+
+  message Response {
+    // Information about traces that match the search criteria.
+    repeated TraceInfo traces = 1;
+    optional string next_page_token = 2;
+  }
+}
+
+message GetOnlineTraceDetails {
+  // Trace ID to retrieve
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // SQL warehouse to use for query
+  optional string sql_warehouse_id = 2 [(validate_required) = true];
+
+  // Source inference table to use for query
+  // ie. "ml.bbqiu.codegen_payload"
+  optional string source_inference_table = 3 [(validate_required) = true];
+
+  // Source databricks request id to use for query
+  // ie. "8d1992ce-ba3d-49e9-9701-e9b323c5cc8c"
+  optional string source_databricks_request_id = 4 [(validate_required) = true];
+
+  message Response {
+    // Return trace JSON in string form
+    // Note: we may change this to a TraceData object in the future
+    optional string trace_data = 1;
+  }
+}
+
 message DeleteTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -1725,15 +1936,25 @@ message TraceInfoV3 {
 
   optional TraceLocation trace_location = 3;
 
+  // [Deprecated, please use `request_preview` instead.]
   // Request to the model/agent.
   // Equivalent to the input of the root span but added for ease of access.
   // Represented as a JSON string.
   optional string request = 4;
 
+  // [Deprecated, please use `request_preview` instead.]
   // Response of the model/agent.
   // Equivalent to the output of the root span but added for ease of access.
   // Represented as a JSON string.
   optional string response = 5;
+
+  // A preview of the request to the model/agent represented as a JSON string. This is equivalent to the input of the root
+  // span. This preview value is truncated to 10KB while the full request is stored in the trace data in blob storage.
+  optional string request_preview = 12;
+
+  // A preview of the request to the model/agent represented as a JSON string. This is equivalent to the output of the root
+  // span. This preview value is truncated to 10KB while the full response is stored in the trace data in blob storage.
+  optional string response_preview = 13;
 
   // Start time of the trace
   optional google.protobuf.Timestamp request_time = 6;
@@ -1767,10 +1988,23 @@ message TraceInfoV3 {
   // - session_id: The ID of the session (e.g. chat conversation) where the request came from
   map<string, string> trace_metadata = 9;
 
-  repeated Assessment assessments = 10;
+  repeated assessments.Assessment assessments = 10;
 
   // Mutable, user-defined tags for the trace, e.g. “question_topic”: “DBSQL”
   map<string, string> tags = 11;
+}
+
+
+message StartTraceV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The information for the trace being created.
+  optional Trace trace = 1 [(validate_required) = true];
+
+  message Response {
+    // The created trace information.
+    optional Trace trace = 1;
+  }
 }
 
 // DatasetSummary. Represents a summary of information about a dataset.
@@ -1799,4 +2033,281 @@ message SearchDatasets {
     // Return the summary for most recently created N datasets, as configured in backend
     repeated DatasetSummary dataset_summaries = 1;
   }
+}
+
+message CreateLoggedModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the associated experiment.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // Name of the model. Optional. If not specified, the backend will generate one.
+  optional string name = 2;
+
+  // The type of model, such as "Agent", "Classifier", "LLM".
+  optional string model_type = 3;
+
+  // Run ID of the run that created this model.
+  optional string source_run_id = 4;
+
+  // LoggedModel params.
+  repeated LoggedModelParameter params = 5;
+
+  // LoggedModel tags.
+  repeated LoggedModelTag tags = 6;
+
+  message Response {
+    // The newly created LoggedModel.
+    optional LoggedModel model = 1;
+  }
+}
+
+message FinalizeLoggedModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the LoggedModel to finalize
+  optional string model_id = 1 [(validate_required) = true];
+
+  // Whether or not the model is ready for use.
+  // Valid values in this message: ENUM<LOGGED_MODEL_READY, LOGGED_MODEL_UPLOAD_FAILED>
+  // ("LOGGED_MODEL_UPLOAD_FAILED" indicates that something went wrong when logging
+  // the model weights / agent code)
+  optional LoggedModelStatus status = 2 [(validate_required) = true];
+
+  message Response {
+    // The updated LoggedModel.
+    optional LoggedModel model = 1;
+  }
+}
+
+message GetLoggedModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the LoggedModel to retrieve.
+  optional string model_id = 1 [(validate_required) = true];
+
+  message Response {
+    // The retrieved LoggedModel.
+    optional LoggedModel model = 1;
+  }
+}
+
+message DeleteLoggedModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the LoggedModel to delete.
+  optional string model_id = 1 [(validate_required) = true];
+
+  message Response {}
+}
+
+message SearchLoggedModels {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // IDs of the Experiments in which to search for Logged Models.
+  repeated string experiment_ids = 1;
+
+  // A filter expression over Logged Model info and data that allows returning a subset of
+  // Logged Models. The syntax is a subset of SQL that supports ANDing together binary operations
+  // Example: ``params.alpha < 0.3 AND metrics.accuracy > 0.9``.
+  optional string filter = 2;
+
+  // List of datasets on which to apply the metrics filter clauses.
+  // For example, a filter with `metrics.accuracy > 0.9` and dataset info with name "test_dataset"
+  // means we will return all logged models with accuracy > 0.9 on the test_dataset.
+  // Metric values from ANY dataset matching the criteria are considered.
+  // If no datasets are specified, then metrics across all datasets are considered in the filter.
+  repeated Dataset datasets = 6;
+
+  message Dataset {
+    // The name of the dataset.
+    optional string dataset_name = 1 [(validate_required) = true];
+    // The digest of the dataset.
+    optional string dataset_digest = 2;
+  }
+
+  // Maximum number of Logged Models to return. Max threshold is 50.
+  optional int32 max_results = 3 [default = 50];
+
+  // List of columns for ordering the results, with additional fields for sorting criteria.
+  repeated OrderBy order_by = 4;
+
+  // Token indicating the page of Logged Models to fetch.
+  optional string page_token = 5;
+
+  message OrderBy {
+      // Name of the field to order by, e.g. "metrics.accuracy".
+      optional string field_name = 1 [(validate_required) = true];
+
+      // Whether the order is ascending or not.
+      optional bool ascending = 2 [default = true];
+
+      // If ``field_name`` refers to a metric, this field specifies the name of the dataset
+      // associated with the metric. Only metrics associated with the specified dataset name will be
+      // considered for ordering. This field may only be set if ``field_name`` refers to a metric.
+      optional string dataset_name = 3;
+
+      // If ``field_name`` refers to a metric, this field specifies the digest of the dataset
+      // associated with the metric. Only metrics associated with the specified dataset name
+      // and digest will be considered for ordering. This field may only be set if ``dataset_name``
+      // is also set.
+      optional string dataset_digest = 4;
+  }
+
+  message Response {
+    // Logged Models that match the search criteria.
+    repeated LoggedModel models = 1;
+
+    // Token that can be used to retrieve the next page of Logged Models.
+    optional string next_page_token = 2;
+  }
+}
+
+message SetLoggedModelTags {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the LoggedModel to set the tag on.
+  optional string model_id = 1 [(validate_required) = true];
+
+  // The tag key.
+  repeated LoggedModelTag tags = 2;
+
+  message Response {
+    // The updated LoggedModel.
+    optional LoggedModel model = 1;
+  }
+}
+
+message DeleteLoggedModelTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the LoggedModel to delete the tag from.
+  optional string model_id = 1 [(validate_required) = true];
+
+  // The tag key.
+  optional string tag_key = 2 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message ListLoggedModelArtifacts {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the LoggedModel for which to list the artifacts
+  optional string model_id = 1 [(validate_required) = true];
+
+  // Filter artifacts matching this path (a relative path from the root artifact directory).
+  optional string artifact_directory_path = 2;
+
+  // Token indicating the page of artifact results to fetch
+  optional string page_token = 3;
+
+  message Response {
+    // Root artifact directory for the logged model.
+    optional string root_uri = 1;
+
+    // File location and metadata for artifacts.
+    repeated FileInfo files = 2;
+
+    // Token that can be used to retrieve the next page of artifact results
+    optional string next_page_token = 3;
+  }
+}
+
+// A LoggedModel message includes logged model attributes,
+// tags, registration info, params, and linked run metrics.
+message LoggedModel {
+  // LoggedModel attributes such as model ID, status, tags, etc.
+  optional LoggedModelInfo info = 1;
+
+  // LoggedModel params and metrics.
+  optional LoggedModelData data = 2;
+}
+
+// A LoggedModelStatus enum value represents the status of a logged
+// model.
+enum LoggedModelStatus {
+  LOGGED_MODEL_STATUS_UNSPECIFIED = 0;
+  // The LoggedModel has been created, but the LoggedModel files are not
+  // completely uploaded.
+  LOGGED_MODEL_PENDING = 1;
+  // The LoggedModel is created, and the LoggedModel files are completely uploaded.
+  LOGGED_MODEL_READY = 2;
+  // The LoggedModel is created, but an error occurred when uploading the
+  // LoggedModel files such as model weights / agent code.
+  LOGGED_MODEL_UPLOAD_FAILED = 3;
+}
+
+// A LoggedModelInfo includes logged model attributes,
+// tags, and registration info.
+message LoggedModelInfo {
+  // A unique identifier for the model.
+  optional string model_id = 1;
+  // The ID of the experiment that owns the model.
+  optional string experiment_id = 2;
+  // Name of the model.
+  optional string name = 3;
+
+  // Timestamp when the model was created, in milliseconds since the UNIX epoch.
+  optional int64 creation_timestamp_ms = 4;
+  // Timestamp when the model was last updated, in milliseconds since the UNIX epoch
+  optional int64 last_updated_timestamp_ms = 5;
+
+  // URI of the directory where model artifacts are stored.
+  optional string artifact_uri = 6;
+
+  // Whether or not the model is ready for use.
+  optional LoggedModelStatus status = 7;
+
+  // The ID of the user or principal that created the model.
+  optional int64 creator_id = 8;
+
+  // The type of model, such as "Agent", "Classifier", "LLM".
+  optional string model_type = 9;
+  // Run ID of the run that created the model.
+  optional string source_run_id = 10;
+  // Details on the current status.
+  optional string status_message = 11;
+
+  // Mutable String key-value pairs set on the model.
+  repeated LoggedModelTag tags = 12;
+
+  // If the model has been promoted to the Model Registry, this field includes
+  // information like the Registered Model name, Model Version number, etc.
+  repeated LoggedModelRegistrationInfo registrations = 13;
+}
+
+// Tag for a LoggedModel.
+message LoggedModelTag {
+  // The tag key.
+  optional string key = 1;
+  // The tag value.
+  optional string value = 2;
+}
+
+// RegistrationInfo for a LoggedModel.
+message LoggedModelRegistrationInfo {
+  // The name of the Registered Model to which the model has been promoted.
+  optional string name = 1;
+  // The version number of the promoted model.
+  optional string version = 2;
+}
+
+// A LoggedModelData message includes logged model params and linked metrics.
+message LoggedModelData {
+  // Immutable String key-value pairs of the model.
+  repeated LoggedModelParameter params = 1;
+
+  // Performance metrics linked to the model.
+  repeated Metric metrics = 2;
+}
+
+// Parameter associated with a LoggedModel.
+message LoggedModelParameter {
+  // Key identifying this param.
+  optional string key = 1;
+
+  // Value associated with this param.
+  optional string value = 2;
 }

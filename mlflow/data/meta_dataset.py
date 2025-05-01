@@ -5,10 +5,8 @@ from typing import Any, Optional
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.types import Schema
-from mlflow.utils.annotations import experimental
 
 
-@experimental
 class MetaDataset(Dataset):
     """Dataset that only contains metadata.
 

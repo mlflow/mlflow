@@ -270,9 +270,9 @@ latex_documents = [
     (master_doc, "MLflow.tex", "MLflow Documentation", "Databricks", "manual"),
 ]
 
-# Mock torch & fastai imports as per suggestion in
+# Mock torch imports as per suggestion in
 # https://github.com/sphinx-doc/sphinx/issues/6521#issuecomment-505765893
-autodoc_mock_imports = ["torch", "fastai", "langchain_core", "langgraph"]
+autodoc_mock_imports = ["torch", "langchain_core", "langgraph"]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
@@ -348,6 +348,7 @@ nitpick_ignore = [
     ("py:class", "dataclasses.dataclass"),
     ("py:class", "numpy.dtype"),
     ("py:class", "numpy.ndarray"),
+    ("py:class", "pandas"),
     ("py:class", "pandas.core.series.Series"),
     ("py:class", "pandas.core.frame.DataFrame"),
     ("py:class", "pandas.DataFrame"),
@@ -437,6 +438,7 @@ nitpick_ignore = [
     ("py:class", "LiveSpan"),
     ("py:class", "ChatMessage"),
     ("py:class", "ChatTool"),
+    ("py:class", "Trace"),
     # sphinx can't resolve alias import e.g. from xyz import abc as xyz_abc in type annotations
     ("py:class", "mlflow.entities.assessment.Expectation"),
     ("py:class", "mlflow.entities.assessment.Feedback"),
@@ -466,6 +468,7 @@ def _get_reference_map():
     ref_map = {
         # < Invalid reference >: < valid reference >
         "mlflow.tracking.fluent.ActiveRun": "mlflow.ActiveRun",
+        "mlflow.tracking.fluent.ActiveModel": "mlflow.ActiveModel",
         "mlflow.store.entities.paged_list.PagedList": "mlflow.store.entities.PagedList",
     }
 

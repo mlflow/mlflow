@@ -110,7 +110,7 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
         mlflow.log_metric("train_mse", train_mse)
 
         print(f"The model had a MSE on the test set of {test_mse}")
-        mlflow.tensorflow.log_model(model, "keras-model")
+        mlflow.tensorflow.log_model(model, name="keras-model")
 
 
 if __name__ == "__main__":

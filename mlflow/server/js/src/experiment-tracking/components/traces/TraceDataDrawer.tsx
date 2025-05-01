@@ -5,7 +5,6 @@ import {
   Spacer,
   TableSkeleton,
   TitleSkeleton,
-  Typography,
   WarningIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -63,11 +62,7 @@ export const TraceDataDrawer = ({
       return <TitleSkeleton />;
     }
     if (traceInfoToUse) {
-      return (
-        <Typography.Title level={2} withoutMargins>
-          {getTraceDisplayName(traceInfoToUse as ModelTraceInfo)}
-        </Typography.Title>
-      );
+      return getTraceDisplayName(traceInfoToUse as ModelTraceInfo);
     }
     return requestId;
   }, [
@@ -83,11 +78,7 @@ export const TraceDataDrawer = ({
     () =>
       traceData
         ? {
-            // We're assigning values redunantly due to a name change in the upstream interface,
-            // will be cleaned up shortly
-            trace_info: traceInfoToUse || {},
             info: traceInfoToUse || {},
-            trace_data: traceData,
             data: traceData,
           }
         : undefined,
@@ -135,7 +126,7 @@ export const TraceDataDrawer = ({
             image={<DangerIcon />}
             description={
               <FormattedMessage
-                defaultMessage="An error occurred while attemptying to fetch the trace data. Please wait a moment and try again."
+                defaultMessage="An error occurred while attempting to fetch the trace data. Please wait a moment and try again."
                 description="Experiment page > traces data drawer > error state description"
               />
             }
@@ -196,7 +187,7 @@ export const TraceDataDrawer = ({
     >
       <Drawer.Content
         componentId="codegen_mlflow_app_src_experiment-tracking_components_traces_tracedatadrawer.tsx_222"
-        width="85vw"
+        width="90vw"
         title={title}
         expandContentToFullHeight
       >

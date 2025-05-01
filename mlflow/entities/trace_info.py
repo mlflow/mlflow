@@ -1,15 +1,35 @@
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment
+from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.protos.databricks_trace_server_pb2 import TraceInfo as ProtoTraceInfoV3
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
-from mlflow.protos.service_pb2 import TraceLocation as ProtoTraceLocation
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+
+
+def _truncate_request_metadata(d: dict[str, Any]) -> dict[str, str]:
+    from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA
+
+    return {
+        k[:MAX_CHARS_IN_TRACE_INFO_METADATA]: str(v)[:MAX_CHARS_IN_TRACE_INFO_METADATA]
+        for k, v in d.items()
+    }
+
+
+def _truncate_tags(d: dict[str, Any]) -> dict[str, str]:
+    from mlflow.tracing.constant import (
+        MAX_CHARS_IN_TRACE_INFO_TAGS_KEY,
+        MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    )
+
+    return {
+        k[:MAX_CHARS_IN_TRACE_INFO_TAGS_KEY]: str(v)[:MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE]
+        for k, v in d.items()
+    }
 
 
 @dataclass
@@ -42,9 +62,12 @@ class TraceInfo(_MlflowObject):
             return self.__dict__ == other.__dict__
         return False
 
-    def to_proto(self):
-        from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS
+    @property
+    def trace_id(self) -> str:
+        """Returns the trace ID of the trace info."""
+        return self.request_id
 
+    def to_proto(self):
         proto = ProtoTraceInfo()
         proto.request_id = self.request_id
         proto.experiment_id = self.experiment_id
@@ -56,18 +79,18 @@ class TraceInfo(_MlflowObject):
         proto.status = self.status.to_proto()
 
         request_metadata = []
-        for key, value in self.request_metadata.items():
+        for key, value in _truncate_request_metadata(self.request_metadata).items():
             attr = ProtoTraceRequestMetadata()
-            attr.key = key[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
-            attr.value = str(value)[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
+            attr.key = key
+            attr.value = value
             request_metadata.append(attr)
         proto.request_metadata.extend(request_metadata)
 
         tags = []
-        for key, value in self.tags.items():
+        for key, value in _truncate_tags(self.tags).items():
             tag = ProtoTraceTag()
-            tag.key = key[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
-            tag.value = str(value)[:MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS]
+            tag.key = key
+            tag.value = str(value)
             tags.append(tag)
 
         proto.tags.extend(tags)
@@ -105,26 +128,16 @@ class TraceInfo(_MlflowObject):
         trace_info_dict["status"] = TraceStatus(trace_info_dict["status"])
         return cls(**trace_info_dict)
 
-    def to_v3_proto(self, request: Optional[str], response: Optional[str]):
-        """Convert into the V3 TraceInfo proto object."""
-        proto = ProtoTraceInfoV3()
-
-        proto.trace_id = self.request_id
-        proto.trace_location.type = ProtoTraceLocation.MLFLOW_EXPERIMENT
-        proto.trace_location.mlflow_experiment.experiment_id = self.experiment_id
-
-        proto.request = request or ""
-        proto.response = response or ""
-        proto.state = ProtoTraceInfoV3.State.Value(self.status.name)
-
-        proto.request_time.FromDatetime(datetime.fromtimestamp(self.timestamp_ms / 1000.0))
-        if self.execution_time_ms is not None:
-            proto.execution_duration.FromTimedelta(timedelta(milliseconds=self.execution_time_ms))
-
-        if self.request_metadata:
-            proto.trace_metadata.update(self.request_metadata)
-
-        if self.tags:
-            proto.tags.update(self.tags)
-
-        return proto
+    def to_v3(self, request: Optional[str] = None, response: Optional[str] = None) -> TraceInfoV3:
+        return TraceInfoV3(
+            trace_id=self.request_id,
+            trace_location=TraceLocation.from_experiment_id(self.experiment_id),
+            request_preview=request,
+            response_preview=response,
+            request_time=self.timestamp_ms,
+            execution_duration=self.execution_time_ms,
+            state=self.status.to_state(),
+            trace_metadata=self.request_metadata,
+            tags=self.tags,
+            assessments=self.assessments,
+        )

@@ -1,5 +1,9 @@
+import importlib
+
+from packaging.version import Version
+
 import mlflow
-from mlflow.dspy.save import FLAVOR_NAME
+from mlflow.dspy.constant import FLAVOR_NAME
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import construct_full_inputs
 from mlflow.utils.annotations import experimental
@@ -73,6 +77,7 @@ def autolog(
             callbacks=[c for c in dspy.settings.callbacks if not isinstance(c, MlflowCallback)]
         )
 
+    # Patch teleprompter/evaluator not to generate traces by default
     def patch_fn(original, self, *args, **kwargs):
         # NB: Since calling mlflow.dspy.autolog() again does not unpatch a function, we need to
         # check this flag at runtime to determine if we should generate traces.
@@ -105,11 +110,21 @@ def autolog(
             # Save the state of the best model in json format
             # so that users can see the demonstrations and instructions.
             save_dspy_module_state(program, "best_model.json")
+
+            # Teleprompter.get_params is introduced in dspy 2.6.15
+            params = (
+                self.get_params()
+                if Version(importlib.metadata.version("dspy")) >= Version("2.6.15")
+                else {}
+            )
             # Construct the dict of arguments passed to the compile call
             inputs = construct_full_inputs(original, self, *args, **kwargs)
+            # Update params with the arguments passed to the compile call
+            params.update(inputs)
             mlflow.log_params(
                 {k: v for k, v in inputs.items() if isinstance(v, (int, float, str, bool))}
             )
+
             if trainset := inputs.get("trainset"):
                 log_dspy_dataset(trainset, "trainset.json")
             if valset := inputs.get("valset"):
@@ -169,9 +184,7 @@ def _autolog(
     disable: bool = False,
     silent: bool = False,
 ):
-    """
-    TODO: Implement patching logic for autologging artifacts.
-    """
+    pass
 
 
 def _active_callback():

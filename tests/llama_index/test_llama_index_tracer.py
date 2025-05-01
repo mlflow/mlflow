@@ -3,6 +3,7 @@ import base64
 import inspect
 import random
 from dataclasses import asdict
+from pathlib import Path
 from unittest.mock import ANY
 
 import importlib_metadata
@@ -29,7 +30,7 @@ from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 llama_core_version = Version(importlib_metadata.version("llama-index-core"))
 llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
@@ -223,25 +224,29 @@ def _multi_modal_test_cases():
 
     from llama_index.core.base.llms.types import ImageBlock
 
-    image_base64 = _get_image_content("tests/resources/images/test.png")
+    image_dir = Path(__file__).parent.parent / "resources" / "images"
+
+    image_base64 = _get_image_content(str(image_dir / "test.png"))
     test_cases = [
         (
             ImageBlock(url="https://example/image.jpg"),
-            {"url": "https://example/image.jpg"},
+            {"url": "https://example/image.jpg"}
+            if llama_core_version < Version("0.12.30")
+            else {"url": "https://example/image.jpg", "detail": "auto"},
         ),
         # LlamaIndex support passing local image path
         (
-            ImageBlock(path="tests/resources/images/test.png", image_mimetype="image/png"),
+            ImageBlock(path=str(image_dir / "test.png"), image_mimetype="image/png"),
             {
                 "url": f"data:image/png;base64,{image_base64}",
-                "detail": "low",
+                "detail": "low" if llama_core_version < Version("0.12.25") else "auto",
             },
         ),
     ]
 
     # LlamaIndex < 0.12.3 doesn't support image content in byte format
     if llama_core_version >= Version("0.12.3"):
-        image_bytes = _get_image_content("tests/resources/images/test.png")
+        image_bytes = _get_image_content(str(image_dir / "test.png"))
         test_cases.append(
             (
                 ImageBlock(image=image_bytes, detail="low"),
@@ -642,6 +647,7 @@ def test_trace_chat_engine(multi_index, is_stream, is_async):
     assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) is not None
 
 
+@skip_when_testing_trace_sdk
 def test_tracer_handle_tracking_uri_update(tmp_path):
     OpenAI().complete("Hello")
     assert len(get_traces()) == 1

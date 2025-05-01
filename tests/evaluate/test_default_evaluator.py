@@ -156,7 +156,7 @@ def test_regressor_evaluation(
     )
 
     assert json.loads(tags["mlflow.datasets"]) == [
-        {**diabetes_dataset._metadata, "model": model.metadata.model_uuid}
+        {**diabetes_dataset._metadata, "name": "dataset", "model": model.metadata.model_uuid}
     ]
 
     for metric_key, expected_metric_val in expected_metrics.items():
@@ -167,12 +167,7 @@ def test_regressor_evaluation(
         )
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
-    assert json.loads(tags["mlflow.datasets"]) == [
-        {**diabetes_dataset._metadata, "model": model.metadata.model_uuid}
-    ]
-
     assert set(artifacts) == {
-        "explainer",
         "shap_beeswarm_plot.png",
         "shap_feature_importance_plot.png",
         "shap_summary_plot.png",
@@ -270,7 +265,7 @@ def test_multi_classifier_evaluation(
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
-        {**iris_dataset._metadata, "model": model.metadata.model_uuid}
+        {**iris_dataset._metadata, "name": "dataset", "model": model.metadata.model_uuid}
     ]
 
     assert set(artifacts) == {
@@ -279,9 +274,9 @@ def test_multi_classifier_evaluation(
         "roc_curve_plot.png",
         "precision_recall_curve_plot.png",
         "shap_feature_importance_plot.png",
-        "explainer",
         "confusion_matrix.png",
         "shap_summary_plot.png",
+        "calibration_curve_plot.png",
     }
     assert result.artifacts.keys() == {
         "per_class_metrics",
@@ -291,6 +286,7 @@ def test_multi_classifier_evaluation(
         "shap_beeswarm_plot",
         "shap_summary_plot",
         "shap_feature_importance_plot",
+        "calibration_curve_plot",
     }
 
 
@@ -365,7 +361,7 @@ def test_bin_classifier_evaluation(
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
-        {**breast_cancer_dataset._metadata, "model": model.metadata.model_uuid}
+        {**breast_cancer_dataset._metadata, "name": "dataset", "model": model.metadata.model_uuid}
     ]
 
     assert set(artifacts) == {
@@ -376,6 +372,7 @@ def test_bin_classifier_evaluation(
         "confusion_matrix.png",
         "shap_summary_plot.png",
         "roc_curve_plot.png",
+        "calibration_curve_plot.png",
     }
     assert result.artifacts.keys() == {
         "roc_curve_plot",
@@ -385,6 +382,7 @@ def test_bin_classifier_evaluation(
         "shap_beeswarm_plot",
         "shap_summary_plot",
         "shap_feature_importance_plot",
+        "calibration_curve_plot",
     }
 
 
@@ -456,7 +454,7 @@ def test_spark_regressor_model_evaluation(
     model = mlflow.pyfunc.load_model(spark_linear_regressor_model_uri)
 
     assert json.loads(tags["mlflow.datasets"]) == [
-        {**diabetes_spark_dataset._metadata, "model": model.metadata.model_uuid}
+        {**diabetes_spark_dataset._metadata, "name": "dataset", "model": model.metadata.model_uuid}
     ]
 
     assert set(artifacts) == set()
@@ -543,7 +541,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
         assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
-        {**breast_cancer_dataset._metadata, "model": model.metadata.model_uuid}
+        {**breast_cancer_dataset._metadata, "name": "dataset", "model": model.metadata.model_uuid}
     ]
 
     assert set(artifacts) == {
@@ -633,16 +631,18 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_
             evaluators="default",
             evaluator_config={"explainability_algorithm": "kernel"},
         )
-    run_data = get_run_data(run.info.run_id)
+    run_id = run.info.run_id
+    run_data = get_run_data(run_id)
     assert {
         # TODO: Uncomment once https://github.com/shap/shap/issues/3901 is fixed
         # "shap_beeswarm_plot.png",
         "shap_feature_importance_plot.png",
         "shap_summary_plot.png",
-        "explainer",
     }.issubset(run_data.artifacts)
 
-    explainer = mlflow.shap.load_explainer(f"runs:/{run.info.run_id}/explainer")
+    # TODO: add `and name='explainer'` once sqlAlchemyStore search_logged_models supports it
+    model = mlflow.last_logged_model()
+    explainer = mlflow.shap.load_explainer(model.model_uri)
     assert isinstance(explainer, _PatchedKernelExplainer)
 
 
@@ -1721,7 +1721,7 @@ def test_autologging_is_disabled_during_evaluate(model):
         X, y = load_iris(as_frame=True, return_X_y=True)
         with mlflow.start_run() as run:
             model.fit(X, y)
-            model_info = mlflow.sklearn.log_model(model, "model")
+            model_info = mlflow.sklearn.log_model(model, name="model")
             result = evaluate(
                 model_info.model_uri,
                 X.assign(target=y),
@@ -1758,7 +1758,7 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
     model_pipeline.fit(X, y)
 
     with mlflow.start_run() as run:
-        pipeline_model_uri = mlflow.sklearn.log_model(model_pipeline, "model").model_uri
+        pipeline_model_uri = mlflow.sklearn.log_model(model_pipeline, name="model").model_uri
 
         evaluation_data = pd.DataFrame(load_iris().data, columns=["0", "1", "2", "3"])
         evaluation_data["labels"] = load_iris().target
@@ -1793,7 +1793,7 @@ def test_evaluation_metric_name_configs(prefix):
     with mlflow.start_run() as run:
         model = LogisticRegression()
         model.fit(X, y)
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
         result = evaluate(
             model_info.model_uri,
             X.assign(target=y),
@@ -1870,7 +1870,7 @@ def test_evaluation_binary_classification_with_pos_label(pos_label):
     with mlflow.start_run():
         model = LogisticRegression()
         model.fit(X, y)
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
         result = evaluate(
             model_info.model_uri,
             X.assign(target=y),
@@ -1895,7 +1895,7 @@ def test_evaluation_multiclass_classification_with_average(average):
     with mlflow.start_run():
         model = LogisticRegression()
         model.fit(X, y)
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
         result = evaluate(
             model_info.model_uri,
             X.assign(target=y),
@@ -1918,7 +1918,7 @@ def test_custom_metrics():
     X, y = load_iris(as_frame=True, return_X_y=True)
     with mlflow.start_run():
         model = LogisticRegression().fit(X, y)
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
         result = evaluate(
             model_info.model_uri,
             X.assign(target=y),
@@ -1944,7 +1944,7 @@ def test_custom_artifacts():
     X, y = load_iris(as_frame=True, return_X_y=True)
     with mlflow.start_run():
         model = LogisticRegression().fit(X, y)
-        model_info = mlflow.sklearn.log_model(model, "model")
+        model_info = mlflow.sklearn.log_model(model, name="model")
         result = evaluate(
             model_info.model_uri,
             X.assign(target=y),
@@ -2034,7 +2034,7 @@ def test_missing_args_raises_exception():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"question": ["a", "b"], "answer": ["a", "b"]})
 
@@ -2068,47 +2068,10 @@ def test_missing_args_raises_exception():
             )
 
 
-def test_custom_metrics_deprecated(
-    binary_logistic_regressor_model_uri,
-    breast_cancer_dataset,
-):
-    def dummy_fn(eval_df, metrics):
-        pass
-
-    with pytest.raises(
-        MlflowException,
-        match="The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update "
-        "your code to only use the 'extra_metrics' parameter instead.",
-    ):
-        with mlflow.start_run():
-            mlflow.evaluate(
-                binary_logistic_regressor_model_uri,
-                breast_cancer_dataset._constructor_args["data"],
-                targets=breast_cancer_dataset._constructor_args["targets"],
-                evaluators="default",
-                model_type="classifier",
-                custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
-                extra_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
-            )
-
-    message = "The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update your "
-    "code to use the 'extra_metrics' parameter instead."
-    with pytest.warns(FutureWarning, match=message):
-        with mlflow.start_run():
-            mlflow.evaluate(
-                binary_logistic_regressor_model_uri,
-                breast_cancer_dataset._constructor_args["data"],
-                targets=breast_cancer_dataset._constructor_args["targets"],
-                evaluators="default",
-                model_type="classifier",
-                custom_metrics=[make_metric(eval_fn=dummy_fn, greater_is_better=True)],
-            )
-
-
 def test_evaluate_question_answering_with_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame(
             {
@@ -2179,7 +2142,7 @@ def question_classifier(inputs):
 def test_evaluate_question_answering_with_numerical_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=question_classifier,
             input_example=pd.DataFrame({"question": ["a", "b"]}),
         )
@@ -2205,7 +2168,7 @@ def test_evaluate_question_answering_with_numerical_targets():
 def test_evaluate_question_answering_without_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"question": ["words random", "This is a sentence."]})
         results = mlflow.evaluate(
@@ -2298,7 +2261,7 @@ def get_question_answering_metrics_keys(with_targets=False):
 def test_evaluate_text_summarization_with_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
         results = mlflow.evaluate(
@@ -2325,7 +2288,7 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
 
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=another_language_model,
             input_example=pd.DataFrame({"text": ["a", "b"]}),
         )
@@ -2351,7 +2314,7 @@ def test_evaluate_text_summarization_with_targets_no_type_hints():
 def test_evaluate_text_summarization_without_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["a", "b"]})
         results = mlflow.evaluate(
@@ -2378,7 +2341,7 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
 
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
 
         data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
@@ -2415,7 +2378,7 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
 def test_evaluate_text_and_text_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["sentence not", "All women are bad."]})
         results = mlflow.evaluate(
@@ -2463,7 +2426,7 @@ def per_row_metric(predictions, targets=None, metrics=None):
 def test_evaluate_text_custom_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["a", "b"], "target": ["a", "b"]})
         results = mlflow.evaluate(
@@ -2497,7 +2460,7 @@ def test_evaluate_text_custom_metrics():
 def test_eval_results_table_json_can_be_prefixed_with_metric_prefix(metric_prefix):
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["a", "b"]})
         results = mlflow.evaluate(
@@ -2650,7 +2613,7 @@ def test_constructing_eval_df_for_custom_metrics():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=language_model_with_context,
             input_example=["a", "b"],
         )
@@ -2732,7 +2695,7 @@ def test_evaluate_no_model_and_predictions_specified_with_unsupported_data_type(
 def test_evaluate_no_model_type():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         with pytest.raises(
@@ -2748,7 +2711,7 @@ def test_evaluate_no_model_type():
 def test_evaluate_no_model_type_with_builtin_metric():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         results = mlflow.evaluate(
@@ -2773,7 +2736,7 @@ def test_evaluate_no_model_type_with_builtin_metric():
 def test_evaluate_no_model_type_with_custom_metric():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         from mlflow.metrics import make_metric
@@ -2817,7 +2780,7 @@ def multi_output_model(inputs):
 def test_default_metrics_as_extra_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=multi_output_model, input_example=["a"]
+            name="model", python_model=multi_output_model, input_example=["a"]
         )
         data = pd.DataFrame(
             {
@@ -3190,7 +3153,7 @@ def test_custom_metric_bad_names():
 def test_multi_output_model_error_handling():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=multi_output_model, input_example=["a"]
+            name="model", python_model=multi_output_model, input_example=["a"]
         )
         data = pd.DataFrame(
             {
@@ -3220,7 +3183,7 @@ def test_multi_output_model_error_handling():
 def test_invalid_extra_metrics():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         with pytest.raises(
@@ -3240,7 +3203,7 @@ def test_invalid_extra_metrics():
 def test_evaluate_with_latency():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["sentence not", "Hello world."]})
         results = mlflow.evaluate(
@@ -3274,7 +3237,7 @@ def test_evaluate_with_latency_and_pd_series():
             return pd.Series(inputs)
 
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=pd_series_model, input_example=["a", "b"]
+            name="model", python_model=pd_series_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["input text", "random text"]})
         results = mlflow.evaluate(
@@ -3302,7 +3265,7 @@ def test_evaluate_with_latency_and_pd_series():
 
 def test_evaluate_with_latency_static_dataset():
     with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=language_model, input_example=["a", "b"])
+        mlflow.pyfunc.log_model(name="model", python_model=language_model, input_example=["a", "b"])
         data = pd.DataFrame(
             {
                 "text": ["foo", "bar"],
@@ -3415,7 +3378,7 @@ def test_evaluate_with_correctness():
 def test_evaluate_custom_metrics_string_values():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         results = mlflow.evaluate(
@@ -3781,7 +3744,7 @@ def test_evaluate_with_numpy_array():
 
     with mlflow.start_run():
         logged_model = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         results = mlflow.evaluate(
             logged_model.model_uri,
@@ -3964,7 +3927,7 @@ def test_precanned_bleu_metrics_work():
 def test_evaluate_custom_metric_with_string_type():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         from mlflow.metrics import make_metric
@@ -4005,7 +3968,7 @@ def test_evaluate_custom_metric_with_string_type():
 def test_do_not_log_built_in_metrics_as_artifacts():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a"]
+            name="model", python_model=language_model, input_example=["a"]
         )
         data = pd.DataFrame(
             {
@@ -4036,7 +3999,7 @@ def test_do_not_log_built_in_metrics_as_artifacts():
 def test_log_genai_custom_metrics_as_artifacts():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a"]
+            name="model", python_model=language_model, input_example=["a"]
         )
         data = pd.DataFrame(
             {
@@ -4113,7 +4076,7 @@ def test_log_genai_custom_metrics_as_artifacts():
 def test_all_genai_custom_metrics_are_from_user_prompt():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a"]
+            name="model", python_model=language_model, input_example=["a"]
         )
         data = pd.DataFrame(
             {
@@ -4168,13 +4131,16 @@ def test_xgboost_model_evaluate_work_with_shap_explainer():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
     xgb_model = xgboost.XGBClassifier()
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         xgb_model.fit(X_train, y_train)
 
+        logged_models = mlflow.search_logged_models(
+            filter_string=f"source_run_id='{run.info.run_id}'", output_format="list"
+        )
+        model_uri = logged_models[0].model_uri
         eval_data = X_test
         eval_data["label"] = y_test
 
-        model_uri = mlflow.get_artifact_uri("model")
         with mock.patch("mlflow.models.evaluation.evaluators.shap._logger.warning") as mock_warning:
             mlflow.evaluate(
                 model_uri,
@@ -4287,7 +4253,7 @@ def test_regressor_returning_pandas_object(model_output, predictions):
             return model_output
 
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=Model())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
         result = mlflow.evaluate(
             model_info.model_uri,
             data=pd.DataFrame(

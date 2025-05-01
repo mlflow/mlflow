@@ -29,6 +29,7 @@ env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: /home/runner/work/mlflow/mlflow/requirements/constraints.txt
   PYTHONUTF8: "1"
 
 jobs:
@@ -40,9 +41,10 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions: {}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -58,7 +60,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -66,7 +69,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -94,15 +97,17 @@ jobs:
           source dev/setup-ssh.sh
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
-            --ignore tests/deployments/server tests
+            --ignore=tests/deployments/server --ignore=tests/pyspark/optuna \
+            --ignore tests/genai tests
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    permissions: {}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         with:
@@ -119,14 +124,21 @@ jobs:
         run: |
           python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
           pytest tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py
+      - name: Run databricks-connect related tests
+        run: |
+          # this needs to be run in a separate job because installing databricks-connect could break other 
+          # tests that uses normal SparkSession instead of remote SparkSession
+          pip install databricks-agents
+          pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    permissions: {}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -140,7 +152,7 @@ jobs:
           set +e
           err=0
           trap 'err=1' ERR
-
+          RESULTS=""
           for service in $(./tests/db/compose.sh config --services | grep '^mlflow-' | sort)
           do
             # Set `--no-TTY` to show container logs on GitHub Actions:
@@ -149,8 +161,10 @@ jobs:
               tests/store/tracking/test_sqlalchemy_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
               tests/db
+              RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
           done
 
+          echo -e "$RESULTS"
           test $err = 0
 
       - name: Run migration check
@@ -175,9 +189,10 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions: {}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -197,9 +212,10 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -233,7 +249,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -241,7 +258,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -267,7 +284,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -275,7 +293,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -295,11 +313,60 @@ jobs:
         run: |
           pytest tests/evaluate/test_default_evaluator_delta.py
 
+  genai:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: "3.10"
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+      - name: Run GenAI Tests
+        run: |
+          # GenAI evaluation tests require databricks-agents that only work with Python 3.10~
+          pip install databricks-agents openai
+          pytest tests/genai
+
+  optuna:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install 'pyspark>=3.5' 'optuna>=4' .
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        run: |
+          pytest tests/optuna
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -307,7 +374,7 @@ jobs:
         include:
           - splits: 4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -339,9 +406,10 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
@@ -360,7 +428,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -368,9 +437,12 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
+      - name: Set PIP_CONSTRAINT
+        run: |
+          echo "PIP_CONSTRAINT=${{ github.workspace }}/requirements/constraints.txt" >> $GITHUB_ENV
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -380,7 +452,7 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/Scripts/activate
-          python -m pip install -U pip
+          python -m pip install -U pip setuptools wheel
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install '.[extras,genai]'
           pip install pyspark
@@ -412,8 +484,5 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server \
-            tests
-          # MLeap is incompatible on Windows with PySpark3.4 release.
-          # Reinstate tests when MLeap has released a fix. [ML-30491]
-          # pytest tests/mleap
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server --ignore=tests/optuna \
+            --ignore=tests/genai tests

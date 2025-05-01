@@ -1,12 +1,12 @@
-import { u as useDesignSystemContext, a as useDesignSystemTheme, I as Icon, S as Spinner, D as DesignSystemAntDConfigProvider, R as RestoreAntDDefaultClsPrefix, b as DesignSystemEventProviderAnalyticsEventTypes, c as useDesignSystemEventComponentCallbacks, d as DesignSystemEventProviderComponentTypes, e as addDebugOutlineStylesIfEnabled, g as getAnimationCss, f as DesignSystemEventProviderComponentSubTypeMap, h as useNotifyOnFirstView, i as addDebugOutlineIfEnabled, C as CloseIcon, j as useDesignSystemSafexFlags, k as getDarkModePortalStyles, l as useUniqueId, m as Root$8, T as Trigger$4, n as Content$5, A as Arrow$2, B as Button, o as ChevronRightIcon, L as LoadingState, v as visuallyHidden, p as DesignSystemEventSuppressInteractionProviderContext, q as DesignSystemEventSuppressInteractionTrueContextValue, r as Typography, s as importantify, t as CheckIcon, w as ComponentFinderContext, x as getComboboxOptionItemWrapperStyles, y as getComboboxContentWrapperStyles, z as getFooterStyles, E as highlightFirstNonDisabledOption, F as getInfoIconStyles, G as getKeyboardNavigationFunctions, H as dialogComboboxLookAheadKeyDown, J as getCheckboxStyles, K as getDialogComboboxOptionLabelWidth, M as getContentOptions, N as findHighlightedOption, O as highlightOption, P as findClosestOptionSibling, Q as getComboboxOptionLabelStyles, U as getSelectItemWithHintColumnStyles, V as getHintColumnStyles, W as useComponentFinderContext, X as getValidationStateColor, Y as ApplyDesignSystemContextOverrides, Z as getShadowScrollStyles, _ as DangerIcon, $ as WarningIcon, a0 as LoadingIcon, a1 as Title$2, a2 as AccessibleContainer, a3 as ChevronLeftIcon, a4 as DU_BOIS_ENABLE_ANIMATION_CLASSNAME, a5 as safex, a6 as lightColorList, a7 as getDefaultStyles, a8 as getPrimaryStyles, a9 as getDisabledSplitButtonStyles, aa as getDisabledPrimarySplitButtonStyles } from './Typography-EFtM7f6H.js';
-export { al as ApplyDesignSystemFlags, aw as ColorVars, ai as DesignSystemContext, af as DesignSystemEventProvider, ad as DesignSystemEventProviderComponentSubTypes, ak as DesignSystemProvider, ah as DesignSystemThemeContext, aj as DesignSystemThemeProvider, ar as LoadingStateContext, aq as NewWindowIcon, as as Popover, ap as WithDesignSystemThemeHoc, ae as augmentWithDataComponentProps, au as getBottomOnlyShadowScrollStyles, ac as getButtonEmotionStyles, ab as getMemoizedButtonEmotionStyles, at as getTypographyColor, av as getVirtualizedComboboxMenuItemStyles, an as isOptionDisabled, ao as resetTabIndexToFocusedElement, am as useAntDConfigProviderContext, ag as useDesignSystemEventSuppressInteractionContext } from './Typography-EFtM7f6H.js';
+import { G as useDesignSystemContext, u as useDesignSystemTheme, I as Icon, H as Spinner, D as DesignSystemAntDConfigProvider, y as RestoreAntDDefaultClsPrefix, d as DesignSystemEventProviderAnalyticsEventTypes, f as useDesignSystemEventComponentCallbacks, h as DesignSystemEventProviderComponentTypes, z as addDebugOutlineStylesIfEnabled, c as getAnimationCss, a as useDesignSystemSafexFlags, k as DesignSystemEventProviderComponentSubTypeMap, l as useNotifyOnFirstView, B as Button, T as Typography, b as addDebugOutlineIfEnabled, C as CloseIcon, A as getDarkModePortalStyles, J as useUniqueId, R as Root$8, m as Trigger$4, n as Content$5, K as Arrow$2, q as ChevronRightIcon, L as LoadingState, M as visuallyHidden, t as DesignSystemEventSuppressInteractionProviderContext, v as DesignSystemEventSuppressInteractionTrueContextValue, i as importantify, e as useFormContext, N as CheckIcon, O as ComponentFinderContext, r as getComboboxOptionItemWrapperStyles, P as getComboboxContentWrapperStyles, Q as getFooterStyles, U as highlightFirstNonDisabledOption, V as getInfoIconStyles, X as getKeyboardNavigationFunctions, Y as dialogComboboxLookAheadKeyDown, Z as getCheckboxStyles, _ as getDialogComboboxOptionLabelWidth, $ as getContentOptions, a0 as findHighlightedOption, a1 as highlightOption, a2 as findClosestOptionSibling, a3 as getComboboxOptionLabelStyles, a4 as getSelectItemWithHintColumnStyles, a5 as getHintColumnStyles, a6 as useComponentFinderContext, g as getValidationStateColor, a7 as ApplyDesignSystemContextOverrides, E as getShadowScrollStyles, j as DangerIcon, W as WarningIcon, a8 as LoadingIcon, w as safex, a9 as Title$2, aa as AccessibleContainer, o as ChevronLeftIcon, ab as DU_BOIS_ENABLE_ANIMATION_CLASSNAME, ac as lightColorList, ad as getDefaultStyles, ae as getPrimaryStyles, af as getDisabledSplitButtonStyles, ag as getDisabledPrimarySplitButtonStyles } from './Stepper-VOpjC9TY.js';
+export { aq as ApplyDesignSystemFlags, aB as ColorVars, an as DesignSystemContext, ak as DesignSystemEventProvider, aj as DesignSystemEventProviderComponentSubTypes, ap as DesignSystemProvider, am as DesignSystemThemeContext, ao as DesignSystemThemeProvider, aw as LoadingStateContext, av as NewWindowIcon, ax as Popover, au as WithDesignSystemThemeHoc, x as augmentWithDataComponentProps, az as getBottomOnlyShadowScrollStyles, ai as getButtonEmotionStyles, ah as getMemoizedButtonEmotionStyles, ay as getTypographyColor, aA as getVirtualizedComboboxMenuItemStyles, as as isOptionDisabled, at as resetTabIndexToFocusedElement, ar as useAntDConfigProviderContext, al as useDesignSystemEventSuppressInteractionContext } from './Stepper-VOpjC9TY.js';
 import * as React from 'react';
-import React__default, { useRef, useMemo, forwardRef, createContext, useContext, useCallback, useEffect, useState, useImperativeHandle, Children, Fragment as Fragment$1, useLayoutEffect } from 'react';
+import React__default, { useRef, useMemo, forwardRef, createContext, useContext, useCallback, useState, useEffect, useImperativeHandle, Children, Fragment as Fragment$1, useLayoutEffect } from 'react';
 import { jsx, jsxs, Fragment } from '@emotion/react/jsx-runtime';
-import { I as Input } from './index-BP9a_E5e.js';
-export { C as ClockIcon, M as MegaphoneIcon, g as getInputStyles, u as useCallbackOnEnter } from './index-BP9a_E5e.js';
-import { u as useModalContext, I as InfoIcon, S as Spacer, L as ListIcon, T as Tooltip$1 } from './Tooltip-BVYL7lTx.js';
-export { C as Content, D as DangerModal, M as Modal, N as Nav, a as NavButton, P as Panel, e as PanelBody, b as PanelHeader, d as PanelHeaderButtons, c as PanelHeaderTitle, f as Sidebar } from './Tooltip-BVYL7lTx.js';
+import { I as Input, S as SearchIcon } from './index-CH9ufzDw.js';
+export { C as ClockIcon, M as MegaphoneIcon, g as getInputStyles, u as useCallbackOnEnter } from './index-CH9ufzDw.js';
+import { d as Modal, e as useModalContext, I as InfoIcon, S as Spacer, L as ListIcon, T as Tooltip$1 } from './WizardStepContentWrapper-Dkc7JDxZ.js';
+export { C as Content, f as DangerModal, D as DocumentationSidebar, F as FIXED_VERTICAL_STEPPER_WIDTH, M as MAX_VERTICAL_WIZARD_CONTENT_WIDTH, N as Nav, g as NavButton, P as Panel, k as PanelBody, h as PanelHeader, j as PanelHeaderButtons, i as PanelHeaderTitle, l as Sidebar, W as Wizard, a as WizardControlled, b as WizardModal, c as WizardStepContentWrapper, u as useWizardCurrentStep } from './WizardStepContentWrapper-Dkc7JDxZ.js';
 import { css, Global, keyframes, ClassNames, createElement } from '@emotion/react';
 import { Collapse, Alert as Alert$1, AutoComplete as AutoComplete$1, Tooltip, Breadcrumb as Breadcrumb$1, Checkbox as Checkbox$1, DatePicker, Dropdown as Dropdown$1, Select as Select$1, Radio as Radio$1, Switch as Switch$1, Col as Col$1, Row as Row$1, Space as Space$1, Layout as Layout$1, Form, notification, Popover as Popover$1, Skeleton, Pagination as Pagination$1, Table as Table$1, Tabs as Tabs$1, Menu as Menu$1, Button as Button$1, Steps as Steps$1, Tree as Tree$1 } from 'antd';
 import classnames from 'classnames';
@@ -43,7 +43,10 @@ import 'lodash/isString';
 import 'lodash/mapValues';
 import 'lodash/memoize';
 import '@emotion/unitless';
+import 'lodash/noop';
 import 'react-resizable';
+import 'lodash/pick';
+import 'lodash/compact';
 
 function useDesignSystemFlags() {
   const context = useDesignSystemContext();
@@ -1480,14 +1483,23 @@ function SvgCatalogOffIcon(props) {
     fill: "none",
     viewBox: "0 0 16 16",
     ...props,
-    children: [jsx("path", {
+    children: [jsxs("g", {
       fill: "currentColor",
-      d: "M14.03.75v10.69l-1.5-1.5V1.5H4.78c-.2 0-.39.047-.558.131L3.136.545A2.74 2.74 0 0 1 4.78 0h8.5a.75.75 0 0 1 .75.75"
-    }), jsx("path", {
-      fill: "currentColor",
-      fillRule: "evenodd",
-      d: "M2.03 3.56 1 2.53l1.06-1.06 13 13L14 15.53l-.017-.017a.75.75 0 0 1-.703.487H4.53a2.5 2.5 0 0 1-2.5-2.5zm8.94 8.94 1.56 1.56v.44h-8a1 1 0 1 1 0-2zM9.47 11H4.53c-.355 0-.693.074-1 .208V5.061z",
-      clipRule: "evenodd"
+      clipPath: "url(#CatalogOffIcon_svg__a)",
+      children: [jsx("path", {
+        d: "m14 11.94-1.5-1.5V5H7.061l-1.5-1.5h6.94v-2h-8c-.261 0-.499.1-.677.263L2.764.703A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75z"
+      }), jsx("path", {
+        fillRule: "evenodd",
+        d: "M2 4.06.47 2.53l1.06-1.06 13.5 13.5-1.06 1.06-.03-.03H4.75A2.75 2.75 0 0 1 2 13.25zm1.5 1.5v7.69c0 .69.56 1.25 1.25 1.25h7.69z",
+        clipRule: "evenodd"
+      })]
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
     })]
   });
 }
@@ -2481,17 +2493,22 @@ const CopyIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 CopyIcon.displayName = 'CopyIcon';
 
 function SvgCreditCardIcon(props) {
-  return jsx("svg", {
+  return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
     width: "1em",
     height: "1em",
     fill: "none",
     viewBox: "0 0 16 16",
     ...props,
-    children: jsx("path", {
+    children: [jsx("path", {
       fill: "currentColor",
-      d: "M14.4 4.4v7.2q0 .483-.353.842a1.15 1.15 0 0 1-.847.358H2.8q-.483 0-.842-.358A1.15 1.15 0 0 1 1.6 11.6V4.4q0-.483.358-.841.36-.36.842-.359h10.4q.495 0 .848.359.352.357.352.841M2.8 5.6h10.4V4.4H2.8zm0 2.4v3.6h10.4V8z"
-    })
+      d: "M13 9H9v1.5h4z"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M1.75 2A1.75 1.75 0 0 0 0 3.75v8.5C0 13.216.784 14 1.75 14h12.5A1.75 1.75 0 0 0 16 12.25v-8.5A1.75 1.75 0 0 0 14.25 2zM1.5 3.75a.25.25 0 0 1 .25-.25h12.5a.25.25 0 0 1 .25.25V5.5h-13zM1.5 7h13v5.25a.25.25 0 0 1-.25.25H1.75a.25.25 0 0 1-.25-.25z",
+      clipRule: "evenodd"
+    })]
   });
 }
 const CreditCardIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
@@ -2587,6 +2604,31 @@ const CustomAppIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 CustomAppIcon.displayName = 'CustomAppIcon';
 
+function SvgDagHorizontalIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M9 2.75A.75.75 0 0 1 9.75 2h5.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-5.5a.75.75 0 0 1-.748-.692L7.311 8l1.691 1.692A.75.75 0 0 1 9.75 9h5.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-5.5a.75.75 0 0 1-.75-.75v-1.44L6.998 9.809a.75.75 0 0 1-.748.692H.75A.75.75 0 0 1 0 9.75v-3.5a.75.75 0 0 1 .75-.75h5.5a.75.75 0 0 1 .748.692L9 4.189zm1.5 2.75h4v-2h-4zM5.5 7h-4v2h4zm5 3.5v2h4v-2z",
+      clipRule: "evenodd"
+    })
+  });
+}
+const DagHorizontalIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgDagHorizontalIcon
+  });
+});
+DagHorizontalIcon.displayName = 'DagHorizontalIcon';
+
 function SvgDagIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -2611,6 +2653,31 @@ const DagIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
   });
 });
 DagIcon.displayName = 'DagIcon';
+
+function SvgDagVerticalIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M4.5 2.75A.75.75 0 0 1 5.25 2h5.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-.564l2.571 2h2.493a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75h-5.5a.75.75 0 0 1-.75-.75v-3.5A.75.75 0 0 1 9.75 9h.564L8 7.2 5.686 9h.564a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1-.75-.75v-3.5A.75.75 0 0 1 .75 9h2.493l2.571-2H5.25a.75.75 0 0 1-.75-.75zM6 3.5v2h4v-2zm-4.5 7v2h4v-2zm9 0v2h4v-2z",
+      clipRule: "evenodd"
+    })
+  });
+}
+const DagVerticalIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgDagVerticalIcon
+  });
+});
+DagVerticalIcon.displayName = 'DagVerticalIcon';
 
 function SvgDIcon(props) {
   return jsxs("svg", {
@@ -3242,6 +3309,64 @@ const FileModelIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 FileModelIcon.displayName = 'FileModelIcon';
 
+function SvgFileNewIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M2 .75A.75.75 0 0 1 2.75 0h6a.75.75 0 0 1 .53.22l4.5 4.5c.141.14.22.331.22.53V7.5h-1.5V6H8.75A.75.75 0 0 1 8 5.25V1.5H3.5v12h4V15H2.75a.75.75 0 0 1-.75-.75zm7.5 1.81 1.94 1.94H9.5z",
+      clipRule: "evenodd"
+    }), jsx("path", {
+      fill: "currentColor",
+      d: "M11.25 15v-2.25H9v-1.5h2.25V9h1.5v2.25H15v1.5h-2.25V15z"
+    })]
+  });
+}
+const FileNewIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgFileNewIcon
+  });
+});
+FileNewIcon.displayName = 'FileNewIcon';
+
+function SvgFilePipelineIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M2 .75A.75.75 0 0 1 2.75 0h6a.75.75 0 0 1 .53.22l4.5 4.5c.141.14.22.331.22.53V8h-1.5V6H8.75A.75.75 0 0 1 8 5.25V1.5H3.5v12h6V15H2.75a.75.75 0 0 1-.75-.75zm7.5 1.81 1.94 1.94H9.5z",
+      clipRule: "evenodd"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M9.25 8.5a.75.75 0 0 0-.75.75v2.5c0 .414.336.75.75.75h.785a3.5 3.5 0 0 0 3.465 3h1.25a.75.75 0 0 0 .75-.75v-2.5a.75.75 0 0 0-.75-.75h-.785a3.5 3.5 0 0 0-3.465-3zM10 11v-1h.5a2 2 0 0 1 2 2 1 1 0 0 0 1 1h.5v1h-.5a2 2 0 0 1-2-2 1 1 0 0 0-1-1z",
+      clipRule: "evenodd"
+    })]
+  });
+}
+const FilePipelineIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgFilePipelineIcon
+  });
+});
+FilePipelineIcon.displayName = 'FilePipelineIcon';
+
 function SvgFilterIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -3442,6 +3567,39 @@ const FolderCloudIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 FolderCloudIcon.displayName = 'FolderCloudIcon';
 
+function SvgFolderCubeIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M12.314 8.069a.75.75 0 0 0-.628 0l-3.248 1.5-.017.007A.75.75 0 0 0 8 10.25v3.5c0 .293.17.558.436.681l3.246 1.498a.75.75 0 0 0 .636 0l3.246-1.498A.75.75 0 0 0 16 13.75v-3.5a.75.75 0 0 0-.436-.681m-2.104.681L12 9.576l-1.46.674 1.46.674zm1.04 1.172-1.75.808v1.848l1.75-.808zm-3.25.808-1.75-.808v1.848l1.75.808z",
+      clipRule: "evenodd"
+    }), jsx("path", {
+      fill: "currentColor",
+      d: "m12.314 8.069 3.248 1.5Z"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h5.268A3 3 0 0 1 6 13.68V12.5H1.5v-9h3.172c.331 0 .649.132.883.366L6.97 5.28c.14.141.331.22.53.22h7v1.362l1.5.692V4.75a.75.75 0 0 0-.75-.75H7.81L6.617 2.805A2.75 2.75 0 0 0 4.672 2z",
+      clipRule: "evenodd"
+    })]
+  });
+}
+const FolderCubeIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgFolderCubeIcon
+  });
+});
+FolderCubeIcon.displayName = 'FolderCubeIcon';
+
 function SvgFolderFillIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -3489,6 +3647,88 @@ const FolderIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
   });
 });
 FolderIcon.displayName = 'FolderIcon';
+
+function SvgFolderNewIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75H7.5v-1.5h-6v-9h3.172c.331 0 .649.132.883.366L6.97 5.28c.14.141.331.22.53.22h7V8H16V4.75a.75.75 0 0 0-.75-.75H7.81L6.617 2.805A2.75 2.75 0 0 0 4.672 2z"
+    }), jsx("path", {
+      fill: "currentColor",
+      d: "M11.25 11.25V9h1.5v2.25H15v1.5h-2.25V15h-1.5v-2.25H9v-1.5z"
+    })]
+  });
+}
+const FolderNewIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgFolderNewIcon
+  });
+});
+FolderNewIcon.displayName = 'FolderNewIcon';
+
+function SvgFolderOutlinePipelineIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      d: "M0 2.75A.75.75 0 0 1 .75 2h3.922c.729 0 1.428.29 1.944.805L7.811 4h7.439a.75.75 0 0 1 .75.75V10h-1.5V5.5h-7a.75.75 0 0 1-.53-.22L5.555 3.866a1.25 1.25 0 0 0-.883-.366H1.5v9h6V14H.75a.75.75 0 0 1-.75-.75z"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M9.25 8.5a.75.75 0 0 0-.75.75v2.5c0 .414.336.75.75.75h.785a3.5 3.5 0 0 0 3.465 3h1.25a.75.75 0 0 0 .75-.75v-2.5a.75.75 0 0 0-.75-.75h-.785a3.5 3.5 0 0 0-3.465-3zM10 11v-1h.5a2 2 0 0 1 2 2 1 1 0 0 0 1 1h.5v1h-.5a2 2 0 0 1-2-2 1 1 0 0 0-1-1z",
+      clipRule: "evenodd"
+    })]
+  });
+}
+const FolderOutlinePipelineIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgFolderOutlinePipelineIcon
+  });
+});
+FolderOutlinePipelineIcon.displayName = 'FolderOutlinePipelineIcon';
+
+function SvgFolderSolidPipelineIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      d: "M.75 2a.75.75 0 0 0-.75.75v10.5c0 .414.336.75.75.75h8.166l-.01-.026A2.25 2.25 0 0 1 7 11.75v-2.5A2.25 2.25 0 0 1 9.25 7h1.25a5 5 0 0 1 4.595 3.026c.33.051.638.174.905.353V4.75a.75.75 0 0 0-.75-.75H7.81L6.617 2.805A2.75 2.75 0 0 0 4.672 2z"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M9.25 8.5a.75.75 0 0 0-.75.75v2.5c0 .414.336.75.75.75h.785a3.5 3.5 0 0 0 3.465 3h1.25a.75.75 0 0 0 .75-.75v-2.5a.75.75 0 0 0-.75-.75h-.785a3.5 3.5 0 0 0-3.465-3zM10 11v-1h.5a2 2 0 0 1 2 2 1 1 0 0 0 1 1h.5v1h-.5a2 2 0 0 1-2-2 1 1 0 0 0-1-1z",
+      clipRule: "evenodd"
+    })]
+  });
+}
+const FolderSolidPipelineIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgFolderSolidPipelineIcon
+  });
+});
+FolderSolidPipelineIcon.displayName = 'FolderSolidPipelineIcon';
 
 function SvgFontIcon(props) {
   return jsxs("svg", {
@@ -4394,20 +4634,13 @@ function SvgLightbulbIcon(props) {
     viewBox: "0 0 16 16",
     ...props,
     children: [jsx("path", {
-      stroke: "currentColor",
-      strokeLinecap: "round",
-      strokeWidth: 1.5,
-      d: "M7 15h2"
+      fill: "currentColor",
+      d: "M7.25 0v2h1.5V0zM16 7.25h-2v1.5h2zM0 7.25h2v1.5H0zM13.127 1.813l-1.415 1.414 1.061 1.06 1.414-1.414zM2.874 1.813l1.414 1.414-1.06 1.06-1.415-1.414z"
     }), jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M9.475 10.019a2.5 2.5 0 1 0-2.95 0c.528.386.975 1.048.975 1.879V12h1v-.102c0-.83.447-1.492.975-1.88m.887 1.21a.84.84 0 0 0-.362.669v.852a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1-.75-.75v-.852a.84.84 0 0 0-.362-.67 4 4 0 1 1 4.724 0",
+      d: "M3.25 8.221C3.25 5.61 5.382 3.5 8 3.5s4.75 2.109 4.75 4.721a4.7 4.7 0 0 1-.985 2.879c-.754.973-1.33 1.776-1.33 2.644v1.506a.75.75 0 0 1-.75.75h-3.37a.75.75 0 0 1-.75-.75v-1.506c0-.868-.576-1.67-1.33-2.644A4.7 4.7 0 0 1 3.25 8.22M8 5C6.2 5 4.75 6.447 4.75 8.221c0 .738.25 1.417.67 1.96l.044.056c.284.366.612.789.897 1.263h3.278c.285-.474.613-.897.897-1.263l.043-.056c.422-.543.671-1.222.671-1.96C11.25 6.447 9.8 5 8 5m-.934 8.744c0-.256-.03-.504-.081-.744h2.03q-.079.36-.08.744v.756h-1.87z",
       clipRule: "evenodd"
-    }), jsx("path", {
-      stroke: "currentColor",
-      strokeLinecap: "round",
-      strokeWidth: 1.5,
-      d: "M11.375 3.78 12 3M13.051 6.316 14 6M4.625 3.78 4 3M2.949 6.316 2 6M8 2.5v-1"
     })]
   });
 }
@@ -4743,6 +4976,31 @@ const MailIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 MailIcon.displayName = 'MailIcon';
 
+function SvgMapIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "m2.058 13.934 3.827-1.723 3.675 2.646.015.011a.75.75 0 0 0 .735.065l4.248-1.912a.75.75 0 0 0 .442-.684V2.75a.75.75 0 0 0-1.058-.684L10.115 3.79 6.44 1.143l-.015-.011a.75.75 0 0 0-.735-.065L1.442 2.979A.75.75 0 0 0 1 3.663v9.587a.75.75 0 0 0 1.058.684M2.5 4.148 5.25 2.91v7.942L2.5 12.09zm8.25 1v7.942l2.75-1.238V3.91zm-1.5-.134-2.5-1.8v7.772l2.5 1.8z",
+      clipRule: "evenodd"
+    })
+  });
+}
+const MapIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgMapIcon
+  });
+});
+MapIcon.displayName = 'MapIcon';
+
 function SvgMeasureIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -4753,7 +5011,9 @@ function SvgMeasureIcon(props) {
     ...props,
     children: jsx("path", {
       fill: "currentColor",
-      d: "m14.884 4.409-3.293-3.293a1.25 1.25 0 0 0-1.768 0L1.116 9.823a1.25 1.25 0 0 0 0 1.768l3.293 3.293a1.25 1.25 0 0 0 1.768 0l8.707-8.707a1.25 1.25 0 0 0 0-1.768m-9.592 9.237L2.355 10.71 4 9.063l1.47 1.47A.751.751 0 1 0 6.532 9.47L5.062 8 6 7.063l1.47 1.47A.751.751 0 0 0 8.531 7.47L7.062 6 8 5.063l1.47 1.47a.751.751 0 1 0 1.062-1.063L9.062 4l1.647-1.646 2.938 2.937z"
+      fillRule: "evenodd",
+      d: "M10.22.72a.75.75 0 0 1 1.06 0l4 4a.75.75 0 0 1 0 1.06l-9.5 9.5a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 0 1 0-1.06zm.53 1.59-8.44 8.44 2.94 2.94 1.314-1.315-1.47-1.47 1.061-1.06 1.47 1.47L8.939 10 7.47 8.53 8.53 7.47 10 8.94l1.314-1.315-1.47-1.47 1.061-1.06 1.47 1.47 1.314-1.315z",
+      clipRule: "evenodd"
     })
   });
 }
@@ -4790,37 +5050,6 @@ const MenuIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
   });
 });
 MenuIcon.displayName = 'MenuIcon';
-
-function SvgMetricViewIcon(props) {
-  return jsxs("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: [jsx("path", {
-      fill: "currentColor",
-      fillRule: "evenodd",
-      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H4v-1.5H2.5V7H5v2h1.5V7h3v2H11V7h2.5v2H15V1.75a.75.75 0 0 0-.75-.75zM13.5 5.5v-3h-11v3z",
-      clipRule: "evenodd"
-    }), jsx("path", {
-      fill: "currentColor",
-      d: "M11.25 15v-3.45a.75.75 0 0 0-1.5 0V15zM13.626 15v-2.65a.75.75 0 0 0-1.5 0V15zM8.874 15v-2.65a.75.75 0 0 0-1.5 0V15zM15.202 15a.8.8 0 0 0 .8-.8v-2.65a.75.75 0 0 0-1.5 0V15zM6.498 15v-3.45c0-.414-.288-.75-.75-.75-.366 0-.702.336-.75.75v2.65a.8.8 0 0 0 .8.8z"
-    }), jsx("path", {
-      fill: "currentColor",
-      d: "M5.22 14.78c.14.141.331.22.53.22h9.5a.75.75 0 0 0 .75-.75V12.5h-1.5v1h-8v-1H5v1.75c0 .199.079.39.22.53"
-    })]
-  });
-}
-const MetricViewIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgMetricViewIcon
-  });
-});
-MetricViewIcon.displayName = 'MetricViewIcon';
 
 function SvgMinusCircleFillIcon(props) {
   return jsx("svg", {
@@ -5470,6 +5699,34 @@ const PinIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
   });
 });
 PinIcon.displayName = 'PinIcon';
+
+function SvgPipelineCodeIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M10.75 6.75A5.75 5.75 0 0 0 5 1H1.75a.75.75 0 0 0-.75.75V6c0 .414.336.75.75.75H5a.25.25 0 0 1 .25.25v2.25c0 1.338.457 2.57 1.223 3.546l1.072-1.071A4.23 4.23 0 0 1 6.75 9.25V7A1.75 1.75 0 0 0 5.5 5.322V2.53A4.25 4.25 0 0 1 9.25 6.75V9c0 .295.073.573.202.817L10.75 8.52zM4 2.5v2.75H2.5V2.5z",
+      clipRule: "evenodd"
+    }), jsx("path", {
+      fill: "currentColor",
+      d: "m13.319 10.66 2.608 2.61-2.608 2.609-1.061-1.061 1.548-1.548-1.548-1.549zM10.68 10.66l-2.61 2.61 2.61 2.609 1.06-1.06-1.549-1.55 1.549-1.548z"
+    })]
+  });
+}
+const PipelineCodeIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgPipelineCodeIcon
+  });
+});
+PipelineCodeIcon.displayName = 'PipelineCodeIcon';
 
 function SvgPipelineIcon(props) {
   return jsx("svg", {
@@ -6254,41 +6511,6 @@ const SearchDataIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 SearchDataIcon.displayName = 'SearchDataIcon';
 
-function SvgSearchIcon(props) {
-  return jsxs("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: [jsx("g", {
-      clipPath: "url(#SearchIcon_svg__a)",
-      children: jsx("path", {
-        fill: "currentColor",
-        fillRule: "evenodd",
-        d: "M8 1a7 7 0 1 0 4.39 12.453l2.55 2.55 1.06-1.06-2.55-2.55A7 7 0 0 0 8 1M2.5 8a5.5 5.5 0 1 1 11 0 5.5 5.5 0 0 1-11 0",
-        clipRule: "evenodd"
-      })
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-const SearchIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgSearchIcon
-  });
-});
-SearchIcon.displayName = 'SearchIcon';
-
 function SvgSendIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -6592,7 +6814,7 @@ function SvgSlidersIcon(props) {
     children: jsx("path", {
       fill: "currentColor",
       fillRule: "evenodd",
-      d: "M2 3.104V2h1.5v1.104a2.751 2.751 0 0 1 0 5.292V14H2V8.396a2.751 2.751 0 0 1 0-5.292M1.5 5.75a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0M12.5 2v1.104a2.751 2.751 0 0 0 0 5.292V14H14V8.396a2.751 2.751 0 0 0 0-5.292V2zm.75 2.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5M7.25 14v-1.104a2.751 2.751 0 0 1 0-5.292V2h1.5v5.604a2.751 2.751 0 0 1 0 5.292V14zM8 11.5A1.25 1.25 0 1 1 8 9a1.25 1.25 0 0 1 0 2.5",
+      d: "M4 15v-2.354a2.751 2.751 0 0 1 0-5.292V1h1.5v6.354a2.751 2.751 0 0 1 0 5.292V15zm.75-3.75a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5M10.5 1v2.354a2.751 2.751 0 0 0 0 5.292V15H12V8.646a2.751 2.751 0 0 0 0-5.292V1zm.75 3.75a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5",
       clipRule: "evenodd"
     })
   });
@@ -7244,6 +7466,34 @@ const TableLightningIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 TableLightningIcon.displayName = 'TableLightningIcon';
 
+function SvgTableMeasureIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M1.75 1a.75.75 0 0 0-.75.75v12.5c0 .414.336.75.75.75H4v-1.5H2.5V7H5v2h1.5V7h3v2H11V7h2.5v2H15V1.75a.75.75 0 0 0-.75-.75zM13.5 5.5v-3h-11v3z",
+      clipRule: "evenodd"
+    }), jsx("path", {
+      fill: "currentColor",
+      d: "M5 11v3.25c0 .414.336.75.75.75h9.5a.75.75 0 0 0 .75-.75V11h-1.5v2.5h-.875V12h-1.5v1.5h-.875V11h-1.5v2.5h-.875V12h-1.5v1.5H6.5V11z"
+    })]
+  });
+}
+const TableMeasureIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgTableMeasureIcon
+  });
+});
+TableMeasureIcon.displayName = 'TableMeasureIcon';
+
 function SvgTableModelIcon(props) {
   return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -7273,36 +7523,6 @@ const TableModelIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
   });
 });
 TableModelIcon.displayName = 'TableModelIcon';
-
-function SvgTableOnlineViewIcon(props) {
-  return jsxs("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 15",
-    ...props,
-    children: [jsx("path", {
-      stroke: "currentColor",
-      strokeWidth: 1.5,
-      d: "M.75 1A.25.25 0 0 1 1 .75h12a.25.25 0 0 1 .25.25v12a.25.25 0 0 1-.25.25H1A.25.25 0 0 1 .75 13zM1 5.25h12M5.25 13V6"
-    }), jsx("path", {
-      fill: "#fff",
-      d: "M7 7h9v7.5H7z"
-    }), jsx("path", {
-      stroke: "currentColor",
-      d: "M10.5 12H15m0 0-1.5-1.5M15 12l-1.5 1.5M12.5 9.5H8m0 0L9.5 11M8 9.5 9.5 8"
-    })]
-  });
-}
-const TableOnlineViewIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgTableOnlineViewIcon
-  });
-});
-TableOnlineViewIcon.displayName = 'TableOnlineViewIcon';
 
 function SvgTableStreamIcon(props) {
   return jsxs("svg", {
@@ -7897,6 +8117,34 @@ const UserIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 UserIcon.displayName = 'UserIcon';
 
+function SvgUserKeyIconIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M4.75 4.25a3.25 3.25 0 1 1 6.5 0 3.25 3.25 0 0 1-6.5 0M8 2.5A1.75 1.75 0 1 0 8 6a1.75 1.75 0 0 0 0-3.5M12.75 12.372a2.251 2.251 0 1 0-1.5 0v2.878c0 .414.336.75.75.75h2v-2.75h-1.25zM12 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5",
+      clipRule: "evenodd"
+    }), jsx("path", {
+      fill: "currentColor",
+      d: "M1.75 15h8v-1.5H2.5v-.474a7.23 7.23 0 0 1 5.759-2.521 3.8 3.8 0 0 1 .2-1.493 8.735 8.735 0 0 0-7.295 3.275.75.75 0 0 0-.164.469v1.494c0 .414.336.75.75.75"
+    })]
+  });
+}
+const UserKeyIconIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgUserKeyIconIcon
+  });
+});
+UserKeyIconIcon.displayName = 'UserKeyIconIcon';
+
 function SvgUserSparkleIcon(props) {
   return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -8362,6 +8610,29 @@ const ZoomOutIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 ZoomOutIcon.displayName = 'ZoomOutIcon';
 
+function SvgZoomToFitIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      d: "m2.5 3.56 2.97 2.97 1.06-1.06L3.56 2.5H6V1H1v5h1.5zM10.53 6.53l2.97-2.97V6H15V1h-5v1.5h2.44L9.47 5.47zM9.47 10.53l2.97 2.97H10V15h5v-5h-1.5v2.44l-2.97-2.97zM5.47 9.47 2.5 12.44V10H1v5h5v-1.5H3.56l2.97-2.97z"
+    })
+  });
+}
+const ZoomToFitIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgZoomToFitIcon
+  });
+});
+ZoomToFitIcon.displayName = 'ZoomToFitIcon';
+
 const getButtonStyles = theme => {
   return /*#__PURE__*/css({
     color: theme.colors.textPlaceholder,
@@ -8405,7 +8676,9 @@ const dialogComboboxContextDefaults = {
   textOverflowMode: 'multiline',
   setTextOverflowMode: () => {},
   scrollToSelectedElement: true,
-  rememberLastScrollPosition: false
+  rememberLastScrollPosition: false,
+  disableMouseOver: false,
+  setDisableMouseOver: () => {}
 };
 const DialogComboboxContext = /*#__PURE__*/createContext(dialogComboboxContextDefaults);
 const DialogComboboxContextProvider = _ref => {
@@ -8547,7 +8820,13 @@ const getCommonTabsTriggerStyles = theme => {
   };
 };
 
-function getAccordionEmotionStyles(clsPrefix, theme) {
+function getAccordionEmotionStyles(_ref) {
+  let {
+    clsPrefix,
+    theme,
+    alignContentToEdge,
+    isLeftAligned
+  } = _ref;
   const classItem = `.${clsPrefix}-item`;
   const classItemActive = `${classItem}-active`;
   const classHeader = `.${clsPrefix}-header`;
@@ -8586,20 +8865,24 @@ function getAccordionEmotionStyles(clsPrefix, theme) {
     },
     [`& > ${classItem} > ${classHeader} > ${classArrow}`]: {
       fontSize: theme.general.iconFontSize,
-      right: 12
+      right: alignContentToEdge || isLeftAligned ? 0 : 12,
+      ...(isLeftAligned && {
+        verticalAlign: 'middle',
+        marginTop: -2
+      })
     },
     [classArrow]: {
       color: theme.colors.textSecondary
     },
     [`& > ${classItemActive} > ${classHeader} > ${classArrow}`]: {
-      transform: 'translateY(-50%) rotate(180deg)'
+      transform: isLeftAligned ? 'rotate(180deg)' : 'translateY(-50%) rotate(180deg)'
     },
     [classContent]: {
       border: '0 none',
       backgroundColor: theme.colors.backgroundPrimary
     },
     [classContentBox]: {
-      padding: '8px 16px 16px'
+      padding: alignContentToEdge ? '8px 0px 16px' : '8px 16px 16px'
     },
     [`& > ${classItem} > ${classHeader}`]: {
       padding: '6px 44px 6px 0',
@@ -8609,13 +8892,13 @@ function getAccordionEmotionStyles(clsPrefix, theme) {
   };
   return /*#__PURE__*/css(styles, process.env.NODE_ENV === "production" ? "" : ";label:getAccordionEmotionStyles;");
 }
-const AccordionPanel = _ref => {
+const AccordionPanel = _ref2 => {
   let {
     dangerouslySetAntdProps,
     dangerouslyAppendEmotionCSS,
     children,
     ...props
-  } = _ref;
+  } = _ref2;
   return jsx(DesignSystemAntDConfigProvider, {
     children: jsx(Collapse.Panel, {
       ...props,
@@ -8628,7 +8911,7 @@ const AccordionPanel = _ref => {
   });
 };
 const Accordion = /* #__PURE__ */(() => {
-  const Accordion = _ref2 => {
+  const Accordion = _ref3 => {
     let {
       dangerouslySetAntdProps,
       dangerouslyAppendEmotionCSS,
@@ -8637,8 +8920,10 @@ const Accordion = /* #__PURE__ */(() => {
       componentId,
       valueHasNoPii,
       onChange,
+      alignContentToEdge = false,
+      chevronAlignment = 'right',
       ...props
-    } = _ref2;
+    } = _ref3;
     const {
       theme,
       getPrefixedClassName
@@ -8667,11 +8952,16 @@ const Accordion = /* #__PURE__ */(() => {
         expandIcon: () => jsx(ChevronDownIcon, {
           ...eventContext.dataComponentProps
         }),
-        expandIconPosition: "right",
+        expandIconPosition: chevronAlignment,
         accordion: displayMode === 'single',
         ...props,
         ...dangerouslySetAntdProps,
-        css: [getAccordionEmotionStyles(clsPrefix, theme), dangerouslyAppendEmotionCSS, addDebugOutlineStylesIfEnabled(theme), process.env.NODE_ENV === "production" ? "" : ";label:Accordion;"],
+        css: [getAccordionEmotionStyles({
+          clsPrefix,
+          theme,
+          alignContentToEdge,
+          isLeftAligned: chevronAlignment === 'left'
+        }), dangerouslyAppendEmotionCSS, addDebugOutlineStylesIfEnabled(theme), process.env.NODE_ENV === "production" ? "" : ";label:Accordion;"],
         onChange: onChangeWrapper
       })
     });
@@ -8704,12 +8994,20 @@ const Alert = _ref => {
     closable = true,
     closeIconLabel = 'Close alert',
     onClose,
+    actions,
+    showMoreContent,
+    showMoreText = 'Show details',
+    showMoreModalTitle = 'Details',
+    forceVerticalActionsPlacement = false,
     ...props
   } = _ref;
   const {
     theme,
     getPrefixedClassName
   } = useDesignSystemTheme();
+  const {
+    useNewBorderRadii
+  } = useDesignSystemSafexFlags();
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Alert,
@@ -8728,6 +9026,7 @@ const Alert = _ref => {
     onView: eventContext.onView
   });
   const clsPrefix = getPrefixedClassName('alert');
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const mergedProps = {
     ...props,
     type: props.type || 'error',
@@ -8746,13 +9045,68 @@ const Alert = _ref => {
     closeButtonEventContext.onClick(e);
     onClose === null || onClose === void 0 || onClose(e);
   };
-  return jsx(DesignSystemAntDConfigProvider, {
-    children: jsx(Alert$1, {
+  const memoizedActions = useMemo(() => {
+    if (!(actions !== null && actions !== void 0 && actions.length)) return null;
+    return actions.map((action, index) => jsx(Button, {
+      size: "small",
+      ...action
+    }, index));
+  }, [actions]);
+
+  // Determine action placement based on number of actions
+  const actionsPlacement = (actions === null || actions === void 0 ? void 0 : actions.length) === 1 && !forceVerticalActionsPlacement ? 'horizontal' : 'vertical';
+  const description = jsxs("div", {
+    css: /*#__PURE__*/css({
+      ...(actionsPlacement === 'horizontal' && {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: theme.spacing.sm,
+        alignItems: 'flex-start'
+      })
+    }, process.env.NODE_ENV === "production" ? "" : ";label:description;"),
+    children: [jsxs("div", {
+      children: [props.description, ' ', showMoreContent && jsx(Typography.Link, {
+        href: "#",
+        componentId: componentId ? `${componentId}.show_more` : 'alert.show_more',
+        onClick: e => {
+          e.preventDefault();
+          setIsModalOpen(true);
+        },
+        children: showMoreText
+      })]
+    }), memoizedActions && actionsPlacement === 'horizontal' && jsx("div", {
+      css: /*#__PURE__*/css({
+        display: 'flex',
+        gap: theme.spacing.sm,
+        marginBottom: theme.spacing.xs
+      }, process.env.NODE_ENV === "production" ? "" : ";label:description;"),
+      children: memoizedActions
+    })]
+  });
+
+  // Create a separate section for vertical actions if needed
+  const verticalActions = memoizedActions && actionsPlacement === 'vertical' && jsx("div", {
+    css: /*#__PURE__*/css({
+      display: 'flex',
+      gap: theme.spacing.sm,
+      marginTop: theme.spacing.sm,
+      marginBottom: theme.spacing.xs
+    }, process.env.NODE_ENV === "production" ? "" : ";label:verticalActions;"),
+    children: memoizedActions
+  });
+
+  // Create the final description that includes both the description and vertical actions if present
+  const finalDescription = jsxs(Fragment, {
+    children: [description, verticalActions]
+  });
+  return jsxs(DesignSystemAntDConfigProvider, {
+    children: [jsx(Alert$1, {
       ...addDebugOutlineIfEnabled(),
       ...mergedProps,
       onClose: onCloseWrapper,
       className: classnames(mergedProps.className),
-      css: getAlertEmotionStyles(clsPrefix, theme, mergedProps),
+      css: getAlertEmotionStyles(clsPrefix, theme, mergedProps, useNewBorderRadii),
       icon: jsx(SeverityIcon, {
         severity: mergedProps.type,
         ref: elementRef
@@ -8768,13 +9122,21 @@ const Alert = _ref => {
       })
       // Always set a description for consistent styling (e.g. icon size)
       ,
-      description: props.description || ' ',
+      description: finalDescription,
       ...dangerouslySetAntdProps,
       ...eventContext.dataComponentProps
-    })
+    }), showMoreContent && jsx(Modal, {
+      title: showMoreModalTitle,
+      visible: isModalOpen,
+      onCancel: () => setIsModalOpen(false),
+      componentId: componentId ? `${componentId}.show_more_modal` : 'alert.show_more_modal',
+      footer: null,
+      size: "wide",
+      children: showMoreContent
+    })]
   });
 };
-const getAlertEmotionStyles = (clsPrefix, theme, props) => {
+const getAlertEmotionStyles = (clsPrefix, theme, props, useNewBorderRadii) => {
   const classCloseIcon = `.${clsPrefix}-close-icon`;
   const classCloseButton = `.${clsPrefix}-close-button`;
   const classCloseText = `.${clsPrefix}-close-text`;
@@ -8787,6 +9149,9 @@ const getAlertEmotionStyles = (clsPrefix, theme, props) => {
   const styles = {
     // General
     padding: theme.spacing.sm,
+    ...(useNewBorderRadii && {
+      borderRadius: theme.borders.borderRadiusSm
+    }),
     [`${classMessage}, &${classWithDescription} ${classMessage}`]: {
       // TODO(giles): These three rules are all the same as the H3 styles. We can refactor them out into a shared object.
       fontSize: theme.typography.fontSizeBase,
@@ -9216,6 +9581,7 @@ const OverflowPopover = _ref => {
     items,
     renderLabel,
     tooltipText,
+    ariaLabel = 'More items',
     ...props
   } = _ref;
   const {
@@ -9246,6 +9612,7 @@ const OverflowPopover = _ref => {
     onOpenChange: open => setShowTooltip(!open),
     children: [trigger, jsx(Content$5, {
       align: "start",
+      "aria-label": ariaLabel,
       ...props,
       ...addDebugOutlineIfEnabled(),
       children: jsx("div", {
@@ -9285,6 +9652,11 @@ const SIZE = new Map([['xl', {
 }], ['xs', {
   avatarSize: 20,
   fontSize: 12,
+  groupShift: 2,
+  iconSize: 12
+}], ['xxs', {
+  avatarSize: 16,
+  fontSize: 11,
   groupShift: 2,
   iconSize: 12
 }]]);
@@ -9327,7 +9699,7 @@ function getAvatarEmotionStyles(_ref) {
       objectPosition: 'center'
     },
     system: {
-      borderRadius: theme.legacyBorders.borderRadiusMd,
+      borderRadius: theme.borders.borderRadiusSm,
       overflow: 'hidden'
     },
     user: {
@@ -10186,6 +10558,7 @@ const TableSkeleton = _ref => {
     seed = '',
     frameRate = 60,
     style,
+    label,
     ...rest
   } = _ref;
   const {
@@ -10195,7 +10568,7 @@ const TableSkeleton = _ref => {
     size
   } = useContext(TableContext);
   const widths = getOffsets(seed);
-  return jsx("div", {
+  return jsxs("div", {
     ...rest,
     ...addDebugOutlineIfEnabled(),
     "aria-busy": true,
@@ -10207,11 +10580,14 @@ const TableSkeleton = _ref => {
       ['--table-skeleton-color']: theme.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(31, 38, 45, 0.1)',
       ['--table-skeleton-row-vertical-margin']: size === 'small' ? '4px' : '6px'
     },
-    children: [...Array(lines)].map((_, idx) => jsx("div", {
+    children: [[...Array(lines)].map((_, idx) => jsx("div", {
       css: [TableSkeletonStyles.cell, genSkeletonAnimatedColor(theme, frameRate), {
         width: `calc(100% - ${widths[idx % widths.length]}px)`
       }, process.env.NODE_ENV === "production" ? "" : ";label:TableSkeleton;"]
-    }, idx))
+    }, idx)), jsx("span", {
+      css: visuallyHidden,
+      children: label
+    })]
   });
 };
 const TableSkeletonRows = _ref2 => {
@@ -10263,7 +10639,8 @@ function getStyles$1(args) {
     hasTopBar,
     hasBottomBar,
     hasHref,
-    useNewShadows
+    useNewShadows,
+    useNewBorderRadii
   } = args;
   const hoverOrFocusStyle = {
     boxShadow: disableHover || loading ? '' : useNewShadows ? theme.shadows.sm : theme.general.shadowLow,
@@ -10286,7 +10663,7 @@ function getStyles$1(args) {
     paddingTop: hasTopBar ? 0 : theme.spacing.md,
     paddingBottom: hasBottomBar ? 0 : theme.spacing.md,
     width: width !== null && width !== void 0 ? width : 'fit-content',
-    borderRadius: theme.legacyBorders.borderRadiusMd,
+    borderRadius: useNewBorderRadii ? theme.borders.borderRadiusMd : theme.legacyBorders.borderRadiusMd,
     borderColor: theme.colors.border,
     borderWidth: '1px',
     borderStyle: 'solid',
@@ -10301,19 +10678,19 @@ function getStyles$1(args) {
     ...getAnimationCss(theme.options.enableAnimation)
   }, process.env.NODE_ENV === "production" ? "" : ";label:getStyles;");
 }
-function getBottomBarStyles(theme) {
+function getBottomBarStyles(theme, useNewBorderRadii) {
   return /*#__PURE__*/css({
     marginTop: theme.spacing.sm,
-    borderBottomRightRadius: theme.legacyBorders.borderRadiusMd,
-    borderBottomLeftRadius: theme.legacyBorders.borderRadiusMd,
+    borderBottomRightRadius: useNewBorderRadii ? theme.borders.borderRadiusSm : theme.legacyBorders.borderRadiusMd,
+    borderBottomLeftRadius: useNewBorderRadii ? theme.borders.borderRadiusSm : theme.legacyBorders.borderRadiusMd,
     overflow: 'hidden'
   }, process.env.NODE_ENV === "production" ? "" : ";label:getBottomBarStyles;");
 }
-function getTopBarStyles(theme) {
+function getTopBarStyles(theme, useNewBorderRadii) {
   return /*#__PURE__*/css({
     marginBottom: theme.spacing.sm,
-    borderTopRightRadius: theme.legacyBorders.borderRadiusMd,
-    borderTopLeftRadius: theme.legacyBorders.borderRadiusMd,
+    borderTopRightRadius: useNewBorderRadii ? theme.borders.borderRadiusSm : theme.legacyBorders.borderRadiusMd,
+    borderTopLeftRadius: useNewBorderRadii ? theme.borders.borderRadiusSm : theme.legacyBorders.borderRadiusMd,
     overflow: 'hidden'
   }, process.env.NODE_ENV === "production" ? "" : ";label:getTopBarStyles;");
 }
@@ -10340,7 +10717,8 @@ const Card = _ref => {
     theme
   } = useDesignSystemTheme();
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderRadii
   } = useDesignSystemSafexFlags();
   const hasTopBar = !_isUndefined(topBarContent);
   const hasBottomBar = !_isUndefined(bottomBarContent);
@@ -10352,15 +10730,16 @@ const Card = _ref => {
     hasBottomBar,
     hasTopBar,
     hasHref: Boolean(href),
-    useNewShadows
+    useNewShadows,
+    useNewBorderRadii
   }), process.env.NODE_ENV === "production" ? "" : ";label:cardStyle;");
   const ref = React__default.useRef(null);
   const bottomBar = bottomBarContent ? jsx("div", {
-    css: /*#__PURE__*/css(getBottomBarStyles(theme), process.env.NODE_ENV === "production" ? "" : ";label:bottomBar;"),
+    css: /*#__PURE__*/css(getBottomBarStyles(theme, useNewBorderRadii), process.env.NODE_ENV === "production" ? "" : ";label:bottomBar;"),
     children: bottomBarContent
   }) : null;
   const topBar = topBarContent ? jsx("div", {
-    css: /*#__PURE__*/css(getTopBarStyles(theme), process.env.NODE_ENV === "production" ? "" : ";label:topBar;"),
+    css: /*#__PURE__*/css(getTopBarStyles(theme, useNewBorderRadii), process.env.NODE_ENV === "production" ? "" : ";label:topBar;"),
     children: topBarContent
   }) : null;
   const contentPadding = hasTopBar || hasBottomBar ? theme.spacing.lg : 0;
@@ -10405,7 +10784,6 @@ const Card = _ref => {
     onClick: loading || href ? undefined : handleClick,
     ...dataAndAttributes,
     ...(href && {
-      role: 'link',
       onKeyDown: async e => {
         var _dataAndAttributes$on;
         if (e.key === 'Enter' || e.key === ' ') {
@@ -10464,6 +10842,7 @@ function getCheckboxEmotionStyles(clsPrefix, theme) {
   let isHorizontal = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
   let useNewShadows = arguments.length > 3 ? arguments[3] : undefined;
   let useNewFormUISpacing = arguments.length > 4 ? arguments[4] : undefined;
+  let useNewBorderRadii = arguments.length > 5 ? arguments[5] : undefined;
   const classInput = `.${clsPrefix}-input`;
   const classInner = `.${clsPrefix}-inner`;
   const classIndeterminate = `.${clsPrefix}-indeterminate`;
@@ -10479,7 +10858,11 @@ function getCheckboxEmotionStyles(clsPrefix, theme) {
   const styles = {
     [`.${clsPrefix}`]: {
       top: 'unset',
-      lineHeight: theme.typography.lineHeightBase
+      lineHeight: theme.typography.lineHeightBase,
+      alignSelf: 'flex-start',
+      display: 'flex',
+      alignItems: 'center',
+      height: theme.typography.lineHeightBase
     },
     [`&${classWrapper}, ${classWrapper}`]: {
       alignItems: 'center',
@@ -10487,7 +10870,10 @@ function getCheckboxEmotionStyles(clsPrefix, theme) {
     },
     // Top level styles are for the unchecked state
     [classInner]: {
-      borderColor: theme.colors.actionDefaultBorderDefault
+      borderColor: theme.colors.actionDefaultBorderDefault,
+      ...(useNewBorderRadii && {
+        borderRadius: theme.borders.borderRadiusSm
+      })
     },
     // Style wrapper span added by Antd
     [`&> span:not(.${clsPrefix})`]: {
@@ -10688,7 +11074,8 @@ const DuboisCheckbox = /*#__PURE__*/forwardRef(function Checkbox(_ref2, ref) {
   } = useDesignSystemTheme();
   const {
     useNewShadows,
-    useNewFormUISpacing
+    useNewFormUISpacing,
+    useNewBorderRadii
   } = useDesignSystemSafexFlags();
   const clsPrefix = getPrefixedClassName('checkbox');
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
@@ -10720,7 +11107,7 @@ const DuboisCheckbox = /*#__PURE__*/forwardRef(function Checkbox(_ref2, ref) {
         indeterminate: isChecked === null
         // Individual checkboxes don't depend on isHorizontal flag, orientation and spacing is handled by end users
         ,
-        css: /*#__PURE__*/css(importantify(getCheckboxEmotionStyles(clsPrefix, theme, false, useNewShadows, useNewFormUISpacing)), process.env.NODE_ENV === "production" ? "" : ";label:Checkbox;"),
+        css: /*#__PURE__*/css(importantify(getCheckboxEmotionStyles(clsPrefix, theme, false, useNewShadows, useNewFormUISpacing, useNewBorderRadii)), process.env.NODE_ENV === "production" ? "" : ";label:Checkbox;"),
         style: style,
         "aria-checked": isChecked === null ? 'mixed' : isChecked,
         ...restProps,
@@ -10746,14 +11133,15 @@ const CheckboxGroup = /*#__PURE__*/forwardRef(function CheckboxGroup(_ref3, ref)
   const clsPrefix = getPrefixedClassName('checkbox');
   const {
     useNewShadows,
-    useNewFormUISpacing
+    useNewFormUISpacing,
+    useNewBorderRadii
   } = useDesignSystemSafexFlags();
   return jsx(DesignSystemAntDConfigProvider, {
     children: jsx(Checkbox$1.Group, {
       ...addDebugOutlineIfEnabled(),
       ref: ref,
       ...props,
-      css: getCheckboxEmotionStyles(clsPrefix, theme, layout === 'horizontal', useNewShadows, useNewFormUISpacing),
+      css: getCheckboxEmotionStyles(clsPrefix, theme, layout === 'horizontal', useNewShadows, useNewFormUISpacing, useNewBorderRadii),
       children: jsx(RestoreAntDDefaultClsPrefix, {
         children: children
       })
@@ -10903,6 +11291,7 @@ const useDropdownContext = () => React__default.useContext(DropdownContext);
 const Root$7 = _ref => {
   let {
     children,
+    itemHtmlType,
     ...props
   } = _ref;
   const [isOpen, setIsOpen] = React__default.useState(Boolean(props.defaultOpen || props.open));
@@ -10931,7 +11320,8 @@ const Root$7 = _ref => {
     children: jsx(DropdownContext.Provider, {
       value: {
         isOpen: useExternalState ? props.open : isOpen,
-        setIsOpen: useExternalState ? props.onOpenChange : handleOpenChange
+        setIsOpen: useExternalState ? props.onOpenChange : handleOpenChange,
+        itemHtmlType
       },
       children: children
     })
@@ -11111,13 +11501,19 @@ const Item$2 = /*#__PURE__*/forwardRef(function Item(_ref5, ref) {
     analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnClick],
     ...props
   } = _ref5;
+  const formContext = useFormContext();
+  const {
+    itemHtmlType
+  } = useDropdownContext();
   const itemRef = useRef(null);
   useImperativeHandle(ref, () => itemRef.current);
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.DropdownMenuItem,
     componentId,
-    analyticsEvents: memoizedAnalyticsEvents
+    analyticsEvents: memoizedAnalyticsEvents,
+    // If the item is a submit item and is part of a form, it is not the subject of the interaction, the form submission is
+    isInteractionSubject: !(itemHtmlType === 'submit' && formContext.componentId)
   });
   return jsx(DropdownMenu$1.Item, {
     css: theme => [dropdownItemStyles, danger && dangerItemStyles(theme)],
@@ -11126,8 +11522,13 @@ const Item$2 = /*#__PURE__*/forwardRef(function Item(_ref5, ref) {
       if (props.disabled) {
         e.preventDefault();
       } else {
+        var _formContext$formRef;
         if (!props.asChild) {
           eventContext.onClick(e);
+        }
+        if (itemHtmlType === 'submit' && (_formContext$formRef = formContext.formRef) !== null && _formContext$formRef !== void 0 && _formContext$formRef.current) {
+          e.preventDefault();
+          formContext.formRef.current.requestSubmit();
         }
         onClick === null || onClick === void 0 || onClick(e);
       }
@@ -11470,7 +11871,7 @@ const dropdownContentStyles = (theme, useNewShadows) => ({
   color: theme.colors.textPrimary,
   lineHeight: theme.typography.lineHeightBase,
   border: `1px solid ${theme.colors.borderDecorative}`,
-  borderRadius: theme.legacyBorders.borderRadiusMd,
+  borderRadius: theme.borders.borderRadiusSm,
   padding: `${theme.spacing.xs}px 0`,
   boxShadow: useNewShadows ? theme.shadows.lg : theme.general.shadowLow,
   userSelect: 'none',
@@ -11945,7 +12346,7 @@ function getEmotionStyles(clsPrefix, theme) {
   const classSuffix = `.${clsPrefix}-suffix`;
   const styles = {
     height: 32,
-    borderRadius: theme.legacyBorders.borderRadiusMd,
+    borderRadius: theme.borders.borderRadiusSm,
     borderColor: theme.colors.border,
     color: theme.colors.textPrimary,
     transition: 'border 0s, box-shadow 0s',
@@ -12256,6 +12657,7 @@ const DialogCombobox = _ref => {
   const [contentWidth, setContentWidth] = useState();
   const [textOverflowMode, setTextOverflowMode] = useState('multiline');
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const [disableMouseOver, setDisableMouseOver] = useState(false);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.DialogCombobox,
     componentId,
@@ -12295,7 +12697,9 @@ const DialogCombobox = _ref => {
       rememberLastScrollPosition,
       componentId,
       analyticsEvents,
-      valueHasNoPii
+      valueHasNoPii,
+      disableMouseOver,
+      setDisableMouseOver
     },
     children: jsx(Root$5, {
       open: open !== undefined ? open : isOpen,
@@ -12709,7 +13113,7 @@ var _ref2$e = process.env.NODE_ENV === "production" ? {
   styles: "display:flex;label:content;",
   toString: _EMOTION_STRINGIFIED_CSS_ERROR__$k
 };
-var _ref3$6 = process.env.NODE_ENV === "production" ? {
+var _ref3$5 = process.env.NODE_ENV === "production" ? {
   name: "qhxz92",
   styles: "max-width:100%"
 } : {
@@ -12733,7 +13137,9 @@ const DuboisDialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref
   } = useDesignSystemTheme();
   const {
     textOverflowMode,
-    contentWidth
+    contentWidth,
+    disableMouseOver,
+    setDisableMouseOver
   } = useDialogComboboxContext();
   const {
     isInsideDialogComboboxOptionList,
@@ -12788,7 +13194,9 @@ const DuboisDialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref
     ...getKeyboardNavigationFunctions(handleSelect, {
       onKeyDown: props.onKeyDown,
       onMouseEnter: props.onMouseEnter,
-      onDefaultKeyDown: e => dialogComboboxLookAheadKeyDown(e, setLookAhead, lookAhead)
+      onDefaultKeyDown: e => dialogComboboxLookAheadKeyDown(e, setLookAhead, lookAhead),
+      disableMouseOver,
+      setDisableMouseOver
     }),
     children: jsx(Checkbox, {
       componentId: "codegen_design-system_src_design-system_dialogcombobox_dialogcomboboxoptionlistcheckboxitem.tsx_86",
@@ -12807,7 +13215,7 @@ const DuboisDialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref
         handleSelect(e);
       },
       children: jsx("div", {
-        css: _ref3$6,
+        css: _ref3$5,
         children: content
       })
     })
@@ -12880,7 +13288,7 @@ const DialogComboboxOptionListSearch = /*#__PURE__*/forwardRef((_ref, forwardedR
   }
   const handleOnChange = event => {
     if (!virtualized) {
-      setSearchValue(event.target.value.toLowerCase());
+      setSearchValue(event.target.value);
     }
     setControlledValue === null || setControlledValue === void 0 || setControlledValue(event.target.value);
     onSearch === null || onSearch === void 0 || onSearch(event.target.value);
@@ -12977,6 +13385,7 @@ const DialogComboboxOptionListSearch = /*#__PURE__*/forwardRef((_ref, forwardedR
           (_restProps$onKeyDown = restProps.onKeyDown) === null || _restProps$onKeyDown === void 0 || _restProps$onKeyDown.call(restProps, event);
         },
         value: controlledValue !== null && controlledValue !== void 0 ? controlledValue : searchValue,
+        shouldPreventFormSubmission: true,
         ...restProps
       })
     }), virtualized ? children : (hasWrapper && (_filteredChildren = filteredChildren) !== null && _filteredChildren !== void 0 && (_filteredChildren = _filteredChildren.props.children) !== null && _filteredChildren !== void 0 && _filteredChildren.length || !hasWrapper && (_filteredChildren2 = filteredChildren) !== null && _filteredChildren2 !== void 0 && _filteredChildren2.length) && childrenIsNotEmpty ? jsx("div", {
@@ -13015,14 +13424,6 @@ var _ref2$c = process.env.NODE_ENV === "production" ? {
   styles: "display:flex;label:content;",
   toString: _EMOTION_STRINGIFIED_CSS_ERROR__$i
 };
-var _ref3$5 = process.env.NODE_ENV === "production" ? {
-  name: "kjj0ot",
-  styles: "padding-top:2px"
-} : {
-  name: "15osdio-DuboisDialogComboboxOptionListSelectItem",
-  styles: "padding-top:2px;label:DuboisDialogComboboxOptionListSelectItem;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$i
-};
 const DuboisDialogComboboxOptionListSelectItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
     value,
@@ -13047,7 +13448,9 @@ const DuboisDialogComboboxOptionListSelectItem = /*#__PURE__*/forwardRef((_ref, 
     value: existingValue,
     contentWidth,
     textOverflowMode,
-    scrollToSelectedElement
+    scrollToSelectedElement,
+    disableMouseOver,
+    setDisableMouseOver
   } = useDialogComboboxContext();
   const {
     isInsideDialogComboboxOptionList,
@@ -13143,12 +13546,17 @@ const DuboisDialogComboboxOptionListSelectItem = /*#__PURE__*/forwardRef((_ref, 
     ...getKeyboardNavigationFunctions(handleSelect, {
       onKeyDown: props.onKeyDown,
       onMouseEnter: props.onMouseEnter,
-      onDefaultKeyDown: e => dialogComboboxLookAheadKeyDown(e, setLookAhead, lookAhead)
+      onDefaultKeyDown: e => dialogComboboxLookAheadKeyDown(e, setLookAhead, lookAhead),
+      disableMouseOver,
+      setDisableMouseOver
     }),
     role: "option",
     "aria-selected": checked,
     children: [!dangerouslyHideCheck && (checked ? jsx(CheckIcon, {
-      css: _ref3$5
+      css: /*#__PURE__*/css({
+        paddingTop: 2,
+        color: theme.colors.textSecondary
+      }, process.env.NODE_ENV === "production" ? "" : ";label:DuboisDialogComboboxOptionListSelectItem;")
     }) : jsx("div", {
       style: {
         width: 16,
@@ -13427,7 +13835,7 @@ const getTriggerStyles = function (theme) {
     ...(useNewShadows && {
       boxShadow: theme.shadows.xs
     }),
-    borderRadius: 4,
+    borderRadius: theme.borders.borderRadiusSm,
     color: theme.colors.textPrimary,
     lineHeight: theme.typography.lineHeightBase,
     fontSize: theme.typography.fontSizeBase,
@@ -13842,6 +14250,7 @@ const Content$2 = _ref => {
   return jsxs(DialogPrimitive.Portal, {
     container: getPopupContainer && getPopupContainer(),
     children: [jsx(DialogPrimitive.Overlay, {
+      "data-testid": "drawer-overlay",
       css: /*#__PURE__*/css({
         backgroundColor: theme.colors.overlayOverlay,
         position: 'fixed',
@@ -14076,7 +14485,7 @@ const Empty = props => {
   });
 };
 
-const getMessageStyles = (clsPrefix, theme, useNewFormUISpacing) => {
+const getMessageStyles = (clsPrefix, theme) => {
   const errorClass = `.${clsPrefix}-form-error-message`;
   const infoClass = `.${clsPrefix}-form-info-message`;
   const successClass = `.${clsPrefix}-form-success-message`;
@@ -14085,9 +14494,7 @@ const getMessageStyles = (clsPrefix, theme, useNewFormUISpacing) => {
     '&&': {
       lineHeight: theme.typography.lineHeightSm,
       fontSize: theme.typography.fontSizeSm,
-      ...(!useNewFormUISpacing && {
-        marginTop: theme.spacing.sm
-      }),
+      marginTop: theme.spacing.sm,
       display: 'flex',
       alignItems: 'start'
     },
@@ -14125,9 +14532,6 @@ function FormMessage(_ref) {
     classNamePrefix,
     theme
   } = useDesignSystemTheme();
-  const {
-    useNewFormUISpacing
-  } = useDesignSystemSafexFlags();
   const stateClass = `${classNamePrefix}-form-${type}-message`;
   const StateIcon = VALIDATION_STATE_ICONS[type];
   const wrapperClass = `${classNamePrefix}-form-message ${className} ${stateClass}`.trim();
@@ -14137,7 +14541,7 @@ function FormMessage(_ref) {
     }),
     className: wrapperClass,
     ...addDebugOutlineIfEnabled(),
-    css: [getMessageStyles(classNamePrefix, theme, useNewFormUISpacing), css, process.env.NODE_ENV === "production" ? "" : ";label:FormMessage;"],
+    css: [getMessageStyles(classNamePrefix, theme), css, process.env.NODE_ENV === "production" ? "" : ";label:FormMessage;"],
     role: "alert",
     children: [jsx(StateIcon, {}), jsx("div", {
       style: {
@@ -14792,7 +15196,7 @@ const getRadioInputStyles = _ref => {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: '50%',
+        borderRadius: theme.borders.borderRadiusFull,
         '&:after': {
           all: 'unset'
         }
@@ -15550,7 +15954,7 @@ const getSwitchWithLabelStyles = _ref => {
         [`.${clsPrefix}-switch-handle, .${clsPrefix}-switch-handle:before`]: {
           width: 16,
           height: 16,
-          borderRadius: 99999
+          borderRadius: theme.borders.borderRadiusFull
         }
       }
     }),
@@ -15558,6 +15962,7 @@ const getSwitchWithLabelStyles = _ref => {
     [`&.${clsPrefix}-switch`]: {
       backgroundColor: theme.colors.backgroundPrimary,
       border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
+      borderRadius: theme.borders.borderRadiusFull,
       [`.${clsPrefix}-switch-handle:before`]: {
         ...(useNewShadows ? {
           border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
@@ -15566,7 +15971,8 @@ const getSwitchWithLabelStyles = _ref => {
         } : {
           boxShadow: `0px 0px 0px 1px ${theme.colors.actionDefaultBorderDefault}`
         }),
-        transition: 'none'
+        transition: 'none',
+        borderRadius: theme.borders.borderRadiusFull
       },
       [`&:hover:not(.${clsPrefix}-switch-disabled)`]: {
         backgroundColor: theme.colors.actionDefaultBackgroundHover,
@@ -15885,8 +16291,8 @@ const TypeaheadComboboxRoot = /*#__PURE__*/forwardRef((_ref, ref) => {
   });
 });
 
-const mapItemsToStrings = (items, itemToString) => {
-  return JSON.stringify(items.map(item => item ? itemToString ? itemToString(item) : item.toString() : ''));
+const mapItemsToString = (items, itemToString) => {
+  return JSON.stringify(items.map(itemToString));
 };
 const TypeaheadComboboxStateChangeTypes = useCombobox.stateChangeTypes;
 const TypeaheadComboboxMultiSelectStateChangeTypes = useMultipleSelection.stateChangeTypes;
@@ -15903,14 +16309,18 @@ function useComboboxState(_ref) {
     componentId,
     valueHasNoPii,
     analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    matcher,
+    shouldSetItemsOnAllItemsChanges = safex('databricks.fe.designsystem.useComboboxStateUpdatesItemsWithEffect', false),
+    preventUnsetOnBlur = false,
     ...props
   } = _ref;
-  function getFilteredItems(inputValue) {
+  const getFilteredItems = useCallback(inputValue => {
     var _inputValue$toLowerCa;
     const lowerCasedInputValue = (_inputValue$toLowerCa = inputValue === null || inputValue === void 0 ? void 0 : inputValue.toLowerCase()) !== null && _inputValue$toLowerCa !== void 0 ? _inputValue$toLowerCa : '';
     // If the input is empty or if there is no matcher supplied, do not filter
-    return allItems.filter(item => !inputValue || !props.matcher || props.matcher(item, lowerCasedInputValue));
-  }
+    return allItems.filter(item => !inputValue || !matcher || matcher(item, lowerCasedInputValue));
+  }, [allItems, matcher]);
+  const [inputValue, setInputValue] = useState();
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.TypeaheadCombobox,
@@ -15918,6 +16328,19 @@ function useComboboxState(_ref) {
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii
   });
+  const itemToStringWithDefaultToString = useCallback(item => {
+    return item ? itemToString ? itemToString(item) : item.toString() : '';
+  }, [itemToString]);
+  const prevAllItems = useRef(allItems);
+  useEffect(() => {
+    // When allItems changes, re-apply filter so users don't see stale items values in the dropdown box
+    if (shouldSetItemsOnAllItemsChanges && !props.multiSelect && (allItems.length !== prevAllItems.current.length ||
+    // Avoid redundant or endless updates by checking individual elements as allItems may have an unstable reference.
+    allItems.some((item, index) => itemToStringWithDefaultToString(item) !== itemToStringWithDefaultToString(prevAllItems.current[index])))) {
+      props.setItems(getFilteredItems(inputValue));
+      prevAllItems.current = allItems;
+    }
+  }, [allItems, inputValue, getFilteredItems, props, itemToStringWithDefaultToString, shouldSetItemsOnAllItemsChanges]);
   const comboboxState = {
     ...useCombobox({
       onIsOpenChange: onIsOpenChange,
@@ -15927,6 +16350,7 @@ function useComboboxState(_ref) {
         } = _ref2;
         if (inputValue !== undefined) {
           var _props$setInputValue;
+          setInputValue(inputValue);
           (_props$setInputValue = props.setInputValue) === null || _props$setInputValue === void 0 || _props$setInputValue.call(props, inputValue);
         }
         if (!props.multiSelect) {
@@ -15934,9 +16358,7 @@ function useComboboxState(_ref) {
         }
       },
       items: items,
-      itemToString(item) {
-        return item ? itemToString ? itemToString(item) : item.toString() : '';
-      },
+      itemToString: itemToStringWithDefaultToString,
       defaultHighlightedIndex: props.multiSelect ? 0 : undefined,
       // after selection for multiselect, highlight the first item.
       scrollIntoView: () => {},
@@ -15950,6 +16372,9 @@ function useComboboxState(_ref) {
         } = actionAndChanges;
         switch (type) {
           case useCombobox.stateChangeTypes.InputBlur:
+            if (preventUnsetOnBlur) {
+              return changes;
+            }
             if (!props.multiSelect) {
               // If allowNewValue is true, register the input's current value on blur
               if (allowNewValue) {
@@ -16009,14 +16434,14 @@ function useComboboxState(_ref) {
             var _eventContext$onValue2;
             const newSelectedItems = props.selectedItems.filter(item => item !== newSelectedItem);
             props.setSelectedItems(newSelectedItems);
-            (_eventContext$onValue2 = eventContext.onValueChange) === null || _eventContext$onValue2 === void 0 || _eventContext$onValue2.call(eventContext, mapItemsToStrings(newSelectedItems, itemToString));
+            (_eventContext$onValue2 = eventContext.onValueChange) === null || _eventContext$onValue2 === void 0 || _eventContext$onValue2.call(eventContext, mapItemsToString(newSelectedItems, itemToStringWithDefaultToString));
           } else if (newSelectedItem) {
             var _eventContext$onValue3;
-            (_eventContext$onValue3 = eventContext.onValueChange) === null || _eventContext$onValue3 === void 0 || _eventContext$onValue3.call(eventContext, mapItemsToStrings([...props.selectedItems, newSelectedItem], itemToString));
+            (_eventContext$onValue3 = eventContext.onValueChange) === null || _eventContext$onValue3 === void 0 || _eventContext$onValue3.call(eventContext, mapItemsToString([...props.selectedItems, newSelectedItem], itemToStringWithDefaultToString));
           }
         } else if (newSelectedItem) {
           var _eventContext$onValue4;
-          (_eventContext$onValue4 = eventContext.onValueChange) === null || _eventContext$onValue4 === void 0 || _eventContext$onValue4.call(eventContext, itemToString ? itemToString(newSelectedItem) : newSelectedItem.toString());
+          (_eventContext$onValue4 = eventContext.onValueChange) === null || _eventContext$onValue4 === void 0 || _eventContext$onValue4.call(eventContext, itemToStringWithDefaultToString(newSelectedItem));
         } else if (type === useCombobox.stateChangeTypes.FunctionReset) {
           var _eventContext$onValue5;
           (_eventContext$onValue5 = eventContext.onValueChange) === null || _eventContext$onValue5 === void 0 || _eventContext$onValue5.call(eventContext, '');
@@ -16061,7 +16486,11 @@ function useMultipleSelectionState(selectedItems, setSelectedItems, _ref3) {
           setSelectedItems(newSelectedItems || []);
           break;
       }
-      (_eventContext$onValue6 = eventContext.onValueChange) === null || _eventContext$onValue6 === void 0 || _eventContext$onValue6.call(eventContext, mapItemsToStrings(newSelectedItems || [], itemToString));
+      const itemToStringWithDefaultToString = itemToString !== null && itemToString !== void 0 ? itemToString : item => {
+        var _item$toString;
+        return (_item$toString = item === null || item === void 0 ? void 0 : item.toString()) !== null && _item$toString !== void 0 ? _item$toString : '';
+      };
+      (_eventContext$onValue6 = eventContext.onValueChange) === null || _eventContext$onValue6 === void 0 || _eventContext$onValue6.call(eventContext, mapItemsToString(newSelectedItems || [], itemToStringWithDefaultToString));
     }
   });
 }
@@ -16159,13 +16588,13 @@ const TypeaheadComboboxMenu = /*#__PURE__*/forwardRef((_ref2, ref) => {
   const hasResults = filterableChildren && Children.toArray(filterableChildren).some(child => {
     if (/*#__PURE__*/React__default.isValidElement(child)) {
       var _child$props$__EMOTIO, _child$props$__EMOTIO2;
-      const childType = (_child$props$__EMOTIO = (_child$props$__EMOTIO2 = child.props['__EMOTION_TYPE_PLEASE_DO_NOT_USE__']) === null || _child$props$__EMOTIO2 === void 0 ? void 0 : _child$props$__EMOTIO2.defaultProps._TYPE) !== null && _child$props$__EMOTIO !== void 0 ? _child$props$__EMOTIO : child.props._TYPE;
+      const childType = (_child$props$__EMOTIO = (_child$props$__EMOTIO2 = child.props['__EMOTION_TYPE_PLEASE_DO_NOT_USE__']) === null || _child$props$__EMOTIO2 === void 0 ? void 0 : _child$props$__EMOTIO2.defaultProps._type) !== null && _child$props$__EMOTIO !== void 0 ? _child$props$__EMOTIO : child.props._type;
       return ['TypeaheadComboboxMenuItem', 'TypeaheadComboboxCheckboxItem'].includes(childType);
     }
     return false;
   });
-  const [menuItemChildren, footer] = Children.toArray(children).reduce((acc, child) => {
-    const isFooter = /*#__PURE__*/React__default.isValidElement(child) && child.props._TYPE === 'TypeaheadComboboxFooter';
+  const [menuItemChildren, footer] = Children.toArray(filterableChildren).reduce((acc, child) => {
+    const isFooter = /*#__PURE__*/React__default.isValidElement(child) && child.props._type === 'TypeaheadComboboxFooter';
     if (isFooter) {
       acc[1].push(child);
     } else {
@@ -16359,7 +16788,7 @@ const TypeaheadComboboxMenuItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   });
 });
 TypeaheadComboboxMenuItem.defaultProps = {
-  _TYPE: 'TypeaheadComboboxMenuItem'
+  _type: 'TypeaheadComboboxMenuItem'
 };
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$a() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
@@ -16476,7 +16905,7 @@ const TypeaheadComboboxCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   });
 });
 TypeaheadComboboxCheckboxItem.defaultProps = {
-  _TYPE: 'TypeaheadComboboxCheckboxItem'
+  _type: 'TypeaheadComboboxCheckboxItem'
 };
 
 const getToggleButtonStyles = (theme, disabled) => {
@@ -16572,10 +17001,13 @@ var _ref$5 = process.env.NODE_ENV === "production" ? {
 const getContainerStyles$1 = () => {
   return _ref$5;
 };
-const getInputStyles$1 = (theme, showComboboxToggleButton) => /*#__PURE__*/css({
+const getInputStyles$1 = (theme, showComboboxToggleButton, useNewBorderRadii) => /*#__PURE__*/css({
   paddingRight: showComboboxToggleButton ? 52 : 26,
   width: '100%',
   minWidth: 72,
+  ...(useNewBorderRadii && {
+    borderRadius: theme.borders.borderRadiusSm
+  }),
   '&:disabled': {
     borderColor: theme.colors.actionDisabledBorder,
     backgroundColor: theme.colors.actionDisabledBackground,
@@ -16625,6 +17057,9 @@ const TypeaheadComboboxInput = /*#__PURE__*/forwardRef((_ref2, ref) => {
   const {
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewBorderRadii
+  } = useDesignSystemSafexFlags();
   const handleClick = e => {
     onClick === null || onClick === void 0 || onClick(e);
     toggleMenu();
@@ -16681,7 +17116,7 @@ const TypeaheadComboboxInput = /*#__PURE__*/forwardRef((_ref2, ref) => {
       ...downshiftProps,
       "aria-controls": comboboxState.isOpen ? downshiftProps['aria-controls'] : undefined,
       onClick: handleClick,
-      css: getInputStyles$1(theme, showComboboxToggleButton),
+      css: getInputStyles$1(theme, showComboboxToggleButton, useNewBorderRadii),
       ...restProps
     }), jsx(TypeaheadComboboxControls, {
       getDownshiftToggleButtonProps: getToggleButtonProps,
@@ -17131,7 +17566,7 @@ const DuboisTypeaheadComboboxFooter = _ref => {
   });
 };
 DuboisTypeaheadComboboxFooter.defaultProps = {
-  _TYPE: 'TypeaheadComboboxFooter'
+  _type: 'TypeaheadComboboxFooter'
 };
 const TypeaheadComboboxFooter = DuboisTypeaheadComboboxFooter;
 
@@ -17190,6 +17625,7 @@ function RHFControlledInput(_ref) {
     name,
     control,
     rules,
+    inputRef,
     ...restProps
   } = _ref;
   const {
@@ -17199,9 +17635,11 @@ function RHFControlledInput(_ref) {
     control: control,
     rules: rules
   });
+  const mergedRef = useMergeRefs([field.ref, inputRef]);
   return jsx(Input, {
     ...restProps,
     ...field,
+    ref: mergedRef,
     value: field.value,
     defaultValue: restProps.defaultValue
   });
@@ -17476,6 +17914,7 @@ function RHFControlledTypeaheadCombobox(_ref7) {
     componentId,
     analyticsEvents,
     valueHasNoPii,
+    preventUnsetOnBlur = false,
     ...props
   } = _ref7;
   const {
@@ -17498,7 +17937,8 @@ function RHFControlledTypeaheadCombobox(_ref7) {
     formOnBlur: field.onBlur,
     componentId,
     analyticsEvents,
-    valueHasNoPii
+    valueHasNoPii,
+    preventUnsetOnBlur
   });
   const lastEmmitedInputValue = useRef(inputProps === null || inputProps === void 0 ? void 0 : inputProps.value);
   useEffect(() => {
@@ -17992,7 +18432,7 @@ const useHoverCardStyles = _ref2 => {
       color: theme.colors.textPrimary,
       lineHeight: theme.typography.lineHeightBase,
       border: `1px solid ${theme.colors.borderDecorative}`,
-      borderRadius: theme.legacyBorders.borderRadiusMd,
+      borderRadius: theme.borders.borderRadiusSm,
       padding: `${theme.spacing.sm}px`,
       boxShadow: useNewShadows ? theme.shadows.lg : theme.general.shadowLow,
       userSelect: 'none',
@@ -19145,7 +19585,7 @@ const getToastRootStyle = (theme, classNamePrefix, useNewShadows) => {
       padding: 12,
       columnGap: 4,
       boxShadow: useNewShadows ? theme.shadows.lg : theme.general.shadowLow,
-      borderRadius: theme.general.borderRadiusBase,
+      borderRadius: theme.borders.borderRadiusSm,
       lineHeight: '20px',
       gridTemplateRows: '[header] auto [content] auto',
       gridTemplateColumns: '[icon] auto [content] 1fr [close] auto',
@@ -19431,14 +19871,14 @@ function getTagEmotionStyles(theme) {
       display: 'inline-flex',
       alignItems: 'center',
       marginRight: theme.spacing.sm,
-      borderRadius: theme.legacyBorders.borderRadiusMd
+      borderRadius: theme.borders.borderRadiusSm
     },
     tag: {
       border: 'none',
       color: textColor,
       padding: useNewTagColors ? '' : '2px 4px',
       backgroundColor: useNewTagColors ? 'transparent' : backgroundColor,
-      borderRadius: theme.legacyBorders.borderRadiusMd,
+      borderRadius: theme.borders.borderRadiusSm,
       marginRight: theme.spacing.sm,
       display: 'inline-block',
       cursor: clickable ? 'pointer' : 'default',
@@ -19476,8 +19916,8 @@ function getTagEmotionStyles(theme) {
       padding: 0,
       color: textColor,
       fontSize: theme.general.iconFontSize,
-      borderTopRightRadius: theme.legacyBorders.borderRadiusMd,
-      borderBottomRightRadius: theme.legacyBorders.borderRadiusMd,
+      borderTopRightRadius: theme.borders.borderRadiusSm,
+      borderBottomRightRadius: theme.borders.borderRadiusSm,
       border: 'none',
       background: 'none',
       cursor: 'pointer',
@@ -19506,7 +19946,8 @@ function getTagEmotionStyles(theme) {
         outlineColor
       },
       '.anticon': {
-        verticalAlign: 0
+        verticalAlign: 0,
+        fontSize: 12
       }
     },
     text: {
@@ -19525,8 +19966,11 @@ function getTagEmotionStyles(theme) {
       height: theme.typography.lineHeightBase,
       display: 'inline-flex',
       alignItems: 'center',
-      borderTopLeftRadius: theme.legacyBorders.borderRadiusMd,
-      borderBottomLeftRadius: theme.legacyBorders.borderRadiusMd,
+      borderTopLeftRadius: theme.borders.borderRadiusSm,
+      borderBottomLeftRadius: theme.borders.borderRadiusSm,
+      '& > span': {
+        fontSize: 12
+      },
       '& + div': {
         borderTopLeftRadius: 0,
         borderBottomLeftRadius: 0,
@@ -19542,7 +19986,7 @@ function getTagEmotionStyles(theme) {
       height: theme.typography.lineHeightBase,
       display: 'inline-flex',
       alignItems: 'center',
-      borderRadius: theme.legacyBorders.borderRadiusMd,
+      borderRadius: theme.borders.borderRadiusSm,
       minWidth: 0
     }
   };
@@ -19738,6 +20182,212 @@ const PageWrapper = _ref => {
     ...props,
     children: children
   });
+};
+
+const PreviewCard = _ref => {
+  let {
+    icon,
+    title,
+    subtitle,
+    titleActions,
+    children,
+    startActions,
+    endActions,
+    image,
+    fullBleedImage = true,
+    onClick,
+    size = 'default',
+    dangerouslyAppendEmotionCSS,
+    componentId,
+    analyticsEvents = [],
+    disabled,
+    selected,
+    href,
+    target,
+    ...props
+  } = _ref;
+  const styles = usePreviewCardStyles({
+    onClick,
+    size,
+    disabled,
+    fullBleedImage
+  });
+  const tabIndex = onClick && !href ? 0 : undefined;
+  const role = onClick && !href ? 'button' : undefined;
+  const showFooter = startActions || endActions;
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.PreviewCard,
+    componentId,
+    analyticsEvents: memoizedAnalyticsEvents
+  });
+  const onClickWrapper = useCallback(e => {
+    if (onClick) {
+      eventContext.onClick(e);
+      onClick(e);
+    }
+  }, [eventContext, onClick]);
+  const content = jsxs("div", {
+    ...addDebugOutlineIfEnabled(),
+    css: [styles['container'], dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:content;"],
+    tabIndex: tabIndex,
+    onClick: onClickWrapper,
+    onKeyDown: e => {
+      if (!onClick || disabled) {
+        return;
+      }
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onClickWrapper(e);
+      }
+    },
+    role: role,
+    "aria-disabled": disabled,
+    "aria-pressed": selected,
+    ...props,
+    children: [image && jsx("div", {
+      css: styles['image'],
+      children: image
+    }), jsxs("div", {
+      css: styles['header'],
+      children: [icon && jsx("div", {
+        children: icon
+      }), jsxs("div", {
+        css: styles['titleWrapper'],
+        children: [title && jsx("div", {
+          css: styles['title'],
+          children: title
+        }), subtitle && jsx("div", {
+          css: styles['subTitle'],
+          children: subtitle
+        })]
+      }), titleActions && jsx("div", {
+        children: titleActions
+      })]
+    }), children && jsx("div", {
+      css: styles['childrenWrapper'],
+      children: children
+    }), showFooter && jsxs("div", {
+      css: styles['footer'],
+      children: [jsx("div", {
+        css: styles['action'],
+        children: startActions
+      }), jsx("div", {
+        css: styles['action'],
+        children: endActions
+      })]
+    })]
+  });
+  if (href) {
+    return jsx("a", {
+      href: href,
+      target: target,
+      style: {
+        textDecoration: 'none'
+      },
+      children: content
+    });
+  }
+  return content;
+};
+const usePreviewCardStyles = _ref2 => {
+  let {
+    onClick,
+    size,
+    disabled,
+    fullBleedImage
+  } = _ref2;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const {
+    useNewShadows
+  } = useDesignSystemSafexFlags();
+  const isInteractive = onClick !== undefined;
+  const paddingSize = size === 'large' ? theme.spacing.lg : theme.spacing.md;
+  return {
+    container: {
+      overflow: 'hidden',
+      borderRadius: theme.borders.borderRadiusMd,
+      border: `1px solid ${theme.colors.border}`,
+      padding: paddingSize,
+      color: theme.colors.textSecondary,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      gap: size === 'large' ? theme.spacing.md : theme.spacing.sm,
+      ...(useNewShadows ? {
+        boxShadow: theme.shadows.sm
+      } : {}),
+      cursor: isInteractive ? 'pointer' : 'default',
+      ...(isInteractive && {
+        '&[aria-disabled="true"]': {
+          pointerEvents: 'none',
+          backgroundColor: theme.colors.actionDisabledBackground,
+          borderColor: theme.colors.actionDisabledBorder,
+          color: theme.colors.actionDisabledText
+        },
+        '&:hover, &:focus-within': {
+          boxShadow: useNewShadows ? theme.shadows.md : theme.general.shadowLow
+        },
+        '&:active': {
+          background: theme.colors.actionTertiaryBackgroundPress,
+          borderColor: theme.colors.actionDefaultBorderHover,
+          boxShadow: useNewShadows ? theme.shadows.md : theme.general.shadowLow
+        },
+        '&:focus, &[aria-pressed="true"]': {
+          outlineColor: theme.colors.actionDefaultBorderFocus,
+          outlineWidth: 2,
+          outlineOffset: -2,
+          outlineStyle: 'solid',
+          boxShadow: useNewShadows ? theme.shadows.md : theme.general.shadowLow,
+          borderColor: theme.colors.actionDefaultBorderHover
+        },
+        '&:active:not(:focus):not(:focus-within)': {
+          background: 'transparent',
+          borderColor: theme.colors.border
+        }
+      })
+    },
+    image: {
+      margin: fullBleedImage ? `-${paddingSize}px -${paddingSize}px 0` : 0,
+      '& > *': {
+        borderRadius: fullBleedImage ? 0 : theme.borders.borderRadiusSm
+      }
+    },
+    header: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: theme.spacing.sm
+    },
+    title: {
+      fontWeight: theme.typography.typographyBoldFontWeight,
+      color: disabled ? theme.colors.actionDisabledText : theme.colors.textPrimary,
+      lineHeight: theme.typography.lineHeightSm
+    },
+    subTitle: {
+      lineHeight: theme.typography.lineHeightSm
+    },
+    titleWrapper: {
+      flexGrow: 1,
+      overflow: 'hidden'
+    },
+    childrenWrapper: {
+      flexGrow: 1
+    },
+    footer: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flexWrap: 'wrap'
+    },
+    action: {
+      overflow: 'hidden',
+      // to ensure focus ring is rendered
+      margin: theme.spacing.md * -1,
+      padding: theme.spacing.md
+    }
+  };
 };
 
 const getRadioTileStyles = (theme, classNamePrefix, maxWidth) => {
@@ -20009,9 +20659,17 @@ function getSegmentedControlButtonEmotionStyles(clsPrefix, theme, size) {
         whiteSpace: 'nowrap',
         minWidth: size === 'small' ? 58 : 68 // Don't allow the button to shrink and truncate below 3 characters
       }),
+      '&:first-of-type': {
+        borderTopLeftRadius: theme.borders.borderRadiusSm,
+        borderBottomLeftRadius: theme.borders.borderRadiusSm
+      },
+      '&:last-of-type': {
+        borderTopRightRadius: theme.borders.borderRadiusSm,
+        borderBottomRightRadius: theme.borders.borderRadiusSm
+      },
       ...(spaced ? {
         borderWidth: 1,
-        borderRadius: theme.general.borderRadiusBase
+        borderRadius: theme.borders.borderRadiusSm
       } : {}),
       '&:focus-within': {
         outlineStyle: 'solid',
@@ -20068,7 +20726,8 @@ function getSegmentedControlButtonEmotionStyles(clsPrefix, theme, size) {
 }
 const SegmentedControlGroupContext = /*#__PURE__*/createContext({
   size: 'middle',
-  spaced: false
+  spaced: false,
+  dontTruncate: false
 });
 const SegmentedControlButton = /*#__PURE__*/forwardRef(function SegmentedControlButton(_ref, ref) {
   let {
@@ -20081,9 +20740,10 @@ const SegmentedControlButton = /*#__PURE__*/forwardRef(function SegmentedControl
   } = useDesignSystemTheme();
   const {
     size,
-    spaced
+    spaced,
+    dontTruncate
   } = useContext(SegmentedControlGroupContext);
-  const truncateButtons = safex('databricks.fe.designsystem.truncateSegmentedControlText', false);
+  const truncateButtons = safex('databricks.fe.designsystem.truncateSegmentedControlText', false) && !dontTruncate;
   const {
     useNewShadows
   } = useDesignSystemSafexFlags();
@@ -20125,12 +20785,13 @@ const SegmentedControlGroup = /*#__PURE__*/forwardRef(function SegmentedControlG
     componentId,
     analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
     valueHasNoPii,
+    dontTruncate,
     ...props
   } = _ref2;
   const {
     classNamePrefix
   } = useDesignSystemTheme();
-  const truncateButtons = safex('databricks.fe.designsystem.truncateSegmentedControlText', false);
+  const truncateButtons = safex('databricks.fe.designsystem.truncateSegmentedControlText', false) && !dontTruncate;
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.SegmentedControlGroup,
@@ -20146,7 +20807,8 @@ const SegmentedControlGroup = /*#__PURE__*/forwardRef(function SegmentedControlG
     children: jsx(SegmentedControlGroupContext.Provider, {
       value: {
         size,
-        spaced
+        spaced,
+        dontTruncate
       },
       children: jsx(Radio$1.Group, {
         ...addDebugOutlineIfEnabled(),
@@ -20186,7 +20848,7 @@ const getTrackStyles = theme => {
     backgroundColor: theme.colors.grey100,
     position: 'relative',
     flexGrow: 1,
-    borderRadius: 9999,
+    borderRadius: theme.borders.borderRadiusFull,
     '&[data-orientation="vertical"]': {
       width: 3
     },
@@ -20209,7 +20871,7 @@ const getRangeStyles = theme => {
   return /*#__PURE__*/css({
     backgroundColor: theme.colors.primary,
     position: 'absolute',
-    borderRadius: 9999,
+    borderRadius: theme.borders.borderRadiusFull,
     height: '100%',
     '&[data-disabled]': {
       backgroundColor: theme.colors.grey100
@@ -20233,7 +20895,7 @@ const getThumbStyles = (theme, useNewShadows) => {
     height: 20,
     backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
     boxShadow: useNewShadows ? theme.shadows.xs : `0 2px 4px 0 ${theme.colors.grey400}`,
-    borderRadius: 10,
+    borderRadius: theme.borders.borderRadiusFull,
     outline: 'none',
     '&:hover': {
       backgroundColor: theme.colors.actionPrimaryBackgroundHover
@@ -20256,6 +20918,7 @@ const Thumb = /*#__PURE__*/forwardRef((props, ref) => {
   } = useDesignSystemSafexFlags();
   return jsx(RadixSlider.Thumb, {
     css: getThumbStyles(theme, useNewShadows),
+    "aria-label": "Slider thumb",
     ...props,
     ref: ref
   });
@@ -20275,6 +20938,9 @@ const DropdownButton = props => {
     getPopupContainer: getContextPopupContainer,
     getPrefixCls
   } = useDesignSystemContext();
+  const {
+    useNewBorderRadii
+  } = useDesignSystemSafexFlags();
   const {
     type,
     danger,
@@ -20343,6 +21009,10 @@ const DropdownButton = props => {
     title: title,
     icon: children && leftButtonIcon ? leftButtonIcon : undefined,
     "aria-label": ariaLabel,
+    css: useNewBorderRadii !== null && useNewBorderRadii !== void 0 ? useNewBorderRadii : {
+      borderTopRightRadius: '0 !important',
+      borderBottomRightRadius: '0 !important'
+    },
     children: [leftButtonIcon && !children ? leftButtonIcon : undefined, children]
   });
   const rightButton = jsx(Button, {
@@ -20351,6 +21021,10 @@ const DropdownButton = props => {
     danger: danger,
     disabled: disabled,
     "aria-label": menuButtonLabel,
+    css: useNewBorderRadii !== null && useNewBorderRadii !== void 0 ? useNewBorderRadii : {
+      borderTopLeftRadius: '0 !important',
+      borderBottomLeftRadius: '0 !important'
+    },
     children: icon ? icon : jsx(ChevronDownIcon, {})
   });
   const [leftButtonToRender, rightButtonToRender] = buttonsRender([leftButton, rightButton]);
@@ -20363,6 +21037,7 @@ const DropdownButton = props => {
       children: rightButtonToRender
     }) : jsxs(Root$7, {
       ...dropdownMenuRootProps,
+      itemHtmlType: htmlType === 'submit' ? 'submit' : undefined,
       children: [jsx(Trigger$3, {
         disabled: disabled,
         asChild: true,
@@ -20376,7 +21051,7 @@ const DropdownButton = props => {
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$3() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const BUTTON_HORIZONTAL_PADDING = 12;
-function getSplitButtonEmotionStyles(classNamePrefix, theme, useNewShadows) {
+function getSplitButtonEmotionStyles(classNamePrefix, theme, useNewShadows, useNewBorderRadii) {
   const classDefault = `.${classNamePrefix}-btn`;
   const classPrimary = `.${classNamePrefix}-btn-primary`;
   const classDropdownTrigger = `.${classNamePrefix}-dropdown-trigger`;
@@ -20403,6 +21078,12 @@ function getSplitButtonEmotionStyles(classNamePrefix, theme, useNewShadows) {
         color: theme.colors.actionDefaultIconPress
       }
     },
+    ...(useNewBorderRadii && {
+      [`${classDefault}:first-of-type`]: {
+        borderTopRightRadius: '0px !important',
+        borderBottomRightRadius: '0px !important'
+      }
+    }),
     [classPrimary]: {
       ...getPrimaryStyles(theme),
       ...(useNewShadows && {
@@ -20462,7 +21143,11 @@ function getSplitButtonEmotionStyles(classNamePrefix, theme, useNewShadows) {
     },
     [`${classDefault}:not(:first-of-type)`]: {
       width: theme.general.heightSm,
-      padding: '3px !important'
+      padding: '3px !important',
+      ...(useNewBorderRadii && {
+        borderTopLeftRadius: '0px !important',
+        borderBottomLeftRadius: '0px !important'
+      })
     },
     ...getAnimationCss(theme.options.enableAnimation)
   };
@@ -20483,7 +21168,8 @@ const SplitButton = props => {
     classNamePrefix
   } = useDesignSystemTheme();
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderRadii
   } = useDesignSystemSafexFlags();
   const {
     children,
@@ -20527,7 +21213,7 @@ const SplitButton = props => {
         ...dropdownButtonProps,
         overlay: deprecatedMenu,
         trigger: ['click'],
-        css: getSplitButtonEmotionStyles(classNamePrefix, theme, useNewShadows),
+        css: getSplitButtonEmotionStyles(classNamePrefix, theme, useNewShadows, useNewBorderRadii),
         icon: jsx(ChevronDownIcon, {
           css: /*#__PURE__*/css({
             fontSize: theme.general.iconFontSize
@@ -20722,7 +21408,7 @@ const TableHeaderResizeHandle = /*#__PURE__*/forwardRef(function TableHeaderResi
   if (!isHeader) {
     throw new Error('`TableHeaderResizeHandle` must be used within a `TableRow` with `isHeader` set to true.');
   }
-  const [isPopoverOpen, setIsPopoverOpen] = useState(true);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const dragStartPosRef = useRef(null);
   const initialEventRef = useRef(null);
   const initialRenderRef = useRef(true);
@@ -20776,7 +21462,8 @@ const TableHeaderResizeHandle = /*#__PURE__*/forwardRef(function TableHeaderResi
     onClick: handleClick,
     css: tableStyles.resizeHandleContainer,
     style: style,
-    role: "separator",
+    role: "button",
+    "aria-label": "Resize Column",
     children: jsx("div", {
       css: tableStyles.resizeHandle
     })
@@ -20846,18 +21533,22 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
     onToggleSort,
     style,
     className,
-    resizable,
-    resizeHandler,
     isResizing = false,
     align = 'left',
     wrapContent = true,
-    hasAdjustableWidthHeader,
-    increaseWidthHandler,
-    decreaseWidthHandler,
+    column,
+    header,
+    setColumnSizing,
     componentId,
     analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    'aria-label': ariaLabel,
     ...rest
   } = _ref2;
+  // Pulling props from the column and header props with deprecated fallbacks.
+  // Doing this to avoid breaking changes + have a cleaner mechanism for testing removal of deprecated props.
+  const resizable = (column === null || column === void 0 ? void 0 : column.getCanResize()) || rest.resizable || false;
+  const resizeHandler = (header === null || header === void 0 ? void 0 : header.getResizeHandler()) || rest.resizeHandler;
+  const supportsColumnPopover = column && header && setColumnSizing;
   const {
     size,
     grid
@@ -20911,11 +21602,35 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
     bold: true,
     children: children
   }) : children;
-  const resizeHandle = resizable ? jsx(TableHeaderResizeHandle, {
+  const getColumnResizeHandler = useCallback(newSize => () => {
+    if (column && setColumnSizing) {
+      setColumnSizing(old => ({
+        ...old,
+        [column.id]: newSize
+      }));
+    }
+  }, [column, setColumnSizing]);
+  const increaseWidthHandler = useCallback(() => {
+    if (column && setColumnSizing) {
+      const currentSize = column.getSize();
+      getColumnResizeHandler(currentSize + 10)();
+    }
+  }, [column, setColumnSizing, getColumnResizeHandler]);
+  const decreaseWidthHandler = useCallback(() => {
+    if (column && setColumnSizing) {
+      const currentSize = column.getSize();
+      getColumnResizeHandler(currentSize - 10)();
+    }
+  }, [column, setColumnSizing, getColumnResizeHandler]);
+  const renderResizeHandle = resizable && resizeHandler ? jsx(TableHeaderResizeHandle, {
+    style: {
+      height: size === 'default' ? '20px' : '16px'
+    },
     resizeHandler: resizeHandler,
-    increaseWidthHandler: increaseWidthHandler,
-    decreaseWidthHandler: decreaseWidthHandler
+    increaseWidthHandler: supportsColumnPopover ? increaseWidthHandler : undefined,
+    decreaseWidthHandler: supportsColumnPopover ? decreaseWidthHandler : undefined
   }) : null;
+  const isSortButtonVisible = sortable && !isResizing;
   return jsxs("div", {
     ...rest,
     ref: ref
@@ -20932,8 +21647,9 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
       textAlign: align,
       ...style
     },
+    "aria-label": isSortButtonVisible ? undefined : ariaLabel,
     ...eventContext.dataComponentProps,
-    children: [sortable && !isResizing ? jsxs("div", {
+    children: [isSortButtonVisible ? jsxs("div", {
       css: [tableStyles.headerButtonTarget, process.env.NODE_ENV === "production" ? "" : ";label:TableHeader;"],
       role: "button",
       tabIndex: 0,
@@ -20944,6 +21660,7 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
           return onToggleSort === null || onToggleSort === void 0 ? void 0 : onToggleSort(event);
         }
       },
+      "aria-label": isSortButtonVisible ? ariaLabel : undefined,
       children: [sortIconOnLeft ? jsx("span", {
         className: "table-header-icon-container",
         css: [tableStyles.sortHeaderIconOnLeft, process.env.NODE_ENV === "production" ? "" : ";label:TableHeader;"],
@@ -20953,7 +21670,7 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
         css: [tableStyles.sortHeaderIconOnRight, process.env.NODE_ENV === "production" ? "" : ";label:TableHeader;"],
         children: sortIcon
       }) : null]
-    }) : content, resizeHandle]
+    }) : content, renderResizeHandle]
   });
 });
 
@@ -21244,7 +21961,10 @@ const Content = /*#__PURE__*/React__default.forwardRef((_ref4, forwardedRef) => 
   let {
     ...props
   } = _ref4;
-  const css = useContentStyles();
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const css = useContentStyles(theme);
   return jsx(RadixTabs.Content, {
     css: css,
     ...props,
@@ -21285,7 +22005,7 @@ const useListStyles = (shadowScrollStylesBackgroundColor, scrollbarHeight) => {
       '&:hover': {
         background: theme.isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(17, 23, 28, 0.3)'
       },
-      borderRadius: theme.legacyBorders.borderRadiusMd,
+      borderRadius: theme.borders.borderRadiusSm,
       position: 'relative'
     },
     addButtonContainer: {
@@ -21361,9 +22081,10 @@ const useTriggerStyles = isClosable => {
     }
   };
 };
-const useContentStyles = () => {
+const useContentStyles = theme => {
   // This is needed so force mounted content is not displayed when the tab is inactive
   return {
+    color: theme.colors.textPrimary,
     '&[data-state="inactive"]': {
       display: 'none'
     }
@@ -21389,7 +22110,7 @@ const getStyles = (theme, size, onlyIcon, useNewShadows) => {
       boxShadow: theme.shadows.xs
     }),
     border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
-    borderRadius: theme.general.borderRadiusBase,
+    borderRadius: theme.borders.borderRadiusSm,
     backgroundColor: 'transparent',
     color: theme.colors.actionDefaultTextDefault,
     height: theme.general.heightSm,
@@ -21907,5 +22628,5 @@ const Tree = /*#__PURE__*/forwardRef(function Tree(_ref, ref) {
   });
 });
 
-export { AccessibleContainer, Accordion, AccordionPanel, Alert, AlignCenterIcon, AlignLeftIcon, AlignRightIcon, AppIcon, ApplyDesignSystemContextOverrides, ApplyGlobalStyles, ArrowDownDotIcon, ArrowDownIcon, ArrowInIcon, ArrowLeftIcon, ArrowOverIcon, ArrowRightIcon, ArrowUpDotIcon, ArrowUpIcon, ArrowsUpDownIcon, AssistantAvatar, AssistantIcon, AtIcon, AutoComplete, Avatar, AvatarGroup, AzHorizontalIcon, AzVerticalIcon, BadgeCodeIcon, BadgeCodeOffIcon, BarChartIcon, BarGroupedIcon, BarStackedIcon, BarStackedPercentageIcon, BarsAscendingHorizontalIcon, BarsAscendingVerticalIcon, BarsDescendingHorizontalIcon, BarsDescendingVerticalIcon, BeakerIcon, BinaryIcon, BlockQuoteIcon, BoldIcon, BookIcon, BookmarkFillIcon, BookmarkIcon, BooksIcon, BracketsCurlyIcon, BracketsSquareIcon, BracketsXIcon, BranchIcon, Breadcrumb, BriefcaseFillIcon, BriefcaseIcon, BugIcon, Button, CalendarClockIcon, CalendarEventIcon, CalendarIcon, CalendarRangeIcon, Card, CaretDownSquareIcon, CaretUpSquareIcon, CatalogCloudIcon, CatalogGearIcon, CatalogHIcon, CatalogHomeIcon, CatalogIcon, CatalogOffIcon, CatalogSharedIcon, CellsSquareIcon, ChainIcon, ChartLineIcon, CheckCircleBadgeIcon, CheckCircleFillIcon, CheckCircleIcon, CheckIcon, CheckLineIcon, CheckSmallIcon, Checkbox, CheckboxIcon, ChecklistIcon, ChevronDoubleDownIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, ChevronDoubleUpIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, CircleIcon, CircleOffIcon, CircleOutlineIcon, ClipboardIcon, ClockKeyIcon, CloseIcon, CloseSmallIcon, CloudDatabaseIcon, CloudDownloadIcon, CloudIcon, CloudKeyIcon, CloudModelIcon, CloudOffIcon, CloudUploadIcon, CodeIcon, Col, ColorFillIcon, ColumnIcon, ColumnsIcon, CommandIcon, CommandPaletteIcon, ComponentFinderContext, ConnectIcon, ContextMenu$1 as ContextMenu, CopyIcon, CreditCardIcon, CursorIcon, CursorPagination, CursorTypeIcon, CustomAppIcon, DBAssistantAvatar, DIcon, DU_BOIS_ENABLE_ANIMATION_CLASSNAME, DagIcon, DangerFillIcon, DangerIcon, DashIcon, DashboardIcon, DataIcon, DatabaseIcon, DecimalIcon, DesignSystemAntDConfigProvider, DesignSystemEventProviderAnalyticsEventTypes, DesignSystemEventProviderComponentSubTypeMap, DesignSystemEventProviderComponentTypes, DesignSystemEventSuppressInteractionProviderContext, DesignSystemEventSuppressInteractionTrueContextValue, DialogCombobox, DialogComboboxAddButton, DialogComboboxContent, DialogComboboxCountBadge, DialogComboboxCustomButtonTriggerWrapper, EmptyResults as DialogComboboxEmpty, DialogComboboxFooter, DialogComboboxHintRow, DialogComboboxOptionControlledList, DialogComboboxOptionList, DialogComboboxOptionListCheckboxItem, DialogComboboxOptionListSearch, DialogComboboxOptionListSelectItem, DialogComboboxSectionHeader, DialogComboboxSeparator, DialogComboboxTrigger, DotsCircleIcon, DownloadIcon, DragIcon, Drawer, Dropdown, DropdownMenu, DuboisDatePicker, Empty, ErdIcon, ExpandLessIcon, ExpandMoreIcon, FaceFrownIcon, FaceNeutralIcon, FaceSmileIcon, FileCodeIcon, FileDocumentIcon, FileIcon, FileImageIcon, FileLockIcon, FileModelIcon, FilterIcon, FlagPointerIcon, FloatIcon, FolderBranchFillIcon, FolderBranchIcon, FolderCloudFilledIcon, FolderCloudIcon, FolderFillIcon, FolderIcon, FontIcon, ForkIcon, FormUI, FullscreenExitIcon, FullscreenIcon, FunctionIcon, GearFillIcon, GearIcon, GenericSkeleton, GiftIcon, GitCommitIcon, GlobeIcon, GridDashIcon, GridIcon, H1Icon, H2Icon, H3Icon, Header$1 as Header, HistoryIcon, HomeIcon, HoverCard, Icon, ImageIcon, IndentDecreaseIcon, IndentIncreaseIcon, InfinityIcon, InfoBookIcon, InfoFillIcon, InfoIcon, InfoPopover, InfoTooltip, IngestionIcon, Input, ItalicIcon, KeyIcon, KeyboardIcon, LayerGraphIcon, LayerIcon, Layout, LeafIcon, LegacyDatePicker, LegacyForm, LegacyFormDubois, LegacyInfoTooltip, LegacyOptGroup, LegacyOption, LegacyPopover, LegacySelect, LegacySelectOptGroup, LegacySelectOption, LegacySkeleton, LegacyTabPane, LegacyTable, LegacyTabs, LegacyTooltip, LettersIcon, LettersNumbersIcon, LibrariesIcon, LightbulbIcon, LightningIcon, LinkIcon, LinkOffIcon, ListBorderIcon, ListClearIcon, ListIcon, LoadingIcon, LoadingState, LockFillIcon, LockIcon, LockShareIcon, LockUnlockedIcon, LoopIcon, MIcon, MailIcon, MeasureIcon, Menu, MenuIcon, MetricViewIcon, MinusCircleFillIcon, MinusCircleIcon, MinusSquareIcon, ModelsIcon, NavigationMenu, NoIcon, NotebookIcon, Notification, NotificationIcon, NotificationOffIcon, NumbersIcon, OfficeIcon, Overflow, OverflowIcon, PageBottomIcon, PageFirstIcon, PageLastIcon, PageTopIcon, PageWrapper, Pagination, PanelDockedIcon, PanelFloatingIcon, PaperclipIcon, ParagraphSkeleton, PauseIcon, PencilIcon, PencilSparkleIcon, PieChartIcon, PinCancelIcon, PinFillIcon, PinIcon, PipelineIcon, PlayCircleFillIcon, PlayCircleIcon, PlayIcon, PlugIcon, PlusCircleFillIcon, PlusCircleIcon, PlusIcon, PlusMinusSquareIcon, PlusSquareIcon, QueryEditorIcon, QueryIcon, QuestionMarkFillIcon, QuestionMarkIcon, RHFControlledComponents, ROW_GUTTER_SIZE, Radio, RadioIcon, RadioTile, ReaderModeIcon, RedoIcon, RefreshIcon, ReplyIcon, ResizeIcon, ResourceStatusIndicator, RestoreAntDDefaultClsPrefix, RobotIcon, RocketIcon, Row, RunningIcon, SaveClockIcon, SaveIcon, SchemaIcon, SchoolIcon, SearchDataIcon, SearchIcon, SegmentedControlButton, SegmentedControlGroup, Select, SelectContent, SelectOption, SelectOptionGroup, SelectTrigger, SendIcon, ShareIcon, ShieldCheckIcon, ShieldIcon, ShieldOffIcon, ShortcutIcon, SidebarAutoIcon, SidebarCollapseIcon, SidebarExpandIcon, SidebarIcon, SimpleSelect, SimpleSelectOption, SimpleSelectOptionGroup, SlashSquareIcon, Slider, SlidersIcon, SortAscendingIcon, SortDescendingIcon, SortUnsortedIcon, Space, Spacer, SparkleDoubleFillIcon, SparkleDoubleIcon, SparkleFillIcon, SparkleIcon, SparkleRectangleIcon, SpeechBubbleIcon, SpeechBubblePlusIcon, SpeechBubbleQuestionMarkIcon, SpeechBubbleStarIcon, Spinner, SplitButton, StarFillIcon, StarIcon, Steps, StopCircleFillIcon, StopCircleIcon, StopIcon, StorefrontIcon, StreamIcon, StrikeThroughIcon, Switch, SyncIcon, Table, TableCell, TableContext, TableFilterInput, TableFilterLayout, TableGlassesIcon, TableGlobeIcon, TableHeader, TableIcon, TableLightningIcon, TableModelIcon, TableOnlineViewIcon, TableRow, TableRowAction, TableRowActionHeader, TableRowContext, TableRowMenuContainer, TableRowSelectCell, TableSkeleton, TableSkeletonRows, TableStreamIcon, TableVectorIcon, TableViewIcon, Tabs, Tag, TagIcon, TargetIcon, TerminalIcon, TextBoxIcon, TextUnderlineIcon, ThumbsDownIcon, ThumbsUpIcon, TitleSkeleton, ToggleButton, Tooltip$1 as Tooltip, TrashIcon, Tree, TreeIcon, TypeaheadComboboxAddButton, TypeaheadComboboxCheckboxItem, TypeaheadComboboxFooter, TypeaheadComboboxInput, TypeaheadComboboxMenu, TypeaheadComboboxMenuItem, TypeaheadComboboxMultiSelectInput, TypeaheadComboboxMultiSelectStateChangeTypes, TypeaheadComboboxRoot, TypeaheadComboboxSectionHeader, TypeaheadComboboxSelectedItem, TypeaheadComboboxSeparator, TypeaheadComboboxStateChangeTypes, TypeaheadComboboxToggleButton, Typography, UnderlineIcon, UndoIcon, UploadIcon, UsbIcon, UserBadgeIcon, UserCircleIcon, UserGroupIcon, UserIcon, UserSparkleIcon, VisibleIcon, VisibleOffIcon, WarningFillIcon, WarningIcon, WorkflowCodeIcon, WorkflowsIcon, WorkspacesIcon, WrenchIcon, WrenchSparkleIcon, XCircleFillIcon, XCircleIcon, ZaHorizontalIcon, ZaVerticalIcon, ZoomInIcon, ZoomMarqueeSelection, ZoomOutIcon, __INTERNAL_DO_NOT_USE__FormItem, __INTERNAL_DO_NOT_USE__Group, __INTERNAL_DO_NOT_USE__HorizontalGroup, __INTERNAL_DO_NOT_USE__VerticalGroup, dialogComboboxLookAheadKeyDown, findClosestOptionSibling, findHighlightedOption, getAnimationCss, getComboboxOptionItemWrapperStyles, getComboboxOptionLabelStyles, getContentOptions, getDarkModePortalStyles, getDialogComboboxOptionLabelWidth, getGlobalStyles, getKeyboardNavigationFunctions, getLegacyTabEmotionStyles, getPaginationEmotionStyles, getRadioStyles, getShadowScrollStyles, getValidationStateColor, getWrapperStyle, highlightFirstNonDisabledOption, highlightOption, importantify, useComboboxState, useComponentFinderContext, useDesignSystemEventComponentCallbacks, useDesignSystemFlags, useDesignSystemSafexFlags, useDesignSystemTheme, useLegacyNotification, useModalContext, useMultipleSelectionState, useNotifyOnFirstView, useRadioGroupContext, useThemedStyles, useTypeaheadComboboxContext, visuallyHidden, withNotifications };
+export { AccessibleContainer, Accordion, AccordionPanel, Alert, AlignCenterIcon, AlignLeftIcon, AlignRightIcon, AppIcon, ApplyDesignSystemContextOverrides, ApplyGlobalStyles, ArrowDownDotIcon, ArrowDownIcon, ArrowInIcon, ArrowLeftIcon, ArrowOverIcon, ArrowRightIcon, ArrowUpDotIcon, ArrowUpIcon, ArrowsUpDownIcon, AssistantAvatar, AssistantIcon, AtIcon, AutoComplete, Avatar, AvatarGroup, AzHorizontalIcon, AzVerticalIcon, BadgeCodeIcon, BadgeCodeOffIcon, BarChartIcon, BarGroupedIcon, BarStackedIcon, BarStackedPercentageIcon, BarsAscendingHorizontalIcon, BarsAscendingVerticalIcon, BarsDescendingHorizontalIcon, BarsDescendingVerticalIcon, BeakerIcon, BinaryIcon, BlockQuoteIcon, BoldIcon, BookIcon, BookmarkFillIcon, BookmarkIcon, BooksIcon, BracketsCurlyIcon, BracketsSquareIcon, BracketsXIcon, BranchIcon, Breadcrumb, BriefcaseFillIcon, BriefcaseIcon, BugIcon, Button, CalendarClockIcon, CalendarEventIcon, CalendarIcon, CalendarRangeIcon, Card, CaretDownSquareIcon, CaretUpSquareIcon, CatalogCloudIcon, CatalogGearIcon, CatalogHIcon, CatalogHomeIcon, CatalogIcon, CatalogOffIcon, CatalogSharedIcon, CellsSquareIcon, ChainIcon, ChartLineIcon, CheckCircleBadgeIcon, CheckCircleFillIcon, CheckCircleIcon, CheckIcon, CheckLineIcon, CheckSmallIcon, Checkbox, CheckboxIcon, ChecklistIcon, ChevronDoubleDownIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, ChevronDoubleUpIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, CircleIcon, CircleOffIcon, CircleOutlineIcon, ClipboardIcon, ClockKeyIcon, CloseIcon, CloseSmallIcon, CloudDatabaseIcon, CloudDownloadIcon, CloudIcon, CloudKeyIcon, CloudModelIcon, CloudOffIcon, CloudUploadIcon, CodeIcon, Col, ColorFillIcon, ColumnIcon, ColumnsIcon, CommandIcon, CommandPaletteIcon, ComponentFinderContext, ConnectIcon, ContextMenu$1 as ContextMenu, CopyIcon, CreditCardIcon, CursorIcon, CursorPagination, CursorTypeIcon, CustomAppIcon, DBAssistantAvatar, DIcon, DU_BOIS_ENABLE_ANIMATION_CLASSNAME, DagHorizontalIcon, DagIcon, DagVerticalIcon, DangerFillIcon, DangerIcon, DashIcon, DashboardIcon, DataIcon, DatabaseIcon, DecimalIcon, DesignSystemAntDConfigProvider, DesignSystemEventProviderAnalyticsEventTypes, DesignSystemEventProviderComponentSubTypeMap, DesignSystemEventProviderComponentTypes, DesignSystemEventSuppressInteractionProviderContext, DesignSystemEventSuppressInteractionTrueContextValue, DialogCombobox, DialogComboboxAddButton, DialogComboboxContent, DialogComboboxCountBadge, DialogComboboxCustomButtonTriggerWrapper, EmptyResults as DialogComboboxEmpty, DialogComboboxFooter, DialogComboboxHintRow, DialogComboboxOptionControlledList, DialogComboboxOptionList, DialogComboboxOptionListCheckboxItem, DialogComboboxOptionListSearch, DialogComboboxOptionListSelectItem, DialogComboboxSectionHeader, DialogComboboxSeparator, DialogComboboxTrigger, DotsCircleIcon, DownloadIcon, DragIcon, Drawer, Dropdown, DropdownMenu, DuboisDatePicker, Empty, ErdIcon, ExpandLessIcon, ExpandMoreIcon, FaceFrownIcon, FaceNeutralIcon, FaceSmileIcon, FileCodeIcon, FileDocumentIcon, FileIcon, FileImageIcon, FileLockIcon, FileModelIcon, FileNewIcon, FilePipelineIcon, FilterIcon, FlagPointerIcon, FloatIcon, FolderBranchFillIcon, FolderBranchIcon, FolderCloudFilledIcon, FolderCloudIcon, FolderCubeIcon, FolderFillIcon, FolderIcon, FolderNewIcon, FolderOutlinePipelineIcon, FolderSolidPipelineIcon, FontIcon, ForkIcon, FormUI, FullscreenExitIcon, FullscreenIcon, FunctionIcon, GearFillIcon, GearIcon, GenericSkeleton, GiftIcon, GitCommitIcon, GlobeIcon, GridDashIcon, GridIcon, H1Icon, H2Icon, H3Icon, Header$1 as Header, HistoryIcon, HomeIcon, HoverCard, Icon, ImageIcon, IndentDecreaseIcon, IndentIncreaseIcon, InfinityIcon, InfoBookIcon, InfoFillIcon, InfoIcon, InfoPopover, InfoTooltip, IngestionIcon, Input, ItalicIcon, KeyIcon, KeyboardIcon, LayerGraphIcon, LayerIcon, Layout, LeafIcon, LegacyDatePicker, LegacyForm, LegacyFormDubois, LegacyInfoTooltip, LegacyOptGroup, LegacyOption, LegacyPopover, LegacySelect, LegacySelectOptGroup, LegacySelectOption, LegacySkeleton, LegacyTabPane, LegacyTable, LegacyTabs, LegacyTooltip, LettersIcon, LettersNumbersIcon, LibrariesIcon, LightbulbIcon, LightningIcon, LinkIcon, LinkOffIcon, ListBorderIcon, ListClearIcon, ListIcon, LoadingIcon, LoadingState, LockFillIcon, LockIcon, LockShareIcon, LockUnlockedIcon, LoopIcon, MIcon, MailIcon, MapIcon, MeasureIcon, Menu, MenuIcon, MinusCircleFillIcon, MinusCircleIcon, MinusSquareIcon, Modal, ModelsIcon, NavigationMenu, NoIcon, NotebookIcon, Notification, NotificationIcon, NotificationOffIcon, NumbersIcon, OfficeIcon, Overflow, OverflowIcon, PageBottomIcon, PageFirstIcon, PageLastIcon, PageTopIcon, PageWrapper, Pagination, PanelDockedIcon, PanelFloatingIcon, PaperclipIcon, ParagraphSkeleton, PauseIcon, PencilIcon, PencilSparkleIcon, PieChartIcon, PinCancelIcon, PinFillIcon, PinIcon, PipelineCodeIcon, PipelineIcon, PlayCircleFillIcon, PlayCircleIcon, PlayIcon, PlugIcon, PlusCircleFillIcon, PlusCircleIcon, PlusIcon, PlusMinusSquareIcon, PlusSquareIcon, PreviewCard, QueryEditorIcon, QueryIcon, QuestionMarkFillIcon, QuestionMarkIcon, RHFControlledComponents, ROW_GUTTER_SIZE, Radio, RadioIcon, RadioTile, ReaderModeIcon, RedoIcon, RefreshIcon, ReplyIcon, ResizeIcon, ResourceStatusIndicator, RestoreAntDDefaultClsPrefix, RobotIcon, RocketIcon, Row, RunningIcon, SaveClockIcon, SaveIcon, SchemaIcon, SchoolIcon, SearchDataIcon, SearchIcon, SegmentedControlButton, SegmentedControlGroup, Select, SelectContent, SelectOption, SelectOptionGroup, SelectTrigger, SendIcon, ShareIcon, ShieldCheckIcon, ShieldIcon, ShieldOffIcon, ShortcutIcon, SidebarAutoIcon, SidebarCollapseIcon, SidebarExpandIcon, SidebarIcon, SimpleSelect, SimpleSelectOption, SimpleSelectOptionGroup, SlashSquareIcon, Slider, SlidersIcon, SortAscendingIcon, SortDescendingIcon, SortUnsortedIcon, Space, Spacer, SparkleDoubleFillIcon, SparkleDoubleIcon, SparkleFillIcon, SparkleIcon, SparkleRectangleIcon, SpeechBubbleIcon, SpeechBubblePlusIcon, SpeechBubbleQuestionMarkIcon, SpeechBubbleStarIcon, Spinner, SplitButton, StarFillIcon, StarIcon, Steps, StopCircleFillIcon, StopCircleIcon, StopIcon, StorefrontIcon, StreamIcon, StrikeThroughIcon, Switch, SyncIcon, Table, TableCell, TableContext, TableFilterInput, TableFilterLayout, TableGlassesIcon, TableGlobeIcon, TableHeader, TableIcon, TableLightningIcon, TableMeasureIcon, TableModelIcon, TableRow, TableRowAction, TableRowActionHeader, TableRowContext, TableRowMenuContainer, TableRowSelectCell, TableSkeleton, TableSkeletonRows, TableStreamIcon, TableVectorIcon, TableViewIcon, Tabs, Tag, TagIcon, TargetIcon, TerminalIcon, TextBoxIcon, TextUnderlineIcon, ThumbsDownIcon, ThumbsUpIcon, TitleSkeleton, ToggleButton, Tooltip$1 as Tooltip, TrashIcon, Tree, TreeIcon, TypeaheadComboboxAddButton, TypeaheadComboboxCheckboxItem, TypeaheadComboboxFooter, TypeaheadComboboxInput, TypeaheadComboboxMenu, TypeaheadComboboxMenuItem, TypeaheadComboboxMultiSelectInput, TypeaheadComboboxMultiSelectStateChangeTypes, TypeaheadComboboxRoot, TypeaheadComboboxSectionHeader, TypeaheadComboboxSelectedItem, TypeaheadComboboxSeparator, TypeaheadComboboxStateChangeTypes, TypeaheadComboboxToggleButton, Typography, UnderlineIcon, UndoIcon, UploadIcon, UsbIcon, UserBadgeIcon, UserCircleIcon, UserGroupIcon, UserIcon, UserKeyIconIcon, UserSparkleIcon, VisibleIcon, VisibleOffIcon, WarningFillIcon, WarningIcon, WorkflowCodeIcon, WorkflowsIcon, WorkspacesIcon, WrenchIcon, WrenchSparkleIcon, XCircleFillIcon, XCircleIcon, ZaHorizontalIcon, ZaVerticalIcon, ZoomInIcon, ZoomMarqueeSelection, ZoomOutIcon, ZoomToFitIcon, __INTERNAL_DO_NOT_USE__FormItem, __INTERNAL_DO_NOT_USE__Group, __INTERNAL_DO_NOT_USE__HorizontalGroup, __INTERNAL_DO_NOT_USE__VerticalGroup, dialogComboboxLookAheadKeyDown, findClosestOptionSibling, findHighlightedOption, getAnimationCss, getComboboxOptionItemWrapperStyles, getComboboxOptionLabelStyles, getContentOptions, getDarkModePortalStyles, getDialogComboboxOptionLabelWidth, getGlobalStyles, getKeyboardNavigationFunctions, getLegacyTabEmotionStyles, getPaginationEmotionStyles, getRadioStyles, getShadowScrollStyles, getValidationStateColor, getWrapperStyle, highlightFirstNonDisabledOption, highlightOption, importantify, useComboboxState, useComponentFinderContext, useDesignSystemEventComponentCallbacks, useDesignSystemFlags, useDesignSystemSafexFlags, useDesignSystemTheme, useLegacyNotification, useModalContext, useMultipleSelectionState, useNotifyOnFirstView, useRadioGroupContext, useThemedStyles, useTypeaheadComboboxContext, visuallyHidden, withNotifications };
 //# sourceMappingURL=index.js.map

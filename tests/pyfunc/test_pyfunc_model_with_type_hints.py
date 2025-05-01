@@ -1,7 +1,7 @@
 import datetime
-import importlib
 import json
 import os
+import subprocess
 import sys
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from unittest import mock
@@ -228,7 +228,7 @@ def test_pyfunc_model_infer_signature_from_type_hints(
         kwargs["input_example"] = input_example
     with mlflow.start_run():
         with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
-            model_info = mlflow.pyfunc.log_model("test_model", **kwargs)
+            model_info = mlflow.pyfunc.log_model(name="test_model", **kwargs)
         assert not any(
             "Failed to validate serving input example" in call[0][0]
             for call in mock_warning.call_args_list
@@ -331,7 +331,7 @@ def test_spark_udf(spark, type_hint, result_type, input_example):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=Model(), input_example=input_example
+            name="model", python_model=Model(), input_example=input_example
         )
 
     # test spark_udf
@@ -358,7 +358,7 @@ def test_pyfunc_model_with_no_op_type_hint_pass_signature_works():
     signature = infer_signature(input_example, predict(input_example))
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=predict,
             input_example=input_example,
             signature=signature,
@@ -373,7 +373,7 @@ def test_pyfunc_model_with_no_op_type_hint_pass_signature_works():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=Model(),
             input_example=input_example,
         )
@@ -388,7 +388,9 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors(recwarn):
 
     with mlflow.start_run():
         with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
-            mlflow.pyfunc.log_model("test_model", python_model=predict, input_example=["string"])
+            mlflow.pyfunc.log_model(
+                name="test_model", python_model=predict, input_example=["string"]
+            )
         assert (
             "Input example is not compatible with the type hint of the `predict` function."
             in mock_warning.call_args[0][0]
@@ -401,7 +403,7 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors(recwarn):
     with mlflow.start_run():
         with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
             model_info = mlflow.pyfunc.log_model(
-                "test_model", python_model=predict, input_example=[123]
+                name="test_model", python_model=predict, input_example=[123]
             )
         assert (
             f"Failed to validate output `[123]` against type hint `{output_hints}`"
@@ -416,7 +418,7 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors(recwarn):
 
     with mlflow.start_run():
         with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
-            mlflow.pyfunc.log_model("test_model", python_model=Model())
+            mlflow.pyfunc.log_model(name="test_model", python_model=Model())
         assert (
             "cannot be used to infer model signature and input example is not provided, "
             "model signature cannot be inferred."
@@ -425,7 +427,7 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors(recwarn):
     with mlflow.start_run():
         with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
             mlflow.pyfunc.log_model(
-                "test_model", python_model=Model(), input_example=pd.DataFrame()
+                name="test_model", python_model=Model(), input_example=pd.DataFrame()
             )
         assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
 
@@ -437,10 +439,10 @@ def test_pyfunc_model_infer_signature_from_type_hints_for_python_3_10():
 
     with mlflow.start_run():
         model_info1 = mlflow.pyfunc.log_model(
-            "test_model", python_model=predict, input_example=[123]
+            name="test_model", python_model=predict, input_example=[123]
         )
         model_info2 = mlflow.pyfunc.log_model(
-            "test_model", python_model=predict, input_example=["string"]
+            name="test_model", python_model=predict, input_example=["string"]
         )
 
     assert model_info1.signature.inputs == Schema([ColSpec(type=AnyType())])
@@ -543,7 +545,7 @@ def test_pyfunc_model_with_type_hints_code_based_logging(
         kwargs["input_example"] = input_example
 
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("test_model", **kwargs)
+        model_info = mlflow.pyfunc.log_model(name="test_model", **kwargs)
 
     assert model_info.signature is not None
     assert model_info.signature._is_signature_from_type_hint is True
@@ -557,7 +559,7 @@ def test_functional_python_model_only_input_type_hints():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=python_model, input_example=["a"]
+            name="model", python_model=python_model, input_example=["a"]
         )
     assert model_info.signature.inputs == Schema([ColSpec(type=DataType.string)])
     assert model_info.signature.outputs == Schema([ColSpec(AnyType())])
@@ -569,7 +571,7 @@ def test_functional_python_model_only_output_type_hints():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=python_model, input_example=["a"]
+            name="model", python_model=python_model, input_example=["a"]
         )
     assert model_info.signature.inputs == Schema([ColSpec(type=DataType.string)])
     assert model_info.signature.outputs == Schema([ColSpec(type=DataType.string, name=0)])
@@ -583,7 +585,7 @@ class CallableObject:
 def test_functional_python_model_callable_object():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=CallableObject(), input_example=["a"]
+            name="model", python_model=CallableObject(), input_example=["a"]
         )
     assert model_info.signature.inputs == Schema([ColSpec(type=DataType.string)])
     assert model_info.signature.outputs == Schema([ColSpec(type=DataType.string)])
@@ -642,7 +644,9 @@ def test_callable_local_testing():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=predict, input_example=[{"role": "admin", "content": "hello"}]
+            name="model",
+            python_model=predict,
+            input_example=[{"role": "admin", "content": "hello"}],
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict([Message(role="admin", content="hello")]) == {"admin": "hello"}
@@ -660,7 +664,9 @@ def test_callable_local_testing():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=predict, input_example=[{"role": "admin", "content": "hello"}]
+            name="model",
+            python_model=predict,
+            input_example=[{"role": "admin", "content": "hello"}],
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict([{"role": "admin", "content": "hello"}]) == {"admin": "hello"}
@@ -678,7 +684,7 @@ def test_no_warning_for_unsupported_type_hint_with_decorator(recwarn):
     assert not any(warn_msg in str(w.message) for w in recwarn)
 
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("model", python_model=predict, input_example=data)
+        mlflow.pyfunc.log_model(name="model", python_model=predict, input_example=data)
     assert not any(warn_msg in str(w.message) for w in recwarn)
 
     class Model(mlflow.pyfunc.PythonModel):
@@ -690,7 +696,7 @@ def test_no_warning_for_unsupported_type_hint_with_decorator(recwarn):
     assert not any(warn_msg in str(w.message) for w in recwarn)
 
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("model", python_model=model, input_example=data)
+        mlflow.pyfunc.log_model(name="model", python_model=model, input_example=data)
     assert not any(warn_msg in str(w.message) for w in recwarn)
 
 
@@ -709,7 +715,7 @@ def test_python_model_local_testing_data_validation():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=[{"role": "admin", "content": "hello"}]
+            name="model", python_model=model, input_example=[{"role": "admin", "content": "hello"}]
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_model.predict([Message(role="admin", content="hello")]) == {"admin": "hello"}
@@ -729,7 +735,7 @@ def test_python_model_local_testing_same_as_pyfunc_predict():
         model.predict(None, "a")
 
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=model, input_example=["a"])
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=model, input_example=["a"])
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with pytest.raises(MlflowException, match=r"Expected list, but got str") as e_pyfunc:
         pyfunc_model.predict("a")
@@ -754,7 +760,7 @@ def test_unsupported_type_hint_in_python_model(recwarn):
     assert not any(invalid_type_hint_msg in str(w.message) for w in recwarn)
 
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("model", python_model=MyModel())
+        mlflow.pyfunc.log_model(name="model", python_model=MyModel())
     assert any("Unsupported type hint" in str(w.message) for w in recwarn)
 
 
@@ -773,7 +779,7 @@ def test_unsupported_type_hint_in_callable(recwarn):
     assert not any(invalid_type_hint_msg in str(w.message) for w in recwarn)
 
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+        mlflow.pyfunc.log_model(name="model", python_model=predict, input_example=["a"])
     assert any("Unsupported type hint" in str(w.message) for w in recwarn)
     recwarn.clear()
 
@@ -788,7 +794,7 @@ def test_unsupported_type_hint_in_callable(recwarn):
 
     with mlflow.start_run():
         with pytest.warns(UserWarning, match=r"Unsupported type hint"):
-            mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+            mlflow.pyfunc.log_model(name="model", python_model=predict, input_example=["a"])
 
 
 def test_log_model_warn_only_if_model_with_valid_type_hint_not_decorated(recwarn):
@@ -796,7 +802,7 @@ def test_log_model_warn_only_if_model_with_valid_type_hint_not_decorated(recwarn
         return model_input
 
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+        mlflow.pyfunc.log_model(name="model", python_model=predict, input_example=["a"])
         assert any("Decorate your function" in str(w.message) for w in recwarn)
         recwarn.clear()
 
@@ -808,12 +814,12 @@ def test_log_model_warn_only_if_model_with_valid_type_hint_not_decorated(recwarn
         return model_input
 
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("model", python_model=Model(), input_example=["a"])
+        mlflow.pyfunc.log_model(name="model", python_model=Model(), input_example=["a"])
     assert not any("Decorate your function" in str(w.message) for w in recwarn)
     recwarn.clear()
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            "model", python_model=predict_df, input_example=pd.DataFrame({"a": [1]})
+            name="model", python_model=predict_df, input_example=pd.DataFrame({"a": [1]})
         )
     assert not any("Decorate your function" in str(w.message) for w in recwarn)
 
@@ -836,7 +842,7 @@ def test_predict_model_with_type_hints():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
         )
 
@@ -884,7 +890,7 @@ def test_predict_with_wrong_signature_warns():
 
     with mlflow.start_run():
         with pytest.warns(FutureWarning, match=message):
-            mlflow.pyfunc.log_model("model", python_model=predict, input_example=["a"])
+            mlflow.pyfunc.log_model(name="model", python_model=predict, input_example=["a"])
 
 
 def test_model_with_wrong_predict_signature_works():
@@ -914,7 +920,7 @@ def test_warning_message_when_logging_model():
     # no type hint + invalid input example
     with mlflow.start_run():
         with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
-            mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
+            mlflow.pyfunc.log_model(name="model", python_model=TestModel(), input_example="abc")
         assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
 
     # invalid type hint + invalid input example
@@ -924,7 +930,7 @@ def test_warning_message_when_logging_model():
 
     with mlflow.start_run():
         with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
-            mlflow.pyfunc.log_model("model", python_model=TestModel(), input_example="abc")
+            mlflow.pyfunc.log_model(name="model", python_model=TestModel(), input_example="abc")
         assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
 
     # type hint that cannot be used to infer model signature + no input example
@@ -935,7 +941,7 @@ def test_warning_message_when_logging_model():
     model = TestModel()
     with mlflow.start_run():
         with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
-            mlflow.pyfunc.log_model("model", python_model=model)
+            mlflow.pyfunc.log_model(name="model", python_model=model)
         assert (
             "Failed to infer model signature: "
             f"Type hint {model.predict_type_hints} cannot be used to infer model signature and "
@@ -993,7 +999,7 @@ def test_type_hint_from_example(input_example, type_from_example_model):
     with mlflow.start_run():
         with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
             model_info = mlflow.pyfunc.log_model(
-                "model", python_model=type_from_example_model, input_example=input_example
+                name="model", python_model=type_from_example_model, input_example=input_example
             )
         assert not any(
             "Failed to validate serving input example" in call[0][0]
@@ -1024,7 +1030,7 @@ def test_type_hint_from_example_invalid_input(type_from_example_model):
     with mlflow.start_run():
         with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
             model_info = mlflow.pyfunc.log_model(
-                "model", python_model=type_from_example_model, input_example=[1, 2, 3]
+                name="model", python_model=type_from_example_model, input_example=[1, 2, 3]
             )
         assert not any(
             "Failed to validate serving input example" in call[0][0]
@@ -1077,7 +1083,7 @@ def test_python_model_without_type_hint_warning():
 
     with mlflow.start_run():
         with pytest.warns(UserWarning, match=msg):
-            mlflow.pyfunc.log_model("model", python_model=predict, input_example="abc")
+            mlflow.pyfunc.log_model(name="model", python_model=predict, input_example="abc")
 
 
 @mock.patch("mlflow.pyfunc.utils.data_validation.color_warning")
@@ -1098,10 +1104,6 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
     _FunctionPythonModel.__init_subclass__()
     assert mock_warning.call_count == 0
 
-    # Check import does not trigger any warning (from builtin sub-classes)
-    importlib.reload(mlflow.pyfunc.model)
-    assert mock_warning.call_count == 0
-
     # Subclass of ChatModel should not warn (exception to the rule)
     class ChatModelSubclass(ChatModel):
         def predict(self, model_input: list[ChatMessage], params: Optional[ChatParams] = None):
@@ -1120,3 +1122,54 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
             pass
 
     assert mock_warning.call_count == 0
+
+    # Check import does not trigger any warning (from builtin sub-classes)
+    # Note: DO NOT USE importlib.reload as classes in the reloaded
+    # module are different than original ones, which could cause unintended
+    # side effects in other tests.
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-W",
+            "error::UserWarning:mlflow.pyfunc.model",
+            "-c",
+            "import mlflow.pyfunc.model",
+        ]
+    )
+
+
+def test_load_context_type_hint():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            self.context_loaded = True
+
+        def predict(self, model_input: list[str], params=None) -> list[str]:
+            assert getattr(self, "context_loaded", False), "load_context was not executed"
+            return model_input
+
+    input_example = ["Hello", "World"]
+    signature = infer_signature(input_example, input_example)
+
+    with mlflow.start_run() as run:
+        with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
+            mlflow.pyfunc.log_model(
+                name="model",
+                python_model=MyModel(),
+                input_example=input_example,
+                signature=signature,
+            )
+        assert not any(
+            "Failed to run the predict function on input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
+        model_uri = f"runs:/{run.info.run_id}/model"
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+    underlying_model = pyfunc_model._model_impl.python_model
+    assert getattr(underlying_model, "context_loaded", False), (
+        "load_context was not called as expected."
+    )
+
+    new_data = ["New", "Data"]
+    prediction = pyfunc_model.predict(new_data)
+    assert prediction == new_data

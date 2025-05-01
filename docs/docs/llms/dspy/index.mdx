@@ -140,7 +140,7 @@ with mlflow.start_run():
     # Log the model
     model_info = mlflow.dspy.log_model(
         dspy_model,
-        artifact_path="model",
+        name="model",
         input_example="what is 2 + 2?",
     )
 ```
@@ -187,6 +187,10 @@ To load the DSPy program itself back instead of the PyFunc-wrapped model, use th
 ```python
 model = mlflow.dspy.load_model(model_uri)
 ```
+
+## Optimizer Autologging
+
+The MLflow DSPy flavor supports autologging for DSPy optimizers. See the [Optimizer Autologging](/llms/dspy/optimizer) page for details.
 
 ## FAQ
 

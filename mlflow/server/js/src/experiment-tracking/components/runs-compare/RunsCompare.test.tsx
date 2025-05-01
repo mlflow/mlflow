@@ -48,10 +48,10 @@ jest.mock('../runs-charts/hooks/useSampledMetricHistory', () => ({
 }));
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../common/utils/FeatureUtils'),
-  shouldEnableHidingChartsWithNoData: jest.fn().mockImplementation(() => false),
-  shouldEnableImageGridCharts: jest.fn().mockImplementation(() => true),
-  shouldEnableDifferenceViewCharts: jest.fn().mockImplementation(() => false),
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  shouldEnableHidingChartsWithNoData: jest.fn(() => false),
+  shouldEnableImageGridCharts: jest.fn(() => true),
+  shouldEnableDifferenceViewCharts: jest.fn(() => false),
 }));
 
 // Mock useIsInViewport hook to simulate that the chart element is in the viewport

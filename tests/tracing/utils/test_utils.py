@@ -2,11 +2,16 @@ import pytest
 from pydantic import ValidationError
 
 import mlflow
-from mlflow.entities import LiveSpan
+from mlflow.entities import (
+    LiveSpan,
+    SpanType,
+)
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import (
+    SpanAttributeKey,
+)
 from mlflow.tracing.utils import (
     construct_full_inputs,
     deduplicate_span_names_in_place,
@@ -21,7 +26,7 @@ def test_deduplicate_span_names():
     span_names = ["red", "red", "blue", "red", "green", "blue"]
 
     spans = [
-        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=span_name), request_id="tr-123")
+        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=span_name), trace_id="tr-123")
         for i, span_name in enumerate(span_names)
     ]
     deduplicate_span_names_in_place(spans)
@@ -103,7 +108,7 @@ def test_set_span_chat_messages_and_tools():
 
     dummy_call(messages, tools)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     span = trace.data.spans[0]
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == messages
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == tools
@@ -121,7 +126,7 @@ def test_set_span_chat_messages_append():
         set_span_chat_messages(span, messages)
         set_span_chat_messages(span, additional_messages, append=True)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     span = trace.data.spans[0]
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == messages + additional_messages
 
@@ -130,7 +135,7 @@ def test_set_span_chat_messages_append():
         set_span_chat_messages(span, messages)
         set_span_chat_messages(span, additional_messages, append=False)
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     span = trace.data.spans[0]
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == additional_messages
 

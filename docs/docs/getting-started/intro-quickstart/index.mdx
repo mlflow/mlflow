@@ -180,7 +180,7 @@ with mlflow.start_run():
     # Log the model
     model_info = mlflow.sklearn.log_model(
         sk_model=lr,
-        artifact_path="iris_model",
+        name="iris_model",
         signature=signature,
         input_example=X_train,
         registered_model_name="tracking-quickstart",

@@ -54,6 +54,7 @@ def http_request(
     timeout=None,
     raise_on_status=True,
     respect_retry_after_header=None,
+    retry_timeout_seconds=None,
     **kwargs,
 ):
     """Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
@@ -79,6 +80,7 @@ def http_request(
             in retry_codes range and retries have been exhausted.
         respect_retry_after_header: Whether to respect Retry-After header on status codes defined
             as Retry.RETRY_AFTER_STATUS_CODES or not.
+        retry_timeout_seconds: Timeout for retires. Only effective when using Databricks SDK.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
@@ -95,6 +97,7 @@ def http_request(
             host_creds.host,
             host_creds.token,
             host_creds.databricks_auth_profile,
+            retry_timeout_seconds=retry_timeout_seconds,
         )
         try:
             # Databricks SDK `APIClient.do` API is for making request using
@@ -205,7 +208,13 @@ def http_request(
 
 
 @lru_cache(maxsize=1)
-def get_workspace_client(use_secret_scope_token, host, token, databricks_auth_profile):
+def get_workspace_client(
+    use_secret_scope_token,
+    host,
+    token,
+    databricks_auth_profile,
+    retry_timeout_seconds=None,
+):
     from databricks.sdk import WorkspaceClient
     from databricks.sdk.config import Config
 
@@ -215,7 +224,8 @@ def get_workspace_client(use_secret_scope_token, host, token, databricks_auth_pr
         kwargs = {"profile": databricks_auth_profile}
     config = Config(
         **kwargs,
-        retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+        retry_timeout_seconds=retry_timeout_seconds
+        or MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
     )
     # Note: If we use `config` param, all SDK configurations must be set in `config` object.
     return WorkspaceClient(config=config)
@@ -348,6 +358,10 @@ def extract_all_api_info_for_service(service, path_prefix):
 
 def get_single_trace_endpoint(request_id):
     return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}"
+
+
+def get_logged_model_endpoint(model_id: str) -> str:
+    return f"{_REST_API_PATH_PREFIX}/mlflow/logged-models/{model_id}"
 
 
 def get_trace_info_endpoint(request_id):

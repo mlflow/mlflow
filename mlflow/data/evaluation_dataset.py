@@ -300,6 +300,7 @@ class EvaluationDataset:
         path=None,
         feature_names=None,
         predictions=None,
+        digest=None,
     ):
         """
         The values of the constructor arguments comes from the `evaluate` call.
@@ -326,6 +327,7 @@ class EvaluationDataset:
         self._predictions_data = None
         self._predictions_name = None
         self._has_predictions = predictions is not None
+        self._digest = digest
 
         with suppress(ImportError):
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
@@ -558,6 +560,13 @@ class EvaluationDataset:
         if self.path is not None:
             metadata["path"] = self.path
         return metadata
+
+    @property
+    def digest(self):
+        """
+        Return the digest of the dataset.
+        """
+        return self._digest
 
     def _log_dataset_tag(self, client, run_id, model_uuid):
         """

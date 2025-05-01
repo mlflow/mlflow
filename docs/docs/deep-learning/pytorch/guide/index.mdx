@@ -12,7 +12,7 @@ how to track your PyTorch experiments and log your PyTorch models to MLflow.
 Unlike other deep learning flavors, MLflow does not have an autologging integration with PyTorch because
 native PyTorch requires writing custom training loops. If you want to use autologging with PyTorch, please
 use [Lightning](https://lightning.ai) to train your models. When Lightning is being used, you can turned
-on autologging by calling <APILink fn="mlflow.tensorflow.autolog" /> or <APILink fn="mlflow.autolog" />. For more
+on autologging by calling <APILink fn="mlflow.pytorch.autolog" /> or <APILink fn="mlflow.autolog" />. For more
 details, please refer to the MLflow Lightning Developer Guide.
 
 ### Manually Logging PyTorch Experiments
@@ -140,7 +140,7 @@ with mlflow.start_run():
         train(train_dataloader, model, loss_fn, metric_fn, optimizer)
 
     # Save the trained model to MLflow.
-    mlflow.pytorch.log_model(model, "model")
+    mlflow.pytorch.log_model(model, name="model")
 ```
 
 If you run the above code and log to your local MLflow server (for how to use local MLflow server, please read the
@@ -185,7 +185,7 @@ class NeuralNetwork(nn.Module):
 model = NeuralNetwork()
 
 with mlflow.start_run() as run:
-    mlflow.pytorch.log_model(model, "model")
+    mlflow.pytorch.log_model(model, name="model")
 
 logged_model = f"runs:/{run.info.run_id}/model"
 loaded_model = mlflow.pyfunc.load_model(logged_model)
@@ -270,7 +270,7 @@ output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
 signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
 with mlflow.start_run() as run:
-    mlflow.pytorch.log_model(model, "model", signature=signature)
+    mlflow.pytorch.log_model(model, name="model", signature=signature)
 
 logged_model = f"runs:/{run.info.run_id}/model"
 loaded_model = mlflow.pyfunc.load_model(logged_model)

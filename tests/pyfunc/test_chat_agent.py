@@ -233,7 +233,7 @@ def test_chat_agent_works_with_infer_signature_input_example():
     }
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example
+            name="model", python_model=model, input_example=input_example
         )
     assert model_info.signature.inputs == CHAT_AGENT_INPUT_SCHEMA
     assert model_info.signature.outputs == CHAT_AGENT_OUTPUT_SCHEMA
@@ -262,14 +262,14 @@ def test_chat_agent_works_with_infer_signature_input_example():
 def test_chat_agent_logs_default_metadata_task():
     model = SimpleChatAgent()
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=model)
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=model)
     assert model_info.signature.inputs == CHAT_AGENT_INPUT_SCHEMA
     assert model_info.signature.outputs == CHAT_AGENT_OUTPUT_SCHEMA
     assert model_info.metadata["task"] == "agent/v2/chat"
 
     with mlflow.start_run():
         model_info_with_override = mlflow.pyfunc.log_model(
-            "model", python_model=model, metadata={"task": None}
+            name="model", python_model=model, metadata={"task": None}
         )
     assert model_info_with_override.metadata["task"] is None
 
@@ -279,7 +279,7 @@ def test_chat_agent_works_with_chat_agent_request_input_example():
     input_example_no_params = {"messages": [{"role": "user", "content": "What is rag?"}]}
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example_no_params
+            name="model", python_model=model, input_example=input_example_no_params
         )
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri)
@@ -291,7 +291,7 @@ def test_chat_agent_works_with_chat_agent_request_input_example():
     }
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example_with_params
+            name="model", python_model=model, input_example=input_example_with_params
         )
     mlflow_model = Model.load(model_info.model_uri)
     local_path = _download_artifact_from_uri(model_info.model_uri)
@@ -334,7 +334,7 @@ def test_chat_agent_can_receive_and_return_custom():
     model = ChatAgentWithCustomInputs()
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=model,
             input_example=input_example,
         )

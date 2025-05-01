@@ -18,6 +18,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
+from tests.helper_functions import skip_if_hf_hub_unhealthy
+
+pytestmark = skip_if_hf_hub_unhealthy()
+
 
 @pytest.fixture(scope="module", autouse=True)
 def mock_datasets_load_dataset():

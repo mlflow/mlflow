@@ -10,7 +10,6 @@ import shutil
 import sys
 import tempfile
 import uuid
-import warnings
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
@@ -21,6 +20,7 @@ import pandas as pd
 import pydantic
 
 import mlflow
+from mlflow.entities import LoggedModel
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.models.model_config import _set_model_config
@@ -38,6 +38,7 @@ from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import create_tmp_dir, get_local_path_or_none
+from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
     dataframe_from_parsed_json,
@@ -489,7 +490,7 @@ def convert_input_example_to_serving_input(input_example) -> Optional[str]:
 
 
 def _save_example(  # noqa: D417
-    mlflow_model: Model, input_example: Optional[ModelInputExample], path: str, no_conversion=None
+    mlflow_model: Model, input_example: Optional[ModelInputExample], path: str
 ) -> Optional[_Example]:
     """
     Saves example to a file on the given path and updates passed Model with example metadata.
@@ -513,16 +514,6 @@ def _save_example(  # noqa: D417
     """
     if input_example is None:
         return None
-
-    # TODO: remove this and all example_no_conversion param after 2.17.0 release
-    if no_conversion is not None:
-        warnings.warn(
-            "The `example_no_conversion` parameter is deprecated since mlflow 2.16.0 and will be "
-            "removed in a future release. This parameter is no longer used and safe to be removed, "
-            "MLflow no longer converts input examples when logging the model.",
-            FutureWarning,
-            stacklevel=2,
-        )
 
     example = _Example(input_example)
     example.save(path)
@@ -599,6 +590,11 @@ def _read_file_content(uri_or_path: str, file_name: str):
             or /path/to/model
         file_name: Name of the file to read.
     """
+    from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+
+    if ModelsArtifactRepository._is_logged_model_uri(uri_or_path):
+        uri_or_path = ModelsArtifactRepository.get_underlying_uri(uri_or_path)
+
     file_path = str(uri_or_path).rstrip("/") + "/" + file_name
     if os.path.exists(file_path):
         with open(file_path) as handle:
@@ -1497,7 +1493,6 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
     _enforce_schema(data, expected_schema)
 
 
-@experimental
 def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
     """
     Given a registered model_uri (e.g. models:/<model_name>/<model_version>), this utility
@@ -1546,7 +1541,10 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
             clf.fit(iris_train, iris.target)
             signature = infer_signature(iris_train, clf.predict(iris_train))
             mlflow.sklearn.log_model(
-                clf, "iris_rf", signature=signature, registered_model_name="model-with-libs"
+                clf,
+                name="iris_rf",
+                signature=signature,
+                registered_model_name="model-with-libs",
             )
 
         # model uri for the above model
@@ -2014,3 +2012,35 @@ def validate_serving_input(model_uri: str, serving_input: Union[str, dict[str, A
     finally:
         if output_dir and os.path.exists(output_dir):
             shutil.rmtree(output_dir)
+
+
+def get_external_mlflow_model_spec(logged_model: LoggedModel) -> Model:
+    """
+    Create the MLflow Model specification for a given logged model whose artifacts
+    (code, weights, etc.) are stored externally outside of MLflow.
+
+    Args:
+        logged_model: The external logged model for which to create an MLflow Model specification.
+
+    Returns:
+        Model: MLflow Model specification for the given logged model with external artifacts.
+    """
+    from mlflow.models.signature import infer_signature
+
+    return Model(
+        artifact_path=logged_model.artifact_location,
+        model_uuid=logged_model.model_id,
+        model_id=logged_model.model_id,
+        run_id=logged_model.source_run_id,
+        # Include a dummy signature so that the model can be registered to the Databricks Unity
+        # Catalog Model Registry.
+        # TODO: Remove this once the Databricks Unity Catalog Model Registry supports registration
+        # of models without signatures
+        signature=infer_signature(model_input=True, model_output=True),
+        metadata={
+            # Add metadata to the logged model indicating that its artifacts are stored externally.
+            # This helps downstream consumers of the model, such as the Model Registry, easily
+            # and consistently identify that the model's artifacts are external
+            MLFLOW_MODEL_IS_EXTERNAL: True,
+        },
+    )

@@ -433,7 +433,7 @@ def test_capture_imported_modules_include_deps_by_params():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=(["input1"], params),
         )
@@ -463,7 +463,7 @@ def test_capture_imported_modules_includes_gateway_extra(module_to_import, shoul
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=([1, 2, 3]),
         )
@@ -484,7 +484,7 @@ def test_gateway_extra_not_captured_when_importing_deployment_client_only():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=([1, 2, 3]),
         )
@@ -660,7 +660,7 @@ def test_capture_imported_modules_with_exception():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             input_example="test",
         )
@@ -687,7 +687,7 @@ def test_capture_imported_modules_raises_when_env_var_set(monkeypatch):
     ):
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
-                "model",
+                name="model",
                 python_model=BadModel(),
                 input_example="test",
             )
@@ -705,7 +705,7 @@ def test_capture_imported_modules_correct(monkeypatch):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             input_example="test",
         )
@@ -725,7 +725,7 @@ def test_capture_imported_modules_extra_env_vars(monkeypatch):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             input_example="test",
             pip_requirements=[],
@@ -734,3 +734,33 @@ def test_capture_imported_modules_extra_env_vars(monkeypatch):
     _capture_imported_modules(
         model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME, extra_env_vars={"TEST": "test"}
     )
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 10) or importlib.util.find_spec("databricks.agents") is None,
+    reason="Requires Python 3.10 or higher and databricks.agents",
+)
+def test_infer_pip_requirements_on_databricks_agents(tmp_path):
+    # import here to avoid breaking this test suite on mlflow-skinny
+    from mlflow.pyfunc import _get_pip_requirements_from_model_path
+
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            import databricks.agents  # noqa: F401
+            import pyspark  # noqa: F401
+
+            return model_input
+
+    mlflow.pyfunc.save_model(
+        tmp_path,
+        python_model=TestModel(),
+        input_example="test",
+    )
+
+    requirements = _get_pip_requirements_from_model_path(tmp_path)
+    packages = [req.split("==")[0] for req in requirements]
+    assert "databricks-agents" in packages
+    # databricks-connect should not be pruned even it's a dependency of databricks-agents
+    assert "databricks-connect" in packages
+    # pyspark should not exist because it conflicts with databricks-connect
+    assert "pyspark" not in packages

@@ -10,7 +10,7 @@ import { Provider } from 'react-redux';
 import { ModelVersionTable } from './ModelVersionTable';
 
 jest.mock('../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/FeatureUtils')>('../../common/utils/FeatureUtils'),
   // Force-enable toggling new models UI for test purposes
   shouldShowModelsNextUI: () => true,
 }));

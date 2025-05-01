@@ -42,3 +42,20 @@ def test_enabling_autologging_throws_for_wrong_spark_version(
             MlflowException, match="Spark autologging unsupported for Spark versions < 3"
         ):
             mlflow.spark.autolog()
+
+
+def test_spark_datasource_autologging_raise_on_databricks_serverless_shared_cluster(spark_session):
+    for mock_fun in [
+        "is_in_databricks_serverless_runtime",
+        "is_in_databricks_shared_cluster_runtime",
+    ]:
+        with mock.patch(f"mlflow.utils.databricks_utils.{mock_fun}", return_value=True):
+            mlflow.spark.autolog(disable=True)  # assert no error is raised.
+            with pytest.raises(
+                MlflowException,
+                match=(
+                    "MLflow Spark dataset autologging is not supported on Databricks "
+                    "shared clusters or Databricks serverless clusters."
+                ),
+            ):
+                mlflow.spark.autolog()

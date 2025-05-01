@@ -9,7 +9,6 @@ from mlflow.bedrock.utils import capture_exception
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.tracing.utils import set_span_chat_messages
-from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
 
@@ -23,7 +22,6 @@ class BaseEventStreamWrapper:
 
     Args:
         stream: The original event stream to wrap.
-        client: The MLflow client to end the span.
         span: The span to record events and response in.
         inputs: The inputs to the converse API.
     """
@@ -31,13 +29,11 @@ class BaseEventStreamWrapper:
     def __init__(
         self,
         stream: EventStream,
-        client: MlflowClient,
         span: LiveSpan,
         inputs: Optional[dict[str, Any]] = None,
     ):
         self._stream = stream
         self._span = span
-        self._client = client
         self._inputs = inputs
 
     def __iter__(self):
@@ -63,10 +59,7 @@ class BaseEventStreamWrapper:
     @capture_exception("Failed to handle event for the stream")
     def _end_span(self):
         """End the span."""
-        if self._span.parent_id:
-            self._client.end_span(self._span.request_id, self._span.span_id)
-        else:
-            self._client.end_trace(self._span.request_id)
+        self._span.end()
 
 
 class InvokeModelStreamWrapper(BaseEventStreamWrapper):

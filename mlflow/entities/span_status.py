@@ -17,6 +17,28 @@ class SpanStatusCode(str, Enum):
     OK = "OK"
     ERROR = "ERROR"
 
+    @staticmethod
+    def from_proto_status_code(status_code: str) -> SpanStatusCode:
+        """
+        Convert a string status code to the corresponding SpanStatusCode enum value.
+        """
+        from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
+
+        proto_code = ProtoSpan.Status.StatusCode
+        status_code_mapping = {
+            proto_code.Name(proto_code.STATUS_CODE_UNSET): SpanStatusCode.UNSET,
+            proto_code.Name(proto_code.STATUS_CODE_OK): SpanStatusCode.OK,
+            proto_code.Name(proto_code.STATUS_CODE_ERROR): SpanStatusCode.ERROR,
+        }
+        try:
+            return status_code_mapping[status_code]
+        except KeyError:
+            raise MlflowException(
+                f"Invalid status code: {status_code}. "
+                f"Valid values are: {', '.join(status_code_mapping.keys())}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
 
 @dataclass
 class SpanStatus:

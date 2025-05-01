@@ -11,7 +11,9 @@ from mlflow.tracing.display import (
     get_notebook_iframe_html,
 )
 
-from tests.tracing.helper import create_trace
+from tests.tracing.helper import create_trace, skip_module_when_testing_trace_sdk
+
+skip_module_when_testing_trace_sdk()
 
 
 class MockEventRegistry:
@@ -115,16 +117,6 @@ def test_display_is_called_in_correct_functions(monkeypatch):
     foo()
     mock_ipython.mock_run_cell()
     assert mock_display.call_count == 1
-
-    class MockMlflowClient:
-        def search_traces(self, *args, **kwargs):
-            return [create_trace("a"), create_trace("b"), create_trace("c")]
-
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
-    mlflow.search_traces(["123"])
-    mock_ipython.mock_run_cell()
-
-    assert mock_display.call_count == 2
 
 
 @in_databricks

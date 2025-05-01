@@ -7,6 +7,7 @@ import logging
 import numbers
 import posixpath
 import re
+from typing import Optional
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt import PROMPT_TEXT_TAG_KEY
@@ -16,7 +17,6 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.os import is_windows
 from mlflow.utils.string_utils import is_string_type
 
@@ -69,10 +69,6 @@ MAX_INPUT_TAG_VALUE_SIZE = 500
 MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
 MAX_TRACE_TAG_KEY_LENGTH = 250
 MAX_TRACE_TAG_VAL_LENGTH = 8000
-
-_UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {{{}}}".format(
-    ", ".join(DATABASE_ENGINES)
-)
 
 PARAM_VALIDATION_MSG = """
 
@@ -532,8 +528,13 @@ def _validate_experiment_artifact_location(artifact_location):
 
 def _validate_db_type_string(db_type):
     """validates db_type parsed from DB URI is supported"""
+    from mlflow.store.db.db_types import DATABASE_ENGINES
+
     if db_type not in DATABASE_ENGINES:
-        error_msg = f"Invalid database engine: '{db_type}'. '{_UNSUPPORTED_DB_TYPE_MSG}'"
+        error_msg = (
+            f"Invalid database engine: '{db_type}'. "
+            f"Supported database engines are {', '.join(DATABASE_ENGINES)}"
+        )
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
 
 
@@ -623,6 +624,13 @@ def _validate_username(username):
         raise MlflowException("Username cannot be empty.", INVALID_PARAMETER_VALUE)
 
 
+def _validate_password(password) -> None:
+    if password is None or len(password) < 12:
+        raise MlflowException.invalid_parameter_value(
+            "Password must be a string longer than 12 characters."
+        )
+
+
 def _validate_trace_tag(key, value):
     _validate_tag_name(key)
     key = _validate_length_limit("key", MAX_TRACE_TAG_KEY_LENGTH, key)
@@ -637,5 +645,18 @@ def _validate_experiment_artifact_location_length(artifact_location: str):
             "Invalid artifact path length. The length of the artifact path cannot be "
             f"greater than {max_length} characters. To configure this limit, please set the "
             "MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH environment variable.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_logged_model_name(name: Optional[str]) -> None:
+    if name is None:
+        return
+
+    bad_chars = ("/", ":", ".", "%", '"', "'")
+    if not name or any(c in name for c in bad_chars):
+        raise MlflowException(
+            f"Invalid model name ({name!r}) provided. Model name must be a non-empty string "
+            f"and cannot contain the following characters: {bad_chars}",
             INVALID_PARAMETER_VALUE,
         )

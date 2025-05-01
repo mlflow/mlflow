@@ -120,7 +120,16 @@ def test_evaluations_to_dataframes_empty():
         "error_code",
         "error_message",
     ]
-    expected_metrics_columns = ["evaluation_id", "key", "value", "timestamp"]
+    expected_metrics_columns = [
+        "evaluation_id",
+        "key",
+        "value",
+        "timestamp",
+        "model_id",
+        "dataset_name",
+        "dataset_digest",
+        "run_id",
+    ]
     expected_assessments_columns = [
         "evaluation_id",
         "name",
@@ -133,6 +142,7 @@ def test_evaluations_to_dataframes_empty():
         "metadata",
         "error_code",
         "error_message",
+        "span_id",
     ]
     expected_tags_columns = ["evaluation_id", "key", "value"]
 

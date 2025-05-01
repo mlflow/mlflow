@@ -5,7 +5,10 @@ import React from 'react';
 import type { Theme } from '../../theme';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
 import type { AnalyticsEventProps, AnalyticsEventValueChangeNoPiiFlagProps } from '../types';
-export declare const Root: ({ children, ...props }: DropdownMenu.DropdownMenuProps) => ReactElement;
+interface DropdownRootProps extends DropdownMenu.DropdownMenuProps {
+    itemHtmlType?: 'submit' | 'button';
+}
+export declare const Root: ({ children, itemHtmlType, ...props }: DropdownRootProps) => ReactElement;
 export interface DropdownMenuProps extends DropdownMenu.MenuContentProps {
     minWidth?: number;
     forceCloseOnEscape?: boolean;
@@ -60,4 +63,5 @@ export declare const dropdownSeparatorStyles: (theme: Theme) => {
     margin: string;
     backgroundColor: string;
 };
+export {};
 //# sourceMappingURL=DropdownMenu.d.ts.map

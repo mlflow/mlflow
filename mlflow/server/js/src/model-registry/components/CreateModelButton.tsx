@@ -1,53 +1,42 @@
-import React from 'react';
-import { Button } from '@databricks/design-system';
+import React, { useState } from 'react';
+import { Button, ButtonProps } from '@databricks/design-system';
 import { CreateModelModal } from './CreateModelModal';
 import { FormattedMessage } from 'react-intl';
 
 type Props = {
-  buttonType?: string;
+  buttonType?: ButtonProps['type'];
   buttonText?: React.ReactNode;
 };
 
-type State = {
-  modalVisible: boolean;
-};
+export function CreateModelButton({
+  buttonType = 'primary',
+  buttonText = <FormattedMessage defaultMessage="Create Model" description="Create button to register a new model" />,
+}: Props) {
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
 
-export class CreateModelButton extends React.Component<Props, State> {
-  state = {
-    modalVisible: false,
+  const hideModal = () => {
+    setModalVisible(false);
   };
 
-  hideModal = () => {
-    this.setState({ modalVisible: false });
+  const showModal = () => {
+    setModalVisible(true);
   };
 
-  showModal = () => {
-    this.setState({ modalVisible: true });
-  };
-
-  render() {
-    const { modalVisible } = this.state;
-    const buttonType = this.props.buttonType || 'primary';
-    const buttonText = this.props.buttonText || (
-      <FormattedMessage defaultMessage="Create Model" description="Create button to register a new model" />
-    );
-
-    return (
-      <div css={styles.wrapper}>
-        <Button
-          className="create-model-btn"
-          css={styles.getButtonSize(buttonType)}
-          // @ts-expect-error TS(2322): Type 'string' is not assignable to type '"link" | ... Remove this comment to see the full error message
-          type={buttonType}
-          onClick={this.showModal}
-          data-testid="create-model-button"
-        >
-          {buttonText}
-        </Button>
-        <CreateModelModal modalVisible={modalVisible} hideModal={this.hideModal} />
-      </div>
-    );
-  }
+  return (
+    <div css={styles.wrapper}>
+      <Button
+        componentId="codegen_mlflow_app_src_model-registry_components_CreateModelButton.tsx_28"
+        className="create-model-btn"
+        css={styles.getButtonSize(buttonType)}
+        type={buttonType}
+        onClick={showModal}
+        data-testid="create-model-button"
+      >
+        {buttonText}
+      </Button>
+      <CreateModelModal modalVisible={modalVisible} hideModal={hideModal} />
+    </div>
+  );
 }
 
 const styles = {

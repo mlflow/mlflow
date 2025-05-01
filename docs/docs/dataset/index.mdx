@@ -215,7 +215,7 @@ with mlflow.start_run() as run:
     mlflow.log_input(pd_dataset, context="training")
 
     mlflow.xgboost.log_model(
-        artifact_path="white-wine-xgb", xgb_model=model, input_example=X_test
+        name="white-wine-xgb", xgb_model=model, input_example=X_test
     )
 
     result = mlflow.evaluate(data=pd_dataset, predictions=None, model_type="classifier")

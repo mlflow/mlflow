@@ -11,12 +11,6 @@ Spark MLlib (native) format
     input data as a Spark DataFrame prior to scoring. Also supports deployment in Spark
     as a Spark UDF. Models with this flavor can be loaded as Python functions
     for performing inference. This flavor is always produced.
-:py:mod:`mlflow.mleap`
-    Enables high-performance deployment outside of Spark by leveraging MLeap's
-    custom dataframe and pipeline representations. Models with this flavor *cannot* be loaded
-    back as Python objects. Rather, they must be deserialized in Java using the
-    ``mlflow/java`` package. This flavor is produced only if you specify
-    MLeap-compatible arguments.
 """
 
 import logging
@@ -25,12 +19,13 @@ import posixpath
 import re
 import shutil
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 import yaml
 from packaging.version import Version
 
 import mlflow
-from mlflow import environment_variables, mleap, pyfunc
+from mlflow import environment_variables, pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
@@ -143,11 +138,10 @@ def get_default_conda_env(is_spark_connect_model=False):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
 def log_model(
     spark_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     dfs_tmpdir=None,
-    sample_input=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -155,6 +149,12 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
@@ -175,7 +175,7 @@ def log_model(
                     classification models, you need to set "probabilityCol" param to "prediction"
                     and set "predictionCol" param to "".
                     (e.g. `model.setProbabilityCol("prediction").setPredictionCol("")`)
-        artifact_path: Run relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
@@ -185,9 +185,6 @@ def log_model(
                         cluster. If this operation completes successfully, all temporary files
                         created on the DFS are removed. Defaults to ``/tmp/mlflow``.
                         For models defined in `pyspark.ml.connect` module, this param is ignored.
-        sample_input: A sample input used to add the MLeap flavor to the model.
-            This must be a PySpark DataFrame that the model can evaluate. If
-            ``sample_input`` is ``None``, the MLeap flavor is not added.
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -228,7 +225,7 @@ def log_model(
                 with mlflow.start_run() as run:
                     model_info = mlflow.spark.log_model(
                         lor_model,
-                        "model",
+                        name="model",
                         signature=signature,
                     )
 
@@ -254,6 +251,12 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -280,19 +283,30 @@ def log_model(
         lr = LogisticRegression(maxIter=10, regParam=0.001)
         pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
         model = pipeline.fit(training)
-        mlflow.spark.log_model(model, "spark-model")
+        mlflow.spark.log_model(model, name="spark-model")
     """
     _validate_model(spark_model)
     from pyspark.ml import PipelineModel
 
+    if name is not None and artifact_path is not None:
+        raise MlflowException.invalid_parameter_value(
+            "Both `artifact_path` (deprecated) and `name` parameters were specified. "
+            "Please only specify `name`."
+        )
+    elif artifact_path is not None:
+        _logger.warning("`artifact_path` is deprecated. Please use `name` instead.")
+        name = artifact_path
+        # to avoid another warning in Model.log
+        artifact_path = None
+
     if _is_spark_connect_model(spark_model):
         return Model.log(
             artifact_path=artifact_path,
+            name=name,
             flavor=mlflow.spark,
             spark_model=spark_model,
             conda_env=conda_env,
             code_paths=code_paths,
-            sample_input=sample_input,
             registered_model_name=registered_model_name,
             signature=signature,
             input_example=input_example,
@@ -300,6 +314,11 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             metadata=metadata,
+            params=params,
+            tags=tags,
+            model_type=model_type,
+            step=step,
+            model_id=model_id,
         )
 
     if not isinstance(spark_model, PipelineModel):
@@ -308,10 +327,8 @@ def log_model(
     run_root_artifact_uri = mlflow.get_artifact_uri()
     remote_model_path = None
     if _should_use_mlflowdbfs(run_root_artifact_uri):
-        remote_model_path = append_to_uri_path(
-            run_root_artifact_uri, artifact_path, _SPARK_MODEL_PATH_SUB
-        )
-        mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
+        remote_model_path = append_to_uri_path(run_root_artifact_uri, name, _SPARK_MODEL_PATH_SUB)
+        mlflowdbfs_path = _mlflowdbfs_path(run_id, name)
         with databricks_utils.MlflowCredentialContext(
             get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
         ):
@@ -326,18 +343,25 @@ def log_model(
     # be incorrect on multi-node clusters.
     # If the artifact URI is not a local filesystem path we attempt to write directly to the
     # artifact repo via Spark. If this fails, we defer to Model.log().
-    elif is_local_uri(run_root_artifact_uri) or not _maybe_save_model(
-        spark_model,
-        append_to_uri_path(run_root_artifact_uri, artifact_path),
+    elif (
+        is_local_uri(run_root_artifact_uri)
+        or databricks_utils.is_in_databricks_serverless_runtime()
+        or databricks_utils.is_in_databricks_shared_cluster_runtime()
+        or not _maybe_save_model(
+            spark_model,
+            append_to_uri_path(run_root_artifact_uri, name),
+        )
     ):
+        dfs_tmpdir = dfs_tmpdir or MLFLOW_DFS_TMP.get()
+        _check_databricks_uc_volume_tmpdir_availability(dfs_tmpdir)
         return Model.log(
             artifact_path=artifact_path,
+            name=name,
             flavor=mlflow.spark,
             spark_model=spark_model,
             conda_env=conda_env,
             code_paths=code_paths,
             dfs_tmpdir=dfs_tmpdir,
-            sample_input=sample_input,
             registered_model_name=registered_model_name,
             signature=signature,
             input_example=input_example,
@@ -345,16 +369,27 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             metadata=metadata,
+            params=params,
+            tags=tags,
+            model_type=model_type,
+            step=step,
+            model_id=model_id,
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
-    mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
+    logged_model = mlflow.initialize_logged_model(
+        name=name,
+        source_run_id=run.info.run_id if (run := mlflow.active_run()) else None,
+        model_type=model_type,
+        params=params,
+        tags=tags,
+    )
+    mlflow_model = Model(artifact_path=logged_model.artifact_location, run_id=run_id)
     with TempDir() as tmp:
         tmp_model_metadata_dir = tmp.path()
         _save_model_metadata(
             tmp_model_metadata_dir,
             spark_model,
             mlflow_model,
-            sample_input,
             conda_env,
             code_paths,
             signature=signature,
@@ -363,11 +398,11 @@ def log_model(
             extra_pip_requirements=extra_pip_requirements,
             remote_model_path=remote_model_path,
         )
-        mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
+        mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, name)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
         if registered_model_name is not None:
             mlflow.register_model(
-                f"runs:/{run_id}/{artifact_path}",
+                f"models:/{logged_model.model_id}",
                 registered_model_name,
                 await_registration_for,
             )
@@ -519,7 +554,9 @@ def _should_use_mlflowdbfs(root_uri):
     from mlflow.utils._spark_utils import _get_active_spark_session
 
     if (
-        not is_valid_dbfs_uri(root_uri)
+        databricks_utils.is_in_databricks_serverless_runtime()
+        or databricks_utils.is_in_databricks_shared_cluster_runtime()
+        or not is_valid_dbfs_uri(root_uri)
         or not is_databricks_acled_artifacts_uri(root_uri)
         or not databricks_utils.is_in_databricks_runtime()
         or (environment_variables._DISABLE_MLFLOWDBFS.get() or "").lower() == "true"
@@ -561,7 +598,6 @@ def _save_model_metadata(
     dst_dir,
     spark_model,
     mlflow_model,
-    sample_input,
     conda_env,
     code_paths,
     signature=None,
@@ -580,13 +616,6 @@ def _save_model_metadata(
     import pyspark
 
     is_spark_connect_model = _is_spark_connect_model(spark_model)
-    if sample_input is not None and not is_spark_connect_model:
-        mleap.add_to_model(
-            mlflow_model=mlflow_model,
-            path=dst_dir,
-            spark_model=spark_model,
-            sample_input=sample_input,
-        )
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
@@ -688,6 +717,26 @@ def _is_spark_connect_model(spark_model):
         return False
 
 
+def _is_uc_volume_uri(url):
+    parsed_url = urlparse(url)
+    return parsed_url.scheme in ["", "dbfs"] and parsed_url.path.startswith("/Volumes")
+
+
+def _check_databricks_uc_volume_tmpdir_availability(dfs_tmpdir):
+    if (
+        databricks_utils.is_in_databricks_serverless_runtime()
+        or databricks_utils.is_in_databricks_shared_cluster_runtime()
+    ):
+        if not dfs_tmpdir or not _is_uc_volume_uri(dfs_tmpdir):
+            raise MlflowException(
+                "UC volume path must be provided to save, log or load SparkML models "
+                "in Databricks shared or serverless clusters. "
+                "Specify environment variable 'MLFLOW_DFS_TMP' "
+                "or 'dfs_tmpdir' argument that uses a UC volume path starting with '/Volumes/...' "
+                "when saving, logging or loading a model."
+            )
+
+
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
 def save_model(
     spark_model,
@@ -696,7 +745,6 @@ def save_model(
     conda_env=None,
     code_paths=None,
     dfs_tmpdir=None,
-    sample_input=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
@@ -707,8 +755,6 @@ def save_model(
     Save a Spark MLlib Model to a local path.
 
     By default, this function saves models using the Spark MLlib persistence mechanism.
-    Additionally, if a sample input is specified using the ``sample_input`` parameter, the model
-    is also serialized in MLeap format and the MLeap flavor is added.
 
     Args:
         spark_model: Spark model to be saved - MLflow can only save descendants of
@@ -724,9 +770,6 @@ def save_model(
             as Spark ML models read from and write to DFS if running on a cluster. All
             temporary files created on the DFS are removed if this operation
             completes successfully. Defaults to ``/tmp/mlflow``.
-        sample_input: A sample input that is used to add the MLeap flavor to the model.
-            This must be a PySpark DataFrame that the model can evaluate. If
-            ``sample_input`` is ``None``, the MLeap flavor is not added.
         signature: See the document of argument ``signature`` in :py:func:`mlflow.spark.log_model`.
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
@@ -796,26 +839,34 @@ def save_model(
         # Save it to a DFS temp dir first and copy it to local path
         if dfs_tmpdir is None:
             dfs_tmpdir = MLFLOW_DFS_TMP.get()
+
+        _check_databricks_uc_volume_tmpdir_availability(dfs_tmpdir)
         tmp_path = generate_tmp_dfs_path(dfs_tmpdir)
         spark_model.save(tmp_path)
-        # We're copying the Spark model from DBFS to the local filesystem if (a) the temporary DFS
-        # URI we saved the Spark model to is a DBFS URI ("dbfs:/my-directory"), or (b) if we're
-        # running on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem
-        # absolute path like "/my-directory")
-        copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
-            databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
-        )
-        if copying_from_dbfs and databricks_utils.is_dbfs_fuse_available():
-            tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
+
+        if databricks_utils.is_in_databricks_runtime() and _is_uc_volume_uri(tmp_path):
+            # The temp DFS path is a UC volume path.
+            # Use UC volume fuse mount to read data.
+            tmp_path_fuse = urlparse(tmp_path).path
             shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
         else:
-            _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
+            # We're copying the Spark model from DBFS to the local filesystem if (a) the temporary
+            # DFS URI we saved the Spark model to is a DBFS URI ("dbfs:/my-directory"), or (b) if
+            # we're running on a Databricks cluster and the URI is schemeless (e.g. looks like a
+            # filesystem absolute path like "/my-directory")
+            copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
+                databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
+            )
+            if copying_from_dbfs and databricks_utils.is_dbfs_fuse_available():
+                tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
+                shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
+            else:
+                _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
 
     _save_model_metadata(
         dst_dir=path,
         spark_model=spark_model,
         mlflow_model=mlflow_model,
-        sample_input=sample_input,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -825,7 +876,7 @@ def save_model(
     )
 
 
-def _load_model_databricks(dfs_tmpdir, local_model_path):
+def _load_model_databricks_dbfs(dfs_tmpdir, local_model_path):
     from pyspark.ml.pipeline import PipelineModel
 
     # Spark ML expects the model to be stored on DFS
@@ -839,12 +890,31 @@ def _load_model_databricks(dfs_tmpdir, local_model_path):
     return PipelineModel.load(dfs_tmpdir)
 
 
+def _load_model_databricks_uc_volume(dfs_tmpdir, local_model_path):
+    from pyspark.ml.pipeline import PipelineModel
+
+    # Copy the model to a temp DFS location first. We cannot delete this file, as
+    # Spark may read from it at any point.
+    fuse_dfs_tmpdir = urlparse(dfs_tmpdir).path
+    shutil.copytree(src=local_model_path, dst=fuse_dfs_tmpdir)
+    return PipelineModel.load(dfs_tmpdir)
+
+
 def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     from pyspark.ml.pipeline import PipelineModel
 
     dfs_tmpdir = generate_tmp_dfs_path(dfs_tmpdir_base or MLFLOW_DFS_TMP.get())
+
+    _check_databricks_uc_volume_tmpdir_availability(dfs_tmpdir)
+    if (
+        databricks_utils.is_in_databricks_serverless_runtime()
+        or databricks_utils.is_in_databricks_shared_cluster_runtime()
+    ):
+        return _load_model_databricks_uc_volume(
+            dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
+        )
     if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
-        return _load_model_databricks(
+        return _load_model_databricks_dbfs(
             dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
         )
     model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir, local_model_path)
@@ -1197,7 +1267,19 @@ def autolog(disable=False, silent=False):
         _listen_for_spark_activity,
         _stop_listen_for_spark_activity,
     )
+    from mlflow.utils import databricks_utils
     from mlflow.utils._spark_utils import _get_active_spark_session
+
+    if (
+        databricks_utils.is_in_databricks_serverless_runtime()
+        or databricks_utils.is_in_databricks_shared_cluster_runtime()
+    ):
+        if disable:
+            return
+        raise MlflowException(
+            "MLflow Spark dataset autologging is not supported on Databricks shared clusters "
+            "or Databricks serverless clusters."
+        )
 
     # Check if environment variable PYSPARK_PIN_THREAD is set to false.
     # The "Pin thread" concept was introduced since Pyspark 3.0.0 and set to default to true
