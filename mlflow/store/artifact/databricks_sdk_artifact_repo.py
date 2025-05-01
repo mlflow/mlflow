@@ -82,7 +82,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
                 if artifact_path:
                     paths.append(artifact_path)
                 if f.parent != local_dir:
-                    paths.append(f.parent.relative_to(local_dir))
+                    paths.append(str(f.parent.relative_to(local_dir)))
 
                 fut = executor.submit(
                     self.log_artifact,
