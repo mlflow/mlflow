@@ -10,9 +10,7 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     construct_full_inputs,
     end_client_span_or_trace,
@@ -91,14 +89,9 @@ def _start_span(
     run_id: str | None = None,
 ) -> LiveSpan:
     """Create a client span, optionally linking it to `run_id`."""
-    span = start_client_span_or_trace(
+    return start_client_span_or_trace(
         _mlclient(), name=name, span_type=span_type, inputs=inputs, attributes=attributes
     )
-    if run_id:
-        InMemoryTraceManager().get_instance().set_request_metadata(
-            span.request_id, TraceMetadataKey.SOURCE_RUN, run_id
-        )
-    return span
 
 
 def _end_span_ok(span: LiveSpan, outputs: Any, attributes: Optional[dict[str, Any]] = None) -> None:
@@ -235,21 +228,14 @@ def _get_or_create_session_span() -> None:
     token = set_span_in_context(span)
     _session_spans[session_key] = (span, token)
 
-    if run:
-        InMemoryTraceManager().get_instance().set_request_metadata(
-            span.request_id, TraceMetadataKey.SOURCE_RUN, run.info.run_id
-        )
+    def _close_global_session() -> None:
+        _span, _tok = _session_spans.pop(_GLOBAL_SESSION_KEY, (None, None))
+        if _tok:
+            detach_span_from_context(_tok)
+        if _span:
+            end_client_span_or_trace(_mlclient(), _span, outputs=None)
 
-    else:
-
-        def _close_global_session() -> None:
-            _span, _tok = _session_spans.pop(_GLOBAL_SESSION_KEY, (None, None))
-            if _tok:
-                detach_span_from_context(_tok)
-            if _span:
-                end_client_span_or_trace(_mlclient(), _span, outputs=None)
-
-        atexit.register(_close_global_session)
+    atexit.register(_close_global_session)
 
 
 def _patched_end_run(original_end_run, status: str | None = None, *args, **kwargs):
