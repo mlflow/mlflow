@@ -182,6 +182,8 @@ class DataFrameDataset(Dataset, PyFuncConvertibleDatasetMixin, Generic[IntoDataF
             path=path,
             feature_names=feature_names,
             predictions=self._predictions,
+            name=self.name,
+            digest=self.digest,
         )
 
 
