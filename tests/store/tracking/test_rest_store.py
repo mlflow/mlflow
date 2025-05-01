@@ -405,6 +405,7 @@ def test_requestor():
         request_id = "tr-123"
         # Make the first call raise an exception
         calls = []
+
         def side_effect(*args, **kwargs):
             calls.append((args, kwargs))
             if len(calls) == 1:  # First call (V3 API)
@@ -972,12 +973,12 @@ def test_get_trace_info_v3_api():
         request_time=int(datetime.datetime(2023, 5, 1, 12, 0, 0).timestamp() * 1000),
         state=TraceState.OK,
         trace_metadata={"key1": "value1"},
-        tags={"tag1": "value1"}
+        tags={"tag1": "value1"},
     )
 
-    with mock.patch("mlflow.entities.trace_info_v3.TraceInfoV3.from_proto",
-                   return_value=trace_info_v3) as mock_from_proto:
-
+    with mock.patch(
+        "mlflow.entities.trace_info_v3.TraceInfoV3.from_proto", return_value=trace_info_v3
+    ) as mock_from_proto:
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
 
         with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
