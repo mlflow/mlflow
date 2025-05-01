@@ -1,12 +1,10 @@
 import inspect
-import json
 import logging
-import warnings
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.smolagents.chat import set_span_chat_attributes
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -27,6 +25,10 @@ def patched_class_call(original, self, *args, **kwargs):
 
                 # Need to convert the response of generate_content for better visualization
                 outputs = result.__dict__ if hasattr(result, "__dict__") else result
+                if span_type == SpanType.CHAT_MODEL:
+                    set_span_chat_attributes(
+                        span=span, messages=inputs.get("messages", []), output=outputs
+                    )
                 span.set_outputs(outputs)
                 return result
     except Exception as e:
@@ -37,15 +39,12 @@ def patched_class_call(original, self, *args, **kwargs):
 def _get_span_type(instance) -> str:
     from smolagents import CodeAgent, MultiStepAgent, Tool, ToolCallingAgent, models
 
-    try:
-        if isinstance(instance, (MultiStepAgent, CodeAgent, ToolCallingAgent)):
-            return SpanType.AGENT
-        elif isinstance(instance, Tool):
-            return SpanType.TOOL
-        elif isinstance(instance, models.Model):
-            return SpanType.CHAT_MODEL
-    except AttributeError as e:
-        _logger.warn("An exception happens when resolving the span type. Exception: %s", e)
+    if isinstance(instance, (MultiStepAgent, CodeAgent, ToolCallingAgent)):
+        return SpanType.AGENT
+    elif isinstance(instance, Tool):
+        return SpanType.TOOL
+    elif isinstance(instance, models.Model):
+        return SpanType.CHAT_MODEL
 
     return SpanType.UNKNOWN
 
@@ -62,19 +61,8 @@ def _construct_full_inputs(func, *args, **kwargs):
     return {
         k: v.__dict__ if hasattr(v, "__dict__") else v
         for k, v in arguments.items()
-        if v is not None and _is_serializable(v)
+        if v is not None
     }
-
-
-def _is_serializable(value):
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            # There is type mismatch in some crewai class, suppress warning here
-            json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
-        return True
-    except (TypeError, ValueError):
-        return False
 
 
 def _set_span_attributes(span: LiveSpan, instance):
@@ -94,7 +82,7 @@ def _set_span_attributes(span: LiveSpan, instance):
                 if value is not None:
                     span.set_attribute(key, str(value) if isinstance(value, list) else value)
 
-    except AttributeError as e:
+    except Exception as e:
         _logger.warn("An exception happens when saving span attributes. Exception: %s", e)
 
 

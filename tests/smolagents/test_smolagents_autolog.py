@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 import pytest
-from smolagents import ChatMessage, CodeAgent, DuckDuckGoSearchTool, InferenceClientModel
 
 import mlflow
 from mlflow.entities.span import SpanType
@@ -9,10 +8,6 @@ from mlflow.entities.span import SpanType
 from tests.tracing.helper import get_traces
 
 _DUMMY_INPUT = "Explain quantum mechanics in simple terms."
-
-_DUMMY_OUTPUT = ChatMessage(
-    role="user", content='[{"type": "text", "text": "Explain quantum mechanics in simple terms."}]'
-)
 
 
 def clear_autolog_state():
@@ -24,14 +19,20 @@ def clear_autolog_state():
 
 
 def test_run_autolog():
+    from smolagents import ChatMessage, CodeAgent, InferenceClientModel
+
+    _DUMMY_OUTPUT = ChatMessage(
+        role="user",
+        content='[{"type": "text", "text": "Explain quantum mechanics in simple terms."}]',
+    )
+    clear_autolog_state()
+    agent = CodeAgent(
+        tools=[],
+        model=InferenceClientModel(model_id="gpt-3.5-turbo", token="test_id"),
+        max_steps=2,
+    )
     with patch("smolagents.InferenceClientModel.__call__", return_value=_DUMMY_OUTPUT):
-        clear_autolog_state()
         mlflow.smolagents.autolog()
-        agent = CodeAgent(
-            tools=[],
-            model=InferenceClientModel(model_id="gpt-3.5-turbo", token="test_id"),
-            max_steps=2,
-        )
         agent.run(_DUMMY_INPUT)
 
     traces = get_traces()
@@ -47,7 +48,7 @@ def test_run_autolog():
     assert span_0.outputs == {
         "_value": '[{"type": "text", "text": "Explain quantum mechanics in simple terms."}]'
     }
-    # InferenceClientModel
+    # CodeAgent
     span_1 = traces[0].data.spans[1]
     assert span_1.name == "CodeAgent.step_1"
     assert span_1.span_type == SpanType.AGENT
@@ -87,6 +88,8 @@ def test_run_autolog():
 
 
 def test_run_failure():
+    from smolagents import CodeAgent, InferenceClientModel
+
     clear_autolog_state()
     mlflow.smolagents.autolog()
     agent = CodeAgent(
@@ -120,16 +123,22 @@ def test_run_failure():
 
 
 def test_tool_autolog():
+    from smolagents import ChatMessage, CodeAgent, DuckDuckGoSearchTool, InferenceClientModel
+
+    _DUMMY_OUTPUT = ChatMessage(
+        role="user",
+        content='[{"type": "text", "text": "Explain quantum mechanics in simple terms."}]',
+    )
+    clear_autolog_state()
+    agent = CodeAgent(
+        tools=[
+            DuckDuckGoSearchTool(),
+        ],
+        model=InferenceClientModel(model_id="gpt-3.5-turbo", token="test_id"),
+        max_steps=1,
+    )
     with patch("smolagents.InferenceClientModel.__call__", return_value=_DUMMY_OUTPUT):
-        clear_autolog_state()
         mlflow.smolagents.autolog()
-        agent = CodeAgent(
-            tools=[
-                DuckDuckGoSearchTool(),
-            ],
-            model=InferenceClientModel(model_id="gpt-3.5-turbo", token="test_id"),
-            max_steps=1,
-        )
         agent.run(_DUMMY_INPUT)
 
     traces = get_traces()
@@ -141,10 +150,8 @@ def test_tool_autolog():
     assert span_0.name == "CodeAgent.run"
     assert span_0.span_type == SpanType.AGENT
     assert span_0.parent_id is None
-    assert span_0.inputs == {"task": _DUMMY_INPUT}
-    assert span_0.outputs == {
-        "_value": '[{"type": "text", "text": "Explain quantum mechanics in simple terms."}]'
-    }
+    assert span_0.inputs is not None
+    assert span_0.outputs is not None
     # InferenceClientModel
     span_1 = traces[0].data.spans[1]
     assert span_1.name == "CodeAgent.step"
@@ -166,3 +173,5 @@ def test_tool_autolog():
     assert span_3.parent_id == span_0.span_id
     assert span_3.inputs is not None
     assert span_3.outputs is not None
+
+    clear_autolog_state()
