@@ -1897,7 +1897,8 @@ class SqlAlchemyStore(AbstractStore):
                 # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
                 order_by_clauses.extend(
                     [
-                        col.is_(None).asc(),  # Sort nulls last
+                        # Sort nulls last
+                        sqlalchemy.case((col.is_(None), 1), else_=0).asc(),
                         col.asc() if ascending else col.desc(),
                     ]
                 )
@@ -1946,7 +1947,8 @@ class SqlAlchemyStore(AbstractStore):
             # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
             order_by_clauses.extend(
                 [
-                    subquery.c.metric_value.is_(None).asc(),  # Sort nulls last
+                    # Sort nulls last
+                    sqlalchemy.case((subquery.c.metric_value.is_(None), 1), else_=0).asc(),
                     subquery.c.metric_value.asc() if ascending else subquery.c.metric_value.desc(),
                 ]
             )
