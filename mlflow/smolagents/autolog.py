@@ -23,7 +23,7 @@ def patched_class_call(original, self, *args, **kwargs):
                 _set_span_attributes(span=span, instance=self)
                 result = original(self, *args, **kwargs)
 
-                # Need to convert the response of generate_content for better visualization
+                # Need to convert the response of smolagents API for better visualization
                 outputs = result.__dict__ if hasattr(result, "__dict__") else result
                 if span_type == SpanType.CHAT_MODEL:
                     set_span_chat_attributes(
