@@ -23,9 +23,9 @@
     "graphql-codegen:clean": "find . -path '**/__generated__/*.ts' | xargs rm"
   },
   "dependencies": {
-    "@ag-grid-community/client-side-row-model": "32.3.5",
-    "@ag-grid-community/core": "32.3.5",
-    "@ag-grid-community/react": "32.3.5",
+    "@ag-grid-community/client-side-row-model": "^27.2.1",
+    "@ag-grid-community/core": "^27.2.1",
+    "@ag-grid-community/react": "^27.2.1",
     "@apollo/client": "^3.6.9",
     "@apollo/client-3-12": "npm:@apollo/client@^3.12.7",
     "@craco/craco": "7.0.0-alpha.0",
