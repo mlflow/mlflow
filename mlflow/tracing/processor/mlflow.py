@@ -10,6 +10,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
     TRACE_SCHEMA_VERSION,
@@ -27,7 +28,6 @@ from mlflow.tracing.utils import (
     maybe_get_logged_model_id,
     maybe_get_request_id,
 )
-from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
 from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.registry import resolve_tags
@@ -48,11 +48,11 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
     def __init__(
         self,
         span_exporter: SpanExporter,
-        client: Optional[MlflowClient] = None,
+        tracking_uri: Optional[str] = None,
         experiment_id: Optional[str] = None,
     ):
         self.span_exporter = span_exporter
-        self._client = client or MlflowClient()
+        self._client = TracingClient(tracking_uri)
         self._experiment_id = experiment_id
         self._trace_manager = InMemoryTraceManager.get_instance()
 
@@ -148,7 +148,7 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             tags.update(dependencies_schema)
         tags.update({TraceTagKey.TRACE_NAME: span.name})
 
-        return self._client._start_tracked_trace(
+        return self._client.start_trace(
             experiment_id=experiment_id,
             # TODO: This timestamp is not accurate because it is not adjusted to exclude the
             #   latency of the backend API call. We do this adjustment for span start time

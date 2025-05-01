@@ -1,3 +1,5 @@
+import asyncio
+import functools
 import os
 import time
 import uuid
@@ -14,12 +16,14 @@ import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 from mlflow.tracing.provider import _get_tracer
-from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, get_autolog_function
 from mlflow.utils.autologging_utils.safety import revert_patches
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 
 def create_mock_otel_span(
@@ -85,7 +89,7 @@ def create_mock_otel_span(
         def update_name(self, name):
             self.name = name
 
-        def end(self, end_time=None):
+        def end(self, end_time_ns=None):
             pass
 
         def record_exception():
@@ -124,15 +128,22 @@ def create_test_trace_info(
     )
 
 
-def get_traces(experiment_id=DEFAULT_EXPERIMENT_ID) -> list[Trace]:
+def get_traces(experiment_id=None) -> list[Trace]:
     # Get all traces from the backend
-    return mlflow.MlflowClient().search_traces(experiment_ids=[experiment_id])
+    return TracingClient().search_traces(
+        experiment_ids=[experiment_id or _get_experiment_id()],
+    )
 
 
-def purge_traces(experiment_id=DEFAULT_EXPERIMENT_ID):
+def purge_traces(experiment_id=None):
+    if len(get_traces(experiment_id)) == 0:
+        return
+
     # Delete all traces from the backend
-    mlflow.tracking.MlflowClient().delete_traces(
-        experiment_id=experiment_id, max_traces=1000, max_timestamp_millis=0
+    TracingClient().delete_traces(
+        experiment_id=experiment_id or _get_experiment_id(),
+        max_traces=1000,
+        max_timestamp_millis=int(time.time() * 1000),
     )
 
 
@@ -204,3 +215,34 @@ def score_in_model_serving(model_uri: str, model_input: dict):
 
         trace = pop_trace(request_id)
         return (request_id, predictions, trace)
+
+
+def skip_when_testing_trace_sdk(f):
+    # Decorator to Skip the test if only mlflow-tracing package is installed and
+    # not the full mlflow package.
+    msg = "Skipping test because it requires mlflow or mlflow-skinny to be installed."
+    if asyncio.iscoroutinefunction(f):
+
+        @functools.wraps(f)
+        async def wrapper(*args, **kwargs):
+            if IS_TRACING_SDK_ONLY:
+                pytest.skip(msg)
+            return await f(*args, **kwargs)
+    else:
+
+        @functools.wraps(f)
+        def wrapper(*args, **kwargs):
+            if IS_TRACING_SDK_ONLY:
+                pytest.skip(msg)
+            return f(*args, **kwargs)
+
+    return wrapper
+
+
+def skip_module_when_testing_trace_sdk():
+    """Skip the entire module if only mlflow-tracing package is installed"""
+    if IS_TRACING_SDK_ONLY:
+        pytest.skip(
+            "Skipping test because it requires mlflow or mlflow-skinny to be installed.",
+            allow_module_level=True,
+        )

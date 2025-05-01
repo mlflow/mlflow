@@ -253,6 +253,13 @@ Trace data are useful for various downstream tasks, such as creating an evaluati
 
 MLflow Tracing is production ready. Read [Production Tracing](/tracing/production) for the guidance to use it for monitoring models in production and various backend options.
 
+
+:::tip
+
+    When using MLflow Tracing in a production environment, we recommend using the [Lightweight Tracing SDK](/tracing/lightweight-sdk) (`mlflow-tracing`) that is optimized for reducing the total installation size and minimizing the set of dependencies.
+
+:::
+
 :::note
 MLflow Tracing support is available with the **MLflow 2.14.0** release.
 :::

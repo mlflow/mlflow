@@ -223,7 +223,7 @@ def test_request_and_response_are_still_available():
         s.set_inputs("foo")
         s.set_outputs("bar")
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     trace_data = trace.data
     assert trace_data.request == '"foo"'
     assert trace_data.response == '"bar"'

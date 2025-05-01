@@ -72,7 +72,9 @@ def reset_registry_uri():
 @pytest.fixture
 def mock_store():
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
-        yield mock_get_store.return_value
+        mock_store = mock_get_store.return_value
+        with mock.patch("mlflow.tracing.client._get_store", return_value=mock_store):
+            yield mock_store
 
 
 @pytest.fixture
@@ -80,7 +82,9 @@ def mock_artifact_repo():
     with mock.patch(
         "mlflow.tracking._tracking_service.client.get_artifact_repository"
     ) as mock_get_repo:
-        yield mock_get_repo.return_value
+        mock_repo = mock_get_repo.return_value
+        with mock.patch("mlflow.tracing.client.get_artifact_repository", return_value=mock_repo):
+            yield mock_repo
 
 
 @pytest.fixture
@@ -312,7 +316,7 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
             raise Exception("Failed to download trace data")
 
     with mock.patch(
-        "mlflow.tracking._tracking_service.client.get_artifact_repository",
+        "mlflow.tracing.client.get_artifact_repository",
         return_value=CustomArtifactRepository("test"),
     ) as mock_get_artifact_repository:
         mock_traces = [
@@ -600,11 +604,6 @@ def test_log_trace_with_databricks_tracking_uri(
 
     mock_experiment = mock.MagicMock()
     mock_experiment.experiment_id = "test_experiment_id"
-    monkeypatch.setattr(
-        mock_store_for_tracing,
-        "get_experiment_by_name",
-        mock.MagicMock(return_value=mock_experiment),
-    )
 
     class TestModel:
         def __init__(self):
@@ -649,16 +648,20 @@ def test_log_trace_with_databricks_tracking_uri(
 
     with (
         mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+            "mlflow.tracing.client.TracingClient._upload_trace_data"
         ) as mock_upload_trace_data,
         mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tags",
+            "mlflow.tracing.client.TracingClient.set_trace_tags",
         ),
         mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tag",
+            "mlflow.tracing.client.TracingClient.set_trace_tag",
         ),
         mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_trace_info",
+            "mlflow.tracing.client.TracingClient.get_trace_info",
+        ),
+        mock.patch(
+            "mlflow.MlflowClient.get_experiment_by_name",
+            return_value=mock_experiment,
         ),
         mock.patch(
             "mlflow.tracing.trace_manager.InMemoryTraceManager.update_trace_info",
@@ -741,9 +744,9 @@ def test_start_trace_raise_error_when_active_trace_exists():
 
 def test_end_trace_raise_error_when_trace_not_exist():
     client = mlflow.tracking.MlflowClient()
-    mock_tracking_client = mock.MagicMock()
-    mock_tracking_client.get_trace.return_value = None
-    client._tracking_client = mock_tracking_client
+    mock_tracing_client = mock.MagicMock()
+    mock_tracing_client.get_trace.return_value = None
+    client._tracing_client = mock_tracing_client
 
     with pytest.raises(MlflowException, match=r"Trace with ID test not found"):
         client.end_trace("test")
@@ -752,11 +755,11 @@ def test_end_trace_raise_error_when_trace_not_exist():
 @pytest.mark.parametrize("status", TraceStatus.pending_statuses())
 def test_end_trace_works_for_trace_in_pending_status(status):
     client = mlflow.tracking.MlflowClient()
-    mock_tracking_client = mock.MagicMock()
-    mock_tracking_client.get_trace.return_value = Trace(
+    mock_tracing_client = mock.MagicMock()
+    mock_tracing_client.get_trace.return_value = Trace(
         info=create_test_trace_info("test", status=status), data=TraceData()
     )
-    client._tracking_client = mock_tracking_client
+    client._tracing_client = mock_tracing_client
     client.end_span = lambda *args: None
 
     client.end_trace("test")
@@ -765,11 +768,11 @@ def test_end_trace_works_for_trace_in_pending_status(status):
 @pytest.mark.parametrize("status", TraceStatus.end_statuses())
 def test_end_trace_raise_error_for_trace_in_end_status(status):
     client = mlflow.tracking.MlflowClient()
-    mock_tracking_client = mock.MagicMock()
-    mock_tracking_client.get_trace.return_value = Trace(
+    mock_tracing_client = mock.MagicMock()
+    mock_tracing_client.get_trace.return_value = Trace(
         info=create_test_trace_info("test", status=status), data=TraceData()
     )
-    client._tracking_client = mock_tracking_client
+    client._tracing_client = mock_tracing_client
 
     with pytest.raises(MlflowException, match=r"Trace with ID test already finished"):
         client.end_trace("test")
