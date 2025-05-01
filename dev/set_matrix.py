@@ -27,8 +27,6 @@ python dev/set_matrix.py --versions 1.1.1
 
 import argparse
 import functools
-import importlib
-import inspect
 import json
 import os
 import re
@@ -614,21 +612,17 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                     )
                 )
 
-            # Add tracing test with the latest stable version
-            if (
-                len(versions) > 0
-                and category == "autologging"
-                and cfg.test_tracing_sdk
-            ):
+            # Add tracing SDK test with the latest stable version
+            if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
                 matrix.add(
                     MatrixItem(
                         name=f"{name}-tracing",
                         flavor=flavor,
-                        category="tracing",
-                        job_name=f"{name} / tracing / {versions[-1]}",
+                        category="tracing-sdk",
+                        job_name=f"{name} / tracing-sdk / {versions[-1]}",
                         install=install,
                         # --import-mode=importlib is required for testing tracing SDK
-                        # (mlflow-tracing) works properly, without being affected by the environment.
+                        # (mlflow-tracing) works properly, without being affected by environment.
                         run=run.replace("pytest", "pytest --import-mode=importlib"),
                         package=package_info.pip_release,
                         version=versions[-1],
@@ -675,7 +669,6 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
 
 
 def apply_changed_files(changed_files, matrix):
-    print(f"{matrix=}")
     all_flavors = {x.flavor for x in matrix}
     changed_flavors = (
         # If this file has been changed, re-run all tests
@@ -683,16 +676,12 @@ def apply_changed_files(changed_files, matrix):
         if str(Path(__file__).relative_to(Path.cwd())) in changed_files
         else get_changed_flavors(changed_files, all_flavors)
     )
-    print(f"{all_flavors=}")
-    print(f"{changed_flavors=}")
 
     # Run langchain tests if any tracing files have been changed
     if any(f.startswith("mlflow/tracing/") for f in changed_files):
         changed_flavors.add("langchain")
 
-    changed_matrix = set(filter(lambda x: x.flavor in changed_flavors, matrix))
-    print(f"{changed_matrix=}")
-    return changed_matrix
+    return set(filter(lambda x: x.flavor in changed_flavors, matrix))
 
 
 def generate_matrix(args):
