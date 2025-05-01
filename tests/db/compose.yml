@@ -53,7 +53,6 @@ services:
       - mysql
     environment:
       MLFLOW_TRACKING_URI: mysql://mlflowuser:mlflowpassword@mysql:3306/mlflowdb?charset=utf8mb4
-      DO_NOT_RESET_URI: "true"
       INSTALL_MLFLOW_FROM_REPO: true
 
   migration-mysql:
