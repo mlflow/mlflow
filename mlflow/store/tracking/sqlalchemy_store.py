@@ -1969,41 +1969,47 @@ class SqlAlchemyStore(AbstractStore):
 
         comparisons = parse_filter_string(filter_string)
         dialect = self._get_dialect()
-        filters: list[sqlalchemy.BinaryExpression] = []
+        attr_filters: list[sqlalchemy.BinaryExpression] = []
+        non_attr_filters: list[sqlalchemy.BinaryExpression] = []
         for comp in comparisons:
             comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
             if comp.entity.type == EntityType.ATTRIBUTE:
-                filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
-                continue
-
-            if comp.entity.type == EntityType.METRIC:
-                subquery = (
+                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
+            elif comp.entity.type == EntityType.METRIC:
+                non_attr_filters.append(
                     session.query(SqlLoggedModelMetric)
-                    .filter(SqlLoggedModelMetric.metric_name == comp.entity.key)
+                    .filter(
+                        SqlLoggedModelMetric.metric_name == comp.entity.key,
+                        comp_func(SqlLoggedModelMetric.metric_value, comp.value),
+                    )
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelMetric.metric_value, comp.value))
             elif comp.entity.type == EntityType.PARAM:
-                subquery = (
+                non_attr_filters.append(
                     session.query(SqlLoggedModelParam)
-                    .filter(SqlLoggedModelParam.param_key == comp.entity.key)
+                    .filter(
+                        SqlLoggedModelParam.param_key == comp.entity.key,
+                        comp_func(SqlLoggedModelParam.param_value, comp.value),
+                    )
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelParam.param_value, comp.value))
             elif comp.entity.type == EntityType.TAG:
-                subquery = (
+                non_attr_filters.append(
                     session.query(SqlLoggedModelTag)
-                    .filter(SqlLoggedModelTag.tag_key == comp.entity.key)
+                    .filter(
+                        SqlLoggedModelTag.tag_key == comp.entity.key,
+                        comp_func(SqlLoggedModelTag.tag_value, comp.value),
+                    )
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelTag.tag_value, comp.value))
 
-            models = models.join(subquery, SqlLoggedModel.model_id == subquery.c.model_id)
+        for f in non_attr_filters:
+            models = models.join(f)
 
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             SqlLoggedModel.experiment_id.in_(experiment_ids),
-            *filters,
+            *attr_filters,
         )
 
     def search_logged_models(
