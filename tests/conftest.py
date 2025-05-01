@@ -115,7 +115,6 @@ def reset_active_experiment_id():
 @pytest.fixture(autouse=True)
 def reset_mlflow_uri():
     yield
-
     # Resetting these environment variables cause sqlalchemy store tests to run with a sqlite
     # database instead of mysql/postgresql/mssql.
     if "DISABLE_RESET_MLFLOW_URI_FIXTURE" not in os.environ:
