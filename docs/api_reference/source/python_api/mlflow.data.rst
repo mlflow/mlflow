@@ -95,7 +95,7 @@ polars
 
 
 pyarrow
-~~~~~~
+~~~~~~~
 
 .. autofunction:: mlflow.data.from_arrow
 
