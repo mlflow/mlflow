@@ -25,6 +25,7 @@ import pytest
 import pytorch_lightning
 import setfit
 import sklearn
+import smolagents
 import statsmodels
 import tensorflow
 import transformers
@@ -71,6 +72,7 @@ library_to_mlflow_module_genai = {
     boto3: mlflow.bedrock,
     groq: mlflow.groq,
     mistralai: mlflow.mistral,
+    smolagents: mlflow.smolagents,
 }
 
 library_to_mlflow_module_traditional_ai = {
