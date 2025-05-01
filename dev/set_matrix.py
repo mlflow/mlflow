@@ -674,6 +674,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
 
 
 def apply_changed_files(changed_files, matrix):
+    print(f"{matrix=}")
     all_flavors = {x.flavor for x in matrix}
     changed_flavors = (
         # If this file has been changed, re-run all tests
@@ -681,12 +682,16 @@ def apply_changed_files(changed_files, matrix):
         if (__file__ in changed_files)
         else get_changed_flavors(changed_files, all_flavors)
     )
+    print(f"{all_flavors=}")
+    print(f"{changed_flavors=}")
 
     # Run langchain tests if any tracing files have been changed
     if any(f.startswith("mlflow/tracing/") for f in changed_files):
         changed_flavors.add("langchain")
 
-    return set(filter(lambda x: x.flavor in changed_flavors, matrix))
+    changed_matrix = set(filter(lambda x: x.flavor in changed_flavors, matrix))
+    print(f"{changed_matrix=}")
+    return changed_matrix
 
 
 def generate_matrix(args):
