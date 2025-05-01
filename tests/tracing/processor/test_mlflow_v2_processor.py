@@ -9,13 +9,12 @@ from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.tracing.constant import (
-    MAX_CHARS_IN_TRACE_INFO_METADATA,
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
     TraceMetadataKey,
 )
-from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
+from mlflow.tracing.processor.mlflow_v2 import MlflowV2SpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import _get_experiment_id
@@ -44,15 +43,17 @@ def test_on_start(monkeypatch):
     mock_client = mock.MagicMock()
     mock_client.start_trace.return_value = trace_info
 
-    with mock.patch("mlflow.tracing.processor.mlflow.TracingClient", return_value=mock_client):
-        processor = MlflowSpanProcessor(span_exporter=mock.MagicMock())
+    with mock.patch("mlflow.tracing.processor.mlflow_v2.TracingClient", return_value=mock_client):
+        processor = MlflowV2SpanProcessor(span_exporter=mock.MagicMock())
 
     processor.on_start(span)
 
     mock_client.start_trace.assert_called_once_with(
         experiment_id=_get_experiment_id(),
         timestamp_ms=5,
-        request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        request_metadata={
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+        },
         tags={
             "mlflow.traceName": "test_span",
             "mlflow.user": "bob",
@@ -86,8 +87,8 @@ def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(monkeypatch):
 
     mock_client.start_trace.side_effect = _mock_start_trace
 
-    with mock.patch("mlflow.tracing.processor.mlflow.TracingClient", return_value=mock_client):
-        processor = MlflowSpanProcessor(span_exporter=mock.MagicMock())
+    with mock.patch("mlflow.tracing.processor.mlflow_v2.TracingClient", return_value=mock_client):
+        processor = MlflowV2SpanProcessor(span_exporter=mock.MagicMock())
 
     original_start_time = time.time_ns()
     span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1, start_time=original_start_time)
@@ -114,8 +115,8 @@ def test_on_start_with_experiment_id(monkeypatch):
 
     mock_client = mock.MagicMock()
     mock_client.start_trace.return_value = trace_info
-    with mock.patch("mlflow.tracing.processor.mlflow.TracingClient", return_value=mock_client):
-        processor = MlflowSpanProcessor(span_exporter=mock.MagicMock())
+    with mock.patch("mlflow.tracing.processor.mlflow_v2.TracingClient", return_value=mock_client):
+        processor = MlflowV2SpanProcessor(span_exporter=mock.MagicMock())
 
     processor.on_start(span)
 
@@ -143,8 +144,8 @@ def test_on_start_during_model_evaluation():
     mock_client = mock.MagicMock()
     mock_client.start_trace.return_value = create_test_trace_info(_REQUEST_ID, 0)
 
-    with mock.patch("mlflow.tracing.processor.mlflow.TracingClient", return_value=mock_client):
-        processor = MlflowSpanProcessor(span_exporter=mock.MagicMock())
+    with mock.patch("mlflow.tracing.processor.mlflow_v2.TracingClient", return_value=mock_client):
+        processor = MlflowV2SpanProcessor(span_exporter=mock.MagicMock())
 
     with set_prediction_context(Context(request_id=_REQUEST_ID, is_evaluate=True)):
         processor.on_start(span)
@@ -173,8 +174,8 @@ def test_on_start_during_run(monkeypatch):
     mock_client = mock.MagicMock()
     mock_client.start_trace.return_value = trace_info
 
-    with mock.patch("mlflow.tracing.processor.mlflow.TracingClient", return_value=mock_client):
-        processor = MlflowSpanProcessor(span_exporter=mock.MagicMock())
+    with mock.patch("mlflow.tracing.processor.mlflow_v2.TracingClient", return_value=mock_client):
+        processor = MlflowV2SpanProcessor(span_exporter=mock.MagicMock())
 
     with mlflow.start_run(experiment_id=run_experiment_id) as run:
         processor.on_start(span)
@@ -200,10 +201,10 @@ def test_on_start_with_experiment_id_override(monkeypatch):
     mock_client.start_trace.return_value = create_test_trace_info(_REQUEST_ID, 0)
 
     mock_logger = mock.MagicMock()
-    monkeypatch.setattr("mlflow.tracing.processor.mlflow._logger", mock_logger)
+    monkeypatch.setattr("mlflow.tracing.processor.mlflow_v2._logger", mock_logger)
 
-    with mock.patch("mlflow.tracing.processor.mlflow.TracingClient", return_value=mock_client):
-        processor = MlflowSpanProcessor(
+    with mock.patch("mlflow.tracing.processor.mlflow_v2.TracingClient", return_value=mock_client):
+        processor = MlflowV2SpanProcessor(
             span_exporter=mock.MagicMock(), experiment_id="another_experiment"
         )
 
@@ -224,10 +225,10 @@ def test_on_start_warns_default_experiment(monkeypatch):
     mock_client.start_trace.return_value = create_test_trace_info(_REQUEST_ID, 0)
 
     mock_logger = mock.MagicMock()
-    monkeypatch.setattr("mlflow.tracing.processor.mlflow._logger", mock_logger)
+    monkeypatch.setattr("mlflow.tracing.processor.mlflow_v2._logger", mock_logger)
 
-    with mock.patch("mlflow.tracing.processor.mlflow.TracingClient", return_value=mock_client):
-        processor = MlflowSpanProcessor(span_exporter=mock.MagicMock())
+    with mock.patch("mlflow.tracing.processor.mlflow_v2.TracingClient", return_value=mock_client):
+        processor = MlflowV2SpanProcessor(span_exporter=mock.MagicMock())
 
     processor.on_start(create_mock_otel_span(trace_id=123, span_id=1))
     processor.on_start(create_mock_otel_span(trace_id=234, span_id=1))
@@ -260,8 +261,8 @@ def test_on_end():
     mock_client = mock.MagicMock()
     mock_client.start_trace.side_effect = Exception("error")
 
-    with mock.patch("mlflow.tracing.processor.mlflow.TracingClient", return_value=mock_client):
-        processor = MlflowSpanProcessor(span_exporter=mock_exporter)
+    with mock.patch("mlflow.tracing.processor.mlflow_v2.TracingClient", return_value=mock_client):
+        processor = MlflowV2SpanProcessor(span_exporter=mock_exporter)
 
     processor.on_end(otel_span)
 
@@ -269,12 +270,6 @@ def test_on_end():
     # Trace info should be updated according to the span attributes
     assert trace_info.status == TraceStatus.OK
     assert trace_info.execution_time_ms == 4
-    trace_input = trace_info.request_metadata.get(TraceMetadataKey.INPUTS)
-    assert len(trace_input) == MAX_CHARS_IN_TRACE_INFO_METADATA
-    assert trace_input.startswith('{"input1": "very long input')
-    trace_output = trace_info.request_metadata.get(TraceMetadataKey.OUTPUTS)
-    assert len(trace_output) == MAX_CHARS_IN_TRACE_INFO_METADATA
-    assert trace_output.startswith('{"output": "very long output')
     assert trace_info.tags == {}
 
     # Non-root span should not be exported

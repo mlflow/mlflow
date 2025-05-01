@@ -173,6 +173,10 @@ def _get_property_from_spark_context(key):
         return None
 
 
+def is_databricks_tracking_uri(tracking_uri: str) -> bool:
+    return tracking_uri.lower().startswith("databricks")
+
+
 def is_databricks_default_tracking_uri(tracking_uri):
     return tracking_uri.lower().strip() == "databricks"
 

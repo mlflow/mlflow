@@ -802,7 +802,7 @@ def test_mlflow_trace_isolated_from_other_otel_processors():
     assert other_exporter.exported_spans[0].name == "non_mlflow_span"
 
 
-@mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
+@mock.patch("mlflow.tracing.display.get_display_handler")
 def test_get_trace(mock_get_display_handler):
     model = DefaultTestModel()
     model.predict(2, 5)
