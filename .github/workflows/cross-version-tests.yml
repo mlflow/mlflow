@@ -222,6 +222,7 @@ jobs:
           fi
       - name: Install mlflow & test dependencies
         run: |
+          pip install -U pip wheel setuptools
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
           if [[ "${{ matrix.category }}" == "tracing" ]]; then
             pip install packages/tracing
