@@ -19,7 +19,7 @@ def from_arrow(
     predictions: Optional[str] = None,
 ) -> ArrowDataset:
     """
-    Constructs a :py:class:`ArrowDataset <mlflow.data.pyarrow_dataset.ArrowDataset>` instance from
+    Constructs a :py:class:`ArrowDataset <mlflow.data.arrow_dataset.ArrowDataset>` instance from
     a PyArrow Table, optional targets, optional predictions, and source.
 
     Args:
