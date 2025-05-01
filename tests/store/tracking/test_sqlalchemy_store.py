@@ -68,6 +68,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInput,
     SqlInputTag,
     SqlLatestMetric,
+    SqlLoggedModel,
+    SqlLoggedModelMetric,
+    SqlLoggedModelParam,
+    SqlLoggedModelTag,
     SqlMetric,
     SqlParam,
     SqlRun,
@@ -209,6 +213,10 @@ def _cleanup_database(store: SqlAlchemyStore):
     with store.ManagedSessionMaker() as session:
         # Delete all rows in all tables
         for model in (
+            SqlLoggedModel,
+            SqlLoggedModelMetric,
+            SqlLoggedModelParam,
+            SqlLoggedModelTag,
             SqlParam,
             SqlMetric,
             SqlLatestMetric,
