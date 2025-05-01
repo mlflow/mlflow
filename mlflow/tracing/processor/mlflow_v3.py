@@ -1,12 +1,12 @@
 from typing import Optional
 
-from mlflow.tracing.utils import encode_trace_id
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
+from mlflow.tracing.utils import encode_trace_id
 
 
 class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
@@ -43,9 +43,7 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
             execution_time_ms=None,
             status=TraceStatus.IN_PROGRESS,
             request_metadata=self._get_basic_trace_metadata(),
-            # TODO: Uncomment this. The StartTraceV3 backend doesn't handle
-            # reserved tags. This must be fixed before merging.
-            tags={}#self._get_basic_trace_tags(root_span),
+            tags=self._get_basic_trace_tags(root_span),
         )
         self._trace_manager.register_trace(root_span.context.trace_id, trace_info)
 

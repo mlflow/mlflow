@@ -6,7 +6,6 @@ from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
 from mlflow.tracing.client import TracingClient
@@ -93,7 +92,6 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
             _logger.warning(f"Failed to send trace to MLflow backend: {e}")
-
 
     def _should_log_async(self):
         # During evaluate, the eval harness relies on the generated trace objects,

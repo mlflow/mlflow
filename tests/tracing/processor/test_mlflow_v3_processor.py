@@ -1,7 +1,6 @@
 import json
 from unittest import mock
 
-from mlflow.tracing.utils import encode_trace_id
 import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
@@ -13,6 +12,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import encode_trace_id
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
@@ -31,7 +31,7 @@ def test_on_start(monkeypatch):
 
     # V3 processor uses encoded Otel trace_id as request_id
     request_id = "tr-" + encode_trace_id(trace_id)
-    assert len(request_id) == 35 # 3 for "tr-" prefix + 32 for encoded trace_id
+    assert len(request_id) == 35  # 3 for "tr-" prefix + 32 for encoded trace_id
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(request_id)
     assert request_id in InMemoryTraceManager.get_instance()._traces
 
