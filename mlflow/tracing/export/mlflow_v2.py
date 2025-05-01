@@ -94,7 +94,3 @@ class MlflowV2SpanExporter(SpanExporter):
         else:
             upload_trace_data_task.handle()
             upload_ended_trace_info_task.handle()
-
-    def _should_log_async(self):
-        if not MLFLOW_ENABLE_ASYNC_LOGGING.get():
-            return False
