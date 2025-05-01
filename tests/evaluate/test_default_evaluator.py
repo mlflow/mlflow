@@ -276,6 +276,7 @@ def test_multi_classifier_evaluation(
         "shap_feature_importance_plot.png",
         "confusion_matrix.png",
         "shap_summary_plot.png",
+        "calibration_curve_plot.png",
     }
     assert result.artifacts.keys() == {
         "per_class_metrics",
@@ -285,6 +286,7 @@ def test_multi_classifier_evaluation(
         "shap_beeswarm_plot",
         "shap_summary_plot",
         "shap_feature_importance_plot",
+        "calibration_curve_plot",
     }
 
 
@@ -370,6 +372,7 @@ def test_bin_classifier_evaluation(
         "confusion_matrix.png",
         "shap_summary_plot.png",
         "roc_curve_plot.png",
+        "calibration_curve_plot.png",
     }
     assert result.artifacts.keys() == {
         "roc_curve_plot",
@@ -379,6 +382,7 @@ def test_bin_classifier_evaluation(
         "shap_beeswarm_plot",
         "shap_summary_plot",
         "shap_feature_importance_plot",
+        "calibration_curve_plot",
     }
 
 
