@@ -1,6 +1,7 @@
 import json
 from unittest import mock
 
+from mlflow.tracing.utils import encode_trace_id
 import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
@@ -28,8 +29,9 @@ def test_on_start(monkeypatch):
     processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock())
     processor.on_start(span)
 
-    # V3 processor uses trace_id directly as request_id
-    request_id = str(trace_id)
+    # V3 processor uses encoded Otel trace_id as request_id
+    request_id = "tr-" + encode_trace_id(trace_id)
+    assert len(request_id) == 35 # 3 for "tr-" prefix + 32 for encoded trace_id
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(request_id)
     assert request_id in InMemoryTraceManager.get_instance()._traces
 
@@ -43,7 +45,7 @@ def test_on_start(monkeypatch):
 
 def test_on_start_during_model_evaluation():
     trace_id = 12345
-    request_id = str(trace_id)
+    request_id = "tr-" + encode_trace_id(trace_id)
 
     # Root span should create a new trace on start
     span = create_mock_otel_span(trace_id=trace_id, span_id=1)
@@ -73,7 +75,8 @@ def test_on_start_during_run(monkeypatch):
     with mlflow.start_run(experiment_id=run_experiment_id) as run:
         processor.on_start(span)
 
-        trace = InMemoryTraceManager.get_instance()._traces[str(span.context.trace_id)]
+        trace_id = "tr-" + encode_trace_id(span.context.trace_id)
+        trace = InMemoryTraceManager.get_instance()._traces[trace_id]
         assert trace.info.experiment_id == run_experiment_id
         assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
@@ -91,7 +94,8 @@ def test_on_start_with_experiment_id_override(monkeypatch):
     span = create_mock_otel_span(trace_id=123, span_id=1)
     processor.on_start(span)
 
-    trace = InMemoryTraceManager.get_instance()._traces[str(span.context.trace_id)]
+    trace_id = "tr-" + encode_trace_id(span.context.trace_id)
+    trace = InMemoryTraceManager.get_instance()._traces[trace_id]
     assert trace.info.experiment_id == "another_experiment"
 
 

@@ -1,5 +1,6 @@
 from typing import Optional
 
+from mlflow.tracing.utils import encode_trace_id
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
@@ -30,7 +31,8 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
         This method is called in the on_start method of the base class.
         """
         # Use otel-generated trace_id as request_id
-        request_id = str(root_span.context.trace_id)
+        # The "tr-" prefix is required for determine if the entity is trace from the request_id
+        request_id = "tr-" + encode_trace_id(root_span.context.trace_id)
 
         # TODO: The V2 TraceInfo object is used here because the trace manager is not migrated
         # to V3 data model yet. However, the actual Trace exported in the exporter is V3 schema.
@@ -41,7 +43,9 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
             execution_time_ms=None,
             status=TraceStatus.IN_PROGRESS,
             request_metadata=self._get_basic_trace_metadata(),
-            tags=self._get_basic_trace_tags(root_span),
+            # TODO: Uncomment this. The StartTraceV3 backend doesn't handle
+            # reserved tags. This must be fixed before merging.
+            tags={}#self._get_basic_trace_tags(root_span),
         )
         self._trace_manager.register_trace(root_span.context.trace_id, trace_info)
 

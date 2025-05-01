@@ -6,6 +6,7 @@ from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
 from mlflow.tracing.client import TracingClient
@@ -27,12 +28,13 @@ class MlflowV3SpanExporter(SpanExporter):
     """
 
     def __init__(self, tracking_uri: Optional[str] = None):
-        self._is_async = MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
-        if self._is_async:
+        self._is_async_enabled = MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+        if self._is_async_enabled:
             _logger.info("MLflow is configured to log traces asynchronously.")
             self._async_queue = AsyncTraceExportQueue()
         self._client = TracingClient(tracking_uri)
 
+        # Only display traces inline in Databricks notebooks
         self._should_display_trace = is_in_databricks_notebook()
         if self._should_display_trace:
             self._display_handler = get_display_handler()
@@ -65,7 +67,7 @@ class MlflowV3SpanExporter(SpanExporter):
             if self._should_display_trace and not maybe_get_request_id(is_evaluate=True):
                 self._display_handler.display_traces([trace])
 
-            if self._is_async:
+            if self._should_log_async():
                 self._async_queue.put(
                     task=Task(
                         handler=self._log_trace,
@@ -91,3 +93,12 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
             _logger.warning(f"Failed to send trace to MLflow backend: {e}")
+
+
+    def _should_log_async(self):
+        # During evaluate, the eval harness relies on the generated trace objects,
+        # so we should not log traces asynchronously.
+        if maybe_get_request_id(is_evaluate=True):
+            return False
+
+        return self._is_async_enabled
