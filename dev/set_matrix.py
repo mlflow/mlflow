@@ -557,12 +557,16 @@ def is_flavor_support_tracing(flavor: str) -> bool:
     """
     try:
         module = importlib.import_module(f"mlflow.{flavor}")
+        print(f"Module: {module}")
         if not hasattr(module, "autolog"):
+            print(f"No autolog function found for {flavor}")
             return False
 
         sig = inspect.signature(module.autolog)
+        print(f"parameters: {sig.parameters}")
         return "log_traces" in sig.parameters
     except (ImportError, AttributeError):
+        print(f"Error importing {flavor}")
         return False
 
 
