@@ -1,4 +1,5 @@
 import importlib.metadata
+import logging
 import posixpath
 from concurrent.futures import Future
 from pathlib import Path
@@ -18,6 +19,9 @@ if TYPE_CHECKING:
 def _sdk_supports_large_file_uploads() -> bool:
     # https://github.com/databricks/databricks-sdk-py/commit/7ca3fb7e8643126b74c9f5779dc01fb20c1741fb
     return Version(importlib.metadata.version("databricks-sdk")) >= Version("0.45.0")
+
+
+_logger = logging.getLogger(__name__)
 
 
 # TODO: The following artifact repositories should use this class. Migrate them.
@@ -48,7 +52,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
                     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
                 )
             except AttributeError:
-                pass
+                _logger.debug("Failed to set multipart_upload_chunk_size in Config", exc_info=True)
         self.wc = wc
 
     @property
