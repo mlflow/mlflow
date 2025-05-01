@@ -152,7 +152,7 @@ jobs:
           set +e
           err=0
           trap 'err=1' ERR
-
+          RESULTS=""
           for service in $(./tests/db/compose.sh config --services | grep '^mlflow-' | sort)
           do
             # Set `--no-TTY` to show container logs on GitHub Actions:
@@ -161,8 +161,10 @@ jobs:
               tests/store/tracking/test_sqlalchemy_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
               tests/db
+              RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
           done
 
+          echo -e "$RESULTS"
           test $err = 0
 
       - name: Run migration check
