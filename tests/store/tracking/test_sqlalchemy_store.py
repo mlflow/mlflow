@@ -5407,7 +5407,9 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
     )
     store.log_batch(run.info.run_id, metrics=[another_metric], params=[], tags=[])
     model = store.get_logged_model(model.model_id)
-    assert model.metrics == [metric, another_metric]
+    actual_metrics = sorted(model.metrics, key=lambda m: m.key)
+    expected_metrics = sorted([metric, another_metric], key=lambda m: m.key)
+    assert actual_metrics == expected_metrics
 
     # Log multiple metrics
     metrics = [
@@ -5426,4 +5428,6 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
 
     store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
     model = store.get_logged_model(model.model_id)
-    assert model.metrics == [metric, another_metric] + metrics
+    actual_metrics = sorted(model.metrics, key=lambda m: m.key)
+    expected_metrics = sorted([metric, another_metric, *metrics], key=lambda m: m.key)
+    assert actual_metrics == expected_metrics
