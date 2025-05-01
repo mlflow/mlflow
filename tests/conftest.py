@@ -116,7 +116,7 @@ def reset_active_experiment_id():
 def reset_mlflow_uri():
     yield
 
-    # Resetting those environment variables cause sqlalchemy store tests to run with a sqlite
+    # Resetting these environment variables cause sqlalchemy store tests to run with a sqlite
     # database instead of mysql/postgresql/mssql.
     if "DISABLE_RESET_MLFLOW_URI_FIXTURE" not in os.environ:
         os.environ.pop("MLFLOW_TRACKING_URI", None)
