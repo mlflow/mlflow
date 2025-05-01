@@ -405,7 +405,7 @@ class RestStore(AbstractStore):
                 trace_v3_response_proto = self._call_endpoint(
                     GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
                 )
-                return TraceInfoV3.from_proto(trace_v3_response_proto)
+                return TraceInfoV3.from_proto(trace_v3_response_proto.trace.trace_info)
             except Exception:
                 # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
                 _logger.debug(
