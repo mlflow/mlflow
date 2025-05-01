@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 import crewai
-from mlflow.version import IS_TRACING_SDK_ONLY
 import pytest
 from crewai import Agent, Crew, Task
 from crewai.flow.flow import Flow, start
@@ -10,6 +9,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
