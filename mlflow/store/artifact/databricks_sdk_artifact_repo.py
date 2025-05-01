@@ -29,16 +29,27 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         from databricks.sdk.config import Config
 
         super().__init__(artifact_uri)
-        self.wc = WorkspaceClient(
+        supports_large_file_uploads = _sdk_supports_large_file_uploads()
+        wc = WorkspaceClient(
             config=(
-                Config(
-                    enable_experimental_files_api_client=True,
-                    multipart_upload_chunk_size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
-                )
-                if _sdk_supports_large_file_uploads()
+                Config(enable_experimental_files_api_client=True)
+                if supports_large_file_uploads
                 else None
             )
         )
+        if supports_large_file_uploads:
+            # `Config` has a `multipart_upload_min_stream_size` parameter but the constructor
+            # doesn't set it. This is a bug in databricks-sdk.
+            # >>> from databricks.sdk.config import Config
+            # >>> config = Config(multipart_upload_chunk_size=123)
+            # >>> assert config.multipart_upload_chunk_size != 123
+            try:
+                wc.files._config.multipart_upload_chunk_size = (
+                    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+                )
+            except AttributeError:
+                pass
+        self.wc = wc
 
     @property
     def files_api(self) -> "FilesAPI":
