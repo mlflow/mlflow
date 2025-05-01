@@ -87,6 +87,7 @@ class TestConfig(BaseModel, extra="forbid"):
     allow_unreleased_max_version: Optional[bool] = None
     pre_test: Optional[str] = None
     test_every_n_versions: int = 1
+    test_tracing_sdk: bool = False
 
     class Config:
         arbitrary_types_allowed = True
@@ -551,25 +552,6 @@ def validate_requirements(
             )
 
 
-def is_flavor_support_tracing(flavor: str) -> bool:
-    """
-    Check if a flavor's autolog() function supports log_traces parameter.
-    """
-    try:
-        module = importlib.import_module(f"mlflow.{flavor}")
-        print(f"Module: {module}")
-        if not hasattr(module, "autolog"):
-            print(f"No autolog function found for {flavor}")
-            return False
-
-        sig = inspect.signature(module.autolog)
-        print(f"parameters: {sig.parameters}")
-        return "log_traces" in sig.parameters
-    except (ImportError, AttributeError):
-        print(f"Error importing {flavor}")
-        return False
-
-
 def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[MatrixItem]:
     matrix = set()
     for name, flavor_config in config.items():
@@ -633,11 +615,11 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 )
 
             # Add tracing test with the latest stable version
-            print(flavor, versions, category, is_flavor_support_tracing(flavor))
+            print(flavor, versions, category, cfg.test_tracing_sdk)
             if (
                 len(versions) > 0
                 and category == "autologging"
-                and is_flavor_support_tracing(flavor)
+                and cfg.test_tracing_sdk
             ):
                 matrix.add(
                     MatrixItem(
