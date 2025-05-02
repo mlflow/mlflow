@@ -112,7 +112,6 @@ def _inner_get_tool_attributes(tool_dict):
         res["description"] = tool_dict.description
     result = {}
     if res:
-        result
         result["type"] = "function"
         result["function"] = res
     return result
