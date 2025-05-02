@@ -39,6 +39,8 @@ RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
 _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
+_V3_REST_API_PATH_PREFIX = "/api/3.0"
+_V3_TRACE_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
 
 
@@ -383,6 +385,11 @@ def get_create_assessment_endpoint(trace_id: str):
 
 def get_single_assessment_endpoint(trace_id: str, assessment_id: str):
     return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
+
+
+def get_search_traces_v3_endpoint():
+    """Return the endpoint for the SearchTracesV3 API"""
+    return f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
 
 
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):

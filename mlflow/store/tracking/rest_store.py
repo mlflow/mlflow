@@ -20,6 +20,7 @@ from mlflow.entities import (
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -59,6 +60,7 @@ from mlflow.protos.service_pb2 import (
     SearchLoggedModels,
     SearchRuns,
     SearchTraces,
+    SearchTracesV3Request,
     SearchUnifiedTraces,
     SetExperimentTag,
     SetLoggedModelTags,
@@ -82,6 +84,7 @@ from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
     get_create_assessment_endpoint,
     get_logged_model_endpoint,
+    get_search_traces_v3_endpoint,
     get_set_trace_tag_endpoint,
     get_single_assessment_endpoint,
     get_single_trace_endpoint,
@@ -445,15 +448,24 @@ class RestStore(AbstractStore):
         sql_warehouse_id: Optional[str] = None,
     ):
         if sql_warehouse_id is None:
-            request = SearchTraces(
-                experiment_ids=experiment_ids,
+            # Create trace_locations from experiment_ids for the V3 API
+            trace_locations = []
+            for exp_id in experiment_ids:
+                location = TraceLocation.from_experiment_id(exp_id)
+                trace_locations.append(location.to_proto())
+
+            # Create V3 request message
+            request = SearchTracesV3Request(
+                trace_locations=trace_locations,
                 filter=filter_string,
                 max_results=max_results,
                 order_by=order_by,
                 page_token=page_token,
             )
             req_body = message_to_json(request)
-            response_proto = self._call_endpoint(SearchTraces, req_body)
+            endpoint = get_search_traces_v3_endpoint()
+            response_proto = self._call_endpoint(SearchTracesV3Request, req_body, endpoint=endpoint)
+            trace_infos = [TraceInfoV3.from_proto(t) for t in response_proto.traces]
         else:
             response_proto = self._search_unified_traces(
                 model_id=model_id,
@@ -464,7 +476,7 @@ class RestStore(AbstractStore):
                 order_by=order_by,
                 page_token=page_token,
             )
-        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+            trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
 
     def _search_unified_traces(
