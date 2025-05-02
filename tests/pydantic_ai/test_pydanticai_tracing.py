@@ -366,3 +366,12 @@ def test_agent_run_sync_failure(simple_agent):
     assert spans[1].span_type == SpanType.CHAIN
     assert spans[2].name == "InstrumentedModel.AsyncMock"
     assert spans[2].span_type == SpanType.LLM
+
+    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", side_effect=Exception):
+        mlflow.pydantic_ai.autolog(disable=True)
+
+        with pytest.raises(Exception):  # noqa
+            simple_agent.run_sync("France")
+
+    traces = get_traces()
+    assert len(traces) == 1

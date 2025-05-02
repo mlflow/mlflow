@@ -28,6 +28,7 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
         "pydantic_ai.models.instrumented.InstrumentedModel": ["request"],
         "pydantic_ai.Tool": ["run"],
         "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
+        "pydantic_ai.mcp.MCPServerStdio": ["call_tool", "list_tools"],
     }
 
     try:
