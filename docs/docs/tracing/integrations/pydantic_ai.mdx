@@ -16,12 +16,12 @@ import TabItem from "@theme/TabItem";
 [​PydanticAI](https://ai.pydantic.dev/) is a Python framework designed to simplify the development of production-grade generative AI applications. It brings type safety, ergonomic API design, and a developer-friendly experience to GenAI app development.​
 
 
-[MLflow Tracing](../) provides automatic tracing capability for [​PydanticAI](https://ai.pydantic.dev/), an open source framework for building multi-agent applications. By enabling auto tracing for ​PydanticAI by calling the <APILink fn="mlflow.pydanticai.autolog" /> function, , MLflow will capture nested traces for ​PydanticAI workflow execution and logged them to the active MLflow Experiment.
+[MLflow Tracing](../) provides automatic tracing capability for [​PydanticAI](https://ai.pydantic.dev/), an open source framework for building multi-agent applications. By enabling auto tracing for ​PydanticAI by calling the <APILink fn="mlflow.pydantic_ai.autolog" /> function, , MLflow will capture nested traces for ​PydanticAI workflow execution and logged them to the active MLflow Experiment.
 
 ```python
 import mlflow
 
-mlflow.pydanticai.autolog()
+mlflow.pydantic_ai.autolog()
 ```
 
 MLflow trace automatically captures the following information about ​PydanticAI agents:
@@ -46,8 +46,8 @@ First, enable auto-tracing for PydanticAI, and optionally create an MLflow exper
 ```python
 import mlflow
 
-# Turn on auto tracing by calling mlflow.pydanticai.autolog()
-mlflow.pydanticai.autolog()
+# Turn on auto tracing by calling mlflow.pydantic_ai.autolog()
+mlflow.pydantic_ai.autolog()
 
 
 # Optional: Set a tracking URI and an experiment
@@ -206,7 +206,7 @@ import asyncio
 
 mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("MCP Server")
-mlflow.pydanticai.autolog(log_traces=True)
+mlflow.pydantic_ai.autolog(log_traces=True)
 
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStdio
@@ -240,4 +240,4 @@ asyncio.run(main())
 
 ### Disable auto-tracing
 
-Auto tracing for PydanticAI can be disabled globally by calling `mlflow.pydanticai.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
+Auto tracing for PydanticAI can be disabled globally by calling `mlflow.pydantic_ai.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
