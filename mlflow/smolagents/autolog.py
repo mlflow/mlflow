@@ -68,7 +68,7 @@ def _construct_full_inputs(func, *args, **kwargs):
 def _set_span_attributes(span: LiveSpan, instance):
     # Smolagents is available only python >= 3.10, so importring libraries inside methods.
     try:
-        from smolagents import CodeAgent, MultiStepAgent, Tool, ToolCallingAgent
+        from smolagents import CodeAgent, MultiStepAgent, Tool, ToolCallingAgent, models
 
         if isinstance(instance, (MultiStepAgent, CodeAgent, ToolCallingAgent)):
             agent = _get_agent_attributes(instance)
@@ -79,6 +79,12 @@ def _set_span_attributes(span: LiveSpan, instance):
         elif isinstance(instance, Tool):
             tool = _get_tool_attributes(instance)
             for key, value in tool.items():
+                if value is not None:
+                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+
+        elif issubclass(type(instance), models.Model):
+            model = _get_model_attributes(instance)
+            for key, value in model.items():
                 if value is not None:
                     span.set_attribute(key, str(value) if isinstance(value, list) else value)
 
@@ -124,3 +130,12 @@ def _parse_tools(tools):
         res = _inner_get_tool_attributes(tool)
         result.append(res)
     return result
+
+
+def _get_model_attributes(instance):
+    model = {}
+    for key, value in instance.__dict__.items():
+        if value is None or key in ["api_key"]:
+            continue
+        model[key] = str(value)
+    return model
