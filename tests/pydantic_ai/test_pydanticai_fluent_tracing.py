@@ -76,30 +76,6 @@ def agent_with_tool():
     return roulette_agent
 
 
-@pytest.fixture
-def dummy_mcp_server():
-    class DummyServer:
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, exc_type, exc, tb):
-            pass
-
-        async def list_tools(self):
-            return []
-
-    return DummyServer()
-
-
-@pytest.fixture
-def agent_with_mcp(simple_agent, dummy_mcp_server):
-    return Agent(
-        "openai:gpt-4o",
-        mcp_servers=[dummy_mcp_server],
-        instrument=True,
-    )
-
-
 def test_agent_run_sync_enable_fluent_disable_autolog(simple_agent):
     clear_autolog_state()
     dummy = _make_dummy_response_without_tool()
