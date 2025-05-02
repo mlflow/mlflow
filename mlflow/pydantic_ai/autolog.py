@@ -8,13 +8,9 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
-
-FLAVOR_NAME = "pydantic_ai"
 
 
 def _set_span_attributes(span: LiveSpan, instance):
@@ -54,7 +50,7 @@ def _set_span_attributes(span: LiveSpan, instance):
 
 
 async def patched_async_class_call(original, self, *args, **kwargs):
-    cfg = AutoLoggingConfig.init(flavor_name=FLAVOR_NAME)
+    cfg = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
     if not cfg.log_traces:
         return await original(self, *args, **kwargs)
 
@@ -80,7 +76,7 @@ async def patched_async_class_call(original, self, *args, **kwargs):
 
 
 def patched_class_call(original, self, *args, **kwargs):
-    cfg = AutoLoggingConfig.init(flavor_name=FLAVOR_NAME)
+    cfg = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
     if not cfg.log_traces:
         return original(self, *args, **kwargs)
 
@@ -209,43 +205,3 @@ def call_tool(instance, tool_name, **kwargs):
             return tool(**kwargs)
 
     raise ValueError(f"Tool '{tool_name}' not found")
-
-
-@experimental
-@autologging_integration(FLAVOR_NAME)
-def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
-    """
-    Enable (or disable) autologging for Pydantic_AI.
-
-    Args:
-        log_traces: If True, capture spans for agent + model calls.
-        disable:   If True, disable the autologging patches.
-        silent:    If True, suppress MLflow warnings/info.
-    """
-    class_map = {
-        "pydantic_ai.Agent": ["run", "run_sync", "run_stream"],
-        "pydantic_ai.models.instrumented.InstrumentedModel": ["request", "request_stream"],
-        "pydantic_ai.Tool": ["run"],
-        "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
-    }
-
-    try:
-        for cls_path, methods in class_map.items():
-            module_name, class_name = cls_path.rsplit(".", 1)
-            module = __import__(module_name, fromlist=[class_name])
-            cls = getattr(module, class_name)
-            for method in methods:
-                orig = getattr(cls, method)
-                wrapper = (
-                    patched_async_class_call
-                    if inspect.iscoroutinefunction(orig)
-                    else patched_class_call
-                )
-                safe_patch(
-                    FLAVOR_NAME,
-                    cls,
-                    method,
-                    wrapper,
-                )
-    except (ImportError, AttributeError) as e:
-        _logger.error("Error patching Pydantic_AI autolog: %s", e)

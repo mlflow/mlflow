@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pytest
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
+from pydantic_ai.models.instrumented import InstrumentedModel
 from pydantic_ai.usage import Usage
 
 import mlflow
@@ -99,14 +100,14 @@ def agent_with_mcp(simple_agent, dummy_mcp_server):
     )
 
 
-def test_agent_run_sync_enable_disable_autolog(simple_agent):
+def test_agent_run_sync_enable_fluent_disable_autolog(simple_agent):
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
         return dummy
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
-        mlflow.pydantic_ai.autolog(log_traces=True)
+    with patch.object(InstrumentedModel, "request", new=request):
+        mlflow.autolog(log_traces=True)
 
         result = simple_agent.run_sync("France")
         assert result.output == _FINAL_ANSWER_WITHOUT_TOOL
@@ -136,21 +137,21 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
     assert usage_out["response_tokens"] == 1
     assert usage_out["total_tokens"] == 2
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
-        mlflow.pydantic_ai.autolog(disable=True)
+    with patch.object(InstrumentedModel, "request", new=request):
+        mlflow.autolog(disable=True)
         simple_agent.run_sync("France")
     assert len(get_traces()) == 1
 
 
 @pytest.mark.asyncio
-async def test_agent_run_enable_disable_autolog(simple_agent):
+async def test_agent_run_enable_fluent_disable_autolog(simple_agent):
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
         return dummy
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
-        mlflow.pydantic_ai.autolog(log_traces=True)
+    with patch.object(InstrumentedModel, "request", new=request):
+        mlflow.autolog(log_traces=True)
 
         result = await simple_agent.run("France")
         assert result.output == _FINAL_ANSWER_WITHOUT_TOOL
@@ -177,13 +178,13 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
     assert usage_out["response_tokens"] == 1
     assert usage_out["total_tokens"] == 2
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
-        mlflow.pydantic_ai.autolog(disable=True)
+    with patch.object(InstrumentedModel, "request", new=request):
+        mlflow.autolog(disable=True)
         result = await simple_agent.run("France")
     assert len(get_traces()) == 1
 
 
-def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
+def test_agent_run_sync_enable_disable_fluent_autolog_with_tool(agent_with_tool):
     sequence, final_resp, usage_final = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -191,8 +192,8 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
             return sequence.pop(0)
         return final_resp, usage_final
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
-        mlflow.pydantic_ai.autolog(log_traces=True)
+    with patch.object(InstrumentedModel, "request", new=request):
+        mlflow.autolog(log_traces=True)
 
         result = agent_with_tool.run_sync("Put my money on square eighteen", deps=18)
         assert result.output == _FINAL_ANSWER_WITH_TOOL
@@ -257,14 +258,14 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert usage_out["response_tokens"] == 200
     assert usage_out["total_tokens"] == 300
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
-        mlflow.pydantic_ai.autolog(disable=True)
+    with patch.object(InstrumentedModel, "request", new=request):
+        mlflow.autolog(disable=True)
         agent_with_tool.run_sync("Put my money on square eighteen", deps=18)
     assert len(get_traces()) == 1
 
 
 @pytest.mark.asyncio
-async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
+async def test_agent_run_enable_disable_fluent_autolog_with_tool(agent_with_tool):
     sequence, final_resp, usage_final = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -272,8 +273,8 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
             return sequence.pop(0)
         return final_resp, usage_final
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
-        mlflow.pydantic_ai.autolog(log_traces=True)
+    with patch.object(InstrumentedModel, "request", new=request):
+        mlflow.autolog(log_traces=True)
 
         result = await agent_with_tool.run("Put my money on square eighteen", deps=18)
         assert result.output == _FINAL_ANSWER_WITH_TOOL
@@ -335,7 +336,7 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert usage_out["response_tokens"] == 200
     assert usage_out["total_tokens"] == 300
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
-        mlflow.pydantic_ai.autolog(disable=True)
+    with patch.object(InstrumentedModel, "request", new=request):
+        mlflow.autolog(disable=True)
         result = await agent_with_tool.run("Put my money on square eighteen", deps=18)
     assert len(get_traces()) == 1
