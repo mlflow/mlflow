@@ -55,7 +55,7 @@ def _construct_full_inputs(func, *args, **kwargs):
     arguments = signature.bind_partial(*args, **kwargs).arguments
 
     if "self" in arguments:
-        arguments.remove("self")
+        arguments.pop("self")
 
     # Avoid non serializable objects and circular references
     return {
