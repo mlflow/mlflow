@@ -2534,10 +2534,10 @@ def delete_logged_model_tag(model_id: str, key: str) -> None:
         model = mlflow.create_external_model(name="my_model")
         mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
         model = mlflow.get_logged_model(model.model_id)
-        assert model.tags == {"key": "value"}
+        assert model.tags["key"] == "value"
         mlflow.delete_logged_model_tag(model.model_id, "key")
         model = mlflow.get_logged_model(model.model_id)
-        assert model.tags == {}
+        assert "key" not in model.tags
     """
     MlflowClient().delete_logged_model_tag(model_id, key)
 
