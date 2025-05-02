@@ -133,7 +133,7 @@ def _parse_tools(tools):
 def _get_model_attributes(instance):
     model = {}
     for key, value in instance.__dict__.items():
-        if value is None or key in ["api_key"]:
+        if value is None or key == "api_key":
             continue
         model[key] = str(value)
     return model

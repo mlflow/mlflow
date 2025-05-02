@@ -478,7 +478,7 @@ def test_autolog_genai_import(disable, flavor_and_module):
     # pytorch-lightning is not valid flavor name.
     # paddle autologging is not in the list of autologging integrations.
     # crewai requires Python 3.10+ (our CI runs on Python 3.9).
-    if flavor in {"pytorch-lightning", "paddle", "crewai"}:
+    if flavor in {"pytorch-lightning", "paddle", "crewai", "smolagents"}:
         return
 
     with reset_module_import():
