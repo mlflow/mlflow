@@ -2329,8 +2329,8 @@ message LoggedModelParameter {
 message SearchTracesV3Request {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // List of trace locations to search over.
-  repeated TraceLocation trace_locations = 1;
+  // A list of Mlflow experiments to search over.
+  repeated TraceLocation locations = 1;
 
   // A filter expression over trace attributes and tags that allows returning a subset of
   // traces. The syntax is a subset of SQL that supports ANDing together binary operations

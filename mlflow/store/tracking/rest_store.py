@@ -459,29 +459,14 @@ class RestStore(AbstractStore):
 
             # Create V3 request message using protobuf
             request = SearchTracesV3Request(
-                trace_locations=trace_locations,
+                locations=trace_locations,
                 filter=filter_string,
                 max_results=max_results,
                 order_by=order_by,
                 page_token=page_token,
             )
 
-            # WORKAROUND: Field name mismatch between protobuf and JSON API
-            # -----------------------------------------------------------------
-            # There's a mismatch between the protobuf field name 'trace_locations' and
-            # the expected JSON API field name 'locations'. The server endpoint
-            # /api/3.0/mlflow/traces/search expects JSON with 'locations' field, but our
-            # protobuf definition uses 'trace_locations'. This conversion ensures
-            # the REST API receives the field name it expects.
-            #
-            # This is a minimal fix that leaves the protobuf definitions and generated
-            # code unchanged, but might need revisiting if the API evolves further.
-            request_dict = json.loads(message_to_json(request))
-            if "trace_locations" in request_dict:
-                request_dict["locations"] = request_dict.pop("trace_locations")
-            req_body = json.dumps(request_dict)
-            # -----------------------------------------------------------------
-
+            req_body = message_to_json(request)
             endpoint = get_search_traces_v3_endpoint()
 
             try:
