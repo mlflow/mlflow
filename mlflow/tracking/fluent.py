@@ -2264,7 +2264,7 @@ def finalize_logged_model(model_id: str, status: LoggedModelStatus) -> LoggedMod
             model_id=model.model_id,
             status=LoggedModelStatus.READY,
         )
-        assert loaded_model.status == LoggedModelStatus.READY
+        assert logged_model.status == LoggedModelStatus.READY
 
     """
     return MlflowClient().finalize_logged_model(model_id, status)
