@@ -252,7 +252,6 @@ def verify_rest_response(response, endpoint):
     """Verify the return value from the REST API call and return the response."""
     if response.status_code != 200:
         if _can_parse_as_json_object(response.text):
-            print(f"DEBUG verify_rest_response: Error response for {endpoint}, status={response.status_code}, text={response.text}")
             raise RestException(json.loads(response.text))
         else:
             base_msg = (
@@ -260,7 +259,7 @@ def verify_rest_response(response, endpoint):
                 f"failed with error code {response.status_code} != 200"
             )
             raise MlflowException(
-                "%s. Response body: '%s'" % (base_msg, response.text),
+                "{}. Response body: '{}'".format(base_msg, response.text),
                 error_code=get_error_code(response.status_code),
             )
     return response
@@ -388,15 +387,14 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     }
     if extra_headers is not None:
         call_kwargs["extra_headers"] = extra_headers
-        
+
     # Debug trace-related API calls
     if "/trace" in endpoint:
-        print(f"DEBUG rest_utils.call_endpoint: endpoint={endpoint}, method={method}")
         if method == "GET":
-            print(f"DEBUG rest_utils.call_endpoint: params={json_body}")
+            pass
         else:
-            print(f"DEBUG rest_utils.call_endpoint: json={json_body}")
-            
+            pass
+
     if method == "GET":
         call_kwargs["params"] = json_body
         response = http_request(**call_kwargs)
@@ -406,15 +404,14 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
 
     response = verify_rest_response(response, endpoint)
     response_to_parse = response.text
-    
+
     # Debug trace-related API responses
     if "/trace" in endpoint:
-        print(f"DEBUG rest_utils.call_endpoint response: status={response.status_code}")
         if len(response_to_parse) > 1000:
-            print(f"DEBUG rest_utils.call_endpoint response: text={response_to_parse[:1000]}...")
+            pass
         else:
-            print(f"DEBUG rest_utils.call_endpoint response: text={response_to_parse}")
-            
+            pass
+
     js_dict = json.loads(response_to_parse)
 
     parse_dict(js_dict=js_dict, message=response_proto)

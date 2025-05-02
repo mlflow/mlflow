@@ -217,7 +217,6 @@ class TracingClient:
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
     ):
-        print(f"DEBUG client._search_traces: experiment_ids={experiment_ids}, type={type(experiment_ids)}")
         return self.store.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
@@ -241,7 +240,6 @@ class TracingClient:
         sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
         is_databricks = is_databricks_uri(self.tracking_uri)
-        print(f"DEBUG client.search_traces: experiment_ids={experiment_ids}, type={type(experiment_ids)}")
         """
         Return traces that match the given list of search expressions within the experiments.
 

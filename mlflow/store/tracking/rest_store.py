@@ -455,8 +455,8 @@ class RestStore(AbstractStore):
                     proto_location = location.to_proto()
                     trace_locations.append(proto_location)
                 except Exception as e:
-                    _logger.error(f"Error creating location for experiment ID {exp_id}: {str(e)}")
-            
+                    _logger.error(f"Error creating location for experiment ID {exp_id}: {e!s}")
+
             # Create V3 request message using protobuf
             request = SearchTracesV3Request(
                 trace_locations=trace_locations,
@@ -465,11 +465,11 @@ class RestStore(AbstractStore):
                 order_by=order_by,
                 page_token=page_token,
             )
-            
+
             # WORKAROUND: Field name mismatch between protobuf and JSON API
             # -----------------------------------------------------------------
-            # There's a mismatch between the protobuf field name 'trace_locations' and 
-            # the expected JSON API field name 'locations'. The server endpoint 
+            # There's a mismatch between the protobuf field name 'trace_locations' and
+            # the expected JSON API field name 'locations'. The server endpoint
             # /api/3.0/mlflow/traces/search expects JSON with 'locations' field, but our
             # protobuf definition uses 'trace_locations'. This conversion ensures
             # the REST API receives the field name it expects.
@@ -481,14 +481,16 @@ class RestStore(AbstractStore):
                 request_dict["locations"] = request_dict.pop("trace_locations")
             req_body = json.dumps(request_dict)
             # -----------------------------------------------------------------
-            
+
             endpoint = get_search_traces_v3_endpoint()
-            
+
             try:
-                response_proto = self._call_endpoint(SearchTracesV3Request, req_body, endpoint=endpoint)
+                response_proto = self._call_endpoint(
+                    SearchTracesV3Request, req_body, endpoint=endpoint
+                )
                 trace_infos = [TraceInfoV3.from_proto(t) for t in response_proto.traces]
             except Exception as e:
-                _logger.error(f"Error searching traces: {str(e)}")
+                _logger.error(f"Error searching traces: {e!s}")
                 raise
         else:
             response_proto = self._search_unified_traces(
