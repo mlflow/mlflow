@@ -196,7 +196,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/sentence_transformers",
             "tests/shap",
             "tests/sklearn",
-            "test/smolagents",
+            "tests/smolagents",
             "tests/spacy",
             "tests/spark",
             "tests/statsmodels",
