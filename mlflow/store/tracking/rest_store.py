@@ -59,7 +59,6 @@ from mlflow.protos.service_pb2 import (
     SearchExperiments,
     SearchLoggedModels,
     SearchRuns,
-    SearchTraces,
     SearchTracesV3Request,
     SearchUnifiedTraces,
     SetExperimentTag,

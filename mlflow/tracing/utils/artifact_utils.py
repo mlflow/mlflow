@@ -1,5 +1,3 @@
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION

@@ -298,13 +298,14 @@ class TracingClient:
             # Helps while transitioning to V3 traces for offline & online
             is_v3 = isinstance(trace_info, TraceInfoV3)
             trace_id = trace_info.trace_id if is_v3 else trace_info.request_id
-            
+            is_online_trace = is_uuid(trace_id)
+
             if not include_spans:
                 return Trace(trace_info, TraceData(spans=[]))
 
             # For online traces in Databricks, we need to get trace data from a different endpoint
             try:
-                if is_databricks and is_uuid(trace_id):
+                if is_databricks and is_online_trace:
                     # For online traces, get data from the online API
                     trace_data = self.get_online_trace_details(
                         trace_id=trace_id,
