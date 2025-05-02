@@ -55,7 +55,7 @@ def _construct_full_inputs(func, *args, **kwargs):
     arguments = signature.bind_partial(*args, **kwargs).arguments
 
     if "self" in arguments:
-        arguments.pop("self")
+        arguments.remove("self")
 
     # Avoid non serializable objects and circular references
     return {
@@ -66,7 +66,7 @@ def _construct_full_inputs(func, *args, **kwargs):
 
 
 def _set_span_attributes(span: LiveSpan, instance):
-    # Smolagents is available only python >= 3.10, so importring libraries inside methods.
+    # Smolagents is available only python >= 3.10, so importing libraries inside methods.
     try:
         from smolagents import CodeAgent, MultiStepAgent, Tool, ToolCallingAgent, models
 
@@ -112,10 +112,9 @@ def _inner_get_tool_attributes(tool_dict):
         res["description"] = tool_dict.description
     result = {}
     if res:
-        result = {
-            "type": "function",
-            "function": res,
-        }
+        result
+        result["type"] = "function"
+        result["function"] = res
     return result
 
 
