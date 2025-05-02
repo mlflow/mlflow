@@ -770,6 +770,7 @@ def get_databricks_host_creds(server_uri=None):
         from databricks.sdk import WorkspaceClient
 
         profile, key_prefix = get_db_info_from_uri(server_uri)
+        profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
         if key_prefix is not None:
             try:
                 config = TrackingURIConfigProvider(server_uri).get_config()
