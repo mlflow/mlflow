@@ -2033,7 +2033,7 @@ def spark_udf(
 
     .. note::
         When using Databricks Connect to connect to a remote Databricks cluster,
-        the Databricks cluster must use runtime version >= 16, and iff the 'prebuilt_env_uri'
+        the Databricks cluster must use runtime version >= 16, and if the 'prebuilt_env_uri'
         parameter is set, 'env_manager' parameter should not be set.
 
     .. note::
