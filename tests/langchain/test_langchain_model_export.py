@@ -77,13 +77,13 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
-from mlflow.langchain.utils import (
-    IS_PICKLE_SERIALIZATION_RESTRICTED,
-    lc_runnables_types,
-)
 from mlflow.langchain.utils.chat import (
     transform_request_json_for_chat_if_necessary,
     try_transform_response_to_chat_format,
+)
+from mlflow.langchain.utils.logging import (
+    IS_PICKLE_SERIALIZATION_RESTRICTED,
+    lc_runnables_types,
 )
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import DependenciesSchemasType

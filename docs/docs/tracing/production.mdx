@@ -3,13 +3,40 @@ sidebar_position: 6
 sidebar_label: Production Monitoring
 ---
 
-import { CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import { CardGroup, SmallLogoCard, Card } from "@site/src/components/Card";
 
 
 # Monitoring GenAI Application in Production
 
 Machine learning projects don't conclude with their initial launch. Ongoing monitoring and incremental enhancements are critical for long-term success. [MLflow Tracing](/tracing) offers observability for your production application, supporting the iterative process of continuous improvement.
 
+
+## Pro Tip: Using the Lightweight Tracing SDK for Reducing the Footprint
+
+The [MLflow Tracing SDK `mlflow-tracing`](/tracing/lightweight-sdk) is a lightweight package that only includes the minimum set of dependencies to instrument your code/models/agents with MLflow Tracing.
+
+<Card>
+  <div className="flex-column">
+    <div className="flex-row">
+      <div className="flex-item">
+        #### Key Benefits
+
+        - **⚡️ Faster Deployment**: Significantly smaller package size and fewer dependencies enable quicker deployments in containers and serverless environments
+        - **🔧 Simple Dependency Management**: Reduced dependencies mean less maintenance overhead and fewer potential conflicts
+        - **📦 Enhanced Portability**: Easily deploy across different platforms with minimal compatibility concerns
+        - **🔒 Improved Security**: Smaller attack surface with fewer dependencies reduces security risks
+      </div>
+    </div>
+  </div>
+</Card>
+
+<br/>
+
+:::warning
+
+    When installing the MLflow Tracing SDK, make sure the environment does not have the full MLflow package installed. Having both in the same environment might cause conflicts and unexpected behaviors.
+
+:::
 
 ## Managed Monitoring for GenAI Application [Recommended]
 

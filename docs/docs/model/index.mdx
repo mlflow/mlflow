@@ -2880,7 +2880,7 @@ objects. If your model fails to meet the specified thresholds, <APILink fn="mlfl
 
 More information on model evaluation behavior and outputs can be found in the <APILink fn="mlflow.evaluate" /> API documentation.
 
-#### Validating a Model Agasint a Baseline Model
+#### Validating a Model Against a Baseline Model
 
 Below is an example of how to validate a candidate model's performance against a baseline using predefined thresholds.
 
@@ -2907,7 +2907,7 @@ candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
 
 with mlflow.start_run(run_name="candidate") as run:
     candidate_model_uri = mlflow.sklearn.log_model(
-        candidate_model, name="candidate_model", signature=signature
+        candidate_model, name="candidate_model"
     ).model_uri
 
     candidate_result = mlflow.evaluate(
@@ -2922,7 +2922,7 @@ baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
 
 with mlflow.start_run(run_name="baseline") as run:
     baseline_model_uri = mlflow.sklearn.log_model(
-        baseline_model, name="baseline_model", signature=signature
+        baseline_model, name="baseline_model"
     ).model_uri
 
     baseline_result = mlflow.evaluate(

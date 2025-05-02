@@ -17,7 +17,6 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.os import is_windows
 from mlflow.utils.string_utils import is_string_type
 
@@ -70,10 +69,6 @@ MAX_INPUT_TAG_VALUE_SIZE = 500
 MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
 MAX_TRACE_TAG_KEY_LENGTH = 250
 MAX_TRACE_TAG_VAL_LENGTH = 8000
-
-_UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {{{}}}".format(
-    ", ".join(DATABASE_ENGINES)
-)
 
 PARAM_VALIDATION_MSG = """
 
@@ -533,8 +528,13 @@ def _validate_experiment_artifact_location(artifact_location):
 
 def _validate_db_type_string(db_type):
     """validates db_type parsed from DB URI is supported"""
+    from mlflow.store.db.db_types import DATABASE_ENGINES
+
     if db_type not in DATABASE_ENGINES:
-        error_msg = f"Invalid database engine: '{db_type}'. '{_UNSUPPORTED_DB_TYPE_MSG}'"
+        error_msg = (
+            f"Invalid database engine: '{db_type}'. "
+            f"Supported database engines are {', '.join(DATABASE_ENGINES)}"
+        )
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
 
 

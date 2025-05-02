@@ -72,7 +72,7 @@ def test_export(experiment_id, is_async, monkeypatch):
             "mlflow.store.tracking.rest_store.call_endpoint", return_value=mock_response
         ) as mock_call_endpoint,
         mock.patch(
-            "mlflow.tracking.MlflowClient._upload_trace_data", return_value=None
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
         ) as mock_upload_trace_data,
     ):
         _predict("hello")
@@ -120,7 +120,7 @@ def test_export_catch_failure(is_async, monkeypatch):
 
     with (
         mock.patch(
-            "mlflow.tracking.MlflowClient._start_trace_v3",
+            "mlflow.tracing.client.TracingClient.start_trace_v3",
             side_effect=Exception("Failed to start trace"),
         ),
         mock.patch("mlflow.tracing.export.databricks._logger") as mock_logger,
@@ -153,10 +153,10 @@ def test_async_bulk_export(monkeypatch):
 
     with (
         mock.patch(
-            "mlflow.tracking.MlflowClient._start_trace_v3", side_effect=_mock_client_method
+            "mlflow.tracing.client.TracingClient.start_trace_v3", side_effect=_mock_client_method
         ) as mock_start_trace,
         mock.patch(
-            "mlflow.tracking.MlflowClient._upload_trace_data", return_value=None
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
         ) as mock_upload_trace_data,
     ):
         # Log many traces

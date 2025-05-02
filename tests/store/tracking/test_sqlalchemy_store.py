@@ -68,6 +68,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInput,
     SqlInputTag,
     SqlLatestMetric,
+    SqlLoggedModel,
+    SqlLoggedModelMetric,
+    SqlLoggedModelParam,
+    SqlLoggedModelTag,
     SqlMetric,
     SqlParam,
     SqlRun,
@@ -209,6 +213,10 @@ def _cleanup_database(store: SqlAlchemyStore):
     with store.ManagedSessionMaker() as session:
         # Delete all rows in all tables
         for model in (
+            SqlLoggedModel,
+            SqlLoggedModelMetric,
+            SqlLoggedModelParam,
+            SqlLoggedModelTag,
             SqlParam,
             SqlMetric,
             SqlLatestMetric,
@@ -5399,12 +5407,14 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
     )
     store.log_batch(run.info.run_id, metrics=[another_metric], params=[], tags=[])
     model = store.get_logged_model(model.model_id)
-    assert model.metrics == [metric, another_metric]
+    actual_metrics = sorted(model.metrics, key=lambda m: m.key)
+    expected_metrics = sorted([metric, another_metric], key=lambda m: m.key)
+    assert actual_metrics == expected_metrics
 
     # Log multiple metrics
     metrics = [
         Metric(
-            key=f"metric_{i}",
+            key=f"metric{i + 3}",
             value=3,
             timestamp=int(time.time() * 1000),
             step=5,
@@ -5418,4 +5428,6 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
 
     store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
     model = store.get_logged_model(model.model_id)
-    assert model.metrics == [metric, another_metric] + metrics
+    actual_metrics = sorted(model.metrics, key=lambda m: m.key)
+    expected_metrics = sorted([metric, another_metric, *metrics], key=lambda m: m.key)
+    assert actual_metrics == expected_metrics
