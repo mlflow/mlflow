@@ -268,7 +268,6 @@ def verify_rest_response(response, endpoint):
                 f"{base_msg}. Response body: '{response.text}'",
                 error_code=get_error_code(response.status_code),
             )
-        
 
     # Skip validation for endpoints (e.g. DBFS file-download API) which may return a non-JSON
     # response
