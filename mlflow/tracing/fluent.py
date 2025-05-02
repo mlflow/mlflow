@@ -749,13 +749,17 @@ def search_traces(
     if not experiment_ids:
         if experiment_id := _get_experiment_id():
             experiment_ids = [experiment_id]
+            print(f"DEBUG fluent: Got experiment_id from active experiment: {experiment_id}")
         else:
             raise MlflowException(
                 "No active experiment found. Set an experiment using `mlflow.set_experiment`, "
                 "or specify the list of experiment IDs in the `experiment_ids` parameter."
             )
+    
+    print(f"DEBUG fluent: Final experiment_ids: {experiment_ids}, type={type(experiment_ids)}")
 
     def pagination_wrapper_func(number_to_get, next_page_token):
+        print(f"DEBUG fluent pagination: Using experiment_ids={experiment_ids}, type={type(experiment_ids)}")
         return TracingClient().search_traces(
             experiment_ids=experiment_ids,
             run_id=run_id,
