@@ -744,11 +744,12 @@ def test_search_traces():
 
         # Verify the correct parameters were passed
         json_body = call_args["json"]
-        assert "trace_locations" in json_body
+        # The field name should now be 'locations' instead of 'trace_locations'
+        assert "locations" in json_body
         # The experiment_ids are converted to trace_locations
-        assert len(json_body["trace_locations"]) == 1
+        assert len(json_body["locations"]) == 1
         assert (
-            json_body["trace_locations"][0]["mlflow_experiment"]["experiment_id"]
+            json_body["locations"][0]["mlflow_experiment"]["experiment_id"]
             == experiment_ids[0]
         )
         assert json_body["filter"] == filter_string

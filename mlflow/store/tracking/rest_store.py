@@ -466,7 +466,8 @@ class RestStore(AbstractStore):
             
             print(f"DEBUG: Final trace_locations count: {len(trace_locations)}")
 
-            # Create V3 request message
+            # Create V3 request message using protobuf first (to keep the same logic for field construction)
+            # This ensures we create all fields correctly according to the protobuf definition
             request = SearchTracesV3Request(
                 trace_locations=trace_locations,
                 filter=filter_string,
@@ -474,7 +475,17 @@ class RestStore(AbstractStore):
                 order_by=order_by,
                 page_token=page_token,
             )
-            req_body = message_to_json(request)
+            
+            # Convert to dict via the protobuf format utility
+            request_dict = json.loads(message_to_json(request))
+            
+            # Fix the field name for the REST API's JSON format requirement
+            if "trace_locations" in request_dict:
+                request_dict["locations"] = request_dict.pop("trace_locations")
+            
+            # Convert back to a JSON string for the REST call
+            req_body = json.dumps(request_dict)
+            
             print(f"DEBUG: Request message: {req_body}")
             endpoint = get_search_traces_v3_endpoint()
             print(f"DEBUG: V3 API endpoint: {endpoint}")
