@@ -249,7 +249,13 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
 
 
 def verify_rest_response(response, endpoint):
-    """Verify the return value from the REST API call and return the response."""
+    """Verify the return code and format, raise exception if the request was not successful."""
+    # Handle Armeria-specific response case where response text is "200 OK"
+    if response.status_code == 200 and response.text.strip() == _ARMERIA_OK:
+        response._content = b"{}"  # Update response content to be an empty JSON dictionary
+        return response
+
+    # Handle non-200 status codes
     if response.status_code != 200:
         if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
@@ -259,9 +265,20 @@ def verify_rest_response(response, endpoint):
                 f"failed with error code {response.status_code} != 200"
             )
             raise MlflowException(
-                "{}. Response body: '{}'".format(base_msg, response.text),
+                f"{base_msg}. Response body: '{response.text}'",
                 error_code=get_error_code(response.status_code),
             )
+        
+
+    # Skip validation for endpoints (e.g. DBFS file-download API) which may return a non-JSON
+    # response
+    if endpoint.startswith(_REST_API_PATH_PREFIX) and not _can_parse_as_json_object(response.text):
+        base_msg = (
+            "API request to endpoint was successful but the response body was not "
+            "in a valid JSON format"
+        )
+        raise MlflowException(f"{base_msg}. Response body: '{response.text}'")
+
     return response
 
 
@@ -387,14 +404,6 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     }
     if extra_headers is not None:
         call_kwargs["extra_headers"] = extra_headers
-
-    # Debug trace-related API calls
-    if "/trace" in endpoint:
-        if method == "GET":
-            pass
-        else:
-            pass
-
     if method == "GET":
         call_kwargs["params"] = json_body
         response = http_request(**call_kwargs)
@@ -404,14 +413,6 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
 
     response = verify_rest_response(response, endpoint)
     response_to_parse = response.text
-
-    # Debug trace-related API responses
-    if "/trace" in endpoint:
-        if len(response_to_parse) > 1000:
-            pass
-        else:
-            pass
-
     js_dict = json.loads(response_to_parse)
 
     parse_dict(js_dict=js_dict, message=response_proto)
