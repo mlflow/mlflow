@@ -190,6 +190,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/pmdarima",
             "tests/promptflow",
             "tests/prophet",
+            "tests/pydantic_ai",
             "tests/pyfunc",
             "tests/pytorch",
             "tests/sagemaker",

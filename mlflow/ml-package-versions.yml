@@ -839,6 +839,25 @@ crewai:
     requirements:
     run: pytest tests/crewai
 
+pydantic_ai:
+  package_info:
+    pip_release: "pydantic-ai"
+    module_name: "pydantic_ai"
+
+    install dev: |
+      # Install the stable version first to install dependencies
+      pip install pydantic-ai 
+      # Update key libraries from source w/ no-deps
+      pip install --no-deps \
+        "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-graph&subdirectory=pydantic_graph" \
+        "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai-slim&subdirectory=pydantic_ai_slim" \
+        "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
+
+  autologging:
+    minimum: "0.1.0"
+    maximum: "0.1.8"
+    run: pytest tests/pydantic_ai
+
 mistral:
   package_info:
     pip_release: "mistralai"

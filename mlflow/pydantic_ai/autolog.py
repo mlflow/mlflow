@@ -14,7 +14,7 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
 
-FLAVOR_NAME = "pydanticai"
+FLAVOR_NAME = "pydantic_ai"
 
 
 def _set_span_attributes(span: LiveSpan, instance):
@@ -131,6 +131,7 @@ def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
     sig = inspect.signature(func)
     bound = sig.bind_partial(*args, **kwargs).arguments
     bound.pop("self", None)
+    bound.pop("deps", None)
 
     return {
         k: (v.__dict__ if hasattr(v, "__dict__") else v)
@@ -214,7 +215,7 @@ def call_tool(instance, tool_name, **kwargs):
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
     """
-    Enable (or disable) autologging for PydanticAI.
+    Enable (or disable) autologging for Pydantic_AI.
 
     Args:
         log_traces: If True, capture spans for agent + model calls.
@@ -247,4 +248,4 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
                     wrapper,
                 )
     except (ImportError, AttributeError) as e:
-        _logger.error("Error patching PydanticAI autolog: %s", e)
+        _logger.error("Error patching Pydantic_AI autolog: %s", e)
