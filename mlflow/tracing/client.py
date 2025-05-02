@@ -289,11 +289,11 @@ class TracingClient:
             """
             Download trace data and assessments for the given trace_info and returns a Trace object.
             If the download fails (e.g., the trace data is missing or corrupted), returns None.
-            
+
             The trace_info parameter can be either TraceInfo or TraceInfoV3 object.
             """
             from mlflow.entities.trace_info_v3 import TraceInfoV3
-            
+
             # Determine if this is TraceInfo or TraceInfoV3
             # Helps while transitioning to V3 traces for offline & online
             is_v3 = isinstance(trace_info, TraceInfoV3)
@@ -538,10 +538,10 @@ class TracingClient:
     def _download_trace_data(self, trace_info) -> TraceData:
         """
         Download trace data from artifact repository.
-        
+
         Args:
             trace_info: Either a TraceInfo or TraceInfoV3 object containing trace metadata.
-            
+
         Returns:
             TraceData object representing the downloaded trace data.
         """

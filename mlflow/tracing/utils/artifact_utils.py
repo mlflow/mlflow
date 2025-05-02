@@ -11,10 +11,10 @@ def get_artifact_uri_for_trace(trace_info):
 
     The artifact root is specified in the trace tags, which is
     set when logging the trace in the backend.
-    
+
     Args:
         trace_info: Either a TraceInfo or TraceInfoV3 object containing trace metadata.
-        
+
     Returns:
         The artifact URI string for the trace data.
     """
