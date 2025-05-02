@@ -2,11 +2,11 @@ import clsx from "clsx";
 import styles from "./card.module.css";
 import Link from "@docusaurus/Link";
 
-export const CardGroup = ({ children, isSmall }): JSX.Element => (
+export const CardGroup = ({ children, isSmall, cols }): JSX.Element => (
   <div
     className={clsx(
       styles.CardGroup,
-      isSmall ? styles.AutofillColumns : styles.MaxThreeColumns
+      isSmall ? styles.AutofillColumns : cols ? styles[`Cols${cols}`] : styles.MaxThreeColumns
     )}
   >
     {children}
@@ -134,6 +134,18 @@ export const NewFeatureCard = ({
           released in {releaseVersion}
         </Link>
       </div>
+    </div>
+  </Card>
+);
+
+export const TitleCard = ({ title, description, link = "" }): JSX.Element => (
+  <Card link={link}>
+    <div className={styles.TitleCardContent}>
+      <div className={clsx(styles.TitleCardTitle)} style={{ textAlign: "left", fontWeight: "bold" }}>
+        {title}
+      </div>
+      <hr className={clsx(styles.TitleCardSeparator)} style={{ margin: "12px 0" }} />
+      <p className={clsx(styles.TextColor)}>{description}</p>
     </div>
   </Card>
 );

@@ -20,9 +20,25 @@ const sidebars: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'doc',
-      id: 'introduction/index',
-      label: 'Introduction',
+      type: 'category',
+      label: 'MLflow 3.0',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'mlflow-3/genai-agent',
+          label: 'Gen AI Development',
+        },
+        {
+          type: 'doc',
+          id: 'mlflow-3/deep-learning',
+          label: 'Deep Learning Development',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'mlflow-3/index',
+      }
     },
     {
       type: 'category',
@@ -33,6 +49,11 @@ const sidebars: SidebarsConfig = {
           type: 'doc',
           id: 'getting-started/intro-quickstart/index',
           label: 'Quickstart',
+        },
+        {
+          type: 'doc',
+          id: 'introduction/index',
+          label: 'Introduction',
         },
         {
           type: 'doc',
@@ -192,6 +213,11 @@ const sidebars: SidebarsConfig = {
                   dirName: 'llms/llm-evaluate',
                 },
               ],
+            },
+            {
+              type: 'doc',
+              label: 'Production Monitoring',
+              id: 'tracing/production',
             },
             {
               type: 'category',
@@ -382,10 +408,6 @@ const sidebars: SidebarsConfig = {
               id: 'llms/prompt-engineering/index',
             }
           ]
-        },
-        {
-          type: 'doc',
-          id: 'recipes/index'
         }
       ]
     },

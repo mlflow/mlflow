@@ -2,10 +2,14 @@ import inspect
 import os
 import shutil
 import subprocess
+import sys
+import tempfile
+import time
 import uuid
 from unittest import mock
 
 import pytest
+import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
@@ -13,15 +17,85 @@ from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracking._tracking_service.utils import _use_tracking_uri
-from mlflow.tracking.fluent import _last_active_run_id
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.autologging.fixtures import enable_test_mode
+from tests.helper_functions import get_safe_port
+from tests.tracing.helper import purge_traces
+
+if not IS_TRACING_SDK_ONLY:
+    from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+    from mlflow.tracking.fluent import (
+        _last_active_run_id,
+        _reset_active_model_context,
+        _reset_last_logged_model_id,
+    )
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=IS_TRACING_SDK_ONLY, scope="session")
+def remote_backend_for_tracing_sdk_test():
+    """
+    A fixture to start a remote backend for testing mlflow-tracing package integration.
+    Since the tracing SDK has to be tested in an environment that has minimal dependencies,
+    we need to start a tracking backend in an isolated uv environment.
+    """
+    port = get_safe_port()
+    # Start a remote backend to test mlflow-tracing package integration.
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with subprocess.Popen(
+            [
+                "uv",
+                "run",
+                "--with",
+                "mlflow",
+                "--python",
+                # Get current python version
+                f"{sys.version_info.major}.{sys.version_info.minor}",
+                "mlflow",
+                "server",
+                "--port",
+                str(port),
+            ],
+            cwd=temp_dir,
+        ) as process:
+            print("Starting mlflow server on port 5000")  # noqa: T201
+            try:
+                for _ in range(60):
+                    try:
+                        response = requests.get(f"http://localhost:{port}")
+                        if response.ok:
+                            break
+                    except requests.ConnectionError:
+                        print("MLflow server is not responding yet.")  # noqa: T201
+                        time.sleep(1)
+                else:
+                    raise RuntimeError("Failed to start server")
+
+                mlflow.set_tracking_uri(f"http://localhost:{port}")
+
+                yield
+
+            finally:
+                process.terminate()
+
+
+@pytest.fixture(autouse=IS_TRACING_SDK_ONLY)
+def tmp_experiment_for_tracing_sdk_test(monkeypatch):
+    # Generate a random experiment name
+    experiment_name = f"trace-unit-test-{uuid.uuid4().hex}"
+    experiment = mlflow.set_experiment(experiment_name)
+
+    # Reduce retries for speed up tests
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "1")
+
+    yield
+
+    purge_traces(experiment_id=experiment.experiment_id)
+
+
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def tracking_uri_mock(tmp_path, request):
     if "notrackingurimock" not in request.keywords:
         tracking_uri = path_to_local_sqlite_uri(tmp_path / f"{uuid.uuid4().hex}.sqlite")
@@ -41,8 +115,11 @@ def reset_active_experiment_id():
 @pytest.fixture(autouse=True)
 def reset_mlflow_uri():
     yield
-    os.environ.pop("MLFLOW_TRACKING_URI", None)
-    os.environ.pop("MLFLOW_REGISTRY_URI", None)
+    # Resetting these environment variables cause sqlalchemy store tests to run with a sqlite
+    # database instead of mysql/postgresql/mssql.
+    if "DISABLE_RESET_MLFLOW_URI_FIXTURE" not in os.environ:
+        os.environ.pop("MLFLOW_TRACKING_URI", None)
+        os.environ.pop("MLFLOW_REGISTRY_URI", None)
 
 
 @pytest.fixture(autouse=True)
@@ -101,7 +178,7 @@ def enable_test_mode_by_default_for_autologging_integrations():
     yield from enable_test_mode()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_leaked_runs():
     """
     Certain test cases validate safety API behavior when runs are leaked. Leaked runs that
@@ -128,7 +205,7 @@ def _called_in_save_model():
     return False
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def prevent_infer_pip_requirements_fallback(request):
     """
     Prevents `mlflow.models.infer_pip_requirements` from falling back in `mlflow.*.save_model`
@@ -150,7 +227,7 @@ def prevent_infer_pip_requirements_fallback(request):
         yield
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_mlruns_directory(request):
     """
     Clean up an `mlruns` directory on each test module teardown on CI to save the disk space.
@@ -172,7 +249,15 @@ def clean_up_mlruns_directory(request):
             subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
+def clean_up_last_logged_model_id():
+    """
+    Clean up the last logged model ID stored in a thread local var.
+    """
+    _reset_last_logged_model_id()
+
+
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_last_active_run():
     _last_active_run_id.set(None)
 
@@ -232,3 +317,8 @@ def mock_is_in_databricks(request):
         "mlflow.models.model.is_in_databricks_runtime", return_value=request.param
     ) as mock_databricks:
         yield mock_databricks
+
+
+@pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
+def reset_active_model_context():
+    _reset_active_model_context()

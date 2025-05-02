@@ -31,7 +31,7 @@ text file. Each project can specify several properties:
   </dt>
   <dd>
     A human-readable name for the project.
-  
+
   </dd>
   <dt>
     #### Entry Points
@@ -45,7 +45,7 @@ text file. Each project can specify several properties:
     call any `.py` or `.sh` file in the project as an entry point. If you list your entry
     points in a `MLproject` file, however, you can also specify _parameters_ for them,
     including datatypes and default values.
-  
+
   </dd>
   <dt>
     #### Environment
@@ -57,7 +57,7 @@ text file. Each project can specify several properties:
     for more information about the software environments supported by MLflow Projects, including
     [Conda environments](#project-conda-environments), [Virtualenv environments](#project-virtualenv-environments),
     and [Docker containers](#project-docker-container-environments).
-  
+
   </dd>
 </dl>
 
@@ -360,7 +360,7 @@ This section describes how to specify Conda and Docker container environments in
     `python:3.8` is pulled from Docker Hub if it's not present locally, and a new image is built
     based on it. The project is executed in a container created from this image.
 
-  </dd>  
+  </dd>
 </dl>
 
 #### Command Syntax \{#mlproject-command-syntax}
@@ -421,7 +421,7 @@ data to local files). Any undeclared parameters are treated as `string`. The par
     A path on the local file system. MLflow converts any relative `path` parameters to absolute paths.
     MLflow also downloads any paths passed as distributed storage URIs (`s3://`, `dbfs://`, `gs://`, etc.)
     to local files. Use this type for programs that can only read local files.
-    
+
   </dd>
   <dt>
   #### uri

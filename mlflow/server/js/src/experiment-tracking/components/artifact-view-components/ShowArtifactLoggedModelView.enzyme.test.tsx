@@ -220,26 +220,6 @@ flavors:
     });
   });
 
-  test('should not render code snippet for mleap flavor', (done) => {
-    const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.resolve(`
-flavors:
-  mleap:
-    version: 1.2.3
-`);
-    });
-    const props = { ...minimalProps, getArtifact };
-    wrapper = mountWithIntl(<ShowArtifactLoggedModelView {...props} />);
-    setImmediate(() => {
-      wrapper.update();
-      const impl = wrapper.find(ShowArtifactLoggedModelViewImpl);
-      expect(impl.state().flavor).toBe('mleap');
-      // Only validate model serving code snippet is rendered
-      expect(impl.find('.artifact-logged-model-view-code-content').length).toBe(1);
-      done();
-    });
-  });
-
   test('should render serving validation code snippet if serving_input_example exists', (done) => {
     const getArtifact = jest.fn().mockImplementationOnce((artifactLocation) => {
       return Promise.resolve(`

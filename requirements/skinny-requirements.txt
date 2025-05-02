@@ -8,7 +8,7 @@ gitpython<4,>=3.1.9
 pyyaml<7,>=5.1
 protobuf<7,>=3.12.0
 requests<3,>=2.17.3
-packaging<25
+packaging<26
 importlib_metadata<9,>=3.7.0,!=4.7.0
 sqlparse<1,>=0.4.0
 cachetools<6,>=5.0.0

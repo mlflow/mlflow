@@ -354,7 +354,6 @@ class BertNewsClassifier(L.LightningModule):
                 factor=0.2,
                 patience=2,
                 min_lr=1e-6,
-                verbose=True,
             ),
             "monitor": "val_loss",
         }

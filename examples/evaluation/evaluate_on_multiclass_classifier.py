@@ -10,7 +10,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random
 
 with mlflow.start_run() as run:
     model = LogisticRegression(solver="liblinear").fit(X_train, y_train)
-    model_info = mlflow.sklearn.log_model(model, "model")
+    model_info = mlflow.sklearn.log_model(model, name="model")
     result = mlflow.evaluate(
         model_info.model_uri,
         X_test,

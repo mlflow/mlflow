@@ -13,12 +13,11 @@ import os
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _truncate_dict, chunk_list
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
@@ -30,6 +29,9 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_TAG_VAL_LENGTH,
 )
+
+if TYPE_CHECKING:
+    from mlflow.data.dataset import Dataset
 
 _logger = logging.getLogger(__name__)
 
@@ -103,6 +105,8 @@ class MlflowAutologgingQueueingClient:
     """
 
     def __init__(self, tracking_uri=None):
+        from mlflow.tracking.client import MlflowClient
+
         self._client = MlflowClient(tracking_uri)
         self._pending_ops_by_run_id = {}
 
@@ -207,6 +211,8 @@ class MlflowAutologgingQueueingClient:
         run_id: Union[str, PendingRunId],
         metrics: dict[str, float],
         step: Optional[int] = None,
+        dataset: Optional["Dataset"] = None,
+        model_id: Optional[str] = None,
     ) -> None:
         """
         Enqueues a collection of Metrics to be logged to the run specified by `run_id` at the
@@ -215,7 +221,16 @@ class MlflowAutologgingQueueingClient:
         metrics = _truncate_dict(metrics, max_key_length=MAX_ENTITY_KEY_LENGTH)
         timestamp_ms = get_current_time_millis()
         metrics_arr = [
-            Metric(key, value, timestamp_ms, step or 0) for key, value in metrics.items()
+            Metric(
+                key,
+                value,
+                timestamp_ms,
+                step or 0,
+                model_id=model_id,
+                dataset_name=dataset and dataset.name,
+                dataset_digest=dataset and dataset.digest,
+            )
+            for key, value in metrics.items()
         ]
         self._get_pending_operations(run_id).enqueue(metrics=metrics_arr)
 

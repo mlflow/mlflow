@@ -161,4 +161,4 @@ if __name__ == "__main__":
         predictions = lin_reg_export(x_test)
         signature = infer_signature(x_test.numpy(), predictions.numpy())
 
-        mlflow.tensorflow.log_model(lin_reg_export, "model", signature=signature)
+        mlflow.tensorflow.log_model(lin_reg_export, name="model", signature=signature)

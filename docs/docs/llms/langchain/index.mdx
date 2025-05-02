@@ -219,7 +219,7 @@ The following example demonstrates how to log a simple chain with this method:
    chain_path = "chain.py"
 
    with mlflow.start_run():
-       info = mlflow.langchain.log_model(lc_model=chain_path, artifact_path="chain")
+       info = mlflow.langchain.log_model(lc_model=chain_path, name="chain")
    ```
 
 3. The model defined in `chain.py` is now logged to MLflow. You can load the model back and run inference:
@@ -378,7 +378,7 @@ input_example = {
 with mlflow.start_run():
     model_info = mlflow.langchain.log_model(
         lc_model="./langgraph.py",  # specify the path to the LangGraph agent script definition
-        artifact_path="langgraph",
+        name="langgraph",
         input_example=input_example,
     )
 ```
@@ -522,7 +522,9 @@ assert model.invoke(input_example) == "Hello"
 # set this environment variable to avoid input conversion
 os.environ["MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN"] = "false"
 with mlflow.start_run():
-    model_info = mlflow.langchain.log_model(model, "model", input_example=input_example)
+    model_info = mlflow.langchain.log_model(
+        model, name="model", input_example=input_example
+    )
 
 pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
 assert pyfunc_model.predict(input_example) == ["Hello"]

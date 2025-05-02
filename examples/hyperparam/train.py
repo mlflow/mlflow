@@ -72,7 +72,7 @@ class MlflowCheckpoint(Callback):
         mlflow.log_metric(self.val_loss, self._best_val_loss, step=self._next_step)
         predictions = self._best_model.predict(self._test_x)
         signature = infer_signature(self._test_x, predictions)
-        mlflow.tensorflow.log_model(self._best_model, "model", signature=signature)
+        mlflow.tensorflow.log_model(self._best_model, name="model", signature=signature)
 
     def on_epoch_end(self, epoch, logs=None):
         """

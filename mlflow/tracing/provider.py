@@ -18,6 +18,7 @@ from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
+import mlflow
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
@@ -183,6 +184,15 @@ def set_destination(destination: TraceDestination):
             "The destination must be an instance of TraceDestination."
         )
 
+    if isinstance(destination, Databricks) and (
+        mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
+    ):
+        mlflow.set_tracking_uri("databricks")
+        _logger.info(
+            "Automatically setting the tracking URI to `databricks` "
+            "because the tracing destination is set to Databricks."
+        )
+
     # The destination needs to be persisted because the tracer setup can be re-initialized
     # e.g. when the tracing is disabled and re-enabled, or tracking URI is changed, etc.
     global _MLFLOW_TRACE_USER_DESTINATION
@@ -234,14 +244,13 @@ def _setup_tracer_provider(disabled=False):
     #  3. MLflow will pick the implementation based on given destination id.
     if _MLFLOW_TRACE_USER_DESTINATION is not None:
         if isinstance(_MLFLOW_TRACE_USER_DESTINATION, MlflowExperiment):
-            from mlflow import MlflowClient
             from mlflow.tracing.export.mlflow import MlflowSpanExporter
             from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
 
-            client = MlflowClient(tracking_uri=_MLFLOW_TRACE_USER_DESTINATION.tracking_uri)
-            exporter = MlflowSpanExporter(client)
+            tracking_uri = _MLFLOW_TRACE_USER_DESTINATION.tracking_uri
+            exporter = MlflowSpanExporter(tracking_uri)
             processor = MlflowSpanProcessor(
-                exporter, client, _MLFLOW_TRACE_USER_DESTINATION.experiment_id
+                exporter, tracking_uri, _MLFLOW_TRACE_USER_DESTINATION.experiment_id
             )
 
         elif isinstance(_MLFLOW_TRACE_USER_DESTINATION, Databricks):
@@ -252,14 +261,6 @@ def _setup_tracer_provider(disabled=False):
             processor = DatabricksSpanProcessor(
                 span_exporter=exporter, experiment_id=_MLFLOW_TRACE_USER_DESTINATION.experiment_id
             )
-
-        # TODO: Remove this branch once we fully migrate to the new tracing server
-        else:
-            from mlflow.tracing.export.databricks_agent_legacy import DatabricksAgentSpanExporter
-            from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
-
-            exporter = DatabricksAgentSpanExporter(_MLFLOW_TRACE_USER_DESTINATION)
-            processor = DatabricksSpanProcessor(span_exporter=exporter, experiment_id=None)
 
     elif should_use_otlp_exporter():
         # Export to OpenTelemetry Collector when configured

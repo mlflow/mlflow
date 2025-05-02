@@ -19,7 +19,7 @@ import yaml
 from sentence_transformers import SentenceTransformer
 
 import mlflow
-from mlflow.deployments.server import app
+from mlflow.gateway import app
 from mlflow.gateway.utils import kill_child_processes
 
 from tests.helper_functions import _get_mlflow_home, _start_scoring_proc, get_safe_port
@@ -246,7 +246,7 @@ def log_sentence_transformers_model():
     with mlflow.start_run():
         model_info = mlflow.sentence_transformers.log_model(
             model,
-            artifact_path,
+            name=artifact_path,
         )
         return model_info.model_uri
 
@@ -271,7 +271,7 @@ def log_completions_transformers_model():
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             pipe,
-            artifact_path,
+            name=artifact_path,
             signature=signature,
         )
         return model_info.model_uri

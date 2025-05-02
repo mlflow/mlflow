@@ -21,7 +21,7 @@ Jupyter integration is available in **MLflow 2.20 and above**
 ![MLflow Trace UI in Jupyter Notebook](/images/llms/tracing/jupyter-trace-ui.png)
 
 
-The trace UI is also available within Jupyter notebooks! 
+The trace UI is also available within Jupyter notebooks!
 This feature requires using an [MLflow Tracking Server](/tracking/server), as
 this is where the UI assets are fetched from. To get started, simply ensure that the MLflow
 Tracking URI is set to your tracking server (e.g. `mlflow.set_tracking_uri("http://localhost:5000")`).
@@ -62,7 +62,7 @@ Tags can be added to traces to provide additional metadata at the trace level. F
     </tr>
     <tr>
       <td>
-        <APILink fn="mlflow.client.MlflowClient.set_trace_tag">`MlflowClient.set_trace_tag`</APILink> API.
+        <APILink fn="mlflow.set_trace_tag">`mlflow.set_trace_tag`</APILink> API.
       </td>
       <td>Programmatically setting tags on a finished trace.</td>
     </tr>
@@ -94,15 +94,15 @@ The <APILink fn="mlflow.update_current_trace" /> function adds the specified tag
 
 ### Setting Tags on a Finished Trace
 
-To set tags on a trace that has already been completed and logged in the backend store, use the <APILink fn="mlflow.client.MlflowClient.set_trace_tag">`MlflowClient.set_trace_tag`</APILink> method to set a tag on a trace,
-and the <APILink fn="mlflow.client.MlflowClient.delete_trace_tag">`MlflowClient.delete_trace_tag`</APILink> method to remove a tag from a trace.
+To set tags on a trace that has already been completed and logged in the backend store, use the <APILink fn="mlflow.set_trace_tag">`mlflow.set_trace_tag`</APILink> method to set a tag on a trace,
+and the <APILink fn="mlflow.delete_trace_tag">`mlflow.delete_trace_tag`</APILink> method to remove a tag from a trace.
 
 ```python
 # Set a tag on a trace
-client.set_trace_tag(request_id=request_id, key="tag_key", value="tag_value")
+client.set_trace_tag(trace_id=trace_id, key="tag_key", value="tag_value")
 
 # Delete a tag from a trace
-client.delete_trace_tag(request_id=request_id, key="tag_key")
+client.delete_trace_tag(trace_id=trace_id, key="tag_key")
 ```
 
 ### Setting Tags via the MLflow UI
@@ -114,7 +114,7 @@ Alternatively, you can update or delete tags on a trace from the MLflow UI. To d
 ## Delete Traces
 
 You can delete traces based on specific criteria using the <APILink fn="mlflow.client.MlflowClient.delete_traces">`MlflowClient.delete_traces`</APILink> method. This method allows you to delete traces by **experiment ID**,
-**maximum timestamp**, or **request IDs**.
+**maximum timestamp**, or **trace IDs**.
 
 :::tip
 Deleting a trace is an irreversible process. Ensure that the setting provided within the `delete_traces` API meet the intended range for deletion.
@@ -171,15 +171,13 @@ well as providing a link to navigate to the run within the MLflow UI. See the be
 
 ![Tracing within a Run Context](/images/llms/tracing/run-trace.gif)
 
-You can also programmatically retrieve the traces associated to a particular Run by using the <APILink fn="mlflow.client.MlflowClient.search_traces" /> method.
+You can also programmatically retrieve the traces associated to a particular Run by using the <APILink fn="mlflow.search_traces" /> method.
 
 ```python
-from mlflow import MlflowClient
-
-client = MlflowClient()
+import mlflow
 
 # Retrieve traces associated with a specific Run
-traces = client.search_traces(run_id=run.info.run_id)
+traces = mlflow.search_traces(run_id=run.info.run_id, return_type="list")
 
 print(traces)
 ```
