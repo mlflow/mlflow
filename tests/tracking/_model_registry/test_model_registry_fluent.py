@@ -20,7 +20,7 @@ def test_register_model_with_runs_uri():
             return model_input
 
     with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=TestModel())
+        mlflow.pyfunc.log_model(name="model", python_model=TestModel())
 
     register_model(f"runs:/{run.info.run_id}/model", "Model 1")
     mv = MlflowClient().get_model_version("Model 1", "1")
@@ -46,6 +46,7 @@ def test_register_model_with_non_runs_uri():
             source="s3:/some/path/to/model",
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
             local_model_path=None,
+            model_id=None,
         )
 
 
@@ -71,6 +72,7 @@ def test_register_model_with_existing_registered_model(error_code):
             tags=None,
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
             local_model_path=None,
+            model_id=None,
         )
 
 
@@ -102,7 +104,7 @@ def test_register_model_with_tags():
             return model_input
 
     with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=TestModel())
+        mlflow.pyfunc.log_model(name="model", python_model=TestModel())
 
     register_model(f"runs:/{run.info.run_id}/model", "Model 1", tags=tags)
     mv = MlflowClient().get_model_version("Model 1", "1")

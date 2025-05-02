@@ -1,5 +1,4 @@
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
 from unittest import mock
 
 import pytest
@@ -7,14 +6,14 @@ from opentelemetry import trace
 
 import mlflow
 from mlflow.exceptions import MlflowTracingException
-from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
+from mlflow.tracing.destination import Databricks, MlflowExperiment
 from mlflow.tracing.export.databricks import DatabricksSpanExporter
-from mlflow.tracing.export.databricks_agent_legacy import DatabricksAgentSpanExporter
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
 )
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
@@ -115,27 +114,6 @@ def test_set_destination_databricks():
     assert isinstance(processors[0], DatabricksSpanProcessor)
     assert processors[0]._experiment_id == "123"
     assert isinstance(processors[0].span_exporter, DatabricksSpanExporter)
-
-
-def test_set_destination_legacy_databricks_agent():
-    @dataclass
-    class DatabricksAgentMonitoring(TraceDestination):
-        databricks_monitor_id: str
-
-        @property
-        def type(self):
-            return "databricks_agent_monitoring"
-
-    mlflow.tracing.set_destination(
-        destination=DatabricksAgentMonitoring(databricks_monitor_id="foo")
-    )
-
-    tracer = _get_tracer("test")
-    processors = tracer.span_processor._span_processors
-    assert len(processors) == 1
-    assert isinstance(processors[0], DatabricksSpanProcessor)
-    assert isinstance(processors[0].span_exporter, DatabricksAgentSpanExporter)
-    assert processors[0].span_exporter._databricks_monitor_id == "foo"
 
 
 def test_disable_enable_tracing():
@@ -306,8 +284,6 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
     monkeypatch.setenv("ENABLE_MLFLOW_TRACING", str(enable_mlflow_tracing).lower())
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
 
-    client = mlflow.MlflowClient()
-
     def foo():
         return bar()
 
@@ -319,10 +295,10 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
     with mock.patch(
         "mlflow.tracing.processor.inference_table.maybe_get_request_id", side_effect=request_ids
     ):
-        client.start_trace("root")
+        span = start_span_no_context("root")
         foo()
         if enable_mlflow_tracing:
-            client.end_trace(request_id="123")
+            span.end()
 
     if enable_mlflow_tracing:
         assert sorted(_TRACE_BUFFER) == request_ids

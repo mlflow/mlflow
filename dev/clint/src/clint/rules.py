@@ -346,3 +346,13 @@ class EmptyNotebookCell(Rule):
 
     def _message(self) -> str:
         return "Empty notebook cell. Remove it or add some content."
+
+
+class ForbiddenSetActiveModelUsage(Rule):
+    def _id(self) -> str:
+        return "MLF0021"
+
+    def _message(self) -> str:
+        return (
+            "Usage of `set_active_model` is not allowed in mlflow, use `_set_active_model` instead."
+        )

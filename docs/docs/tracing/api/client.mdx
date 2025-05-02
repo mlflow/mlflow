@@ -20,7 +20,7 @@ We recommend using the client APIs ONLY when the high-level APIs like `@mlflow.t
 ### Starting a Trace
 
 Unlike with the high-level APIs, the MLflow Trace Client API requires that you explicitly start a trace before adding child spans. This initial API call
-starts the root span for the trace, providing a context request_id that is used for associating subsequent spans to the root span.
+starts the root span for the trace, providing a context trace_id that is used for associating subsequent spans to the root span.
 
 To start a new trace, use the <APILink fn="mlflow.client.MlflowClient.start_trace" /> method. This method creates a new trace and returns the root span object.
 
@@ -32,8 +32,8 @@ client = MlflowClient()
 # Start a new trace
 root_span = client.start_trace("my_trace")
 
-# The request_id is used for creating additional spans that have a hierarchical association to this root span
-request_id = root_span.request_id
+# The trace_id is used for creating additional spans that have a hierarchical association to this root span
+trace_id = root_span.trace_id
 ```
 
 ### Adding a Child Span
@@ -45,7 +45,7 @@ each representing a specific operation or step within the overall process.
 # Create a child span
 child_span = client.start_span(
     name="child_span",
-    request_id=request_id,
+    trace_id=trace_id,
     parent_id=root_span.span_id,
     inputs={"input_key": "input_value"},
     attributes={"attribute_key": "attribute_value"},
@@ -57,12 +57,12 @@ child_span = client.start_span(
 After performing the operations associated with a span, you must end the span explicitly using the <APILink fn="mlflow.client.MlflowClient.end_span" /> method. Make note of the two required fields
 that are in the API signature:
 
-- **request_id**: The identifier associated with the root span
+- **trace_id**: The identifier associated with the root span
 - **span_id**: The identifier associated with the span that is being ended
 
 In order to effectively end a particular span, both the root span (returned from calling `start_trace`) and the targeted span (returned from calling `start_span`)
 need to be identified when calling the `end_span` API.
-The initiating `request_id` can be accessed from any parent span object's properties.
+The initiating `trace_id` can be accessed from any parent span object's properties.
 
 :::note
 Spans created via the Client API will need to be terminated manually. Ensure that all spans that have been started with the `start_span` API
@@ -72,7 +72,7 @@ have been ended with the `end_span` API.
 ```python
 # End the child span
 client.end_span(
-    request_id=child_span.request_id,
+    trace_id=child_span.trace_id,
     span_id=child_span.span_id,
     outputs={"output_key": "output_value"},
     attributes={"custom_attribute": "value"},
@@ -87,7 +87,7 @@ spans are properly ended.
 ```python
 # End the root span (trace)
 client.end_trace(
-    request_id=request_id,
+    trace_id=trace_id,
     outputs={"final_output_key": "final_output_value"},
     attributes={"token_usage": "1174"},
 )

@@ -2,11 +2,16 @@ import pytest
 from pydantic import ValidationError
 
 import mlflow
-from mlflow.entities import LiveSpan
+from mlflow.entities import (
+    LiveSpan,
+    SpanType,
+)
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import (
+    SpanAttributeKey,
+)
 from mlflow.tracing.utils import (
     construct_full_inputs,
     deduplicate_span_names_in_place,
@@ -21,7 +26,7 @@ def test_deduplicate_span_names():
     span_names = ["red", "red", "blue", "red", "green", "blue"]
 
     spans = [
-        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=span_name), request_id="tr-123")
+        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=span_name), trace_id="tr-123")
         for i, span_name in enumerate(span_names)
     ]
     deduplicate_span_names_in_place(spans)

@@ -140,7 +140,7 @@ with mlflow.start_run():
     # Log the model
     model_info = mlflow.dspy.log_model(
         dspy_model,
-        artifact_path="model",
+        name="model",
         input_example="what is 2 + 2?",
     )
 ```

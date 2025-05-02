@@ -37,8 +37,8 @@ def build_docker(
     .. important::
 
         Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**
-        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o",
-        "mleap", "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
+        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o"
+        "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
         that uses SparkML, please specify ``install-java=True`` to enforce Java installation.
         For earlier versions, Java is always installed to the image.
 
@@ -46,7 +46,7 @@ def build_docker(
     .. warning::
 
         If ``model_uri`` is unspecified, the resulting image doesn't support serving models with
-        the RFunc or Java MLeap model servers.
+        the RFunc server.
 
     NB: by default, the container will start nginx and gunicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),

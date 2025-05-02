@@ -128,12 +128,12 @@ def test_responses_agent_save_load_signatures(tmp_path):
 def test_responses_agent_log_default_task():
     model = SimpleResponsesAgent()
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=model)
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=model)
     assert model_info.metadata["task"] == _DEFAULT_RESPONSES_AGENT_METADATA_TASK
 
     with mlflow.start_run():
         model_info_with_override = mlflow.pyfunc.log_model(
-            "model", python_model=model, metadata={"task": None}
+            name="model", python_model=model, metadata={"task": None}
         )
     assert model_info_with_override.metadata["task"] is None
 

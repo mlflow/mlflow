@@ -1,11 +1,15 @@
 import logging
 from typing import Callable, Optional
 
+from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam
+from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import (
     ModelVersion,
+    ModelVersionDeploymentJobState,
     ModelVersionTag,
     RegisteredModel,
     RegisteredModelAlias,
+    RegisteredModelDeploymentJobState,
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.model_version_search import ModelVersionSearch
@@ -72,6 +76,26 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
         status_message=uc_proto.status_message,
         aliases=[alias.alias for alias in (uc_proto.aliases or [])],
         tags=[ModelVersionTag(key=tag.key, value=tag.value) for tag in (uc_proto.tags or [])],
+        model_id=uc_proto.model_id,
+        params=[
+            ModelParam(key=param.name, value=param.value) for param in (uc_proto.model_params or [])
+        ],
+        metrics=[
+            Metric(
+                key=metric.key,
+                value=metric.value,
+                timestamp=metric.timestamp,
+                step=metric.step,
+                dataset_name=metric.dataset_name,
+                dataset_digest=metric.dataset_digest,
+                model_id=metric.model_id,
+                run_id=metric.run_id,
+            )
+            for metric in (uc_proto.model_metrics or [])
+        ],
+        deployment_job_state=ModelVersionDeploymentJobState.from_proto(
+            uc_proto.deployment_job_state
+        ),
     )
 
 
@@ -89,6 +113,9 @@ def model_version_search_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVers
         status_message=uc_proto.status_message,
         aliases=[],
         tags=[],
+        deployment_job_state=ModelVersionDeploymentJobState.from_proto(
+            uc_proto.deployment_job_state
+        ),
     )
 
 
@@ -103,6 +130,10 @@ def registered_model_from_uc_proto(uc_proto: ProtoRegisteredModel) -> Registered
             for alias in (uc_proto.aliases or [])
         ],
         tags=[RegisteredModelTag(key=tag.key, value=tag.value) for tag in (uc_proto.tags or [])],
+        deployment_job_id=uc_proto.deployment_job_id,
+        deployment_job_state=RegisteredModelDeploymentJobState.to_string(
+            uc_proto.deployment_job_state
+        ),
     )
 
 

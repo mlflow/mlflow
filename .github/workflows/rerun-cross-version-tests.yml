@@ -14,7 +14,7 @@ jobs:
   set-matrix:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.repository == 'mlflow-automation/mlflow'
+    if: github.repository == 'mlflow/dev'
     permissions:
       actions: write # to rerun workflows
     steps:

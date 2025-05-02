@@ -8,12 +8,11 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import (
     construct_full_inputs,
-    end_client_span_or_trace,
     set_span_chat_messages,
     set_span_chat_tools,
-    start_client_span_or_trace,
 )
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
@@ -38,7 +37,6 @@ class TracingSession:
     """Context manager for handling MLflow spans in both sync and async contexts."""
 
     def __init__(self, original, instance, args, kwargs):
-        self.mlflow_client = mlflow.MlflowClient()
         self.original = original
         self.instance = instance
         self.inputs = construct_full_inputs(original, instance, *args, **kwargs)
@@ -63,11 +61,12 @@ class TracingSession:
         config = AutoLoggingConfig.init(flavor_name=mlflow.anthropic.FLAVOR_NAME)
 
         if config.log_traces:
-            self.span = start_client_span_or_trace(
-                self.mlflow_client,
+            attributes = {}
+            self.span = start_span_no_context(
                 name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
                 span_type=_get_span_type(self.original.__name__),
                 inputs=self.inputs,
+                attributes=attributes,
             )
             _set_tool_attribute(self.span, self.inputs)
 
@@ -82,13 +81,7 @@ class TracingSession:
                 status = SpanStatusCode.OK
 
             _set_chat_message_attribute(self.span, self.inputs, self.output)
-
-            end_client_span_or_trace(
-                self.mlflow_client,
-                self.span,
-                status=status,
-                outputs=self.output,
-            )
+            self.span.end(status=status, outputs=self.output)
 
 
 def _get_span_type(task_name: str) -> str:

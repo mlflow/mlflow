@@ -170,6 +170,8 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets,
             path=path,
             feature_names=feature_names,
+            name=self.name,
+            digest=self.digest,
         )
 
 
