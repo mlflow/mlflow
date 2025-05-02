@@ -2254,7 +2254,7 @@ def finalize_logged_model(model_id: str, status: LoggedModelStatus) -> LoggedMod
         from mlflow.entities import LoggedModelStatus
 
         model = mlflow.create_external_model(name="model")
-        loaded_model = mlflow.finalize_logged_model(
+        logged_model = mlflow.finalize_logged_model(
             model_id=model.model_id,
             status=LoggedModelStatus.READY,
         )
@@ -2283,8 +2283,8 @@ def get_logged_model(model_id: str) -> LoggedModel:
         import mlflow
 
         model = mlflow.create_external_model(name="model")
-        loaded_model = mlflow.get_logged_model(model_id=model.model_id)
-        assert loaded_model.model_id == model.model_id
+        logged_model = mlflow.get_logged_model(model_id=model.model_id)
+        assert logged_model.model_id == model.model_id
 
     """
     return MlflowClient().get_logged_model(model_id)
@@ -2511,7 +2511,7 @@ def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
         model = mlflow.create_external_model(name="my_model")
         mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
         model = mlflow.get_logged_model(model.model_id)
-        assert model.tags == {"key": "value"}
+        assert model.tags["key"] == "value"
     """
     MlflowClient().set_logged_model_tags(model_id, tags)
 
