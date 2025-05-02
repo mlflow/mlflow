@@ -342,7 +342,9 @@ can simply log a predict method via the keyword argument ``python_model``.
 
     # Save the function as a model
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("model", python_model=predict, pip_requirements=["pandas"])
+        mlflow.pyfunc.log_model(
+            name="model", python_model=predict, pip_requirements=["pandas"]
+        )
         run_id = mlflow.active_run().info.run_id
 
     # Load the model from the tracking server and perform inference
@@ -377,7 +379,7 @@ we would recommend using the functional-based Model instead for this simple case
     # Save the function as a model
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            "model", python_model=MyModel(), pip_requirements=["pandas"]
+            name="model", python_model=MyModel(), pip_requirements=["pandas"]
         )
         run_id = mlflow.active_run().info.run_id
 
@@ -985,7 +987,7 @@ class PyFuncModel:
             some_input = 1
             # save the model
             with mlflow.start_run():
-                model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())
+                model_info = mlflow.pyfunc.log_model(name="model", python_model=MyModel())
 
             # load the model
             loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -2922,7 +2924,7 @@ def save_model(
 
                 with mlflow.start_run():
                     model_info = mlflow.pyfunc.log_model(
-                        artifact_path="model",
+                        name="model",
                         python_model="code.py",
                     )
 
@@ -3412,7 +3414,7 @@ def log_model(
 
                 with mlflow.start_run():
                     model_info = mlflow.pyfunc.log_model(
-                        artifact_path="model",
+                        name="model",
                         python_model=MyModel(),
                     )
 
@@ -3438,7 +3440,7 @@ def log_model(
 
                 with mlflow.start_run():
                     model_info = mlflow.pyfunc.log_model(
-                        artifact_path="model", python_model=predict, input_example=["a"]
+                        name="model", python_model=predict, input_example=["a"]
                     )
 
 
@@ -3470,7 +3472,7 @@ def log_model(
 
                 with mlflow.start_run():
                     model_info = mlflow.pyfunc.log_model(
-                        artifact_path="model",
+                        name="model",
                         python_model="code.py",
                     )
 

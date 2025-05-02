@@ -10,7 +10,7 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.client import MlflowClient
+from mlflow.tracing.client import TracingClient
 
 
 @experimental
@@ -64,7 +64,7 @@ def log_expectation(
     if value is None:
         raise MlflowException.invalid_parameter_value("Expectation value cannot be None.")
 
-    return MlflowClient().log_assessment(
+    return TracingClient().log_assessment(
         trace_id=trace_id,
         name=name,
         source=_parse_source(source),
@@ -124,7 +124,7 @@ def update_expectation(
             value=43,
         )
     """
-    return MlflowClient().update_assessment(
+    return TracingClient().update_assessment(
         assessment_id=assessment_id,
         trace_id=trace_id,
         name=name,
@@ -146,7 +146,7 @@ def delete_expectation(trace_id: str, assessment_id: str):
         trace_id: The ID of the trace.
         assessment_id: The ID of the expectation assessment to delete.
     """
-    return MlflowClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
+    return TracingClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 
 
 @experimental
@@ -238,7 +238,7 @@ def log_feedback(
     """
     if value is None and error is None:
         raise MlflowException.invalid_parameter_value("Either `value` or `error` must be provided.")
-    return MlflowClient().log_assessment(
+    return TracingClient().log_assessment(
         trace_id=trace_id,
         name=name,
         source=_parse_source(source),
@@ -302,7 +302,7 @@ def update_feedback(
             value=0.95,
         )
     """
-    return MlflowClient().update_assessment(
+    return TracingClient().update_assessment(
         trace_id=trace_id,
         assessment_id=assessment_id,
         name=name,
@@ -325,7 +325,7 @@ def delete_feedback(trace_id: str, assessment_id: str):
         trace_id: The ID of the trace.
         assessment_id: The ID of the feedback assessment to delete.
     """
-    return MlflowClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
+    return TracingClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 
 
 def _parse_source(source: Union[str, AssessmentSource]) -> AssessmentSource:

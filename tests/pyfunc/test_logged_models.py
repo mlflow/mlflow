@@ -26,28 +26,28 @@ class TraceModel(mlflow.pyfunc.PythonModel):
 def test_model_id_tracking():
     model = TraceModel()
     model.predict([1, 2, 3])
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert TraceMetadataKey.MODEL_ID not in trace.info.request_metadata
 
     with mlflow.start_run():
-        info = mlflow.pyfunc.log_model("my_model", python_model=model)
+        info = mlflow.pyfunc.log_model(name="my_model", python_model=model)
         # Log another model to ensure that the model ID is correctly associated with the first model
-        mlflow.pyfunc.log_model("another_model", python_model=model)
+        mlflow.pyfunc.log_model(name="another_model", python_model=model)
 
     model = mlflow.pyfunc.load_model(info.model_uri)
     model.predict([4, 5, 6])
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == info.model_id
 
 
 def test_model_id_tracking_evaluate():
     with mlflow.start_run():
-        info = mlflow.pyfunc.log_model("my_model", python_model=TraceModel())
+        info = mlflow.pyfunc.log_model(name="my_model", python_model=TraceModel())
 
     mlflow.evaluate(model=info.model_uri, data=[[1, 2, 3]], model_type="regressor", targets=[1])
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == info.model_id
 
@@ -57,7 +57,7 @@ def test_model_id_tracking_thread_safety():
     for _ in range(5):
         with mlflow.start_run():
             info = mlflow.pyfunc.log_model(
-                "my_model",
+                name="my_model",
                 python_model=TraceModel(),
                 pip_requirements=[],  # to skip dependency inference
             )
@@ -84,7 +84,7 @@ def test_model_id_tracking_thread_safety():
 def test_run_params_are_logged_to_model():
     with mlflow.start_run():
         mlflow.log_params({"a": 1})
-        mlflow.pyfunc.log_model("my_model", python_model=DummyModel())
+        mlflow.pyfunc.log_model(name="my_model", python_model=DummyModel())
 
     model = mlflow.last_logged_model()
     assert model.params == {"a": "1"}
@@ -93,7 +93,7 @@ def test_run_params_are_logged_to_model():
 def test_run_metrics_are_logged_to_model():
     with mlflow.start_run():
         mlflow.log_metrics({"a": 1, "b": 2})
-        mlflow.pyfunc.log_model("my_model", python_model=DummyModel())
+        mlflow.pyfunc.log_model(name="my_model", python_model=DummyModel())
 
     model = mlflow.last_logged_model()
     assert [(m.key, m.value) for m in model.metrics] == [("a", 1), ("b", 2)]

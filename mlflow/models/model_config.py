@@ -78,7 +78,7 @@ class ModelConfig:
         model_config = {"key1": "value2"}
         with mlflow.start_run():
             model_info = mlflow.pyfunc.log_model(
-                artifact_path="model", python_model="agent.py", model_config=model_config
+                name="model", python_model="agent.py", model_config=model_config
             )
 
         loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)

@@ -714,7 +714,7 @@ def test_log_model(mlflow_client):
         mlflow.set_tracking_uri(mlflow_client.tracking_uri)
         with mlflow.start_run(experiment_id=experiment_id) as run:
             for i, m in enumerate(model_paths):
-                mlflow.pyfunc.log_model(m, loader_module="mlflow.pyfunc")
+                mlflow.pyfunc.log_model(name=m, loader_module="mlflow.pyfunc")
                 mlflow.pyfunc.save_model(
                     m,
                     mlflow_model=Model(artifact_path=m, run_id=run.info.run_id),
@@ -1645,7 +1645,7 @@ def test_logging_model_with_local_artifact_uri(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     with mlflow.start_run() as run:
         assert run.info.artifact_uri.startswith("file://")
-        mlflow.sklearn.log_model(LogisticRegression(), "model", registered_model_name="rmn")
+        mlflow.sklearn.log_model(LogisticRegression(), name="model", registered_model_name="rmn")
         mlflow.pyfunc.load_model("models:/rmn/1")
 
 
@@ -2083,7 +2083,7 @@ def test_start_and_end_trace(mlflow_client):
 
     # Trace CRUD APIs are not directly exposed as public API of MlflowClient,
     # so we use the underlying tracking client to test them.
-    client = mlflow_client._tracking_client
+    client = mlflow_client._tracing_client
 
     # Helper function to remove auto-added system tags (mlflow.xxx) from testing
     def _exclude_system_tags(tags: dict[str, str]):
@@ -2202,7 +2202,7 @@ def test_delete_traces(mlflow_client):
 
     def _is_trace_exists(request_id):
         try:
-            trace_info = mlflow_client._tracking_client.get_trace_info(request_id)
+            trace_info = mlflow_client._tracing_client.get_trace_info(request_id)
             return trace_info is not None
         except RestException as e:
             if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
@@ -2250,7 +2250,7 @@ def test_set_and_delete_trace_tag(mlflow_client):
     experiment_id = mlflow_client.create_experiment("set delete tag")
 
     # Create test trace
-    trace_info = mlflow_client._tracking_client.start_trace(
+    trace_info = mlflow_client._tracing_client.start_trace(
         experiment_id=experiment_id,
         timestamp_ms=1000,
         request_metadata={},
@@ -2262,12 +2262,12 @@ def test_set_and_delete_trace_tag(mlflow_client):
 
     # Validate set tag
     mlflow_client.set_trace_tag(trace_info.request_id, "tag1", "green")
-    trace_info = mlflow_client._tracking_client.get_trace_info(trace_info.request_id)
+    trace_info = mlflow_client._tracing_client.get_trace_info(trace_info.request_id)
     assert trace_info.tags["tag1"] == "green"
 
     # Validate delete tag
     mlflow_client.delete_trace_tag(trace_info.request_id, "tag2")
-    trace_info = mlflow_client._tracking_client.get_trace_info(trace_info.request_id)
+    trace_info = mlflow_client._tracing_client.get_trace_info(trace_info.request_id)
     assert "tag2" not in trace_info.tags
 
 

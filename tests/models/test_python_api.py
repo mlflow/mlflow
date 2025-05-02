@@ -72,7 +72,7 @@ def test_predict(input_data, expected_data, content_type, env_manager):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             extra_pip_requirements=["pytest"],
         )
@@ -108,7 +108,7 @@ def test_predict_with_pip_requirements_override(env_manager):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             extra_pip_requirements=["scikit-learn==1.3.2", "pytest"],
         )
@@ -144,7 +144,7 @@ def test_predict_with_model_alias(env_manager):
 
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             registered_model_name="model_name",
         )
@@ -168,7 +168,7 @@ def test_predict_with_extra_envs(env_manager):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
         )
 
@@ -189,7 +189,7 @@ def test_predict_with_extra_envs_errors():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
         )
 
@@ -355,7 +355,7 @@ def test_predict_use_current_experiment():
     client = mlflow.MlflowClient()
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
         )
 

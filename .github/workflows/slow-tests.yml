@@ -38,14 +38,15 @@ env:
   MLFLOW_RUN_SLOW_TESTS: "true"
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
-  PIP_CONSTRAINT: /home/runner/work/mlflow/mlflow/requirements/constraints.txt
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 jobs:
   docker-build:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions: {}
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    permissions:
+      contents: read
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     strategy:
       fail-fast: false
       matrix:

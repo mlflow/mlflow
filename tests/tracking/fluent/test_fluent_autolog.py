@@ -71,6 +71,8 @@ library_to_mlflow_module_genai = {
     boto3: mlflow.bedrock,
     groq: mlflow.groq,
     mistralai: mlflow.mistral,
+    # TODO: once Python 3.10 is introduced, enable smolagents
+    # smolagents: mlflow.smolagents,
 }
 
 library_to_mlflow_module_traditional_ai = {
@@ -111,6 +113,8 @@ def reset_global_states():
         except Exception:
             pass
 
+    # TODO: Remove this when we run ci with Python >= 3.10
+    mlflow.utils.import_hooks._post_import_hooks.pop("smolagents", None)
     # TODO: Remove this when we run ci with Python >= 3.10
     mlflow.utils.import_hooks._post_import_hooks.pop("crewai", None)
     # TODO: Remove this line when we stop supporting google.generativeai
@@ -475,8 +479,8 @@ def test_autolog_genai_import(disable, flavor_and_module):
 
     # pytorch-lightning is not valid flavor name.
     # paddle autologging is not in the list of autologging integrations.
-    # crewai requires Python 3.10+ (our CI runs on Python 3.9).
-    if flavor in {"pytorch-lightning", "paddle", "crewai"}:
+    # crewai and smolagents require Python 3.10+ (our CI runs on Python 3.9).
+    if flavor in {"pytorch-lightning", "paddle", "crewai", "smolagents"}:
         return
 
     with reset_module_import():

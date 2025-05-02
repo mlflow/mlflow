@@ -496,7 +496,7 @@ def test_save_load_input_example_without_conversion(tmp_path):
     }
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=input_example,
         )
@@ -520,7 +520,7 @@ def test_save_load_input_example_with_pydantic_model(tmp_path):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=[Message(role="user", content="Hello!")],
         )
@@ -540,7 +540,7 @@ def test_model_saved_by_save_model_can_be_loaded(tmp_path, sklearn_knn_model):
 
 def test_copy_metadata(mock_is_in_databricks, sklearn_knn_model):
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(sklearn_knn_model, "model")
+        model_info = mlflow.sklearn.log_model(sklearn_knn_model, name="model")
 
     artifact_path = mlflow.artifacts.download_artifacts(model_info.model_uri)
     metadata_path = os.path.join(artifact_path, "metadata")
@@ -639,7 +639,7 @@ def test_save_load_model_with_run_uri():
 
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=["a", "b", "c"],
         )
@@ -664,7 +664,7 @@ def test_save_model_with_prompts():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             # The 'prompts' parameter should accept both prompt object and URI
             prompts=[prompt_1, prompt_2.uri],

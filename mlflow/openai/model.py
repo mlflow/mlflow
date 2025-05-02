@@ -1,37 +1,3 @@
-"""
-The ``mlflow.openai`` module provides an API for logging and loading OpenAI models.
-
-Credential management for OpenAI on Databricks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. warning::
-
-    Specifying secrets for model serving with ``MLFLOW_OPENAI_SECRET_SCOPE`` is deprecated.
-    Use `secrets-based environment variables <https://docs.databricks.com/en/machine-learning/model-serving/store-env-variable-model-serving.html>`_
-    instead.
-
-When this flavor logs a model on Databricks, it saves a YAML file with the following contents as
-``openai.yaml`` if the ``MLFLOW_OPENAI_SECRET_SCOPE`` environment variable is set.
-
-.. code-block:: yaml
-
-    OPENAI_API_BASE: {scope}:openai_api_base
-    OPENAI_API_KEY: {scope}:openai_api_key
-    OPENAI_API_KEY_PATH: {scope}:openai_api_key_path
-    OPENAI_API_TYPE: {scope}:openai_api_type
-    OPENAI_ORGANIZATION: {scope}:openai_organization
-
-- ``{scope}`` is the value of the ``MLFLOW_OPENAI_SECRET_SCOPE`` environment variable.
-- The keys are the environment variables that the ``openai-python`` package uses to
-  configure the API client.
-- The values are the references to the secrets that store the values of the environment
-  variables.
-
-When the logged model is served on Databricks, each secret will be resolved and set as the
-corresponding environment variable. See https://docs.databricks.com/security/secrets/index.html
-for how to set up secrets on Databricks.
-"""
-
 import importlib.metadata
 import itertools
 import logging
@@ -63,9 +29,7 @@ from mlflow.tracking.fluent import (
 )
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import (
-    disable_autologging_globally,
-)
+from mlflow.utils.autologging_utils import disable_autologging_globally
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -538,7 +502,7 @@ def log_model(
                 model="gpt-4o-mini",
                 task=openai.chat.completions,
                 messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
-                artifact_path="model",
+                name="model",
             )
             model = mlflow.pyfunc.load_model(info.model_uri)
             df = pd.DataFrame({"animal": ["cats", "dogs"]})
@@ -549,7 +513,7 @@ def log_model(
             info = mlflow.openai.log_model(
                 model="text-embedding-ada-002",
                 task=openai.embeddings,
-                artifact_path="embeddings",
+                name="embeddings",
             )
             model = mlflow.pyfunc.load_model(info.model_uri)
             print(model.predict(["hello", "world"]))

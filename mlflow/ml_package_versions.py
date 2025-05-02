@@ -330,6 +330,16 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.1.8"
         }
     },
+    "smolagents": {
+        "package_info": {
+            "pip_release": "smolagents",
+            "module_name": "smolagents"
+        },
+        "autologging": {
+            "minimum": "1.14.0",
+            "maximum": "1.14.0"
+        }
+    },
     "mistral": {
         "package_info": {
             "pip_release": "mistralai",
@@ -421,6 +431,7 @@ FLAVOR_TO_MODULE_NAME = {
     "anthropic": "anthropic",
     "crewai": "crewai",
     "pydantic_ai": "pydantic_ai",
+    "smolagents": "smolagents",
     "mistral": "mistralai",
     "litellm": "litellm",
     "groq": "groq",

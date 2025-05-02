@@ -12,7 +12,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.tracing.constant import SpanAttributeKey
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 llama_core_version = Version(importlib_metadata.version("llama-index-core"))
 
@@ -84,12 +84,13 @@ def test_autolog_preserve_user_provided_handlers():
     assert len(traces) == 1
 
 
+@skip_when_testing_trace_sdk
 def test_autolog_should_not_generate_traces_during_logging_loading(single_index):
     mlflow.llama_index.autolog()
 
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
-            single_index, "model", input_example="Hello", engine_type="query"
+            single_index, name="model", input_example="Hello", engine_type="query"
         )
     loaded = mlflow.pyfunc.load_model(model_info.model_uri)
 
@@ -99,6 +100,7 @@ def test_autolog_should_not_generate_traces_during_logging_loading(single_index)
     assert len(get_traces()) == 1
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.parametrize(
     ("code_path", "engine_type", "engine_method", "input_arg"),
     [
@@ -125,7 +127,7 @@ def test_autolog_link_traces_to_loaded_model_engine(
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
-                    code_path, f"model_{i}", input_example="Hello", engine_type=engine_type
+                    code_path, name=f"model_{i}", input_example="Hello", engine_type=engine_type
                 )
             )
 
@@ -143,6 +145,7 @@ def test_autolog_link_traces_to_loaded_model_engine(
         assert span.inputs[input_arg] == f"Hello {model_id}"
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.parametrize("is_stream", [False, True])
 def test_autolog_link_traces_to_loaded_model_index_query(single_index, is_stream):
     model_infos = []
@@ -150,7 +153,7 @@ def test_autolog_link_traces_to_loaded_model_index_query(single_index, is_stream
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
-                    single_index, f"model_{i}", input_example="Hello", engine_type="query"
+                    single_index, name=f"model_{i}", input_example="Hello", engine_type="query"
                 )
             )
 
@@ -170,6 +173,7 @@ def test_autolog_link_traces_to_loaded_model_index_query(single_index, is_stream
         assert span.inputs["str_or_query_bundle"] == f"Hello {model_id}"
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.asyncio
 async def test_autolog_link_traces_to_loaded_model_index_query_async(single_index):
     model_infos = []
@@ -177,7 +181,7 @@ async def test_autolog_link_traces_to_loaded_model_index_query_async(single_inde
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
-                    single_index, f"model_{i}", input_example="Hello", engine_type="query"
+                    single_index, name=f"model_{i}", input_example="Hello", engine_type="query"
                 )
             )
 
@@ -195,6 +199,7 @@ async def test_autolog_link_traces_to_loaded_model_index_query_async(single_inde
         assert span.inputs["str_or_query_bundle"] == f"Hello {model_id}"
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.parametrize(
     "chat_mode",
     [
@@ -213,7 +218,7 @@ def test_autolog_link_traces_to_loaded_model_index_chat(single_index, chat_mode)
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
-                    single_index, f"model_{i}", input_example="Hello", engine_type="chat"
+                    single_index, name=f"model_{i}", input_example="Hello", engine_type="chat"
                 )
             )
 
@@ -231,13 +236,14 @@ def test_autolog_link_traces_to_loaded_model_index_chat(single_index, chat_mode)
         assert span.inputs["message"] == f"Hello {model_id}"
 
 
+@skip_when_testing_trace_sdk
 def test_autolog_link_traces_to_loaded_model_index_retriever(single_index):
     model_infos = []
     for i in range(3):
         with mlflow.start_run():
             model_infos.append(
                 mlflow.llama_index.log_model(
-                    single_index, f"model_{i}", input_example="Hello", engine_type="retriever"
+                    single_index, name=f"model_{i}", input_example="Hello", engine_type="retriever"
                 )
             )
 
@@ -255,6 +261,7 @@ def test_autolog_link_traces_to_loaded_model_index_retriever(single_index):
         assert span.inputs["str_or_query_bundle"] == f"Hello {model_id}"
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.skipif(
     llama_core_version < Version("0.11.0"),
     reason="Workflow was introduced in 0.11.0",
@@ -265,7 +272,7 @@ async def test_autolog_link_traces_to_loaded_model_workflow():
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             "tests/llama_index/sample_code/simple_workflow.py",
-            "model",
+            name="model",
             input_example={"topic": "Hello"},
         )
     loaded_workflow = mlflow.llama_index.load_model(model_info.model_uri)
@@ -279,6 +286,7 @@ async def test_autolog_link_traces_to_loaded_model_workflow():
     assert span.inputs["kwargs"]["topic"] == f"Hello {model_id}"
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.skipif(
     llama_core_version < Version("0.11.0"),
     reason="Workflow was introduced in 0.11.0",
@@ -288,7 +296,7 @@ def test_autolog_link_traces_to_loaded_model_workflow_pyfunc():
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             "tests/llama_index/sample_code/simple_workflow.py",
-            "model",
+            name="model",
             input_example={"topic": "Hello"},
         )
     loaded_workflow = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -302,6 +310,7 @@ def test_autolog_link_traces_to_loaded_model_workflow_pyfunc():
     assert span.inputs["kwargs"]["topic"] == f"Hello {model_id}"
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.skipif(
     llama_core_version < Version("0.11.0"),
     reason="Workflow was introduced in 0.11.0",
@@ -313,7 +322,7 @@ def test_autolog_link_traces_to_active_model():
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             "tests/llama_index/sample_code/simple_workflow.py",
-            "model",
+            name="model",
             input_example={"topic": "Hello"},
         )
     loaded_workflow = mlflow.pyfunc.load_model(model_info.model_uri)

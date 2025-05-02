@@ -536,7 +536,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
         with mlflow.start_run():
             logged_agent_info = mlflow.pyfunc.log_model(
-                artifact_path="agent",
+                name="agent",
                 python_model=os.path.join(os.getcwd(), "agent"),
                 # Add serving endpoints, tools, and vector search indexes here
                 resources=[],

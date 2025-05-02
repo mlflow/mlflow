@@ -1894,8 +1894,14 @@ class SqlAlchemyStore(AbstractStore):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid order by field name: {field_name}"
                     )
-                ob = col.asc() if ascending else col.desc()
-                order_by_clauses.append(ob.nulls_last())
+                # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
+                order_by_clauses.extend(
+                    [
+                        # Sort nulls last
+                        sqlalchemy.case((col.is_(None), 1), else_=0).asc(),
+                        col.asc() if ascending else col.desc(),
+                    ]
+                )
                 continue
 
             entity, name = field_name.split(".", 1)
@@ -1938,8 +1944,14 @@ class SqlAlchemyStore(AbstractStore):
             subquery = select(subquery.c).where(subquery.c.rank == 1).subquery()
 
             models = models.outerjoin(subquery)
-            ob = subquery.c.metric_value.asc() if ascending else subquery.c.metric_value.desc()
-            order_by_clauses.append(ob.nulls_last())
+            # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
+            order_by_clauses.extend(
+                [
+                    # Sort nulls last
+                    sqlalchemy.case((subquery.c.metric_value.is_(None), 1), else_=0).asc(),
+                    subquery.c.metric_value.asc() if ascending else subquery.c.metric_value.desc(),
+                ]
+            )
 
         if not has_creation_timestamp:
             order_by_clauses.append(SqlLoggedModel.creation_timestamp_ms.desc())
@@ -1957,41 +1969,47 @@ class SqlAlchemyStore(AbstractStore):
 
         comparisons = parse_filter_string(filter_string)
         dialect = self._get_dialect()
-        filters: list[sqlalchemy.BinaryExpression] = []
+        attr_filters: list[sqlalchemy.BinaryExpression] = []
+        non_attr_filters: list[sqlalchemy.BinaryExpression] = []
         for comp in comparisons:
             comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
             if comp.entity.type == EntityType.ATTRIBUTE:
-                filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
-                continue
-
-            if comp.entity.type == EntityType.METRIC:
-                subquery = (
+                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
+            elif comp.entity.type == EntityType.METRIC:
+                non_attr_filters.append(
                     session.query(SqlLoggedModelMetric)
-                    .filter(SqlLoggedModelMetric.metric_name == comp.entity.key)
+                    .filter(
+                        SqlLoggedModelMetric.metric_name == comp.entity.key,
+                        comp_func(SqlLoggedModelMetric.metric_value, comp.value),
+                    )
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelMetric.metric_value, comp.value))
             elif comp.entity.type == EntityType.PARAM:
-                subquery = (
+                non_attr_filters.append(
                     session.query(SqlLoggedModelParam)
-                    .filter(SqlLoggedModelParam.param_key == comp.entity.key)
+                    .filter(
+                        SqlLoggedModelParam.param_key == comp.entity.key,
+                        comp_func(SqlLoggedModelParam.param_value, comp.value),
+                    )
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelParam.param_value, comp.value))
             elif comp.entity.type == EntityType.TAG:
-                subquery = (
+                non_attr_filters.append(
                     session.query(SqlLoggedModelTag)
-                    .filter(SqlLoggedModelTag.tag_key == comp.entity.key)
+                    .filter(
+                        SqlLoggedModelTag.tag_key == comp.entity.key,
+                        comp_func(SqlLoggedModelTag.tag_value, comp.value),
+                    )
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelTag.tag_value, comp.value))
 
-            models = models.join(subquery, SqlLoggedModel.model_id == subquery.c.model_id)
+        for f in non_attr_filters:
+            models = models.join(f)
 
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             SqlLoggedModel.experiment_id.in_(experiment_ids),
-            *filters,
+            *attr_filters,
         )
 
     def search_logged_models(
@@ -2463,7 +2481,7 @@ def _get_orderby_clauses(order_by_list, session):
                 ordering_joins.append(subquery)
                 order_value = subquery.c.value
 
-            # sqlite does not support NULLS LAST expression, so we sort first by
+            # MySQL does not support NULLS LAST expression, so we sort first by
             # presence of the field (and is_nan for metrics), then by actual value
             # As the subqueries are created independently and used later in the
             # same main query, the CASE WHEN columns need to have unique names to

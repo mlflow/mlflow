@@ -46,7 +46,7 @@ def test_log_model_with_config():
     }
     with mlflow.start_run():
         logged_model = mlflow.promptflow.log_model(
-            model, "promptflow_model", model_config=model_config
+            model, name="promptflow_model", model_config=model_config
         )
 
     assert mlflow.pyfunc.FLAVOR_NAME in logged_model.flavors
@@ -61,10 +61,10 @@ def log_promptflow_example_model(with_input_example=False):
     model = get_promptflow_example_model()
     with mlflow.start_run():
         if not with_input_example:
-            return mlflow.promptflow.log_model(model, "promptflow_model")
+            return mlflow.promptflow.log_model(model, name="promptflow_model")
         return mlflow.promptflow.log_model(
             model,
-            "promptflow_model",
+            name="promptflow_model",
             input_example={"text": "Python Hello World!"},
         )
 
@@ -131,4 +131,4 @@ def test_unsupported_class():
         MlflowException, match="only supports instance defined with 'flow.dag.yaml' file"
     ):
         with mlflow.start_run():
-            mlflow.promptflow.log_model(mock_model, "mock_model_path")
+            mlflow.promptflow.log_model(mock_model, name="mock_model_path")

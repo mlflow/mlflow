@@ -359,7 +359,7 @@ def test_chat_model_works_in_serving():
     }
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=model,
             input_example=(messages, params_subset),
         )
@@ -397,7 +397,7 @@ def test_chat_model_works_with_infer_signature_input_example(tmp_path):
     }
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example
+            name="model", python_model=model, input_example=input_example
         )
     assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
     assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
@@ -441,7 +441,7 @@ def test_chat_model_logs_default_metadata_task(tmp_path):
     }
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example
+            name="model", python_model=model, input_example=input_example
         )
     assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
     assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
@@ -449,7 +449,7 @@ def test_chat_model_logs_default_metadata_task(tmp_path):
 
     with mlflow.start_run():
         model_info_with_override = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example, metadata={"task": None}
+            name="model", python_model=model, input_example=input_example, metadata={"task": None}
         )
     assert model_info_with_override.metadata["task"] is None
 
@@ -461,7 +461,7 @@ def test_chat_model_works_with_chat_message_input_example(tmp_path):
     ]
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example
+            name="model", python_model=model, input_example=input_example
         )
     assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
     assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
@@ -504,7 +504,7 @@ def test_chat_model_works_with_infer_signature_multi_input_example(tmp_path):
     }
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=model, input_example=input_example
+            name="model", python_model=model, input_example=input_example
         )
     assert model_info.signature.inputs == CHAT_MODEL_INPUT_SCHEMA
     assert model_info.signature.outputs == CHAT_MODEL_OUTPUT_SCHEMA
@@ -562,7 +562,7 @@ def test_chat_model_can_receive_and_return_metadata():
     model = ChatModelWithMetadata()
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=model,
             input_example=input_example,
         )
@@ -616,7 +616,7 @@ def test_chat_model_can_use_tool_calls():
     model = ChatModelWithToolCalling()
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=model,
             input_example=example,
         )
@@ -652,7 +652,9 @@ def test_chat_model_without_context_in_predict():
     assert next(iter(model.predict_stream(messages, ChatParams()))) == chunk_response
 
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=model, input_example=messages)
+        model_info = mlflow.pyfunc.log_model(
+            name="model", python_model=model, input_example=messages
+        )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     input_data = {"messages": [{"role": "user", "content": "hello"}]}
     assert pyfunc_model.predict(input_data) == response.to_dict()

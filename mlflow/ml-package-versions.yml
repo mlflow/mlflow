@@ -857,6 +857,19 @@ pydantic_ai:
     minimum: "0.1.0"
     maximum: "0.1.8"
     run: pytest tests/pydantic_ai
+smolagents:
+  package_info:
+    pip_release: "smolagents"
+    module_name: "smolagents"
+    install_dev: |
+      pip install "git+https://github.com/huggingface/smolagents"
+  autologging:
+    minimum: "1.14.0"
+    maximum: "1.14.0"
+    python:
+      ">=1.14.0": "3.10"
+    requirements:
+    run: pytest tests/smolagents
 
 mistral:
   package_info:

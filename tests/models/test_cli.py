@@ -147,7 +147,7 @@ def test_serve_uvicorn_opts(iris_data, sk_model):
     with mlflow.start_run():
         x, _ = iris_data
         model_info = mlflow.sklearn.log_model(
-            sk_model, "model", registered_model_name="test", input_example=pd.DataFrame(x)
+            sk_model, name="model", registered_model_name="test", input_example=pd.DataFrame(x)
         )
 
     model_uris = ["models:/test/None", model_info.model_uri]
@@ -178,7 +178,7 @@ def test_serve_uvicorn_opts(iris_data, sk_model):
 def test_predict(iris_data, sk_model):
     with TempDir(chdr=True) as tmp:
         with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+            mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
             model_uri = f"runs:/{active_run.info.run_id}/model"
         model_registry_uri = "models:/impredicting/None"
         input_json_path = tmp.path("input.json")
@@ -352,7 +352,7 @@ def test_predict(iris_data, sk_model):
 
 def test_predict_check_content_type(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
     model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input.json"
     input_csv_path = tmp_path / "input.csv"
@@ -394,7 +394,7 @@ def test_predict_check_content_type(iris_data, sk_model, tmp_path):
 
 def test_predict_check_input_path(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
     model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input with space.json"
     input_csv_path = tmp_path / "input.csv"
@@ -489,7 +489,7 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
 
 def test_predict_check_output_path(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
     model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input.json"
     input_csv_path = tmp_path / "input.csv"
@@ -533,7 +533,7 @@ def test_prepare_env_passes(sk_model):
 
     with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, "model")
+            mlflow.sklearn.log_model(sk_model, name="model")
             model_uri = f"runs:/{active_run.info.run_id}/model"
 
         # With conda
@@ -574,7 +574,7 @@ def test_prepare_env_fails(sk_model):
     with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(
-                sk_model, "model", pip_requirements=["does-not-exist-dep==abc"]
+                sk_model, name="model", pip_requirements=["does-not-exist-dep==abc"]
             )
             model_uri = f"runs:/{active_run.info.run_id}/model"
 
@@ -600,10 +600,10 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model, name="model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
-            mlflow.sklearn.log_model(sk_model, "model")
+            mlflow.sklearn.log_model(sk_model, name="model")
         model_uri = f"runs:/{active_run.info.run_id}/model"
     extra_args = ["--install-mlflow"]
     if enable_mlserver:
@@ -628,10 +628,10 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model, name="model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
-            mlflow.sklearn.log_model(sk_model, "model", extra_pip_requirements=["/opt/mlflow"])
+            mlflow.sklearn.log_model(sk_model, name="model", extra_pip_requirements=["/opt/mlflow"])
         model_uri = f"runs:/{active_run.info.run_id}/model"
 
     x, _ = iris_data
@@ -654,7 +654,7 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
 def test_build_docker_virtualenv(iris_data, sk_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sk_model, "model", extra_pip_requirements=["/opt/mlflow"]
+            sk_model, name="model", extra_pip_requirements=["/opt/mlflow"]
         )
 
     x, _ = iris_data
@@ -676,10 +676,10 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model, name="model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
-            mlflow.sklearn.log_model(sk_model, "model", extra_pip_requirements=["/opt/mlflow"])
+            mlflow.sklearn.log_model(sk_model, name="model", extra_pip_requirements=["/opt/mlflow"])
         model_uri = f"runs:/{active_run.info.run_id}/model"
     x, _ = iris_data
     df = pd.DataFrame(x)
@@ -782,7 +782,7 @@ def test_host_invalid_value():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model", python_model=MyModel(), registered_model_name="model"
+            name="test_model", python_model=MyModel(), registered_model_name="model"
         )
 
     with mock.patch(
@@ -863,7 +863,7 @@ def test_signature_enforcement_with_model_serving(input_schema, output_schema, p
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model", python_model=MyModel(), signature=signature
+            name="test_model", python_model=MyModel(), signature=signature
         )
 
     inference_payload = json.dumps({"inputs": ["test"]})
@@ -894,7 +894,7 @@ def assert_base_model_reqs():
             return ["test"]
 
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=MyModel())
 
     resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_info.model_uri)
     local_paths = get_model_requirements_files(resolved_uri)

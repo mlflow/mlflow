@@ -154,7 +154,7 @@ model = keras.Sequential(
 
 save_path = "model"
 with mlflow.start_run() as run:
-    mlflow.tensorflow.log_model(model, "model")
+    mlflow.tensorflow.log_model(model, name="model")
 
 # Load back the model.
 loaded_model = mlflow.tensorflow.load_model(f"runs:/{run.info.run_id}/{save_path}")
@@ -195,7 +195,7 @@ model = keras.Sequential(
 save_path = "model"
 with mlflow.start_run() as run:
     mlflow.tensorflow.log_model(
-        model, "model", keras_model_kwargs={"save_format": "h5"}
+        model, name="model", keras_model_kwargs={"save_format": "h5"}
     )
 
 # Load back the model.
@@ -250,7 +250,7 @@ input_schema = Schema(
 signature = ModelSignature(inputs=input_schema)
 
 with mlflow.start_run() as run:
-    mlflow.tensorflow.log_model(model, "model", signature=signature)
+    mlflow.tensorflow.log_model(model, name="model", signature=signature)
 
 # Load back the model.
 loaded_model = mlflow.tensorflow.load_model(f"runs:/{run.info.run_id}/{save_path}")
