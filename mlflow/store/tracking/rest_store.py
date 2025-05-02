@@ -446,28 +446,18 @@ class RestStore(AbstractStore):
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
     ):
-        print(f"DEBUG rest_store.search_traces: experiment_ids={experiment_ids}, type={type(experiment_ids)}")
-        print(f"DEBUG rest_store.search_traces: host={self.get_host_creds().host}")
-        
         if sql_warehouse_id is None:
             # Create trace_locations from experiment_ids for the V3 API
             trace_locations = []
-            print(f"DEBUG: Creating trace_locations from experiment_ids: {experiment_ids}")
             for exp_id in experiment_ids:
-                print(f"DEBUG: Creating location for exp_id={exp_id}, type={type(exp_id)}")
                 try:
                     location = TraceLocation.from_experiment_id(exp_id)
-                    print(f"DEBUG: Created location={location.to_dict()}")
                     proto_location = location.to_proto()
-                    print(f"DEBUG: Created proto location")
                     trace_locations.append(proto_location)
                 except Exception as e:
-                    print(f"DEBUG: Error creating location: {str(e)}")
+                    _logger.error(f"Error creating location for experiment ID {exp_id}: {str(e)}")
             
-            print(f"DEBUG: Final trace_locations count: {len(trace_locations)}")
-
-            # Create V3 request message using protobuf first (to keep the same logic for field construction)
-            # This ensures we create all fields correctly according to the protobuf definition
+            # Create V3 request message using protobuf
             request = SearchTracesV3Request(
                 trace_locations=trace_locations,
                 filter=filter_string,
@@ -476,29 +466,31 @@ class RestStore(AbstractStore):
                 page_token=page_token,
             )
             
-            # Convert to dict via the protobuf format utility
+            # WORKAROUND: Field name mismatch between protobuf and JSON API
+            # -----------------------------------------------------------------
+            # There's a mismatch between the protobuf field name 'trace_locations' and 
+            # the expected JSON API field name 'locations'. The server endpoint 
+            # /api/3.0/mlflow/traces/search expects JSON with 'locations' field, but our
+            # protobuf definition uses 'trace_locations'. This conversion ensures
+            # the REST API receives the field name it expects.
+            #
+            # This is a minimal fix that leaves the protobuf definitions and generated
+            # code unchanged, but might need revisiting if the API evolves further.
             request_dict = json.loads(message_to_json(request))
-            
-            # Fix the field name for the REST API's JSON format requirement
             if "trace_locations" in request_dict:
                 request_dict["locations"] = request_dict.pop("trace_locations")
-            
-            # Convert back to a JSON string for the REST call
             req_body = json.dumps(request_dict)
+            # -----------------------------------------------------------------
             
-            print(f"DEBUG: Request message: {req_body}")
             endpoint = get_search_traces_v3_endpoint()
-            print(f"DEBUG: V3 API endpoint: {endpoint}")
             
             try:
                 response_proto = self._call_endpoint(SearchTracesV3Request, req_body, endpoint=endpoint)
-                print(f"DEBUG: Got response, traces count: {len(response_proto.traces)}")
                 trace_infos = [TraceInfoV3.from_proto(t) for t in response_proto.traces]
             except Exception as e:
-                print(f"DEBUG: Error in _call_endpoint: {str(e)}")
+                _logger.error(f"Error searching traces: {str(e)}")
                 raise
         else:
-            print(f"DEBUG: Using unified search with sql_warehouse_id={sql_warehouse_id}")
             response_proto = self._search_unified_traces(
                 model_id=model_id,
                 sql_warehouse_id=sql_warehouse_id,
