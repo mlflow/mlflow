@@ -101,6 +101,7 @@ def agent_with_mcp(simple_agent, dummy_mcp_server):
 
 
 def test_agent_run_sync_enable_fluent_disable_autolog(simple_agent):
+    clear_autolog_state()
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
@@ -145,6 +146,7 @@ def test_agent_run_sync_enable_fluent_disable_autolog(simple_agent):
 
 @pytest.mark.asyncio
 async def test_agent_run_enable_fluent_disable_autolog(simple_agent):
+    clear_autolog_state()
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
@@ -185,6 +187,7 @@ async def test_agent_run_enable_fluent_disable_autolog(simple_agent):
 
 
 def test_agent_run_sync_enable_disable_fluent_autolog_with_tool(agent_with_tool):
+    clear_autolog_state()
     sequence, final_resp, usage_final = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -266,6 +269,7 @@ def test_agent_run_sync_enable_disable_fluent_autolog_with_tool(agent_with_tool)
 
 @pytest.mark.asyncio
 async def test_agent_run_enable_disable_fluent_autolog_with_tool(agent_with_tool):
+    clear_autolog_state()
     sequence, final_resp, usage_final = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):

@@ -100,6 +100,7 @@ def agent_with_mcp(simple_agent, dummy_mcp_server):
 
 
 def test_agent_run_sync_enable_disable_autolog(simple_agent):
+    clear_autolog_state()
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
@@ -144,6 +145,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
 
 @pytest.mark.asyncio
 async def test_agent_run_enable_disable_autolog(simple_agent):
+    clear_autolog_state()
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
@@ -184,6 +186,7 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
 
 
 def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
+    clear_autolog_state()
     sequence, final_resp, usage_final = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -265,6 +268,7 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
 
 @pytest.mark.asyncio
 async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
+    clear_autolog_state()
     sequence, final_resp, usage_final = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -339,3 +343,26 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
         mlflow.pydantic_ai.autolog(disable=True)
         result = await agent_with_tool.run("Put my money on square eighteen", deps=18)
     assert len(get_traces()) == 1
+
+
+def test_agent_run_sync_failure(simple_agent):
+    clear_autolog_state()
+
+    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", side_effect=Exception):
+        mlflow.pydantic_ai.autolog(log_traces=True)
+
+        with pytest.raises(Exception, match="e"):
+            simple_agent.run_sync("France")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    spans = traces[0].data.spans
+
+    assert len(spans) == 3
+    assert spans[0].name == "Agent.run_sync"
+    assert spans[0].span_type == SpanType.CHAIN
+    assert spans[1].name == "Agent.run"
+    assert spans[1].span_type == SpanType.CHAIN
+    assert spans[2].name == "InstrumentedModel.AsyncMock"
+    assert spans[2].span_type == SpanType.LLM
