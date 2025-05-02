@@ -2268,13 +2268,6 @@ def spark_udf(
                 "Databricks Connect requires UDF sandbox image installed with MLflow "
                 "of version >= 2.18.0"
             )
-        # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
-        # It's safe to apply `Version`.
-        if Version(udf_sandbox_info.runtime_version).major < 16:
-            raise MlflowException(
-                "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
-                "Databricks Connect requires Databricks runtime version >= 16.0."
-            )
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
