@@ -15,6 +15,15 @@ GENERATION_CONFIG_KEY_MAPPING = {
     "top_p": "topP",
 }
 
+GENERATION_CONFIGS = [
+    "temperature",
+    "stopSequences",
+    "candidateCount",
+    "maxOutputTokens",
+    "topK",
+    "topP",
+]
+
 
 class GeminiAdapter(ProviderAdapter):
     @classmethod
@@ -71,7 +80,9 @@ class GeminiAdapter(ProviderAdapter):
             if role == "assistant":
                 role = "model"
             elif role == "system":
-                system_message = {"parts": [{"text": message["content"]}]}
+                if system_message is None:
+                    system_message = {"parts": []}
+                system_message["parts"].append({"text": message["content"]})
                 continue
 
             contents.append({"role": role, "parts": [{"text": message["content"]}]})
@@ -81,9 +92,7 @@ class GeminiAdapter(ProviderAdapter):
         if system_message:
             gemini_payload["system_instruction"] = system_message
 
-        generation_config = {
-            k: v for k, v in payload.items() if k in GENERATION_CONFIG_KEY_MAPPING.values()
-        }
+        generation_config = {k: v for k, v in payload.items() if k in GENERATION_CONFIGS}
 
         if generation_config:
             gemini_payload["generationConfig"] = generation_config
@@ -137,9 +146,7 @@ class GeminiAdapter(ProviderAdapter):
                 )
             )
 
-        prompt_tokens = resp.get("usageMetadata", {}).get("promptTokenCount", None)
-        completion_tokens = resp.get("usageMetadata", {}).get("candidatesTokenCount", None)
-        total_tokens = resp.get("usageMetadata", {}).get("totalTokenCount", None)
+        usage_metadata = resp.get("usageMetadata", {})
 
         return chat.ResponsePayload(
             id=resp.get("promptFeedback", {}).get("promptId", f"gemini-chat-{int(time.time())}"),
@@ -148,9 +155,9 @@ class GeminiAdapter(ProviderAdapter):
             model=config.model.name,
             choices=choices,
             usage=chat.ChatUsage(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
+                prompt_tokens=usage_metadata.get("promptTokenCount", None),
+                completion_tokens=usage_metadata.get("candidatesTokenCount", None),
+                total_tokens=usage_metadata.get("totalTokenCount", None),
             ),
         )
 
@@ -220,9 +227,7 @@ class GeminiAdapter(ProviderAdapter):
                 )
             )
 
-        prompt_tokens = resp.get("usageMetadata", {}).get("promptTokenCount", None)
-        completion_tokens = resp.get("usageMetadata", {}).get("candidatesTokenCount", None)
-        total_tokens = resp.get("usageMetadata", {}).get("totalTokenCount", None)
+        usage_metadata = resp.get("usageMetadata", {})
 
         return completions.ResponsePayload(
             created=int(time.time()),
@@ -230,9 +235,9 @@ class GeminiAdapter(ProviderAdapter):
             model=config.model.name,
             choices=choices,
             usage=completions.CompletionsUsage(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
+                prompt_tokens=usage_metadata.get("promptTokenCount", None),
+                completion_tokens=usage_metadata.get("candidatesTokenCount", None),
+                total_tokens=usage_metadata.get("totalTokenCount", None),
             ),
         )
 

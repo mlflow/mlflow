@@ -16,8 +16,8 @@ import requests
 import transformers
 import uvicorn
 import yaml
-from sentence_transformers import SentenceTransformer
 
+# from sentence_transformers import SentenceTransformer
 import mlflow
 from mlflow.gateway import app
 from mlflow.gateway.utils import kill_child_processes
@@ -239,16 +239,16 @@ class UvicornGateway:
 ServerInfo = namedtuple("ServerInfo", ["pid", "url"])
 
 
-def log_sentence_transformers_model():
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-    artifact_path = "gen_model"
+# def log_sentence_transformers_model():
+#     model = SentenceTransformer("all-MiniLM-L6-v2")
+#     artifact_path = "gen_model"
 
-    with mlflow.start_run():
-        model_info = mlflow.sentence_transformers.log_model(
-            model,
-            name=artifact_path,
-        )
-        return model_info.model_uri
+#     with mlflow.start_run():
+#         model_info = mlflow.sentence_transformers.log_model(
+#             model,
+#             name=artifact_path,
+#         )
+#         return model_info.model_uri
 
 
 def log_completions_transformers_model():

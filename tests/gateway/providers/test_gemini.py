@@ -14,7 +14,7 @@ from tests.gateway.tools import MockAsyncResponse
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "gemini",
             "name": "gemini-2.0-flash",
@@ -28,7 +28,7 @@ def completions_config():
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "gemini",
             "name": "gemini-2.0-flash",
@@ -258,98 +258,34 @@ async def test_gemini_completions_streaming_not_supported():
 
 
 @pytest.mark.asyncio
-async def test_invalid_parameter_stopSequences_completions():
+@pytest.mark.parametrize(
+    ("override", "exclude_keys", "expected_msg"),
+    [
+        ({"stopSequences": ["\n"]}, ["stop"], "Invalid parameter stopSequences. Use stop instead."),
+        ({"candidateCount": 1}, [], "Invalid parameter candidateCount. Use n instead."),
+        ({"maxOutputTokens": 50}, [], "Invalid parameter maxOutputTokens. Use max_tokens instead."),
+        ({"topK": 40}, [], "Invalid parameter topK. Use top_k instead."),
+        ({"top_p": 1.1}, [], "top_p should be less than or equal to 1"),
+    ],
+)
+async def test_invalid_parameters_completions(override, exclude_keys, expected_msg):
     config = completions_config()
     provider = GeminiProvider(RouteConfig(**config))
-    payload = {
-        "prompt": "Tell me a joke",
-        "temperature": 0.1,
-        "top_p": 0.9,
-        "stopSequences": ["\n"],
-        "n": 1,
-        "max_tokens": 50,
-        "top_k": 40,
-    }
 
-    with pytest.raises(
-        AIGatewayException, match="Invalid parameter stopSequences. Use stop instead."
-    ):
-        await provider.completions(completions.RequestPayload(**payload))
-
-
-@pytest.mark.asyncio
-async def test_invalid_parameter_candidateCount_completions():
-    config = completions_config()
-    provider = GeminiProvider(RouteConfig(**config))
-    payload = {
-        "prompt": "Tell me a joke",
-        "temperature": 0.1,
-        "top_p": 0.9,
-        "stop": ["\n"],
-        "candidateCount": 1,
-        "max_tokens": 50,
-        "top_k": 40,
-    }
-
-    with pytest.raises(
-        AIGatewayException, match="Invalid parameter candidateCount. Use n instead."
-    ):
-        await provider.completions(completions.RequestPayload(**payload))
-
-
-@pytest.mark.asyncio
-async def test_invalid_parameter_maxOutputTokens_completions():
-    config = completions_config()
-    provider = GeminiProvider(RouteConfig(**config))
-    payload = {
-        "prompt": "Tell me a joke",
-        "temperature": 0.1,
-        "top_p": 0.9,
-        "stop": ["\n"],
-        "n": 1,
-        "maxOutputTokens": 50,
-        "top_k": 40,
-    }
-
-    with pytest.raises(
-        AIGatewayException, match="Invalid parameter maxOutputTokens. Use max_tokens instead."
-    ):
-        await provider.completions(completions.RequestPayload(**payload))
-
-
-@pytest.mark.asyncio
-async def test_invalid_parameter_topK_completions():
-    config = completions_config()
-    provider = GeminiProvider(RouteConfig(**config))
-    payload = {
+    base_payload = {
         "prompt": "Tell me a joke",
         "temperature": 0.1,
         "top_p": 0.9,
         "stop": ["\n"],
         "n": 1,
         "max_tokens": 50,
-        "topK": 40,
-    }
-
-    with pytest.raises(AIGatewayException, match="Invalid parameter topK. Use top_k instead."):
-        await provider.completions(completions.RequestPayload(**payload))
-
-
-@pytest.mark.asyncio
-async def test_invalid_top_p_value_completions():
-    config = completions_config()
-    provider = GeminiProvider(RouteConfig(**config))
-    payload = {
-        "prompt": "Tell me a joke",
-        "temperature": 0.1,
-        "top_p": 1.1,
-        "stop": ["\n"],
-        "n": 1,
-        "max_tokens": 50,
         "top_k": 40,
     }
 
-    with pytest.raises(AIGatewayException, match="top_p should be less than or equal to 1"):
+    payload = {k: v for k, v in base_payload.items() if k not in exclude_keys}
+    payload.update(override)
+
+    with pytest.raises(AIGatewayException, match=expected_msg):
         await provider.completions(completions.RequestPayload(**payload))
 
 
@@ -372,9 +308,9 @@ async def test_gemini_chat():
 
     expected_payload = {
         "contents": [
-            {"role": "user", "parts": [{"text": "System: You are a helpful assistant"}]},
             {"role": "user", "parts": [{"text": "Tell me a joke"}]},
         ],
+        "system_instruction": {"parts": [{"text": "You are a helpful assistant"}]},
         "generationConfig": {
             "temperature": 0.1,
             "topP": 1,
@@ -443,96 +379,36 @@ async def test_gemini_chat_streaming_not_supported():
 
 
 @pytest.mark.asyncio
-async def test_invalid_parameter_stopSequences_chat():
+@pytest.mark.parametrize(
+    ("override", "exclude_keys", "expected_msg"),
+    [
+        ({"stopSequences": ["\n"]}, ["stop"], "Invalid parameter stopSequences. Use stop instead."),
+        ({"candidateCount": 1}, [], "Invalid parameter candidateCount. Use n instead."),
+        (
+            {"maxOutputTokens": 100},
+            [],
+            "Invalid parameter maxOutputTokens. Use max_tokens instead.",
+        ),
+        ({"topK": 40}, [], "Invalid parameter topK. Use top_k instead."),
+        ({"top_p": 1.1}, [], "top_p should be less than or equal to 1"),
+    ],
+)
+async def test_invalid_parameters_chat(override, exclude_keys, expected_msg):
     config = chat_config()
     provider = GeminiProvider(RouteConfig(**config))
-    payload = {
-        "messages": [{"role": "user", "content": "Tell me a joke"}],
-        "temperature": 0.1,
-        "top_p": 0.9,
-        "stopSequences": ["\n"],
-        "n": 1,
-        "max_tokens": 100,
-        "top_k": 40,
-    }
 
-    with pytest.raises(
-        AIGatewayException, match="Invalid parameter stopSequences. Use stop instead."
-    ):
-        await provider.chat(chat.RequestPayload(**payload))
-
-
-@pytest.mark.asyncio
-async def test_invalid_parameter_candidateCount_chat():
-    config = chat_config()
-    provider = GeminiProvider(RouteConfig(**config))
-    payload = {
-        "messages": [{"role": "user", "content": "Tell me a joke"}],
-        "temperature": 0.1,
-        "top_p": 0.9,
-        "stop": ["\n"],
-        "candidateCount": 1,
-        "max_tokens": 100,
-        "top_k": 40,
-    }
-
-    with pytest.raises(
-        AIGatewayException, match="Invalid parameter candidateCount. Use n instead."
-    ):
-        await provider.chat(chat.RequestPayload(**payload))
-
-
-@pytest.mark.asyncio
-async def test_invalid_parameter_maxOutputTokens_chat():
-    config = chat_config()
-    provider = GeminiProvider(RouteConfig(**config))
-    payload = {
-        "messages": [{"role": "user", "content": "Tell me a joke"}],
-        "temperature": 0.1,
-        "top_p": 0.9,
-        "stop": ["\n"],
-        "n": 1,
-        "maxOutputTokens": 100,
-        "top_k": 40,
-    }
-
-    with pytest.raises(
-        AIGatewayException, match="Invalid parameter maxOutputTokens. Use max_tokens instead."
-    ):
-        await provider.chat(chat.RequestPayload(**payload))
-
-
-@pytest.mark.asyncio
-async def test_invalid_parameter_topK_chat():
-    config = chat_config()
-    provider = GeminiProvider(RouteConfig(**config))
-    payload = {
+    base_payload = {
         "messages": [{"role": "user", "content": "Tell me a joke"}],
         "temperature": 0.1,
         "top_p": 0.9,
         "stop": ["\n"],
         "n": 1,
         "max_tokens": 100,
-        "topK": 40,
-    }
-
-    with pytest.raises(AIGatewayException, match="Invalid parameter topK. Use top_k instead."):
-        await provider.chat(chat.RequestPayload(**payload))
-
-
-@pytest.mark.asyncio
-async def test_invalid_top_p_value_chat():
-    config = chat_config()
-    provider = GeminiProvider(RouteConfig(**config))
-    payload = {
-        "messages": [{"role": "user", "content": "Tell me a joke"}],
-        "temperature": 0.1,
-        "top_p": 1.1,
-        "stop": ["\n"],
-        "n": 1,
-        "max_tokens": 100,
         "top_k": 40,
     }
 
-    with pytest.raises(AIGatewayException, match="top_p should be less than or equal to 1"):
+    payload = {k: v for k, v in base_payload.items() if k not in exclude_keys}
+    payload.update(override)
+
+    with pytest.raises(AIGatewayException, match=expected_msg):
         await provider.chat(chat.RequestPayload(**payload))
