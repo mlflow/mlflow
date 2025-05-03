@@ -272,7 +272,7 @@ or you can [deploy it for real-time serving](#deploy-prompt-serving).
 
 ## Step 13: Perform metric-based evaluation of your model's outputs
 
-If you'd like to assess your model's performance on specific metrics, MLflow provides the <APILink fn="mlflow.evaluate" />
+If you'd like to assess your model's performance on specific metrics, MLflow provides the <APILink fn="mlflow.genai.evaluate" />
 API. Let's evaluate our model on some [pre-defined metrics](/llms/llm-evaluate#llm-eval-default-metrics)
 for text summarization:
 
@@ -295,23 +295,20 @@ question = "What is an MLflow project?"
 
 data = pd.DataFrame(
     {
-        "article": [article_text],
-        "question": [question],
-        "ground_truth": [
+        "inputs": [question],
+        "expectations": [
             article_text
         ],  # used for certain evaluation metrics, such as ROUGE score
     }
 )
 
 with mlflow.start_run():
-    results = mlflow.evaluate(
-        model=logged_model,
+    results = mlflow.genai.evaluate(
+        predict_fn=mlflow.genai.to_predict_fn(logged_model),
         data=data,
-        targets="ground_truth",
-        model_type="text-summarization",
     )
 
-eval_table = results.tables["eval_results_table"]
+eval_table = results.result_df
 print(f"See evaluation table below: \n{eval_table}")
 ```
 
@@ -319,7 +316,7 @@ The evaluation results can also be viewed in the MLflow Evaluation UI:
 
 ![](/images/evaluate_metrics.png)
 
-The <APILink fn="mlflow.evaluate" /> API also supports [custom metrics](/llms/llm-evaluate#llm-eval-custom-metrics),
+The <APILink fn="mlflow.genai.evaluate" /> API also supports [custom metrics](/llms/llm-evaluate#llm-eval-custom-scorers),
 [static dataset evaluation](/llms/llm-evaluate#llm-eval-static-dataset), and much more. For a
 more in-depth guide, see [MLflow LLM Evaluation](/llms/llm-evaluate).
 
