@@ -42,7 +42,7 @@ def chat_config():
 def embedding_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "gemini",
             "name": "text-embedding-004",

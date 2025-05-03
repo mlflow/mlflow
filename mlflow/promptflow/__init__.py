@@ -29,7 +29,6 @@ from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -94,11 +93,10 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -109,15 +107,20 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[dict[str, Any]] = None,
-    example_no_conversion=None,
     prompts: Optional[list[Union[str, Prompt]]] = None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a Promptflow model as an MLflow artifact for the current run.
 
     Args:
         model: A promptflow model loaded by `promptflow.load_flow()`.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
@@ -170,18 +173,23 @@ def log_model(
 
                 with mlflow.start_run():
                     logged_model = mlflow.promptflow.log_model(
-                        flow, artifact_path="promptflow_model", model_config=model_config
+                        flow, name="promptflow_model", model_config=model_config
                     )
-        example_no_conversion: {{ example_no_conversion }}
         prompts: {{ prompts }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.promptflow,
         registered_model_name=registered_model_name,
         model=model,
@@ -194,12 +202,15 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         model_config=model_config,
-        example_no_conversion=example_no_conversion,
         prompts=prompts,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
@@ -213,7 +224,6 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[dict[str, Any]] = None,
-    example_no_conversion=None,
 ):
     """
     Save a Promptflow model to a path on the local file system.
@@ -268,9 +278,8 @@ def save_model(
 
                 with mlflow.start_run():
                     logged_model = mlflow.promptflow.log_model(
-                        flow, artifact_path="promptflow_model", model_config=model_config
+                        flow, name="promptflow_model", model_config=model_config
                     )
-        example_no_conversion: {{ example_no_conversion }}
     """
     import promptflow
     from promptflow._sdk._mlflow import (
@@ -311,7 +320,7 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    saved_example = _save_example(mlflow_model, input_example, path, example_no_conversion)
+    saved_example = _save_example(mlflow_model, input_example, path)
 
     if signature is None and saved_example is not None:
         wrapped_model = _PromptflowModelWrapper(model)
@@ -455,7 +464,6 @@ def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):  # noqa: 
     return _PromptflowModelWrapper(model=model, model_config=model_config)
 
 
-@experimental
 def load_model(model_uri, dst_path=None):
     """
     Load a Promptflow model from a local file or a run.

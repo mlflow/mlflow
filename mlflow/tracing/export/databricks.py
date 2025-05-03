@@ -1,32 +1,19 @@
 import logging
 from typing import Sequence
 
-from google.protobuf.json_format import MessageToDict
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
-    MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
-from mlflow.protos.databricks_trace_server_pb2 import CreateTrace, DatabricksTracingServerService
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import (
-    _REST_API_PATH_PREFIX,
-    extract_api_info_for_service,
-    http_request,
-)
 
 _logger = logging.getLogger(__name__)
-
-
-_METHOD_TO_INFO = extract_api_info_for_service(
-    DatabricksTracingServerService, _REST_API_PATH_PREFIX
-)
 
 
 class DatabricksSpanExporter(SpanExporter):
@@ -39,6 +26,7 @@ class DatabricksSpanExporter(SpanExporter):
         if self._is_async:
             _logger.info("MLflow is configured to log traces asynchronously.")
             self._async_queue = AsyncTraceExportQueue()
+        self._client = TracingClient()
 
     def export(self, spans: Sequence[ReadableSpan]):
         """
@@ -72,23 +60,17 @@ class DatabricksSpanExporter(SpanExporter):
                 self._log_trace(trace)
 
     def _log_trace(self, trace: Trace):
-        """Create a new Trace record in the Databricks Tracing Server."""
-        request_body = MessageToDict(trace.to_proto(), preserving_proto_field_name=True)
-        endpoint, method = _METHOD_TO_INFO[CreateTrace]
-
-        # NB: Using Databricks SDK's built-in retry logic, which simply retries until the timeout
-        #    is reached, with linearly increasing backoff. Since it doesn't expose additional
-        #    configuration options, we might want to implement our own retry logic in the future.
-        # NB: If async logging is disabled, we don't retry to avoid blocking the application.
-        timeout = MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get() if self._is_async else 0
-
-        # Use context manager to ensure the request is closed properly
-        with http_request(
-            host_creds=get_databricks_host_creds(),
-            endpoint=endpoint,
-            method=method,
-            json=request_body,
-            retry_timeout_seconds=timeout,
-        ) as res:
-            if res.status_code != 200:
-                _logger.warning(f"Failed to log trace to the trace server. Response: {res.text}")
+        """
+        Handles exporting a trace to MLflow using the V3 API and blob storage.
+        Steps:
+        1. Create the trace in MLflow
+        2. Upload the trace data to blob storage using the returned trace info.
+        """
+        try:
+            if trace:
+                returned_trace_info = self._client.start_trace_v3(trace)
+                self._client._upload_trace_data(returned_trace_info, trace.data)
+            else:
+                _logger.warning("No trace or trace info provided, unable to export")
+        except Exception as e:
+            _logger.warning(f"Failed to send trace to MLflow backend: {e}")

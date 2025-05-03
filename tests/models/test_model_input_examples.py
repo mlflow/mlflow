@@ -335,7 +335,7 @@ def test_infer_signature_with_input_example(input_is_tabular, output_shape, expe
     example = pd.DataFrame({"feature": ["value"]}) if input_is_tabular else np.array([[1]])
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, artifact_path, input_example=example)
+        model_info = mlflow.sklearn.log_model(model, name=artifact_path, input_example=example)
 
     mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == expected_signature
@@ -346,7 +346,7 @@ def test_infer_signature_from_example_can_be_disabled():
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
             DummySklearnModel(output_shape=()),
-            artifact_path,
+            name=artifact_path,
             input_example=np.array([[1]]),
             signature=False,
         )
@@ -367,7 +367,7 @@ def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
 
     with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
         with mlflow.start_run():
-            mlflow.sklearn.log_model(ErrorModel(), "model", input_example=np.array([[1]]))
+            mlflow.sklearn.log_model(ErrorModel(), name="model", input_example=np.array([[1]]))
         assert any(
             "Failed to validate serving input example" in call[0][0]
             for call in mock_warning.call_args_list
@@ -406,7 +406,7 @@ def test_infer_signature_on_multi_column_input_examples(input_example, iris_mode
 
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            iris_model, artifact_path, input_example=input_example
+            iris_model, name=artifact_path, input_example=input_example
         )
 
     mlflow_model = Model.load(model_info.model_uri)
@@ -434,7 +434,7 @@ def test_infer_signature_on_scalar_input_examples(input_example):
 
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            IdentitySklearnModel(), artifact_path, input_example=input_example
+            IdentitySklearnModel(), name=artifact_path, input_example=input_example
         )
 
     mlflow_model = Model.load(model_info.model_uri)

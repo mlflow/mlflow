@@ -28,7 +28,7 @@ def test_spark_udf_spark_connect(spark):
     X, y = load_iris(return_X_y=True)
     model = LogisticRegression().fit(X, y)
     with mlflow.start_run():
-        info = mlflow.sklearn.log_model(model, "model")
+        info = mlflow.sklearn.log_model(model, name="model")
     sdf = spark.createDataFrame(pd.DataFrame(X, columns=list("abcd")))
     udf = mlflow.pyfunc.spark_udf(spark, info.model_uri, env_manager="local")
     result = sdf.select(udf(*sdf.columns).alias("preds")).toPandas()
@@ -52,7 +52,7 @@ def test_spark_udf_spark_connect_with_model_logging(spark, tmp_path):
     mlflow.set_experiment("test")
     with mlflow.start_run():
         signature = mlflow.models.infer_signature(X, y)
-        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+        model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="local")
     X_test = X.head(5)

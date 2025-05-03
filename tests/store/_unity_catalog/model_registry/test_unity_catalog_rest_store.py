@@ -226,35 +226,70 @@ def langchain_local_model_dir(tmp_path):
     return tmp_path
 
 
-@pytest.fixture
-def langchain_local_model_dir_with_resources(tmp_path):
+@pytest.fixture(params=[True, False])  # True tests with resources and False tests with auth policy
+def langchain_local_model_dir_with_resources(request, tmp_path):
     fake_signature = ModelSignature(
         inputs=Schema([ColSpec(DataType.string)]), outputs=Schema([ColSpec(DataType.string)])
     )
-    fake_mlmodel_contents = {
-        "artifact_path": "some-artifact-path",
-        "run_id": "abc123",
-        "signature": fake_signature.to_dict(),
-        "resources": {
-            "databricks": {
-                "serving_endpoint": [
-                    {"name": "embedding_endpoint"},
-                    {"name": "llm_endpoint"},
-                    {"name": "chat_endpoint"},
-                ],
-                "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
-                "function": [
-                    {"name": "test.schema.test_function"},
-                    {"name": "test.schema.test_function_2"},
-                ],
-                "uc_connection": [{"name": "test_connection"}],
-                "table": [
-                    {"name": "test.schema.test_table"},
-                    {"name": "test.schema.test_table_2"},
-                ],
-            }
-        },
-    }
+    if request.param:
+        fake_mlmodel_contents = {
+            "artifact_path": "some-artifact-path",
+            "run_id": "abc123",
+            "signature": fake_signature.to_dict(),
+            "resources": {
+                "databricks": {
+                    "serving_endpoint": [
+                        {"name": "embedding_endpoint"},
+                        {"name": "llm_endpoint"},
+                        {"name": "chat_endpoint"},
+                    ],
+                    "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
+                    "function": [
+                        {"name": "test.schema.test_function"},
+                        {"name": "test.schema.test_function_2"},
+                    ],
+                    "uc_connection": [{"name": "test_connection"}],
+                    "table": [
+                        {"name": "test.schema.test_table"},
+                        {"name": "test.schema.test_table_2"},
+                    ],
+                }
+            },
+        }
+    else:
+        fake_mlmodel_contents = {
+            "artifact_path": "some-artifact-path",
+            "run_id": "abc123",
+            "signature": fake_signature.to_dict(),
+            "auth_policy": {
+                "system_auth_policy": {
+                    "resources": {
+                        "databricks": {
+                            "serving_endpoint": [
+                                {"name": "embedding_endpoint"},
+                                {"name": "llm_endpoint"},
+                                {"name": "chat_endpoint"},
+                            ],
+                            "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
+                            "function": [
+                                {"name": "test.schema.test_function"},
+                                {"name": "test.schema.test_function_2"},
+                            ],
+                            "uc_connection": [{"name": "test_connection"}],
+                            "table": [
+                                {"name": "test.schema.test_table"},
+                                {"name": "test.schema.test_table_2"},
+                            ],
+                        }
+                    },
+                },
+                "user_auth_policy": {
+                    "api_scopes": [
+                        "serving.serving-endpoints,vectorsearch.vector-search-endpoints,vectorsearch.vector-search-indexes"
+                    ]
+                },
+            },
+        }
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
 

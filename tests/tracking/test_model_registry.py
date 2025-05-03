@@ -131,12 +131,6 @@ def test_update_registered_model_flow(client):
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
 
-    # update with no args is an error
-    with pytest.raises(
-        MlflowException, match="Attempting to update registered model with no new field values"
-    ):
-        client.update_registered_model(name=name, description=None)
-
     # update name
     new_name = "UpdateRMTest 2"
     start_time_2 = get_current_time_millis()

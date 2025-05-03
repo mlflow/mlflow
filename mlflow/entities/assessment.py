@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
@@ -15,7 +16,6 @@ from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
 from mlflow.utils.annotations import experimental
-from mlflow.utils.proto_json_utils import parse_pb_value, set_pb_value
 
 # Assessment value should be one of the following types:
 # - float
@@ -129,7 +129,7 @@ class Assessment(_MlflowObject):
             assessment.assessment_id = self.assessment_id
 
         if self.expectation is not None:
-            set_pb_value(assessment.expectation.value, self.expectation.value)
+            assessment.expectation.CopyFrom(self.expectation.to_proto())
         elif self.feedback is not None:
             assessment.feedback.CopyFrom(self.feedback.to_proto())
 
@@ -141,7 +141,7 @@ class Assessment(_MlflowObject):
     @classmethod
     def from_proto(cls, proto):
         if proto.WhichOneof("value") == "expectation":
-            expectation = Expectation(parse_pb_value(proto.expectation.value))
+            expectation = Expectation.from_proto(proto.expectation)
             feedback = None
         elif proto.WhichOneof("value") == "feedback":
             expectation = None
@@ -168,19 +168,30 @@ class Assessment(_MlflowObject):
         )
 
     def to_dictionary(self):
-        return {
-            "assessment_id": self.assessment_id,
-            "trace_id": self.trace_id,
-            "name": self.name,
-            "source": self.source.to_dictionary(),
-            "create_time_ms": self.create_time_ms,
-            "last_update_time_ms": self.last_update_time_ms,
-            "expectation": self.expectation.to_dictionary() if self.expectation else None,
-            "feedback": self.feedback.to_dictionary() if self.feedback else None,
-            "rationale": self.rationale,
-            "metadata": self.metadata,
-            "span_id": self.span_id,
-        }
+        # Note that MessageToDict excludes None fields. For example, if assessment_id is None,
+        # it won't be included in the resulting dictionary.
+        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
+
+    @classmethod
+    def from_dictionary(cls, d: dict[str, Any]) -> "Assessment":
+        t = Timestamp()
+        t.FromJsonString(d["create_time"])
+        create_time_ms = t.ToMilliseconds()
+        t.FromJsonString(d["last_update_time"])
+        last_update_time_ms = t.ToMilliseconds()
+        return cls(
+            assessment_id=d.get("assessment_id"),
+            trace_id=d.get("trace_id"),
+            name=d["assessment_name"],
+            source=AssessmentSource.from_dictionary(d["source"]),
+            create_time_ms=create_time_ms,
+            last_update_time_ms=last_update_time_ms,
+            expectation=Expectation.from_dictionary(e) if (e := d.get("expectation")) else None,
+            feedback=Feedback.from_dictionary(f) if (f := d.get("feedback")) else None,
+            rationale=d.get("rationale"),
+            metadata=d.get("metadata"),
+            span_id=d.get("span_id"),
+        )
 
 
 @experimental
@@ -194,12 +205,18 @@ class Expectation(_MlflowObject):
     value: AssessmentValueType
 
     def to_proto(self):
-        expectation = ProtoExpectation()
-        expectation.value = self.value
-        return expectation
+        return ProtoExpectation(value=ParseDict(self.value, Value()))
+
+    @classmethod
+    def from_proto(cls, proto) -> "Expectation":
+        return cls(value=MessageToDict(proto.value))
 
     def to_dictionary(self):
         return {"value": self.value}
+
+    @classmethod
+    def from_dictionary(cls, d):
+        return cls(d["value"])
 
 
 @experimental
@@ -221,14 +238,18 @@ class Feedback(_MlflowObject):
         )
 
     @classmethod
-    def from_proto(self, proto):
+    def from_proto(cls, proto) -> "Feedback":
         return Feedback(
             value=MessageToDict(proto.value),
             error=AssessmentError.from_proto(proto.error) if proto.HasField("error") else None,
         )
 
     def to_dictionary(self):
-        d = {"value": self.value}
-        if self.error:
-            d["error"] = self.error.to_dictionary()
-        return d
+        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
+
+    @classmethod
+    def from_dictionary(cls, d):
+        return cls(
+            value=d["value"],
+            error=AssessmentError.from_dictionary(err) if (err := d.get("error")) else None,
+        )

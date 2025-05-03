@@ -11,8 +11,10 @@ from typing import Any, Optional
 
 import pydantic
 from google.protobuf.descriptor import FieldDescriptor
+from google.protobuf.duration_pb2 import Duration
 from google.protobuf.json_format import MessageToJson, ParseDict
 from google.protobuf.struct_pb2 import NULL_VALUE, Value
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
@@ -126,6 +128,42 @@ def message_to_json(message):
     return json.dumps(json_dict_with_int64_as_numbers, indent=2)
 
 
+def proto_timestamp_to_milliseconds(timestamp: str) -> int:
+    """
+    Converts a timestamp string (e.g. "2025-04-15T08:49:18.699Z") to milliseconds.
+    """
+    t = Timestamp()
+    t.FromJsonString(timestamp)
+    return t.ToMilliseconds()
+
+
+def milliseconds_to_proto_timestamp(milliseconds: int) -> str:
+    """
+    Converts milliseconds to a timestamp string (e.g. "2025-04-15T08:49:18.699Z").
+    """
+    t = Timestamp()
+    t.FromMilliseconds(milliseconds)
+    return t.ToJsonString()
+
+
+def proto_duration_to_milliseconds(duration: str) -> int:
+    """
+    Converts a duration string (e.g. "1.5s") to milliseconds.
+    """
+    d = Duration()
+    d.FromJsonString(duration)
+    return d.ToMilliseconds()
+
+
+def milliseconds_to_proto_duration(milliseconds: int) -> str:
+    """
+    Converts milliseconds to a duration string (e.g. "1.5s").
+    """
+    d = Duration()
+    d.FromMilliseconds(milliseconds)
+    return d.ToJsonString()
+
+
 def _stringify_all_experiment_ids(x):
     """Converts experiment_id fields which are defined as ints into strings in the given json.
     This is necessary for backwards- and forwards-compatibility with MLflow clients/servers
@@ -161,7 +199,11 @@ def parse_dict(js_dict, message):
 
 
 def set_pb_value(proto: Value, value: Any):
-    """Set a value to the google.protobuf.Value object."""
+    """
+    DO NOT USE THIS FUNCTION. Preserved for backwards compatibility.
+
+    Set a value to the google.protobuf.Value object.
+    """
     if isinstance(value, dict):
         for key, val in value.items():
             set_pb_value(proto.struct_value.fields[key], val)
@@ -184,7 +226,11 @@ def set_pb_value(proto: Value, value: Any):
 
 
 def parse_pb_value(proto: Value) -> Optional[Any]:
-    """Extract a value from the google.protobuf.Value object."""
+    """
+    DO NOT USE THIS FUNCTION. Preserved for backwards compatibility.
+
+    Extract a value from the google.protobuf.Value object.
+    """
     if proto.HasField("struct_value"):
         return {key: parse_pb_value(val) for key, val in proto.struct_value.fields.items()}
     elif proto.HasField("list_value"):

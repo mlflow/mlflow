@@ -167,7 +167,7 @@ script.
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model=model_path,  # Define the model as the path to the script that was just saved
-            artifact_path="arithmetic_model",
+            name="arithmetic_model",
             input_example=[42.0, 24.0],
         )
     ```
@@ -265,7 +265,7 @@ script.
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model=model_path,  # The model is defined as the path to the script containing the model definition
-            artifact_path="arithmetic_model",
+            name="arithmetic_model",
             code_paths=[
                 "calculator.py"
             ],  # dependency definition included for the model to successfully import the implementation
@@ -419,7 +419,7 @@ script.
     with mlflow.start_run():
         info = mlflow.langchain.log_model(
             lc_model=chain_path,  # Defining the model as the script containing the chain definition and the set_model call
-            artifact_path="chain",
+            name="chain",
             input_example=input_example,
         )
     ```

@@ -74,7 +74,6 @@ Components
 - ``area/gateway``: AI Gateway service, Gateway client APIs, third-party Gateway integrations
 - ``area/model-registry``: Model Registry service, APIs, and the fluent client calls for Model Registry
 - ``area/models``: MLmodel format, model serialization/deserialization, flavors
-- ``area/recipes``: Recipes, Recipe APIs, Recipe configs, Recipe Templates
 - ``area/projects``: MLproject format, project execution backends
 - ``area/scoring``: MLflow Model server, model deployment tools, Spark UDFs
 - ``area/server-infra``: MLflow Tracking server backend

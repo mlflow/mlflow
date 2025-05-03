@@ -135,7 +135,7 @@ class OpenAIAdapter(ProviderAdapter):
         )
 
     @classmethod
-    def model_to_completions(self, resp, config):
+    def model_to_completions(cls, resp, config):
         # Response example (https://platform.openai.com/docs/api-reference/completions/create)
         # ```
         # {
