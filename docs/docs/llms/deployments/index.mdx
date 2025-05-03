@@ -288,6 +288,12 @@ Note that ✅ mark does not mean all models from the provider are compatible wit
       <td>✅</td>
       <td>✅</td>
     </tr>
+    <tr>
+      <td>Gemini</td>
+      <td>✅\*</td>
+      <td>✅\*</td>
+      <td>✅\*\*</td>
+    </tr>
   </tbody>
 </table>
 
@@ -336,6 +342,7 @@ As of now, the MLflow AI Gateway supports the following providers:
 - **bedrock**: This is used for models offered by [Amazon Bedrock](https://aws.amazon.com/bedrock/).
 - **mistral**: This is used for models offered by [Mistral](https://docs.mistral.ai/).
 - **togetherai**: This is used for models offered by [TogetherAI](https://docs.together.ai/docs/).
+- **gemini**: This is used for models offered by [Gemini](https://ai.google.dev/api/models#rest-resource:-models).
 
 More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
 most up-to-date list of supported providers.
@@ -920,6 +927,27 @@ This will ensure seamless interaction and reliable security for your Azure-OpenA
       <td>Yes</td>
       <td>N/A</td>
       <td>This is the API key for the TogetherAI service.</td>
+    </tr>
+  </tbody>
+</table>
+
+###### Gemini
+
+<table>
+  <thead>
+    <tr>
+      <th>Configuration Parameter</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**gemini_api_key**</td>
+      <td>Yes</td>
+      <td>N/A</td>
+      <td>This is the API key for the Gemini service.</td>
     </tr>
   </tbody>
 </table>
