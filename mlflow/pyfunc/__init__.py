@@ -1993,6 +1993,76 @@ def build_model_env(model_uri, save_path):
             os.remove(tmp_archive_path)
 
 
+def start_log_server(spark, port, logs_exp_id):
+    import socketserver
+    import threading
+    host = spark.conf.get("spark.driver.host")
+
+    class MyTCPHandler(socketserver.StreamRequestHandler):
+        def handle(self):
+            # self.rfile is a file-like object created by the handler.
+            # We can now use e.g. readline() instead of raw recv() calls.
+            # We limit ourselves to 10000 bytes to avoid abuse by the sender.
+            logs_run_prefix = self.rfile.readline().decode("utf-8")
+
+            import time
+            with mlflow.start_run(
+                run_name=f"{logs_run_prefix}-{str(time.time()).replace('.', '-')}",
+                experiment_id=logs_exp_id,
+            ) as run:
+                text = ""
+                last_log_time = time.time()
+                while line := self.rfile.readline():
+                    text += line.decode("utf-8")
+                    if time.time() - last_log_time > 10:
+                        mlflow.log_text(text, "std.log")
+                        last_log_time = time.time()
+
+                mlflow.log_text(text, "std.log")
+
+    # Create the server, binding to localhost on port 9999
+    server = socketserver.TCPServer((host, port), MyTCPHandler)
+    def serve_thread():
+        # Activate the server; this will keep running until you
+        # interrupt the program with Ctrl-C
+        server.serve_forever()
+
+    threading.Thread(target=serve_thread).start()
+    return server
+
+
+
+class SendLogClient:
+    def __init__(self, host, port, logs_run_prefix):
+        import socket
+        import sys
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((host, port))
+        self.sock.sendall(bytes(logs_run_prefix, "utf-8"))
+        self.sock.sendall(b"\n")
+
+    def send_log(self, line):
+        self.sock.sendall(bytes(line, "utf-8"))
+
+    def close(self):
+        self.sock.close()
+
+def send_log(host, port, text):
+
+
+    data = " ".join(sys.argv[1:])
+
+    # Create a socket (SOCK_STREAM means a TCP socket)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        # Connect to server and send data
+        sock.connect((host, port))
+        sock.sendall(bytes(data, "utf-8"))
+        sock.sendall(b"\n")
+
+        # Receive data from the server and shut down
+        received = str(sock.recv(1024), "utf-8")
+
+
 def spark_udf(
     spark,
     model_uri,
@@ -2155,10 +2225,6 @@ def spark_udf(
         Spark UDF that applies the model's ``predict`` method to the data and returns a
         type specified by ``result_type``, which by default is a double.
     """
-
-    db_host = os.environ["UDF_DATABRICKS_HOST"]
-    db_token = os.environ["UDF_DATABRICKS_TOKEN"]
-
     assert logs_exp_id is not None, "please set 'logs_exp_id'"
     assert logs_run_prefix is not None, "please set 'logs_run_prefix'"
 
@@ -2722,14 +2788,12 @@ e.g., struct<a:int, b:array<int>>.
 
         def copy_logs():
             import time
-            os.environ["DATABRICKS_HOST"] = db_host
-            os.environ["DATABRICKS_TOKEN"] = db_token
             with mlflow.start_run(
                 run_name=f"{logs_run_prefix}-{str(time.time()).replace('.', '-')}",
                 experiment_id=logs_exp_id,
             ) as run:
-                os.environ["MLFLOW_UDF_RUN_ID"] = run.info.run_id
-                os.environ["MLFLOW_UDF_EXP_ID"] = logs_exp_id
+                # os.environ["MLFLOW_UDF_RUN_ID"] = run.info.run_id
+                # os.environ["MLFLOW_UDF_EXP_ID"] = logs_exp_id
                 while True:
                     import time
                     time.sleep(10)
