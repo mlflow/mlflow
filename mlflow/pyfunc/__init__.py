@@ -2041,9 +2041,9 @@ def spark_udf(
 
     .. note::
         When using Databricks Connect to connect to a remote Databricks cluster,
-        the Databricks cluster must use runtime version >= 15.4, and when 'spark_udf'
-        param 'env_manager' is set as 'virtualenv', the 'prebuilt_env_uri' param is
-        required to be specified, if the runtime version is 15.4 and the cluster is
+        the Databricks cluster must use runtime version >= 15.4, and if the 'prebuilt_env_uri'
+        parameter is set, 'env_manager' parameter should not be set,
+        if the runtime version is 15.4 and the cluster is
         standard access mode, the cluster need to configure
         "spark.databricks.safespark.archive.artifact.unpack.disabled" to "false".
 
