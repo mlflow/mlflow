@@ -844,7 +844,7 @@ pydantic_ai:
     pip_release: "pydantic-ai"
     module_name: "pydantic_ai"
 
-    install dev: |
+    install_dev: |
       # Install the stable version first to install dependencies
       pip install pydantic-ai 
       # Update key libraries from source w/ no-deps
