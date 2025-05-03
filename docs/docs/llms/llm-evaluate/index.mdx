@@ -12,15 +12,15 @@ import Link from "@docusaurus/Link";
 With the emerging of ChatGPT, LLMs have shown its power of text generation in various fields, such as
 question answering, translating and text summarization. Evaluating LLMs' performance is slightly different
 from traditional ML models, as very often there is no single ground truth to compare against.
-MLflow provides an API <APILink fn="mlflow.evaluate" /> to help evaluate your LLMs.
+MLflow provides an API <APILink fn="mlflow.genai.evaluate" /> to help evaluate your LLMs.
 
 MLflow's LLM evaluation functionality consists of 3 main components:
 
 1. **A model to evaluate**: it can be an MLflow `pyfunc` model, a URI pointing to one registered
    MLflow model, or any python callable that represents your model, e.g, a HuggingFace text summarization pipeline.
-2. **Metrics**: the metrics to compute, LLM evaluate will use LLM metrics.
+2. **Scorers**: the metrics/scores to compute, LLM evaluate will use LLM metrics.
 3. **Evaluation data**: the data your model is evaluated at, it can be a pandas Dataframe, a python list, a
-   numpy array or an <APILink fn="mlflow.data.dataset.Dataset" /> instance.
+   pyspark Dataframe or an <APILink fn="mlflow.data.evaluation_dataset.EvaluationDataset" /> instance.
 
 ## Full Notebook Guides and Examples
 
@@ -48,6 +48,7 @@ import openai
 import os
 import pandas as pd
 from getpass import getpass
+from mlflow.genai.scorers import correctness
 
 eval_data = pd.DataFrame(
     {
@@ -55,7 +56,7 @@ eval_data = pd.DataFrame(
             "What is MLflow?",
             "What is Spark?",
         ],
-        "ground_truth": [
+        "expectations": [
             "MLflow is an open-source platform for managing the end-to-end machine learning (ML) "
             "lifecycle. It was developed by Databricks, a company that specializes in big data and "
             "machine learning solutions. MLflow is designed to address the challenges that data "
@@ -85,187 +86,66 @@ with mlflow.start_run() as run:
     )
 
     # Use predefined question-answering metrics to evaluate our model.
-    results = mlflow.evaluate(
-        logged_model_info.model_uri,
-        eval_data,
-        targets="ground_truth",
-        model_type="question-answering",
+    results = mlflow.genai.evaluate(
+        predict_fn=mlflow.genai.to_predict_fn(logged_model_info.model_uri),
+        data=eval_data,
+        scorers=[correctness()],
     )
     print(f"See aggregated evaluation results below: \n{results.metrics}")
 
     # Evaluation result for each data record is available in `results.tables`.
-    eval_table = results.tables["eval_results_table"]
+    eval_table = results.result_df
     print(f"See evaluation table below: \n{eval_table}")
 ```
 
-## LLM Evaluation Metrics
+## LLM Evaluation Scorers
 
 There are two types of LLM evaluation metrics in MLflow:
 
-1. **Heuristic-based metrics**: These metrics calculate a score for each data record (row in terms of Pandas/Spark dataframe), based on certain functions, such as: Rouge (<APILink fn="mlflow.metrics.rougeL" />), Flesch Kincaid (<APILink fn="mlflow.metrics.flesch_kincaid_grade_level" />) or Bilingual Evaluation Understudy (BLEU) (<APILink fn="mlflow.metrics.bleu" />). These metrics are similar to traditional continuous value metrics. For the list of built-in heuristic metrics and how to define a custom metric with your own function definition, see the [Heuristic-based Metrics](#heuristic-based-metrics) section.
+1. **Heuristic-based scorers**: These metrics calculate a score for each data record (row in terms of Pandas/Spark dataframe), based on certain functions, such as: Rouge (<APILink fn="mlflow.metrics.rougeL" />), Flesch Kincaid (<APILink fn="mlflow.metrics.flesch_kincaid_grade_level" />) or Bilingual Evaluation Understudy (BLEU) (<APILink fn="mlflow.metrics.bleu" />). These metrics are similar to traditional continuous value metrics. For the list of built-in heuristic metrics and how to define a custom metric with your own function definition, see the [Heuristic-based Metrics](#heuristic-based-metrics) section.
 
-2. **LLM-as-a-Judge metrics**: LLM-as-a-Judge is a new type of metric that uses LLMs to score the quality of model outputs. It overcomes the limitations of heuristic-based metrics, which often miss nuances like context and semantic accuracy. LLM-as-a-Judge metrics provides a more human-like evaluation for complex language tasks while being more scalable and cost-effective than human evaluation. MLflow provides various built-in LLM-as-a-Judge metrics and supports creating custom metrics with your own prompt, grading criteria, and reference examples. See the [LLM-as-a-Judge Metrics](#llm-as-a-judge-metrics) section for more details.
+2. **LLM-as-a-Judge scorers**: LLM-as-a-Judge is a new type of metric that uses LLMs to score the quality of model outputs. It overcomes the limitations of heuristic-based metrics, which often miss nuances like context and semantic accuracy. LLM-as-a-Judge metrics provides a more human-like evaluation for complex language tasks while being more scalable and cost-effective than human evaluation. MLflow provides various built-in LLM-as-a-Judge metrics and supports creating custom metrics with your own prompt, grading criteria, and reference examples. See the [LLM-as-a-Judge Metrics](#llm-as-a-judge-metrics) section for more details.
 
-### Heuristic-based Metrics
 
-#### Built-in Heuristic Metrics
+#### Use a Custom List of Scorers {#llm-eval-custom-scorers}
 
-See [this page](https://mlflow.org/docs/latest/python_api/mlflow.metrics.html) for the full list of the built-in heuristic metrics.
+You can also specify custom list of scorers in the `scorers` argument in `mlflow.genai.evaluate`:
 
-#### Default Metrics with Pre-defined Model Types {#llm-eval-default-metrics}
-
-MLflow LLM evaluation includes default collections of metrics for pre-selected tasks, e.g, "question-answering". Depending on the
-LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. To use
-defaults metrics for pre-selected tasks, specify the `model_type` argument in <APILink fn="mlflow.evaluate" />, as shown by the example
-below:
-
-```python
-results = mlflow.evaluate(
-    model,
-    eval_data,
-    targets="ground_truth",
-    model_type="question-answering",
-)
-```
-
-The supported LLM model types and associated metrics are listed below:
-
-- **question-answering**: `model_type="question-answering"`:
-
-  - exact-match
-  - [toxicity](https://huggingface.co/spaces/evaluate-measurement/toxicity) \[1\]
-  - [ari_grade_level](https://en.wikipedia.org/wiki/Automated_readability_index) \[2\]
-  - [flesch_kincaid_grade_level](https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level) \[2\]
-
-- **text-summarization**: `model_type="text-summarization"`:
-
-  - [ROUGE](https://huggingface.co/spaces/evaluate-metric/rouge) \[3\]
-  - [toxicity](https://huggingface.co/spaces/evaluate-measurement/toxicity) \[1\]
-  - [ari_grade_level](https://en.wikipedia.org/wiki/Automated_readability_index) \[2\]
-  - [flesch_kincaid_grade_level](https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level) \[2\]
-
-- **text models**: `model_type="text"`:
-
-  - [toxicity](https://huggingface.co/spaces/evaluate-measurement/toxicity) \[1\]
-  - [ari_grade_level](https://en.wikipedia.org/wiki/Automated_readability_index) \[2\]
-  - [flesch_kincaid_grade_level](https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level) \[2\]
-
-- **retrievers**: `model_type="retriever"`:
-
-  - [precision_at_k](<https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Precision_at_k>) \[4\]
-  - [recall_at_k](<https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Recall>) \[4\]
-  - [ndcg_at_k](https://en.wikipedia.org/wiki/Discounted_cumulative_gain#Normalized_DCG) \[4\]
-
-\[1\] Requires packages [evaluate](https://pypi.org/project/evaluate), [torch](https://pytorch.org/get-started/locally/), and
-[transformers](https://huggingface.co/docs/transformers/installation)
-
-\[2\] Requires package [textstat](https://pypi.org/project/textstat)
-
-\[3\] Requires packages [evaluate](https://pypi.org/project/evaluate), [nltk](https://pypi.org/project/nltk), and
-`rouge-score <https://pypi.org/project/rouge-score>`\_
-
-\[4\] All retriever metrics have a default `retriever_k` value of `3` that can be overridden by specifying `retriever_k` in the `evaluator_config` argument.
-
-#### Use a Custom List of Metrics {#llm-eval-custom-metrics}
-
-Using the pre-defined metrics associated with a given model type is not the only way to generate scoring metrics
-for LLM evaluation in MLflow. You can specify a custom list of metrics in the `extra_metrics` argument in `mlflow.evaluate`:
-
-- To add additional metrics to the default metrics list of pre-defined model type, keep the `model_type` and add your metrics to `extra_metrics`:
+- To add custom scorers for evaluation decorate your scorer as follows:
 
   ```python
-  results = mlflow.evaluate(
-      model,
-      eval_data,
-      targets="ground_truth",
-      model_type="question-answering",
-      extra_metrics=[mlflow.metrics.latency()],
+  from mlflow.genai.scorers import scorer
+
+
+  @scorer(name="my_scorer")
+  def my_scorer(inputs, outputs, expectations, trace):
+      # implement custom scoring logic
+      return "good"
+
+
+  results = mlflow.genai.evaluate(
+      predict_fn=model,
+      data=eval_data,
+      scorers=[my_scorer],
   )
   ```
 
-  The above code will evaluate your model using all metrics for "question-answering" model plus <APILink fn="mlflow.metrics.latency" />.
+  The above code will evaluate your model using your custom defined scorer.
 
-- To disable default metric calculation and only calculate your selected metrics, remove the `model_type` argument and define the desired metrics.
+#### Built-in LLM-as-a-Judge scorers
 
-  ```python
-  results = mlflow.evaluate(
-      model,
-      eval_data,
-      targets="ground_truth",
-      extra_metrics=[mlflow.metrics.toxicity(), mlflow.metrics.latency()],
-  )
-  ```
+To use built-in LLM-as-a-Judge scorers in MLflow, pass the list of scorer definitions to the `scorers` argument in the <APILink fn="mlflow.genai.evaluate" /> function.
 
-The full reference for supported evaluation metrics can be found <APILink fn="mlflow.evaluate">here</APILink>.
-
-#### Create Custom heuristic-based LLM Evaluation Metrics
-
-This is very similar to creating custom traditional metrics, with the exception of returning a <APILink fn="mlflow.metrics.MetricValue" /> instance.
-Basically you need to:
-
-1. Implement An `eval_fn` to define your scoring logic. This function must take in 2 args: `predictions` and ` target``.
- `eval_fn` must return a <APILink fn="mlflow.metrics.MetricValue" /> instance.
-2. Pass `eval_fn` and other arguments to the `mlflow.metrics.make_metric` API to create the metric.
-
-The following code creates a dummy per-row metric called `"over_10_chars"`; if the model output is greater than 10,
-the score is "yes", otherwise it is "no".
-
-```python
-def eval_fn(predictions, targets):
-    scores = ["yes" if len(pred) > 10 else "no" for pred in predictions]
-    return MetricValue(
-        scores=scores,
-        aggregate_results=standard_aggregations(scores),
-    )
-
-
-# Create an EvaluationMetric object.
-passing_code_metric = make_metric(
-    eval_fn=eval_fn, greater_is_better=False, name="over_10_chars"
-)
-```
-
-To create a custom metric that is dependent on other metrics, include those other metrics' names as an argument after `predictions` and `targets`. This can be the name of a builtin metric or another custom metric.
-Ensure that you do not accidentally have any circular dependencies in your metrics, or the evaluation will fail.
-
-The following code creates a dummy per-row metric called `"toxic_or_over_10_chars"`: if the model output is greater than 10 or the toxicity score is greater than 0.5, the score is "yes", otherwise it is "no".
-
-```python
-def eval_fn(predictions, targets, toxicity, over_10_chars):
-    scores = [
-        "yes" if toxicity.scores[i] > 0.5 or over_10_chars.scores[i] else "no"
-        for i in len(toxicity.scores)
-    ]
-    return MetricValue(scores=scores)
-
-
-# Create an EvaluationMetric object.
-toxic_and_over_10_chars_metric = make_metric(
-    eval_fn=eval_fn, greater_is_better=False, name="toxic_or_over_10_chars"
-)
-```
-
-### LLM-as-a-Judge Metrics
-
-LLM-as-a-Judge is a new type of metric that uses LLMs to score the quality of model outputs, providing a more human-like evaluation for complex language tasks while being more scalable and cost-effective than human evaluation.
-
-MLflow supports several builtin LLM-as-a-judge metrics, as well as allowing you to create your own LLM-as-a-judge metrics with custom configurations and prompts.
-
-#### Built-in LLM-as-a-Judge metrics
-
-To use built-in LLM-as-a-Judge metrics in MLflow, pass the list of metrics definitions to the `extra_metrics` argument in the <APILink fn="mlflow.evaluate" /> function.
-
-The following example uses the built-in answer correctness metric for evaluation, in addition to the latency metric (heuristic):
+The following example uses the built-in answer correctness scorer for evaluation, in addition to the latency scorer (heuristic):
 
 ```python
 from mlflow.metrics import latency
-from mlflow.metrics.genai import answer_correctness
+from mlflow.genai.scorers import correctness
 
-results = mlflow.evaluate(
+results = mlflow.genai.evaluate(
     eval_data,
-    targets="ground_truth",
-    extra_metrics=[
-        answer_correctness(),
+    scorers=[
+        correctness(),
         latency(),
     ],
 )
@@ -583,7 +463,7 @@ professionalism = mlflow.metrics.genai.make_genai_metric(
 
 ## Prepare Your Target Models
 
-In order to evaluate your model with `mlflow.evaluate()`, your model has to be one of the following types:
+In order to evaluate your model with `mlflow.genai.evaluate()`, your model has to be one of the following types:
 
 1. A <APILink fn="mlflow.pyfunc.PyFuncModel" /> instance or a URI pointing to a logged `mlflow.pyfunc.PyFuncModel` model. In
    general we call that MLflow model. The
@@ -622,22 +502,21 @@ to evaluate your model as an MLflow model, we recommend following the steps belo
        )
    ```
 
-2. Use the URI of logged model as the model instance in `mlflow.evaluate()`:
+2. Use the URI of logged model as the predict_fn instance in `mlflow.genai.evaluate()`:
 
    ```python
-   results = mlflow.evaluate(
-       logged_model_info.model_uri,
-       eval_data,
-       targets="ground_truth",
-       model_type="question-answering",
+   results = mlflow.genai.evaluate(
+       predict_fn=mlflow.genai.to_predict_fn(logged_model_info.model_uri),
+       data=eval_data,
    )
    ```
 
 ### Evaluating with a Custom Function {#llm-eval-custom-function}
 
-As of MLflow 2.8.0, <APILink fn="mlflow.evaluate" /> supports evaluating a python function without requiring
+{/* TODO: make the mlflow.evaluate link functional */}
+As of MLflow 2.8.0, <APILink fn="mlflow.genai.evaluate" /> supports evaluating a python function without requiring
 logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
-it. The following example uses <APILink fn="mlflow.evaluate" /> to evaluate a function. You also need to set
+it. The following example uses <APILink fn="mlflow.genai.evaluate" /> to evaluate a function. You also need to set
 up OpenAI authentication to run the code below.
 
 ```python
@@ -652,7 +531,7 @@ eval_data = pd.DataFrame(
             "What is MLflow?",
             "What is Spark?",
         ],
-        "ground_truth": [
+        "expectations": [
             "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.",
             "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics. It was developed in response to limitations of the Hadoop MapReduce computing model, offering improvements in speed and ease of use. Spark provides libraries for various tasks such as data ingestion, processing, and analysis through its components like Spark SQL for structured data, Spark Streaming for real-time data processing, and MLlib for machine learning tasks",
         ],
@@ -678,11 +557,9 @@ def openai_qa(inputs: pd.DataFrame) -> List[str]:
 
 
 with mlflow.start_run():
-    results = mlflow.evaluate(
-        model=openai_qa,
+    results = mlflow.genai.evaluate(
+        predict_fn=openai_qa,
         data=eval_data,
-        targets="ground_truth",
-        model_type="question-answering",
     )
 
 print(results.metrics)
@@ -703,6 +580,8 @@ Output:
 ```
 
 ### Evaluating with an MLflow Deployments Endpoint
+
+For MLflow >= 3.0, <APILink fn="mlflow.genai.evaluate" /> supports evaluating a model endpoint by wrapping the MLflow Deployments endpoint URI to the `predict_fn` argument with <APILink fn="mlflow.genai.to_predict_fn" />.
 
 For MLflow >= 2.11.0, <APILink fn="mlflow.evaluate" /> supports evaluating a model endpoint by directly passing the MLflow Deployments endpoint URI to the `model` argument.
 This is particularly useful when you want to evaluate a deployed model hosted by a local [MLflow AI Gateway](/llms/deployments/), [Databricks Foundation Models API](https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html), and [External Models in Databricks Model Serving](https://docs.databricks.com/en/generative-ai/external-models/index.html), without implementing custom prediction logic to wrap it as an MLflow model or a python function.
@@ -774,7 +653,7 @@ The input data can be either of the following format when using an URI of the ML
                 ]
                 ```
             </td>
-            <td>The <APILink fn="mlflow.evaluate" /> also accepts a list input.</td>
+            <td>The <APILink fn="mlflow.genai.evaluate" /> also accepts a list input.</td>
         </tr>
         <tr>
             <td>A list of request payload (dictionary).</td>
@@ -797,54 +676,6 @@ The input data can be either of the following format when using an URI of the ML
     </tbody>
 </table>
 
-#### Passing Inference Parameters
-
-You can pass additional inference parameters such as `max_tokens`, `temperature`, `n`, to the model endpoint by setting the `inference_params` argument in <APILink fn="mlflow.evaluate" />. The `inference_params` argument is a dictionary that contains the parameters to be passed to the model endpoint. The specified parameters are used for all the input record in the evaluation dataset.
-
-:::note
-When your input is a dictionary format that represents request payload, it can also include the parameters like `max_tokens`. If there are overlapping parameters in both the `inference_params` and the input data, the values in the `inference_params` will take precedence.
-:::
-
-#### Examples
-
-**Chat Endpoint hosted by a local** [MLflow AI Gateway](/llms/deployments/)
-
-```python
-import mlflow
-from mlflow.deployments import set_deployments_target
-import pandas as pd
-
-# Point the client to the local MLflow AI Gateway
-set_deployments_target("http://localhost:5000")
-
-eval_data = pd.DataFrame(
-    {
-        # Input data must be a string column and named "inputs".
-        "inputs": [
-            "What is MLflow?",
-            "What is Spark?",
-        ],
-        # Additional ground truth data for evaluating the answer
-        "ground_truth": [
-            "MLflow is an open-source platform ....",
-            "Apache Spark is an open-source, ...",
-        ],
-    }
-)
-
-
-with mlflow.start_run() as run:
-    results = mlflow.evaluate(
-        model="endpoints:/my-chat-endpoint",
-        data=eval_data,
-        targets="ground_truth",
-        inference_params={"max_tokens": 100, "temperature": 0.0},
-        model_type="question-answering",
-    )
-```
-
-**Completion Endpoint hosted on** [Databricks Foundation Models API](https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html)
-
 ```python
 import mlflow
 from mlflow.deployments import set_deployments_target
@@ -865,100 +696,43 @@ eval_data = pd.DataFrame(
 
 
 with mlflow.start_run() as run:
-    results = mlflow.evaluate(
-        model="endpoints:/databricks-mpt-7b-instruct",
+    results = mlflow.genai.evaluate(
+        predict_fn=mlflow.genai.to_predict_fn("endpoints:/databricks-mpt-7b-instruct"),
         data=eval_data,
-        inference_params={"max_tokens": 100, "temperature": 0.0},
-        model_type="text",
     )
 ```
 
 Evaluating [External Models in Databricks Model Serving](https://docs.databricks.com/en/generative-ai/external-models/index.html) can be done in the same way, you just need to specify the different URI that points to the serving endpoint like `"endpoints:/your-chat-endpoint"`.
 
-### Evaluating with a Static Dataset {#llm-eval-static-dataset}
-
-For MLflow >= 2.8.0, <APILink fn="mlflow.evaluate" /> supports evaluating a static dataset without specifying a model.
-This is useful when you save the model output to a column in a Pandas DataFrame or an MLflow PandasDataset, and
-want to evaluate the static dataset without re-running the model.
-
-If you are using a Pandas DataFrame, you must specify the column name that contains the model output using the
-top-level `predictions` parameter in <APILink fn="mlflow.evaluate" />:
-
-```python
-import mlflow
-import pandas as pd
-
-eval_data = pd.DataFrame(
-    {
-        "inputs": [
-            "What is MLflow?",
-            "What is Spark?",
-        ],
-        "ground_truth": [
-            "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. "
-            "It was developed by Databricks, a company that specializes in big data and machine learning solutions. "
-            "MLflow is designed to address the challenges that data scientists and machine learning engineers "
-            "face when developing, training, and deploying machine learning models.",
-            "Apache Spark is an open-source, distributed computing system designed for big data processing and "
-            "analytics. It was developed in response to limitations of the Hadoop MapReduce computing model, "
-            "offering improvements in speed and ease of use. Spark provides libraries for various tasks such as "
-            "data ingestion, processing, and analysis through its components like Spark SQL for structured data, "
-            "Spark Streaming for real-time data processing, and MLlib for machine learning tasks",
-        ],
-        "predictions": [
-            "MLflow is an open-source platform that provides handy tools to manage Machine Learning workflow "
-            "lifecycle in a simple way",
-            "Spark is a popular open-source distributed computing system designed for big data processing and analytics.",
-        ],
-    }
-)
-
-with mlflow.start_run() as run:
-    results = mlflow.evaluate(
-        data=eval_data,
-        targets="ground_truth",
-        predictions="predictions",
-        extra_metrics=[mlflow.metrics.genai.answer_similarity()],
-        evaluators="default",
-    )
-    print(f"See aggregated evaluation results below: \n{results.metrics}")
-
-    eval_table = results.tables["eval_results_table"]
-    print(f"See evaluation table below: \n{eval_table}")
-```
-
 ## Viewing Evaluation Results
 
 ### View Evaluation Results via Code
 
-`mlflow.evaluate()` returns the evaluation results as an <APILink fn="mlflow.models.EvaluationResult" /> instance.
+`mlflow.genai.evaluate()` returns the evaluation results as an <APILink fn="mlflow.genai.evaluation.base.EvaluationResult" /> instance.
 To see the score on selected metrics, you can check:
 
 - `metrics`: stores the aggregated results, like average/variance across the evaluation dataset. Let's take a second
   pass on the code example above and focus on printing out the aggregated results.
 
+{/* TODO: correctness scorer hasn't been landed */}
   ```python
+  from mlflow.genai.scorers import correctness
+
   with mlflow.start_run() as run:
-      results = mlflow.evaluate(
+      results = mlflow.genai.evaluate(
           data=eval_data,
-          targets="ground_truth",
-          predictions="predictions",
-          extra_metrics=[mlflow.metrics.genai.answer_similarity()],
-          evaluators="default",
+          scorers=[correctness()],
       )
       print(f"See aggregated evaluation results below: \n{results.metrics}")
   ```
 
-- `tables["eval_results_table"]`: stores the per-row evaluation results.
+- `results.result_df`: stores the per-row evaluation results.
 
   ```python
   with mlflow.start_run() as run:
-      results = mlflow.evaluate(
+      results = mlflow.genai.evaluate(
           data=eval_data,
-          targets="ground_truth",
-          predictions="predictions",
           extra_metrics=[mlflow.metrics.genai.answer_similarity()],
-          evaluators="default",
       )
       print(
           f"See per-data evaluation results below: \n{results.tables['eval_results_table']}"

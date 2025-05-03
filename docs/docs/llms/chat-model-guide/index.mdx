@@ -632,8 +632,9 @@ model's source code, leading to:
 - **Lack of Reproducibility**: Without a clear separation between code and configuration, tracking and reproducing the exact configuration used for
   a particular result becomes challenging.
 
+{/* TODO: make the mlflow.evaluate link functional */}
 By setting these values externally via the `model_config` parameter, we make the model flexible and adaptable to different test scenarios.
-This approach also integrates seamlessly with MLflow's evaluation tools, such as <APILink fn="mlflow.evaluate" />, which allows you to compare model
+This approach also integrates seamlessly with MLflow's evaluation tools, such as <APILink fn="mlflow.genai.evaluate" />, which allows you to compare model
 outputs across different configurations systematically.
 
 ### Defining the Model Configuration
