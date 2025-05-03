@@ -852,11 +852,15 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-graph&subdirectory=pydantic_graph" \
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai-slim&subdirectory=pydantic_ai_slim" \
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
-
   autologging:
+    python:
+      ">= 0.1.0": "3.10"
     minimum: "0.1.0"
     maximum: "0.1.8"
+    requirements:
+      ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
+
 smolagents:
   package_info:
     pip_release: "smolagents"
