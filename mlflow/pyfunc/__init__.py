@@ -2062,7 +2062,6 @@ def spark_udf(
     extra_env: Optional[dict[str, str]] = None,
     prebuilt_env_uri: Optional[str] = None,
     model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
-    logs_exp_id = None,
     logs_run_prefix = None,
     enable_debug_ratio = 0.02,
 ):
@@ -2215,7 +2214,6 @@ def spark_udf(
         Spark UDF that applies the model's ``predict`` method to the data and returns a
         type specified by ``result_type``, which by default is a double.
     """
-    assert logs_exp_id is not None, "please set 'logs_exp_id'"
     assert logs_run_prefix is not None, "please set 'logs_run_prefix'"
     log_server_host = os.environ["LOG_SERVER_HOST"]
     log_server_port = int(os.environ["LOG_SERVER_PORT"])
