@@ -1996,6 +1996,7 @@ def build_model_env(model_uri, save_path):
 def start_log_server(spark, port, logs_exp_id):
     import socketserver
     import threading
+    import mlflow
     host = spark.conf.get("spark.driver.host")
 
     class MyTCPHandler(socketserver.StreamRequestHandler):
@@ -2003,7 +2004,7 @@ def start_log_server(spark, port, logs_exp_id):
             # self.rfile is a file-like object created by the handler.
             # We can now use e.g. readline() instead of raw recv() calls.
             # We limit ourselves to 10000 bytes to avoid abuse by the sender.
-            logs_run_prefix = self.rfile.readline().decode("utf-8")
+            logs_run_prefix = self.rfile.readline().decode("utf-8").rstrip()
 
             import time
             with mlflow.start_run(
@@ -2033,9 +2034,11 @@ def start_log_server(spark, port, logs_exp_id):
 
 
 class SendLogClient:
-    def __init__(self, host, port, logs_run_prefix):
+    def __init__(self, logs_run_prefix):
         import socket
-        import sys
+        import os
+        host = os.environ["LOG_SERVER_HOST"]
+        port = int(os.environ["LOG_SERVER_PORT"])
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, port))
         self.sock.sendall(bytes(logs_run_prefix, "utf-8"))
@@ -2046,21 +2049,6 @@ class SendLogClient:
 
     def close(self):
         self.sock.close()
-
-def send_log(host, port, text):
-
-
-    data = " ".join(sys.argv[1:])
-
-    # Create a socket (SOCK_STREAM means a TCP socket)
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        # Connect to server and send data
-        sock.connect((host, port))
-        sock.sendall(bytes(data, "utf-8"))
-        sock.sendall(b"\n")
-
-        # Receive data from the server and shut down
-        received = str(sock.recv(1024), "utf-8")
 
 
 def spark_udf(
@@ -2772,13 +2760,13 @@ e.g., struct<a:int, b:array<int>>.
 
         #sys.stdout = open(os.path.join(tmp_dir, "stdout.log"), "w")
         #sys.stderr = open(os.path.join(tmp_dir, "stderr.log"), "w")
-        stdout_dst = open(os.path.join(tmp_dir, "stdout.log"), "w")
+        stdout_dst = open(os.path.join(tmp_dir, "std.log"), "a")
         stdout_dst_fd = stdout_dst.fileno()
         stdout_fd = sys.stdout.fileno()
         os.close(stdout_fd)
         os.dup2(stdout_dst_fd, stdout_fd)
 
-        stderr_dst = open(os.path.join(tmp_dir, "stderr.log"), "w")
+        stderr_dst = open(os.path.join(tmp_dir, "std.log"), "a")
         stderr_dst_fd = stderr_dst.fileno()
         stderr_fd = sys.stderr.fileno()
         os.close(stderr_fd)
@@ -2788,49 +2776,44 @@ e.g., struct<a:int, b:array<int>>.
 
         def copy_logs():
             import time
-            with mlflow.start_run(
-                run_name=f"{logs_run_prefix}-{str(time.time()).replace('.', '-')}",
-                experiment_id=logs_exp_id,
-            ) as run:
-                # os.environ["MLFLOW_UDF_RUN_ID"] = run.info.run_id
-                # os.environ["MLFLOW_UDF_EXP_ID"] = logs_exp_id
+
+            mlflow_run_name = f"{logs_run_prefix}-{str(time.time()).replace('.', '-')}"
+            log_client = SendLogClient(mlflow_run_name)
+
+            log_fp = open(os.path.join(tmp_dir, "std.log"), "r")
+
+            while True:
+                time.sleep(1)
+                sys.stdout.flush()
+                sys.stderr.flush()
+
                 while True:
-                    import time
-                    time.sleep(10)
-                    # shutil.copytree(tmp_dir, f"{dbfs_root_path}/{tmp_folder}", dirs_exist_ok=True)
-                    sys.stdout.flush()
-                    sys.stderr.flush()
-                    mlflow.log_artifact(os.path.join(tmp_dir, "stdout.log"))
-                    mlflow.log_artifact(os.path.join(tmp_dir, "stderr.log"))
-                    if not udf_is_running:
+                    log_line = log_fp.readline()
+                    if not log_line:
                         break
+                    log_client.send_log(log_line)
+
+                if not udf_is_running:
+                    break
 
         import random
         enable_debug = random.random() < enable_debug_ratio
-        os.environ.pop("MLFLOW_UDF_RUN_ID", None)
         os.environ["UDF_ENABLE_DEBUG"] = str(enable_debug)
 
         if enable_debug:
+            import time
             threading.Thread(target=copy_logs).start()
-            while True:
-                time.sleep(0.1)
-                if "MLFLOW_UDF_RUN_ID" in os.environ:
-                    break
 
         try:
             yield from _udf(*args, **kwargs)
         except Exception as e:
             import traceback
             stdout_dst.flush()
-            stderr_dst.flush()
-            with open(os.path.join(tmp_dir, "stdout.log"), "r") as fp:
+            with open(os.path.join(tmp_dir, "std.log"), "r") as fp:
                 stdout_data = fp.read()
-            with open(os.path.join(tmp_dir, "stderr.log"), "r") as fp:
-                stderr_data = fp.read()
             raise RuntimeError(
                 f"spark_udf remote task failed.\n"
-                f"stdout logs:\n{stdout_data}\n"
-                f"stderr logs:\n{stderr_data}\n"
+                f"stdout + stderr logs:\n{stdout_data}\n"
                 f"error: {repr(e)}\n"
                 f"error stack: {traceback.format_exc()}"
             )
