@@ -2029,6 +2029,8 @@ def start_log_server(spark, port, logs_exp_id):
         server.serve_forever()
 
     threading.Thread(target=serve_thread).start()
+    os.environ["LOG_SERVER_HOST"] = host
+    os.environ["LOG_SERVER_PORT"] = str(port)
     return server
 
 
@@ -2215,6 +2217,8 @@ def spark_udf(
     """
     assert logs_exp_id is not None, "please set 'logs_exp_id'"
     assert logs_run_prefix is not None, "please set 'logs_run_prefix'"
+    log_server_host = os.environ["LOG_SERVER_HOST"]
+    log_server_port = int(os.environ["LOG_SERVER_PORT"])
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
@@ -2776,6 +2780,9 @@ e.g., struct<a:int, b:array<int>>.
 
         def copy_logs():
             import time
+
+            os.environ["LOG_SERVER_HOST"] = log_server_host
+            os.environ["LOG_SERVER_PORT"] = str(log_server_port)
 
             mlflow_run_name = f"{logs_run_prefix}-{str(time.time()).replace('.', '-')}"
             log_client = SendLogClient(mlflow_run_name)
