@@ -282,7 +282,7 @@ def print_time(tag=None):
     import time
     beg_time = datetime.now().strftime("%H:%M:%S:%f")
     beg_time_s = time.time()
-
+    print(f"DBG: tag:{tag} at {beg_time}", flush=True)
     try:
         yield
     finally:
