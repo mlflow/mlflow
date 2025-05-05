@@ -60,7 +60,8 @@ def _parse_inputs_output(inputs: dict[str, Any], output: Any) -> list[ChatMessag
         from openai.types.chat import ChatCompletion
 
         if isinstance(output, ChatCompletion):
-            return [*messages, output.choices[0].message.to_dict(exclude_unset=True)]
+            messages.append(output.choices[0].message.to_dict(exclude_unset=True))
+            return messages
     except ImportError:
         pass
 

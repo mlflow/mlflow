@@ -194,10 +194,7 @@ def _wrap_function(
                 result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
 
-                try:
-                    set_chat_attributes_special_case(span, inputs=inputs, outputs=result)
-                except Exception:
-                    pass
+                set_chat_attributes_special_case(span, inputs=inputs, outputs=result)
 
                 try:
                     yield result
