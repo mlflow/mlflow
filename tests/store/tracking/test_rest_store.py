@@ -166,8 +166,34 @@ def _args(host_creds, endpoint, method, json_body):
     return res
 
 
-def _verify_requests(http_request, host_creds, endpoint, method, json_body):
-    http_request.assert_any_call(**(_args(host_creds, endpoint, method, json_body)))
+def _verify_requests(http_request, host_creds, endpoint, method, json_body, use_v3=False):
+    """
+    Verify HTTP requests in tests.
+    
+    Args:
+        http_request: The mocked HTTP request object
+        host_creds: MlflowHostCreds object
+        endpoint: The endpoint being called (e.g., "traces/123")
+        method: The HTTP method (e.g., "GET", "POST")
+        json_body: The request body as a JSON string
+        use_v3: If True, verify using /api/3.0/mlflow/ prefix instead of /api/2.0/mlflow/
+                This is used for trace-related endpoints that use the V3 API.
+    """
+    if use_v3:
+        # For endpoints using V3 API, use the v3 API prefix
+        res = {
+            "host_creds": host_creds,
+            "endpoint": f"/api/3.0/mlflow/{endpoint}",
+            "method": method,
+        }
+        if method == "GET":
+            res["params"] = json.loads(json_body)
+        else:
+            res["json"] = json.loads(json_body)
+        http_request.assert_any_call(**res)
+    else:
+        # For standard endpoints or if use_v3=False, use the v2 API prefix
+        http_request.assert_any_call(**(_args(host_creds, endpoint, method, json_body)))
 
 
 def test_requestor():
@@ -683,7 +709,12 @@ def test_end_trace():
             tags=tags,
         )
         _verify_requests(
-            mock_http, creds, f"traces/{request_id}", "PATCH", message_to_json(expected_request)
+            mock_http, 
+            creds, 
+            f"traces/{request_id}", 
+            "PATCH", 
+            message_to_json(expected_request),
+            use_v3=True
         )
         assert isinstance(res, TraceInfo)
         assert res.request_id == request_id
@@ -785,7 +816,12 @@ def test_set_trace_tag():
             value=request.value,
         )
         _verify_requests(
-            mock_http, creds, f"traces/{request_id}/tags", "PATCH", message_to_json(request)
+            mock_http, 
+            creds, 
+            f"traces/{request_id}/tags", 
+            "PATCH", 
+            message_to_json(request),
+            use_v3=True
         )
         assert res is None
 
@@ -835,7 +871,12 @@ def test_log_assessment():
         res = store.create_assessment(assessment)
 
     _verify_requests(
-        mock_http, creds, "traces/tr-1234/assessments", "POST", message_to_json(request)
+        mock_http,
+        creds,
+        "traces/tr-1234/assessments",
+        "POST",
+        message_to_json(request),
+        use_v3=True
     )
     assert isinstance(res, Assessment)
 
@@ -923,6 +964,7 @@ def test_update_assessment(updates, expected_request_json):
         "traces/tr-1234/assessments/1234",
         "PATCH",
         json.dumps(expected_request_json),
+        use_v3=True
     )
     assert isinstance(res, Assessment)
 
@@ -957,6 +999,7 @@ def test_delete_assessment():
         "traces/tr-1234/assessments/1234",
         "DELETE",
         json.dumps(expected_request_json),
+        use_v3=True
     )
 
 

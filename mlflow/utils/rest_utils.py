@@ -39,6 +39,7 @@ RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
 _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
+_V3_TRACE_REST_API_PATH_PREFIX = "/api/3.0/mlflow/traces"
 _ARMERIA_OK = "200 OK"
 
 
@@ -357,7 +358,7 @@ def extract_all_api_info_for_service(service, path_prefix):
 
 
 def get_single_trace_endpoint(request_id):
-    return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}"
+    return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{request_id}"
 
 
 def get_logged_model_endpoint(model_id: str) -> str:
@@ -365,11 +366,10 @@ def get_logged_model_endpoint(model_id: str) -> str:
 
 
 def get_trace_info_endpoint(request_id):
-    return f"{get_single_trace_endpoint(request_id)}/info"
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}/info"
 
 
 def get_trace_assessment_endpoint(request_id):
-    # TEMPORARY ENDPOINT: this is currently hosted at /api/2.0/... but will be moved to /api/3.0/...
     return f"{get_single_trace_endpoint(request_id)}"
 
 
@@ -378,11 +378,11 @@ def get_set_trace_tag_endpoint(request_id):
 
 
 def get_create_assessment_endpoint(trace_id: str):
-    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
+    return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
 
 
 def get_single_assessment_endpoint(trace_id: str, assessment_id: str):
-    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
+    return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
 
 
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
