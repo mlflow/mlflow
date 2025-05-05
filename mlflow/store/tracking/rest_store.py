@@ -455,7 +455,6 @@ class RestStore(AbstractStore):
                     proto_location = location.to_proto()
                     trace_locations.append(proto_location)
                 except Exception as e:
-                    _logger.error(f"Error creating location for experiment ID {exp_id}: {e!s}")
                     raise MlflowException(
                         f"Invalid experiment ID format: {exp_id}. Error: {e!s}"
                     ) from e
