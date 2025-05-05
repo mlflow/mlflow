@@ -31,12 +31,23 @@ def tracking_uri():
     mlflow.set_tracking_uri(original_tracking_uri)
 
 
+_HUMAN_ASSESSMENT_SOURCE = AssessmentSource(
+    source_type=AssessmentSourceType.HUMAN,
+    source_id="bob@example.com",
+)
+
+_LLM_ASSESSMENT_SOURCE = AssessmentSource(
+    source_type=AssessmentSourceType.LLM_JUDGE,
+    source_id="gpt-4o-mini",
+)
+
+
 def test_log_expectation(store, tracking_uri):
     mlflow.log_expectation(
         trace_id="1234",
         name="expected_answer",
         value="MLflow",
-        source=AssessmentSourceType.HUMAN,
+        source=_HUMAN_ASSESSMENT_SOURCE,
         metadata={"key": "value"},
     )
 
@@ -45,8 +56,7 @@ def test_log_expectation(store, tracking_uri):
     assert assessment.name == "expected_answer"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
-    assert assessment.source.source_type == "HUMAN"
-    assert assessment.source.source_id is None
+    assert assessment.source == _HUMAN_ASSESSMENT_SOURCE
     assert assessment.create_time_ms is not None
     assert assessment.last_update_time_ms is not None
     assert assessment.expectation.value == "MLflow"
@@ -61,23 +71,15 @@ def test_log_expectation_invalid_parameters(tracking_uri):
             trace_id="1234",
             name="expected_answer",
             value=None,
-            source=AssessmentSourceType.HUMAN,
+            source=_HUMAN_ASSESSMENT_SOURCE,
         )
 
-    with pytest.raises(MlflowException, match=r"`source` must be provided."):
+    with pytest.raises(MlflowException, match=r"`source` must be an instance of"):
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
             value=1.0,
             source=None,
-        )
-
-    with pytest.raises(MlflowException, match=r"Invalid assessment source type"):
-        mlflow.log_feedback(
-            trace_id="1234",
-            name="faithfulness",
-            value=1.0,
-            source="INVALID_SOURCE_TYPE",
         )
 
 
@@ -104,10 +106,7 @@ def test_log_feedback(store, tracking_uri):
         trace_id="1234",
         name="faithfulness",
         value=1.0,
-        source=AssessmentSource(
-            source_type=AssessmentSourceType.LLM_JUDGE,
-            source_id="faithfulness-judge",
-        ),
+        source=_LLM_ASSESSMENT_SOURCE,
         rationale="This answer is very faithful.",
         metadata={"model": "gpt-4o-mini"},
     )
@@ -117,8 +116,7 @@ def test_log_feedback(store, tracking_uri):
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
-    assert assessment.source.source_type == "LLM_JUDGE"
-    assert assessment.source.source_id == "faithfulness-judge"
+    assert assessment.source == _LLM_ASSESSMENT_SOURCE
     assert assessment.create_time_ms is not None
     assert assessment.last_update_time_ms is not None
     assert assessment.feedback.value == 1.0
@@ -132,7 +130,7 @@ def test_log_feedback_with_error(store, tracking_uri):
     mlflow.log_feedback(
         trace_id="1234",
         name="faithfulness",
-        source=AssessmentSourceType.LLM_JUDGE,
+        source=_LLM_ASSESSMENT_SOURCE,
         error=AssessmentError(
             error_code="RATE_LIMIT_EXCEEDED",
             error_message="Rate limit for the judge exceeded.",
@@ -144,8 +142,7 @@ def test_log_feedback_with_error(store, tracking_uri):
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
-    assert assessment.source.source_type == "LLM_JUDGE"
-    assert assessment.source.source_id is None
+    assert assessment.source == _LLM_ASSESSMENT_SOURCE
     assert assessment.create_time_ms is not None
     assert assessment.last_update_time_ms is not None
     assert assessment.expectation is None
@@ -159,7 +156,7 @@ def test_log_feedback_with_value_and_error(store, tracking_uri):
     mlflow.log_feedback(
         trace_id="1234",
         name="faithfulness",
-        source=AssessmentSourceType.LLM_JUDGE,
+        source=_LLM_ASSESSMENT_SOURCE,
         value=0.5,
         error=AssessmentError(
             error_code="RATE_LIMIT_EXCEEDED",
@@ -172,8 +169,7 @@ def test_log_feedback_with_value_and_error(store, tracking_uri):
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
-    assert assessment.source.source_type == "LLM_JUDGE"
-    assert assessment.source.source_id is None
+    assert assessment.source == _LLM_ASSESSMENT_SOURCE
     assert assessment.create_time_ms is not None
     assert assessment.last_update_time_ms is not None
     assert assessment.expectation is None
@@ -188,10 +184,10 @@ def test_log_feedback_invalid_parameters(tracking_uri):
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
-            source=AssessmentSourceType.LLM_JUDGE,
+            source=_LLM_ASSESSMENT_SOURCE,
         )
 
-    with pytest.raises(MlflowException, match=r"`source` must be provided."):
+    with pytest.raises(MlflowException, match=r"`source` must be an instance of"):
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
@@ -241,18 +237,12 @@ def test_delete_feedback(store, tracking_uri):
 def test_assessment_apis_only_available_in_databricks():
     with pytest.raises(MlflowException, match=r"This API is currently only available"):
         mlflow.log_expectation(
-            trace_id="1234",
-            name="expected_answer",
-            value="MLflow",
-            source=AssessmentSourceType.HUMAN,
+            trace_id="1234", name="expected_answer", value="MLflow", source=_HUMAN_ASSESSMENT_SOURCE
         )
 
     with pytest.raises(MlflowException, match=r"This API is currently only available"):
         mlflow.log_feedback(
-            trace_id="1234",
-            name="faithfulness",
-            value=1.0,
-            source=AssessmentSourceType.LLM_JUDGE,
+            trace_id="1234", name="faithfulness", value=1.0, source=_LLM_ASSESSMENT_SOURCE
         )
 
     with pytest.raises(MlflowException, match=r"This API is currently only available"):
