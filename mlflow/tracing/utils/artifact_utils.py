@@ -5,7 +5,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 TRACE_DATA_FILE_NAME = "traces.json"
 
 
-def get_artifact_uri_for_trace(trace_info):
+def get_artifact_uri_for_trace(trace_info: Union[TraceInfo, TraceInfoV3]):
     """
     Get the artifact uri for accessing the trace data.
 
