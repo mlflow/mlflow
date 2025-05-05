@@ -74,7 +74,7 @@ def test_log_expectation_invalid_parameters(tracking_uri):
             source=_HUMAN_ASSESSMENT_SOURCE,
         )
 
-    with pytest.raises(MlflowException, match=r"`source` must be provided."):
+    with pytest.raises(MlflowException, match=r"`source` must be an instance of"):
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
@@ -187,7 +187,7 @@ def test_log_feedback_invalid_parameters(tracking_uri):
             source=_LLM_ASSESSMENT_SOURCE,
         )
 
-    with pytest.raises(MlflowException, match=r"`source` must be provided."):
+    with pytest.raises(MlflowException, match=r"`source` must be an instance of"):
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",

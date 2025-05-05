@@ -67,8 +67,10 @@ def log_expectation(
     if value is None:
         raise MlflowException.invalid_parameter_value("Expectation value cannot be None.")
 
-    if source is None:
-        raise MlflowException.invalid_parameter_value("`source` must be provided.")
+    if not isinstance(source, AssessmentSource):
+        raise MlflowException.invalid_parameter_value(
+            f"`source` must be an instance of `AssessmentSource`. Got {type(source)} instead."
+        )
 
     return TracingClient().log_assessment(
         trace_id=trace_id,
@@ -249,8 +251,10 @@ def log_feedback(
     if value is None and error is None:
         raise MlflowException.invalid_parameter_value("Either `value` or `error` must be provided.")
 
-    if source is None:
-        raise MlflowException.invalid_parameter_value("`source` must be provided.")
+    if not isinstance(source, AssessmentSource):
+        raise MlflowException.invalid_parameter_value(
+            f"`source` must be an instance of `AssessmentSource`. Got {type(source)} instead."
+        )
 
     return TracingClient().log_assessment(
         trace_id=trace_id,
