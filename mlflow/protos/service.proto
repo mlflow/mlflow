@@ -763,7 +763,7 @@ service MlflowService {
       endpoints: [
         {
           method: "POST",
-          path: "/mlflow/traces/search/v3"
+          path: "/mlflow/traces/search"
           since { major: 3, minor: 0 },
         }
       ],
