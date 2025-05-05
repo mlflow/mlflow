@@ -704,14 +704,6 @@ def test_search_traces():
 
     # Create a TraceInfoV3 object for response
     trace_location = TraceLocation.from_experiment_id("1234")
-    trace_info_v3 = TraceInfoV3(
-        trace_id="tr-1234",
-        trace_location=trace_location,
-        request_time=123,
-        state=TraceState.OK,
-        trace_metadata={"key": "value"},
-        tags={"k": "v"},
-    )
 
     # Format the response
     response.text = json.dumps(
