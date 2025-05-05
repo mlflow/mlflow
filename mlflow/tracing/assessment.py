@@ -131,11 +131,7 @@ def update_expectation(
 
         # Update the expectation with a new value 43.
         mlflow.update_expectation(
-            trace_id="1234",
-            assessment_id=assessment.assessment_id,
-            value=43,
-            # Record additional metadata for the update
-            metadata={"override_reason": "Correction by alice@example.com"},
+            trace_id="1234", assessment_id=assessment.assessment_id, value=43
         )
     """
     return TracingClient().update_assessment(

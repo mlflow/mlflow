@@ -15,8 +15,8 @@ class AssessmentSource(_MlflowObject):
     """
     Source of an assessment (human, LLM as a judge with GPT-4, etc).
 
-    When recording an assessment, it is highly recommended to provide a sufficient
-    source information to help keep track of how the assessment is conducted.
+    When recording an assessment, MLflow mandates providing a source information
+    to keep track of how the assessment is conducted.
 
     Args:
         source_type: The type of the assessment source. Must be one of the values in
