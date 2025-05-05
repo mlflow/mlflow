@@ -535,7 +535,7 @@ class TracingClient:
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
-    def _download_trace_data(self, trace_info) -> TraceData:
+    def _download_trace_data(self, trace_info: Union[TraceInfo, TraceInfoV3]) -> TraceData:
         """
         Download trace data from artifact repository.
 
