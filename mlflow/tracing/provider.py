@@ -14,7 +14,6 @@ import logging
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Optional
 
-from mlflow.utils.uri import is_databricks_uri
 from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -31,6 +30,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
+from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
     from mlflow.entities import Span

@@ -10,8 +10,8 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.trace import Trace
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 
 # TODO: This test mocks out the tracking client and only test if the fluent API implementation
@@ -354,7 +354,7 @@ def test_log_assessment_to_in_memory_trace(store, tracking_uri):
     client = TracingClient()
     trace = Trace(trace.info, TraceData())
     client.start_trace_v3(trace)
-    
+
     # Verify the trace sent to start_trace_v3 included the assessment
     assert store.start_trace_v3.call_count == 1
     trace_arg = store.start_trace_v3.call_args[1]["trace"]

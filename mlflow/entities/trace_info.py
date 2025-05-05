@@ -121,6 +121,9 @@ class TraceInfo(_MlflowObject):
         """
         trace_info_dict = asdict(self)
         trace_info_dict["status"] = self.status.value
+        # Client request ID field is only added for internal use, and should not be
+        # serialized for V2 TraceInfo.
+        trace_info_dict.pop("client_request_id", None)
         return trace_info_dict
 
     @classmethod
