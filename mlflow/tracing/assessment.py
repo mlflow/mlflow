@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from mlflow.entities.assessment import (
     Assessment,
@@ -17,7 +17,7 @@ from mlflow.tracing.client import TracingClient
 def log_expectation(
     trace_id: str,
     name: str,
-    source: Union[str, AssessmentSource],
+    source: AssessmentSource,
     value: AssessmentValueType,
     metadata: Optional[dict[str, Any]] = None,
     span_id: Optional[str] = None,
@@ -32,10 +32,8 @@ def log_expectation(
     Args:
         trace_id: The ID of the trace.
         name: The name of the expectation assessment e.g., "expected_answer
-        source: The source of the expectation assessment. Must be either an instance of
-                :py:class:`~mlflow.entities.AssessmentSource` or a string that
-                is a valid value in the
-                :py:class:`~mlflow.entities.AssessmentSourceType` enum.
+        source: The source of the expectation assessment. Must be an instance of
+                :py:class:`~mlflow.entities.AssessmentSource`.
         value: The value of the expectation. It can be any JSON-serializable value.
         metadata: Additional metadata for the expectation.
         span_id: The ID of the span associated with the expectation, if it needs be
@@ -51,23 +49,33 @@ def log_expectation(
     .. code-block:: python
 
         import mlflow
-        from mlflow.entities.assessment import AssessmentSourceType
+        from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
+
+        # Specify the annotator information as a source.
+        source = AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN,
+            source_id="john@example.com",
+        )
 
         mlflow.log_expectation(
             trace_id="1234",
             name="expected_answer",
             value=42,
-            source=AssessmentSourceType.HUMAN,
+            source=source,
         )
-
     """
     if value is None:
         raise MlflowException.invalid_parameter_value("Expectation value cannot be None.")
 
+    if not isinstance(source, AssessmentSource):
+        raise MlflowException.invalid_parameter_value(
+            f"`source` must be an instance of `AssessmentSource`. Got {type(source)} instead."
+        )
+
     return TracingClient().log_assessment(
         trace_id=trace_id,
         name=name,
-        source=_parse_source(source),
+        source=source,
         expectation=Expectation(value) if value is not None else None,
         metadata=metadata,
         span_id=span_id,
@@ -107,21 +115,23 @@ def update_expectation(
     .. code-block:: python
 
         import mlflow
-        from mlflow.entities.assessment import AssessmentSourceType
+        from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
 
         # Create an expectation with value 42.
         assessment = mlflow.log_expectation(
             trace_id="1234",
             name="expected_answer",
             value=42,
-            source=AssessmentSourceType.HUMAN,
+            # Original annotator
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN,
+                source_id="bob@example.com",
+            ),
         )
 
         # Update the expectation with a new value 43.
         mlflow.update_expectation(
-            trace_id="1234",
-            assessment_id=assessment.assessment_id,
-            value=43,
+            trace_id="1234", assessment_id=assessment.assessment_id, value=43
         )
     """
     return TracingClient().update_assessment(
@@ -153,7 +163,7 @@ def delete_expectation(trace_id: str, assessment_id: str):
 def log_feedback(
     trace_id: str,
     name: str,
-    source: Union[str, AssessmentSource],
+    source: AssessmentSource,
     value: Optional[AssessmentValueType] = None,
     error: Optional[AssessmentError] = None,
     rationale: Optional[str] = None,
@@ -170,10 +180,8 @@ def log_feedback(
     Args:
         trace_id: The ID of the trace.
         name: The name of the feedback assessment e.g., "faithfulness"
-        source: The source of the feedback assessment. Must be either an instance of
-                :py:class:`~mlflow.entities.AssessmentSource` or a string that
-                is a valid value in the
-                :py:class:`~mlflow.entities.AssessmentSourceType` enum.
+        source: The source of the feedback assessment. Must be an instance of
+                :py:class:`~mlflow.entities.AssessmentSource`.
         value: The value of the feedback.
         error: An error object representing any issues encountered while computing the
             feedback, e.g., a timeout error from an LLM judge. Either this or `value`
@@ -193,7 +201,7 @@ def log_feedback(
     .. code-block:: python
 
         import mlflow
-        from mlflow.entities.assessment import AssessmentSourceType
+        from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
 
         source = AssessmentSource(
             source_type=Type.LLM_JUDGE,
@@ -238,10 +246,16 @@ def log_feedback(
     """
     if value is None and error is None:
         raise MlflowException.invalid_parameter_value("Either `value` or `error` must be provided.")
+
+    if not isinstance(source, AssessmentSource):
+        raise MlflowException.invalid_parameter_value(
+            f"`source` must be an instance of `AssessmentSource`. Got {type(source)} instead."
+        )
+
     return TracingClient().log_assessment(
         trace_id=trace_id,
         name=name,
-        source=_parse_source(source),
+        source=source,
         feedback=Feedback(value, error),
         rationale=rationale,
         metadata=metadata,
@@ -285,14 +299,17 @@ def update_feedback(
     .. code-block:: python
 
         import mlflow
-        from mlflow.entities.assessment import AssessmentSourceType
+        from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
 
         # Create a feedback with value 0.9.
         assessment = mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
             value=0.9,
-            source=AssessmentSourceType.LLM_JUDGE,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="gpt-4o-mini",
+            ),
         )
 
         # Update the feedback with a new value 0.95.
@@ -326,17 +343,3 @@ def delete_feedback(trace_id: str, assessment_id: str):
         assessment_id: The ID of the feedback assessment to delete.
     """
     return TracingClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
-
-
-def _parse_source(source: Union[str, AssessmentSource]) -> AssessmentSource:
-    if source is None:
-        raise MlflowException.invalid_parameter_value("`source` must be provided.")
-
-    if isinstance(source, str):
-        return AssessmentSource(source_type=source)
-    elif isinstance(source, AssessmentSource):
-        return source
-
-    raise MlflowException.invalid_parameter_value(
-        "Invalid source type. Must be one of str, AssessmentSource, or AssessmentSourceType."
-    )
