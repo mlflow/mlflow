@@ -423,7 +423,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     chat_attributes = span_4.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 4
+    assert len(chat_attributes) == 5
     assert chat_attributes[0]["role"] == "system"
     assert _AGENT_1_GOAL in chat_attributes[0]["content"]
     assert chat_attributes[1]["role"] == "user"
@@ -431,7 +431,9 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert chat_attributes[2]["role"] == "assistant"
     assert "Tool Answer" in chat_attributes[2]["content"]
     assert chat_attributes[3]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[3]["content"]
+    assert "Action Input" in chat_attributes[3]["content"]
+    assert chat_attributes[4]["role"] == "assistant"
+    assert _LLM_ANSWER in chat_attributes[4]["content"]
 
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
