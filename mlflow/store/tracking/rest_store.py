@@ -487,7 +487,8 @@ class RestStore(AbstractStore):
                 order_by=order_by,
                 page_token=page_token,
             )
-            trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+            # Convert TraceInfo (v2) objects to TraceInfoV3 objects for consistency
+            trace_infos = [TraceInfo.from_proto(t).to_v3() for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
 
     def _search_unified_traces(

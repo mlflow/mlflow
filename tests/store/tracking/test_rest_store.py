@@ -716,7 +716,22 @@ def test_search_traces():
     # Format the response
     response.text = json.dumps(
         {
-            "traces": [trace_info_v3.to_dict()],
+            "traces": [
+                {
+                    "trace_id": "tr-1234",
+                    "trace_location": {
+                        "type": "MLFLOW_EXPERIMENT",
+                        "mlflow_experiment": {
+                            "experiment_id": "1234"
+                        }
+                    },
+                    "request_time": "1970-01-01T00:00:00.123Z",
+                    "execution_duration_ms": 456,
+                    "state": "OK",
+                    "trace_metadata": {"key": "value"},
+                    "tags": {"k": "v"}
+                }
+            ],
             "next_page_token": "token",
         }
     )
@@ -762,9 +777,11 @@ def test_search_traces():
         assert isinstance(trace_infos[0], TraceInfoV3)
         assert trace_infos[0].trace_id == "tr-1234"
         assert trace_infos[0].experiment_id == "1234"
+        assert trace_infos[0].request_time == 123
+        # V3's state maps to V2's status
+        assert trace_infos[0].state == TraceStatus.OK.to_state()
         assert trace_infos[0].tags == {"k": "v"}
         assert trace_infos[0].trace_metadata == {"key": "value"}
-        assert trace_infos[0].state == TraceState.OK
         assert token == "token"
 
 
@@ -823,14 +840,14 @@ def test_search_unified_traces():
 
         # Verify the correct trace info objects were returned
         assert len(trace_infos) == 1
-        assert isinstance(trace_infos[0], TraceInfo)
-        assert trace_infos[0].request_id == "tr-1234"
+        assert isinstance(trace_infos[0], TraceInfoV3)
+        assert trace_infos[0].trace_id == "tr-1234"
         assert trace_infos[0].experiment_id == "1234"
-        assert trace_infos[0].timestamp_ms == 123
-        assert trace_infos[0].execution_time_ms == 456
-        assert trace_infos[0].status == TraceStatus.OK
+        assert trace_infos[0].request_time == 123
+        # V3's state maps to V2's status
+        assert trace_infos[0].state == TraceStatus.OK.to_state()
         assert trace_infos[0].tags == {"k": "v"}
-        assert trace_infos[0].request_metadata == {"key": "value"}
+        assert trace_infos[0].trace_metadata == {"key": "value"}
         assert token == "token"
 
 
