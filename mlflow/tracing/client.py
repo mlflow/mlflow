@@ -285,7 +285,7 @@ class TracingClient:
                 else None
             )
 
-        def download_trace_extra_fields(trace_info) -> Optional[Trace]:
+        def download_trace_extra_fields(trace_info: Union[TraceInfo, TraceInfoV3]) -> Optional[Trace]:
             """
             Download trace data and assessments for the given trace_info and returns a Trace object.
             If the download fails (e.g., the trace data is missing or corrupted), returns None.
