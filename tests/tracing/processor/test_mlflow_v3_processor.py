@@ -5,7 +5,6 @@ import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
-from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     TraceMetadataKey,
@@ -15,7 +14,11 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import encode_trace_id
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
-from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
+from tests.tracing.helper import (
+    create_mock_otel_span,
+    create_test_trace_info,
+    skip_when_testing_trace_sdk,
+)
 
 
 def test_on_start(monkeypatch):
@@ -43,7 +46,10 @@ def test_on_start(monkeypatch):
     assert child_span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(request_id)
 
 
+@skip_when_testing_trace_sdk
 def test_on_start_during_model_evaluation():
+    from mlflow.pyfunc.context import Context, set_prediction_context
+
     trace_id = 12345
     request_id = "tr-" + encode_trace_id(trace_id)
 

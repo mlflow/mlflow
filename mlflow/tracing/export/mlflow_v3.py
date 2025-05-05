@@ -29,7 +29,10 @@ class MlflowV3SpanExporter(SpanExporter):
     def __init__(self, tracking_uri: Optional[str] = None):
         self._is_async_enabled = MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
         if self._is_async_enabled:
-            _logger.info("MLflow is configured to log traces asynchronously.")
+            _logger.info(
+                "MLflow is configured to log traces asynchronously. To disable this, set the "
+                "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING environment variable to false."
+            )
             self._async_queue = AsyncTraceExportQueue()
         self._client = TracingClient(tracking_uri)
 
