@@ -16,7 +16,11 @@ if not IS_PYDANTIC_V2_OR_NEWER:
         "Please upgrade to pydantic v2 or newer to use ResponsesAgent.",
     )
 
-from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
+from mlflow.types.responses import (
+    ResponsesAgentRequest,
+    ResponsesAgentResponse,
+    ResponsesAgentStreamEvent,
+)
 
 
 def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
@@ -40,7 +44,7 @@ class _ResponsesAgentPyfuncWrapper:
         """
         return self.responses_agent
 
-    def _convert_input(self, model_input) -> ResponsesRequest:
+    def _convert_input(self, model_input) -> ResponsesAgentRequest:
         import pandas
 
         if isinstance(model_input, pandas.DataFrame):
@@ -54,7 +58,7 @@ class _ResponsesAgentPyfuncWrapper:
                 f"{type(model_input)} instead.",
                 error_code=INTERNAL_ERROR,
             )
-        return ResponsesRequest(**model_input)
+        return ResponsesAgentRequest(**model_input)
 
     def _response_to_dict(self, response, pydantic_class) -> dict[str, Any]:
         if isinstance(response, pydantic_class):
@@ -86,7 +90,7 @@ class _ResponsesAgentPyfuncWrapper:
         """
         request = self._convert_input(model_input)
         response = self.responses_agent.predict(request)
-        return self._response_to_dict(response, ResponsesResponse)
+        return self._response_to_dict(response, ResponsesAgentResponse)
 
     def predict_stream(
         self, model_input: dict[str, Any], params=None
@@ -105,4 +109,4 @@ class _ResponsesAgentPyfuncWrapper:
         """
         request = self._convert_input(model_input)
         for response in self.responses_agent.predict_stream(request):
-            yield self._response_to_dict(response, ResponsesStreamEvent)
+            yield self._response_to_dict(response, ResponsesAgentStreamEvent)

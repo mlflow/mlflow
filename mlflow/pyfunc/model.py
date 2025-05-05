@@ -784,7 +784,11 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
 
 if IS_PYDANTIC_V2_OR_NEWER:
-    from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
+    from mlflow.types.responses import (
+        ResponsesAgentRequest,
+        ResponsesAgentResponse,
+        ResponsesAgentStreamEvent,
+    )
 
     class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         _skip_type_hint_validation = True
@@ -799,20 +803,20 @@ if IS_PYDANTIC_V2_OR_NEWER:
                         attr_name,
                         wrap_non_list_predict_pydantic(
                             attr,
-                            ResponsesRequest,
+                            ResponsesAgentRequest,
                             "Invalid dictionary input for a ResponsesAgent. "
                             "Expected a dictionary with the ResponsesRequest schema.",
                         ),
                     )
 
         @abstractmethod
-        def predict(self, request: ResponsesRequest) -> ResponsesResponse:
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             pass
 
         @abstractmethod
         def predict_stream(
-            self, request: ResponsesRequest
-        ) -> Generator[ResponsesStreamEvent, None, None]:
+            self, request: ResponsesAgentRequest
+        ) -> Generator[ResponsesAgentStreamEvent, None, None]:
             pass
 
 

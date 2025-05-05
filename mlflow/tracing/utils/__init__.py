@@ -421,9 +421,9 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
     """
     try:
         from mlflow.openai.utils.chat_schema import set_span_chat_attributes
-        from mlflow.types.responses import ResponsesResponse
+        from mlflow.types.responses import ResponsesAgentResponse
 
-        if ResponsesResponse.validate_compat(outputs):
+        if ResponsesAgentResponse.validate_compat(outputs):
             inputs = inputs["request"].model_dump_compat()
             set_span_chat_attributes(span, inputs, outputs)
 
