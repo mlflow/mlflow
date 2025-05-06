@@ -29,10 +29,6 @@ class MlflowV3SpanExporter(SpanExporter):
     def __init__(self, tracking_uri: Optional[str] = None):
         self._is_async_enabled = MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
         if self._is_async_enabled:
-            _logger.info(
-                "MLflow is configured to log traces asynchronously. To disable this, set the "
-                "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING environment variable to false."
-            )
             self._async_queue = AsyncTraceExportQueue()
         self._client = TracingClient(tracking_uri)
 
@@ -99,12 +95,7 @@ class MlflowV3SpanExporter(SpanExporter):
     def _should_log_async(self):
         # During evaluate, the eval harness relies on the generated trace objects,
         # so we should not log traces asynchronously.
-        try:
-            if maybe_get_request_id(is_evaluate=True):
-                return False
-        except Exception:
-            # If there is an error while getting the eval request ID, assume that
-            # we are not in an evaluation context and log traces asynchronously.
-            pass
+        if maybe_get_request_id(is_evaluate=True):
+            return False
 
         return self._is_async_enabled

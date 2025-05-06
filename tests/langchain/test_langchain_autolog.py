@@ -979,14 +979,15 @@ def test_langchain_auto_tracing_in_serving_runnable():
 
     expected_output = '[{"role": "user", "content": "What is MLflow?"}]'
 
-    request_id, predictions, trace = score_in_model_serving(
+    databricks_request_id, predictions, trace = score_in_model_serving(
         model_info.model_uri,
         [{"product": "MLflow"}],
     )
 
     assert predictions == [expected_output]
     trace = Trace.from_dict(trace)
-    assert trace.info.request_id == request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == databricks_request_id
     assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
     spans = trace.data.spans
     assert len(spans) == 4
@@ -1028,13 +1029,14 @@ def test_langchain_auto_tracing_in_serving_agent():
             input_example=input_example,
         )
 
-    request_id, response, trace_dict = score_in_model_serving(
+    databricks_request_id, response, trace_dict = score_in_model_serving(
         model_info.model_uri,
         input_example,
     )
 
     trace = Trace.from_dict(trace_dict)
-    assert trace.info.request_id == request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == databricks_request_id
     assert trace.info.status == "OK"
 
     spans = trace.data.spans

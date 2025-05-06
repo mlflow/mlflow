@@ -470,6 +470,7 @@ class TracingClient:
             metadata=metadata,
             span_id=span_id,
         )
+
         return self.store.create_assessment(assessment)
 
     def update_assessment(

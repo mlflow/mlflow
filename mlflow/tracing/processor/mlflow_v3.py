@@ -6,7 +6,7 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
-from mlflow.tracing.utils import encode_trace_id
+from mlflow.tracing.utils import generate_trace_id_v3
 
 
 class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
@@ -30,9 +30,7 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
 
         This method is called in the on_start method of the base class.
         """
-        # Use otel-generated trace_id as request_id
-        # The "tr-" prefix is required for determine if the entity is trace from the request_id
-        request_id = "tr-" + encode_trace_id(root_span.context.trace_id)
+        request_id = generate_trace_id_v3(root_span)
 
         # TODO: The V2 TraceInfo object is used here because the trace manager is not migrated
         # to V3 data model yet. However, the actual Trace exported in the exporter is V3 schema.
