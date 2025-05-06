@@ -285,7 +285,7 @@ def test_search_traces_with_assessments(store, tracking_uri):
     # Now when search_traces is called, it should use our trace_info with the assessment
     with mock.patch(
         "mlflow.tracing.client.TracingClient._download_trace_data", return_value=TraceData()
-    ) as mock_download:
+    ):
         res = mlflow.search_traces(
             experiment_ids=["0"],
             max_results=2,
