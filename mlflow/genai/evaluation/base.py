@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
@@ -17,12 +18,21 @@ from mlflow.models.evaluation.base import (
 if TYPE_CHECKING:
     from genai.evaluation.utils import EvaluationDatasetTypes
 
+try:
+    # `pandas` is not required for `mlflow-skinny`.
+    import pandas as pd
+except ImportError:
+    pass
+
+
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
+    result_df: "pd.DataFrame"
 
 
 def evaluate(
@@ -80,10 +90,8 @@ def evaluate(
     """
     if mlflow.get_tracking_uri() != "databricks":
         raise ValueError(
-            (
-                "The genai evaluation function is only supported on Databricks. ",
-                "Please set the tracking URI to Databricks.",
-            )
+            "The genai evaluation function is only supported on Databricks. "
+            "Please set the tracking URI to Databricks."
         )
 
     builtin_scorers = []
@@ -102,11 +110,7 @@ def evaluate(
                 )
             )
 
-    evaluation_config = {
-        GENAI_CONFIG_NAME: {
-            "metrics": [],
-        }
-    }
+    evaluation_config = {}
     for _scorer in builtin_scorers:
         evaluation_config = _scorer.update_evaluation_config(evaluation_config)
 
@@ -118,13 +122,19 @@ def evaluate(
         logger.info("Annotating predict_fn with tracing since it is not already traced.")
         predict_fn = mlflow.trace(predict_fn)
 
-    mlflow.evaluate(
+    result = mlflow.evaluate(
         model=predict_fn,
         # convert into a pandas dataframe with current evaluation set schema
         data=_convert_to_legacy_eval_set(data),
         evaluator_config=evaluation_config,
         extra_metrics=extra_metrics,
         model_type=GENAI_CONFIG_NAME,
+    )
+
+    return EvaluationResult(
+        run_id=result._run_id,
+        metrics=result.metrics,
+        result_df=result.tables["eval_results"],
     )
 
 
