@@ -1,7 +1,6 @@
 import json
 import logging
-import time
-from typing import Optional
+from typing import Any, Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -10,7 +9,6 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
     TRACE_SCHEMA_VERSION,
@@ -31,37 +29,37 @@ from mlflow.tracing.utils import (
 from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
 from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.registry import resolve_tags
-from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
-from mlflow.tracking.fluent import _get_experiment_id, get_active_model_id
+from mlflow.tracking.fluent import _get_experiment_id, _get_latest_active_run, get_active_model_id
 from mlflow.utils.mlflow_tags import TRACE_RESOLVE_TAGS_ALLOWLIST
 
 _logger = logging.getLogger(__name__)
 
 
-class MlflowSpanProcessor(SimpleSpanProcessor):
+class BaseMlflowSpanProcessor(SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
 
-    This processor is used when the tracing destination is MLflow Tracking Server.
     """
 
     def __init__(
         self,
         span_exporter: SpanExporter,
-        tracking_uri: Optional[str] = None,
         experiment_id: Optional[str] = None,
     ):
         self.span_exporter = span_exporter
-        self._client = TracingClient(tracking_uri)
         self._experiment_id = experiment_id
         self._trace_manager = InMemoryTraceManager.get_instance()
 
-        # We issue a warning when a trace is created under the default experiment.
-        # We only want to issue it once, and typically it can be achieved by using
-        # warnings.warn() with filterwarnings setting. However, the de-duplication does
-        # not work in notebooks (https://github.com/ipython/ipython/issues/11207),
-        # so we instead keep track of the warning issuance state manually.
-        self._issued_default_exp_warning = False
+        # Common environment metadata to be saved in the trace info. These should not
+        # change over time, so we resolve them once at the processor initialization.
+        # TODO: Update this to metadata field rather than tags in the follow-up,
+        #   because tags are designed for mutable values.
+        unfiltered_tags = resolve_tags(ignore=[DatabricksRepoRunContext, GitRunContext])
+        self._env_tags = {
+            key: value
+            for key, value in unfiltered_tags.items()
+            if key in TRACE_RESOLVE_TAGS_ALLOWLIST
+        }
 
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
         """
@@ -83,81 +81,14 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
             )
             return
 
-        if not request_id:
-            # If the user started trace/span with fixed start time, this attribute is set
-            start_time_ns = get_otel_attribute(span, SpanAttributeKey.START_TIME_NS)
-
-            trace_info = self._start_trace(span, start_time_ns)
-            self._trace_manager.register_trace(span.context.trace_id, trace_info)
+        if span.parent is None:
+            trace_info = self._start_trace(span)
             request_id = trace_info.request_id
-
-            # NB: This is a workaround to exclude the latency of backend StartTrace API call (within
-            #   _create_trace_info()) from the execution time of the span. The API call takes ~1 sec
-            #   and significantly skews the span duration.
-            if not start_time_ns:
-                span._start_time = time.time_ns()
 
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
 
-    def _start_trace(self, span: OTelSpan, start_time_ns: Optional[int]) -> TraceInfo:
-        from mlflow.tracking.fluent import _get_latest_active_run
-
-        metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
-
-        # If the span is started within an active MLflow run, we should record it as a trace tag
-        # Note `mlflow.active_run()` can only get thread-local active run,
-        # but tracing routine might be applied to model inference worker threads
-        # in the following cases:
-        #  - langchain model `chain.batch` which uses thread pool to spawn workers.
-        #  - MLflow langchain pyfunc model `predict` which calls `api_request_parallel_processor`.
-        # Therefore, we use `_get_global_active_run()` instead to get the active run from
-        # all threads and set it as the tracing source run.
-        if run := _get_latest_active_run():
-            metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
-
-        if model_id := maybe_get_logged_model_id():
-            metadata[TraceMetadataKey.MODEL_ID] = model_id
-
-        experiment_id = self._get_experiment_id_for_trace(span)
-        if experiment_id == DEFAULT_EXPERIMENT_ID and not self._issued_default_exp_warning:
-            _logger.warning(
-                "Creating a trace within the default experiment with id "
-                f"'{DEFAULT_EXPERIMENT_ID}'. It is strongly recommended to not use "
-                "the default experiment to log traces due to ambiguous search results and "
-                "probable performance issues over time due to directory table listing performance "
-                "degradation with high volumes of directories within a specific path. "
-                "To avoid performance and disambiguation issues, set the experiment for "
-                "your environment using `mlflow.set_experiment()` API."
-            )
-            self._issued_default_exp_warning = True
-
-        # Avoid running unnecessary context providers to avoid overhead
-        unfiltered_tags = resolve_tags(ignore=[DatabricksRepoRunContext, GitRunContext])
-        tags = {
-            key: value
-            for key, value in unfiltered_tags.items()
-            if key in TRACE_RESOLVE_TAGS_ALLOWLIST
-        }
-
-        # If the trace is created in the context of MLflow model evaluation, we extract the request
-        # ID from the prediction context. Otherwise, we create a new trace info by calling the
-        # backend API.
-        if request_id := maybe_get_request_id(is_evaluate=True):
-            tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
-        if dependencies_schema := maybe_get_dependencies_schemas():
-            tags.update(dependencies_schema)
-        tags.update({TraceTagKey.TRACE_NAME: span.name})
-
-        return self._client.start_trace(
-            experiment_id=experiment_id,
-            # TODO: This timestamp is not accurate because it is not adjusted to exclude the
-            #   latency of the backend API call. We do this adjustment for span start time
-            #   above, but can't do it for trace start time until the backend API supports
-            #   updating the trace start time.
-            timestamp_ms=(start_time_ns or span.start_time) // 1_000_000,  # ns to ms
-            request_metadata=metadata,
-            tags=tags,
-        )
+    def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
+        raise NotImplementedError("Subclasses must implement this method.")
 
     def on_end(self, span: OTelReadableSpan) -> None:
         """
@@ -170,15 +101,13 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
         if span._parent is not None:
             return
 
-        request_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-        # TODO: We should remove the model ID from the span attributes
-        model_id = get_otel_attribute(span, SpanAttributeKey.MODEL_ID)
-        with self._trace_manager.get_trace(request_id) as trace:
+        trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+        with self._trace_manager.get_trace(trace_id) as trace:
             if trace is None:
-                _logger.debug(f"Trace data with request ID {request_id} not found.")
+                _logger.debug(f"Trace data with request ID {trace_id} not found.")
                 return
 
-            self._update_trace_info(trace, span, model_id)
+            self._update_trace_info(trace, span)
             deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
         super().on_end(span)
@@ -206,9 +135,38 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
 
         return _get_experiment_id()
 
-    def _update_trace_info(
-        self, trace: _Trace, root_span: OTelReadableSpan, model_id: Optional[str]
-    ):
+    def _get_basic_trace_metadata(self) -> dict[str, Any]:
+        metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
+
+        # If the span is started within an active MLflow run, we should record it as a trace tag
+        # Note `mlflow.active_run()` can only get thread-local active run,
+        # but tracing routine might be applied to model inference worker threads
+        # in the following cases:
+        #  - langchain model `chain.batch` which uses thread pool to spawn workers.
+        #  - MLflow langchain pyfunc model `predict` which calls `api_request_parallel_processor`.
+        # Therefore, we use `_get_global_active_run()` instead to get the active run from
+        # all threads and set it as the tracing source run.
+        if run := _get_latest_active_run():
+            metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
+
+        if model_id := maybe_get_logged_model_id():
+            metadata[TraceMetadataKey.MODEL_ID] = model_id
+
+        return metadata
+
+    def _get_basic_trace_tags(self, span: OTelReadableSpan) -> dict[str, Any]:
+        # If the trace is created in the context of MLflow model evaluation, we extract the request
+        # ID from the prediction context. Otherwise, we create a new trace info by calling the
+        # backend API.
+        tags = self._env_tags.copy()
+        if request_id := maybe_get_request_id(is_evaluate=True):
+            tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
+        if dependencies_schema := maybe_get_dependencies_schemas():
+            tags.update(dependencies_schema)
+        tags.update({TraceTagKey.TRACE_NAME: span.name})
+        return tags
+
+    def _update_trace_info(self, trace: _Trace, root_span: OTelReadableSpan):
         """Update the trace info with the final values from the root span."""
         # The trace/span start time needs adjustment to exclude the latency of
         # the backend API call. We already adjusted the span start time in the
@@ -226,9 +184,11 @@ class MlflowSpanProcessor(SimpleSpanProcessor):
                 ),
             }
         )
+
         # model_id is used in start_span and passed as attribute, so it should
         # be used even if active_model_id exists
-        if model_id is not None:
+        # TODO: We should remove the model ID from the span attributes
+        if model_id := get_otel_attribute(root_span, SpanAttributeKey.MODEL_ID):
             trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = model_id
         elif active_model_id := get_active_model_id():
             trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = active_model_id
