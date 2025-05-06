@@ -63,6 +63,7 @@ def test_on_start_during_model_evaluation():
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(request_id)
 
 
+@skip_when_testing_trace_sdk
 def test_on_start_during_run(monkeypatch):
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
