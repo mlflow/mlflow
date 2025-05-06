@@ -396,7 +396,8 @@ def test_trace_in_databricks_model_serving(
 
     trace_dict = response.json["trace"]
     trace = Trace.from_dict(trace_dict)
-    assert trace.info.trace_id == databricks_request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == databricks_request_id
     assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
     assert len(trace.data.spans) == 3
 
@@ -409,7 +410,7 @@ def test_trace_in_databricks_model_serving(
     assert root_span.status.status_code.value == "OK"
     assert root_span.status.description == ""
     assert root_span.attributes == {
-        "mlflow.traceRequestId": databricks_request_id,
+        "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.UNKNOWN,
         "mlflow.spanFunctionName": "predict",
         "mlflow.spanInputs": {"x": 2, "y": 5},
@@ -421,7 +422,7 @@ def test_trace_in_databricks_model_serving(
     assert child_span_1.parent_id == root_span.span_id
     assert child_span_1.attributes == {
         "delta": 1,
-        "mlflow.traceRequestId": databricks_request_id,
+        "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.LLM,
         "mlflow.spanFunctionName": "add_one",
         "mlflow.spanInputs": {"z": 7},
@@ -432,7 +433,7 @@ def test_trace_in_databricks_model_serving(
     child_span_2 = span_name_to_span["square"]
     assert child_span_2.parent_id == root_span.span_id
     assert child_span_2.attributes == {
-        "mlflow.traceRequestId": databricks_request_id,
+        "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.UNKNOWN,
     }
     assert asdict(child_span_2.events[0]) == {
@@ -1510,9 +1511,10 @@ def test_add_trace_in_databricks_model_serving(mock_databricks_serving_with_trac
     # Pop the trace to be written to the inference table
     trace = Trace.from_dict(pop_trace(request_id=db_request_id))
 
-    assert trace.info.trace_id == db_request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == db_request_id
     assert len(trace.data.spans) == 3
-    assert all(span.trace_id == db_request_id for span in trace.data.spans)
+    assert all(span.trace_id == trace.info.trace_id for span in trace.data.spans)
     parent_span, child_span, grandchild_span = trace.data.spans
     assert child_span.parent_id == parent_span.span_id
     assert child_span._trace_id == parent_span._trace_id
