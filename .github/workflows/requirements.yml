@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
+  MLFLOW_HOME: ${{ github.workspace }}
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
   PYTHON_VERSION: "3.10" # minimum supported version + 1

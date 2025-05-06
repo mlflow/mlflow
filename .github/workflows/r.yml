@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
+  MLFLOW_HOME: ${{ github.workspace }}
 
 jobs:
   r:

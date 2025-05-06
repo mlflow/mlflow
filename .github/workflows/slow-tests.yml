@@ -36,7 +36,7 @@ defaults:
 
 env:
   MLFLOW_RUN_SLOW_TESTS: "true"
-  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
+  MLFLOW_HOME: ${{ github.workspace }}
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 

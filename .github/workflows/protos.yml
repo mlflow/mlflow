@@ -18,7 +18,7 @@ on:
       - requirements/core-requirements.txt
 
 env:
-  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
+  MLFLOW_HOME: ${{ github.workspace }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
