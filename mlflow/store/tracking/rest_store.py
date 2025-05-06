@@ -364,7 +364,8 @@ class RestStore(AbstractStore):
             )
         )
         # EndTrace endpoint is a dynamic path built with the request_id
-        endpoint = get_single_trace_endpoint(request_id)
+        # Always use v2 endpoint
+        endpoint = get_single_trace_endpoint(request_id, is_databricks=False)
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfo.from_proto(response_proto.trace_info)
 
@@ -515,8 +516,13 @@ class RestStore(AbstractStore):
             key: The string key of the tag.
             value: The string value of the tag.
         """
+        # Always use v2 endpoint
         req_body = message_to_json(SetTraceTag(key=key, value=value))
-        self._call_endpoint(SetTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id))
+        self._call_endpoint(
+            SetTraceTag, 
+            req_body, 
+            endpoint=get_set_trace_tag_endpoint(request_id, is_databricks=False)
+        )
 
     def delete_trace_tag(self, request_id: str, key: str):
         """
@@ -526,9 +532,12 @@ class RestStore(AbstractStore):
             request_id: The ID of the trace.
             key: The string key of the tag.
         """
+        # Always use v2 endpoint
         req_body = message_to_json(DeleteTraceTag(key=key))
         self._call_endpoint(
-            DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
+            DeleteTraceTag, 
+            req_body, 
+            endpoint=get_set_trace_tag_endpoint(request_id, is_databricks=False)
         )
 
     def create_assessment(self, assessment: Assessment) -> Assessment:

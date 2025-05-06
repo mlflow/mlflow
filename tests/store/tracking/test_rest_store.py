@@ -716,7 +716,7 @@ def test_end_trace():
                 f"traces/{request_id}", 
                 "PATCH", 
                 message_to_json(expected_request),
-                use_v3=True
+                use_v3=False
             )
             assert isinstance(res, TraceInfo)
             assert res.request_id == request_id
@@ -825,7 +825,7 @@ def test_set_trace_tag():
                 f"traces/{request_id}/tags", 
                 "PATCH", 
                 message_to_json(request),
-                use_v3=True
+                use_v3=False
             )
             assert res is None
 
