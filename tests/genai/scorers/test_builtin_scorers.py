@@ -81,7 +81,6 @@ def test_evaluate_parameters():
         mlflow.genai.evaluate(
             data=data,
             scorers=ALL_SCORERS,
-            model_id="test_model_id",
         )
 
         # Verify the call was made with the right parameters
@@ -91,7 +90,6 @@ def test_evaluate_parameters():
             evaluator_config=expected,
             extra_metrics=[],
             model_type=GENAI_CONFIG_NAME,
-            model_id="test_model_id",
         )
 
 
