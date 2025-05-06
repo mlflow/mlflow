@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 import mlflow.genai.evaluation
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 
@@ -88,7 +89,7 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
         mock_evaluate.assert_called_once_with(
             model=model,
             data=data,
-            evaluator_config={"databricks-agent": {"metrics": []}},
+            evaluator_config={GENAI_CONFIG_NAME: {"metrics": []}},
             model_type="databricks-agent",
             extra_metrics=[],
             model_id="test_model_id",
