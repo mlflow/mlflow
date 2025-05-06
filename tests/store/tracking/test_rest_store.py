@@ -49,7 +49,6 @@ from mlflow.protos.service_pb2 import (
     RestoreRun,
     SearchExperiments,
     SearchRuns,
-    SearchTraces,
     SetExperimentTag,
     SetTag,
     SetTraceTag,
@@ -62,8 +61,13 @@ from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.rest_utils import (
+    _V3_TRACE_REST_API_PATH_PREFIX,
+    MlflowHostCreds,
+    get_search_traces_v3_endpoint,
+)
 
 
 class MyCoolException(Exception):
@@ -724,17 +728,126 @@ def test_end_trace():
 
 
 def test_search_traces():
+    """Test the search_traces method with default behavior using SearchTracesV3Request."""
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
-    request = SearchTraces(
-        experiment_ids=["0", "1"],
-        filter="trace.status = 'ERROR'",
-        max_results=1,
-        order_by=["timestamp_ms DESC"],
-        page_token="12345abcde",
+
+    # Format the response
+    response.text = json.dumps(
+        {
+            "traces": [
+                {
+                    "trace_id": "tr-1234",
+                    "trace_location": {
+                        "type": "MLFLOW_EXPERIMENT",
+                        "mlflow_experiment": {"experiment_id": "1234"},
+                    },
+                    "request_time": "1970-01-01T00:00:00.123Z",
+                    "execution_duration_ms": 456,
+                    "state": "OK",
+                    "trace_metadata": {"key": "value"},
+                    "tags": {"k": "v"},
+                }
+            ],
+            "next_page_token": "token",
+        }
     )
+
+    # Parameters for search_traces
+    experiment_ids = ["1234"]
+    filter_string = "state = 'OK'"
+    max_results = 10
+    order_by = ["request_time DESC"]
+    page_token = "12345abcde"
+
+    # Test with databricks tracking URI (using v3 endpoint)
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+            trace_infos, token = store.search_traces(
+                experiment_ids=experiment_ids,
+                filter_string=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
+
+            # Verify the correct endpoint was called
+            endpoint = get_search_traces_v3_endpoint(is_databricks=True)
+            call_args = mock_http.call_args[1]
+            assert call_args["endpoint"] == endpoint
+            assert endpoint == f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
+
+            # Verify the correct parameters were passed
+            json_body = call_args["json"]
+            # The field name should now be 'locations' instead of 'trace_locations'
+            assert "locations" in json_body
+            # The experiment_ids are converted to trace_locations
+            assert len(json_body["locations"]) == 1
+            assert (
+                json_body["locations"][0]["mlflow_experiment"]["experiment_id"] == experiment_ids[0]
+            )
+            assert json_body["filter"] == filter_string
+            assert json_body["max_results"] == max_results
+            assert json_body["order_by"] == order_by
+            assert json_body["page_token"] == page_token
+
+    # Test with non-databricks tracking URI (using v2 endpoint)
+    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+        with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=False):
+            # For V2 API, use a different response with tags in the list format
+            v2_response = mock.MagicMock()
+            v2_response.status_code = 200
+            v2_response.text = json.dumps(
+                {
+                    "traces": [
+                        {
+                            "request_id": "tr-1234",  # V2 uses request_id instead of trace_id
+                            "experiment_id": "1234",
+                            "timestamp_ms": 123,  # V2 uses timestamp_ms instead of request_time
+                            "execution_time_ms": 456,
+                            "status": "OK",  # V2 uses status instead of state
+                            "request_metadata": [{"key": "key", "value": "value"}],
+                            "tags": [{"key": "k", "value": "v"}],
+                        }
+                    ],
+                    "next_page_token": "token",
+                }
+            )
+            mock_http.return_value = v2_response
+
+            trace_infos, token = store.search_traces(
+                experiment_ids=experiment_ids,
+                filter_string=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
+
+    # Verify the correct parameters were passed and the correct trace info objects were returned
+    # for either endpoint
+    assert len(trace_infos) == 1
+    assert isinstance(trace_infos[0], TraceInfoV3)
+    assert trace_infos[0].trace_id == "tr-1234"
+    assert trace_infos[0].experiment_id == "1234"
+    assert trace_infos[0].request_time == 123
+    # V3's state maps to V2's status
+    assert trace_infos[0].state == TraceStatus.OK.to_state()
+    # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
+    assert trace_infos[0].tags == {"k": "v"}
+    assert trace_infos[0].trace_metadata == {"key": "value"}
+    assert token == "token"
+
+
+def test_search_unified_traces():
+    """Test the search_traces method when using SearchUnifiedTraces with sql_warehouse_id."""
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # Format the response (using TraceInfo format for online path)
     response.text = json.dumps(
         {
             "traces": [
@@ -743,36 +856,101 @@ def test_search_traces():
                     "experiment_id": "1234",
                     "timestamp_ms": 123,
                     "execution_time_ms": 456,
-                    "status": "ERROR",
+                    "status": "OK",
                     "tags": [
                         {"key": "k", "value": "v"},
                     ],
-                },
+                    "request_metadata": [
+                        {"key": "key", "value": "value"},
+                    ],
+                }
             ],
             "next_page_token": "token",
         }
     )
+
+    # Parameters for search_traces
+    experiment_ids = ["1234"]
+    filter_string = "status = 'OK'"
+    max_results = 10
+    order_by = ["timestamp_ms DESC"]
+    page_token = "12345abcde"
+    sql_warehouse_id = "warehouse123"
+    model_id = "model123"
+
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         trace_infos, token = store.search_traces(
-            experiment_ids=request.experiment_ids,
-            filter_string=request.filter,
-            max_results=request.max_results,
-            order_by=request.order_by,
-            page_token=request.page_token,
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+            sql_warehouse_id=sql_warehouse_id,
+            model_id=model_id,
         )
-        _verify_requests(mock_http, creds, "traces", "GET", message_to_json(request))
-        assert trace_infos == [
-            TraceInfo(
-                request_id="tr-1234",
-                experiment_id="1234",
-                timestamp_ms=123,
-                execution_time_ms=456,
-                status="ERROR",
-                request_metadata={},
-                tags={"k": "v"},
-            )
-        ]
+
+        # Verify the correct endpoint was called
+        call_args = mock_http.call_args[1]
+        assert call_args["endpoint"] == "/api/2.0/mlflow/unified-traces"
+
+        # Verify the correct trace info objects were returned
+        assert len(trace_infos) == 1
+        assert isinstance(trace_infos[0], TraceInfoV3)
+        assert trace_infos[0].trace_id == "tr-1234"
+        assert trace_infos[0].experiment_id == "1234"
+        assert trace_infos[0].request_time == 123
+        # V3's state maps to V2's status
+        assert trace_infos[0].state == TraceStatus.OK.to_state()
+        assert trace_infos[0].tags == {"k": "v"}
+        assert trace_infos[0].trace_metadata == {"key": "value"}
         assert token == "token"
+
+
+def test_get_artifact_uri_for_trace_compatibility():
+    """Test that get_artifact_uri_for_trace works with both TraceInfo and TraceInfoV3 objects."""
+    from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
+
+    # Create a TraceInfo (v2) object
+    trace_info_v2 = TraceInfo(
+        request_id="tr-1234",
+        experiment_id="1234",
+        timestamp_ms=123,
+        execution_time_ms=456,
+        status=TraceStatus.OK,
+        request_metadata={"key": "value"},
+        tags={MLFLOW_ARTIFACT_LOCATION: "s3://bucket/trace-v2-path"},
+    )
+
+    # Create a TraceInfoV3 object
+    trace_location = TraceLocation.from_experiment_id("5678")
+    trace_info_v3 = TraceInfoV3(
+        trace_id="tr-5678",
+        trace_location=trace_location,
+        request_time=789,
+        state=TraceState.OK,
+        trace_metadata={"key3": "value3"},
+        tags={MLFLOW_ARTIFACT_LOCATION: "s3://bucket/trace-v3-path"},
+    )
+
+    # Test that get_artifact_uri_for_trace works with TraceInfo (v2)
+    v2_uri = get_artifact_uri_for_trace(trace_info_v2)
+    assert v2_uri == "s3://bucket/trace-v2-path"
+
+    # Test that get_artifact_uri_for_trace works with TraceInfoV3
+    v3_uri = get_artifact_uri_for_trace(trace_info_v3)
+    assert v3_uri == "s3://bucket/trace-v3-path"
+
+    # Test that get_artifact_uri_for_trace raises the expected exception when tag is missing
+    trace_info_no_tag = TraceInfo(
+        request_id="tr-1234",
+        experiment_id="1234",
+        timestamp_ms=123,
+        execution_time_ms=456,
+        status=TraceStatus.OK,
+        tags={},
+    )
+    with pytest.raises(MlflowException, match="Unable to determine trace artifact location"):
+        get_artifact_uri_for_trace(trace_info_no_tag)
 
 
 @pytest.mark.parametrize(

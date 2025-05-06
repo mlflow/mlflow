@@ -1,7 +1,7 @@
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
@@ -285,27 +285,32 @@ class TracingClient:
                 else None
             )
 
-        def download_trace_extra_fields(trace_info: TraceInfo) -> Optional[Trace]:
+        def download_trace_extra_fields(
+            trace_info: Union[TraceInfo, TraceInfoV3],
+        ) -> Optional[Trace]:
             """
             Download trace data and assessments for the given trace_info and returns a Trace object.
             If the download fails (e.g., the trace data is missing or corrupted), returns None.
+
+            The trace_info parameter can be either TraceInfo or TraceInfoV3 object.
             """
-            # Only the Databricks backend supports additional assessments; avoid making
-            # an unnecessary duplicate call to GET trace_info if not necessary.
-            is_online_trace = is_uuid(trace_info.request_id)
-            if is_databricks and not is_online_trace:
-                trace_info_with_assessments = self.get_trace_info(
-                    trace_info.request_id, should_query_v3=True
-                )
-                trace_info.assessments = trace_info_with_assessments.assessments
+            from mlflow.entities.trace_info_v3 import TraceInfoV3
+
+            # Determine if this is TraceInfo or TraceInfoV3
+            # Helps while transitioning to V3 traces for offline & online
+            is_v3 = isinstance(trace_info, TraceInfoV3)
+            trace_id = trace_info.trace_id if is_v3 else trace_info.request_id
+            is_online_trace = is_uuid(trace_id)
 
             if not include_spans:
                 return Trace(trace_info, TraceData(spans=[]))
 
+            # For online traces in Databricks, we need to get trace data from a different endpoint
             try:
                 if is_databricks and is_online_trace:
+                    # For online traces, get data from the online API
                     trace_data = self.get_online_trace_details(
-                        trace_info.request_id,
+                        trace_id=trace_id,
                         sql_warehouse_id=sql_warehouse_id,
                         source_inference_table=trace_info.request_metadata.get(
                             "mlflow.sourceTable"
@@ -316,11 +321,12 @@ class TracingClient:
                     )
                     trace_data = TraceData.from_dict(json.loads(trace_data))
                 else:
+                    # For offline traces, download data from artifact storage
                     trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataException as e:
                 _logger.warning(
                     (
-                        f"Failed to download trace data for trace {trace_info.request_id!r} "
+                        f"Failed to download trace data for trace {trace_id!r} "
                         f"with {e.ctx}. For full traceback, set logging level to DEBUG."
                     ),
                     exc_info=_logger.isEnabledFor(logging.DEBUG),
@@ -532,7 +538,16 @@ class TracingClient:
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
-    def _download_trace_data(self, trace_info: TraceInfo) -> TraceData:
+    def _download_trace_data(self, trace_info: Union[TraceInfo, TraceInfoV3]) -> TraceData:
+        """
+        Download trace data from artifact repository.
+
+        Args:
+            trace_info: Either a TraceInfo or TraceInfoV3 object containing trace metadata.
+
+        Returns:
+            TraceData object representing the downloaded trace data.
+        """
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         return TraceData.from_dict(artifact_repo.download_trace_data())
 
