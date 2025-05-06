@@ -80,10 +80,8 @@ def evaluate(
     """
     if mlflow.get_tracking_uri() != "databricks":
         raise ValueError(
-            (
-                "The genai evaluation function is only supported on Databricks. ",
-                "Please set the tracking URI to Databricks.",
-            )
+            "The genai evaluation function is only supported on Databricks. "
+            "Please set the tracking URI to Databricks."
         )
 
     builtin_scorers = []
