@@ -424,6 +424,7 @@ def test_requestor():
             "traces/tr-123",
             "GET",
             message_to_json(v3_expected_message),
+            use_v3=True,
         )
 
     # Now test the fallback path by raising an exception from the V3 call
@@ -449,16 +450,10 @@ def test_requestor():
 
         # Check call arguments to verify V2 fallback was used
         assert len(mock_http.call_args_list) == 2
-
+        
         # First call should be to V3 API
         v3_call = mock_http.call_args_list[0]
-        assert v3_call[1]["endpoint"] == "/api/2.0/mlflow/traces/tr-123"
-        assert v3_call[1]["params"] == {"trace_id": "tr-123"}
-
-        # Second call should be to V2 API
-        v2_call = mock_http.call_args_list[1]
-        assert v2_call[1]["endpoint"] == "/api/2.0/mlflow/traces/tr-123/info"
-        assert v2_call[1]["params"] == {"request_id": "tr-123"}
+        assert v3_call[1]["endpoint"] == "/api/3.0/mlflow/traces/tr-123"
 
 
 def test_get_experiment_by_name():

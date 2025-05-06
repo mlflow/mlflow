@@ -364,8 +364,8 @@ class RestStore(AbstractStore):
             )
         )
         # EndTrace endpoint is a dynamic path built with the request_id
-        # Always use v2 endpoint
-        endpoint = get_single_trace_endpoint(request_id, is_databricks=False)
+        # Always use v2 endpoint (not v3) for this endpoint to maintain compatibility
+        endpoint = get_single_trace_endpoint(request_id, use_v3=False)
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfo.from_proto(response_proto.trace_info)
 
@@ -400,13 +400,11 @@ class RestStore(AbstractStore):
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
         # If explicitly set, use the provided value, otherwise detect based on the tracking URI
-        use_v3 = should_query_v3 or self._is_databricks_tracking_uri()
-        is_databricks = self._is_databricks_tracking_uri()
 
-        if use_v3:
+        if should_query_v3:
             trace_v3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
             trace_v3_endpoint = get_trace_assessment_endpoint(
-                request_id, is_databricks=is_databricks
+                request_id, is_databricks=should_query_v3
             )
             try:
                 trace_v3_response_proto = self._call_endpoint(

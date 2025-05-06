@@ -358,7 +358,7 @@ def extract_all_api_info_for_service(service, path_prefix):
     return res
 
 
-def get_single_trace_endpoint(request_id, is_databricks=False):
+def get_single_trace_endpoint(request_id, use_v3=False):
     """
     Get the endpoint for a single trace.
     For Databricks tracking URIs, use the V3 API.
@@ -368,7 +368,7 @@ def get_single_trace_endpoint(request_id, is_databricks=False):
         request_id: The trace ID.
         is_databricks: Whether the tracking URI is a Databricks URI.
     """
-    if is_databricks:
+    if use_v3:
         return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{request_id}"
     return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}"
 
@@ -389,7 +389,7 @@ def get_trace_assessment_endpoint(request_id, is_databricks=False):
         request_id: The trace ID.
         is_databricks: Whether the tracking URI is a Databricks URI.
     """
-    return get_single_trace_endpoint(request_id, is_databricks)
+    return get_single_trace_endpoint(request_id, use_v3=is_databricks)
 
 
 def get_set_trace_tag_endpoint(request_id, is_databricks=False):
@@ -400,7 +400,7 @@ def get_set_trace_tag_endpoint(request_id, is_databricks=False):
         request_id: The trace ID.
         is_databricks: Whether the tracking URI is a Databricks URI.
     """
-    return f"{get_single_trace_endpoint(request_id, is_databricks)}/tags"
+    return f"{get_single_trace_endpoint(request_id, use_v3=is_databricks)}/tags"
 
 
 def get_create_assessment_endpoint(trace_id: str, is_databricks=False):
