@@ -398,9 +398,13 @@ class RestStore(AbstractStore):
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
-        if should_query_v3:
+        # If explicitly set, use the provided value, otherwise detect based on the tracking URI
+        use_v3 = should_query_v3 or self._is_databricks_tracking_uri()
+        is_databricks = self._is_databricks_tracking_uri()
+        
+        if use_v3:
             trace_v3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
-            trace_v3_endpoint = get_trace_assessment_endpoint(request_id)
+            trace_v3_endpoint = get_trace_assessment_endpoint(request_id, is_databricks=is_databricks)
             try:
                 trace_v3_response_proto = self._call_endpoint(
                     GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
@@ -416,6 +420,19 @@ class RestStore(AbstractStore):
         endpoint = get_trace_info_endpoint(request_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
         return TraceInfo.from_proto(response_proto.trace_info)
+
+    def _is_databricks_tracking_uri(self):
+        """
+        Check if the tracking URI associated with this store is a Databricks URI.
+        """
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.uri import is_databricks_uri
+        
+        try:
+            tracking_uri = get_tracking_uri()
+            return is_databricks_uri(tracking_uri)
+        except Exception:
+            return False
 
     def get_online_trace_details(
         self,
@@ -524,11 +541,12 @@ class RestStore(AbstractStore):
         Returns:
             The created Assessment object.
         """
+        is_databricks = self._is_databricks_tracking_uri()
         req_body = message_to_json(CreateAssessment(assessment=assessment.to_proto()))
         response_proto = self._call_endpoint(
             CreateAssessment,
             req_body,
-            endpoint=get_create_assessment_endpoint(assessment.trace_id),
+            endpoint=get_create_assessment_endpoint(assessment.trace_id, is_databricks=is_databricks),
         )
         return Assessment.from_proto(response_proto.assessment)
 
@@ -559,6 +577,7 @@ class RestStore(AbstractStore):
                 "Exactly one of `expectation` or `feedback` should be specified."
             )
 
+        is_databricks = self._is_databricks_tracking_uri()
         update = UpdateAssessment()
 
         # The assessment object to be sent to the backend (only contains fields to update and IDs)
@@ -589,7 +608,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(
             UpdateAssessment,
             req_body,
-            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
+            endpoint=get_single_assessment_endpoint(trace_id, assessment_id, is_databricks=is_databricks),
         )
         return Assessment.from_proto(response_proto.assessment)
 
@@ -601,11 +620,12 @@ class RestStore(AbstractStore):
             trace_id: String ID of the trace.
             assessment_id: String ID of the assessment to delete.
         """
+        is_databricks = self._is_databricks_tracking_uri()
         req_body = message_to_json(DeleteAssessment(trace_id=trace_id, assessment_id=assessment_id))
         self._call_endpoint(
             DeleteAssessment,
             req_body,
-            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
+            endpoint=get_single_assessment_endpoint(trace_id, assessment_id, is_databricks=is_databricks),
         )
 
     def log_metric(self, run_id: str, metric: Metric):

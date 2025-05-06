@@ -700,30 +700,32 @@ def test_end_trace():
             }
         }
     )
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.end_trace(
-            request_id=request_id,
-            timestamp_ms=timestamp_ms,
-            status=status,
-            request_metadata=metadata,
-            tags=tags,
-        )
-        _verify_requests(
-            mock_http, 
-            creds, 
-            f"traces/{request_id}", 
-            "PATCH", 
-            message_to_json(expected_request),
-            use_v3=True
-        )
-        assert isinstance(res, TraceInfo)
-        assert res.request_id == request_id
-        assert res.experiment_id == experiment_id
-        assert res.timestamp_ms == timestamp_ms
-        assert res.execution_time_ms == 12345
-        assert res.status == TraceStatus.OK
-        assert res.request_metadata == metadata
-        assert res.tags == tags
+    
+    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+        with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+            res = store.end_trace(
+                request_id=request_id,
+                timestamp_ms=timestamp_ms,
+                status=status,
+                request_metadata=metadata,
+                tags=tags,
+            )
+            _verify_requests(
+                mock_http, 
+                creds, 
+                f"traces/{request_id}", 
+                "PATCH", 
+                message_to_json(expected_request),
+                use_v3=True
+            )
+            assert isinstance(res, TraceInfo)
+            assert res.request_id == request_id
+            assert res.experiment_id == experiment_id
+            assert res.timestamp_ms == timestamp_ms
+            assert res.execution_time_ms == 12345
+            assert res.status == TraceStatus.OK
+            assert res.request_metadata == metadata
+            assert res.tags == tags
 
 
 def test_search_traces():
@@ -809,21 +811,23 @@ def test_set_trace_tag():
         value="v",
     )
     response.text = "{}"
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.set_trace_tag(
-            request_id=request_id,
-            key=request.key,
-            value=request.value,
-        )
-        _verify_requests(
-            mock_http, 
-            creds, 
-            f"traces/{request_id}/tags", 
-            "PATCH", 
-            message_to_json(request),
-            use_v3=True
-        )
-        assert res is None
+    
+    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+        with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+            res = store.set_trace_tag(
+                request_id=request_id,
+                key=request.key,
+                value=request.value,
+            )
+            _verify_requests(
+                mock_http, 
+                creds, 
+                f"traces/{request_id}/tags", 
+                "PATCH", 
+                message_to_json(request),
+                use_v3=True
+            )
+            assert res is None
 
 
 def test_log_assessment():
@@ -867,18 +871,19 @@ def test_log_assessment():
     )
 
     request = CreateAssessment(assessment=assessment.to_proto())
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.create_assessment(assessment)
+    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+        with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+            res = store.create_assessment(assessment)
 
-    _verify_requests(
-        mock_http,
-        creds,
-        "traces/tr-1234/assessments",
-        "POST",
-        message_to_json(request),
-        use_v3=True
-    )
-    assert isinstance(res, Assessment)
+            _verify_requests(
+                mock_http,
+                creds,
+                "traces/tr-1234/assessments",
+                "POST",
+                message_to_json(request),
+                use_v3=True
+            )
+            assert isinstance(res, Assessment)
 
 
 @pytest.mark.parametrize(
@@ -951,22 +956,45 @@ def test_update_assessment(updates, expected_request_json):
         }
     )
 
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.update_assessment(
-            trace_id="tr-1234",
-            assessment_id="1234",
-            **updates,
-        )
+    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+        with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+            res = store.update_assessment(
+                trace_id="tr-1234",
+                assessment_id="1234",
+                **updates,
+            )
 
-    _verify_requests(
-        mock_http,
-        creds,
-        "traces/tr-1234/assessments/1234",
-        "PATCH",
-        json.dumps(expected_request_json),
-        use_v3=True
-    )
-    assert isinstance(res, Assessment)
+            _verify_requests(
+                mock_http,
+                creds,
+                "traces/tr-1234/assessments/1234",
+                "PATCH",
+                json.dumps(expected_request_json),
+                use_v3=True
+            )
+            assert isinstance(res, Assessment)
+
+
+def test_delete_assessment():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+        with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+            store.delete_assessment(trace_id="tr-1234", assessment_id="1234")
+
+        expected_request_json = {"assessment_id": "1234", "trace_id": "tr-1234"}
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/tr-1234/assessments/1234",
+            "DELETE",
+            json.dumps(expected_request_json),
+            use_v3=True
+        )
 
 
 def test_update_assessment_invalid_update():
@@ -980,27 +1008,6 @@ def test_update_assessment_invalid_update():
             expectation=Expectation(value="updated_value"),
             feedback=Feedback(value=0.5),
         )
-
-
-def test_delete_assessment():
-    creds = MlflowHostCreds("https://hello")
-    store = RestStore(lambda: creds)
-    response = mock.MagicMock()
-    response.status_code = 200
-    response.text = "{}"
-
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        store.delete_assessment(trace_id="tr-1234", assessment_id="1234")
-
-    expected_request_json = {"assessment_id": "1234", "trace_id": "tr-1234"}
-    _verify_requests(
-        mock_http,
-        creds,
-        "traces/tr-1234/assessments/1234",
-        "DELETE",
-        json.dumps(expected_request_json),
-        use_v3=True
-    )
 
 
 def test_get_trace_info_v3_api():
