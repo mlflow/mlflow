@@ -847,6 +847,8 @@ pydantic_ai:
     install_dev: |
       # Install the stable version first to install dependencies
       pip install pydantic-ai 
+      # We need to install deno to run test suite for MCPServer as deno is used to start the MCPServer
+      curl -fsSL https://deno.land/install.sh | sh -s -- -y --no-modify-path
       # Update key libraries from source w/ no-deps
       pip install --no-deps \
       # We need to install pydantic_graph and pydantic_ai_slim as pydantic_ai is dependent on both of them
