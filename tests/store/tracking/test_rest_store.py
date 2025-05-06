@@ -169,7 +169,7 @@ def _args(host_creds, endpoint, method, json_body):
 def _verify_requests(http_request, host_creds, endpoint, method, json_body, use_v3=False):
     """
     Verify HTTP requests in tests.
-    
+
     Args:
         http_request: The mocked HTTP request object
         host_creds: MlflowHostCreds object
@@ -700,7 +700,7 @@ def test_end_trace():
             }
         }
     )
-    
+
     with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
         with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
             res = store.end_trace(
@@ -711,12 +711,12 @@ def test_end_trace():
                 tags=tags,
             )
             _verify_requests(
-                mock_http, 
-                creds, 
-                f"traces/{request_id}", 
-                "PATCH", 
+                mock_http,
+                creds,
+                f"traces/{request_id}",
+                "PATCH",
                 message_to_json(expected_request),
-                use_v3=False
+                use_v3=False,
             )
             assert isinstance(res, TraceInfo)
             assert res.request_id == request_id
@@ -811,7 +811,7 @@ def test_set_trace_tag():
         value="v",
     )
     response.text = "{}"
-    
+
     with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
         with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
             res = store.set_trace_tag(
@@ -820,12 +820,12 @@ def test_set_trace_tag():
                 value=request.value,
             )
             _verify_requests(
-                mock_http, 
-                creds, 
-                f"traces/{request_id}/tags", 
-                "PATCH", 
+                mock_http,
+                creds,
+                f"traces/{request_id}/tags",
+                "PATCH",
                 message_to_json(request),
-                use_v3=False
+                use_v3=False,
             )
             assert res is None
 
@@ -881,7 +881,7 @@ def test_log_assessment():
                 "traces/tr-1234/assessments",
                 "POST",
                 message_to_json(request),
-                use_v3=True
+                use_v3=True,
             )
             assert isinstance(res, Assessment)
 
@@ -970,7 +970,7 @@ def test_update_assessment(updates, expected_request_json):
                 "traces/tr-1234/assessments/1234",
                 "PATCH",
                 json.dumps(expected_request_json),
-                use_v3=True
+                use_v3=True,
             )
             assert isinstance(res, Assessment)
 
@@ -993,7 +993,7 @@ def test_delete_assessment():
             "traces/tr-1234/assessments/1234",
             "DELETE",
             json.dumps(expected_request_json),
-            use_v3=True
+            use_v3=True,
         )
 
 

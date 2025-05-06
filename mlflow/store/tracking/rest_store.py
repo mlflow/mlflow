@@ -402,10 +402,12 @@ class RestStore(AbstractStore):
         # If explicitly set, use the provided value, otherwise detect based on the tracking URI
         use_v3 = should_query_v3 or self._is_databricks_tracking_uri()
         is_databricks = self._is_databricks_tracking_uri()
-        
+
         if use_v3:
             trace_v3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
-            trace_v3_endpoint = get_trace_assessment_endpoint(request_id, is_databricks=is_databricks)
+            trace_v3_endpoint = get_trace_assessment_endpoint(
+                request_id, is_databricks=is_databricks
+            )
             try:
                 trace_v3_response_proto = self._call_endpoint(
                     GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
@@ -428,7 +430,7 @@ class RestStore(AbstractStore):
         """
         from mlflow.tracking._tracking_service.utils import get_tracking_uri
         from mlflow.utils.uri import is_databricks_uri
-        
+
         try:
             tracking_uri = get_tracking_uri()
             return is_databricks_uri(tracking_uri)
@@ -519,9 +521,9 @@ class RestStore(AbstractStore):
         # Always use v2 endpoint
         req_body = message_to_json(SetTraceTag(key=key, value=value))
         self._call_endpoint(
-            SetTraceTag, 
-            req_body, 
-            endpoint=get_set_trace_tag_endpoint(request_id, is_databricks=False)
+            SetTraceTag,
+            req_body,
+            endpoint=get_set_trace_tag_endpoint(request_id, is_databricks=False),
         )
 
     def delete_trace_tag(self, request_id: str, key: str):
@@ -535,9 +537,9 @@ class RestStore(AbstractStore):
         # Always use v2 endpoint
         req_body = message_to_json(DeleteTraceTag(key=key))
         self._call_endpoint(
-            DeleteTraceTag, 
-            req_body, 
-            endpoint=get_set_trace_tag_endpoint(request_id, is_databricks=False)
+            DeleteTraceTag,
+            req_body,
+            endpoint=get_set_trace_tag_endpoint(request_id, is_databricks=False),
         )
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
@@ -555,7 +557,9 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(
             CreateAssessment,
             req_body,
-            endpoint=get_create_assessment_endpoint(assessment.trace_id, is_databricks=is_databricks),
+            endpoint=get_create_assessment_endpoint(
+                assessment.trace_id, is_databricks=is_databricks
+            ),
         )
         return Assessment.from_proto(response_proto.assessment)
 
@@ -617,7 +621,9 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(
             UpdateAssessment,
             req_body,
-            endpoint=get_single_assessment_endpoint(trace_id, assessment_id, is_databricks=is_databricks),
+            endpoint=get_single_assessment_endpoint(
+                trace_id, assessment_id, is_databricks=is_databricks
+            ),
         )
         return Assessment.from_proto(response_proto.assessment)
 
@@ -634,7 +640,9 @@ class RestStore(AbstractStore):
         self._call_endpoint(
             DeleteAssessment,
             req_body,
-            endpoint=get_single_assessment_endpoint(trace_id, assessment_id, is_databricks=is_databricks),
+            endpoint=get_single_assessment_endpoint(
+                trace_id, assessment_id, is_databricks=is_databricks
+            ),
         )
 
     def log_metric(self, run_id: str, metric: Metric):
