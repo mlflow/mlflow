@@ -19,7 +19,9 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -59,6 +61,7 @@ from mlflow.protos.service_pb2 import (
     SearchLoggedModels,
     SearchRuns,
     SearchTraces,
+    SearchTracesV3Request,
     SearchUnifiedTraces,
     SetExperimentTag,
     SetLoggedModelTags,
@@ -82,6 +85,7 @@ from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
     get_create_assessment_endpoint,
     get_logged_model_endpoint,
+    get_search_traces_v3_endpoint,
     get_set_trace_tag_endpoint,
     get_single_assessment_endpoint,
     get_single_trace_endpoint,
@@ -463,15 +467,59 @@ class RestStore(AbstractStore):
         sql_warehouse_id: Optional[str] = None,
     ):
         if sql_warehouse_id is None:
-            request = SearchTraces(
-                experiment_ids=experiment_ids,
-                filter=filter_string,
-                max_results=max_results,
-                order_by=order_by,
-                page_token=page_token,
-            )
-            req_body = message_to_json(request)
-            response_proto = self._call_endpoint(SearchTraces, req_body)
+            is_databricks = self._is_databricks_tracking_uri()
+
+            if is_databricks:
+                # Create trace_locations from experiment_ids for the V3 API
+                trace_locations = []
+                for exp_id in experiment_ids:
+                    try:
+                        location = TraceLocation.from_experiment_id(exp_id)
+                        proto_location = location.to_proto()
+                        trace_locations.append(proto_location)
+                    except Exception as e:
+                        raise MlflowException(
+                            f"Invalid experiment ID format: {exp_id}. Error: {e!s}"
+                        ) from e
+
+                # Create V3 request message using protobuf
+                request = SearchTracesV3Request(
+                    locations=trace_locations,
+                    filter=filter_string,
+                    max_results=max_results,
+                    order_by=order_by,
+                    page_token=page_token,
+                )
+
+                req_body = message_to_json(request)
+                endpoint = get_search_traces_v3_endpoint(is_databricks=is_databricks)
+
+                try:
+                    response_proto = self._call_endpoint(
+                        SearchTracesV3Request, req_body, endpoint=endpoint
+                    )
+                    trace_infos = [TraceInfoV3.from_proto(t) for t in response_proto.traces]
+                except Exception as e:
+                    _logger.error(f"Error searching traces: {e!s}")
+                    raise
+            else:
+                # Non-Databricks environment - use V2 request format
+                request = SearchTraces(
+                    experiment_ids=experiment_ids,
+                    filter=filter_string,
+                    max_results=max_results,
+                    order_by=order_by,
+                    page_token=page_token,
+                )
+
+                req_body = message_to_json(request)
+
+                try:
+                    response_proto = self._call_endpoint(SearchTraces, req_body)
+                    trace_infos = [TraceInfo.from_proto(t).to_v3() for t in response_proto.traces]
+                except Exception as e:
+                    _logger.error(f"Error searching traces: {e!s}")
+                    raise
         else:
             response_proto = self._search_unified_traces(
                 model_id=model_id,
@@ -482,7 +530,8 @@ class RestStore(AbstractStore):
                 order_by=order_by,
                 page_token=page_token,
             )
-        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+            # Convert TraceInfo (v2) objects to TraceInfoV3 objects for consistency
+            trace_infos = [TraceInfo.from_proto(t).to_v3() for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
 
     def _search_unified_traces(

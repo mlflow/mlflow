@@ -39,7 +39,8 @@ RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
 _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
-_V3_TRACE_REST_API_PATH_PREFIX = "/api/3.0/mlflow/traces"
+_V3_REST_API_PATH_PREFIX = "/api/3.0"
+_V3_TRACE_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
 
 
@@ -427,6 +428,19 @@ def get_single_assessment_endpoint(trace_id: str, assessment_id: str, is_databri
     if is_databricks:
         return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
     return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
+
+
+def get_search_traces_v3_endpoint(is_databricks=False):
+    """
+    Return the endpoint for the SearchTraces API.
+
+    Args:
+        is_databricks: Whether the tracking URI is a Databricks URI. If True,
+                       returns the v3 endpoint, otherwise returns the v2 endpoint.
+    """
+    if is_databricks:
+        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
+    return f"{_TRACE_REST_API_PATH_PREFIX}/search"
 
 
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
