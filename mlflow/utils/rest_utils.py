@@ -430,9 +430,17 @@ def get_single_assessment_endpoint(trace_id: str, assessment_id: str, is_databri
     return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
 
 
-def get_search_traces_v3_endpoint():
-    """Return the endpoint for the SearchTracesV3 API"""
-    return f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
+def get_search_traces_v3_endpoint(is_databricks=False):
+    """
+    Return the endpoint for the SearchTraces API.
+    
+    Args:
+        is_databricks: Whether the tracking URI is a Databricks URI. If True, 
+                       returns the v3 endpoint, otherwise returns the v2 endpoint.
+    """
+    if is_databricks:
+        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
+    return f"{_TRACE_REST_API_PATH_PREFIX}/search"
 
 
 def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):

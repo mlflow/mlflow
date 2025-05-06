@@ -63,7 +63,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 )
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import MlflowHostCreds, get_search_traces_v3_endpoint
+from mlflow.utils.rest_utils import MlflowHostCreds, get_search_traces_v3_endpoint, _V3_TRACE_REST_API_PATH_PREFIX, _TRACE_REST_API_PATH_PREFIX
 
 
 class MyCoolException(Exception):
@@ -763,46 +763,67 @@ def test_search_traces():
     order_by = ["request_time DESC"]
     page_token = "12345abcde"
 
+    # Test with databricks tracking URI (using v3 endpoint)
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        trace_infos, token = store.search_traces(
-            experiment_ids=experiment_ids,
-            filter_string=filter_string,
-            max_results=max_results,
-            order_by=order_by,
-            page_token=page_token,
-        )
+        with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+            trace_infos, token = store.search_traces(
+                experiment_ids=experiment_ids,
+                filter_string=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
 
-        # Verify the correct endpoint was called
-        endpoint = get_search_traces_v3_endpoint()
-        call_args = mock_http.call_args[1]
-        assert call_args["endpoint"] == endpoint
+            # Verify the correct endpoint was called
+            endpoint = get_search_traces_v3_endpoint(is_databricks=True)
+            call_args = mock_http.call_args[1]
+            assert call_args["endpoint"] == endpoint
+            assert endpoint == f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
+            
+            # Verify the correct parameters were passed
+            json_body = call_args["json"]
+            # The field name should now be 'locations' instead of 'trace_locations'
+            assert "locations" in json_body
+            # The experiment_ids are converted to trace_locations
+            assert len(json_body["locations"]) == 1
+            assert (
+                json_body["locations"][0]["mlflow_experiment"]["experiment_id"]
+                == experiment_ids[0]
+            )
+            assert json_body["filter"] == filter_string
+            assert json_body["max_results"] == max_results
+            assert json_body["order_by"] == order_by
+            assert json_body["page_token"] == page_token
 
-        # Verify the correct parameters were passed
-        json_body = call_args["json"]
-        # The field name should now be 'locations' instead of 'trace_locations'
-        assert "locations" in json_body
-        # The experiment_ids are converted to trace_locations
-        assert len(json_body["locations"]) == 1
-        assert (
-            json_body["locations"][0]["mlflow_experiment"]["experiment_id"]
-            == experiment_ids[0]
-        )
-        assert json_body["filter"] == filter_string
-        assert json_body["max_results"] == max_results
-        assert json_body["order_by"] == order_by
-        assert json_body["page_token"] == page_token
+    # Test with non-databricks tracking URI (using v2 endpoint)
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=False):
+            trace_infos, token = store.search_traces(
+                experiment_ids=experiment_ids,
+                filter_string=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
 
-        # Verify the correct trace info objects were returned
-        assert len(trace_infos) == 1
-        assert isinstance(trace_infos[0], TraceInfoV3)
-        assert trace_infos[0].trace_id == "tr-1234"
-        assert trace_infos[0].experiment_id == "1234"
-        assert trace_infos[0].request_time == 123
-        # V3's state maps to V2's status
-        assert trace_infos[0].state == TraceStatus.OK.to_state()
-        assert trace_infos[0].tags == {"k": "v"}
-        assert trace_infos[0].trace_metadata == {"key": "value"}
-        assert token == "token"
+            # Verify the correct endpoint was called
+            endpoint = get_search_traces_v3_endpoint(is_databricks=False)
+            call_args = mock_http.call_args[1]
+            assert call_args["endpoint"] == endpoint
+            assert endpoint == f"{_TRACE_REST_API_PATH_PREFIX}/search"
+
+    # Verify the correct parameters were passed and the correct trace info objects were returned
+    # for either endpoint
+    assert len(trace_infos) == 1
+    assert isinstance(trace_infos[0], TraceInfoV3)
+    assert trace_infos[0].trace_id == "tr-1234"
+    assert trace_infos[0].experiment_id == "1234"
+    assert trace_infos[0].request_time == 123
+    # V3's state maps to V2's status
+    assert trace_infos[0].state == TraceStatus.OK.to_state()
+    assert trace_infos[0].tags == {"k": "v"}
+    assert trace_infos[0].trace_metadata == {"key": "value"}
+    assert token == "token"
 
 
 def test_search_unified_traces():

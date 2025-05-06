@@ -487,7 +487,8 @@ class RestStore(AbstractStore):
             )
 
             req_body = message_to_json(request)
-            endpoint = get_search_traces_v3_endpoint()
+            is_databricks = self._is_databricks_tracking_uri()
+            endpoint = get_search_traces_v3_endpoint(is_databricks=is_databricks)
 
             try:
                 response_proto = self._call_endpoint(
