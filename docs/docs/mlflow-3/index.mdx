@@ -36,9 +36,9 @@ When developing a new version of a GenAI agent or application, you can group all
 This enables rich, comprehensive comparisons across versions.
 Similarly, every deep learning checkpoint is stored as a <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> with its own metrics and parameters, simplifying the process of identifying the best checkpoint for deployment or continued training.
 
-### Manul control over traces grouping
+### Manul control over trace grouping
 
-To manually control traces grouping, you can use <APILink fn="mlflow.set_active_model">mlflow.set_active_model</APILink> API to **set an active LoggedModel in the current context**.
+To manually control trace grouping, you can use <APILink fn="mlflow.set_active_model">mlflow.set_active_model</APILink> API to **set an active LoggedModel in the current context**.
 This API supports passing either the `name` or `model_id` of a LoggedModel. If no LoggedModel with the given name exists, MLflow automatically creates an external model (without artifacts) using the specified name.
 If multiple LoggedModels share the same name, MLflow sets the **latest** one as the active model. When providing a `model_id`, ensure that a corresponding LoggedModel exists, otherwise an exception will
 be raised.
@@ -98,8 +98,8 @@ Switch to the **Prompts** tab to view the registered prompt and its details:
 
 #### Create OpenAI Client and make a request
 
-At this step, we create an OpenAI client, set an active mode for grouping traces.
-Then after turning on autologging, all traces generated during requests are linked to the active model.
+At this step, we create an OpenAI client, and set an active model for grouping traces.
+After enabling autologging, all traces generated during requests will be linked to the active model.
 
 ```python
 from openai import OpenAI
@@ -143,12 +143,12 @@ Generated traces can be viewed in the **Traces** tab of the logged model:
 
 #### Evaluate the response with GenAI metrics
 
-Finally, we evaluate the response based on different metrics, and record the evaluation result to a run and the current active model.
+Finally, we evaluate the response using different metrics and record the results to a run and the current active model.
 
 ```python
 from mlflow.metrics.genai import answer_correctness, answer_similarity, faithfulness
 
-# groundtruth result for evaluation
+# ground truth result for evaluation
 mlflow_ground_truth = (
     "MLflow is an open-source platform for managing "
     "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
