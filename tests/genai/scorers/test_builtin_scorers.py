@@ -90,6 +90,7 @@ def test_evaluate_parameters():
             evaluator_config=expected,
             extra_metrics=[],
             model_type=GENAI_CONFIG_NAME,
+            model_id=None,
         )
 
 
