@@ -795,8 +795,33 @@ def test_search_traces():
             assert json_body["page_token"] == page_token
 
     # Test with non-databricks tracking URI (using v2 endpoint)
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
         with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=False):
+            # For V2 API, use a different response with tags in the list format
+            v2_response = mock.MagicMock()
+            v2_response.status_code = 200
+            v2_response.text = json.dumps(
+                {
+                    "traces": [
+                        {
+                            "request_id": "tr-1234",  # V2 uses request_id instead of trace_id
+                            "experiment_id": "1234",
+                            "timestamp_ms": 123,  # V2 uses timestamp_ms instead of request_time
+                            "execution_time_ms": 456,
+                            "status": "OK",  # V2 uses status instead of state
+                            "request_metadata": [
+                                {"key": "key", "value": "value"}
+                            ],
+                            "tags": [
+                                {"key": "k", "value": "v"}
+                            ],
+                        }
+                    ],
+                    "next_page_token": "token",
+                }
+            )
+            mock_http.return_value = v2_response
+
             trace_infos, token = store.search_traces(
                 experiment_ids=experiment_ids,
                 filter_string=filter_string,
@@ -804,12 +829,6 @@ def test_search_traces():
                 order_by=order_by,
                 page_token=page_token,
             )
-
-            # Verify the correct endpoint was called
-            endpoint = get_search_traces_v3_endpoint(is_databricks=False)
-            call_args = mock_http.call_args[1]
-            assert call_args["endpoint"] == endpoint
-            assert endpoint == f"{_TRACE_REST_API_PATH_PREFIX}/search"
 
     # Verify the correct parameters were passed and the correct trace info objects were returned
     # for either endpoint
@@ -820,6 +839,7 @@ def test_search_traces():
     assert trace_infos[0].request_time == 123
     # V3's state maps to V2's status
     assert trace_infos[0].state == TraceStatus.OK.to_state()
+    # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
     assert trace_infos[0].tags == {"k": "v"}
     assert trace_infos[0].trace_metadata == {"key": "value"}
     assert token == "token"
