@@ -129,6 +129,7 @@ def evaluate(
         evaluator_config=evaluation_config,
         extra_metrics=extra_metrics,
         model_type=GENAI_CONFIG_NAME,
+        model_id=model_id,
     )
 
     return EvaluationResult(
