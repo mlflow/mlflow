@@ -450,7 +450,7 @@ def test_requestor():
 
         # Check call arguments to verify V2 fallback was used
         assert len(mock_http.call_args_list) == 2
-        
+
         # First call should be to V3 API
         v3_call = mock_http.call_args_list[0]
         assert v3_call[1]["endpoint"] == "/api/3.0/mlflow/traces/tr-123"
