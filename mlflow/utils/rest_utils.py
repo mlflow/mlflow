@@ -34,7 +34,6 @@ from mlflow.utils.request_utils import (
     cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
-from mlflow.utils.uri import is_databricks_uri
 
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
@@ -363,10 +362,10 @@ def get_single_trace_endpoint(request_id, use_v3=False):
     Get the endpoint for a single trace.
     For Databricks tracking URIs, use the V3 API.
     For all other tracking URIs, use the V2 API.
-    
+
     Args:
         request_id: The trace ID.
-        is_databricks: Whether the tracking URI is a Databricks URI.
+        use_v3: Whether to use the V3 API. If True, use the V3 API. If False, use the V2 API.
     """
     if use_v3:
         return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{request_id}"
@@ -384,7 +383,7 @@ def get_trace_info_endpoint(request_id):
 def get_trace_assessment_endpoint(request_id, is_databricks=False):
     """
     Get the endpoint for a trace assessment.
-    
+
     Args:
         request_id: The trace ID.
         is_databricks: Whether the tracking URI is a Databricks URI.
@@ -395,7 +394,7 @@ def get_trace_assessment_endpoint(request_id, is_databricks=False):
 def get_set_trace_tag_endpoint(request_id, is_databricks=False):
     """
     Get the endpoint for setting trace tags.
-    
+
     Args:
         request_id: The trace ID.
         is_databricks: Whether the tracking URI is a Databricks URI.
@@ -406,7 +405,7 @@ def get_set_trace_tag_endpoint(request_id, is_databricks=False):
 def get_create_assessment_endpoint(trace_id: str, is_databricks=False):
     """
     Get the endpoint for creating an assessment.
-    
+
     Args:
         trace_id: The trace ID.
         is_databricks: Whether the tracking URI is a Databricks URI.
@@ -419,7 +418,7 @@ def get_create_assessment_endpoint(trace_id: str, is_databricks=False):
 def get_single_assessment_endpoint(trace_id: str, assessment_id: str, is_databricks=False):
     """
     Get the endpoint for a single assessment.
-    
+
     Args:
         trace_id: The trace ID.
         assessment_id: The assessment ID.
