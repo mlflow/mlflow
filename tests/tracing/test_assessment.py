@@ -263,14 +263,12 @@ def test_search_traces_with_assessments(store, tracking_uri):
     assessment = Assessment(
         trace_id="test",
         name="test",
-        source=AssessmentSource(
-            source_id="test", source_type=AssessmentSourceType.HUMAN
-        ),
+        source=AssessmentSource(source_id="test", source_type=AssessmentSourceType.HUMAN),
         create_time_ms=0,
         last_update_time_ms=0,
         feedback=Feedback("test"),
     )
-    
+
     trace_info = TraceInfo(
         request_id="test",
         experiment_id="test",
@@ -280,11 +278,11 @@ def test_search_traces_with_assessments(store, tracking_uri):
         tags={"mlflow.artifactLocation": "test"},
         assessments=[assessment],  # Include the assessment here
     )
-    
+
     # Mock the search_traces to return our trace_info
     store.search_traces.return_value = ([trace_info, trace_info], None)
-    
-    # Now when search_traces is called, it should use our trace_info with the assessment 
+
+    # Now when search_traces is called, it should use our trace_info with the assessment
     with mock.patch(
         "mlflow.tracing.client.TracingClient._download_trace_data", return_value=TraceData()
     ) as mock_download:
@@ -293,7 +291,7 @@ def test_search_traces_with_assessments(store, tracking_uri):
             max_results=2,
             return_type="list",
         )
-    
+
     # Verify the results
     assert len(res) == 2
     for trace in res:
@@ -301,9 +299,9 @@ def test_search_traces_with_assessments(store, tracking_uri):
         assert len(trace.info.assessments) == 1
         assert trace.info.assessments[0].trace_id == "test"
         assert trace.info.assessments[0].name == "test"
-    
+
     # Verify the search_traces was called
     assert store.search_traces.call_count == 1
-    
+
     # We no longer expect get_trace_info to be called
     assert store.get_trace_info.call_count == 0

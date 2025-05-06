@@ -809,12 +809,8 @@ def test_search_traces():
                             "timestamp_ms": 123,  # V2 uses timestamp_ms instead of request_time
                             "execution_time_ms": 456,
                             "status": "OK",  # V2 uses status instead of state
-                            "request_metadata": [
-                                {"key": "key", "value": "value"}
-                            ],
-                            "tags": [
-                                {"key": "k", "value": "v"}
-                            ],
+                            "request_metadata": [{"key": "key", "value": "value"}],
+                            "tags": [{"key": "k", "value": "v"}],
                         }
                     ],
                     "next_page_token": "token",

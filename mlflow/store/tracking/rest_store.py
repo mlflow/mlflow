@@ -468,7 +468,7 @@ class RestStore(AbstractStore):
     ):
         if sql_warehouse_id is None:
             is_databricks = self._is_databricks_tracking_uri()
-            
+
             if is_databricks:
                 # Create trace_locations from experiment_ids for the V3 API
                 trace_locations = []
@@ -490,10 +490,10 @@ class RestStore(AbstractStore):
                     order_by=order_by,
                     page_token=page_token,
                 )
-                
+
                 req_body = message_to_json(request)
                 endpoint = get_search_traces_v3_endpoint(is_databricks=is_databricks)
-                
+
                 try:
                     response_proto = self._call_endpoint(
                         SearchTracesV3Request, req_body, endpoint=endpoint
@@ -511,13 +511,11 @@ class RestStore(AbstractStore):
                     order_by=order_by,
                     page_token=page_token,
                 )
-                
+
                 req_body = message_to_json(request)
-                
+
                 try:
-                    response_proto = self._call_endpoint(
-                        SearchTraces, req_body
-                    )
+                    response_proto = self._call_endpoint(SearchTraces, req_body)
                     trace_infos = [TraceInfo.from_proto(t).to_v3() for t in response_proto.traces]
                 except Exception as e:
                     _logger.error(f"Error searching traces: {e!s}")
