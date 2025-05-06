@@ -62,7 +62,6 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
-from devtools import debug
 from httpx import AsyncClient
 
 from pydantic_ai import Agent, ModelRetry, RunContext
@@ -76,6 +75,7 @@ class Deps:
 
 
 weather_agent = Agent(
+    # Switch to your favorite LLM
     "google-gla:gemini-2.0-flash",
     # 'Be concise, reply with one sentence.' is enough for some models (like openai) to use
     # the below tools appropriately, but others like anthropic and gemini require a bit more direction.
@@ -184,11 +184,14 @@ async def main():
         result = await weather_agent.run(
             "What is the weather like in London and in Wiltshire?", deps=deps
         )
-        debug(result)
         print("Response:", result.output)
 
 
-asyncio.run(main())
+# If you are running this on a notebook
+await main()
+
+# Uncomment this is you are using an IDE or Python script.
+# asyncio.run(main())
 ```
 
 
@@ -206,7 +209,7 @@ import asyncio
 
 mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("MCP Server")
-mlflow.pydantic_ai.autolog(log_traces=True)
+mlflow.pydantic_ai.autolog()
 
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStdio
@@ -234,7 +237,11 @@ async def main():
     # > There are 9,208 days between January 1, 2000, and March 18, 2025.
 
 
-asyncio.run(main())
+# If you are running this on a notebook
+await main()
+
+# Uncomment this is you are using an IDE or Python script.
+# asyncio.run(main())
 ```
 
 

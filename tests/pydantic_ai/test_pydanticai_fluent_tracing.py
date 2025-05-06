@@ -1,4 +1,10 @@
+import os
 from unittest.mock import patch
+
+os.environ["OPENAI_API_KEY"] = "test"
+# We need to pass the api keys as environment variables as Pydantic Agent takes them from
+# env variables and we can't pass them directly in the Agents
+os.environ["GEMINI_API_KEY"] = "test"
 
 import pytest
 from pydantic_ai import Agent, RunContext
@@ -38,6 +44,7 @@ def _make_dummy_response_with_tool():
     return sequence, final_resp, usage_final
 
 
+@pytest.fixture(autouse=True)
 def clear_autolog_state():
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
@@ -77,7 +84,6 @@ def agent_with_tool():
 
 
 def test_agent_run_sync_enable_fluent_disable_autolog(simple_agent):
-    clear_autolog_state()
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
@@ -94,10 +100,10 @@ def test_agent_run_sync_enable_fluent_disable_autolog(simple_agent):
     spans = traces[0].data.spans
 
     assert spans[0].name == "Agent.run_sync"
-    assert spans[0].span_type == SpanType.CHAIN
+    assert spans[0].span_type == SpanType.AGENT
 
     assert spans[1].name == "Agent.run"
-    assert spans[1].span_type == SpanType.CHAIN
+    assert spans[1].span_type == SpanType.AGENT
 
     span2 = spans[2]
     assert span2.name == "InstrumentedModel.request"
@@ -122,7 +128,6 @@ def test_agent_run_sync_enable_fluent_disable_autolog(simple_agent):
 
 @pytest.mark.asyncio
 async def test_agent_run_enable_fluent_disable_autolog(simple_agent):
-    clear_autolog_state()
     dummy = _make_dummy_response_without_tool()
 
     async def request(self, *args, **kwargs):
@@ -139,7 +144,7 @@ async def test_agent_run_enable_fluent_disable_autolog(simple_agent):
     spans = traces[0].data.spans
 
     assert spans[0].name == "Agent.run"
-    assert spans[0].span_type == SpanType.CHAIN
+    assert spans[0].span_type == SpanType.AGENT
 
     span1 = spans[1]
     assert span1.name == "InstrumentedModel.request"
@@ -163,7 +168,6 @@ async def test_agent_run_enable_fluent_disable_autolog(simple_agent):
 
 
 def test_agent_run_sync_enable_disable_fluent_autolog_with_tool(agent_with_tool):
-    clear_autolog_state()
     sequence, final_resp, usage_final = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -184,10 +188,10 @@ def test_agent_run_sync_enable_disable_fluent_autolog_with_tool(agent_with_tool)
     assert len(spans) == 5
 
     assert spans[0].name == "Agent.run_sync"
-    assert spans[0].span_type == SpanType.CHAIN
+    assert spans[0].span_type == SpanType.AGENT
 
     assert spans[1].name == "Agent.run"
-    assert spans[1].span_type == SpanType.CHAIN
+    assert spans[1].span_type == SpanType.AGENT
 
     span2 = spans[2]
     assert span2.name == "InstrumentedModel.request_1"
@@ -245,7 +249,6 @@ def test_agent_run_sync_enable_disable_fluent_autolog_with_tool(agent_with_tool)
 
 @pytest.mark.asyncio
 async def test_agent_run_enable_disable_fluent_autolog_with_tool(agent_with_tool):
-    clear_autolog_state()
     sequence, final_resp, usage_final = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
@@ -266,7 +269,7 @@ async def test_agent_run_enable_disable_fluent_autolog_with_tool(agent_with_tool
     assert len(spans) == 4
 
     assert spans[0].name == "Agent.run"
-    assert spans[0].span_type == SpanType.CHAIN
+    assert spans[0].span_type == SpanType.AGENT
 
     span1 = spans[1]
     assert span1.name == "InstrumentedModel.request_1"

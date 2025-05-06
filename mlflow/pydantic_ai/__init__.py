@@ -28,15 +28,19 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
         "pydantic_ai.models.instrumented.InstrumentedModel": ["request"],
         "pydantic_ai.Tool": ["run"],
         "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
-        "pydantic_ai.mcp.MCPServerStdio": ["call_tool", "list_tools"],
     }
 
-    try:
-        for cls_path, methods in class_map.items():
-            module_name, class_name = cls_path.rsplit(".", 1)
+    for cls_path, methods in class_map.items():
+        module_name, class_name = cls_path.rsplit(".", 1)
+        try:
             module = __import__(module_name, fromlist=[class_name])
             cls = getattr(module, class_name)
-            for method in methods:
+        except (ImportError, AttributeError) as e:
+            _logger.error("Error importing %s: %s", cls_path, e)
+            continue
+
+        for method in methods:
+            try:
                 orig = getattr(cls, method)
                 wrapper = (
                     patched_async_class_call
@@ -49,5 +53,5 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
                     method,
                     wrapper,
                 )
-    except (ImportError, AttributeError) as e:
-        _logger.error("Error patching Pydantic_AI autolog: %s", e)
+            except AttributeError as e:
+                _logger.error("Error patching %s.%s: %s", cls_path, method, e)

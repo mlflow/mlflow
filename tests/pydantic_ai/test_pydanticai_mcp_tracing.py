@@ -1,4 +1,10 @@
+import os
 from unittest.mock import patch
+
+os.environ["OPENAI_API_KEY"] = "test"
+# We need to pass the api keys as environment variables as Pydantic Agent takes them from
+# env variables and we can't pass them directly in the Agents
+os.environ["GEMINI_API_KEY"] = "test"
 
 import pytest
 from pydantic_ai import Agent
@@ -14,6 +20,7 @@ from mlflow.entities.trace import SpanType
 from tests.tracing.helper import get_traces
 
 
+@pytest.fixture(autouse=True)
 def clear_autolog_state():
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
@@ -24,7 +31,6 @@ def clear_autolog_state():
 
 @pytest.mark.asyncio
 async def test_mcp_server_list_tools_autolog():
-    clear_autolog_state()
     tools_list = [
         {"name": "tool1", "description": "Tool 1 description"},
         {"name": "tool2", "description": "Tool 2 description"},
@@ -34,24 +40,23 @@ async def test_mcp_server_list_tools_autolog():
         return tools_list
 
     with patch("pydantic_ai.mcp.MCPServer.list_tools", new=list_tools):
-        with patch("pydantic_ai.mcp.MCPServerStdio.list_tools", new=list_tools):
-            mlflow.pydantic_ai.autolog(log_traces=True)
+        mlflow.pydantic_ai.autolog(log_traces=True)
 
-            server = MCPServerStdio(
-                "deno",
-                args=[
-                    "run",
-                    "-N",
-                    "-R=node_modules",
-                    "-W=node_modules",
-                    "--node-modules-dir=auto",
-                    "jsr:@pydantic/mcp-run-python",
-                    "stdio",
-                ],
-            )
+        server = MCPServerStdio(
+            "deno",
+            args=[
+                "run",
+                "-N",
+                "-R=node_modules",
+                "-W=node_modules",
+                "--node-modules-dir=auto",
+                "jsr:@pydantic/mcp-run-python",
+                "stdio",
+            ],
+        )
 
-            result = await server.list_tools()
-            assert result == tools_list
+        result = await server.list_tools()
+        assert result == tools_list
 
     traces = get_traces()
     assert len(traces) == 1
@@ -60,24 +65,21 @@ async def test_mcp_server_list_tools_autolog():
     span = spans[0]
 
     assert span.name == "MCPServerStdio.list_tools"
-    assert span.span_type == SpanType.AGENT
+    assert span.span_type == SpanType.TOOL
 
     outputs = span.outputs
     assert len(outputs) == 2
     assert outputs == tools_list
 
     with patch("pydantic_ai.mcp.MCPServer.list_tools", new=list_tools):
-        with patch("pydantic_ai.mcp.MCPServerStdio.list_tools", new=list_tools):
-            mlflow.pydantic_ai.autolog(disable=True)
-            await server.list_tools()
+        mlflow.pydantic_ai.autolog(disable=True)
+        await server.list_tools()
 
     assert len(get_traces()) == 1
 
 
 @pytest.mark.asyncio
 async def test_mcp_server_call_tool_autolog():
-    clear_autolog_state()
-
     tool_name = "calculator"
     tool_args = {"operation": "add", "a": 5, "b": 7}
     tool_result = {"result": 12}
@@ -88,25 +90,24 @@ async def test_mcp_server_call_tool_autolog():
         return tool_result
 
     with patch("pydantic_ai.mcp.MCPServer.call_tool", new=call_tool):
-        with patch("pydantic_ai.mcp.MCPServerStdio.call_tool", new=call_tool):
-            mlflow.pydantic_ai.autolog(log_traces=True)
+        mlflow.pydantic_ai.autolog(log_traces=True)
 
-            server = MCPServerStdio(
-                "deno",
-                args=[
-                    "run",
-                    "-N",
-                    "-R=node_modules",
-                    "-W=node_modules",
-                    "--node-modules-dir=auto",
-                    "jsr:@pydantic/mcp-run-python",
-                    "stdio",
-                ],
-            )
+        server = MCPServerStdio(
+            "deno",
+            args=[
+                "run",
+                "-N",
+                "-R=node_modules",
+                "-W=node_modules",
+                "--node-modules-dir=auto",
+                "jsr:@pydantic/mcp-run-python",
+                "stdio",
+            ],
+        )
 
-            result = await server.call_tool(tool_name, tool_args)
+        result = await server.call_tool(tool_name, tool_args)
 
-            assert result == tool_result
+        assert result == tool_result
 
     traces = get_traces()
     assert len(traces) == 1
@@ -116,7 +117,7 @@ async def test_mcp_server_call_tool_autolog():
     call_tool_span = spans[0]
     assert call_tool_span is not None
     assert call_tool_span.name == "MCPServerStdio.call_tool"
-    assert call_tool_span.span_type == SpanType.AGENT
+    assert call_tool_span.span_type == SpanType.TOOL
 
     inputs = call_tool_span.inputs
     assert len(inputs) == 2
@@ -128,9 +129,8 @@ async def test_mcp_server_call_tool_autolog():
     assert outputs == tool_result
 
     with patch("pydantic_ai.mcp.MCPServer.call_tool", new=call_tool):
-        with patch("pydantic_ai.mcp.MCPServerStdio.call_tool", new=call_tool):
-            mlflow.pydantic_ai.autolog(disable=True)
-            await server.call_tool(tool_name, tool_args)
+        mlflow.pydantic_ai.autolog(disable=True)
+        await server.call_tool(tool_name, tool_args)
 
     assert len(get_traces()) == 1
 
@@ -172,8 +172,6 @@ async def test_date_calculation_with_python_code_tool():
         )
     ]
 
-    clear_autolog_state()
-
     async def request(self, *args, **kwargs):
         return next(REQUEST_SEQUENCE)
 
@@ -190,8 +188,6 @@ async def test_date_calculation_with_python_code_tool():
         patch.object(InstrumentedModel, "request", new=request),
         patch("pydantic_ai.mcp.MCPServer.call_tool", new=call_tool),
         patch("pydantic_ai.mcp.MCPServer.list_tools", new=list_tools),
-        patch("pydantic_ai.mcp.MCPServerStdio.call_tool", new=call_tool),
-        patch("pydantic_ai.mcp.MCPServerStdio.list_tools", new=list_tools),
     ):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
@@ -226,13 +222,13 @@ async def test_date_calculation_with_python_code_tool():
 
     span = spans[0]
     assert span.name == "Agent.run"
-    assert span.span_type == SpanType.CHAIN
+    assert span.span_type == SpanType.AGENT
     assert span.inputs["user_prompt"] == USER_PROMPT
     assert span.outputs["output"] == EXPECTED_OUTPUT
 
     span1 = spans[1]
     assert span1.name == "MCPServerStdio.list_tools_1"
-    assert span1.span_type == SpanType.AGENT
+    assert span1.span_type == SpanType.TOOL
     assert span1.parent_id == span.span_id
     assert span1.inputs == {}
     assert span1.outputs[0] == {
@@ -261,7 +257,7 @@ async def test_date_calculation_with_python_code_tool():
 
     span3 = spans[3]
     assert span3.name == "MCPServerStdio.list_tools_2"
-    assert span3.span_type == SpanType.AGENT
+    assert span3.span_type == SpanType.TOOL
     assert span3.parent_id == span.span_id
     assert span3.inputs == {}
     assert span3.outputs[0] == {
@@ -285,14 +281,14 @@ async def test_date_calculation_with_python_code_tool():
 
     span5 = spans[5]
     assert span5.name == "MCPServerStdio.call_tool"
-    assert span5.span_type == SpanType.AGENT
+    assert span5.span_type == SpanType.TOOL
     assert span5.parent_id == span4.span_id
     assert span5.inputs == {"name": TOOL_NAME, "args": {"code": CODE}}
     assert span5.outputs == {"output": "Days between: 9208"}
 
     span6 = spans[6]
     assert span6.name == "MCPServerStdio.list_tools_3"
-    assert span6.span_type == SpanType.AGENT
+    assert span6.span_type == SpanType.TOOL
     assert span6.parent_id == span.span_id
     assert span6.inputs == {}
     assert span6.outputs[0] == {
@@ -326,8 +322,6 @@ async def test_date_calculation_with_python_code_tool():
         patch.object(InstrumentedModel, "request", new=request),
         patch("pydantic_ai.mcp.MCPServer.call_tool", new=call_tool),
         patch("pydantic_ai.mcp.MCPServer.list_tools", new=list_tools),
-        patch("pydantic_ai.mcp.MCPServerStdio.call_tool", new=call_tool),
-        patch("pydantic_ai.mcp.MCPServerStdio.list_tools", new=list_tools),
     ):
         mlflow.pydantic_ai.autolog(disable=True)
 

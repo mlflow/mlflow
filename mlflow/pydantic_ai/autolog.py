@@ -1,52 +1,59 @@
 import inspect
-import json
 import logging
-import warnings
 from typing import Any
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
 
 
 def _set_span_attributes(span: LiveSpan, instance):
+    # 1) MCPServer attributes
     try:
-        import pydantic_ai
-        from pydantic_ai import Agent
         from pydantic_ai.mcp import MCPServer
-        from pydantic_ai.models.instrumented import InstrumentedModel
 
         if isinstance(instance, MCPServer):
             for key, value in instance.__dict__.items():
-                if value is not None:
-                    if key == "tools":
-                        value = _parse_tools(value)
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                if value is None:
+                    continue
+                if key == "tools":
+                    value = _parse_tools(value)
+                span.set_attribute(key, value)
+    except Exception as e:
+        _logger.warning("Failed saving MCPServer attributes: %s", e)
 
-        elif isinstance(instance, Agent):
-            agent = _get_agent_attributes(instance)
-            for key, value in agent.items():
-                if value is not None:
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+    # 2) Agent attributes
+    try:
+        from pydantic_ai import Agent
 
-        elif isinstance(instance, InstrumentedModel):
-            model = _get_model_attributes(instance)
-            for key, value in model.items():
-                if value is not None:
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+        if isinstance(instance, Agent):
+            agent_attrs = _get_agent_attributes(instance)
+            span.set_attributes({k: v for k, v in agent_attrs.items() if v is not None})
+    except Exception as e:
+        _logger.warning("Failed saving Agent attributes: %s", e)
 
-        elif hasattr(pydantic_ai, "Tool") and isinstance(instance, pydantic_ai.Tool):
-            tool = _get_tool_attributes(instance)
-            for key, value in tool.items():
-                if value is not None:
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+    # 3) InstrumentedModel attributes
+    try:
+        from pydantic_ai.models.instrumented import InstrumentedModel
 
-    except AttributeError as e:
-        _logger.warn("An exception happens when saving span attributes. Exception: %s", e)
+        if isinstance(instance, InstrumentedModel):
+            model_attrs = _get_model_attributes(instance)
+            span.set_attributes({k: v for k, v in model_attrs.items() if v is not None})
+    except Exception as e:
+        _logger.warning("Failed saving InstrumentedModel attributes: %s", e)
+
+    # 4) Tool attributes
+    try:
+        from pydantic_ai import Tool
+
+        if isinstance(instance, Tool):
+            tool_attrs = _get_tool_attributes(instance)
+            span.set_attributes({k: v for k, v in tool_attrs.items() if v is not None})
+    except Exception as e:
+        _logger.warning("Failed saving Tool attributes: %s", e)
 
 
 async def patched_async_class_call(original, self, *args, **kwargs):
@@ -56,23 +63,16 @@ async def patched_async_class_call(original, self, *args, **kwargs):
 
     fullname = f"{self.__class__.__name__}.{original.__name__}"
     span_type = _get_span_type(self)
-    span_cm = mlflow.start_span(name=fullname, span_type=span_type)
-    span = span_cm.__enter__()
-    try:
+
+    with mlflow.start_span(name=fullname, span_type=span_type) as span:
         inputs = _construct_full_inputs(original, self, *args, **kwargs)
         span.set_inputs(inputs)
         _set_span_attributes(span, self)
 
         result = await original(self, *args, **kwargs)
-
         outputs = result.__dict__ if hasattr(result, "__dict__") else result
         span.set_outputs(outputs)
         return result
-    finally:
-        try:
-            span_cm.__exit__(None, None, None)
-        except Exception:
-            _logger.debug("Failed to exit span context cleanly", exc_info=True)
 
 
 def patched_class_call(original, self, *args, **kwargs):
@@ -105,22 +105,12 @@ def _get_span_type(instance) -> str:
     if isinstance(instance, InstrumentedModel):
         return SpanType.LLM
     if isinstance(instance, Agent):
-        return SpanType.CHAIN
+        return SpanType.AGENT
     if isinstance(instance, Tool):
         return SpanType.TOOL
     if isinstance(instance, MCPServer):
-        return SpanType.AGENT
+        return SpanType.TOOL
     return SpanType.UNKNOWN
-
-
-def _is_serializable(value: Any) -> bool:
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
-        return True
-    except (TypeError, ValueError):
-        return False
 
 
 def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
@@ -130,9 +120,7 @@ def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
     bound.pop("deps", None)
 
     return {
-        k: (v.__dict__ if hasattr(v, "__dict__") else v)
-        for k, v in bound.items()
-        if v is not None and _is_serializable(v)
+        k: (v.__dict__ if hasattr(v, "__dict__") else v) for k, v in bound.items() if v is not None
     }
 
 
@@ -173,18 +161,22 @@ def _get_tool_attributes(instance):
 def _parse_tools(tools):
     result = []
     for tool in tools:
-        res = {}
-        if hasattr(tool, "name") and tool.name is not None:
-            res["name"] = tool.name
-        if hasattr(tool, "description") and tool.description is not None:
-            res["description"] = tool.description
-        if hasattr(tool, "parameters") and tool.parameters is not None:
-            res["parameters"] = tool.parameters
-        if res:
+        try:
+            data = tool.model_dumps(exclude_none=True)
+        except AttributeError:
+            data = {}
+            if hasattr(tool, "name") and tool.name is not None:
+                data["name"] = tool.name
+            if hasattr(tool, "description") and tool.description is not None:
+                data["description"] = tool.description
+            if hasattr(tool, "parameters") and tool.parameters is not None:
+                data["parameters"] = tool.parameters
+
+        if data:
             result.append(
                 {
                     "type": "function",
-                    "function": res,
+                    "function": data,
                 }
             )
     return result
