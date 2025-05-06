@@ -433,9 +433,9 @@ def get_single_assessment_endpoint(trace_id: str, assessment_id: str, is_databri
 def get_search_traces_v3_endpoint(is_databricks=False):
     """
     Return the endpoint for the SearchTraces API.
-    
+
     Args:
-        is_databricks: Whether the tracking URI is a Databricks URI. If True, 
+        is_databricks: Whether the tracking URI is a Databricks URI. If True,
                        returns the v3 endpoint, otherwise returns the v2 endpoint.
     """
     if is_databricks:

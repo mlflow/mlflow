@@ -765,7 +765,6 @@ def search_traces(
                 "or specify the list of experiment IDs in the `experiment_ids` parameter."
             )
 
-
     def pagination_wrapper_func(number_to_get, next_page_token):
         return TracingClient().search_traces(
             experiment_ids=experiment_ids,

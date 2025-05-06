@@ -63,7 +63,12 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 )
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import MlflowHostCreds, get_search_traces_v3_endpoint, _V3_TRACE_REST_API_PATH_PREFIX, _TRACE_REST_API_PATH_PREFIX
+from mlflow.utils.rest_utils import (
+    _TRACE_REST_API_PATH_PREFIX,
+    _V3_TRACE_REST_API_PATH_PREFIX,
+    MlflowHostCreds,
+    get_search_traces_v3_endpoint,
+)
 
 
 class MyCoolException(Exception):
@@ -730,9 +735,6 @@ def test_search_traces():
     response = mock.MagicMock()
     response.status_code = 200
 
-    # Create a TraceInfoV3 object for response
-    trace_location = TraceLocation.from_experiment_id("1234")
-
     # Format the response
     response.text = json.dumps(
         {
@@ -741,15 +743,13 @@ def test_search_traces():
                     "trace_id": "tr-1234",
                     "trace_location": {
                         "type": "MLFLOW_EXPERIMENT",
-                        "mlflow_experiment": {
-                            "experiment_id": "1234"
-                        }
+                        "mlflow_experiment": {"experiment_id": "1234"},
                     },
                     "request_time": "1970-01-01T00:00:00.123Z",
                     "execution_duration_ms": 456,
                     "state": "OK",
                     "trace_metadata": {"key": "value"},
-                    "tags": {"k": "v"}
+                    "tags": {"k": "v"},
                 }
             ],
             "next_page_token": "token",
@@ -779,7 +779,7 @@ def test_search_traces():
             call_args = mock_http.call_args[1]
             assert call_args["endpoint"] == endpoint
             assert endpoint == f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
-            
+
             # Verify the correct parameters were passed
             json_body = call_args["json"]
             # The field name should now be 'locations' instead of 'trace_locations'
@@ -787,8 +787,7 @@ def test_search_traces():
             # The experiment_ids are converted to trace_locations
             assert len(json_body["locations"]) == 1
             assert (
-                json_body["locations"][0]["mlflow_experiment"]["experiment_id"]
-                == experiment_ids[0]
+                json_body["locations"][0]["mlflow_experiment"]["experiment_id"] == experiment_ids[0]
             )
             assert json_body["filter"] == filter_string
             assert json_body["max_results"] == max_results
