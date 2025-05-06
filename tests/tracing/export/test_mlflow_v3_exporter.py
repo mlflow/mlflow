@@ -123,7 +123,7 @@ def test_export_catch_failure(is_async, monkeypatch):
             "mlflow.tracing.client.TracingClient.start_trace_v3",
             side_effect=Exception("Failed to start trace"),
         ),
-        mock.patch("mlflow.tracing.export.databricks._logger") as mock_logger,
+        mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
     ):
         _predict("hello")
 
