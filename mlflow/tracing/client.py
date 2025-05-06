@@ -460,6 +460,7 @@ class TracingClient:
             )
 
         assessment = Assessment(
+            # assessment_id must be None when creating a new assessment
             trace_id=trace_id,
             name=name,
             source=source,
@@ -470,16 +471,6 @@ class TracingClient:
             span_id=span_id,
         )
 
-        # First check if there's an in-memory trace
-        trace_manager = InMemoryTraceManager.get_instance()
-        with trace_manager.get_trace(trace_id) as trace:
-            if trace:
-                # Add the assessment to the trace info
-                # Note: assessments will be included when the trace is completed via start_trace_v3
-                trace.info.assessments.append(assessment)
-                return assessment
-
-        # If no in-memory trace found, create in backend
         return self.store.create_assessment(assessment)
 
     def update_assessment(

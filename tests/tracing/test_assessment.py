@@ -9,9 +9,6 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.client import TracingClient
-from mlflow.tracing.trace import Trace
-from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 
 # TODO: This test mocks out the tracking client and only test if the fluent API implementation
@@ -311,58 +308,3 @@ def test_search_traces_with_assessments(store, tracking_uri):
         mock.call("test", should_query_v3=True),
     ]
     assert mock_download.call_count == 2
-
-
-def test_log_assessment_to_in_memory_trace(store, tracking_uri):
-    # Create a trace in memory
-    trace_manager = InMemoryTraceManager.get_instance()
-    trace_info = TraceInfo(
-        request_id="1234",
-        experiment_id="test",
-        timestamp_ms=0,
-        execution_time_ms=0,
-        status=TraceStatus.OK,
-        tags={"mlflow.artifactLocation": "test"},
-    )
-    trace_manager.register_trace(12345, trace_info)
-
-    # Log an assessment while trace is in memory
-    mlflow.log_feedback(
-        trace_id="1234",
-        name="faithfulness",
-        value=1.0,
-        source=_LLM_ASSESSMENT_SOURCE,
-        rationale="This answer is very faithful.",
-        metadata={"model": "gpt-4o-mini"},
-    )
-
-    # Verify assessment was added to in-memory trace
-    with trace_manager.get_trace("1234") as trace:
-        assert len(trace.info.assessments) == 1
-        assessment = trace.info.assessments[0]
-        assert assessment.name == "faithfulness"
-        assert assessment.trace_id == "1234"
-        assert assessment.source == _LLM_ASSESSMENT_SOURCE
-        assert assessment.feedback.value == 1.0
-        assert assessment.rationale == "This answer is very faithful."
-        assert assessment.metadata == {"model": "gpt-4o-mini"}
-
-    # Verify no backend call was made yet
-    assert store.create_assessment.call_count == 0
-
-    # Complete the trace via start_trace_v3 and verify assessment is included
-    client = TracingClient()
-    trace = Trace(trace.info, TraceData())
-    client.start_trace_v3(trace)
-
-    # Verify the trace sent to start_trace_v3 included the assessment
-    assert store.start_trace_v3.call_count == 1
-    trace_arg = store.start_trace_v3.call_args[1]["trace"]
-    assert len(trace_arg.info.assessments) == 1
-    assessment = trace_arg.info.assessments[0]
-    assert assessment.name == "faithfulness"
-    assert assessment.trace_id == "1234"
-    assert assessment.source == _LLM_ASSESSMENT_SOURCE
-    assert assessment.feedback.value == 1.0
-    assert assessment.rationale == "This answer is very faithful."
-    assert assessment.metadata == {"model": "gpt-4o-mini"}
