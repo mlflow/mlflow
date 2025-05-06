@@ -6,68 +6,68 @@ import { APILink } from "@site/src/components/APILink";
 
 # GenAI Agent with MLflow 3.0
 
-Prerequisites:
-Run the following command to install MLflow 3.0 and OpenAI packages.
+**Prerequisites**:
+Run the following command to install MLflow 3.0 and langchain-openai packages.
 ```
 pip install --upgrade 'mlflow>=3.0.0rc0' --pre
-pip install openai
+pip install langchain-openai
 ```
 
-This example demonstrates how to use MLflow to trace and evaluate OpenAI requests with prompts engineering.
+This example demonstrates how to use MLflow to trace and evaluate langchain model requests with prompts engineering.
 It showcases how to register prompts, generate traces, and assess response performance using evaluation datasets.
 The example also highlights the ability to track interactive traces and link them to the logged model for better observability.
 
-## Initialize OpenAI client
+## Register a prompt version
 
-First, we initialize an OpenAI client, use its chat completions API for answering questions, and utilize MLflow's prompt registry capability to manage and link prompts effectively.
-**As an initial step, set an active model with <APILink fn="mlflow.set_active_model" /> API to enable linking any traces generated during app development to it.**
+First, we register a prompt template as a prompt version in MLflow. This allows us to track and manage different versions of the prompt used during development, ensuring reproducibility and better observability.
 
 ```python
-from openai import OpenAI
-
 import mlflow
 
-mlflow.set_experiment("genai_example")
-
-# set the active model for linking traces
-mlflow.set_active_model(name="openai_model")
-
-client = OpenAI()
-question = "What is MLflow?"
-
-# register a prompt so we can link it when logging the model
 system_prompt = mlflow.register_prompt(
     name="chatbot_prompt",
     template="You are a chatbot that can answer questions about IT. Answer this question: {{question}}",
     commit_message="Initial version of chatbot",
 )
-
-print(
-    client.completions.create(
-        prompt=system_prompt.format(question=question),
-        model="gpt-3.5-turbo-instruct",
-        temperature=0.1,
-        max_tokens=2000,
-    )
-    .choices[0]
-    .text
-)
 ```
-
 Switch to the **Prompts** tab to view the registered prompt and its details:
 
 <div className="center-div" style={{ width: "100%" }}>
     ![The MLflow UI showing a prompt version](/images/mlflow-3/genai/chatbot_prompt.png)
 </div>
 
+## Create a chain with Langchain
+
+Next, we use the ChatPromptTemplate with the prompt registered in the previous step and combine it with ChatOpenAI to create a simple chain that answers user questions.
+
+```python
+from langchain.schema.output_parser import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+
+prompt = ChatPromptTemplate.from_template(system_prompt.to_single_brace_format())
+chain = prompt | ChatOpenAI(temperature=0.7) | StrOutputParser()
+question = "What is MLflow?"
+print(chain.invoke({"question": question}))
+# MLflow is an open-source platform for managing the end-to-end machine learning lifecycle.
+# It allows data scientists to track and reproduce experiments, package and share models,
+# and deploy models to production. MLflow provides tools and APIs for tracking experiment metrics,
+# parameters, and artifacts, as well as for packaging code into reproducible runs.
+# It also supports various machine learning frameworks and deployment tools.
+```
+
 ## Test the model with tracing observability
 
 In this section, we manually test the model with example queries and leverage MLflow Tracing to analyze the outputs and debug potential issues.
-With autologging enabled, MLflow automatically creates a LoggedModel and links the generated traces to it, ensuring seamless observability.
+**As part of setup, set an active model with <APILink fn="mlflow.set_active_model" /> API to enable linking any traces generated during app development to it.**
+With autologging enabled, all generated traces will be linked to the current active model, ensuring seamless observability.
 
 ```python
+# set the active model for linking traces
+mlflow.set_active_model(name="langchain_model")
+
 # Enable autologging so that interactive traces from the client are automatically linked to a LoggedModel
-mlflow.openai.autolog()
+mlflow.langchain.autolog()
 
 questions = [
     "What is MLflow Tracking and how does it work?",
@@ -77,28 +77,18 @@ questions = [
 outputs = []
 
 for question in questions:
-    outputs.append(
-        client.completions.create(
-            prompt=system_prompt.format(question=question),
-            model="gpt-3.5-turbo-instruct",
-            temperature=0.1,
-            max_tokens=2000,
-        )
-        .choices[0]
-        .text
-    )
+    outputs.append(chain.invoke({"question": question}))
 
-logged_model = mlflow.last_logged_model()
-mlflow.search_traces(model_id=logged_model.model_id)
+# fetch the current active model's id and check traces
+active_model_id = mlflow.get_active_model_id()
+mlflow.search_traces(model_id=active_model_id)
 #                            trace_id                                             trace  ...  assessments                        request_id
-# 0  9f1548c66b4647e6ae67336dd1b83fe5  Trace(trace_id=9f1548c66b4647e6ae67336dd1b83fe5)  ...           []  9f1548c66b4647e6ae67336dd1b83fe5
-# 1  c574c9825c6443b09b4c8cf0862f6c9a  Trace(trace_id=c574c9825c6443b09b4c8cf0862f6c9a)  ...           []  c574c9825c6443b09b4c8cf0862f6c9a
-# 2  5e29af629f144ebf852a55fa11daf7d7  Trace(trace_id=5e29af629f144ebf852a55fa11daf7d7)  ...           []  5e29af629f144ebf852a55fa11daf7d7
-#
-# [3 rows x 12 columns]
+# 0  e807ab0a020f4794989a24c84c2892ad  Trace(trace_id=e807ab0a020f4794989a24c84c2892ad)  ...           []  e807ab0a020f4794989a24c84c2892ad
+# 1  4eb83e4adb6a4f3494bc5b33aca4e970  Trace(trace_id=4eb83e4adb6a4f3494bc5b33aca4e970)  ...           []  4eb83e4adb6a4f3494bc5b33aca4e970
+# 2  42b100851f934c969c352930f699308d  Trace(trace_id=42b100851f934c969c352930f699308d)  ...           []  42b100851f934c969c352930f699308d
 ```
 
-Check out the **Models** tab in the experiment to view the new logged model with name ``openai_model``.
+Check out the **Models** tab in the experiment to view the new logged model with name ``langchain_model``.
 
 <div className="center-div" style={{ width: "100%" }}>
     ![The MLflow UI showing the logged models in an experiment](/images/mlflow-3/genai/logged_models_tab.png)
@@ -118,13 +108,12 @@ Navigating to the **Traces** tab of the model's page, you can view the traces th
 
 ## Evaluate the agent's performance
 
-Finally, we use <APILink fn="mlflow.evaluate" /> to assess the performance of the logged model on an evaluation dataset.
-This step involves calculating additional metrics, such as latency and answer correctness, to gain deeper insights into the model's behavior and accuracy.
+Finally, we use <APILink fn="mlflow.evaluate" /> to assess the performance of the chain on an evaluation dataset.
+This step involves calculating additional metrics, such as answer correctness, to gain deeper insights into the model's behavior and accuracy.
 
 ```python
 # Prepare the eval dataset in a pandas DataFrame
 import pandas as pd
-from mlflow.entities import LoggedModelInput
 
 eval_df = pd.DataFrame(
     {
@@ -151,24 +140,21 @@ with mlflow.start_run() as evaluation_run:
     # Current active model will be automatically used
     result = mlflow.evaluate(
         data=eval_dataset,
-        model_type="question-answering",
         extra_metrics=[
-            mlflow.metrics.latency(),
             mlflow.metrics.genai.answer_correctness("openai:/gpt-4o"),
+            mlflow.metrics.genai.answer_relevance("openai:/gpt-4o"),
         ],
         # This is needed since answer_correctness looks for 'inputs' field
         evaluator_config={"col_mapping": {"inputs": "messages"}},
     )
 
-print(result.tables["eval_results_table"])
-#                                         messages  ...                answer_correctness/v1/justification
-# 0  What is MLflow Tracking and how does it work?  ...  The output is mostly correct and aligns well w...
-# 1                         What is Unity Catalog?  ...  The output is completely incorrect as it descr...
-# 2        What are user-defined functions (UDFs)?  ...  The output accurately describes user-defined f...
-#
-# [3 rows x 7 columns]
+result.tables["eval_results_table"]
+#                                         messages  ...                  answer_relevance/v1/justification
+# 0  What is MLflow Tracking and how does it work?  ...  The output directly addresses the input questi...
+# 1                         What is Unity Catalog?  ...  The output is completely irrelevant to the inp...
+# 2        What are user-defined functions (UDFs)?  ...  The output directly addresses the input questi...
 ```
-Navigating to the active model, you can see the metrics and their details displayed in the MLflow UI. This includes metrics like latency and answer correctness, providing insights into the model's performance.
+Navigating to the active model, you can see the metrics and their details displayed in the MLflow UI. This includes metrics like answer correctness and answer relevance, providing insights into the model's performance.
 
 <div className="center-div" style={{ width: "100%" }}>
     ![The MLflow UI showing the evaluate run metrics](/images/mlflow-3/genai/evaluate_metrics.png)
