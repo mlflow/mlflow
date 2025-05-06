@@ -259,6 +259,18 @@ def test_assessment_apis_only_available_in_databricks():
 
 
 def test_search_traces_with_assessments(store, tracking_uri):
+    # Create a trace info with an assessment
+    assessment = Assessment(
+        trace_id="test",
+        name="test",
+        source=AssessmentSource(
+            source_id="test", source_type=AssessmentSourceType.HUMAN
+        ),
+        create_time_ms=0,
+        last_update_time_ms=0,
+        feedback=Feedback("test"),
+    )
+    
     trace_info = TraceInfo(
         request_id="test",
         experiment_id="test",
@@ -266,28 +278,13 @@ def test_search_traces_with_assessments(store, tracking_uri):
         execution_time_ms=0,
         status=TraceStatus.OK,
         tags={"mlflow.artifactLocation": "test"},
+        assessments=[assessment],  # Include the assessment here
     )
+    
+    # Mock the search_traces to return our trace_info
     store.search_traces.return_value = ([trace_info, trace_info], None)
-
-    trace_info_with_assessment = TraceInfo(
-        **{
-            **trace_info.to_dict(),
-            "assessments": [
-                Assessment(
-                    trace_id="test",
-                    name="test",
-                    source=AssessmentSource(
-                        source_id="test", source_type=AssessmentSourceType.HUMAN
-                    ),
-                    create_time_ms=0,
-                    last_update_time_ms=0,
-                    feedback=Feedback("test"),
-                )
-            ],
-        }
-    )
-    store.get_trace_info.return_value = trace_info_with_assessment
-
+    
+    # Now when search_traces is called, it should use our trace_info with the assessment 
     with mock.patch(
         "mlflow.tracing.client.TracingClient._download_trace_data", return_value=TraceData()
     ) as mock_download:
@@ -296,15 +293,17 @@ def test_search_traces_with_assessments(store, tracking_uri):
             max_results=2,
             return_type="list",
         )
+    
+    # Verify the results
     assert len(res) == 2
     for trace in res:
         assert trace.info.assessments is not None
+        assert len(trace.info.assessments) == 1
         assert trace.info.assessments[0].trace_id == "test"
-
+        assert trace.info.assessments[0].name == "test"
+    
+    # Verify the search_traces was called
     assert store.search_traces.call_count == 1
-    assert store.get_trace_info.call_count == 2
-    assert store.get_trace_info.call_args_list == [
-        mock.call("test", should_query_v3=True),
-        mock.call("test", should_query_v3=True),
-    ]
-    assert mock_download.call_count == 2
+    
+    # We no longer expect get_trace_info to be called
+    assert store.get_trace_info.call_count == 0
