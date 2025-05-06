@@ -60,7 +60,7 @@ class InferenceTableSpanExporter(SpanExporter):
             _MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING.get()
         )
         if self._should_write_to_mlflow_backend:
-            self._client = TracingClient()
+            self._client = TracingClient("databricks")
             self._async_queue = AsyncTraceExportQueue()
 
     def export(self, spans: Sequence[ReadableSpan]):
