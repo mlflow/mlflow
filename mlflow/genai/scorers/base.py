@@ -17,7 +17,8 @@ class Scorer(BaseModel):
         inputs,
         outputs=None,
         expectations=None,
-        trace=None,
+        traces=None,
+        **kwargs,
     ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
         """
 
@@ -26,9 +27,16 @@ class Scorer(BaseModel):
             outputs (optional): A single output from the target model/app.
             expectations (optional): Ground truth, or a dictionary of ground
                 truths for individual output fields.
-            trace (optional): A single trace object corresponding to the prediction
+            traces (optional): A single trace object corresponding to the prediction
                 for the row. Only required when any of scorers requires a trace in
                 order to compute assessments/metrics.
+            retrieved_context (optional): Retrieved context, can be from your input eval dataset
+                or from trace
+            custom_expected (optional): Custom expected results from input eval dataset
+            custom_inputs (optional): Custom inputs from your input eval dataset
+            custom_outputs (optional): Custom outputs from the agent's response
+            tool_calls (optional): Tool calls from the agent's response.
+            **kwargs (optional): Additional keyword arguments passed to the scorer.
         """
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
@@ -64,15 +72,17 @@ def scorer(
     sig = inspect.signature(func)
     params = sig.parameters
 
-    for optional_arg in ("inputs", "outputs", "expectations", "trace"):
+    for optional_arg in ("inputs", "outputs", "expectations", "traces"):
         if optional_arg not in params:
             raise TypeError(
                 f"'{optional_arg}' must be present as an optional argument in {func.__name__}."
             )
 
     class CustomScorer(Scorer):
-        def __call__(self, *, inputs, outputs=None, expectations=None, trace=None):
-            result = func(inputs=inputs, outputs=outputs, expectations=expectations, trace=trace)
+        def __call__(self, *, inputs, outputs=None, expectations=None, traces=None, **kwargs):
+            result = func(
+                inputs=inputs, outputs=outputs, expectations=expectations, traces=traces, **kwargs
+            )
             if not isinstance(result, (int, float, bool, str, Assessment, list[Assessment])):
                 raise ValueError(
                     f"{func.__name__} must return one of int, float, bool, str, "

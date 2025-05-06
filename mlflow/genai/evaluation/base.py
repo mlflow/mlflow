@@ -88,6 +88,14 @@ def evaluate(
                mlflow.evaluate(data, ...)
                ```
     """
+    try:
+        from databricks.rag_eval.evaluation.metrics import Metric as DBAgentsMetric
+    except ImportError:
+        raise ImportError(
+            "The `databricks-agents` package is required to use mlflow.genai.evaluate() "
+            "Please install it with `pip install databricks-agents`."
+        )
+
     if mlflow.get_tracking_uri() != "databricks":
         raise ValueError(
             "The genai evaluation function is only supported on Databricks. "
@@ -100,7 +108,7 @@ def evaluate(
     for scorer in scorers or []:
         if isinstance(scorer, BuiltInScorer):
             builtin_scorers.append(scorer)
-        elif isinstance(scorer, Scorer):
+        elif isinstance(scorer, (Scorer, DBAgentsMetric)):
             custom_scorers.append(scorer)
         else:
             raise TypeError(
@@ -118,7 +126,7 @@ def evaluate(
     for _scorer in custom_scorers:
         extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
 
-    if not is_model_traced(predict_fn):
+    if predict_fn and not is_model_traced(predict_fn):
         logger.info("Annotating predict_fn with tracing since it is not already traced.")
         predict_fn = mlflow.trace(predict_fn)
 
