@@ -131,7 +131,7 @@ def _get_agent_attributes(instance):
             value = _parse_tools(value)
         if value is None:
             continue
-        agent[key] = str(value)
+        agent[key] = value
 
     return agent
 
@@ -145,7 +145,7 @@ def _get_model_attributes(instance):
             # Skip sensitive information
             continue
         else:
-            model[key] = str(value)
+            model[key] = value
     return model
 
 
@@ -154,7 +154,7 @@ def _get_tool_attributes(instance):
     for key, value in instance.__dict__.items():
         if value is None:
             continue
-        tool[key] = str(value)
+        tool[key] = value
     return tool
 
 
