@@ -14,7 +14,7 @@ class Scorer(BaseModel):
     def __call__(
         self,
         *,
-        inputs,
+        inputs=None,
         outputs=None,
         expectations=None,
         traces=None,
@@ -69,21 +69,29 @@ def scorer(
     if func is None:
         return functools.partial(scorer, name=name, aggregations=aggregations)
 
-    sig = inspect.signature(func)
-    params = sig.parameters
-
-    for optional_arg in ("inputs", "outputs", "expectations", "traces"):
-        if optional_arg not in params:
-            raise TypeError(
-                f"'{optional_arg}' must be present as an optional argument in {func.__name__}."
-            )
-
     class CustomScorer(Scorer):
-        def __call__(self, *, inputs, outputs=None, expectations=None, traces=None, **kwargs):
-            result = func(
-                inputs=inputs, outputs=outputs, expectations=expectations, traces=traces, **kwargs
-            )
-            if not isinstance(result, (int, float, bool, str, Assessment, list[Assessment])):
+        def __call__(self, *, inputs=None, outputs=None, expectations=None, traces=None, **kwargs):
+            # Normalize singular/plural keys
+            merged = {
+                "inputs": inputs if inputs is not None else kwargs.pop("input", None),
+                "outputs": outputs if outputs is not None else kwargs.pop("output", None),
+                "expectations": expectations
+                if expectations is not None
+                else kwargs.pop("expectation", None),
+                "traces": traces if traces is not None else kwargs.pop("trace", None),
+                **kwargs,
+            }
+            # Filter to only the parameters the function actually expects
+            sig = inspect.signature(func)
+            filtered = {k: v for k, v in merged.items() if k in sig.parameters}
+            result = func(**filtered)
+            if not (
+                isinstance(result, (int, float, bool, str, Assessment))
+                or (
+                    isinstance(result, list)
+                    and all(isinstance(item, Assessment) for item in result)
+                )
+            ):
                 raise ValueError(
                     f"{func.__name__} must return one of int, float, bool, str, "
                     f"Assessment, or list[Assessment]. Got {type(result).__name__}"

@@ -118,7 +118,11 @@ def evaluate(
                 )
             )
 
-    evaluation_config = {}
+    evaluation_config = {
+        GENAI_CONFIG_NAME: {
+            "metrics": [],
+        }
+    }
     for _scorer in builtin_scorers:
         evaluation_config = _scorer.update_evaluation_config(evaluation_config)
 
