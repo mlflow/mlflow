@@ -1,5 +1,5 @@
 mlflow.pydantic_ai
-================
+==================
 
 .. automodule:: mlflow.pydantic_ai
     :members:
