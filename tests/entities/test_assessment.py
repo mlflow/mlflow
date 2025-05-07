@@ -186,7 +186,7 @@ def test_assessment_value_validation():
     "source",
     [
         AssessmentSource(source_type="HUMAN", source_id="user_1"),
-        AssessmentSource(source_type="CODE"),
+        AssessmentSource(source_type="CODE", source_id="code.py"),
     ],
 )
 @pytest.mark.parametrize(

@@ -12,10 +12,11 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from opentelemetry import trace as trace_api
+from opentelemetry.sdk.trace import Span as OTelSpan
 from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -221,11 +222,12 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
         return None
 
     if not context.request_id and is_evaluate:
-        raise MlflowTracingException(
-            f"Missing request_id for context {context}. "
-            "request_id can't be None when is_evaluate=True.",
-            error_code=BAD_REQUEST,
+        _logger.warning(
+            f"Missing request_id for context {context}. request_id can't be None when "
+            "is_evaluate=True. This is likely an internal error of MLflow, please file "
+            "a bug report at https://github.com/mlflow/mlflow/issues."
         )
+        return None
 
     return context.request_id
 
@@ -249,7 +251,23 @@ def exclude_immutable_tags(tags: dict[str, str]) -> dict[str, str]:
     return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
 
 
-def generate_request_id() -> str:
+def generate_trace_id_v3(span: OTelSpan) -> str:
+    """
+    Generate a trace ID for the given span (V3 trace schema).
+
+    The format will be "tr-<trace_id>" where the trace_id is hex-encoded Otel trace ID.
+    """
+    return TRACE_REQUEST_ID_PREFIX + encode_trace_id(span.context.trace_id)
+
+
+def generate_request_id_v2() -> str:
+    """
+    Generate a request ID for the given span.
+
+    This should only be used for V2 trace schema where we use a random UUID as
+    request ID. In the V3 schema, "request_id" is renamed to "trace_id" and
+    we use the otel-generated trace ID with encoding.
+    """
     return uuid.uuid4().hex
 
 
@@ -408,3 +426,24 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
             sanitized_tools.append(tool.model_dump_compat(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
+
+
+def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
+    """
+    Set the `mlflow.chat.messages` and `mlflow.chat.tools` attributes on the specified span
+    based on the inputs and outputs of the function.
+
+    Usually those attributes are set by autologging integrations. This utility function handles
+    special cases where we want to set chat attributes for manually created spans via @mlflow.trace
+    decorator, such as ResponsesAgent tracing spans.
+    """
+    try:
+        from mlflow.openai.utils.chat_schema import set_span_chat_attributes
+        from mlflow.types.responses import ResponsesResponse
+
+        if ResponsesResponse.validate_compat(outputs):
+            inputs = inputs["request"].model_dump_compat()
+            set_span_chat_attributes(span, inputs, outputs)
+
+    except Exception:
+        pass

@@ -4199,7 +4199,7 @@ def _create_trace(
         store.create_experiment(store, experiment_id)
 
     with mock.patch(
-        "mlflow.store.tracking.sqlalchemy_store.generate_request_id",
+        "mlflow.store.tracking.sqlalchemy_store.generate_request_id_v2",
         side_effect=lambda: request_id,
     ):
         # In case if under the hood of `store` is a GO implementation, it is

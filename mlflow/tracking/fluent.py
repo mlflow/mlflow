@@ -3041,6 +3041,7 @@ def autolog(
         "langchain": "mlflow.langchain",
         "dspy": "mlflow.dspy",
         "crewai": "mlflow.crewai",
+        "smolagents": "mlflow.smolagents",
         "groq": "mlflow.groq",
         "boto3": "mlflow.bedrock",
         "mistralai": "mlflow.mistral",
