@@ -13,11 +13,16 @@ pip install --upgrade 'mlflow>=3.0.0rc0' --pre
 pip install langchain-openai
 ```
 
+Set `OPENAI_API_KEY` environment variable in CLI to authenticate to OpenAI APIs.
+```bash
+export OPENAI_API_KEY=your_api_key_here
+```
+
 This example demonstrates how to use MLflow to trace and evaluate langchain model requests with prompt engineering.
 It showcases how to register prompts, generate traces, and assess response performance using evaluation datasets.
 The example also highlights the ability to track interactive traces and link them to the logged model for better observability.
 
-## Register a prompt version
+## Register a prompt template
 
 First, we register a prompt template as a prompt version in MLflow. This allows us to track and manage different versions of the prompt used during development, ensuring reproducibility and better observability.
 
