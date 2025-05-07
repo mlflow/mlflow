@@ -23,7 +23,7 @@ from concurrent.futures import as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
 from subprocess import CalledProcessError, TimeoutExpired
-from typing import Optional, Union
+from typing import Any, Optional, Union
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
@@ -933,3 +933,38 @@ def get_total_file_size(path: Union[str, pathlib.Path]) -> Optional[int]:
     except Exception as e:
         _logger.info(f"Failed to get the total size of {path} because of error :{e}")
         return None
+
+
+def write_yaml(
+    root: str,
+    file_name: str,
+    data: dict[str, Any],
+    overwrite: bool = False,
+    sort_keys: bool = True,
+    ensure_yaml_extension: bool = True,
+) -> None:
+    """
+    NEVER TOUCH THIS FUNCTION. KEPT FOR BACKWARD COMPATIBILITY with
+    databricks-feature-engineering<=0.10.2
+    """
+    import yaml
+
+    with open(os.path.join(root, file_name), "w") as f:
+        yaml.safe_dump(
+            data,
+            f,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=sort_keys,
+        )
+
+
+def read_yaml(root: str, file_name: str) -> dict[str, Any]:
+    """
+    NEVER TOUCH THIS FUNCTION. KEPT FOR BACKWARD COMPATIBILITY with
+    databricks-feature-engineering<=0.10.2
+    """
+    import yaml
+
+    with open(os.path.join(root, file_name)) as f:
+        return yaml.safe_load(f)
