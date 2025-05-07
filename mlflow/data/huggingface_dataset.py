@@ -237,7 +237,8 @@ def from_huggingface(
     # `CodeDatasetSource`.
     if source is not None and path is not None:
         _logger.warning(
-            "Both 'source' and 'path' are provided. 'source' will take precedence, and 'path' will be ignored."
+            "Both 'source' and 'path' are provided."
+            "'source' will take precedence, and 'path' will be ignored."
         )
     if source is not None:
         source = source if isinstance(source, DatasetSource) else resolve_dataset_source(source)
