@@ -149,7 +149,7 @@ class GeminiAdapter(ProviderAdapter):
         usage_metadata = resp.get("usageMetadata", {})
 
         return chat.ResponsePayload(
-            id=resp.get("promptFeedback", {}).get("promptId", f"gemini-chat-{int(time.time())}"),
+            id=f"gemini-chat-{int(time.time())}",
             created=int(time.time()),
             object="chat.completion",
             model=config.model.name,
@@ -176,9 +176,8 @@ class GeminiAdapter(ProviderAdapter):
         #     "top_k": 40,
         # }
 
-        system_message = payload.pop("system_prompt", None)
         chat_payload = {"messages": [{"role": "user", "content": payload.pop("prompt")}], **payload}
-        if system_message:
+        if system_message := payload.pop("system_prompt", None):
             chat_payload["messages"].insert(0, {"role": "system", "content": system_message})
         return cls.chat_to_model(chat_payload, config)
 
