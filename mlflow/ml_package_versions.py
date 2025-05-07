@@ -320,6 +320,16 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.114.0"
         }
     },
+    "pydantic_ai": {
+        "package_info": {
+            "pip_release": "pydantic-ai",
+            "module_name": "pydantic_ai"
+        },
+        "autologging": {
+            "minimum": "0.1.9",
+            "maximum": "0.1.9"
+        }
+    },
     "smolagents": {
         "package_info": {
             "pip_release": "smolagents",
@@ -420,6 +430,7 @@ FLAVOR_TO_MODULE_NAME = {
     "gemini": "google.genai",
     "anthropic": "anthropic",
     "crewai": "crewai",
+    "pydantic_ai": "pydantic_ai",
     "smolagents": "smolagents",
     "mistral": "mistralai",
     "litellm": "litellm",

@@ -839,6 +839,34 @@ crewai:
     requirements:
     run: pytest tests/crewai
 
+pydantic_ai:
+  package_info:
+    pip_release: "pydantic-ai"
+    module_name: "pydantic_ai"
+
+    install_dev: |
+      # Install the stable version first to install dependencies
+      pip install pydantic-ai 
+      # We need to install deno to run test suite for MCPServer as deno is used to start the MCPServer
+      curl -fsSL https://deno.land/install.sh | sh -s -- -y --no-modify-path
+      # Update key libraries from source w/ no-deps
+      pip install --no-deps \
+      # We need to install pydantic_graph and pydantic_ai_slim as pydantic_ai is dependent on both of them
+      # and we need to install them seperately. Without pinning them seperately would result in dependency
+      # conflict errors and the installation of pydantic_ai would get failed. 
+      # Ref: https://github.com/pydantic/pydantic-ai/blob/main/pydantic_ai_slim/pyproject.toml#L45-L52
+        "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-graph&subdirectory=pydantic_graph" \
+        "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai-slim&subdirectory=pydantic_ai_slim" \
+        "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
+  autologging:
+    python:
+      ">= 0.1.0": "3.10"
+    minimum: "0.1.9"
+    maximum: "0.1.9"
+    requirements:
+      ">= 0.0.0": ["mcp"]
+    run: pytest tests/pydantic_ai
+
 smolagents:
   package_info:
     pip_release: "smolagents"
