@@ -326,8 +326,8 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "pydantic_ai"
         },
         "autologging": {
-            "minimum": "0.1.0",
-            "maximum": "0.1.8"
+            "minimum": "0.1.9",
+            "maximum": "0.1.9"
         }
     },
     "smolagents": {

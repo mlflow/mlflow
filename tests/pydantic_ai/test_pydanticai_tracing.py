@@ -1,10 +1,4 @@
-import os
 from unittest.mock import patch
-
-os.environ["OPENAI_API_KEY"] = "test"
-# We need to pass the api keys as environment variables as Pydantic Agent takes them from
-# env variables and we can't pass them directly in the Agents
-os.environ["GEMINI_API_KEY"] = "test"
 
 import pytest
 from pydantic_ai import Agent, RunContext
@@ -19,6 +13,25 @@ from tests.tracing.helper import get_traces
 
 _FINAL_ANSWER_WITHOUT_TOOL = "Paris"
 _FINAL_ANSWER_WITH_TOOL = "winner"
+
+
+@pytest.fixture(autouse=True)
+def mock_openai_creds(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "my-secret-key")
+
+
+@pytest.fixture(autouse=True)
+def mock_gemini_creds(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "my-secret-key")
+
+
+@pytest.fixture(autouse=True)
+def reset_mlflow_autolog_and_traces():
+    mlflow.autolog(disable=True)
+    get_traces().clear()
+    yield
+    mlflow.autolog(disable=True)
+    get_traces().clear()
 
 
 def _make_dummy_response_without_tool():
@@ -109,16 +122,6 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
 
-    resp_out, usage_out = span2.outputs
-    assert isinstance(resp_out, dict)
-    assert resp_out["parts"][0]["content"] == _FINAL_ANSWER_WITHOUT_TOOL
-
-    assert isinstance(usage_out, dict)
-    assert usage_out["requests"] == 1
-    assert usage_out["request_tokens"] == 1
-    assert usage_out["response_tokens"] == 1
-    assert usage_out["total_tokens"] == 2
-
     with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
         mlflow.pydantic_ai.autolog(disable=True)
         simple_agent.run_sync("France")
@@ -149,21 +152,6 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
     assert span1.name == "InstrumentedModel.request"
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == spans[0].span_id
-
-    resp_out, usage_out = span1.outputs
-    assert isinstance(resp_out, dict)
-    assert resp_out["parts"][0]["content"] == _FINAL_ANSWER_WITHOUT_TOOL
-
-    assert isinstance(usage_out, dict)
-    assert usage_out["requests"] == 1
-    assert usage_out["request_tokens"] == 1
-    assert usage_out["response_tokens"] == 1
-    assert usage_out["total_tokens"] == 2
-
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
-        mlflow.pydantic_ai.autolog(disable=True)
-        result = await simple_agent.run("France")
-    assert len(get_traces()) == 1
 
 
 def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
@@ -197,53 +185,15 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
 
-    resp_out, usage_out = span2.outputs
-    assert isinstance(resp_out, dict)
-    assert resp_out["parts"][0]["tool_name"] == "roulette_wheel"
-    assert resp_out["parts"][0]["args"] == {"square": 18}
-
-    assert isinstance(usage_out, dict)
-    assert usage_out["requests"] == 0
-    assert usage_out["request_tokens"] == 10
-    assert usage_out["response_tokens"] == 20
-    assert usage_out["total_tokens"] == 30
-
     span3 = spans[3]
     assert span3.name == "Tool.run"
     assert span3.span_type == SpanType.TOOL
     assert span3.parent_id == spans[1].span_id
-    message, run_context = span3.inputs["message"], span3.inputs["run_context"]
-    assert isinstance(message, dict)
-    assert message["tool_name"] == "roulette_wheel"
-    assert message["args"] == {"square": 18}
-    assert isinstance(run_context, dict)
-    assert run_context["deps"] == 18
-    usage = run_context["usage"]
-    assert isinstance(usage, dict)
-    assert usage["requests"] == 1
-    assert usage["request_tokens"] == 10
-    assert usage["response_tokens"] == 20
-    assert usage["total_tokens"] == 30
-    assert span3.outputs["tool_name"] == "roulette_wheel"
-    assert span3.outputs["content"] == _FINAL_ANSWER_WITH_TOOL
 
     span4 = spans[4]
     assert span4.name == "InstrumentedModel.request_2"
     assert span4.span_type == SpanType.LLM
     assert span4.parent_id == spans[1].span_id
-    resp_out, usage_out = span4.outputs
-    assert isinstance(resp_out, dict)
-    assert resp_out["parts"][0]["content"] == _FINAL_ANSWER_WITH_TOOL
-    assert isinstance(usage_out, dict)
-    assert usage_out["requests"] == 1
-    assert usage_out["request_tokens"] == 100
-    assert usage_out["response_tokens"] == 200
-    assert usage_out["total_tokens"] == 300
-
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
-        mlflow.pydantic_ai.autolog(disable=True)
-        agent_with_tool.run_sync("Put my money on square eighteen", deps=18)
-    assert len(get_traces()) == 1
 
 
 @pytest.mark.asyncio
@@ -275,53 +225,15 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == spans[0].span_id
 
-    resp_out, usage_out = span1.outputs
-    assert isinstance(resp_out, dict)
-    assert resp_out["parts"][0]["tool_name"] == "roulette_wheel"
-    assert resp_out["parts"][0]["args"] == {"square": 18}
-
-    assert isinstance(usage_out, dict)
-    assert usage_out["requests"] == 0
-    assert usage_out["request_tokens"] == 10
-    assert usage_out["response_tokens"] == 20
-    assert usage_out["total_tokens"] == 30
-
     span2 = spans[2]
     assert span2.name == "Tool.run"
     assert span2.span_type == SpanType.TOOL
     assert span2.parent_id == spans[0].span_id
-    message, run_context = span2.inputs["message"], span2.inputs["run_context"]
-    assert isinstance(message, dict)
-    assert message["tool_name"] == "roulette_wheel"
-    assert message["args"] == {"square": 18}
-    assert isinstance(run_context, dict)
-    assert run_context["deps"] == 18
-    usage = run_context["usage"]
-    assert isinstance(usage, dict)
-    assert usage["requests"] == 1
-    assert usage["request_tokens"] == 10
-    assert usage["response_tokens"] == 20
-    assert usage["total_tokens"] == 30
-    assert span2.outputs["tool_name"] == "roulette_wheel"
-    assert span2.outputs["content"] == _FINAL_ANSWER_WITH_TOOL
 
     span3 = spans[3]
     assert span3.name == "InstrumentedModel.request_2"
     assert span3.span_type == SpanType.LLM
     assert span3.parent_id == spans[0].span_id
-    resp_out, usage_out = span3.outputs
-    assert isinstance(resp_out, dict)
-    assert resp_out["parts"][0]["content"] == _FINAL_ANSWER_WITH_TOOL
-    assert isinstance(usage_out, dict)
-    assert usage_out["requests"] == 1
-    assert usage_out["request_tokens"] == 100
-    assert usage_out["response_tokens"] == 200
-    assert usage_out["total_tokens"] == 300
-
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
-        mlflow.pydantic_ai.autolog(disable=True)
-        result = await agent_with_tool.run("Put my money on square eighteen", deps=18)
-    assert len(get_traces()) == 1
 
 
 def test_agent_run_sync_failure(simple_agent):

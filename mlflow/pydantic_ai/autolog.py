@@ -161,16 +161,7 @@ def _get_tool_attributes(instance):
 def _parse_tools(tools):
     result = []
     for tool in tools:
-        try:
-            data = tool.model_dumps(exclude_none=True)
-        except AttributeError:
-            data = {}
-            if hasattr(tool, "name") and tool.name is not None:
-                data["name"] = tool.name
-            if hasattr(tool, "description") and tool.description is not None:
-                data["description"] = tool.description
-            if hasattr(tool, "parameters") and tool.parameters is not None:
-                data["parameters"] = tool.parameters
+        data = tool.model_dumps(exclude_none=True)
 
         if data:
             result.append(
@@ -180,20 +171,3 @@ def _parse_tools(tools):
                 }
             )
     return result
-
-
-def list_tools(instance):
-    if hasattr(instance, "tools"):
-        return _parse_tools(instance.tools)
-    return []
-
-
-def call_tool(instance, tool_name, **kwargs):
-    if not hasattr(instance, "tools"):
-        raise AttributeError(f"{instance.__class__.__name__} does not have tools")
-
-    for tool in instance.tools:
-        if tool.name == tool_name:
-            return tool(**kwargs)
-
-    raise ValueError(f"Tool '{tool_name}' not found")
