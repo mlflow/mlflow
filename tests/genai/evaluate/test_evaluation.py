@@ -67,12 +67,12 @@ def test_model_from_deployment_endpoint(mock_deploy_client, model_input):
 def test_evaluate_passes_model_id_to_mlflow_evaluate():
     # Tracking URI = databricks is required to use mlflow.genai.evaluate()
     mlflow.set_tracking_uri("databricks")
-    data = []
-    with (
-        mock.patch("mlflow.genai.evaluation.base.is_model_traced", return_value=True),
-        mock.patch("mlflow.genai.evaluation.base._convert_to_legacy_eval_set", return_value=data),
-        mock.patch("mlflow.evaluate") as mock_evaluate,
-    ):
+    data = [
+        {"inputs": {"foo": "bar"}, "outputs": "response from model"},
+        {"inputs": {"baz": "qux"}, "outputs": "response from model"},
+    ]
+
+    with mock.patch("mlflow.evaluate") as mock_evaluate:
 
         @mlflow.trace
         def model(x):
@@ -87,7 +87,7 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
         # Verify the call was made with the right parameters
         mock_evaluate.assert_called_once_with(
             model=model,
-            data=data,
+            data=mock.ANY,
             evaluator_config={},
             model_type="databricks-agent",
             extra_metrics=[],
