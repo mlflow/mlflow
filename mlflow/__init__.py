@@ -84,6 +84,7 @@ paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
 pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
 promptflow = LazyLoader("mlflow.promptflow", globals(), "mlflow.promptflow")
 prophet = LazyLoader("mlflow.prophet", globals(), "mlflow.prophet")
+pydantic_ai = LazyLoader("mlflow.pydantic_ai", globals(), "mlflow.pydantic_ai")
 pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
@@ -95,6 +96,7 @@ sentence_transformers = LazyLoader(
 )
 shap = LazyLoader("mlflow.shap", globals(), "mlflow.shap")
 sklearn = LazyLoader("mlflow.sklearn", globals(), "mlflow.sklearn")
+smolagents = LazyLoader("mlflow.smolagents", globals(), "mlflow.smolagents")
 spacy = LazyLoader("mlflow.spacy", globals(), "mlflow.spacy")
 spark = LazyLoader("mlflow.spark", globals(), "mlflow.spark")
 statsmodels = LazyLoader("mlflow.statsmodels", globals(), "mlflow.statsmodels")
@@ -133,6 +135,7 @@ if TYPE_CHECKING:
         pmdarima,
         promptflow,
         prophet,
+        pydantic_ai,
         pyfunc,
         pyspark,
         pytorch,
@@ -140,6 +143,7 @@ if TYPE_CHECKING:
         sentence_transformers,
         shap,
         sklearn,
+        smolagents,
         spacy,
         spark,
         statsmodels,

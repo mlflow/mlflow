@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any, Callable, Optional
 
 from mlflow.entities.file_info import FileInfo
+from mlflow.environment_variables import MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT
 from mlflow.protos.databricks_artifacts_pb2 import (
     DatabricksMlflowArtifactsService,
     GetCredentialsForLoggedModelDownload,
@@ -273,6 +274,7 @@ class _Trace(_Resource):
                 else GetCredentialsForTraceDataUpload
             ),
             path_params={"request_id": self.id},
+            retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
         )
         cred_inf = ArtifactCredentialInfo(
             signed_uri=res.credential_info.signed_uri,

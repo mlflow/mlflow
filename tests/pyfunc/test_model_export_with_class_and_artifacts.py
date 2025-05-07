@@ -2075,7 +2075,8 @@ def test_pyfunc_as_code_with_dependencies_store_dependencies_schemas_in_trace(
     if is_in_db_model_serving:
         trace_dict = pop_trace("1234")
         trace = Trace.from_dict(trace_dict)
-        assert trace.info.request_id == "1234"
+        assert trace.info.trace_id.startswith("tr-")
+        assert trace.info.client_request_id == "1234"
     else:
         trace = get_traces()[0]
     assert trace.info.tags[DependenciesSchemasType.RETRIEVERS.value] == json.dumps(

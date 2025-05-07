@@ -616,6 +616,13 @@ MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
     "MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", int, 10
 )
 
+#: Whether to writing trace to the MLflow backend from a model running in a Databricks
+#: model serving endpoint. If true, the trace will be written to both the MLflow backend
+#: and the Inference Table.
+_MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING = _EnvironmentVariable(
+    "MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", bool, False
+)
+
 # Default addressing style to use for boto client
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
     "MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE", str, "auto"
@@ -736,16 +743,16 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS = _EnvironmentVariable(
 
 #: Maximum number of export tasks to queue for async trace logging.
 #: When the queue is full, new export tasks will be dropped.
-#: (default: ``1000``)
+#: (default: ``50``)
 MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
-    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", int, 1000
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", int, 50
 )
 
 
-#: Timeout seconds for retrying async trace logging.
-#: (default: ``60``)
+#: Timeout seconds for retrying trace logging.
+#: (default: ``5``)
 MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
-    "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 60
+    "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 5
 )
 
 
