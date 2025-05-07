@@ -108,7 +108,13 @@ def evaluate(
     for scorer in scorers or []:
         if isinstance(scorer, BuiltInScorer):
             builtin_scorers.append(scorer)
-        elif isinstance(scorer, (Scorer, DBAgentsMetric)):
+        elif isinstance(scorer, Scorer):
+            custom_scorers.append(scorer)
+        elif isinstance(scorer, DBAgentsMetric):
+            logger.warning(
+                f"{scorer} is a legacy metric and will soon be deprecated in future releases. "
+                "Please use the @scorer decorator or use builtin scorers instead."
+            )
             custom_scorers.append(scorer)
         else:
             raise TypeError(

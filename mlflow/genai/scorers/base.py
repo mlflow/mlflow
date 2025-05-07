@@ -20,6 +20,8 @@ class Scorer(BaseModel):
         traces=None,
         **kwargs,
     ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
+        # TODO: make sure scorer's signature is simply equal to whatever keys are
+        # in the eval dataset once we migrate from the agent eval harness
         """
 
         Args:
@@ -27,9 +29,9 @@ class Scorer(BaseModel):
             outputs (optional): A single output from the target model/app.
             expectations (optional): Ground truth, or a dictionary of ground
                 truths for individual output fields.
-            traces (optional): A single trace object corresponding to the prediction
-                for the row. Only required when any of scorers requires a trace in
-                order to compute assessments/metrics.
+            traces (optional): Json representation of a trace object corresponding to
+                the prediction for the row. Required when any of scorers requires a
+                trace in order to compute assessments/scores.
             retrieved_context (optional): Retrieved context, can be from your input eval dataset
                 or from trace
             custom_expected (optional): Custom expected results from input eval dataset
