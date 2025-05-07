@@ -51,7 +51,7 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
                     "Every item in the list must have an 'inputs' key."
                 )
 
-        df = pd.DataFrame(data) if 1 < len(data) else pd.DataFrame(data[0])
+        df = pd.DataFrame(data)
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
         df = data.copy()
