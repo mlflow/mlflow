@@ -23,6 +23,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
@@ -111,7 +112,13 @@ class RestStore(AbstractStore):
         super().__init__()
         self.get_host_creds = get_host_creds
 
-    def _call_endpoint(self, api, json_body=None, endpoint=None):
+    def _call_endpoint(
+        self,
+        api,
+        json_body=None,
+        endpoint=None,
+        retry_timeout_seconds=None,
+    ):
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{request_id}/info.
@@ -119,7 +126,14 @@ class RestStore(AbstractStore):
         else:
             endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
-        return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
+        return call_endpoint(
+            self.get_host_creds(),
+            endpoint,
+            method,
+            json_body,
+            response_proto,
+            retry_timeout_seconds=retry_timeout_seconds,
+        )
 
     def search_experiments(
         self,
@@ -317,6 +331,7 @@ class RestStore(AbstractStore):
             StartTraceV3,
             req_body,
             endpoint="/api/3.0/mlflow/traces",
+            retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
         )
         return TraceInfoV3.from_proto(response_proto.trace.trace_info)
 

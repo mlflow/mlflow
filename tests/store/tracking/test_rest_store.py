@@ -21,11 +21,14 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
@@ -53,6 +56,7 @@ from mlflow.protos.service_pb2 import (
     SetTag,
     SetTraceTag,
     StartTrace,
+    StartTraceV3,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -157,12 +161,15 @@ def test_response_with_unknown_fields(request):
     assert experiments[0].name == "My experiment"
 
 
-def _args(host_creds, endpoint, method, json_body):
+def _args(host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_seconds=None):
+    version = "3.0" if use_v3 else "2.0"
     res = {
         "host_creds": host_creds,
-        "endpoint": f"/api/2.0/mlflow/{endpoint}",
+        "endpoint": f"/api/{version}/mlflow/{endpoint}",
         "method": method,
     }
+    if retry_timeout_seconds is not None:
+        res["retry_timeout_seconds"] = retry_timeout_seconds
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:
@@ -170,7 +177,9 @@ def _args(host_creds, endpoint, method, json_body):
     return res
 
 
-def _verify_requests(http_request, host_creds, endpoint, method, json_body, use_v3=False):
+def _verify_requests(
+    http_request, host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_seconds=None
+):
     """
     Verify HTTP requests in tests.
 
@@ -182,22 +191,11 @@ def _verify_requests(http_request, host_creds, endpoint, method, json_body, use_
         json_body: The request body as a JSON string
         use_v3: If True, verify using /api/3.0/mlflow/ prefix instead of /api/2.0/mlflow/
                 This is used for trace-related endpoints that use the V3 API.
+        retry_timeout_seconds: The retry timeout seconds to use for the request
     """
-    if use_v3:
-        # For endpoints using V3 API, use the v3 API prefix
-        res = {
-            "host_creds": host_creds,
-            "endpoint": f"/api/3.0/mlflow/{endpoint}",
-            "method": method,
-        }
-        if method == "GET":
-            res["params"] = json.loads(json_body)
-        else:
-            res["json"] = json.loads(json_body)
-        http_request.assert_any_call(**res)
-    else:
-        # For standard endpoints or if use_v3=False, use the v2 API prefix
-        http_request.assert_any_call(**(_args(host_creds, endpoint, method, json_body)))
+    http_request.assert_any_call(
+        **(_args(host_creds, endpoint, method, json_body, use_v3, retry_timeout_seconds))
+    )
 
 
 def test_requestor():
@@ -665,6 +663,44 @@ def test_start_trace():
         assert res.status == TraceStatus.UNSPECIFIED
         assert res.request_metadata == {k: str(v) for k, v in metadata.items()}
         assert res.tags == {k: str(v) for k, v in tags.items()}
+
+
+def test_start_trace_v3(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.name, 1)
+
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    trace = Trace(
+        info=TraceInfoV3(
+            trace_id="tr-123",
+            trace_location=TraceLocation.from_experiment_id("123"),
+            request_time=123,
+            execution_duration=10,
+            state=TraceState.OK,
+            request_preview="",
+            response_preview="",
+            trace_metadata={},
+        ),
+        data=TraceData(),
+    )
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+
+    expected_request = StartTraceV3(trace=trace.to_proto())
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.start_trace_v3(trace)
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces",
+            "POST",
+            message_to_json(expected_request),
+            use_v3=True,
+            retry_timeout_seconds=1,
+        )
 
 
 def test_end_trace():
