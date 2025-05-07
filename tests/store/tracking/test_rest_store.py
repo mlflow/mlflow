@@ -666,7 +666,7 @@ def test_start_trace():
 
 
 def test_start_trace_v3(monkeypatch):
-    monkeypatch.setenv(MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.name, 1)
+    monkeypatch.setenv(MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.name, "1")
 
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)

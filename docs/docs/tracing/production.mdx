@@ -63,7 +63,7 @@ For more details about the product and how to set it up, please refer to the [La
 
 ### Configurations
 
-When using Lakehouse Monitoring for GenAI, MLflow will log traces in **non-blocking manner** by default, such that the application can continue to serve requests without waiting for the trace to be logged. You can configure this logging behavior by setting the following environment variables:
+When using Lakehouse Monitoring for GenAI, MLflow logs traces asynchronously by default, allowing your application to continue serving requests without waiting for trace logging to complete.
 
 | Environment Variable | Description | Default Value |
 |----------------------|-------------|---------------|
