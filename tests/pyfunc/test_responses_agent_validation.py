@@ -9,12 +9,16 @@ if not IS_PYDANTIC_V2_OR_NEWER:
         allow_module_level=True,
     )
 
-from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
+from mlflow.types.responses import (
+    ResponsesAgentRequest,
+    ResponsesAgentResponse,
+    ResponsesAgentStreamEvent,
+)
 
 
 def test_responses_request_validation():
     with pytest.raises(ValueError, match="content.0.text"):
-        ResponsesRequest(
+        ResponsesAgentRequest(
             **{
                 "input": [
                     {
@@ -33,7 +37,7 @@ def test_responses_request_validation():
         )
 
     with pytest.raises(ValueError, match="role"):
-        ResponsesRequest(
+        ResponsesAgentRequest(
             **{
                 "input": [
                     {
@@ -55,7 +59,7 @@ def test_responses_request_validation():
 
 def test_responses_response_validation():
     with pytest.raises(ValueError, match="output.0.content.0.text"):
-        ResponsesResponse(
+        ResponsesAgentResponse(
             **{
                 "output": [
                     {
@@ -76,7 +80,7 @@ def test_responses_response_validation():
 
 def test_responses_stream_event_validation():
     with pytest.raises(ValueError, match="content must not be an empty"):
-        ResponsesStreamEvent(
+        ResponsesAgentStreamEvent(
             **{
                 "type": "response.output_item.done",
                 "output_index": 0,
@@ -91,7 +95,7 @@ def test_responses_stream_event_validation():
         )
 
     with pytest.raises(ValueError, match="Invalid status"):
-        ResponsesStreamEvent(
+        ResponsesAgentStreamEvent(
             **{
                 "type": "response.output_item.done",
                 "output_index": 0,
@@ -111,7 +115,7 @@ def test_responses_stream_event_validation():
         )
 
     with pytest.raises(ValueError, match="item.content.0.annotations.0.url"):
-        ResponsesStreamEvent(
+        ResponsesAgentStreamEvent(
             **{
                 "type": "response.output_item.done",
                 "output_index": 1,
@@ -138,7 +142,7 @@ def test_responses_stream_event_validation():
             },
         )
     with pytest.raises(ValueError, match="delta"):
-        ResponsesStreamEvent(
+        ResponsesAgentStreamEvent(
             **{
                 "type": "response.output_text.delta",
                 "item_id": "msg_67eda402cba48191a1c35b84af04fc3c0a4363ad71e9395a",
@@ -148,7 +152,7 @@ def test_responses_stream_event_validation():
         )
 
     with pytest.raises(ValueError, match="annotation.url"):
-        ResponsesStreamEvent(
+        ResponsesAgentStreamEvent(
             **{
                 "type": "response.output_text.annotation.added",
                 "item_id": "msg_67ed73ed2c288191b0f0f445e21c66540fbd8030171e9b0c",
