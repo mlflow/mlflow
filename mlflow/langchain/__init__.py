@@ -10,8 +10,6 @@ if not IS_TRACING_SDK_ONLY:
     from mlflow.langchain.model import (
         _LangChainModelWrapper,
         _load_pyfunc,
-        get_default_conda_env,
-        get_default_pip_requirements,
         load_model,
         log_model,
         save_model,
@@ -20,8 +18,6 @@ if not IS_TRACING_SDK_ONLY:
     __all__ += [
         "_LangChainModelWrapper",
         "_load_pyfunc",
-        "get_default_conda_env",
-        "get_default_pip_requirements",
         "load_model",
         "log_model",
         "save_model",
