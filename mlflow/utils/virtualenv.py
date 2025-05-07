@@ -16,6 +16,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils import env_manager as em
 from mlflow.utils.conda import _PIP_CACHE_DIR
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
@@ -239,6 +240,22 @@ def _get_virtualenv_activate_cmd(env_dir: Path) -> str:
     return f"source {activate_cmd}" if not is_windows() else str(activate_cmd)
 
 
+class PermissionError(Exception):
+    """
+    Custom exception to handle permission errors when checking for the existence of a directory.
+    """
+
+
+def _check_dir_exists(dir: Path):
+    try:
+        return dir.exists()
+    except Exception as e:
+        if is_in_databricks_runtime() and "Permission denied" in str(e):
+            raise PermissionError(e)
+        _logger.warning(f"Failed to check directory existence. Error: {e}")
+        return False
+
+
 def _create_virtualenv(
     local_model_path: Path,
     python_env: _PythonEnv,
@@ -420,12 +437,18 @@ def _get_or_create_virtualenv(  # noqa: D417
             pyenv_root_path.mkdir(parents=True, exist_ok=True)
             pyenv_root_dir = str(pyenv_root_path)
 
-    virtual_envs_root_path = (
-        Path(env_root_dir) / _VIRTUALENV_ENVS_DIR
-        if env_root_dir is not None
-        else Path(_get_mlflow_virtualenv_root())
-    )
     virtual_envs_root_path.mkdir(parents=True, exist_ok=True)
+    try:
+        _check_dir_exists(virtual_envs_root_path)
+    except PermissionError:
+        virtual_envs_root_path = Path(env_root_dir) / _VIRTUALENV_ENVS_DIR + uuid.uuid4().hex[:4]
+        virtual_envs_root_path.mkdir(parents=True, exist_ok=True)
+        _logger.debug(
+            f"Existing virtual environment directory {virtual_envs_root_path} cannot be accessed "
+            "due to permission error. Creating a new directory for virtual "
+            f"environments: {virtual_envs_root_path}"
+        )
+
     env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
     env_dir = virtual_envs_root_path / env_name
     extra_env = _get_virtualenv_extra_env_vars(env_root_dir)
