@@ -6,14 +6,14 @@ import { APILink } from "@site/src/components/APILink";
 
 # GenAI Agent with MLflow 3.0
 
-**Prerequisites**:
+## Prerequisites
 Run the following command to install MLflow 3.0 and langchain-openai packages.
 ```
 pip install --upgrade 'mlflow>=3.0.0rc0' --pre
 pip install langchain-openai
 ```
 
-This example demonstrates how to use MLflow to trace and evaluate langchain model requests with prompts engineering.
+This example demonstrates how to use MLflow to trace and evaluate langchain model requests with prompt engineering.
 It showcases how to register prompts, generate traces, and assess response performance using evaluation datasets.
 The example also highlights the ability to track interactive traces and link them to the logged model for better observability.
 
@@ -38,7 +38,7 @@ Switch to the **Prompts** tab to view the registered prompt and its details:
 
 ## Create a chain with Langchain
 
-Next, we use the ChatPromptTemplate with the prompt registered in the previous step and combine it with ChatOpenAI to create a simple chain that answers user questions.
+Next, we use `ChatPromptTemplate` with the prompt registered in the previous step and combine it with `ChatOpenAI` to create a simple chain that answers user questions.
 
 ```python
 from langchain.schema.output_parser import StrOutputParser
@@ -49,11 +49,7 @@ prompt = ChatPromptTemplate.from_template(system_prompt.to_single_brace_format()
 chain = prompt | ChatOpenAI(temperature=0.7) | StrOutputParser()
 question = "What is MLflow?"
 print(chain.invoke({"question": question}))
-# MLflow is an open-source platform for managing the end-to-end machine learning lifecycle.
-# It allows data scientists to track and reproduce experiments, package and share models,
-# and deploy models to production. MLflow provides tools and APIs for tracking experiment metrics,
-# parameters, and artifacts, as well as for packaging code into reproducible runs.
-# It also supports various machine learning frameworks and deployment tools.
+# MLflow is an open-source platform for managing the end-to-end machine learning lifecycle...
 ```
 
 ## Test the model with tracing observability
