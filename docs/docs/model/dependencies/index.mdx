@@ -115,7 +115,7 @@ class CustomModel(mlflow.pyfunc.PythonModel):
 with mlflow.start_run() as run:
     mlflow.pyfunc.log_model(
         python_model=CustomModel(),
-        artifact_path="model",
+        name="model",
         extra_pip_requirements=["pandas==2.0.3"],
         input_example=input_data,
     )
@@ -149,7 +149,7 @@ import mlflow
 with mlflow.start_run() as run:
     mlflow.sklearn.log_model(
         sk_model=model,
-        artifact_path="model",
+        name="model",
         pip_requirements=[
             "mlflow-skinny==2.9.2",
             "cloudpickle==2.5.8",
@@ -178,11 +178,6 @@ test your model in a virtual environment. Please refer to [Validating Environmen
 :::
 
 ## Saving Extra Code dependencies with an MLflow Model - Automatic inference \{#saving-code-dependencies}
-
-:::note
-Automatic code dependency inference is a feature that was introduced in MLflow 2.13.0 and is marked as Experimental. The base implementation may be
-modified, improved, and adjusted with no prior notice in order to address potential issues and edge cases.
-:::
 
 :::note
 Automatic code dependency inference is currently supported for Python Function Models only. Support for additional named model flavors will be coming in
@@ -234,7 +229,7 @@ class FlowerMapping(mlflow.pyfunc.PythonModel):
 
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
-        artifact_path="flowers",
+        name="flowers",
         python_model=FlowerMapping(),
         infer_code_paths=True,  # Enabling automatic code dependency inference
     )
@@ -316,7 +311,7 @@ class MyModel(mlflow.pyfunc.PythonModel):
 with mlflow.start_run() as run:
     mlflow.pyfunc.log_model(
         python_model=MyModel(),
-        artifact_path="model",
+        name="model",
         input_example=input_data,
         code_paths=["utils.py"],
     )
@@ -372,7 +367,7 @@ class MyModel(mlflow.pyfunc.PythonModel):
 with mlflow.start_run() as run:
     mlflow.pyfunc.log_model(
         python_model=MyModel(),
-        artifact_path="model",
+        name="model",
         extra_pip_requirements=["code/custom_package.whl"],
         input_example=input_data,
         code_paths=["custom_package.whl"],
@@ -406,7 +401,7 @@ class MyModel(mlflow.pyfunc.PythonModel):
 with mlflow.start_run() as run:
     mlflow.pyfunc.log_model(
         python_model=MyModel(),
-        artifact_path="model",
+        name="model",
         input_example=input_data,
         code_paths=[
             "src/utils.py"
@@ -436,7 +431,7 @@ class MyModel(mlflow.pyfunc.PythonModel):
 with mlflow.start_run() as run:
     mlflow.pyfunc.log_model(
         python_model=model,
-        artifact_path="model",
+        name="model",
         input_example=input_data,
         code_paths=["src"],  # the whole /src directory will be saved at code/src
     )
@@ -480,7 +475,7 @@ class MyModel(mlflow.pyfunc.PythonModel):
 
     with mlflow.start_run():
         info1 = mlflow.pyfunc.log_model(
-            artifact_path="model",
+            name="model",
             python_model=model1,
             code_paths=[my_model_path],
         )
@@ -493,7 +488,7 @@ class MyModel(mlflow.pyfunc.PythonModel):
 
     with mlflow.start_run():
         info2 = mlflow.pyfunc.log_model(
-            artifact_path="model",
+            name="model",
             python_model=model2,
             code_paths=[my_model_path],
         )
@@ -525,13 +520,13 @@ Another workaround is to use different module names for different implementation
 
 ```python
 mlflow.pyfunc.log_model(
-    artifact_path="model1",
+    name="model1",
     python_model=model1,
     code_paths=["my_model1.py"],
 )
 
 mlflow.pyfunc.log_model(
-    artifact_path="model",
+    name="model",
     python_model=model2,
     code_paths=["my_model2.py"],
 )
@@ -739,7 +734,7 @@ Alternatively, you can log a new model with the updated dependencies by specifyi
 import mlflow
 
 mlflow.pyfunc.log_model(
-    artifact_path="model",
+    name="model",
     python_model=python_model,
     extra_pip_requirements=["opencv-python==4.8.0"],
     input_example=input_data,

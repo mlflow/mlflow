@@ -426,7 +426,7 @@ signature = infer_signature(["input"], params=params)
 
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
-        python_model=MyModel(), artifact_path="my_model", signature=signature
+        python_model=MyModel(), name="my_model", signature=signature
     )
 
 loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -561,7 +561,7 @@ with mlflow.start_run():
     # Take the first row of the training dataset as the model input example.
     input_example = iris_train.iloc[[0]]
     # The signature is automatically inferred from the input example and its predicted output.
-    mlflow.sklearn.log_model(clf, "iris_rf", input_example=input_example)
+    mlflow.sklearn.log_model(clf, name="iris_rf", input_example=input_example)
 ```
 
 The same signature can be explicitly created and logged as follows:
@@ -586,7 +586,7 @@ signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 signature = infer_signature(iris_train, clf.predict(iris_train))
 
 with mlflow.start_run():
-    mlflow.sklearn.log_model(clf, "iris_rf", signature=signature)
+    mlflow.sklearn.log_model(clf, name="iris_rf", signature=signature)
 ```
 
 ### Tensor-based Signature Example
@@ -617,7 +617,7 @@ with mlflow.start_run():
     model.fit(x_train, y_train, epochs=5)
     # Take the first three training examples as the model input example.
     input_example = x_train[:3, :]
-    mlflow.tensorflow.log_model(model, "mnist_cnn", input_example=input_example)
+    mlflow.tensorflow.log_model(model, name="mnist_cnn", input_example=input_example)
 ```
 
 The same signature can be explicitly created and logged as follows:
@@ -640,7 +640,7 @@ signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 signature = infer_signature(testX, model.predict(testX))
 
 with mlflow.start_run():
-    mlflow.tensorflow.log_model(model, "mnist_cnn", signature=signature)
+    mlflow.tensorflow.log_model(model, name="mnist_cnn", signature=signature)
 ```
 
 ### Signature with params Example
@@ -982,7 +982,7 @@ X, y = datasets.load_iris(return_X_y=True, as_frame=True)
 clf = RandomForestClassifier(max_depth=7, random_state=0)
 with mlflow.start_run() as run:
     clf.fit(X, y)
-    mlflow.sklearn.log_model(clf, "iris_rf")
+    mlflow.sklearn.log_model(clf, name="iris_rf")
 ```
 
 You can set a signature on the logged model as follows:
@@ -1030,7 +1030,7 @@ from mlflow.client import MlflowClient
 model_name = "add_signature_model"
 
 with mlflow.start_run() as run:
-    mlflow.sklearn.log_model(RandomForestClassifier(), "sklearn-model")
+    mlflow.sklearn.log_model(RandomForestClassifier(), name="sklearn-model")
 
 model_uri = f"runs:/{run.info.run_id}/sklearn-model"
 mlflow.register_model(model_uri=model_uri, name=model_name)
@@ -1094,7 +1094,7 @@ class MyModel(mlflow.pyfunc.PythonModel):
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
         python_model=MyModel(),
-        artifact_path="model",
+        name="model",
         input_example={"question": "What is MLflow?"},
     )
 ```
@@ -1140,8 +1140,7 @@ Example files logged by MLflow:
 :::note
 Prior to MLflow 2.16.0, dictionary input example was converted to Pandas DataFrame format when saving. In later versions, the input
 example is simply saved in its JSON serialized format. For pandas DataFrame, it is converted to dictionary format
-with `to_dict(orient='split')` and saved into json format. `example_no_conversion` parameter for langchain, openai, pyfunc and
-transformers flavors is no longer used and safe to be removed, it will be dropped in a future release.
+with `to_dict(orient='split')` and saved into json format.
 :::
 
 Similar to model signatures, model inputs can be column-based (i.e DataFrames), tensor-based

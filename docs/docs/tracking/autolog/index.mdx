@@ -122,34 +122,6 @@ The following libraries support autologging:
 
 For flavors that automatically save models as an artifact, [additional files](https://mlflow.org/docs/latest/models.html#storage-format) for dependency management are logged.
 
-### Fastai \{#autolog-fastai}
-
-Call the generic autolog function <APILink fn="mlflow.fastai.autolog" /> before your training code to enable automatic logging of metrics and parameters.
-See an example usage with [Fastai](https://github.com/mlflow/mlflow/tree/master/examples/fastai).
-
-Autologging captures the following information:
-
-<table>
-  <thead>
-    <tr>
-      <th>Framework</th>
-      <th>Metrics</th>
-      <th>Parameters</th>
-      <th>Tags</th>
-      <th>Artifacts</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>fastai</td>
-      <td>user-specified metrics</td>
-      <td>Logs optimizer data as parameters. For example, `epochs`, `lr`, `opt_func`, etc; Logs the parameters of the [EarlyStoppingCallback](https://docs.fast.ai/callback.tracker.html#earlystoppingcallback) and [OneCycleScheduler](https://fastai1.fast.ai/callbacks.one_cycle.html#OneCycleScheduler) callbacks</td>
-      <td>--</td>
-      <td>Model checkpoints are logged to a ‘models’ directory; [MLflow Model](/model) (fastai Learner model) on training end; Model summary text is logged</td>
-    </tr>
-  </tbody>
-</table>
-
 ### Keras/TensorFlow \{#autolog-keras}
 
 Call the generic autolog function or <APILink fn="mlflow.tensorflow.autolog" /> before your training code to enable automatic logging of metrics and parameters. As an example, try running the [Keras/Tensorflow example](https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py).

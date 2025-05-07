@@ -177,7 +177,7 @@ def main():
         scheduler.step()
     test(scripted_model, device, test_loader)
     with mlflow.start_run():
-        mlflow.pytorch.log_model(scripted_model, "model")  # logging scripted model
+        mlflow.pytorch.log_model(scripted_model, name="model")  # logging scripted model
         model_path = mlflow.get_artifact_uri("model")
         loaded_pytorch_model = mlflow.pytorch.load_model(model_path)  # loading scripted model
         model.eval()

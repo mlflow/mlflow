@@ -230,6 +230,6 @@ def _create_test_span(
         end_time=end_time,
     )
 
-    span = LiveSpan(mock_otel_span, request_id=request_id)
+    span = LiveSpan(mock_otel_span, request_id)
     span.set_status("OK")
     return span

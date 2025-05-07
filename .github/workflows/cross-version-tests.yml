@@ -50,13 +50,13 @@ defaults:
 env:
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
-  PIP_CONSTRAINT: /home/runner/work/mlflow/mlflow/requirements/constraints.txt
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 jobs:
   set-matrix:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow-automation/mlflow') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     permissions:
       issues: read # listLabelsOnIssue
     outputs:
@@ -128,7 +128,8 @@ jobs:
     if: ${{ needs.set-matrix.outputs.is_matrix1_empty == 'false' }}
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix1) }}
@@ -175,7 +176,8 @@ jobs:
     if: ${{ needs.set-matrix.outputs.is_matrix2_empty == 'false' }}
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix2) }}

@@ -100,19 +100,6 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "1.2.8"
         }
     },
-    "fastai": {
-        "package_info": {
-            "pip_release": "fastai"
-        },
-        "models": {
-            "minimum": "2.4.1",
-            "maximum": "2.8.1"
-        },
-        "autologging": {
-            "minimum": "2.4.1",
-            "maximum": "2.8.1"
-        }
-    },
     "onnx": {
         "package_info": {
             "pip_release": "onnx"
@@ -158,15 +145,6 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "3.5.5"
         }
     },
-    "mleap": {
-        "package_info": {
-            "pip_release": "mleap"
-        },
-        "models": {
-            "minimum": "0.18.0",
-            "maximum": "0.23.3"
-        }
-    },
     "prophet": {
         "package_info": {
             "pip_release": "prophet"
@@ -200,7 +178,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.40.0.1",
-            "maximum": "3.46.0.7"
+            "maximum": "3.46.0.6"
         }
     },
     "shap": {
@@ -342,6 +320,16 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.114.0"
         }
     },
+    "smolagents": {
+        "package_info": {
+            "pip_release": "smolagents",
+            "module_name": "smolagents"
+        },
+        "autologging": {
+            "minimum": "1.14.0",
+            "maximum": "1.14.0"
+        }
+    },
     "mistral": {
         "package_info": {
             "pip_release": "mistralai",
@@ -420,7 +408,6 @@ FLAVOR_TO_MODULE_NAME = {
     "tensorflow": "tensorflow",
     "xgboost": "xgboost",
     "lightgbm": "lightgbm",
-    "fastai": "fastai",
     "statsmodels": "statsmodels",
     "spark": "pyspark",
     "paddle": "paddle",
@@ -433,6 +420,7 @@ FLAVOR_TO_MODULE_NAME = {
     "gemini": "google.genai",
     "anthropic": "anthropic",
     "crewai": "crewai",
+    "smolagents": "smolagents",
     "mistral": "mistralai",
     "litellm": "litellm",
     "groq": "groq",

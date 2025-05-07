@@ -146,6 +146,10 @@ def _get_metrics_dataframe_schema() -> dict[str, str]:
         "key": "string",
         "value": "float64",
         "timestamp": "int64",
+        "model_id": "string",
+        "dataset_name": "string",
+        "dataset_digest": "string",
+        "run_id": "string",
     }
 
 

@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "2.22.1.dev0"
+version = "3.0.0.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -27,7 +27,7 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-  "mlflow-skinny==2.22.1.dev0",
+  "mlflow-skinny==3.0.0.dev0",
   "Flask<4",
   "Jinja2<4,>=2.11; platform_system != 'Windows'",
   "Jinja2<4,>=3.0; platform_system == 'Windows'",
@@ -126,8 +126,6 @@ mlflow = [
   "pyspark/ml/log_model_allowlist.txt",
   "server/auth/basic_auth.ini",
   "server/auth/db/migrations/alembic.ini",
-  "recipes/resources/**/*",
-  "recipes/cards/templates/**/*",
   "models/notebook_resources/**/*",
   "models/container/**/*",
   "server/js/build/**/*",

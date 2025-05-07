@@ -205,31 +205,6 @@ catboost:
     run: |
       pytest tests/catboost/test_catboost_model_export.py
 
-fastai:
-  package_info:
-    pip_release: "fastai"
-
-  models:
-    minimum: "2.4.1"
-    maximum: "2.8.1"
-    requirements:
-      # TODO: fastai depends on spacy, but spacy>=3.8.2 requires python>=3.9
-      #  Once migrating fastai tests to python 3.9, we should remove spacy<3.8.2
-      #  To migrate fastai tests to python 3.9, we need to address error
-      #  when installing old version scipy: "No module named 'distutils.msvccompiler'"
-      #  similar issue link: https://github.com/numpy/numpy/issues/27405
-      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
-    run: |
-      pytest tests/fastai/test_fastai_model_export.py
-
-  autologging:
-    minimum: "2.4.1"
-    maximum: "2.8.1"
-    requirements:
-      "> 0.0.0": ["spacy<3.8.2", "torch<1.13.0", "torchvision<0.14.0"]
-    run: |
-      pytest tests/fastai/test_fastai_autolog.py
-
 onnx:
   package_info:
     pip_release: "onnx"
@@ -379,29 +354,6 @@ spark:
 
       find tests/spark/autologging -name 'test*.py' | grep -v crossframework | grep -v test_spark_disable_autologging | xargs -L 1 pytest
 
-mleap:
-  package_info:
-    pip_release: "mleap"
-
-  models:
-    minimum: "0.18.0"
-    maximum: "0.23.3"
-    requirements:
-      ">= 0.0.0": ["pandas<2"]
-      "< 0.22.0": ["numpy<1.24.0"]
-      "> 0.17.0, < 0.21.0": ["pyspark==3.0.2"]
-      ">= 0.21.0": ["pyspark<3.4"]
-    run: |
-      SAGEMAKER_OUT=$(mktemp)
-      if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
-        echo "Sagemaker container build succeeded.";
-      else
-        echo "Sagemaker container build failed, output:";
-        cat $SAGEMAKER_OUT;
-        exit 1
-      fi
-      pytest tests/mleap/test_mleap_model_export.py
-
 prophet:
   package_info:
     pip_release: "prophet"
@@ -475,7 +427,7 @@ h2o:
     pip_release: "h2o"
   models:
     minimum: "3.40.0.1"
-    maximum: "3.46.0.7"
+    maximum: "3.46.0.6"
     run: |
       pytest tests/h2o
 
@@ -689,12 +641,15 @@ langchain:
       "< 0.2": ["langchain-openai<=0.1.22"]
       ">= 0.2": [
           "langchain-huggingface",
-          # Install langchain-databricks from the main branch
-          "git+https://github.com/langchain-ai/langchain-databricks.git@main#egg=langchain-databricks&subdirectory=libs/databricks",
           # Required for testing uc tools
           "unitycatalog-langchain",
         ]
+      ">=0.3": ["databricks-langchain"]
     run: |
+      # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
+      # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
+      # resulting in a weird module conflict issue.
+      pip install './skinny'
       # Run all langchain tests except autologging and evaluation
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py
       # test both pydantic v1 and v2
@@ -883,6 +838,20 @@ crewai:
       ">= 0.80.0": "3.10"
     requirements:
     run: pytest tests/crewai
+
+smolagents:
+  package_info:
+    pip_release: "smolagents"
+    module_name: "smolagents"
+    install_dev: |
+      pip install "git+https://github.com/huggingface/smolagents"
+  autologging:
+    minimum: "1.14.0"
+    maximum: "1.14.0"
+    python:
+      ">=1.14.0": "3.10"
+    requirements:
+    run: pytest tests/smolagents
 
 mistral:
   package_info:

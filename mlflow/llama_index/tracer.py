@@ -39,9 +39,9 @@ from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.llama_index.chat import get_chat_messages_from_event
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils.pydantic_utils import model_dump_compat
 
 _logger = logging.getLogger(__name__)
@@ -123,11 +123,7 @@ def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None, token=None
         outputs = span.outputs
 
     try:
-        if span.parent_id is None:
-            # NB: Initiate the new client every time to handle tracking URI updates.
-            MlflowClient().end_trace(span.request_id, status=status, outputs=outputs)
-        else:
-            MlflowClient().end_span(span.request_id, span.span_id, status=status, outputs=outputs)
+        span.end(status=status, outputs=outputs)
     finally:
         # We should detach span even when end_span / end_trace API call fails
         if token:
@@ -166,23 +162,13 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             input_args = bound_args.arguments
             attributes = self._get_instance_attributes(instance)
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
-            if parent_span:
-                # NB: Initiate the new client every time to handle tracking URI updates.
-                span = MlflowClient().start_span(
-                    request_id=parent_span.request_id,
-                    parent_id=parent_span.span_id,
-                    name=id_.partition("-")[0],
-                    span_type=span_type,
-                    inputs=input_args,
-                    attributes=attributes,
-                )
-            else:
-                span = MlflowClient().start_trace(
-                    name=id_.partition("-")[0],
-                    span_type=span_type,
-                    inputs=input_args,
-                    attributes=attributes,
-                )
+            span = start_span_no_context(
+                name=id_.partition("-")[0],
+                parent_span=parent_span,
+                span_type=span_type,
+                inputs=input_args,
+                attributes=attributes,
+            )
 
             token = set_span_in_context(span)
             self._span_id_to_token[span.span_id] = token

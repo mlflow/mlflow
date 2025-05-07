@@ -40,7 +40,6 @@ class DatabricksEndpoint(AttrDict):
     """
 
 
-@experimental
 class DatabricksDeploymentClient(BaseDeploymentClient):
     """
     Client for interacting with Databricks serving endpoints.
@@ -184,7 +183,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             if line.strip()  # filter out keep-alive new lines
         )
 
-    @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
         Query a serving endpoint with the provided model inputs.
@@ -244,7 +242,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get(),
         )
 
-    @experimental
     def predict_stream(
         self, deployment_name=None, inputs=None, endpoint=None
     ) -> Iterator[dict[str, Any]]:
@@ -326,7 +323,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
             yield json.loads(value)
 
-    @experimental
     def create_endpoint(self, name=None, config=None, route_optimized=False):
         """
         Create a new serving endpoint with the provided name and configuration.
@@ -733,7 +729,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method="PUT", route=posixpath.join(endpoint, "ai-gateway"), json_body=config
         )
 
-    @experimental
     def delete_endpoint(self, endpoint):
         """
         Delete a specified serving endpoint.
@@ -757,7 +752,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         return self._call_endpoint(method="DELETE", route=endpoint)
 
-    @experimental
     def list_endpoints(self):
         """
         Retrieve all serving endpoints.
@@ -792,7 +786,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         return self._call_endpoint(method="GET").endpoints
 
-    @experimental
     def get_endpoint(self, endpoint):
         """
         Get a specified serving endpoint.

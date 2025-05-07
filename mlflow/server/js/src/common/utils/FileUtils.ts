@@ -57,4 +57,5 @@ export const PDF_EXTENSIONS = new Set(['pdf']);
 export const DATA_EXTENSIONS = new Set(['csv', 'tsv']);
 // Audio extensions supported by wavesurfer.js
 // Source https://github.com/katspaugh/wavesurfer.js/discussions/2703#discussioncomment-5259526
-export const AUDIO_EXTENSIONS = new Set(['m4a', 'mp3', 'mp4', 'wav', 'aac', 'wma', 'flac', 'opus', 'ogg']);
+export const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'mkv', 'webm', 'avi']);
+export const AUDIO_EXTENSIONS = new Set(['m4a', 'mp3', 'wav', 'aac', 'wma', 'flac', 'opus', 'ogg']);
