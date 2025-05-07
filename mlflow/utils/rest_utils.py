@@ -443,7 +443,15 @@ def get_search_traces_v3_endpoint(is_databricks=False):
     return f"{_TRACE_REST_API_PATH_PREFIX}/search"
 
 
-def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
+def call_endpoint(
+    host_creds,
+    endpoint,
+    method,
+    json_body,
+    response_proto,
+    extra_headers=None,
+    retry_timeout_seconds=None,
+):
     # Convert json string to json dictionary, to pass to requests
     if json_body is not None:
         json_body = json.loads(json_body)
@@ -454,6 +462,8 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     }
     if extra_headers is not None:
         call_kwargs["extra_headers"] = extra_headers
+    if retry_timeout_seconds is not None:
+        call_kwargs["retry_timeout_seconds"] = retry_timeout_seconds
     if method == "GET":
         call_kwargs["params"] = json_body
         response = http_request(**call_kwargs)
