@@ -149,7 +149,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
         return _Run(id_=parts[3], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint)
 
-    def _call_endpoint(self, service, api, json_body=None, path_params=None):
+    def _call_endpoint(
+        self, service, api, json_body=None, path_params=None, retry_timeout_seconds=None
+    ):
         """
         Calls the specified REST endpoint with the specified JSON body and path parameters.
 
@@ -158,6 +160,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             api: The API to call.
             json_body: The JSON body of the request.
             path_params: The path parameters to substitute into the endpoint URI.
+            retry_timeout_seconds: The timeout in seconds for retrying failed requests.
 
         Returns:
             The response from the REST endpoint.
@@ -167,7 +170,15 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         if path_params:
             endpoint = endpoint.format(**path_params)
         response_proto = api.Response()
-        return call_endpoint(db_creds, endpoint, method, json_body, response_proto)
+
+        return call_endpoint(
+            host_creds=db_creds,
+            endpoint=endpoint,
+            method=method,
+            json_body=json_body,
+            response_proto=response_proto,
+            retry_timeout_seconds=retry_timeout_seconds,
+        )
 
     def _get_credential_infos(self, cred_type: _CredentialType, paths: list[str]):
         """

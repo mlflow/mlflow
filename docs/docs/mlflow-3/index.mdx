@@ -3,8 +3,6 @@ sidebar_label: MLflow 3.0
 sidebar_position: 1
 ---
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
 import { CardGroup, PageCard } from "@site/src/components/Card";
 
@@ -180,16 +178,30 @@ MLflow 3.0 introduces some key API changes while also removes some outdated feat
 
 ### Key changes
 
-- `mlflow.<flavor>.log_model` API usage: `artifact_path` parameter is deprecated, use **`name`** instead
-<Tabs>
-    <TabItem label="MLflow 2.x" value="mlflow_2" default>
-        ```python
+<table style={{ width: "100%", tableLayout: "fixed" }}>
+  <thead>
+    <tr>
+      <th></th>
+      <th>MLflow 2.x</th>
+      <th>MLflow 3.0</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>log_model API usage</td>
+      <td>
+      Pass `artifact_path` when logging a model.
+      ```
         with mlflow.start_run():
-            mlflow.pyfunc.log_model(artifact_path="model", python_model=python_model, ...)
+            mlflow.pyfunc.log_model(
+                artifact_path="model",
+                python_model=python_model,
+                ...
+            )
         ```
-    </TabItem>
-    <TabItem label="MLflow 3.0" value="mlflow_3">
-        Pass `name` when logging a model. This allows you to later search for LoggedModels using this name.
+      </td>
+      <td>
+      Pass **name** when logging a model. This allows you to later search for LoggedModels using this name, `artifact_path` parameter is deprecated.
 
         :::note
 
@@ -198,14 +210,22 @@ MLflow 3.0 introduces some key API changes while also removes some outdated feat
             `mlflow.start_run()` context manager to log a model.
 
         :::
-        ```python
-        mlflow.pyfunc.log_model(name="python_model", python_model=python_model, ...)
         ```
-    </TabItem>
-</Tabs>
-
-- Model artifacts storage location change: In MLflow 2.x, [model artifacts](../model/#storage-format) are stored as run artifacts.
-Since MLflow 3.0, those artifacts will be stored into models artifacts location. Note: this impacts the behavior of <APILink fn="mlflow.client.MlflowClient.list_artifacts">``list_artifacts``</APILink> API.
+        mlflow.pyfunc.log_model(
+            name="model",
+            python_model=python_model,
+            ...
+        )
+        ```
+      </td>
+    </tr>
+    <tr>
+      <td>Model artifacts storage location</td>
+      <td>[model artifacts](../model/#storage-format) are stored as run artifacts.</td>
+      <td>Model artifacts are stored into models artifacts location. Note: this impacts the behavior of <APILink fn="mlflow.client.MlflowClient.list_artifacts">list_artifacts</APILink> API.</td>
+    </tr>
+  </tbody>
+</table>
 
 ### Removed Features
 

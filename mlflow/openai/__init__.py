@@ -44,16 +44,12 @@ __all__ = ["autolog", "FLAVOR_NAME"]
 if not IS_TRACING_SDK_ONLY:
     from mlflow.openai.model import (
         _load_pyfunc,
-        get_default_conda_env,
-        get_default_pip_requirements,
         load_model,
         log_model,
         save_model,
     )
 
     __all__ += [
-        "get_default_conda_env",
-        "get_default_pip_requirements",
         "load_model",
         "log_model",
         "save_model",

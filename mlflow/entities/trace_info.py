@@ -56,6 +56,11 @@ class TraceInfo(_MlflowObject):
     request_metadata: dict[str, str] = field(default_factory=dict)
     tags: dict[str, str] = field(default_factory=dict)
     assessments: list[Assessment] = field(default_factory=list)
+    # NB: This field corresponds to the client request ID field in the V3 TraceInfo data model.
+    #     This is not a part of the V2 TraceInfo and not included in the dict/proto conversion,
+    #     but only added for storing the client request ID during the trace generation process,
+    #     until the internal logic e.g. InMemoryTraceManager migrates to use the V3 TraceInfo.
+    client_request_id: Optional[str] = None
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -116,6 +121,9 @@ class TraceInfo(_MlflowObject):
         """
         trace_info_dict = asdict(self)
         trace_info_dict["status"] = self.status.value
+        # Client request ID field is only added for internal use, and should not be
+        # serialized for V2 TraceInfo.
+        trace_info_dict.pop("client_request_id", None)
         return trace_info_dict
 
     @classmethod
@@ -131,6 +139,7 @@ class TraceInfo(_MlflowObject):
     def to_v3(self, request: Optional[str] = None, response: Optional[str] = None) -> TraceInfoV3:
         return TraceInfoV3(
             trace_id=self.request_id,
+            client_request_id=self.client_request_id,
             trace_location=TraceLocation.from_experiment_id(self.experiment_id),
             request_preview=request,
             response_preview=response,

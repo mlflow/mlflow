@@ -9,10 +9,12 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
+    generate_trace_id_v3,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
     maybe_get_request_id,
@@ -54,8 +56,8 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 span is obtained from the global context, it won't be passed here so we should not
                 rely on it.
         """
-        request_id = maybe_get_request_id()
-        if request_id is None:
+        databricks_request_id = maybe_get_request_id()
+        if databricks_request_id is None:
             # NB: This is currently used for streaming inference in Databricks Model Serving.
             # In normal prediction, serving logic pass the request ID using the
             # `with set_prediction_context` context manager that wraps `model.predict`
@@ -63,28 +65,35 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
             # so we still need to rely on Flask request context (which is set to the
             # stream response via flask.stream_with_context()
             if flask_request := _get_flask_request():
-                request_id = flask_request.headers.get(_HEADER_REQUEST_ID_KEY)
-                if not request_id:
+                databricks_request_id = flask_request.headers.get(_HEADER_REQUEST_ID_KEY)
+                if not databricks_request_id:
                     _logger.warning(
-                        "Request ID not found in the request headers. Skipping trace processing."
+                        "Databricks request ID not found in the request headers. "
+                        "Skipping trace processing."
                     )
                     return
             else:
                 _logger.warning(
-                    "Failed to get request ID from the request headers because "
+                    "Failed to get Databricks request ID from the request headers because "
                     "request context is not available. Skipping trace processing."
                 )
                 return
 
-        span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
+        trace_id = generate_trace_id_v3(span)
+        span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_id))
         tags = {}
         if dependencies_schema := maybe_get_dependencies_schemas():
             tags.update(dependencies_schema)
 
         if span._parent is None:
             trace_info = TraceInfo(
-                request_id=request_id,
-                experiment_id=None,
+                request_id=trace_id,
+                client_request_id=databricks_request_id,
+                # NB: Agent framework populate the MLFLOW_EXPERIMENT_ID environment variable
+                #   with the experiment ID to which the model is logged. We don't use the
+                #   _get_experiment_id() method because it will fallback to the default
+                #   experiment if the MLFLOW_EXPERIMENT_ID is not set.
+                experiment_id=MLFLOW_EXPERIMENT_ID.get(),
                 timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
                 execution_time_ms=None,
                 status=TraceStatus.IN_PROGRESS,

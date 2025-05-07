@@ -530,13 +530,14 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(RAG(), name="model", input_example=input_example)
 
-    request_id, response, trace_dict = score_in_model_serving(
+    databricks_request_id, response, trace_dict = score_in_model_serving(
         model_info.model_uri,
         input_example,
     )
 
     trace = Trace.from_dict(trace_dict)
-    assert trace.info.request_id == request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == databricks_request_id
     assert trace.info.status == "OK"
 
     spans = trace.data.spans

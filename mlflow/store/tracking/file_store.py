@@ -58,7 +58,7 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.tracing.utils import generate_request_id
+from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.file_utils import (
     append_to,
@@ -1614,7 +1614,7 @@ class FileStore(AbstractStore):
         Returns:
             The created TraceInfo object.
         """
-        request_id = generate_request_id()
+        request_id = generate_request_id_v2()
         _validate_experiment_id(experiment_id)
         experiment_dir = self._get_experiment_path(
             experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
