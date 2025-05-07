@@ -171,7 +171,7 @@ At a minimum, it should specify the dependencies contained in `get_default_conda
 If ``None``, a conda environment with pip requirements inferred by
 :func:`mlflow.models.infer_pip_requirements` is added
 to the model. If the requirement inference fails, it falls back to using
-:func:`get_default_pip_requirements`. pip requirements from ``conda_env`` are written to a pip
+`get_default_pip_requirements`. pip requirements from ``conda_env`` are written to a pip
 ``requirements.txt`` file and the full conda environment is written to ``conda.yaml``.
 The following is an *example* dictionary representation of a conda environment::
 
