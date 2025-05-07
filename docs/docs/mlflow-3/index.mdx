@@ -36,7 +36,7 @@ When developing a new version of a GenAI agent or application, you can group all
 This enables rich, comprehensive comparisons across versions.
 Similarly, every deep learning checkpoint is stored as a <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> with its own metrics and parameters, simplifying the process of identifying the best checkpoint for deployment or continued training.
 
-### Manul control over trace grouping
+### Manual control over trace grouping
 
 To manually control trace grouping, you can use <APILink fn="mlflow.set_active_model">mlflow.set_active_model</APILink> API to **set an active LoggedModel in the current context**.
 This API supports passing either the `name` or `model_id` of a LoggedModel. If no LoggedModel with the given name exists, MLflow automatically creates an external model (without artifacts) using the specified name.
@@ -51,11 +51,16 @@ Additionally, evaluation metrics produced by <APILink fn="mlflow.evaluate">mlflo
 
 ### Quickstart
 
-Prerequisites:
+#### Prerequisites
 Run the following command to install MLflow 3.0 and OpenAI packages.
 ```
 pip install --upgrade 'mlflow>=3.0.0rc0' --pre
 pip install openai
+```
+
+Set `OPENAI_API_KEY` environment variable in CLI to authenticate to OpenAI APIs.
+```bash
+export OPENAI_API_KEY=your_api_key_here
 ```
 
 This quickstart demonstrates how to create a generative AI application with prompt engineering and evaluate it using MLflow 3.0.
@@ -63,7 +68,7 @@ It highlights the integration of the LoggedModel lineage feature with runs and t
 
 #### Register a prompt template
 
-First, we create a prompt template and register it with [MLflow Prompt Registry](../prompts) capability.
+First, we create a prompt template and register it with [MLflow Prompt Registry](../prompts).
 
 ```python
 import mlflow
@@ -90,15 +95,15 @@ prompt = mlflow.register_prompt(
     commit_message="Initial version of ai assistant",
 )
 ```
-Switch to the **Prompts** tab to view the registered prompt and its details:
+Switch to the **Prompts** tab to view the registered prompt:
 
 <div className="center-div" style={{ width: "100%" }}>
     ![The MLflow UI showing a prompt version](/images/mlflow-3/ai_assistant_prompt.png)
 </div>
 
-#### Create OpenAI Client and make a request
+#### Make a request to OpenAI
 
-At this step, we create an OpenAI client, and set an active model for grouping traces.
+At this step, we set an active model for grouping traces.
 After enabling autologging, all traces generated during requests will be linked to the active model.
 
 ```python
