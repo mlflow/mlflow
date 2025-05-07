@@ -66,9 +66,6 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import (
-    disable_autologging_globally,
-)
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
     is_in_databricks_model_serving_environment,
@@ -420,7 +417,6 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces for internal predict calls while logging model
-@disable_autologging_globally  # Avoid side-effect of autologging while logging model
 def log_model(
     lc_model,
     artifact_path: Optional[str] = None,
@@ -892,7 +888,6 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
 @experimental
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces while loading model
-@disable_autologging_globally  # Avoid side-effect of autologging while loading model
 def load_model(model_uri, dst_path=None):
     """
     Load a LangChain model from a local file or a run.

@@ -28,7 +28,6 @@ from mlflow.models.utils import _save_example
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import disable_autologging_globally
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -255,7 +254,6 @@ def save_model(
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
-@disable_autologging_globally  # Avoid side-effect of autologging while logging model
 def log_model(
     dspy_model,
     artifact_path: Optional[str] = None,
