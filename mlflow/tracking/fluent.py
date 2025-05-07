@@ -2259,7 +2259,7 @@ def finalize_logged_model(model_id: str, status: LoggedModelStatus) -> LoggedMod
         import mlflow
         from mlflow.entities import LoggedModelStatus
 
-        model = mlflow.create_external_model(name="model")
+        model = mlflow.initialize_logged_model(name="model")
         logged_model = mlflow.finalize_logged_model(
             model_id=model.model_id,
             status=LoggedModelStatus.READY,
@@ -2406,14 +2406,15 @@ def search_logged_models(
         import mlflow
 
         mlflow.create_external_model(name="model")
-        models = mlflow.search_logged_models(filter_string="name = 'model'")
-        assert len(models) == 1
         mlflow.create_external_model(name="another_model")
-        models = mlflow.search_logged_models(filter_string="name = 'another_model'")
-        assert len(models) == 1
         models = mlflow.search_logged_models()
-        assert len(models) == 2
-
+        assert [m.name for m in models] == ["another_model", "model"]
+        models = mlflow.search_logged_models(filter_string="name = 'another_model'")
+        assert [m.name for m in models] == ["another_model"]
+        models = mlflow.search_logged_models(
+            order_by=[{"field_name": "creation_time", "ascending": True}]
+        )
+        assert [m.name for m in models] == ["model", "another_model"]
     """
     experiment_ids = experiment_ids or [_get_experiment_id()]
     client = MlflowClient()
@@ -2514,7 +2515,7 @@ def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
 
         import mlflow
 
-        model = mlflow.create_external_model(name="my_model")
+        model = mlflow.initialize_logged_model(name="my_model")
         mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
         model = mlflow.get_logged_model(model.model_id)
         assert model.tags["key"] == "value"
@@ -2537,7 +2538,7 @@ def delete_logged_model_tag(model_id: str, key: str) -> None:
 
         import mlflow
 
-        model = mlflow.create_external_model(name="my_model")
+        model = mlflow.initialize_logged_model(name="my_model")
         mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
         model = mlflow.get_logged_model(model.model_id)
         assert model.tags["key"] == "value"
