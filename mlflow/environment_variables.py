@@ -743,16 +743,16 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS = _EnvironmentVariable(
 
 #: Maximum number of export tasks to queue for async trace logging.
 #: When the queue is full, new export tasks will be dropped.
-#: (default: ``1000``)
+#: (default: ``50``)
 MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
-    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", int, 1000
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", int, 50
 )
 
 
-#: Timeout seconds for retrying async trace logging.
-#: (default: ``60``)
+#: Timeout seconds for retrying trace logging.
+#: (default: ``5``)
 MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
-    "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 60
+    "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 5
 )
 
 
