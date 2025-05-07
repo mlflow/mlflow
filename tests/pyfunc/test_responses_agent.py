@@ -25,14 +25,14 @@ from mlflow.types.responses import (
     RESPONSES_AGENT_INPUT_EXAMPLE,
     RESPONSES_AGENT_INPUT_SCHEMA,
     RESPONSES_AGENT_OUTPUT_SCHEMA,
-    ResponsesRequest,
-    ResponsesResponse,
-    ResponsesStreamEvent,
+    ResponsesAgentRequest,
+    ResponsesAgentResponse,
+    ResponsesAgentStreamEvent,
 )
 from mlflow.types.schema import ColSpec, DataType, Schema
 
 
-def get_mock_response(request: ResponsesRequest):
+def get_mock_response(request: ResponsesAgentRequest):
     return {
         "output": [
             {
@@ -107,14 +107,14 @@ def get_stream_mock_response():
 
 
 class SimpleResponsesAgent(ResponsesAgent):
-    def predict(self, request: ResponsesRequest) -> ResponsesResponse:
+    def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
         mock_response = get_mock_response(request)
-        return ResponsesResponse(**mock_response)
+        return ResponsesAgentResponse(**mock_response)
 
     def predict_stream(
-        self, request: ResponsesRequest
-    ) -> Generator[ResponsesStreamEvent, None, None]:
-        yield from [ResponsesStreamEvent(**r) for r in get_stream_mock_response()]
+        self, request: ResponsesAgentRequest
+    ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+        yield from [ResponsesAgentStreamEvent(**r) for r in get_stream_mock_response()]
 
 
 def test_responses_agent_save_load_signatures(tmp_path):
@@ -168,16 +168,16 @@ def test_responses_agent_predict_stream(tmp_path):
 
 def test_responses_agent_with_pydantic_input():
     model = SimpleResponsesAgent()
-    response = model.predict(ResponsesRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
+    response = model.predict(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
     assert response.output[0].content[0]["text"] == "Hello!"
 
 
 class CustomInputsResponsesAgent(ResponsesAgent):
-    def predict(self, request: ResponsesRequest) -> ResponsesResponse:
+    def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
         mock_response = get_mock_response(request)
-        return ResponsesResponse(**mock_response, custom_outputs=request.custom_inputs)
+        return ResponsesAgentResponse(**mock_response, custom_outputs=request.custom_inputs)
 
-    def predict_stream(self, request: ResponsesRequest):
+    def predict_stream(self, request: ResponsesAgentRequest):
         for r in get_stream_mock_response():
             r["custom_outputs"] = request.custom_inputs
             yield r
@@ -223,10 +223,10 @@ def test_responses_agent_save_throws_with_signature(tmp_path):
 
 def test_responses_agent_throws_with_invalid_output(tmp_path):
     class BadResponsesAgent(ResponsesAgent):
-        def predict(self, request: ResponsesRequest) -> ResponsesResponse:
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return {"output": [{"type": "message", "content": [{"type": "output_text"}]}]}
 
-        def predict_stream(self, request: ResponsesRequest):
+        def predict_stream(self, request: ResponsesAgentRequest):
             pass
 
     model = BadResponsesAgent()
@@ -386,15 +386,15 @@ def test_responses_agent_trace(
 ):
     class TracedResponsesAgent(ResponsesAgent):
         @mlflow.trace(span_type=SpanType.AGENT)
-        def predict(self, request: ResponsesRequest) -> ResponsesResponse:
-            return ResponsesResponse(**outputs)
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            return ResponsesAgentResponse(**outputs)
 
-        def predict_stream(self, request: ResponsesRequest):
+        def predict_stream(self, request: ResponsesAgentRequest):
             # Dummy
             pass
 
     model = TracedResponsesAgent()
-    model.predict(ResponsesRequest(**input))
+    model.predict(ResponsesAgentRequest(**input))
 
     traces = get_traces()
     assert len(traces) == 1
@@ -412,7 +412,7 @@ def test_responses_agent_trace(
 def test_responses_agent_trace_dict_output(tmp_path):
     class TracedResponsesAgent(ResponsesAgent):
         @mlflow.trace(span_type=SpanType.AGENT)
-        def predict(self, request: ResponsesRequest) -> ResponsesResponse:
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return {
                 "output": [
                     {
@@ -425,12 +425,12 @@ def test_responses_agent_trace_dict_output(tmp_path):
                 ],
             }
 
-        def predict_stream(self, request: ResponsesRequest):
+        def predict_stream(self, request: ResponsesAgentRequest):
             # Dummy
             pass
 
     model = TracedResponsesAgent()
-    model.predict(ResponsesRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
+    model.predict(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
 
     traces = get_traces()
     assert len(traces) == 1

@@ -3754,8 +3754,8 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
         RESPONSES_AGENT_INPUT_EXAMPLE,
         RESPONSES_AGENT_INPUT_SCHEMA,
         RESPONSES_AGENT_OUTPUT_SCHEMA,
-        ResponsesRequest,
-        ResponsesResponse,
+        ResponsesAgentRequest,
+        ResponsesAgentResponse,
     )
 
     if signature is not None:
@@ -3777,7 +3777,7 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
     # We accept either a dict or a ResponsesRequest object as input
     if input_example:
         try:
-            model_validate(ResponsesRequest, input_example)
+            model_validate(ResponsesAgentRequest, input_example)
         except pydantic.ValidationError as e:
             raise MlflowException(
                 message=(
@@ -3786,15 +3786,15 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
                 ),
                 error_code=INTERNAL_ERROR,
             ) from e
-        if isinstance(input_example, ResponsesRequest):
+        if isinstance(input_example, ResponsesAgentRequest):
             input_example = input_example.model_dump_compat(exclude_none=True)
     else:
         input_example = RESPONSES_AGENT_INPUT_EXAMPLE
     _logger.info("Predicting on input example to validate output")
-    request = ResponsesRequest(**input_example)
+    request = ResponsesAgentRequest(**input_example)
     output = python_model.predict(request)
     try:
-        model_validate(ResponsesResponse, output)
+        model_validate(ResponsesAgentResponse, output)
     except Exception as e:
         raise MlflowException(
             "Failed to save ResponsesAgent. Ensure your model's predict() method returns a "
