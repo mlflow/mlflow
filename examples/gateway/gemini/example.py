@@ -41,7 +41,7 @@ def main():
         },
     )
     print(f"Gemini response for embeddings: {response_embeddings}\n")
-    
+
     # Completions request
     response_completions = client.predict(
         endpoint="completions",
