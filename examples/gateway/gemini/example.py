@@ -7,32 +7,6 @@ def main():
     print(f"Gemini endpoints: {client.list_endpoints()}\n")
     print(f"Gemini completions endpoint info: {client.get_endpoint(endpoint='completions')}\n")
 
-    # Completions request
-    response_completions = client.predict(
-        endpoint="completions",
-        inputs={
-            "prompt": "Describe the main differences between renewable and nonrenewable energy sources.",
-            "temperature": 0.1,
-            "stop": ["."],
-            "n": 3,
-            "max_tokens": 100,
-            "top_k": 40,
-            "top_p": 0.5,
-        },
-    )
-    print(f"Gemini response for completions: {response_completions}")
-
-    # Embeddings request
-    response_embeddings = client.predict(
-        endpoint="embeddings",
-        inputs={
-            "input": [
-                "Describe the main differences between renewable and nonrenewable energy sources."
-            ]
-        },
-    )
-    print(f"Gemini response for embeddings: {response_embeddings}\n")
-
     # Chat example
     response_chat = client.predict(
         endpoint="chat",
@@ -56,6 +30,32 @@ def main():
         },
     )
     print(f"Gemini response for chat: {response_chat}")
+
+    # Embeddings request
+    response_embeddings = client.predict(
+        endpoint="embeddings",
+        inputs={
+            "input": [
+                "Describe the main differences between renewable and nonrenewable energy sources."
+            ]
+        },
+    )
+    print(f"Gemini response for embeddings: {response_embeddings}\n")
+    
+    # Completions request
+    response_completions = client.predict(
+        endpoint="completions",
+        inputs={
+            "prompt": "Describe the main differences between renewable and nonrenewable energy sources.",
+            "temperature": 0.1,
+            "stop": ["."],
+            "n": 3,
+            "max_tokens": 100,
+            "top_k": 40,
+            "top_p": 0.5,
+        },
+    )
+    print(f"Gemini response for completions: {response_completions}")
 
 
 if __name__ == "__main__":
