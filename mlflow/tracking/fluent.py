@@ -2407,12 +2407,14 @@ def search_logged_models(
 
         mlflow.create_external_model(name="model")
         mlflow.create_external_model(name="another_model")
-        models = mlflow.search_logged_models()
+        models = mlflow.search_logged_models(output_format="list")
         assert [m.name for m in models] == ["another_model", "model"]
-        models = mlflow.search_logged_models(filter_string="name = 'another_model'")
+        models = mlflow.search_logged_models(
+            filter_string="name = 'another_model'", output_format="list"
+        )
         assert [m.name for m in models] == ["another_model"]
         models = mlflow.search_logged_models(
-            order_by=[{"field_name": "creation_time", "ascending": True}]
+            order_by=[{"field_name": "creation_time", "ascending": True}], output_format="list"
         )
         assert [m.name for m in models] == ["model", "another_model"]
     """
