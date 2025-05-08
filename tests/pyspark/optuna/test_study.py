@@ -1,20 +1,16 @@
 import logging
 import os
+from unittest import mock
+
 import pyspark
+import pytest
+from optuna.samplers import TPESampler
 from packaging.version import Version
 
-import numpy as np
-import optuna
-import pytest
-
 import mlflow
-from mlflow.entities import Metric, Param, RunTag
-
-from mlflow.optuna.storage import MlflowStorage
 from mlflow.pyspark.optuna.study import MLFlowSparkStudy
 
 from tests.pyfunc.test_spark import get_spark_session
-from tests.optuna.test_storage import setup_storage
 
 _logger = logging.getLogger(__name__)
 
@@ -57,14 +53,43 @@ spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
         yield spark
 
 
+@pytest.fixture
+def store():
+    mock_store = mock.MagicMock()
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
+        mock_get_store.return_value = mock_store
+        yield mock_store
+
+
 @pytest.mark.usefixtures("spark")
 def test_study_optimize_run(setup_storage):
     storage = setup_storage
     study_name = "test-study"
-    mlflow_study = MLFlowSparkStudy(study_name, storage)
+    sampler = TPESampler(seed=10)
+    mlflow_study = MLFlowSparkStudy(
+        study_name, storage, sampler=sampler, mlflow_tracking_uri=mlflow.get_tracking_uri()
+    )
 
     def objective(trial):
-        x = trial.suggest_float('x', -10, 10)
+        x = trial.suggest_float("x", -10, 10)
         return (x - 2) ** 2
 
     mlflow_study.optimize(objective, n_trials=4)
+    assert sorted(mlflow_study.best_params.keys()) == ["x"]
+    assert mlflow_study.best_params["x"] == 2.672964698525508
+
+
+@pytest.mark.usefixtures("spark")
+def test_study_with_failed_objective(setup_storage):
+    storage = setup_storage
+    study_name = "test-study"
+    sampler = TPESampler(seed=10)
+    mlflow_study = MLFlowSparkStudy(
+        study_name, storage, sampler=sampler, mlflow_tracking_uri=mlflow.get_tracking_uri()
+    )
+
+    def fail_objective(_):
+        raise ValueError()
+
+    with pytest.raises(pyspark.errors.exceptions.captured.PythonException):
+        mlflow_study.optimize(fail_objective, n_trials=4)
