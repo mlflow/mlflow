@@ -1,3 +1,4 @@
+import inspect
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.data.evaluation_dataset import EvaluationDataset
@@ -36,6 +37,7 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
     column_mapping = {
         "inputs": "request",
         "outputs": "response",
+        "traces": "trace",
     }
 
     if isinstance(data, list):
@@ -122,20 +124,24 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         **kwargs,
     ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
         # TODO: scorer.aggregations require a refactor on the agents side
-        return scorer(
-            inputs=request,
-            outputs=response,
-            expectations=expected_response,
-            trace=trace,
-            retrieved_context=retrieved_context,
-            expected_facts=expected_facts,
-            expected_retrieved_context=expected_retrieved_context,
-            custom_expected=custom_expected,
-            custom_inputs=custom_inputs,
-            custom_outputs=custom_outputs,
-            tool_calls=tool_calls,
+        merged = {
+            "inputs": request,
+            "outputs": response,
+            "expectations": expected_response,
+            "trace": trace,
+            "retrieved_context": retrieved_context,
+            "expected_facts": expected_facts,
+            "expected_retrieved_context": expected_retrieved_context,
+            "custom_expected": custom_expected,
+            "custom_inputs": custom_inputs,
+            "custom_outputs": custom_outputs,
+            "tool_calls": tool_calls,
             **kwargs,
-        )
+        }
+        # Filter to only the parameters the scorer actually expects
+        sig = inspect.signature(scorer)
+        filtered = {k: v for k, v in merged.items() if k in sig.parameters}
+        return scorer(**filtered)
 
     return metric(
         eval_fn=eval_fn,

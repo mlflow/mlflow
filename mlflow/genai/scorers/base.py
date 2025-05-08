@@ -78,7 +78,8 @@ def scorer(
                 "inputs": inputs,
                 "outputs": outputs,
                 "expectations": expectations,
-                "trace": trace**kwargs,
+                "trace": trace,
+                **kwargs,
             }
             # Filter to only the parameters the function actually expects
             sig = inspect.signature(func)

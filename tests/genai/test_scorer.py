@@ -244,7 +244,8 @@ def test_scorer_on_genai_evaluate(sample_new_data, scorer_return):
             ]
             dummy_scorer_values = set()
             for col in dummy_scorer_cols:
-                dummy_scorer_values.add(results.result_df[col].iloc[0])
+                for _val in results.result_df[col]:
+                    dummy_scorer_values.add(_val)
 
             scorer_return_values = set()
             if isinstance(scorer_return, list):
