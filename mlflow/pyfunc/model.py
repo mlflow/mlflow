@@ -1168,8 +1168,6 @@ class _PythonModelPyfuncWrapper:
         self.signature = signature
 
     def _convert_input(self, model_input):
-        import pandas as pd
-
         hints = self.python_model.predict_type_hints
         # we still need this for backwards compatibility
         if isinstance(model_input, pd.DataFrame):

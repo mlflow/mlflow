@@ -44,12 +44,188 @@ def evaluate(
     model_id: Optional[str] = None,
 ) -> EvaluationResult:
     """
-    TODO: updating docstring with real examples and API links
+    Evaluate the performance of a generative AI model/application using specified
+    data and scorers.
+
+    This function allows you to evaluate a model's performance on a given dataset
+    using various scoring criteria. It supports both built-in scorers provided by
+    MLflow and custom scorers. The evaluation results include metrics and detailed
+    per-row assessments.
+
+    There are three different ways to use this function:
+
+    **1. Use Traces to evaluate the model/application.**
+
+    The `data` parameter takes a DataFrame with `trace` column, which contains a
+    single trace object corresponding to the prediction for the row. This dataframe
+    is easily obtained from the existing traces stored in MLflow, by using the
+    :py:func:`mlflow.search_traces` function.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import correctness, safety
+        import pandas as pd
+
+        trace_df = mlflow.search_traces(model_id="<my-model-id>")
+
+        mlflow.genai.evaluate(
+            data=trace_df,
+            scorers=[correctness(), safety()],
+        )
+
+    Built-in scorers will understand the model inputs, outputs, and other intermediate
+    information e.g. retrieved context, from the trace object. You can also access to
+    the trace object from the custom scorer function by using the `trace` parameter.
+
+    .. code-block:: python
+
+        from mlflow.genai.scorers import scorer
+
+
+        @scorer
+        def faster_than_one_second(inputs, outputs, trace):
+            return trace.info.execution_duration < 1000
+
+    **2. Use DataFrame or dictionary with "inputs", "outputs", "expectations" columns.
+
+    Alternatively, you can pass inputs, outputs, and expectations (ground truth) as
+    a column in the dataframe (or equivalent list of dictionaries).
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import correctness
+        import pandas as pd
+
+        data = pd.DataFrame(
+            [
+                {
+                    "inputs": {"question": "What is MLflow?"},
+                    "outputs": "MLflow is an ML platform",
+                    "expectations": "MLflow is an ML platform",
+                },
+                {
+                    "inputs": {"question": "What is Spark?"},
+                    "outputs": "I don't know",
+                    "expectations": "Spark is a data engine",
+                },
+            ]
+        )
+
+        mlflow.genai.evaluate(
+            data=data,
+            scorers=[correctness()],
+        )
+
+    **3. Pass `predict_fn` and input samples (and optionally expectations).**
+
+    If you want to generate the outputs and traces on-the-fly from your input samples,
+    you can pass a callable to the `predict_fn` parameter. In this case, MLflow will
+    pass the inputs to the `predict_fn` as keyword arguments. Therefore, the "inputs"
+    column must be a dictionary with the parameter names as keys.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import correctness, safety
+        import openai
+
+        # Create a dataframe with input samples
+        data = pd.DataFrame(
+            [
+                {"inputs": {"question": "What is MLflow?"}},
+                {"inputs": {"question": "What is Spark?"}},
+            ]
+        )
+
+
+        # Define a predict function to evaluate. The "inputs" column will be
+        # passed to the prediction function as keyword arguments.
+        def predict_fn(question: str) -> str:
+            response = openai.OpenAI().chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": question}],
+            )
+            return response.choices[0].message.content
+
+
+        mlflow.genai.evaluate(
+            data=data,
+            predict_fn=predict_fn,
+            scorers=[correctness(), safety()],
+        )
+
+    Args:
+        data: Dataset for the evaluation. Must be one of the following formats:
+
+            * An EvaluationDataset entity
+            * Pandas DataFrame
+            * Spark DataFrame
+            * List of dictionaries
+
+            The dataset must include either of the following columns:
+
+            1. `trace` column that contains a single trace object corresponding
+                to the prediction for the row.
+
+                If this column is present, MLflow extracts inputs, outputs, assessments,
+                and other intermediate information e.g. retrieved context, from the trace
+                object and uses them for scoring. When this column is present, the
+                `predict_fn` parameter must not be provided.
+
+            2. `inputs`, `outputs`, `expectations` columns.
+
+                Alternatively, you can pass inputs, outputs, and expectations(ground
+                truth) as a column in the dataframe (or equivalent list of dictionaries).
+
+                - inputs (required): Column containing inputs for evaluation. The value
+                    must be a dictionary. When `predict_fn` is provided, MLflow will pass
+                    the inputs to the `predict_fn` as keyword arguments. For example,
+
+                      * predict_fn: `def predict_fn(question: str, context: str) -> str`
+                      * inputs column: `{"question": "What is MLflow?",
+                        "context": "MLflow is an ML platform"}`
+                      * predict_fn will receive "What is MLflow?" as the first argument (`question`)
+                          and "MLflow is an ML platform" as the second argument (`context`)
+
+                - outputs (optional): Column containing model/app outputs.
+                  If this column is present, `predict_fn` must not be provided.
+
+                - expectations (optional): Column containing ground truth or
+                    dictionary of ground truths. If this column contains a single string,
+                    it is assumed to be the expected response for the row.
+
+            The input dataframe can contain extra columns that will be directly passed to
+            the scorers. For example, you can pass a dataframe with `retrieved_context`
+            column to use a scorer that takes `retrieved_context` as a parameter.
+
+            For list of dictionaries, each dict should follow the above schema.
+
+        predict_fn: Target function to evaluate. Will be executed for each input row to
+            generate outputs and traces for scoring.
+
+        scorers: List of Scorer objects that produce evaluation scores from inputs, outputs
+            and other context. Can use MLflow's built-in scorers or custom scorers.
+
+        model_id: Optional model identifier (e.g. "models:/my-model/1") to associate with
+            the evaluation results. Can also set globally via mlflow.set_active_model().
+
+    Returns:
+        EvaluationResult containing:
+            - run_id: ID of the MLflow run containing evaluation results
+            - metrics: Dictionary of aggregate metrics from all scorers
+            - result_df: Pandas DataFrame with per-row inputs, outputs, and scores
+
+    Note:
+        This function is only supported on Databricks. The tracking URI must be
+        set to Databricks.
 
     .. warning::
 
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
+<<<<<<< HEAD
 
     Args:
         data: Dataset for the evaluation. It must be one of the following format:
@@ -100,6 +276,8 @@ def evaluate(
 
                     mlflow.evaluate(data, ...)
 
+=======
+>>>>>>> ff4233e7b (Pass `inputs` as keyword arguments to the predict_fn)
     """
     try:
         from databricks.rag_eval.evaluation.metrics import Metric as DBAgentsMetric
@@ -164,7 +342,8 @@ def evaluate(
             predict_fn = mlflow.trace(predict_fn)
 
     result = mlflow.evaluate(
-        model=predict_fn,
+        # Wrap the prediction function to unwrap the inputs dictionary into keyword arguments.
+        model=(lambda request: predict_fn(**request)) if predict_fn else None,
         data=data,
         evaluator_config=evaluation_config,
         extra_metrics=extra_metrics,
@@ -192,12 +371,11 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
     Example:
         .. code-block:: python
 
-            data = (
-                pd.DataFrame(
-                    {
-                        "inputs": ["What is MLflow?", "What is Spark?"],
-                    }
-                ),
+            data = pd.DataFrame(
+                [
+                    {"inputs": {"messages": [{"role": "user", "content": "What is MLflow?"}]}},
+                    {"inputs": {"question": [{"role": "user", "content": "What is Spark?"}]}},
+                ]
             )
             predict_fn = mlflow.genai.to_predict_fn("endpoints:/chat")
             mlflow.genai.evaluate(
