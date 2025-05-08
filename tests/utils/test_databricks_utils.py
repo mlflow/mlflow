@@ -17,8 +17,10 @@ from mlflow.legacy_databricks_cli.configure.provider import (
 from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
     DatabricksConfigProvider,
+    DatabricksWorkspaceInfo,
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
+    get_databricks_model_version_url,
     get_databricks_runtime_major_minor_version,
     get_dbconnect_udf_sandbox_info,
     get_mlflow_credential_context_by_run_id,
@@ -569,6 +571,34 @@ def test_prioritize_env_var_config_provider(monkeypatch):
 def test_get_workspace_url(input_url, expected_result):
     with mock.patch("mlflow.utils.databricks_utils._get_workspace_url", return_value=input_url):
         result = get_workspace_url()
+        assert result == expected_result
+
+
+@pytest.mark.parametrize(
+    ("tracking_uri", "name", "version", "expected_result"),
+    [
+        # Test with a model in UC
+        (
+            "databricks-uc",
+            "name.mlflow.model",
+            1,
+            "https://databricks.com/explore/data/models/name/mlflow/model/version/1?o=123",
+        ),
+        # Test with a non-UC model
+        (
+            "non-uc",
+            "model-name",
+            1,
+            "https://databricks.com?0=123#mlflow/models/name/mlflow/model-name/versions/1",
+        ),
+    ],
+)
+def test_get_databricks_model_version_url(tracking_uri, name, version, expected_result):
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_workspace_url",
+        return_value=DatabricksWorkspaceInfo("https://databricks.com", 123),
+    ):
+        result = get_databricks_model_version_url(tracking_uri, name, version)
         assert result == expected_result
 
 

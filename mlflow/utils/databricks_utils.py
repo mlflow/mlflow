@@ -1070,6 +1070,29 @@ def _construct_databricks_model_version_url(
     return model_version_url
 
 
+"""
+Get a Databricks URL for a given registered model version in UC.
+
+Args:
+    workspace_url: The URL of the workspace
+
+Returns:
+    Serving input example or None if the model has no serving input example.
+"""
+
+
+def _construct_databricks_uc_registered_model_url(
+    workspace_url: str, registered_model_name: str, version: str, workspace_id: Optional[str] = None
+) -> str:
+    uc_model_url = f"{workspace_url}/explore/data/models/"
+    model_name_as_url = registered_model_name.replace(".", "/")
+    uc_model_url += f"{model_name_as_url}/version/{version}"
+    if workspace_id and workspace_id != "0":
+        uc_model_url += "?o=" + str(workspace_id)
+
+    return uc_model_url
+
+
 def _get_databricks_creds_config(tracking_uri):
     # Note:
     # `_get_databricks_creds_config` reads credential token values or password and
