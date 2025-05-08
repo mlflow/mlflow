@@ -1,5 +1,4 @@
 from copy import deepcopy
-from typing import Any, Union
 
 from mlflow.genai.scorers import BuiltInScorer
 
