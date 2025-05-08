@@ -663,6 +663,7 @@ langchain:
       fi
       # test langchain model export requires local spark session, we need to uninstall databricks-connect
       pip uninstall -y databricks-connect
+      pip install pyspark
       pytest tests/langchain/test_langchain_model_export.py
   autologging:
     minimum: "0.1.0"
