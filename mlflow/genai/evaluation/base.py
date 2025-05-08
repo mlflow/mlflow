@@ -57,7 +57,7 @@ def evaluate(
                    by MLflow so not required.
               - expectations (optional): A column that contains a ground truth, or a
                    dictionary of ground truths for individual output fields.
-              - traces (optional): A column that contains a single trace object
+              - trace (optional): A column that contains a single trace object
                    corresponding to the prediction for the row. Only required when
                    any of scorers requires a trace in order to compute
                    assessments/metrics.

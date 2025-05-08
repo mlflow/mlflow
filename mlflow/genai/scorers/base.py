@@ -17,7 +17,7 @@ class Scorer(BaseModel):
         inputs=None,
         outputs=None,
         expectations=None,
-        traces=None,
+        trace=None,
         **kwargs,
     ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
         # TODO: make sure scorer's signature is simply equal to whatever keys are
@@ -29,7 +29,7 @@ class Scorer(BaseModel):
             outputs (optional): A single output from the target model/app.
             expectations (optional): Ground truth, or a dictionary of ground
                 truths for individual output fields.
-            traces (optional): Json representation of a trace object corresponding to
+            trace (optional): Json representation of a trace object corresponding to
                 the prediction for the row. Required when any of scorers requires a
                 trace in order to compute assessments/scores.
             retrieved_context (optional): Retrieved context, can be from your input eval dataset
@@ -72,16 +72,13 @@ def scorer(
         return functools.partial(scorer, name=name, aggregations=aggregations)
 
     class CustomScorer(Scorer):
-        def __call__(self, *, inputs=None, outputs=None, expectations=None, traces=None, **kwargs):
+        def __call__(self, *, inputs=None, outputs=None, expectations=None, trace=None, **kwargs):
             # Normalize singular/plural keys
             merged = {
-                "inputs": inputs if inputs is not None else kwargs.pop("input", None),
-                "outputs": outputs if outputs is not None else kwargs.pop("output", None),
-                "expectations": expectations
-                if expectations is not None
-                else kwargs.pop("expectation", None),
-                "traces": traces if traces is not None else kwargs.pop("trace", None),
-                **kwargs,
+                "inputs": inputs,
+                "outputs": outputs,
+                "expectations": expectations,
+                "trace": trace**kwargs,
             }
             # Filter to only the parameters the function actually expects
             sig = inspect.signature(func)

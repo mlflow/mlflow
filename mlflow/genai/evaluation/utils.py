@@ -36,7 +36,6 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
     column_mapping = {
         "inputs": "request",
         "outputs": "response",
-        "traces": "trace",
     }
 
     if isinstance(data, list):
@@ -127,7 +126,7 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
             inputs=request,
             outputs=response,
             expectations=expected_response,
-            traces=trace,
+            trace=trace,
             retrieved_context=retrieved_context,
             expected_facts=expected_facts,
             expected_retrieved_context=expected_retrieved_context,
