@@ -5283,9 +5283,29 @@ class MlflowClient:
         return self._tracking_client.delete_logged_model_tag(model_id, key)
 
     def log_model_artifact(self, model_id: str, local_path: str) -> None:
+        """
+        Upload an artifact to the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            local_path: Local path to the artifact to upload.
+
+        Returns:
+            None
+        """
         return self._tracking_client.log_model_artifact(model_id, local_path)
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+        """
+        Upload a set of artifacts to the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            local_dir: Local directory containing the artifacts to upload.
+
+        Returns:
+            None
+        """
         return self._tracking_client.log_model_artifacts(model_id, local_dir)
 
     @experimental
