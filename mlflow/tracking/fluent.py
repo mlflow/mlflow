@@ -2288,7 +2288,7 @@ def get_logged_model(model_id: str) -> LoggedModel:
 
         import mlflow
 
-        model = mlflow.create_external_model(name="model")
+        model = mlflow.initialize_logged_model(name="model")
         logged_model = mlflow.get_logged_model(model_id=model.model_id)
         assert logged_model.model_id == model.model_id
 
@@ -2405,8 +2405,8 @@ def search_logged_models(
 
         import mlflow
 
-        mlflow.create_external_model(name="model")
-        mlflow.create_external_model(name="another_model")
+        mlflow.initialize_logged_model(name="model")
+        mlflow.initialize_logged_model(name="another_model")
         models = mlflow.search_logged_models(output_format="list")
         assert [m.name for m in models] == ["another_model", "model"]
         models = mlflow.search_logged_models(
