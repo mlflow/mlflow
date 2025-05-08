@@ -32,6 +32,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_
 from mlflow.tracking.fluent import _use_logged_model
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
+    _construct_databricks_uc_registered_model_url,
     get_databricks_runtime_version,
     get_workspace_url,
     is_in_databricks_runtime,
@@ -51,6 +52,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.uri import (
     append_to_uri_path,
     get_uri_scheme,
+    is_databricks_unity_catalog_uri,
     is_databricks_unity_catalog_uri,
 )
 
