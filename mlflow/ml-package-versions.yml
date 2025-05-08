@@ -610,6 +610,8 @@ langchain:
     pip_release: "langchain"
     install_dev: |
       pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain
+  python:
+    ">=0.3": "3.10"
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
@@ -644,10 +646,7 @@ langchain:
           # Required for testing uc tools
           "unitycatalog-langchain",
         ]
-      # NB: databricks-langchain version should be consistent with databricks-ai-bridge package as they
-      # might be incompatible between different versions, and databricks-langchain doesn't have upper bound
-      # limit on databricks-ai-bridge version.
-      ">=0.3": ["databricks-langchain>=0.4", "databricks-ai-bridge>=0.4"]
+      ">=0.3": ["databricks-langchain"]
     run: |
       # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
       # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
