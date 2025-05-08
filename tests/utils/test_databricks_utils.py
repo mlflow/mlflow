@@ -17,10 +17,8 @@ from mlflow.legacy_databricks_cli.configure.provider import (
 from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
     DatabricksConfigProvider,
-    DatabricksWorkspaceInfo,
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
-    get_databricks_model_version_url,
     get_databricks_runtime_major_minor_version,
     get_dbconnect_udf_sandbox_info,
     get_mlflow_credential_context_by_run_id,
@@ -574,34 +572,6 @@ def test_get_workspace_url(input_url, expected_result):
         assert result == expected_result
 
 
-@pytest.mark.parametrize(
-    ("tracking_uri", "name", "version", "expected_result"),
-    [
-        # Test with a model in UC
-        (
-            "databricks-uc",
-            "name.mlflow.model",
-            1,
-            "https://databricks.com/explore/data/models/name/mlflow/model/version/1?o=123",
-        ),
-        # Test with a non-UC model
-        (
-            "non-uc",
-            "model-name",
-            1,
-            "https://databricks.com?0=123#mlflow/models/name/mlflow/model-name/versions/1",
-        ),
-    ],
-)
-def test_get_databricks_model_version_url(tracking_uri, name, version, expected_result):
-    with mock.patch(
-        "mlflow.utils.databricks_utils._get_workspace_url",
-        return_value=DatabricksWorkspaceInfo("https://databricks.com", 123),
-    ):
-        result = get_databricks_model_version_url(tracking_uri, name, version)
-        assert result == expected_result
-
-
 @pytest.mark.skipif(is_windows(), reason="This test doesn't work on Windows")
 def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch):
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.1.2")
@@ -627,3 +597,37 @@ def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch):
     assert info.image_version == "15.4"
     assert info.runtime_version == "15.4"
     assert info.platform_machine == platform.machine()
+
+
+def test_construct_databricks_uc_registered_model_url():
+    # Test case with workspace ID
+    workspace_url = "https://databricks.com"
+    registered_model_name = "name.mlflow.echo_model"
+    version = "6"
+    workspace_id = "123"
+
+    expected_url = (
+        "https://databricks.com/explore/data/models/name/mlflow/echo_model/version/6?o=123"
+    )
+
+    result = databricks_utils._construct_databricks_uc_registered_model_url(
+        workspace_url=workspace_url,
+        registered_model_name=registered_model_name,
+        version=version,
+        workspace_id=workspace_id,
+    )
+
+    assert result == expected_url
+
+    # Test case without workspace ID
+    expected_url_no_workspace = (
+        "https://databricks.com/explore/data/models/name/mlflow/echo_model/version/6"
+    )
+
+    result_no_workspace = databricks_utils._construct_databricks_uc_registered_model_url(
+        workspace_url=workspace_url,
+        registered_model_name=registered_model_name,
+        version=version,
+    )
+
+    assert result_no_workspace == expected_url_no_workspace
