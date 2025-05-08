@@ -20,6 +20,7 @@ mlflow
         initialize_logged_model,
         last_logged_model,
         search_logged_models,
+        set_active_model,
         set_logged_model_tags
 
 .. _mlflow-tracing-fluent-python-apis:
@@ -56,4 +57,5 @@ The ``mlflow`` module provides a set of high-level APIs to interact with ``MLflo
 .. autofunction:: mlflow.initialize_logged_model
 .. autofunction:: mlflow.last_logged_model
 .. autofunction:: mlflow.search_logged_models
+.. autofunction:: mlflow.set_active_model
 .. autofunction:: mlflow.set_logged_model_tags
