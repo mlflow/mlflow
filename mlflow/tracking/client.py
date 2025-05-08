@@ -5282,6 +5282,9 @@ class MlflowClient:
         """
         return self._tracking_client.delete_logged_model_tag(model_id, key)
 
+    def log_model_artifact(self, model_id: str, local_path: str) -> None:
+        return self._tracking_client.log_model_artifact(model_id, local_path)
+
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
         return self._tracking_client.log_model_artifacts(model_id, local_dir)
 
