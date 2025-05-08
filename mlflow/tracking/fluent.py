@@ -2447,7 +2447,14 @@ def search_logged_models(
     elif output_format == "pandas":
         import pandas as pd
 
-        return pd.DataFrame([model.to_dictionary() for model in models])
+        model_dicts = []
+        for model in models:
+            model_dict = model.to_dictionary()
+            # Convert the status back from int to the enum string
+            model_dict["status"] = LoggedModelStatus.from_int(model_dict["status"])
+            model_dicts.append(model_dict)
+
+        return pd.DataFrame(model_dicts)
 
     else:
         raise MlflowException(
