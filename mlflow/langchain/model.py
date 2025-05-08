@@ -61,7 +61,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.fluent import (
     _get_active_model_context,
-    _set_active_model,
+    _try_set_active_model_id,
 )
 from mlflow.types.schema import ColSpec, DataType, Schema
 from mlflow.utils.annotations import experimental
@@ -847,17 +847,6 @@ def _load_pyfunc(path: str, model_config: Optional[dict[str, Any]] = None):  # n
 
 def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
     mlflow_model = Model.load(local_model_path)
-    if (
-        mlflow_model.model_id
-        and (amc := _get_active_model_context())
-        # only set the active model if the model is not set by the user
-        and not amc.set_by_user
-        and amc.model_id != mlflow_model.model_id
-    ):
-        _set_active_model(model_id=mlflow_model.model_id)
-        logger.info(
-            "Use `mlflow.set_active_model` to set the active model to a different one if needed."
-        )
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pyfunc_flavor_conf = _get_flavor_configuration(
         model_path=local_model_path, flavor_name=PYFUNC_FLAVOR_NAME
@@ -891,9 +880,22 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
             # We would like to clean up the dependencies schema which is set to global
             # after loading the mode to avoid the schema being used in the next model loading
             _clear_dependencies_schemas()
-        return model
     else:
-        return _load_model(local_model_path, flavor_conf)
+        model = _load_model(local_model_path, flavor_conf)
+    # set active model after model loading since experiment ID might be set
+    # in the model loading process
+    if (
+        mlflow_model.model_id
+        and (amc := _get_active_model_context())
+        # only set the active model if the model is not set by the user
+        and not amc.set_by_user
+        and amc.model_id != mlflow_model.model_id
+    ):
+        _try_set_active_model_id(model_id=mlflow_model.model_id)
+        logger.info(
+            "Use `mlflow.set_active_model` to set the active model to a different one if needed."
+        )
+    return model
 
 
 @experimental
