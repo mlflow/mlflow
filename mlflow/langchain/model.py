@@ -61,7 +61,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.fluent import (
     _get_active_model_context,
-    _try_set_active_model_id,
+    _set_active_model_id,
 )
 from mlflow.types.schema import ColSpec, DataType, Schema
 from mlflow.utils.annotations import experimental
@@ -891,7 +891,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
         and not amc.set_by_user
         and amc.model_id != mlflow_model.model_id
     ):
-        _try_set_active_model_id(model_id=mlflow_model.model_id)
+        _set_active_model_id(model_id=mlflow_model.model_id)
         logger.info(
             "Use `mlflow.set_active_model` to set the active model to a different one if needed."
         )

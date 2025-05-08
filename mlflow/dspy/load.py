@@ -9,7 +9,7 @@ from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.fluent import (
     _get_active_model_context,
-    _try_set_active_model_id,
+    _set_active_model_id,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import disable_autologging_globally
@@ -55,7 +55,7 @@ def _load_model(model_uri, dst_path=None):
         and not amc.set_by_user
         and amc.model_id != mlflow_model.model_id
     ):
-        _try_set_active_model_id(model_id=mlflow_model.model_id)
+        _set_active_model_id(model_id=mlflow_model.model_id)
         _logger.info(
             "Use `mlflow.set_active_model` to set the active model to a different one if needed."
         )
