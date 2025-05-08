@@ -538,7 +538,8 @@ def _generate_mlflow_version_pinning() -> str:
     # and can't be installed from PyPI. We therefore subtract 1 from the micro version when running
     # tests.
     # TODO: Remove this hardcoded version once we released the stable 3.0.0 version.
-    return "mlflow==3.0.0rc1"  # f"mlflow=={version.major}.{version.minor}.{version.micro - 1}"
+    return "mlflow@git+https://github.com/mlflow/mlflow.git"
+    # return f"mlflow=={version.major}.{version.minor}.{version.micro - 1}"
 
 
 def _contains_mlflow_requirement(requirements):
