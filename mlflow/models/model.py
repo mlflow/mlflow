@@ -34,6 +34,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
     get_databricks_runtime_version,
+    get_workspace_id,
     get_workspace_url,
     is_in_databricks_runtime,
 )
@@ -1115,11 +1116,16 @@ class Model:
             model_info = mlflow_model.get_model_info(model)
             if registered_model is not None:
                 model_info.registered_model_version = registered_model.version
-                # Add UC model version page link
+
+                # Print a link to the UC model version page if the model is in UC.
                 registry_uri = mlflow.get_registry_uri()
-                if is_databricks_unity_catalog_uri(registry_uri):
+                workspace_url = get_workspace_url()
+                if workspace_url is not None and is_databricks_unity_catalog_uri(registry_uri):
                     uc_model_url = _construct_databricks_uc_registered_model_url(
-                        get_workspace_url(), registered_model_name, registered_model.version
+                        workspace_url,
+                        registered_model_name,
+                        registered_model.version,
+                        get_workspace_id(),
                     )
                     if uc_model_url:
                         # Use sys.stdout.write to make the link clickable in the UI
