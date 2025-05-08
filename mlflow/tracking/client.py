@@ -563,7 +563,7 @@ class MlflowClient:
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         page_token: Optional[str] = None,
-    ) -> PagedList[RegisteredModel]:
+    ) -> PagedList[Prompt]:
         """
         Retrieve prompt templates from the MLflow Prompt Registry.
 

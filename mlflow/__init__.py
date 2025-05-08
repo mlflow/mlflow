@@ -246,6 +246,7 @@ if not IS_TRACING_SDK_ONLY:
         register_model,
         register_prompt,
         search_model_versions,
+        search_prompts,
         search_registered_models,
         set_prompt_alias,
     )
@@ -358,6 +359,7 @@ if not IS_TRACING_SDK_ONLY:
         "search_model_versions",
         "search_registered_models",
         "search_runs",
+        "search_prompts",
         "set_active_model",
         "set_experiment_tag",
         "set_experiment_tags",

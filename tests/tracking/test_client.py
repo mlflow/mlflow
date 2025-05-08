@@ -2064,3 +2064,23 @@ def test_search_prompt(tracking_uri):
 
     prompts = client.search_prompts(max_results=3)
     assert len(prompts) == 3
+
+
+def test_search_prompt_multiple_versions(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+    name = "prompt_multi"
+
+    v1 = client.register_prompt(name=name, template="First version, {{x}}")
+    assert v1.version == 1
+    assert v1.template == "First version, {{x}}"
+
+    v2 = client.register_prompt(name=name, template="Second version, {{x}}")
+    assert v2.version == 2
+    assert v2.template == "Second version, {{x}}"
+
+    prompts = client.search_prompts()
+    assert len(prompts) == 1
+
+    prompt = prompts[0]
+    versions = sorted([mv.version for mv in prompt.latest_versions])
+    assert versions == [2]

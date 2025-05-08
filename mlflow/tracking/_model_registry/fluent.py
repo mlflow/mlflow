@@ -19,7 +19,6 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import active_run
@@ -530,37 +529,17 @@ def register_prompt(
 @require_prompt_registry
 def search_prompts(
     filter_string: Optional[str] = None,
-    max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
-    page_token: Optional[str] = None,
-) -> PagedList[RegisteredModel]:
-    """
-    Retrieve prompt templates from the MLflow Prompt Registry.
+    max_results: Optional[int] = None,
+) -> PagedList[Prompt]:
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_prompts(
+            filter_string=filter_string, max_results=number_to_get, page_token=next_page_token
+        )
 
-    This call returns only those registered models that have been marked
-    as prompts (i.e. tagged with `mlflow.prompt.is_prompt=true`). We can
-    further restrict results via a standard registry filter expression.
-
-    Args:
-        filter_string (Optional[str]):
-            An additional registry‐search expression to apply (e.g.
-            `"name LIKE 'my_prompt%'"`).  The prompt‐tag filter is always
-            applied internally.  Defaults to `None` (no extra filtering).
-        max_results (int):
-            The maximum number of prompts to return in one page.  Defaults
-            to `SEARCH_MAX_RESULTS_DEFAULT` (typically 1 000).
-        page_token (Optional[str]):
-            A pagination token from a previous `search_prompts` call; use this
-            to retrieve the next page of results.  Defaults to `None`.
-
-    Returns:
-        PagedList[RegisteredModel]:
-            A pageable list of `RegisteredModel` entities representing prompt
-            templates.  Inspect the returned object's `.token` attribute to
-            fetch subsequent pages.
-    """
-
-    return MlflowClient().search_prompts(
-        filter_string=filter_string, max_results=max_results, page_token=page_token
+    return get_results_from_paginated_fn(
+        pagination_wrapper_func,
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        max_results,
     )
 
 
