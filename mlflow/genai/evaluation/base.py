@@ -43,6 +43,12 @@ def evaluate(
 ) -> EvaluationResult:
     """
     TODO: updating docstring with real examples and API links
+
+    .. warning::
+
+        This function is not thread-safe. Please do not use it in multi-threaded
+        environments.
+
     Args:
         data: Dataset for the evaluation. It must be one of the following format:
             * A EvaluationDataset entity
