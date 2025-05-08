@@ -149,7 +149,12 @@ class MLFlowSparkStudy(Study):
         trial_tag = f"optuna_trial_{study_name}_{experiment_id}"
         if self._is_spark_connect_mode:
             self.spark.addTag(trial_tag)
-
+        else:
+            job_group_id = self.spark.sparkContext.getLocalProperty("spark.jobGroup.id")
+            if job_group_id is None:
+                job_group_id = trial_tag
+                job_group_description = f"optuna_trial_{study_name}"
+                self.spark.sparkContext.setJobGroup(job_group_id, job_group_description, interruptOnCancel=True)
         try:
             input_df.mapInPandas(
                 func=run_task_on_executor_pd,
@@ -158,5 +163,7 @@ class MLFlowSparkStudy(Study):
         except KeyboardInterrupt as e:
             if self._is_spark_connect_mode:
                 self.spark.interruptTag(trial_tag)
+            else:
+                self.spark.sparkContext.cancelJobGroup(trial_tag)
             logger.debug("MLFlowSparkStudy.optimize terminated by user.")
             raise e
