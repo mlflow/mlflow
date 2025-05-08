@@ -1071,13 +1071,16 @@ def _construct_databricks_model_version_url(
 
 
 """
-Get a Databricks URL for a given registered model version in UC.
+Get a Databricks URL for a given registered model version in Unity Catalog.
 
 Args:
-    workspace_url: The URL of the workspace
+    workspace_url: The URL of the workspace the registered model is in.
+    registered_model_name: The full name of the registered model containing the version.
+    version: The version of the registered model to create the URL for.
+    workspace_id: The ID of the workspace to include as a query parameter (if provided).
 
 Returns:
-    Serving input example or None if the model has no serving input example.
+    The Databricks URL for a registered model in Unity Catalog.
 """
 
 
