@@ -26,7 +26,7 @@ if TYPE_CHECKING:
         EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
 
 
-def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
+def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
     Takes in a dataset in the format that mlflow.genai.evaluate() expects and converts it into
     to the current eval-set schema that Agent Evaluation takes in. The transformed schema should
