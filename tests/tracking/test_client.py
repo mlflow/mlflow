@@ -2,6 +2,7 @@ import os
 import pickle
 import sys
 import time
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -23,6 +24,7 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
+from mlflow.entities.file_info import FileInfo
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
@@ -2084,3 +2086,48 @@ def test_search_prompt_multiple_versions(tracking_uri):
     prompt = prompts[0]
     versions = sorted([mv.version for mv in prompt.latest_versions])
     assert versions == [2]
+
+def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment_id = client.create_experiment("test")
+    model = client.create_logged_model(experiment_id=experiment_id)
+    tmp_path = tmp_path.joinpath("artifacts")
+    tmp_path.mkdir()
+    tmp_file = tmp_path.joinpath("file")
+    tmp_file.write_text("a")
+    client.log_model_artifact(model_id=model.model_id, local_path=str(tmp_file))
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
+    assert artifacts == [FileInfo(path="file", is_dir=False, file_size=1)]
+    another_tmp_file = tmp_path.joinpath("another_file")
+    another_tmp_file.write_text("aa")
+    client.log_model_artifact(model_id=model.model_id, local_path=str(another_tmp_file))
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
+    artifacts = sorted(artifacts, key=lambda x: x.path)
+    assert artifacts == [
+        FileInfo(path="another_file", is_dir=False, file_size=2),
+        FileInfo(path="file", is_dir=False, file_size=1),
+    ]
+
+
+def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment_id = client.create_experiment("test")
+    model = client.create_logged_model(experiment_id=experiment_id)
+    tmp_path = tmp_path.joinpath("artifacts")
+    tmp_path.mkdir()
+    tmp_file = tmp_path.joinpath("file")
+    tmp_file.write_text("a")
+    tmp_dir = tmp_path.joinpath("dir")
+    tmp_dir.mkdir()
+    another_file = tmp_dir.joinpath("another_file")
+    another_file.write_text("aa")
+    client.log_model_artifacts(model_id=model.model_id, local_dir=str(tmp_path))
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
+    artifacts = sorted(artifacts, key=lambda x: x.path)
+    assert artifacts == [
+        FileInfo(path="dir", is_dir=True, file_size=None),
+        FileInfo(path="file", is_dir=False, file_size=1),
+    ]
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="dir")
+    assert artifacts == [FileInfo(path="dir/another_file", is_dir=False, file_size=2)]
+

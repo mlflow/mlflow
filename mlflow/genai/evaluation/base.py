@@ -43,6 +43,12 @@ def evaluate(
 ) -> EvaluationResult:
     """
     TODO: updating docstring with real examples and API links
+
+    .. warning::
+
+        This function is not thread-safe. Please do not use it in multi-threaded
+        environments.
+
     Args:
         data: Dataset for the evaluation. It must be one of the following format:
             * A EvaluationDataset entity
@@ -57,7 +63,7 @@ def evaluate(
                    by MLflow so not required.
               - expectations (optional): A column that contains a ground truth, or a
                    dictionary of ground truths for individual output fields.
-              - traces (optional): A column that contains a single trace object
+              - trace (optional): A column that contains a single trace object
                    corresponding to the prediction for the row. Only required when
                    any of scorers requires a trace in order to compute
                    assessments/metrics.
@@ -88,6 +94,14 @@ def evaluate(
                mlflow.evaluate(data, ...)
                ```
     """
+    try:
+        from databricks.rag_eval.evaluation.metrics import Metric as DBAgentsMetric
+    except ImportError:
+        raise ImportError(
+            "The `databricks-agents` package is required to use mlflow.genai.evaluate() "
+            "Please install it with `pip install databricks-agents`."
+        )
+
     if mlflow.get_tracking_uri() != "databricks":
         raise ValueError(
             "The genai evaluation function is only supported on Databricks. "
@@ -101,6 +115,12 @@ def evaluate(
         if isinstance(scorer, BuiltInScorer):
             builtin_scorers.append(scorer)
         elif isinstance(scorer, Scorer):
+            custom_scorers.append(scorer)
+        elif isinstance(scorer, DBAgentsMetric):
+            logger.warning(
+                f"{scorer} is a legacy metric and will soon be deprecated in future releases. "
+                "Please use the @scorer decorator or use builtin scorers instead."
+            )
             custom_scorers.append(scorer)
         else:
             raise TypeError(
@@ -118,14 +138,18 @@ def evaluate(
     for _scorer in custom_scorers:
         extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
 
-    if not is_model_traced(predict_fn):
-        logger.info("Annotating predict_fn with tracing since it is not already traced.")
-        predict_fn = mlflow.trace(predict_fn)
+    # convert into a pandas dataframe with current evaluation set schema
+    data = _convert_to_legacy_eval_set(data)
+
+    if predict_fn:
+        sample_input = data.iloc[0]["request"]
+        if not is_model_traced(predict_fn, sample_input):
+            logger.info("Annotating predict_fn with tracing since it is not already traced.")
+            predict_fn = mlflow.trace(predict_fn)
 
     result = mlflow.evaluate(
         model=predict_fn,
-        # convert into a pandas dataframe with current evaluation set schema
-        data=_convert_to_legacy_eval_set(data),
+        data=data,
         evaluator_config=evaluation_config,
         extra_metrics=extra_metrics,
         model_type=GENAI_CONFIG_NAME,
