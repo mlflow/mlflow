@@ -3313,34 +3313,17 @@ def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = N
     return ActiveModel(logged_model=logged_model, set_by_user=False)
 
 
-def _set_active_model_id(model_id: str, set_by_user: bool) -> None:
+def _set_active_model_id(model_id: str, set_by_user: bool = False) -> None:
     """
     Set the active model ID in the active model context and update the
     corresponding environment variable. This should only be used when
     we know the LoggedModel with the model_id exists.
+    This function should be used inside MLflow to set the active model
+    while not blocking other code execution.
     """
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(model_id, set_by_user))
     _update_active_model_id_env_var(model_id)
     _logger.info(f"Active model set to model with ID: {model_id}")
-
-
-def _try_set_active_model_id(model_id):
-    """
-    Try to set the active model with the specified model ID. In databricks serving
-    environment, if users don't set current experiment ID correctly then MLflow may
-    not find the LoggedModel with the model_id.
-    This function should be used inside MLflow to set the active model while not blocking
-    other code execution.
-    """
-    _set_active_model_id(model_id=model_id, set_by_user=False)
-    try:
-        mlflow.get_logged_model(model_id)
-    except MlflowException as e:
-        _logger.warning(
-            f"Logged model with model_id {model_id} is not found, please "
-            "double check that you set the experiment ID correctly in the model "
-            f"or through environment variables. Error: {e}"
-        )
 
 
 def _get_active_model_context() -> ActiveModelContext:

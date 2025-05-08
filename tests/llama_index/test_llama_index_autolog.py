@@ -333,3 +333,27 @@ def test_autolog_link_traces_to_active_model():
     model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
     assert model_id == model.model_id
     assert model_id != model_info.model_id
+
+
+@skip_when_testing_trace_sdk
+@pytest.mark.skipif(
+    llama_core_version < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+def test_model_loading_set_active_model_id_without_fetching_logged_model():
+    mlflow.llama_index.autolog()
+    model_info = mlflow.llama_index.log_model(
+        "tests/llama_index/sample_code/simple_workflow.py",
+        name="model",
+        input_example={"topic": "Hello"},
+    )
+    with mock.patch("mlflow.get_logged_model", side_effect=Exception):
+        loaded_workflow = mlflow.pyfunc.load_model(model_info.model_uri)
+        loaded_workflow.predict({"topic": f"Hello {model_info.model_id}"})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
+    assert model_id is not None
+    assert span.inputs["kwargs"]["topic"] == f"Hello {model_id}"
