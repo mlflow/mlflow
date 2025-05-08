@@ -584,8 +584,8 @@ class MlflowClient:
                 to retrieve the next page of results.  Defaults to `None`.
 
         Returns:
-            PagedList[RegisteredModel]:
-                A pageable list of `RegisteredModel` entities representing prompt
+            PagedList[Prompt]:
+                A pageable list of `Prompt` entities representing prompt
                 templates.  Inspect the returned object's `.token` attribute to
                 fetch subsequent pages.
         """
