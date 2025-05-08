@@ -2053,7 +2053,6 @@ def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
     artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
     assert artifacts == [FileInfo(path="file", is_dir=False, file_size=1)]
     another_tmp_file = tmp_path.joinpath("another_file")
-    another_tmp_file.touch()
     another_tmp_file.write_text("aa")
     client.log_model_artifact(model_id=model.model_id, local_path=str(another_tmp_file))
     artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
