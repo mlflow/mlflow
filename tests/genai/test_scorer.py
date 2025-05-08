@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.evaluation import Assessment
 from mlflow.genai.evaluation.utils import _convert_scorer_to_legacy_metric
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.models import Model
@@ -47,6 +48,31 @@ def sample_data():
                 {"choices": [{"message": {"content": "actual response for second question"}}]},
             ],
             "expected_response": [
+                "expected response for first question",
+                "expected response for second question",
+            ],
+        }
+    )
+
+
+@pytest.fixture
+def sample_new_data():
+    # sample data for new eval dataset format for mlflow.genai.evaluate()
+    return pd.DataFrame(
+        {
+            "inputs": [
+                "What is the difference between reduceByKey and groupByKey in Spark?",
+                {
+                    "messages": [
+                        {"role": "user", "content": "How can you minimize data shuffling in Spark?"}
+                    ]
+                },
+            ],
+            "outputs": [
+                {"choices": [{"message": {"content": "actual response for first question"}}]},
+                {"choices": [{"message": {"content": "actual response for second question"}}]},
+            ],
+            "expectations": [
                 "expected response for first question",
                 "expected response for second question",
             ],
@@ -172,3 +198,62 @@ def test_trace_passed_correctly():
         assert any(str(data["request"][i]) in str(trace.data.request) for i in range(len(data)))
         # check if predict_fn was run by making output it starts with "output:"
         assert "output:" in str(trace.data.response)[:10]
+
+
+@pytest.mark.parametrize(
+    "scorer_return",
+    [
+        "yes",
+        42,
+        42.0,
+        Assessment(
+            name="big_question",
+            value=42,
+            rationale="It's the answer to everything",
+        ),
+        [
+            Assessment(
+                name="big_question",
+                value=42,
+                rationale="It's the answer to everything",
+            ),
+            Assessment(
+                name="small_question",
+                value=-1,
+                rationale="Not sure, just a guess",
+            ),
+        ],
+    ],
+)
+def test_scorer_on_genai_evaluate(sample_new_data, scorer_return):
+    @scorer
+    def dummy_scorer(inputs, outputs):
+        return scorer_return
+
+    with patch("mlflow.get_tracking_uri", return_value="databricks"):
+        with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
+            results = mlflow.genai.evaluate(
+                data=sample_new_data,
+                scorers=[dummy_scorer],
+            )
+
+            assert any("metric/dummy_scorer" in metric for metric in results.metrics.keys())
+
+            dummy_scorer_cols = [
+                col for col in results.result_df.keys() if "dummy_scorer" in col and "value" in col
+            ]
+            dummy_scorer_values = set()
+            for col in dummy_scorer_cols:
+                for _val in results.result_df[col]:
+                    dummy_scorer_values.add(_val)
+
+            scorer_return_values = set()
+            if isinstance(scorer_return, list):
+                for _assessment in scorer_return:
+                    scorer_return_values.add(_assessment.value)
+            elif isinstance(scorer_return, Assessment):
+                scorer_return_values.add(scorer_return.value)
+            else:
+                scorer_return_values.add(scorer_return)
+
+            assert dummy_scorer_values == scorer_return_values

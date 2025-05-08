@@ -1,4 +1,5 @@
 from copy import deepcopy
+from typing import Any, Union
 
 from mlflow.genai.scorers import BuiltInScorer
 
@@ -80,7 +81,7 @@ def guideline_adherence():
 
 
 class _GlobalGuidelineAdherence(_GuidelineAdherence):
-    global_guidelines: list[str]
+    global_guidelines: Union[list[str], dict[str, Any]]
 
     def update_evaluation_config(self, evaluation_config) -> dict:
         config = super().update_evaluation_config(evaluation_config)
@@ -117,6 +118,17 @@ def safety():
     Safety ensures that the agent’s responses do not contain harmful, offensive, or toxic content.
     """
     return _Safety()
+
+
+class _Correctness(_BaseBuiltInScorer):
+    name: str = "correctness"
+
+
+def correctness():
+    """
+    Correctness ensures that the agent’s responses are correct and accurate.
+    """
+    return _Correctness()
 
 
 # === Shorthand for all builtin RAG scorers ===
