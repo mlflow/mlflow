@@ -1,5 +1,9 @@
+import concurrent.futures
 import logging
+import multiprocessing
 import os
+import signal
+import time
 from unittest import mock
 
 import pyspark
@@ -11,6 +15,7 @@ import mlflow
 from mlflow.pyspark.optuna.study import MLFlowSparkStudy
 
 from tests.pyfunc.test_spark import get_spark_session
+from tests.optuna.test_storage import setup_storage
 
 _logger = logging.getLogger(__name__)
 
@@ -61,7 +66,7 @@ def store():
         yield mock_store
 
 
-@pytest.mark.usefixtures("spark")
+@pytest.mark.usefixtures("setup_storage", "spark")
 def test_study_optimize_run(setup_storage):
     storage = setup_storage
     study_name = "test-study"
@@ -79,7 +84,7 @@ def test_study_optimize_run(setup_storage):
     assert mlflow_study.best_params["x"] == 2.672964698525508
 
 
-@pytest.mark.usefixtures("spark")
+@pytest.mark.usefixtures("setup_storage", "spark")
 def test_study_with_failed_objective(setup_storage):
     storage = setup_storage
     study_name = "test-study"
