@@ -25,20 +25,25 @@ class Scorer(BaseModel):
         """
 
         Args:
-            inputs (required): A single input to the target model/app.
+            inputs (optional): A single input to the target model/app.
             outputs (optional): A single output from the target model/app.
             expectations (optional): Ground truth, or a dictionary of ground
                 truths for individual output fields.
             trace (optional): Json representation of a trace object corresponding to
                 the prediction for the row. Required when any of scorers requires a
                 trace in order to compute assessments/scores.
-            retrieved_context (optional): Retrieved context, can be from your input eval dataset
-                or from trace
-            custom_expected (optional): Custom expected results from input eval dataset
-            custom_inputs (optional): Custom inputs from your input eval dataset
-            custom_outputs (optional): Custom outputs from the agent's response
-            tool_calls (optional): Tool calls from the agent's response.
-            **kwargs (optional): Additional keyword arguments passed to the scorer.
+            **kwargs (optional): Additional keyword arguments passed to the scorer. The scorer
+                can take additional keyword arguments that are a part of the input eval dataset.
+                NB: Currently, the evaluation harness only passes the following reserved
+                    extra keyword arguments. This will be fully flexible once we migrate off
+                    the agent eval harness.
+
+                    - retrieved_context (optional): Retrieved context, can be from your
+                        input eval dataset or from trace
+                    - custom_expected (optional): Custom expected results from input eval dataset
+                    - custom_inputs (optional): Custom inputs from your input eval dataset
+                    - custom_outputs (optional): Custom outputs from the agent's response
+                    - tool_calls (optional): Tool calls from the agent's response.
         """
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
@@ -73,7 +78,6 @@ def scorer(
 
     class CustomScorer(Scorer):
         def __call__(self, *, inputs=None, outputs=None, expectations=None, trace=None, **kwargs):
-            # Normalize singular/plural keys
             merged = {
                 "inputs": inputs,
                 "outputs": outputs,
