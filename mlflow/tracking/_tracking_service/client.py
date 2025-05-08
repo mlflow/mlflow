@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from itertools import zip_longest
 from typing import Optional
 
@@ -335,9 +336,6 @@ class TrackingServiceClient:
                 )
                 trace_info.assessments = trace_info_with_assessments.assessments
 
-            if not include_spans:
-                return Trace(trace_info, TraceData(spans=[]))
-
             try:
                 trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataException as e:
@@ -370,7 +368,8 @@ class TrackingServiceClient:
         traces = []
         next_max_results = max_results
         next_token = page_token
-        with ThreadPoolExecutor() as executor:
+        executor = ThreadPoolExecutor() if include_spans else nullcontext()
+        with executor:
             while len(traces) < max_results:
                 trace_infos, next_token = self._search_traces(
                     experiment_ids=experiment_ids,
@@ -379,9 +378,14 @@ class TrackingServiceClient:
                     order_by=order_by,
                     page_token=next_token,
                 )
-                traces.extend(
-                    t for t in executor.map(download_trace_extra_fields, trace_infos) if t
-                )
+                if include_spans:
+                    traces.extend(
+                        t for t in executor.map(download_trace_extra_fields, trace_infos) if t
+                    )
+                else:
+                    traces.extend(
+                        Trace(trace_info, TraceData(spans=[])) for trace_info in trace_infos
+                    )
 
                 if not next_token:
                     break
