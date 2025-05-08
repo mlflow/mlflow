@@ -610,12 +610,12 @@ langchain:
     pip_release: "langchain"
     install_dev: |
       pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain
-  python:
-    ">=0.3": "3.10"
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.0.354"
     maximum: "0.3.24"
+    python:
+      ">=0.3": "3.10"
     requirements:
       ">= 0.0.0": [
           "pyspark",
