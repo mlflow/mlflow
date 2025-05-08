@@ -59,10 +59,7 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     is_testing,
 )
-from mlflow.utils.databricks_utils import (
-    is_in_databricks_model_serving_environment,
-    is_in_databricks_runtime,
-)
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
@@ -3333,17 +3330,17 @@ def _try_set_active_model_id(model_id):
     environment, if users don't set current experiment ID correctly then MLflow may
     not find the LoggedModel with the model_id.
     This function should be used inside MLflow to set the active model while not blocking
-    other functionalities.
+    other code execution.
     """
+    _set_active_model_id(model_id=model_id, set_by_user=False)
     try:
-        _set_active_model_id(model_id=model_id, set_by_user=False)
-    except Exception as e:
-        if is_in_databricks_model_serving_environment():
-            _logger.warning(
-                f"Failed to set active model with model_id {model_id}, please "
-                "double check that you set the experiment ID correctly in the model "
-                f"or through environment variables. Error: {e}"
-            )
+        mlflow.get_logged_model(model_id)
+    except MlflowException as e:
+        _logger.warning(
+            f"Logged model with model_id {model_id} is not found, please "
+            "double check that you set the experiment ID correctly in the model "
+            f"or through environment variables. Error: {e}"
+        )
 
 
 def _get_active_model_context() -> ActiveModelContext:
