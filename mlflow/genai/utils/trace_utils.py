@@ -20,7 +20,7 @@ def is_model_traced(predict_fn: Callable, sample_input: Any):
         4. Restore the original NoOpTracer.start_span method and re-enable tracing.
 
     WARNING: This function is not thread-safe. We do not provide support for running
-        mlflow.genai.evaluate in multi-threaded environments.
+        `mlflow.genai.evaluate` in multi-threaded environments.`
 
     Args:
         predict_fn: The predict function to be evaluated.
@@ -50,6 +50,6 @@ def is_model_traced(predict_fn: Callable, sample_input: Any):
             )
 
         NoOpTracer.start_span = original
-        return 0 < counter
+        return counter > 0
 
     return _check()
