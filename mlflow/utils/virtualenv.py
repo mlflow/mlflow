@@ -441,6 +441,7 @@ def _get_or_create_virtualenv(  # noqa: D417
                 "due to permission error. Check the permissions of the directory and "
                 "try again. If the issue persists, consider cleaning up the directory manually."
             )
+            raise
 
     extra_env = _get_virtualenv_extra_env_vars(env_root_dir)
 
