@@ -14,7 +14,7 @@ TEMP_DIR=$(mktemp -d)
 git clone --filter=blob:none --no-checkout https://github.com/mlflow/mlflow.git $TEMP_DIR
 cd $TEMP_DIR
 git sparse-checkout set --no-cone /mlflow /skinny /pyproject.toml
-git fetch origin $REF
+git fetch origin "$REF"
 git config advice.detachedHead false
 git checkout FETCH_HEAD
 OPTIONS=$(if pip freeze | grep -q "mlflow-skinny @"; then echo "--force-reinstall --no-deps"; fi)
