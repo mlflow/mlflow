@@ -51,6 +51,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.uri import (
     append_to_uri_path,
     get_uri_scheme,
+    is_databricks_unity_catalog_uri,
 )
 
 _logger = logging.getLogger(__name__)
@@ -1114,16 +1115,19 @@ class Model:
             if registered_model is not None:
                 model_info.registered_model_version = registered_model.version
                 # Add UC model version page link
-                if is_in_databricks_runtime():
+                registry_uri = mlflow.get_registry_uri()
+                if is_databricks_unity_catalog_uri(registry_uri):
                     workspace_url = get_workspace_url()
                     if workspace_url:
+                        # Convert dots to forward slashes for the URL path
+                        model_path = registered_model_name.replace(".", "/")
                         uc_model_url = (
                             f"{workspace_url}/explore/data/models/"
-                            f"{registered_model_name}/{registered_model.version}"
+                            f"{model_path}/version/{registered_model.version}"
                         )
                         # Use sys.stdout.write to make the link clickable in the UI
                         sys.stdout.write(
-                            f"🔗 View model version in Unity Catalog: {uc_model_url}\n"
+                            f"🔗 View model version in Unity Catalog at: {uc_model_url}\n"
                         )
 
         # If the model signature is Mosaic AI Agent compatible, render a recipe for evaluation.
