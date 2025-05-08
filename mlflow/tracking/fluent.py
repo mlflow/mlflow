@@ -2352,14 +2352,14 @@ def search_logged_models(
                 - tags: `tags.tag_name`
             - Comparison operators:
                 - For numeric entities (metrics and numeric attributes): <, <=, >, >=, =, !=
-                - For string entities (params, tags, string attributes): =, !=, LIKE, ILIKE
+                - For string entities (params, tags, string attributes): =, !=, IN, NOT IN
             - Multiple conditions can be joined with 'AND'
             - String values must be enclosed in single quotes
 
             Example filter strings:
                 - `creation_time > 100`
                 - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
-                - `tags.release LIKE 'v1.%'`
+                - `tags.release IN ('v1.0', 'v1.1')`
                 - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
 
         datasets: List of dictionaries to specify datasets on which to apply metrics filters
