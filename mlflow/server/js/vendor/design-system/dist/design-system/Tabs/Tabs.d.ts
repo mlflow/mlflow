@@ -5,7 +5,7 @@ import type { ButtonProps } from '..';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '..';
 import type { Theme } from '../../theme';
 import type { AnalyticsEventValueChangeNoPiiFlagProps, DangerousGeneralProps } from '../types';
-interface RootProps extends Omit<RadixTabs.TabsProps, 'asChild' | 'orientation' | 'dir'>, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+interface RootProps extends Omit<RadixTabs.TabsProps, 'asChild' | 'orientation' | 'dir'>, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
 }
 export declare const Root: React.ForwardRefExoticComponent<RootProps & React.RefAttributes<HTMLDivElement>>;
 interface AddButtonProps extends DangerousGeneralProps, Pick<ButtonProps, 'onClick' | 'className'> {

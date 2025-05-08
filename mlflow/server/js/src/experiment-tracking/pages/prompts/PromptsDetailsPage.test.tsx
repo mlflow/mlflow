@@ -1,3 +1,4 @@
+/* eslint-disable jest/no-standalone-expect */
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { setupServer } from '../../../common/utils/setup-msw';
@@ -16,7 +17,7 @@ import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { getTableRowByCellText } from '@databricks/design-system/test-utils/rtl';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { REGISTERED_PROMPT_SOURCE_RUN_IDS } from './utils';
+import { REGISTERED_PROMPT_SOURCE_RUN_ID, REGISTERED_PROMPT_SOURCE_RUN_IDS } from './utils';
 
 jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
 
@@ -84,7 +85,7 @@ describe('PromptsDetailsPage', () => {
     expect(screen.getByText('some commit message for version 1')).toBeInTheDocument();
   });
 
-  it("should compare prompt versions' contents", async () => {
+  test("should compare prompt versions' contents", async () => {
     server.use(getMockedRegisteredPromptVersionsResponse('prompt1', 3));
 
     renderTestComponent();

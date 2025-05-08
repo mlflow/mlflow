@@ -11,6 +11,7 @@ type DesignSystemContainerProps = {
 };
 
 const ThemeProvider = ({ children, isDarkTheme }: { children?: React.ReactNode; isDarkTheme?: boolean }) => {
+  // eslint-disable-next-line react/forbid-elements
   return <DesignSystemThemeProvider isDarkMode={isDarkTheme}>{children}</DesignSystemThemeProvider>;
 };
 

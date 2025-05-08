@@ -1,6 +1,7 @@
-interface useNotifyOnFirstViewProps {
-    onView: () => void;
+export interface useNotifyOnFirstViewProps {
+    onView: (value?: any) => void;
     resetKey?: unknown;
+    value?: any;
 }
 /**
  * Checks if the element was viewed and calls the onView callback.
@@ -9,8 +10,7 @@ interface useNotifyOnFirstViewProps {
  * @param resetKey - optional key that resets the observer when changed
  * @typeParam T - extends Element to specify the type of element being observed
  */
-export declare const useNotifyOnFirstView: <T extends Element>({ onView, resetKey }: useNotifyOnFirstViewProps) => {
+export declare const useNotifyOnFirstView: <T extends Element>({ onView, resetKey, value }: useNotifyOnFirstViewProps) => {
     elementRef: import("react").MutableRefObject<T | null>;
 };
-export {};
 //# sourceMappingURL=useNotifyOnFirstView.d.ts.map
