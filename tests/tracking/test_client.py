@@ -2079,8 +2079,8 @@ def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
     artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
     artifacts = sorted(artifacts, key=lambda x: x.path)
     assert artifacts == [
-        FileInfo(path="dir", is_dir=True, file_size=0),
+        FileInfo(path="dir", is_dir=True, file_size=None),
         FileInfo(path="file", is_dir=False, file_size=1),
     ]
     artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="dir")
-    assert artifacts == [FileInfo(path="another_file", is_dir=False, file_size=2)]
+    assert artifacts == [FileInfo(path="dir/another_file", is_dir=False, file_size=2)]
