@@ -53,7 +53,6 @@ from mlflow.utils.uri import (
     append_to_uri_path,
     get_uri_scheme,
     is_databricks_unity_catalog_uri,
-    is_databricks_unity_catalog_uri,
 )
 
 _logger = logging.getLogger(__name__)
@@ -1119,14 +1118,10 @@ class Model:
                 # Add UC model version page link
                 registry_uri = mlflow.get_registry_uri()
                 if is_databricks_unity_catalog_uri(registry_uri):
-                    workspace_url = get_workspace_url()
-                    if workspace_url:
-                        # Convert dots to forward slashes for the URL path
-                        model_path = registered_model_name.replace(".", "/")
-                        uc_model_url = (
-                            f"{workspace_url}/explore/data/models/"
-                            f"{model_path}/version/{registered_model.version}"
-                        )
+                    uc_model_url = _construct_databricks_uc_registered_model_url(
+                        get_workspace_url(), registered_model_name, registered_model.version
+                    )
+                    if uc_model_url:
                         # Use sys.stdout.write to make the link clickable in the UI
                         sys.stdout.write(
                             f"🔗 View model version in Unity Catalog at: {uc_model_url}\n"
