@@ -14,21 +14,36 @@ class Scorer(BaseModel):
     def __call__(
         self,
         *,
-        inputs,
+        inputs=None,
         outputs=None,
         expectations=None,
         trace=None,
+        **kwargs,
     ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
+        # TODO: make sure scorer's signature is simply equal to whatever keys are
+        # in the eval dataset once we migrate from the agent eval harness
         """
 
         Args:
-            inputs (required): A single input to the target model/app.
+            inputs (optional): A single input to the target model/app.
             outputs (optional): A single output from the target model/app.
             expectations (optional): Ground truth, or a dictionary of ground
                 truths for individual output fields.
-            trace (optional): A single trace object corresponding to the prediction
-                for the row. Only required when any of scorers requires a trace in
-                order to compute assessments/metrics.
+            trace (optional): Json representation of a trace object corresponding to
+                the prediction for the row. Required when any of scorers requires a
+                trace in order to compute assessments/scores.
+            **kwargs (optional): Additional keyword arguments passed to the scorer. The scorer
+                can take additional keyword arguments that are a part of the input eval dataset.
+                NB: Currently, the evaluation harness only passes the following reserved
+                    extra keyword arguments. This will be fully flexible once we migrate off
+                    the agent eval harness.
+
+                    - retrieved_context (optional): Retrieved context, can be from your
+                        input eval dataset or from trace
+                    - custom_expected (optional): Custom expected results from input eval dataset
+                    - custom_inputs (optional): Custom inputs from your input eval dataset
+                    - custom_outputs (optional): Custom outputs from the agent's response
+                    - tool_calls (optional): Tool calls from the agent's response.
         """
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
@@ -61,19 +76,26 @@ def scorer(
     if func is None:
         return functools.partial(scorer, name=name, aggregations=aggregations)
 
-    sig = inspect.signature(func)
-    params = sig.parameters
-
-    for optional_arg in ("inputs", "outputs", "expectations", "trace"):
-        if optional_arg not in params:
-            raise TypeError(
-                f"'{optional_arg}' must be present as an optional argument in {func.__name__}."
-            )
-
     class CustomScorer(Scorer):
-        def __call__(self, *, inputs, outputs=None, expectations=None, trace=None):
-            result = func(inputs=inputs, outputs=outputs, expectations=expectations, trace=trace)
-            if not isinstance(result, (int, float, bool, str, Assessment, list[Assessment])):
+        def __call__(self, *, inputs=None, outputs=None, expectations=None, trace=None, **kwargs):
+            merged = {
+                "inputs": inputs,
+                "outputs": outputs,
+                "expectations": expectations,
+                "trace": trace,
+                **kwargs,
+            }
+            # Filter to only the parameters the function actually expects
+            sig = inspect.signature(func)
+            filtered = {k: v for k, v in merged.items() if k in sig.parameters}
+            result = func(**filtered)
+            if not (
+                isinstance(result, (int, float, bool, str, Assessment))
+                or (
+                    isinstance(result, list)
+                    and all(isinstance(item, Assessment) for item in result)
+                )
+            ):
                 raise ValueError(
                     f"{func.__name__} must return one of int, float, bool, str, "
                     f"Assessment, or list[Assessment]. Got {type(result).__name__}"
