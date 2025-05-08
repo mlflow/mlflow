@@ -644,7 +644,10 @@ langchain:
           # Required for testing uc tools
           "unitycatalog-langchain",
         ]
-      ">=0.3": ["databricks-langchain"]
+      # NB: databricks-langchain version should be consistent with databricks-ai-bridge package as they
+      # might be incompatible between different versions, and databricks-langchain doesn't have upper bound
+      # limit on databricks-ai-bridge version.
+      ">=0.3": ["databricks-langchain>=0.4", "databricks-ai-bridge>=0.4"]
     run: |
       # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
       # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
