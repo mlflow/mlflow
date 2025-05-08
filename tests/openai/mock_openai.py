@@ -1,3 +1,4 @@
+import argparse
 import json
 from typing import Any, Optional, Union
 
@@ -418,3 +419,14 @@ def models(model: str):
         "created": 1686935002,
         "owned_by": "openai",
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--host", type=str)
+    parser.add_argument("--port", type=int)
+    args = parser.parse_args()
+
+    uvicorn.run(app, host=args.host, port=args.port)

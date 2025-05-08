@@ -5,7 +5,6 @@ import {
   Spacer,
   TableSkeleton,
   TitleSkeleton,
-  Typography,
   WarningIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -63,11 +62,7 @@ export const TraceDataDrawer = ({
       return <TitleSkeleton />;
     }
     if (traceInfoToUse) {
-      return (
-        <Typography.Title level={2} withoutMargins>
-          {getTraceDisplayName(traceInfoToUse as ModelTraceInfo)}
-        </Typography.Title>
-      );
+      return getTraceDisplayName(traceInfoToUse as ModelTraceInfo);
     }
     return requestId;
   }, [
@@ -83,11 +78,7 @@ export const TraceDataDrawer = ({
     () =>
       traceData
         ? {
-            // We're assigning values redunantly due to a name change in the upstream interface,
-            // will be cleaned up shortly
-            trace_info: traceInfoToUse || {},
             info: traceInfoToUse || {},
-            trace_data: traceData,
             data: traceData,
           }
         : undefined,

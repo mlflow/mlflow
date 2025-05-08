@@ -326,7 +326,6 @@ def make_genai_metric_from_prompt(
     )
 
 
-@experimental
 def make_genai_metric(
     name: str,
     definition: str,
@@ -717,7 +716,7 @@ def retrieve_custom_metrics(
             basic_qa_model = mlflow.openai.log_model(
                 model="gpt-4o-mini",
                 task="chat.completions",
-                artifact_path="model",
+                name="model",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": "{question}"},

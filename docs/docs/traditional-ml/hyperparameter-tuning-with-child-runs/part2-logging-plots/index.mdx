@@ -249,9 +249,7 @@ fig8 = plot_qq(y_test, y_pred)
 # Start an MLflow run for logging metrics, parameters, the model, and our figures
 with mlflow.start_run() as run:
     # Log the model
-    mlflow.sklearn.log_model(
-        sk_model=model, input_example=X_test, artifact_path="model"
-    )
+    mlflow.sklearn.log_model(sk_model=model, input_example=X_test, name="model")
 
     # Log the metrics
     mlflow.log_metrics(

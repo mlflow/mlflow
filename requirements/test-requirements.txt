@@ -17,8 +17,6 @@ plotly
 kaleido
 # Required by tuning tests
 hyperopt
-# Required by recipes tests
-ipython
 # Required by automl tests
 flaml[automl]
 # Required by evaluator tests

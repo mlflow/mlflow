@@ -237,8 +237,6 @@ def build(package_type: PackageType) -> None:
                         "pyspark/ml/log_model_allowlist.txt",
                         "server/auth/basic_auth.ini",
                         "server/auth/db/migrations/alembic.ini",
-                        "recipes/resources/**/*",
-                        "recipes/cards/templates/**/*",
                         "models/notebook_resources/**/*",
                     ]
                     + extra_package_data

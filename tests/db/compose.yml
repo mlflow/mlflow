@@ -8,6 +8,8 @@ services:
     working_dir: /mlflow/home
     entrypoint: /mlflow/home/tests/db/entrypoint.sh
     command: pytest tests/db
+    environment:
+      DISABLE_RESET_MLFLOW_URI_FIXTURE: "true"
 
   postgresql:
     image: postgres

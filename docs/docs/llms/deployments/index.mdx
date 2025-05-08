@@ -118,7 +118,7 @@ Save this file to a location on the system that is going to be running the MLflo
 
 You're now ready to start the gateway server!
 
-Use the MLflow AI Gateway `start-server` command and specify the path to your configuration file:
+Use the MLflow AI Gateway `start` command and specify the path to your configuration file:
 
 ```sh
 mlflow gateway start --config-path config.yaml --port {port} --host {host} --workers {worker count}
@@ -1327,7 +1327,7 @@ result = llm_chain.run(adjective="funny")
 print(result)
 
 with mlflow.start_run():
-    model_info = mlflow.langchain.log_model(llm_chain, "model")
+    model_info = mlflow.langchain.log_model(llm_chain, name="model")
 
 model = mlflow.pyfunc.load_model(model_info.model_uri)
 print(model.predict([{"adjective": "funny"}]))
@@ -1384,7 +1384,7 @@ with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
         python_model=predict,
         registered_model_name="anthropic_completions",
-        artifact_path="anthropic_completions",
+        name="anthropic_completions",
         input_example=input_example,
         signature=signature,
     )
@@ -1457,11 +1457,8 @@ Here are some examples for how you might use curl to interact with the MLflow AI
 
 **Note:** Remember to replace `my.deployments:8888` with the URL of your actual MLflow AI Gateway.
 
-## Plugin LLM Provider (Experimental) \{#deployments-plugin}
+## Plugin LLM Provider \{#deployments-plugin}
 
-:::warning attention
-This feature is in active development and is marked as Experimental. It may change in a future release without warning.
-:::
 
 The MLflow AI Gateway supports the use of custom language model providers through the use of plugins.
 A plugin is a Python package that provides a custom implementation of a language model provider.
