@@ -1,6 +1,7 @@
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from typing import Any, Optional, Union
 
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
@@ -302,9 +303,6 @@ class TracingClient:
             trace_id = trace_info.trace_id if is_v3 else trace_info.request_id
             is_online_trace = is_uuid(trace_id)
 
-            if not include_spans:
-                return Trace(trace_info, TraceData(spans=[]))
-
             # For online traces in Databricks, we need to get trace data from a different endpoint
             try:
                 if is_databricks and is_online_trace:
@@ -353,7 +351,9 @@ class TracingClient:
         traces = []
         next_max_results = max_results
         next_token = page_token
-        with ThreadPoolExecutor() as executor:
+
+        executor = ThreadPoolExecutor() if include_spans else nullcontext()
+        with executor:
             while len(traces) < max_results:
                 trace_infos, next_token = self._search_traces(
                     experiment_ids=experiment_ids,
@@ -364,9 +364,15 @@ class TracingClient:
                     model_id=model_id,
                     sql_warehouse_id=sql_warehouse_id,
                 )
-                traces.extend(
-                    t for t in executor.map(download_trace_extra_fields, trace_infos) if t
-                )
+
+                if include_spans:
+                    traces.extend(
+                        t for t in executor.map(download_trace_extra_fields, trace_infos) if t
+                    )
+                else:
+                    traces.extend(
+                        Trace(trace_info, TraceData(spans=[])) for trace_info in trace_infos
+                    )
 
                 if not next_token:
                     break
