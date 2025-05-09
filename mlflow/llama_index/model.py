@@ -27,9 +27,6 @@ from mlflow.tracking.fluent import (
     _set_active_model,
 )
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import (
-    disable_autologging_globally,
-)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -317,7 +314,6 @@ def save_model(
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces while loading model
-@disable_autologging_globally  # Avoid side-effect of autologging while logging model
 def log_model(
     llama_index_model,
     artifact_path: Optional[str] = None,
@@ -533,7 +529,6 @@ def _load_llama_model(path, flavor_conf):
 
 @experimental
 @trace_disabled  # Suppress traces while loading model
-@disable_autologging_globally  # Avoid side-effect of autologging while loading model
 def load_model(model_uri, dst_path=None):
     """
     Load a LlamaIndex index/engine/workflow from a local file or a run.
