@@ -431,7 +431,7 @@ def _get_or_create_virtualenv(  # noqa: D417
             # Updating env_name only doesn't work because the cluster may not have
             # permission to access the original virtual_envs_root_path
             virtual_envs_root_path = (
-                Path(env_root_dir) / f"{_VIRTUALENV_ENVS_DIR}_{uuid.uuid4().hex[:4]}"
+                Path(env_root_dir) / f"{_VIRTUALENV_ENVS_DIR}_{uuid.uuid4().hex[:8]}"
             )
             virtual_envs_root_path.mkdir(parents=True, exist_ok=True)
             env_dir = virtual_envs_root_path / env_name
