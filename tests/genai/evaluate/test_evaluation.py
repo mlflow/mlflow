@@ -1,9 +1,11 @@
 from unittest import mock
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
 import mlflow.genai.evaluation
+from mlflow.exceptions import MlflowException
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 
@@ -93,3 +95,31 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
             extra_metrics=[],
             model_id="test_model_id",
         )
+
+
+def test_input_is_required_if_trace_is_not_provided():
+    with patch("mlflow.evaluate") as mock_evaluate:
+        with patch("mlflow.get_tracking_uri", return_value="databricks"):
+            with pytest.raises(MlflowException, match="inputs.*required"):
+                mlflow.genai.evaluate(
+                    data=pd.DataFrame({"outputs": ["Paris"]}),
+                )
+
+            mock_evaluate.assert_not_called()
+
+            mlflow.genai.evaluate(
+                data=pd.DataFrame(
+                    {"inputs": ["What is the capital of France?"], "outputs": ["Paris"]}
+                ),
+            )
+            mock_evaluate.assert_called_once()
+
+
+def test_input_is_optional_if_trace_is_provided():
+    with patch("mlflow.evaluate") as mock_evaluate:
+        with patch("mlflow.get_tracking_uri", return_value="databricks"):
+            mlflow.genai.evaluate(
+                data=pd.DataFrame({"outputs": ["Paris"], "trace": [MagicMock()]}),
+            )
+
+            mock_evaluate.assert_called_once()
