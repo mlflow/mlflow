@@ -2,7 +2,8 @@ import { Header, Tabs, Typography, useDesignSystemTheme } from '@databricks/desi
 import { FormattedMessage } from 'react-intl';
 import { isNil, keys } from 'lodash';
 import { TraceTableGenericQuickstart } from './TraceTableGenericQuickstart';
-import { QUICKSTART_CONTENT, QUICKSTART_FLAVOR, QUICKSTART_TAB_MESSAGES } from './TraceTableQuickstart.utils';
+import { QUICKSTART_CONTENT, QUICKSTART_FLAVOR } from './TraceTableQuickstart.utils';
+import { QUICKSTART_TAB_MESSAGES } from './TraceTableQuickstart.messages';
 
 export const TracesViewTableNoTracesQuickstart = ({
   baseComponentId,
@@ -59,9 +60,9 @@ export const TracesViewTableNoTracesQuickstart = ({
       </Typography.Text>
       <Tabs.Root componentId={`${baseComponentId}.traces_table.quickstart`} defaultValue="openai">
         <Tabs.List>
-          {(Object.entries(QUICKSTART_TAB_MESSAGES) as [QUICKSTART_FLAVOR, string][]).map(([flavorName, tabLabel]) => (
-            <Tabs.Trigger key={flavorName} value={flavorName}>
-              {tabLabel}
+          {(Object.keys(QUICKSTART_TAB_MESSAGES) as QUICKSTART_FLAVOR[]).map((flavor) => (
+            <Tabs.Trigger key={flavor} value={flavor}>
+              <FormattedMessage {...QUICKSTART_TAB_MESSAGES[flavor]} />
             </Tabs.Trigger>
           ))}
         </Tabs.List>
