@@ -13,11 +13,20 @@ from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
     TraceMetadataKey,
+    TraceTagKey,
 )
 from mlflow.tracing.processor.mlflow_v2 import MlflowV2SpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_GIT_BRANCH,
+    MLFLOW_GIT_COMMIT,
+    MLFLOW_GIT_REPO_URL,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_USER,
+)
 from mlflow.utils.os import is_windows
 
 from tests.tracing.helper import (
@@ -53,13 +62,14 @@ def test_on_start(monkeypatch):
         timestamp_ms=5,
         request_metadata={
             TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+            MLFLOW_USER: "bob",
+            MLFLOW_SOURCE_NAME: "test",
+            MLFLOW_SOURCE_TYPE: "LOCAL",
+            MLFLOW_GIT_BRANCH: mock.ANY,
+            MLFLOW_GIT_COMMIT: mock.ANY,
+            MLFLOW_GIT_REPO_URL: mock.ANY,
         },
-        tags={
-            "mlflow.traceName": "test_span",
-            "mlflow.user": "bob",
-            "mlflow.source.name": "test",
-            "mlflow.source.type": "LOCAL",
-        },
+        tags={TraceTagKey.TRACE_NAME: "test_span"},
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
@@ -123,13 +133,16 @@ def test_on_start_with_experiment_id(monkeypatch):
     mock_client.start_trace.assert_called_once_with(
         experiment_id=experiment_id,
         timestamp_ms=5,
-        request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
-        tags={
-            "mlflow.traceName": "test_span",
-            "mlflow.user": "bob",
-            "mlflow.source.name": "test",
-            "mlflow.source.type": "LOCAL",
+        request_metadata={
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+            MLFLOW_USER: "bob",
+            MLFLOW_SOURCE_NAME: "test",
+            MLFLOW_SOURCE_TYPE: "LOCAL",
+            MLFLOW_GIT_BRANCH: mock.ANY,
+            MLFLOW_GIT_COMMIT: mock.ANY,
+            MLFLOW_GIT_REPO_URL: mock.ANY,
         },
+        tags={TraceTagKey.TRACE_NAME: "test_span"},
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
     assert _REQUEST_ID in InMemoryTraceManager.get_instance()._traces
@@ -189,6 +202,12 @@ def test_on_start_during_run(monkeypatch):
         request_metadata={
             TraceMetadataKey.SOURCE_RUN: expected_run_id,
             TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+            MLFLOW_USER: "bob",
+            MLFLOW_SOURCE_NAME: "test",
+            MLFLOW_SOURCE_TYPE: "LOCAL",
+            MLFLOW_GIT_BRANCH: mock.ANY,
+            MLFLOW_GIT_COMMIT: mock.ANY,
+            MLFLOW_GIT_REPO_URL: mock.ANY,
         },
         tags=mock.ANY,
     )
@@ -213,7 +232,15 @@ def test_on_start_with_experiment_id_override(monkeypatch):
     mock_client.start_trace.assert_called_once_with(
         experiment_id="another_experiment",
         timestamp_ms=mock.ANY,
-        request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        request_metadata={
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+            MLFLOW_USER: "bob",
+            MLFLOW_SOURCE_NAME: "test",
+            MLFLOW_SOURCE_TYPE: "LOCAL",
+            MLFLOW_GIT_BRANCH: mock.ANY,
+            MLFLOW_GIT_COMMIT: mock.ANY,
+            MLFLOW_GIT_REPO_URL: mock.ANY,
+        },
         tags=mock.ANY,
     )
 
