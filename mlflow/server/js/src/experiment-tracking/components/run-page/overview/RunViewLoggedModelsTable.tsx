@@ -28,9 +28,11 @@ import { first, get } from 'lodash';
 
 const supportedAttributeColumnKeys = [
   ExperimentLoggedModelListPageKnownColumns.RelationshipType,
+  ExperimentLoggedModelListPageKnownColumns.Step,
   ExperimentLoggedModelListPageKnownColumns.Name,
   ExperimentLoggedModelListPageKnownColumns.Status,
   ExperimentLoggedModelListPageKnownColumns.CreationTime,
+  ExperimentLoggedModelListPageKnownColumns.RegisteredModels,
   ExperimentLoggedModelListPageKnownColumns.Dataset,
 ];
 
@@ -49,12 +51,11 @@ export const RunViewLoggedModelsTable = ({
 
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
 
-  const columnDefs = useExperimentLoggedModelListPageTableColumns({
+  const { columnDefs } = useExperimentLoggedModelListPageTableColumns({
     loggedModels: loggedModels,
     columnVisibility,
     disablePinnedColumns: true,
     disableOrderBy: true,
-    isCompactMode: false,
     supportedAttributeColumnKeys,
   });
 
@@ -107,7 +108,6 @@ export const RunViewLoggedModelsTable = ({
             columnVisibility={columnVisibility}
             isLoading={isLoading}
             isLoadingMore={false}
-            error={null}
             moreResultsAvailable={false}
             disableLoadMore
             css={getTableTheme(theme)}

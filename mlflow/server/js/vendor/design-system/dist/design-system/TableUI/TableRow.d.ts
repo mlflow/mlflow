@@ -11,6 +11,8 @@ export interface TableRowProps extends HTMLDataAttributes, React.HTMLAttributes<
     className?: string;
     /** Set to true if this row is to be used for a table header row */
     isHeader?: boolean;
+    /** Set to true if we don't want to auto-hide the icon buttons */
+    skipIconHiding?: boolean;
     /** @deprecated Vertical alignment of the row's cells. No longer supported (See FEINF-1937) */
     verticalAlignment?: 'top' | 'center';
     /** Child nodes for the table row */

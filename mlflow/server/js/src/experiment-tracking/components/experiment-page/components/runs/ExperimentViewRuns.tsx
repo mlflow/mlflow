@@ -32,6 +32,8 @@ import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSear
 import { useIsTabActive } from '../../../../../common/hooks/useIsTabActive';
 import { ExperimentViewRunsTableResizer } from './ExperimentViewRunsTableResizer';
 import { RunsChartsSetHighlightContextProvider } from '../../../runs-charts/hooks/useRunsChartTraceHighlight';
+import { useLoggedModelsForExperimentRunsTable } from '../../hooks/useLoggedModelsForExperimentRunsTable';
+import { ExperimentViewRunsRequestError } from '../ExperimentViewRunsRequestError';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
@@ -154,6 +156,8 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
 
   const experimentIds = useMemo(() => experiments.map(({ experimentId }) => experimentId), [experiments]);
 
+  // Fetch logged models (MLflow v3) for the experiment to be displayed in the runs table
+  const loggedModelsV3ByRunUuid = useLoggedModelsForExperimentRunsTable(experimentIds);
   // Use new, memoized version of the row creation function.
   // Internally disabled if the flag is not set.
   const visibleRuns = useExperimentRunRows({
@@ -175,6 +179,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     runsVisibilityMap: uiState.runsVisibilityMap,
     useGroupedValuesInCharts: uiState.useGroupedValuesInCharts,
     searchFacetsState,
+    loggedModelsV3ByRunUuid,
   });
 
   const [notificationsFn, notificationContainer] = useLegacyNotification();
@@ -203,24 +208,27 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
   const autoRefreshEnabled = uiState.autoRefreshEnabled && shouldEnableExperimentPageAutoRefresh() && isTabActive;
   const usingGroupedValuesInCharts = uiState.useGroupedValuesInCharts ?? true;
 
-  const tableElement = (
-    <ExperimentViewRunsTable
-      experiments={experiments}
-      runsData={runsData}
-      searchFacetsState={searchFacetsState}
-      viewState={viewState}
-      isLoading={isLoadingRuns}
-      updateViewState={updateViewState}
-      onAddColumnClicked={addColumnClicked}
-      rowsData={visibleRuns}
-      loadMoreRunsFunc={loadMoreRunsCallback}
-      moreRunsAvailable={moreRunsAvailable}
-      onDatasetSelected={datasetSelected}
-      expandRows={expandRows}
-      uiState={uiState}
-      compareRunsMode={compareRunsMode}
-    />
-  );
+  const tableElement =
+    requestError instanceof Error && !isLoadingRuns ? (
+      <ExperimentViewRunsRequestError error={requestError} />
+    ) : (
+      <ExperimentViewRunsTable
+        experiments={experiments}
+        runsData={runsData}
+        searchFacetsState={searchFacetsState}
+        viewState={viewState}
+        isLoading={isLoadingRuns}
+        updateViewState={updateViewState}
+        onAddColumnClicked={addColumnClicked}
+        rowsData={visibleRuns}
+        loadMoreRunsFunc={loadMoreRunsCallback}
+        moreRunsAvailable={moreRunsAvailable}
+        onDatasetSelected={datasetSelected}
+        expandRows={expandRows}
+        uiState={uiState}
+        compareRunsMode={compareRunsMode}
+      />
+    );
 
   // Generate a unique storage key based on the experiment IDs
   const configStorageKey = useMemo(

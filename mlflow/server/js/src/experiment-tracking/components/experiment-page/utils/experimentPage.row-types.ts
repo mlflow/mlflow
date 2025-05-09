@@ -5,6 +5,7 @@ import type {
   KeyValueEntity,
   MetricEntity,
 } from '../../../types';
+import type { LoggedModelProto } from '../../../types';
 
 /**
  * Represents how eye icon should be displayed for a particular row in runs table.
@@ -90,6 +91,7 @@ export interface RunRowModelsInfo {
     flavors: string[];
     utcTimeCreated: number;
   }[];
+  loggedModelsV3?: LoggedModelProto[];
   experimentId: string;
   runUuid: string;
 }

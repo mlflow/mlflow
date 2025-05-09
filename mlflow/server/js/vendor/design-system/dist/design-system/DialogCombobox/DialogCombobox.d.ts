@@ -9,7 +9,7 @@ export type ConditionalOptionalLabel = {
     id: string;
     label?: ReactNode;
 };
-export interface DialogComboboxProps extends Popover.PopoverProps, HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface DialogComboboxProps extends Popover.PopoverProps, HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     value?: string[];
     stayOpenOnSelection?: boolean;
     multiSelect?: boolean;
@@ -17,5 +17,5 @@ export interface DialogComboboxProps extends Popover.PopoverProps, HTMLDataAttri
     scrollToSelectedElement?: boolean;
     rememberLastScrollPosition?: boolean;
 }
-export declare const DialogCombobox: ({ children, label, id, value, open, emptyText, scrollToSelectedElement, rememberLastScrollPosition, componentId, analyticsEvents, valueHasNoPii, ...props }: DialogComboboxProps & ConditionalOptionalLabel) => import("@emotion/react/jsx-runtime").JSX.Element;
+export declare const DialogCombobox: ({ children, label, id, value, open, emptyText, scrollToSelectedElement, rememberLastScrollPosition, componentId, analyticsEvents, valueHasNoPii, onOpenChange, ...props }: DialogComboboxProps & ConditionalOptionalLabel) => import("@emotion/react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=DialogCombobox.d.ts.map

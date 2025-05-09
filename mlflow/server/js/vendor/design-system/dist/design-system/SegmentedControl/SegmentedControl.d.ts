@@ -7,7 +7,7 @@ import type { AnalyticsEventValueChangeNoPiiFlagProps, DangerouslySetAntdProps, 
 export interface SegmentedControlButtonProps extends Omit<RadioButtonProps, 'optionType' | 'buttonStyle' | 'prefixCls' | 'skipGroup'>, DangerouslySetAntdProps<RadioButtonProps>, HTMLDataAttributes {
 }
 export declare const SegmentedControlButton: React.ForwardRefExoticComponent<SegmentedControlButtonProps & React.RefAttributes<HTMLButtonElement>>;
-export interface SegmentedControlGroupProps extends Omit<RadioGroupProps, 'size'>, DangerouslySetAntdProps<RadioGroupProps>, HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface SegmentedControlGroupProps extends Omit<RadioGroupProps, 'size'>, DangerouslySetAntdProps<RadioGroupProps>, HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     size?: ButtonSize;
     spaced?: boolean;
     name: string;

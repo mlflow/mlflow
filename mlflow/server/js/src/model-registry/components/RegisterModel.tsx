@@ -76,7 +76,7 @@ type RegisterModelImplState = any; // used in drop-down list so not many are vis
  * Component with a set of controls used to register a logged model.
  * Includes register modal and optional "Register" button.
  */
-class RegisterModelImpl extends React.Component<RegisterModelImplProps, RegisterModelImplState> {
+export class RegisterModelImpl extends React.Component<RegisterModelImplProps, RegisterModelImplState> {
   form: any;
 
   state = {

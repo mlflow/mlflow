@@ -72,7 +72,7 @@ export const ExperimentLoggedModelDetailsHeader = ({
               <>{modelDisplayName}</>
             </>
           }
-          dangerouslyAppendEmotionCSS={{ h2: { display: 'flex', gap: theme.spacing.sm } }}
+          dangerouslyAppendEmotionCSS={{ h2: { display: 'flex', gap: theme.spacing.sm }, wordBreak: 'break-word' }}
           breadcrumbs={breadcrumbs}
         >
           <DropdownMenu.Root>

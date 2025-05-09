@@ -8,6 +8,8 @@ export interface DialogComboboxOptionListSearchProps extends Omit<InputProps, 'c
     /** Set controlledValue and setControlledValue if search input is controlled, e.g. for custom filtering logic */
     controlledValue?: string;
     setControlledValue?: (value: string) => void;
+    /** Optional controls component to be rendered on the right side of the search input */
+    rightSearchControls?: React.ReactNode;
 }
 export declare const DialogComboboxOptionListSearch: React.ForwardRefExoticComponent<DialogComboboxOptionListSearchProps & React.RefAttributes<import("antd").Input>>;
 //# sourceMappingURL=DialogComboboxOptionListSearch.d.ts.map

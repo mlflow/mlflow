@@ -9,6 +9,7 @@ import { UseGetRunQueryResponseOutputs } from './hooks/useGetRunQuery';
  */
 export const RunViewArtifactTab = ({
   runTags,
+  experimentId,
   runOutputs,
   artifactUri,
   runUuid,
@@ -40,6 +41,7 @@ export const RunViewArtifactTab = ({
         runOutputs={runOutputs}
         useAutoHeight={useFullHeightPage}
         artifactRootUri={artifactUri}
+        experimentId={experimentId}
       />
     </div>
   );

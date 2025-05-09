@@ -18,6 +18,7 @@ import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import { isSystemMetricKey } from '../../../utils/MetricsUtils';
 import { Table as TableDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
+import { useExperimentTrackingDetailsPageLayoutStyles } from '../../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 
 const { systemMetricsLabel, modelMetricsLabel } = defineMessages({
   systemMetricsLabel: {
@@ -101,6 +102,8 @@ export const RunViewMetricsTable = ({
   runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const { detailsPageTableStyles, detailsPageNoEntriesStyles, detailsPageNoResultsWrapperStyles } =
+    useExperimentTrackingDetailsPageLayoutStyles();
   const intl = useIntl();
   const [filter, setFilter] = useState('');
 
@@ -168,7 +171,7 @@ export const RunViewMetricsTable = ({
   const renderTableContent = () => {
     if (!metricValues.length) {
       return (
-        <div css={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div css={detailsPageNoEntriesStyles}>
           <Empty
             description={
               <FormattedMessage
@@ -203,18 +206,19 @@ export const RunViewMetricsTable = ({
           scrollable
           empty={
             areAllResultsFiltered ? (
-              <div css={{ marginTop: theme.spacing.md * 4 }}>
+              <div css={detailsPageNoResultsWrapperStyles}>
                 <Empty
                   description={
                     <FormattedMessage
                       defaultMessage="No metrics match the search filter"
-                      description="Run page > Overview > Metrics table > No results after filtering"
+                      description="Message displayed when no metrics match the search filter in the run details page details metrics table"
                     />
                   }
                 />
               </div>
             ) : null
           }
+          css={detailsPageTableStyles}
         >
           <TableRow isHeader>
             {table.getLeafHeaders().map((header) => (

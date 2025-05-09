@@ -2,7 +2,7 @@ import type { HTMLAttributes } from 'react';
 import React from 'react';
 import type { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider/DesignSystemEventProvider';
 import type { AnalyticsEventOptionalProps, DangerousGeneralProps } from '../types';
-export interface PreviewCardProps extends DangerousGeneralProps, Omit<HTMLAttributes<HTMLDivElement>, 'title'>, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
+export interface PreviewCardProps extends DangerousGeneralProps, Omit<HTMLAttributes<HTMLDivElement>, 'title'>, AnalyticsEventOptionalProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     icon?: React.ReactNode;
     title?: React.ReactNode;
     subtitle?: React.ReactNode;

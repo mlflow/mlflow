@@ -40,6 +40,8 @@ const VALID_TABLE_ALIASES = [
   'tags',
   'dataset',
   'datasets',
+  'model',
+  'models',
 ];
 const SQL_SYNTAX_PATTERN = new RegExp(
   `(${VALID_TABLE_ALIASES.join('|')})\\.\\S+\\s*(>|<|>=|<=|=|!=| like| ilike| rlike| in)`,

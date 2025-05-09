@@ -16,11 +16,7 @@ import {
 } from '@databricks/design-system';
 import { isArray, isObject, isUndefined } from 'lodash';
 import { FormattedMessage, useIntl } from 'react-intl';
-import {
-  getArtifactContent,
-  getArtifactLocationUrl,
-  getLoggedModelArtifactLocationUrl,
-} from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SortingState, PaginationState } from '@tanstack/react-table';
 import {
@@ -39,6 +35,7 @@ import { ToggleIconButton } from '../../../common/components/ToggleIconButton';
 import { ShowArtifactLoggedTableViewDataPreview } from './ShowArtifactLoggedTableViewDataPreview';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
 const MAX_ROW_HEIGHT = 160;
 const MIN_COLUMN_WIDTH = 100;
@@ -391,7 +388,7 @@ type ShowArtifactLoggedTableViewProps = {
 } & LoggedModelArtifactViewerProps;
 
 export const ShowArtifactLoggedTableView = React.memo(
-  ({ runUuid, path, isLoggedModelsMode, loggedModelId }: ShowArtifactLoggedTableViewProps) => {
+  ({ runUuid, path, isLoggedModelsMode, loggedModelId, experimentId }: ShowArtifactLoggedTableViewProps) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error>();
     const [curPath, setCurPath] = useState<string | undefined>(undefined);
@@ -399,12 +396,7 @@ export const ShowArtifactLoggedTableView = React.memo(
 
     useEffect(() => {
       setLoading(true);
-      const artifactLocation =
-        isLoggedModelsMode && loggedModelId
-          ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
-          : getArtifactLocationUrl(path, runUuid);
-
-      getArtifactContent(artifactLocation)
+      fetchArtifactUnified({ runUuid, path, isLoggedModelsMode, loggedModelId, experimentId }, getArtifactContent)
         .then((value) => {
           setLoading(false);
           // Check if value is stringified JSON
@@ -420,7 +412,7 @@ export const ShowArtifactLoggedTableView = React.memo(
           setLoading(false);
         });
       setCurPath(path);
-    }, [path, runUuid, isLoggedModelsMode, loggedModelId]);
+    }, [path, runUuid, isLoggedModelsMode, loggedModelId, experimentId]);
 
     const data = useMemo<{
       columns: string[];

@@ -1,8 +1,9 @@
 import type { LoggedModelProto, RunEntity } from '../../types';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { compact, sortBy, uniq } from 'lodash';
 import { QueryFunctionContext, useQueries } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MlflowService } from '../../sdk/MlflowService';
+import { useArrayMemo } from '../../../common/hooks/useArrayMemo';
 
 type UseRegisteredModelRelatedRunNamesQueryKey = ['USE_RELATED_RUNS_DATA_FOR_LOGGED_MODELS', { runUuid: string }];
 
@@ -41,13 +42,22 @@ export const useRelatedRunsDataForLoggedModels = ({ loggedModels = [] }: { logge
     queries: runUuids.map((runUuid) => ({
       queryKey: getQueryKey(runUuid),
       queryFn,
+      cacheTime: Infinity,
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
+      retry: false,
     })),
   });
 
   const loading = queryResults.some(({ isLoading }) => isLoading);
   const error = queryResults.find(({ error }) => error)?.error as Error | undefined;
 
-  const data = useMemo(() => queryResults.map(({ data }) => data).filter(Boolean) as RunEntity[], [queryResults]);
+  const memoizedQueryResults = useArrayMemo(queryResults.map(({ data }) => data));
+
+  const data = useMemo(
+    () => memoizedQueryResults.map((data) => data).filter(Boolean) as RunEntity[],
+    [memoizedQueryResults],
+  );
 
   return {
     data,

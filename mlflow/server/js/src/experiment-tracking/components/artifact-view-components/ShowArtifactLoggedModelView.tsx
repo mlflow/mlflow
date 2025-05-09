@@ -24,10 +24,12 @@ import './ShowArtifactLoggedModelView.css';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { ShowArtifactCodeSnippet } from './ShowArtifactCodeSnippet';
+import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
 const { Paragraph, Text, Title } = Typography;
 
 type OwnProps = {
+  experimentId: string;
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
@@ -443,9 +445,17 @@ mlflow.models.predict(
 
   /** Fetches artifacts and updates component state with the result */
   fetchLoggedModelMetadata() {
-    const modelFileLocation = getArtifactLocationUrl(`${this.props.path}/${MLMODEL_FILE_NAME}`, this.props.runUuid);
-    this.props
-      .getArtifact(modelFileLocation)
+    const MLModelArtifactPath = `${this.props.path}/${MLMODEL_FILE_NAME}`;
+    const { getArtifact, path, runUuid, experimentId } = this.props;
+
+    fetchArtifactUnified(
+      {
+        path: MLModelArtifactPath,
+        runUuid,
+        experimentId,
+      },
+      getArtifact,
+    )
       .then((response: any) => {
         const parsedJson = yaml.load(response);
         if (parsedJson.signature) {

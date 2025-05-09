@@ -42,7 +42,7 @@ describe('ExperimentLoggedModelListPageColumnSelector', () => {
   let currentColumnVisibility: any = {};
   const renderTestComponent = () => {
     const TestComponent = () => {
-      const columnDefs = useExperimentLoggedModelListPageTableColumns({ loggedModels: getDemoData() });
+      const { columnDefs } = useExperimentLoggedModelListPageTableColumns({ loggedModels: getDemoData() });
       const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
       currentColumnVisibility = columnVisibility;
       return (
@@ -67,20 +67,20 @@ describe('ExperimentLoggedModelListPageColumnSelector', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Columns' }));
 
     // Toggle "eval" dataset metrics
-    await userEvent.click(screen.getByTitle('Dataset: eval'));
+    await userEvent.click(screen.getByTitle('Dataset: eval (#1234-eval)'));
 
     // We should have only eval metrics hidden
     expect(currentColumnVisibility).toEqual({
-      'metrics.eval.alpha': false,
-      'metrics.eval.loss': false,
+      'metrics.["eval","1234-eval"].alpha': false,
+      'metrics.["eval","1234-eval"].loss': false,
     });
 
     // Now toggle ungrouped metrics
     await userEvent.click(screen.getByTitle('No dataset'));
 
     expect(currentColumnVisibility).toEqual({
-      'metrics.eval.alpha': false,
-      'metrics.eval.loss': false,
+      'metrics.["eval","1234-eval"].alpha': false,
+      'metrics.["eval","1234-eval"].loss': false,
       'metrics.ungrouped': false,
     });
 
@@ -90,8 +90,8 @@ describe('ExperimentLoggedModelListPageColumnSelector', () => {
     await userEvent.click(screen.getByTitle('Dataset'));
 
     expect(currentColumnVisibility).toEqual({
-      'metrics.eval.alpha': false,
-      'metrics.eval.loss': false,
+      'metrics.["eval","1234-eval"].alpha': false,
+      'metrics.["eval","1234-eval"].loss': false,
       'metrics.ungrouped': false,
       [ExperimentLoggedModelListPageKnownColumns.Dataset]: false,
       [ExperimentLoggedModelListPageKnownColumns.SourceRun]: false,
@@ -99,7 +99,7 @@ describe('ExperimentLoggedModelListPageColumnSelector', () => {
     });
 
     // Toggle datasets and attributes again
-    await userEvent.click(screen.getByTitle('Dataset: eval'));
+    await userEvent.click(screen.getByTitle('Dataset: eval (#1234-eval)'));
     await userEvent.click(screen.getByTitle('No dataset'));
     await userEvent.click(screen.getByTitle('Status'));
     await userEvent.click(screen.getByTitle('Source run'));

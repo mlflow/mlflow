@@ -32,7 +32,8 @@ const parseImageFile = (filename: string) => {
   }
   // The variables retrieved here are not reliable on OSS due to the usage of "%" as the separator.
   // Need to switch to a different separator on the backend to fully resolve the issue.
-  const [serializedImageKey, stepLabel, stepString, timestampLabel, timestampString, ..._] = fileKey.split(delimiter);
+  const [serializedImageKey, stepLabel, stepString, timestampLabel, timestampString, _, compressed] =
+    fileKey.split(delimiter);
   const isCompressed = fileKey.endsWith('compressed');
 
   if (stepLabel !== 'step' || timestampLabel !== 'timestamp') {

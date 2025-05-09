@@ -3,7 +3,7 @@ import type { CollapseProps as AntDCollapseProps, CollapsePanelProps as AntDColl
 import type { CollapsibleType } from 'antd/lib/collapse/CollapsePanel';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
 import type { AnalyticsEventValueChangeNoPiiFlagProps, HTMLDataAttributes } from '../types';
-export interface AccordionProps extends HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface AccordionProps extends HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /** How many sections can be displayed at once */
     displayMode?: 'single' | 'multiple';
     /** Key of the active panel */

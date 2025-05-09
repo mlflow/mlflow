@@ -21,6 +21,7 @@ export declare enum DesignSystemEventProviderComponentTypes {
     Form = "form",
     Input = "input",
     LegacySelect = "legacy_select",
+    Listbox = "listbox",
     Modal = "modal",
     Notification = "notification",
     Pagination = "pagination",
@@ -85,6 +86,7 @@ export type DesignSystemEventProviderCallbackParams = {
         initial: Record<string, unknown> | undefined;
         final: Record<string, unknown> | undefined;
     };
+    componentViewId?: string;
 };
 export type DesignSystemEventProviderCallback = (params: DesignSystemEventProviderCallbackParams) => void;
 export type DataComponentProps = {
@@ -134,7 +136,7 @@ export declare const useDesignSystemEventComponentCallbacks: ({ componentType, c
     onClick: (event: React.UIEvent | undefined) => void;
     onSubmit: (payload: OnSubmitParams) => void;
     onValueChange: (value?: any) => void;
-    onView: () => void;
+    onView: (value?: any) => void;
     dataComponentProps: DataComponentProps;
 };
 /**

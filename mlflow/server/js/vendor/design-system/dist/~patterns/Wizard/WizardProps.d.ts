@@ -1,7 +1,7 @@
 import type { ButtonProps } from '@databricks/design-system';
 import type { WizardStep } from './WizardStep';
 import type { WizardCurrentStepParams, WizardCurrentStepResult } from './useWizardCurrentStep';
-import type { StepperProps } from '../../development/Stepper';
+import type { StepperProps } from '../../design-system/Stepper';
 export interface WizardProps {
     /**
      * The steps in this wizard.

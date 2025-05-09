@@ -11,7 +11,7 @@ export interface SimpleSelectChangeEventType {
     };
     type: string;
 }
-export interface SimpleSelectProps extends Omit<SelectTriggerProps, 'onChange' | 'value' | 'defaultValue' | 'onClear' | 'label'>, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface SimpleSelectProps extends Omit<SelectTriggerProps, 'onChange' | 'value' | 'defaultValue' | 'onClear' | 'label'>, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /** For an uncontrolled `SimpleSelect`, optionally specify a defaultValue. Will be ignored if using `value` to control state of the component. */
     defaultValue?: string;
     value?: string;

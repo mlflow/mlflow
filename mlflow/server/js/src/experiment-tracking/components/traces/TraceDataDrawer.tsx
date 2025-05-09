@@ -5,6 +5,7 @@ import {
   Spacer,
   TableSkeleton,
   TitleSkeleton,
+  Typography,
   WarningIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -62,7 +63,11 @@ export const TraceDataDrawer = ({
       return <TitleSkeleton />;
     }
     if (traceInfoToUse) {
-      return getTraceDisplayName(traceInfoToUse as ModelTraceInfo);
+      return (
+        <Typography.Title level={2} withoutMargins>
+          {getTraceDisplayName(traceInfoToUse as ModelTraceInfo)}
+        </Typography.Title>
+      );
     }
     return requestId;
   }, [

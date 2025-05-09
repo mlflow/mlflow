@@ -3,16 +3,27 @@ import React from 'react';
 import { IntlProvider } from 'react-intl';
 import userEvent from '@testing-library/user-event';
 import { DEFAULT_LOCALE } from '../../i18n/loadMessages';
+import { DesignSystemProvider } from '@databricks/design-system';
 
-const defaultProviderProps = {
+const defaultIntlProviderProps = {
   locale: DEFAULT_LOCALE,
   defaultLocale: DEFAULT_LOCALE,
   messages: {},
 };
 
+export function renderWithDesignSystem(ui: React.ReactElement, renderOptions = {}, providerProps = {}): RenderResult {
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <IntlProvider {...defaultIntlProviderProps}>
+      <DesignSystemProvider {...providerProps}>{children}</DesignSystemProvider>
+    </IntlProvider>
+  );
+
+  return render(ui, { wrapper, ...renderOptions });
+}
+
 export function renderWithIntl(ui: React.ReactElement, renderOptions = {}, providerProps = {}): RenderResult {
   const mergedProviderProps = {
-    ...defaultProviderProps,
+    ...defaultIntlProviderProps,
     ...providerProps,
   };
   const wrapper = ({ children }: { children: React.ReactNode }) => (

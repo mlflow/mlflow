@@ -9,7 +9,7 @@ import {
 import MLFlowAgGrid from '../../../common/components/ag-grid/AgGrid';
 import { useExperimentAgGridTableStyles } from '../experiment-page/components/runs/ExperimentViewRunsTable';
 import type { LoggedModelProto, RunEntity } from '../../types';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ExperimentLoggedModelListPageTableContextProvider,
   useExperimentLoggedModelListPageTableContext,
@@ -19,6 +19,7 @@ import { type ColDef, type ColGroupDef, ColumnApi, type SortChangedEvent } from 
 import { FormattedMessage } from 'react-intl';
 import { useRunsHighlightTableRow } from '../runs-charts/hooks/useRunsHighlightTableRow';
 import { ExperimentLoggedModelListPageTableEmpty } from './ExperimentLoggedModelListPageTableEmpty';
+import { LOGGED_MODEL_LIST_METRIC_COLUMN_PREFIX } from './hooks/useExperimentLoggedModelListPageTableColumns';
 
 const LOGGED_MODELS_GRID_ROW_HEIGHT = 36;
 
@@ -26,11 +27,11 @@ interface ExperimentLoggedModelListPageTableProps {
   loggedModels?: LoggedModelProto[];
   isLoading: boolean;
   isLoadingMore: boolean;
-  error?: Error | null;
+  badRequestError?: Error;
   moreResultsAvailable?: boolean;
   onLoadMore?: () => void;
-  onOrderByChange?: (orderByField: string, orderByAsc: boolean) => void;
-  orderByField?: string;
+  onOrderByChange?: (orderByColumn: string, orderByAsc: boolean) => void;
+  orderByColumn?: string;
   orderByAsc?: boolean;
   columnDefs?: (ColDef | ColGroupDef)[];
   columnVisibility?: Record<string, boolean>;
@@ -38,18 +39,20 @@ interface ExperimentLoggedModelListPageTableProps {
   className?: string;
   disableLoadMore?: boolean;
   displayShowExampleButton?: boolean;
+  isFilteringActive?: boolean;
 }
 
 const LoadMoreRowSymbol = Symbol('LoadMoreRow');
 
 const rowDataGetter = ({ data }: { data: LoggedModelProto }) => data?.info?.model_id ?? '';
 
-export const ExperimentLoggedModelListPageTable = ({
+const ExperimentLoggedModelListPageTableImpl = ({
   loggedModels,
   isLoading,
   isLoadingMore,
+  badRequestError,
   onLoadMore,
-  orderByField,
+  orderByColumn,
   orderByAsc,
   moreResultsAvailable,
   onOrderByChange,
@@ -59,8 +62,10 @@ export const ExperimentLoggedModelListPageTable = ({
   className,
   disableLoadMore,
   displayShowExampleButton = true,
+  isFilteringActive = true,
 }: ExperimentLoggedModelListPageTableProps) => {
   const { theme } = useDesignSystemTheme();
+
   const styles = useExperimentAgGridTableStyles({ usingCustomHeaderComponent: false });
 
   const columnApiRef = useRef<ColumnApi | null>(null);
@@ -89,11 +94,16 @@ export const ExperimentLoggedModelListPageTable = ({
 
   const sortChangedHandler = useCallback(
     (event: SortChangedEvent) => {
-      for (const column of event.columnApi.getAllColumns() || []) {
-        const id = column?.getId();
-        if (LoggedModelsListPageSortableColumns.includes(id)) {
-          onOrderByChange?.(id, column.getSort() === 'asc');
-        }
+      // Find the currently sorted column using ag-grid's column API
+      const sortedColumn = event.columnApi.getColumnState().find((col) => col.sort);
+      if (!sortedColumn?.colId) {
+        return;
+      }
+      if (
+        LoggedModelsListPageSortableColumns.includes(sortedColumn.colId) ||
+        sortedColumn.colId.startsWith(LOGGED_MODEL_LIST_METRIC_COLUMN_PREFIX)
+      ) {
+        onOrderByChange?.(sortedColumn?.colId, sortedColumn.sort === 'asc');
       }
     },
     [onOrderByChange],
@@ -103,6 +113,11 @@ export const ExperimentLoggedModelListPageTable = ({
     // Reflect the sort state in the ag-grid's column state
     const column = columnApiRef.current?.getColumn(field);
     if (column) {
+      // Find the currently sorted column and if it's no the same one, clear its sort state
+      const currentSortedColumnId = columnApiRef.current?.getColumnState().find((col) => col.sort)?.colId;
+      if (currentSortedColumnId !== column.getColId()) {
+        columnApiRef.current?.getColumn(currentSortedColumnId)?.setSort(null);
+      }
       column.setSort(asc ? 'asc' : 'desc');
     }
   }, []);
@@ -115,7 +130,7 @@ export const ExperimentLoggedModelListPageTable = ({
   }, []);
 
   // Since ag-grid column API is not stateful, we use side effect to update the UI
-  useEffect(() => updateSortIndicator(orderByField, orderByAsc), [updateSortIndicator, orderByField, orderByAsc]);
+  useEffect(() => updateSortIndicator(orderByColumn, orderByAsc), [updateSortIndicator, orderByColumn, orderByAsc]);
   useEffect(() => updateColumnVisibility(columnVisibility), [updateColumnVisibility, columnVisibility]);
 
   const containsGroupedColumns = useMemo(() => columnDefs.some((col) => 'children' in col), [columnDefs]);
@@ -168,7 +183,7 @@ export const ExperimentLoggedModelListPageTable = ({
           onSortChanged={sortChangedHandler}
           onGridReady={({ columnApi }) => {
             columnApiRef.current = columnApi;
-            updateSortIndicator(orderByField, orderByAsc);
+            updateSortIndicator(orderByColumn, orderByAsc);
             updateColumnVisibility(columnVisibility);
           }}
           onCellMouseOver={cellMouseOverHandler}
@@ -197,7 +212,11 @@ export const ExperimentLoggedModelListPageTable = ({
           </div>
         )}
         {!isLoading && loggedModels?.length === 0 && (
-          <ExperimentLoggedModelListPageTableEmpty displayShowExampleButton={displayShowExampleButton} />
+          <ExperimentLoggedModelListPageTableEmpty
+            displayShowExampleButton={displayShowExampleButton}
+            badRequestError={badRequestError}
+            isFilteringActive={isFilteringActive}
+          />
         )}
       </div>
     </ExperimentLoggedModelListPageTableContextProvider>
@@ -237,3 +256,5 @@ const LoadMoreRow = () => {
     </div>
   );
 };
+
+export const ExperimentLoggedModelListPageTable = React.memo(ExperimentLoggedModelListPageTableImpl);

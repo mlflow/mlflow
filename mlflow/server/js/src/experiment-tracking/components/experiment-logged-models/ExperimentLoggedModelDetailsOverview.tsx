@@ -18,6 +18,10 @@ import Routes from '../../routes';
 import { ExperimentLoggedModelAllDatasetsList } from './ExperimentLoggedModelAllDatasetsList';
 import { ExperimentLoggedModelOpenDatasetDetailsContextProvider } from './hooks/useExperimentLoggedModelOpenDatasetDetails';
 import { ExperimentLoggedModelDetailsModelVersionsList } from './ExperimentLoggedModelDetailsModelVersionsList';
+import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
+import { ExperimentLoggedModelSourceBox } from './ExperimentLoggedModelSourceBox';
+import { DetailsPageLayout } from '../../../common/components/details-page-layout/DetailsPageLayout';
+import { useExperimentLoggedModelDetailsMetadataV2 } from './hooks/useExperimentLoggedModelDetailsMetadataV2';
 
 export const ExperimentLoggedModelDetailsOverview = ({
   onDataUpdated,
@@ -27,6 +31,7 @@ export const ExperimentLoggedModelDetailsOverview = ({
   loggedModel?: LoggedModelProto;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const { usingUnifiedDetailsLayout } = useExperimentTrackingDetailsPageLayoutStyles();
 
   // Fetch related runs data for the logged model
   const {
@@ -129,6 +134,15 @@ export const ExperimentLoggedModelDetailsOverview = ({
         <DetailsOverviewMetadataRow
           title={
             <FormattedMessage
+              defaultMessage="Logged from"
+              description="Label for the source (where it was logged from) of a logged model on the logged model details page. It can be e.g. a notebook or a file."
+            />
+          }
+          value={<ExperimentLoggedModelSourceBox loggedModel={loggedModel} displayDetails />}
+        />
+        <DetailsOverviewMetadataRow
+          title={
+            <FormattedMessage
               defaultMessage="Datasets used"
               description="Label for the datasets used by a logged model on the logged model details page"
             />
@@ -148,17 +162,32 @@ export const ExperimentLoggedModelDetailsOverview = ({
     );
   };
 
+  const detailsSectionsV2 = useExperimentLoggedModelDetailsMetadataV2({
+    loggedModel,
+    relatedRunsLoading,
+    relatedSourceRun,
+  });
+
   return (
     <ExperimentLoggedModelOpenDatasetDetailsContextProvider>
-      <div css={{ flex: '1' }}>
+      <DetailsPageLayout
+        css={{ flex: 1 }}
+        // Enable sidebar layout based on feature flag
+        usingSidebarLayout={usingUnifiedDetailsLayout}
+        secondarySections={detailsSectionsV2}
+      >
         <ExperimentLoggedModelDescription loggedModel={loggedModel} onDescriptionChanged={onDataUpdated} />
-        <Typography.Title level={4}>
-          <FormattedMessage
-            defaultMessage="Details"
-            description="Title for the details section on the logged model details page"
-          />
-        </Typography.Title>
-        {renderDetails()}
+        {!usingUnifiedDetailsLayout && (
+          <>
+            <Typography.Title level={4}>
+              <FormattedMessage
+                defaultMessage="Details"
+                description="Title for the details section on the logged model details page"
+              />
+            </Typography.Title>
+            {renderDetails()}
+          </>
+        )}
         {relatedRunsDataError?.message && (
           <>
             <Alert
@@ -179,29 +208,35 @@ export const ExperimentLoggedModelDetailsOverview = ({
           </>
         )}
         <div
-          css={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gridTemplateRows: '400px 400px',
-            gap: theme.spacing.lg,
-            overflow: 'hidden',
-            marginBottom: theme.spacing.md,
-          }}
+          css={[
+            // Use different grid setup for unified details page layout
+            usingUnifiedDetailsLayout
+              ? {
+                  display: 'flex',
+                  flexDirection: 'column',
+                }
+              : {
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gridTemplateRows: '400px 400px',
+                  marginBottom: theme.spacing.md,
+                },
+            { gap: theme.spacing.lg, overflow: 'hidden' },
+          ]}
         >
-          <DetailsOverviewParamsTable params={paramsDictionary} />
           <ExperimentLoggedModelDetailsMetricsTable
             loggedModel={loggedModel}
             relatedRunsLoading={relatedRunsLoading}
             relatedRunsData={relatedRunsData ?? undefined}
           />
+          <DetailsOverviewParamsTable params={paramsDictionary} />
           <ExperimentLoggedModelDetailsPageRunsTable
             loggedModel={loggedModel}
             relatedRunsLoading={relatedRunsLoading}
             relatedRunsData={relatedRunsData ?? undefined}
           />
-          <div>{/* TODO: inference tables list */}</div>
         </div>
-      </div>
+      </DetailsPageLayout>
     </ExperimentLoggedModelOpenDatasetDetailsContextProvider>
   );
 };

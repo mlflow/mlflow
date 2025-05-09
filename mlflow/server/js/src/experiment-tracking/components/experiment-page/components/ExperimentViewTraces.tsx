@@ -17,7 +17,11 @@ export const ExperimentViewTraces = ({ experimentIds }: { experimentIds: string[
       }}
     >
       <ExperimentViewRunsModeSwitch hideBorder={false} />
-      <TracesView experimentIds={experimentIds} />
+      <TracesComponent experimentIds={experimentIds} />
     </div>
   );
+};
+
+const TracesComponent = ({ experimentIds }: { experimentIds: string[] }) => {
+  return <TracesView experimentIds={experimentIds} />;
 };

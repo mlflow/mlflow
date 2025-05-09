@@ -11,7 +11,7 @@ export declare const getWrapperStyle: ({ clsPrefix, theme, wrapperStyle, useNewF
     useNewStyles?: boolean;
     useNewFormUISpacing?: boolean;
 }) => import("@emotion/utils").SerializedStyles;
-export interface CheckboxProps extends DangerouslySetAntdProps<AntDCheckboxProps>, Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'checked'>, HTMLDataAttributes, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface CheckboxProps extends DangerouslySetAntdProps<AntDCheckboxProps>, Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'checked'>, HTMLDataAttributes, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     isChecked?: boolean | null;
     onChange?: (isChecked: boolean, event: CheckboxChangeEvent) => void;
     children?: React.ReactNode;
