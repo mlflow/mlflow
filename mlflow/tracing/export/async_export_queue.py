@@ -30,8 +30,6 @@ class Task:
         try:
             self.handler(*self.args)
         except Exception as e:
-            print(f"Error while handling task: {e}")  # noqa: T201
-            raise
             _logger.warning(
                 f"{self.error_msg} Error: {e}.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
