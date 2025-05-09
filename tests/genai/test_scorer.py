@@ -7,8 +7,8 @@ import pytest
 
 import mlflow
 from mlflow.evaluation import Assessment
+from mlflow.genai import Scorer, scorer
 from mlflow.genai.evaluation.utils import _convert_scorer_to_legacy_metric
-from mlflow.genai.scorers import Scorer, scorer
 from mlflow.models import Model
 from mlflow.models.evaluation.base import _get_model_from_function
 from mlflow.pyfunc import PyFuncModel
