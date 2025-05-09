@@ -219,6 +219,7 @@ def get_workspace_client(
 ):
     from databricks.sdk import WorkspaceClient
     from databricks.sdk.config import Config
+
     if use_secret_scope_token:
         kwargs = {"host": host, "token": token}
     else:
