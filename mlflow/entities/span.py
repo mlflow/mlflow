@@ -223,10 +223,7 @@ class Span:
         return d
 
     @classmethod
-    def from_dict(
-        cls,
-        data: dict[str, Any],
-    ) -> "Span":
+    def from_dict(cls, data: dict[str, Any]) -> "Span":
         """Create a Span object from the given dictionary."""
         try:
             # Try to deserialize the span using the v3 schema
