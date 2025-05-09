@@ -16,6 +16,7 @@ export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'compareRunCharts',
   'compareRunSections',
   'viewMaximized',
+  'experimentListHidden',
   'runListHidden',
   'isAccordionReordered',
   'groupBy',
@@ -129,6 +130,11 @@ export interface ExperimentPageUIState extends ExperimentRunsChartsUIConfigurati
   viewMaximized: boolean;
 
   /**
+   * Determins if the experiment list is hidden
+   */
+  experimentListHidden: boolean;
+
+  /**
    * Determines if the run list is hidden
    */
   runListHidden: boolean;
@@ -167,6 +173,7 @@ export const createExperimentPageUIState = (): ExperimentPageUIState => ({
   compareRunCharts: undefined,
   compareRunSections: undefined,
   viewMaximized: false,
+  experimentListHidden: false,
   runListHidden: false,
   isAccordionReordered: false,
   useGroupedValuesInCharts: true,
