@@ -1781,6 +1781,17 @@ def test_initialize_logged_model_tags_from_context():
         m_get_source_version.assert_called_once()
 
 
+def test_finalized_logged_model():
+    model = mlflow.initialize_logged_model()
+    finalized_model = mlflow.finalize_logged_model(
+        model_id=model.model_id, status=LoggedModelStatus.READY
+    )
+    assert finalized_model.status == LoggedModelStatus.READY
+
+    finalized_model = mlflow.finalize_logged_model(model_id=model.model_id, status="READY")
+    assert finalized_model.status == LoggedModelStatus.READY
+
+
 def test_create_external_model(tmp_path):
     model = mlflow.create_external_model()
     assert model.status == LoggedModelStatus.READY
