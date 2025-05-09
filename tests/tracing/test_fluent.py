@@ -1179,6 +1179,9 @@ def test_search_traces_with_run_id():
             filter_string="metadata.mlflow.sourceRun = '123'",
         )
 
+    with pytest.raises(MlflowException, match=f"Run {run1.info.run_id} belongs to"):
+        mlflow.search_traces(run_id=run1.info.run_id, experiment_ids=["1"])
+
 
 @pytest.mark.parametrize(
     "extract_fields",
