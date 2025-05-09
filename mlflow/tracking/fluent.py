@@ -2449,16 +2449,29 @@ def search_logged_models(
             page_token=page_token,
         )
         models.extend(logged_models_page.to_list())
+        if max_results is not None and len(models) >= max_results:
+            break
         if not logged_models_page.token:
             break
         page_token = logged_models_page.token
+
+    # Only return at most max_results logged models if specified
+    if max_results is not None:
+        models = models[:max_results]
 
     if output_format == "list":
         return models
     elif output_format == "pandas":
         import pandas as pd
 
-        return pd.DataFrame([model.to_dictionary() for model in models])
+        model_dicts = []
+        for model in models:
+            model_dict = model.to_dictionary()
+            # Convert the status back from int to the enum string
+            model_dict["status"] = LoggedModelStatus.from_int(model_dict["status"])
+            model_dicts.append(model_dict)
+
+        return pd.DataFrame(model_dicts)
 
     else:
         raise MlflowException(
