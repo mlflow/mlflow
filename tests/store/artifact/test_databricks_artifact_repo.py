@@ -36,7 +36,6 @@ CLOUD_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.cloud_artifact_repo"
 DATABRICKS_ARTIFACT_REPOSITORY = (
     f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.DatabricksArtifactRepository"
 )
-
 DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES = (
     "mlflow.store.artifact.databricks_artifact_repo_resources"
 )
