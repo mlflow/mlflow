@@ -272,14 +272,13 @@ def test_finalize_logged_model(store):
     assert logged_model.params == updated_model.params
     assert logged_model.metrics == updated_model.metrics
 
+    updated_model = store.finalize_logged_model(logged_model.model_id, LoggedModelStatus.FAILED)
+    assert updated_model.status == str(LoggedModelStatus.FAILED)
+
 
 def test_finalize_logged_model_errors(store):
     with pytest.raises(MlflowException, match=r"Model '1234' not found"):
         store.finalize_logged_model("1234", LoggedModelStatus.READY)
-
-    logged_model = store.create_logged_model()
-    with pytest.raises(MlflowException, match=r"Invalid model status"):
-        store.finalize_logged_model(logged_model.model_id, LoggedModelStatus.UNSPECIFIED)
 
 
 def test_search_logged_models_experiment_ids(store):

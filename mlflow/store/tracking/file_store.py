@@ -2030,11 +2030,6 @@ class FileStore(AbstractStore):
         Returns:
             The updated model.
         """
-        if status != LoggedModelStatus.READY:
-            raise MlflowException(
-                f"Invalid model status: {status}. Expected statuses: [{LoggedModelStatus.READY}]",
-                databricks_pb2.INVALID_PARAMETER_VALUE,
-            )
         model_dict = self._get_model_dict(model_id)
         model = LoggedModel.from_dictionary(model_dict)
         model.status = status

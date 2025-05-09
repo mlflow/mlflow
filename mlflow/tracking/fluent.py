@@ -12,7 +12,7 @@ import os
 import threading
 from contextvars import ContextVar
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Generator, Optional, Union
 
 import mlflow
 from mlflow.entities import (
@@ -2129,6 +2129,23 @@ def initialize_logged_model(
     )
     _last_logged_model_id.set(model.model_id)
     return model
+
+
+@contextlib.contextmanager
+def _use_logged_model(model: LoggedModel) -> Generator[LoggedModel, None, None]:
+    """
+    Context manager to wrap a LoggedModel and update the model
+    status after the context is exited.
+    If any exception occurs, the model status is set to FAILED.
+    Otherwise, it is set to READY.
+    """
+    try:
+        yield model
+    except Exception:
+        finalize_logged_model(model.model_id, LoggedModelStatus.FAILED)
+        raise
+    else:
+        finalize_logged_model(model.model_id, LoggedModelStatus.READY)
 
 
 def create_external_model(
