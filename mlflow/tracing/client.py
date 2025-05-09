@@ -551,6 +551,7 @@ class TracingClient:
         return TraceData.from_dict(artifact_repo.download_trace_data())
 
     def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
+        raise Exception("Failed to upload trace data")
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
