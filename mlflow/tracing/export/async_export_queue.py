@@ -12,8 +12,6 @@ from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS,
 )
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger(__name__)
 
 
