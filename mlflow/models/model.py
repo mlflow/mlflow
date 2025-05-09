@@ -28,7 +28,7 @@ from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
-from mlflow.tracking.fluent import _logged_model_cm
+from mlflow.tracking.fluent import _use_logged_model
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_runtime_version, is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -937,7 +937,7 @@ class Model:
                     else None,
                 )
 
-            with _logged_model_cm(model=model):
+            with _use_logged_model(model=model):
                 if run_id is not None:
                     client.log_outputs(
                         run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]

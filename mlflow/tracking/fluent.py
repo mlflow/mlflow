@@ -2132,7 +2132,7 @@ def initialize_logged_model(
 
 
 @contextlib.contextmanager
-def _logged_model_cm(model: LoggedModel) -> Generator[LoggedModel, None, None]:
+def _use_logged_model(model: LoggedModel) -> Generator[LoggedModel, None, None]:
     """
     Context manager to wrap a LoggedModel and update the model
     status after the context is exited.
