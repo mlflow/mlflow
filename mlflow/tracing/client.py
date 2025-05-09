@@ -239,7 +239,6 @@ class TracingClient:
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
-        is_databricks = is_databricks_uri(self.tracking_uri)
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -269,6 +268,8 @@ class TracingClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
+        is_databricks = is_databricks_uri(self.tracking_uri)
+
         if model_id is not None:
             if filter_string:
                 raise MlflowException(
@@ -335,8 +336,18 @@ class TracingClient:
             else:
                 return Trace(trace_info, trace_data)
 
-        # If run_id is provided, add it to the filter string
+        # If run_id is provided, validate it belongs to one of the given experiment IDs and add it to the filter string
         if run_id:
+            run = self.store.get_run(run_id)
+            if run.info.experiment_id not in experiment_ids:
+                raise MlflowException(
+                    f"Run {run_id} belongs to experiment {run.info.experiment_id}, which is not "
+                    f"in the list of experiment IDs provided: {experiment_ids}. Please include "
+                    f"experiment {run.info.experiment_id} in the `experiment_ids` parameter to "
+                    "search for traces from this run.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
             additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
             if filter_string:
                 if TraceMetadataKey.SOURCE_RUN in filter_string:
