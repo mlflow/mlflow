@@ -268,8 +268,6 @@ class TracingClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
-        is_databricks = is_databricks_uri(self.tracking_uri)
-
         if model_id is not None:
             if filter_string:
                 raise MlflowException(
@@ -285,6 +283,32 @@ class TracingClient:
                 if sql_warehouse_id is None
                 else None
             )
+
+        if run_id:
+            run = self.store.get_run(run_id)
+            if run.info.experiment_id not in experiment_ids:
+                raise MlflowException(
+                    f"Run {run_id} belongs to experiment {run.info.experiment_id}, which is not "
+                    f"in the list of experiment IDs provided: {experiment_ids}. Please include "
+                    f"experiment {run.info.experiment_id} in the `experiment_ids` parameter to "
+                    "search for traces from this run.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
+            if filter_string:
+                if TraceMetadataKey.SOURCE_RUN in filter_string:
+                    raise MlflowException(
+                        "You cannot filter by run_id when it is already part of the filter string."
+                        f"Please remove the {TraceMetadataKey.SOURCE_RUN} filter from the filter "
+                        "string and try again.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                filter_string += f" AND {additional_filter}"
+            else:
+                filter_string = additional_filter
+
+        is_databricks = is_databricks_uri(self.tracking_uri)
 
         def download_trace_extra_fields(
             trace_info: Union[TraceInfo, TraceInfoV3],
@@ -335,31 +359,6 @@ class TracingClient:
                 return None
             else:
                 return Trace(trace_info, trace_data)
-
-        # If run_id is provided, validate it belongs to one of the given experiment IDs and add it to the filter string
-        if run_id:
-            run = self.store.get_run(run_id)
-            if run.info.experiment_id not in experiment_ids:
-                raise MlflowException(
-                    f"Run {run_id} belongs to experiment {run.info.experiment_id}, which is not "
-                    f"in the list of experiment IDs provided: {experiment_ids}. Please include "
-                    f"experiment {run.info.experiment_id} in the `experiment_ids` parameter to "
-                    "search for traces from this run.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
-            if filter_string:
-                if TraceMetadataKey.SOURCE_RUN in filter_string:
-                    raise MlflowException(
-                        "You cannot filter by run_id when it is already part of the filter string."
-                        f"Please remove the {TraceMetadataKey.SOURCE_RUN} filter from the filter "
-                        "string and try again.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                filter_string += f" AND {additional_filter}"
-            else:
-                filter_string = additional_filter
 
         traces = []
         next_max_results = max_results
