@@ -29,9 +29,7 @@ from mlflow.store.artifact.databricks_artifact_repo import (
     _MAX_CREDENTIALS_REQUEST_SIZE,
     DatabricksArtifactRepository,
 )
-from mlflow.store.artifact.databricks_artifact_repo_resources import (
-    _CredentialType,
-)
+from mlflow.store.artifact.databricks_artifact_repo_resources import _CredentialType
 
 DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
 CLOUD_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.cloud_artifact_repo"
