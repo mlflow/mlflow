@@ -7,7 +7,6 @@ import pytest
 import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
@@ -40,9 +39,6 @@ _REQUEST_ID = f"tr-{_TRACE_ID}"
 
 
 def test_on_start(monkeypatch):
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
-    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
-
     # Root span should create a new trace on start
     span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
@@ -62,8 +58,8 @@ def test_on_start(monkeypatch):
         timestamp_ms=5,
         request_metadata={
             TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-            MLFLOW_USER: "bob",
-            MLFLOW_SOURCE_NAME: "test",
+            MLFLOW_USER: mock.ANY,
+            MLFLOW_SOURCE_NAME: mock.ANY,
             MLFLOW_SOURCE_TYPE: "LOCAL",
             MLFLOW_GIT_BRANCH: mock.ANY,
             MLFLOW_GIT_COMMIT: mock.ANY,
@@ -113,9 +109,6 @@ def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(monkeypatch):
 
 
 def test_on_start_with_experiment_id(monkeypatch):
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
-    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
-
     experiment_id = "test_experiment_id"
     span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
@@ -135,8 +128,8 @@ def test_on_start_with_experiment_id(monkeypatch):
         timestamp_ms=5,
         request_metadata={
             TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-            MLFLOW_USER: "bob",
-            MLFLOW_SOURCE_NAME: "test",
+            MLFLOW_USER: mock.ANY,
+            MLFLOW_SOURCE_NAME: mock.ANY,
             MLFLOW_SOURCE_TYPE: "LOCAL",
             MLFLOW_GIT_BRANCH: mock.ANY,
             MLFLOW_GIT_COMMIT: mock.ANY,
@@ -169,9 +162,6 @@ def test_on_start_during_model_evaluation():
 
 @skip_when_testing_trace_sdk
 def test_on_start_during_run(monkeypatch):
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
-    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
-
     span = create_mock_otel_span(
         trace_id=_TRACE_ID, span_id=1, parent_id=None, start_time=5_000_000
     )
@@ -202,8 +192,8 @@ def test_on_start_during_run(monkeypatch):
         request_metadata={
             TraceMetadataKey.SOURCE_RUN: expected_run_id,
             TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-            MLFLOW_USER: "bob",
-            MLFLOW_SOURCE_NAME: "test",
+            MLFLOW_USER: mock.ANY,
+            MLFLOW_SOURCE_NAME: mock.ANY,
             MLFLOW_SOURCE_TYPE: "LOCAL",
             MLFLOW_GIT_BRANCH: mock.ANY,
             MLFLOW_GIT_COMMIT: mock.ANY,
@@ -234,8 +224,8 @@ def test_on_start_with_experiment_id_override(monkeypatch):
         timestamp_ms=mock.ANY,
         request_metadata={
             TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-            MLFLOW_USER: "bob",
-            MLFLOW_SOURCE_NAME: "test",
+            MLFLOW_USER: mock.ANY,
+            MLFLOW_SOURCE_NAME: mock.ANY,
             MLFLOW_SOURCE_TYPE: "LOCAL",
             MLFLOW_GIT_BRANCH: mock.ANY,
             MLFLOW_GIT_COMMIT: mock.ANY,

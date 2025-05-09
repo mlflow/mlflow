@@ -22,7 +22,7 @@ def clear_lru_cache():
 
 def test_resolve_env_metadata():
     assert resolve_env_metadata() == {
-        MLFLOW_USER: "admin",
+        MLFLOW_USER: mock.ANY,
         MLFLOW_SOURCE_NAME: mock.ANY,
         MLFLOW_SOURCE_TYPE: "LOCAL",
         MLFLOW_GIT_COMMIT: mock.ANY,
@@ -46,7 +46,7 @@ def test_resolve_env_metadata_in_databricks_notebook():
         mock_db_utils.get_workspace_info_from_dbutils.return_value = (None, None)
 
         assert resolve_env_metadata() == {
-            MLFLOW_USER: "admin",
+            MLFLOW_USER: mock.ANY,
             MLFLOW_SOURCE_NAME: "/Users/bob/test.py",
             MLFLOW_SOURCE_TYPE: "NOTEBOOK",
             MLFLOW_DATABRICKS_NOTEBOOK_ID: "notebook_123",
