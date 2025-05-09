@@ -6,6 +6,7 @@ from typing import Any, Optional, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
+from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
@@ -27,6 +28,7 @@ from mlflow.tracing.utils import (
 )
 
 _logger = logging.getLogger(__name__)
+_EMPTY_RESOURCE: _OTelResource = _OTelResource.create({})
 
 
 # Not using enum as we want to allow custom span type string.
@@ -222,7 +224,11 @@ class Span:
         return d
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Span":
+    def from_dict(
+        cls,
+        data: dict[str, Any],
+        _reuse_resource: bool = False,
+    ) -> "Span":
         """Create a Span object from the given dictionary."""
         try:
             # Try to deserialize the span using the v3 schema
@@ -257,6 +263,7 @@ class Span:
                     status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
                     description=data["status"].get("message"),
                 ).to_otel_status(),
+                resource=_EMPTY_RESOURCE if _reuse_resource else None,
                 events=[
                     OTelEvent(
                         name=event["name"],
