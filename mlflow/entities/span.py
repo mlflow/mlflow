@@ -28,7 +28,6 @@ from mlflow.tracing.utils import (
 )
 
 _logger = logging.getLogger(__name__)
-_EMPTY_RESOURCE: _OTelResource = _OTelResource.create({})
 
 
 # Not using enum as we want to allow custom span type string.
@@ -227,7 +226,6 @@ class Span:
     def from_dict(
         cls,
         data: dict[str, Any],
-        _reuse_resource: bool = False,
     ) -> "Span":
         """Create a Span object from the given dictionary."""
         try:
@@ -263,7 +261,7 @@ class Span:
                     status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
                     description=data["status"].get("message"),
                 ).to_otel_status(),
-                resource=_EMPTY_RESOURCE if _reuse_resource else None,
+                resource=_OTelResource.get_empty(),
                 events=[
                     OTelEvent(
                         name=event["name"],

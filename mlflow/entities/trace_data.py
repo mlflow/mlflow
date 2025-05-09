@@ -24,9 +24,7 @@ class TraceData:
     def from_dict(cls, d):
         if not isinstance(d, dict):
             raise TypeError(f"TraceData.from_dict() expects a dictionary. Got: {type(d).__name__}")
-        return cls(
-            spans=[Span.from_dict(span, _reuse_resource=True) for span in d.get("spans", [])]
-        )
+        return cls(spans=[Span.from_dict(span) for span in d.get("spans", [])])
 
     def to_dict(self) -> dict[str, Any]:
         return {"spans": [span.to_dict() for span in self.spans]}
