@@ -37,7 +37,7 @@ psutil
 # SQLAlchemy == 2.0.25 requires typing_extensions >= 4.6.0
 typing_extensions>=4.6.0
 # Required for importing boto3 ClientError directly for testing
-botocore>=1.34
+botocore>=1.35
 pyspark
 # Required for testing the opentelemetry exporter of tracing
 opentelemetry-exporter-otlp-proto-grpc
@@ -46,3 +46,5 @@ opentelemetry-exporter-otlp-proto-http
 scikit-learn<1.6
 # Required for testing mlflow.server.auth
 Flask-WTF<2
+# Required for mlflow requirements tests
+databricks-agents
