@@ -120,7 +120,9 @@ def _test_model_log(statsmodels_model, model_path, *predict_args):
             conda_env = os.path.join(tmp.path(), "conda_env.yaml")
             _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
 
-            model_info = mlflow.statsmodels.log_model(model, artifact_path, conda_env=conda_env)
+            model_info = mlflow.statsmodels.log_model(
+                model, name=artifact_path, conda_env=conda_env
+            )
             reloaded_model = mlflow.statsmodels.load_model(model_uri=model_info.model_uri)
             if hasattr(model, "predict"):
                 np.testing.assert_array_almost_equal(
@@ -196,7 +198,7 @@ def test_log_model_calls_register_model():
         _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
         model_info = mlflow.statsmodels.log_model(
             ols.model,
-            artifact_path,
+            name=artifact_path,
             conda_env=conda_env,
             registered_model_name="OLSModel1",
         )
@@ -214,7 +216,7 @@ def test_log_model_no_registered_model_name():
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
-        mlflow.statsmodels.log_model(ols.model, artifact_path, conda_env=conda_env)
+        mlflow.statsmodels.log_model(ols.model, name=artifact_path, conda_env=conda_env)
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -258,14 +260,14 @@ def test_log_model_with_pip_requirements(tmp_path):
     req_file.write_text("a")
     with mlflow.start_run():
         model_info = mlflow.statsmodels.log_model(
-            ols.model, "model", pip_requirements=str(req_file)
+            ols.model, name="model", pip_requirements=str(req_file)
         )
         _assert_pip_requirements(model_info.model_uri, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
         model_info = mlflow.statsmodels.log_model(
-            ols.model, "model", pip_requirements=[f"-r {req_file}", "b"]
+            ols.model, name="model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, "a", "b"], strict=True
@@ -274,7 +276,7 @@ def test_log_model_with_pip_requirements(tmp_path):
     # Constraints file
     with mlflow.start_run():
         model_info = mlflow.statsmodels.log_model(
-            ols.model, "model", pip_requirements=[f"-c {req_file}", "b"]
+            ols.model, name="model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri,
@@ -294,7 +296,7 @@ def test_log_model_with_extra_pip_requirements(tmp_path):
     req_file.write_text("a")
     with mlflow.start_run():
         model_info = mlflow.statsmodels.log_model(
-            ols.model, "model", extra_pip_requirements=str(req_file)
+            ols.model, name="model", extra_pip_requirements=str(req_file)
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, *default_reqs, "a"]
@@ -303,7 +305,7 @@ def test_log_model_with_extra_pip_requirements(tmp_path):
     # List of requirements
     with mlflow.start_run():
         model_info = mlflow.statsmodels.log_model(
-            ols.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
+            ols.model, name="model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -312,7 +314,7 @@ def test_log_model_with_extra_pip_requirements(tmp_path):
     # Constraints file
     with mlflow.start_run():
         model_info = mlflow.statsmodels.log_model(
-            ols.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
+            ols.model, name="model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri,
@@ -341,7 +343,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(statsm
     with mlflow.start_run():
         model_info = mlflow.statsmodels.log_model(
             ols.model,
-            "model",
+            name="model",
             conda_env=statsmodels_custom_env,
         )
 
@@ -364,7 +366,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(statsmodels_c
     with mlflow.start_run():
         model_info = mlflow.statsmodels.log_model(
             ols.model,
-            artifact_path,
+            name=artifact_path,
             conda_env=statsmodels_custom_env,
         )
 
@@ -385,7 +387,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     ols = ols_model()
     artifact_path = "model"
     with mlflow.start_run():
-        model_info = mlflow.statsmodels.log_model(ols.model, artifact_path)
+        model_info = mlflow.statsmodels.log_model(ols.model, name=artifact_path)
     _assert_pip_requirements(
         model_info.model_uri, mlflow.statsmodels.get_default_pip_requirements()
     )
@@ -396,7 +398,7 @@ def test_pyfunc_serve_and_score():
     artifact_path = "model"
     with mlflow.start_run():
         model_info = mlflow.statsmodels.log_model(
-            model, artifact_path, input_example=inference_dataframe
+            model, name=artifact_path, input_example=inference_dataframe
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -419,7 +421,9 @@ def test_log_model_with_code_paths():
         mlflow.start_run(),
         mock.patch("mlflow.statsmodels._add_code_from_conf_to_system_path") as add_mock,
     ):
-        model_info = mlflow.statsmodels.log_model(ols.model, artifact_path, code_paths=[__file__])
+        model_info = mlflow.statsmodels.log_model(
+            ols.model, name=artifact_path, code_paths=[__file__]
+        )
         _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.statsmodels.FLAVOR_NAME)
         mlflow.statsmodels.load_model(model_info.model_uri)
         add_mock.assert_called()
@@ -450,7 +454,7 @@ def test_model_log_with_metadata():
 
     with mlflow.start_run():
         model_info = mlflow.statsmodels.log_model(
-            ols.model, artifact_path, metadata={"metadata_key": "metadata_value"}
+            ols.model, name=artifact_path, metadata={"metadata_key": "metadata_value"}
         )
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -464,7 +468,7 @@ def test_model_log_with_signature_inference():
     example = X[0:3, :]
 
     with mlflow.start_run():
-        model_info = mlflow.statsmodels.log_model(model, artifact_path, input_example=example)
+        model_info = mlflow.statsmodels.log_model(model, name=artifact_path, input_example=example)
 
     loaded_model = Model.load(model_info.model_uri)
     assert loaded_model.signature == ols_model_signature()

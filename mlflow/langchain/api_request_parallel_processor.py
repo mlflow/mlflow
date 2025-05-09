@@ -37,11 +37,8 @@ from mlflow.langchain.utils.chat import (
     try_transform_response_to_chat_format,
 )
 from mlflow.langchain.utils.serialization import convert_to_serializable
-from mlflow.pyfunc.context import (
-    Context,
-    get_prediction_context,
-    maybe_set_prediction_context,
-)
+from mlflow.pyfunc.context import Context, get_prediction_context
+from mlflow.tracing.utils import maybe_set_prediction_context
 
 _logger = logging.getLogger(__name__)
 
@@ -129,7 +126,7 @@ class APIRequest:
     def single_call_api(self, callback_handlers: Optional[list[BaseCallbackHandler]]):
         from langchain.schema import BaseRetriever
 
-        from mlflow.langchain.utils import langgraph_types, lc_runnables_types
+        from mlflow.langchain.utils.logging import langgraph_types, lc_runnables_types
 
         if isinstance(self.lc_model, BaseRetriever):
             # Retrievers are invoked differently than Chains

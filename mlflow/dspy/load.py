@@ -1,3 +1,4 @@
+import logging
 import os
 
 import cloudpickle
@@ -6,13 +7,19 @@ from mlflow.models import Model
 from mlflow.models.dependencies_schemas import _get_dependencies_schema_from_model
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking.fluent import (
+    _get_active_model_context,
+    _set_active_model,
+)
 from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import disable_autologging_globally
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
 )
 
 _DEFAULT_MODEL_PATH = "data/model.pkl"
+_logger = logging.getLogger(__name__)
 
 
 def _set_dependency_schema_to_tracer(model_path, callbacks):
@@ -32,6 +39,18 @@ def _set_dependency_schema_to_tracer(model_path, callbacks):
 
 def _load_model(model_uri, dst_path=None):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    mlflow_model = Model.load(local_model_path)
+    if (
+        mlflow_model.model_id
+        and (amc := _get_active_model_context())
+        # only set the active model if the model is not set by the user
+        and not amc.set_by_user
+        and amc.model_id != mlflow_model.model_id
+    ):
+        _set_active_model(model_id=mlflow_model.model_id)
+        _logger.info(
+            "Use `mlflow.set_active_model` to set the active model to a different one if needed."
+        )
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name="dspy")
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
@@ -40,12 +59,12 @@ def _load_model(model_uri, dst_path=None):
         loaded_wrapper = cloudpickle.load(f)
 
     _set_dependency_schema_to_tracer(local_model_path, loaded_wrapper.dspy_settings["callbacks"])
-
     return loaded_wrapper
 
 
 @experimental
 @trace_disabled  # Suppress traces for internal calls while loading model
+@disable_autologging_globally  # Avoid side-effect of autologging while loading model
 def load_model(model_uri, dst_path=None):
     """
     Load a Dspy model from a run.

@@ -5,7 +5,9 @@ import sys
 import traceback
 import weakref
 from collections import OrderedDict, defaultdict, namedtuple
+from dataclasses import dataclass
 from itertools import zip_longest
+from typing import Optional
 from urllib.parse import urlparse
 
 import numpy as np
@@ -397,7 +399,14 @@ def _get_instance_param_map(instance, uid_to_indexed_name_map):
     )
 
 
-def _create_child_runs_for_parameter_search(parent_estimator, parent_model, parent_run, child_tags):
+def _create_child_runs_for_parameter_search(
+    parent_estimator,
+    parent_model,
+    parent_run,
+    child_tags,
+    best_model_id=None,
+    best_model_params=None,
+):
     client = MlflowClient()
     # Use the start time of the parent parameter search run as a rough estimate for the
     # start time of child runs, since we cannot precisely determine when each point
@@ -424,6 +433,11 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
         params_to_log = _get_instance_param_map(
             child_estimator, parent_estimator._autologging_metadata.uid_to_indexed_name_map
         )
+        params = {
+            _gen_log_key(p, parent_estimator._autologging_metadata.uid_to_indexed_name_map): value
+            for p, value in est_param.items()
+        }
+        model_id = best_model_id if params == best_model_params else None
         param_batches_to_log = _chunk_dict(params_to_log, chunk_size=MAX_PARAMS_TAGS_PER_BATCH)
         metrics_to_log = {k: v[i] for k, v in metrics_dict.items()}
         for params_batch, metrics_batch in zip_longest(
@@ -443,7 +457,13 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
                     Param(str(key), str(value)) for key, value in truncated_params_batch.items()
                 ],
                 metrics=[
-                    Metric(key=str(key), value=value, timestamp=child_run_end_time, step=0)
+                    Metric(
+                        key=str(key),
+                        value=value,
+                        timestamp=child_run_end_time,
+                        step=0,
+                        model_id=model_id,
+                    )
                     for key, value in truncated_metrics_batch.items()
                 ],
             )
@@ -477,19 +497,22 @@ def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
     )
 
 
+def _gen_log_key(param, uid_to_indexed_name_map):
+    if param.parent not in uid_to_indexed_name_map:
+        raise ValueError(
+            "Tuning params should not include params not owned by the tuned estimator, but "
+            f"found a param {param}"
+        )
+    return f"{uid_to_indexed_name_map[param.parent]}.{param.name}"
+
+
 def _get_tuning_param_maps(param_search_estimator, uid_to_indexed_name_map):
     tuning_param_maps = []
 
-    def gen_log_key(param):
-        if param.parent not in uid_to_indexed_name_map:
-            raise ValueError(
-                "Tuning params should not include params not owned by the tuned estimator, but "
-                f"found a param {param}"
-            )
-        return f"{uid_to_indexed_name_map[param.parent]}.{param.name}"
-
     for eps in param_search_estimator.getEstimatorParamMaps():
-        tuning_param_maps.append({gen_log_key(k): v for k, v in eps.items()})
+        tuning_param_maps.append(
+            {_gen_log_key(k, uid_to_indexed_name_map): v for k, v in eps.items()}
+        )
     return tuning_param_maps
 
 
@@ -534,6 +557,13 @@ def _log_estimator_params(param_map):
         mlflow.log_params(truncated)
 
 
+@dataclass
+class PredictionResultInfo:
+    dataset_name: str
+    run_id: str
+    model_id: Optional[str] = None
+
+
 class _AutologgingMetricsManager:
     """
     This class is designed for holding information which is used by autologging metrics
@@ -569,7 +599,10 @@ class _AutologgingMetricsManager:
     """
 
     def __init__(self):
-        self._pred_result_id_to_dataset_name_and_run_id = {}
+        # record mapping of id(prediction_result) -> PredictionResultInfo
+        self._pred_result_id_mapping: dict[int, PredictionResultInfo] = {}
+        # record mapping of id(model) -> model_id
+        self._model_id_mapping: dict[int, str] = {}
         self._eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
         self._evaluator_call_info = defaultdict(lambda: defaultdict(list))
         self._log_post_training_metrics_enabled = True
@@ -622,6 +655,16 @@ class _AutologgingMetricsManager:
         """
         model._mlflow_run_id = run_id
 
+    def record_model_id(self, model, model_id):
+        """
+        Record the id(model) -> model_id mapping so that we can log metrics to the
+        model later.
+        """
+        self._model_id_mapping[id(model)] = model_id
+
+    def get_model_id_for_model(self, model) -> Optional[str]:
+        return self._model_id_mapping.get(id(model))
+
     @staticmethod
     def gen_name_with_index(name, index):
         assert index >= 0
@@ -667,35 +710,31 @@ class _AutologgingMetricsManager:
 
         return self.gen_name_with_index(eval_dataset_name, index)
 
-    def register_prediction_result(self, run_id, eval_dataset_name, predict_result):
+    def register_prediction_result(self, run_id, eval_dataset_name, predict_result, model_id):
         """
         Register the relationship
-         id(prediction_result) --> (eval_dataset_name, run_id)
-        into map `_pred_result_id_to_dataset_name_and_run_id`
+        id(prediction_result) --> PredictionResultInfo(eval_dataset_name, run_id, model_id)
+        into map `_pred_result_id_mapping`
         """
-        value = (eval_dataset_name, run_id)
+        value = PredictionResultInfo(
+            dataset_name=eval_dataset_name, run_id=run_id, model_id=model_id
+        )
         prediction_result_id = id(predict_result)
-        self._pred_result_id_to_dataset_name_and_run_id[prediction_result_id] = value
+        self._pred_result_id_mapping[prediction_result_id] = value
 
         def clean_id(id_):
-            _AUTOLOGGING_METRICS_MANAGER._pred_result_id_to_dataset_name_and_run_id.pop(id_, None)
+            _AUTOLOGGING_METRICS_MANAGER._pred_result_id_mapping.pop(id_, None)
 
         # When the `predict_result` object being GCed, its ID may be reused, so register a finalizer
         # to clear the ID from the dict for preventing wrong ID mapping.
         weakref.finalize(predict_result, clean_id, prediction_result_id)
 
-    def get_run_id_and_dataset_name_for_evaluator_call(self, pred_result_dataset):
+    def get_info_for_metric_api_call(self, pred_result_dataset) -> PredictionResultInfo:
         """
         Given a registered prediction result dataset object,
-        return a tuple of (run_id, eval_dataset_name)
+        return a tuple of (run_id, eval_dataset_name, model_id)
         """
-        if id(pred_result_dataset) in self._pred_result_id_to_dataset_name_and_run_id:
-            dataset_name, run_id = self._pred_result_id_to_dataset_name_and_run_id[
-                id(pred_result_dataset)
-            ]
-            return run_id, dataset_name
-        else:
-            return None, None
+        return self._pred_result_id_mapping.get(id(pred_result_dataset))
 
     def gen_evaluator_info(self, evaluator):
         """
@@ -727,7 +766,7 @@ class _AutologgingMetricsManager:
         self._metric_info_artifact_need_update[run_id] = True
         return metric_key
 
-    def log_post_training_metric(self, run_id, key, value):
+    def log_post_training_metric(self, run_id, key, value, model_id=None):
         """
         Log the metric into the specified mlflow run.
         and it will also update the metric_info artifact if needed.
@@ -735,7 +774,7 @@ class _AutologgingMetricsManager:
         # Note: if the case log the same metric key multiple times,
         #  newer value will overwrite old value
         client = MlflowClient()
-        client.log_metric(run_id=run_id, key=key, value=value)
+        client.log_metric(run_id=run_id, key=key, value=value, model_id=model_id)
         if self._metric_info_artifact_need_update[run_id]:
             evaluator_call_list = []
             for v in self._evaluator_call_info[run_id].values():
@@ -1031,49 +1070,9 @@ def autolog(
                     "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
                 )
 
-    def _log_posttraining_metadata(estimator, spark_model, params, input_df):
-        if _is_parameter_search_estimator(estimator):
-            try:
-                # Fetch environment-specific tags (e.g., user and source) to ensure that lineage
-                # information is consistent with the parent run
-                child_tags = context_registry.resolve_tags()
-                child_tags.update({MLFLOW_AUTOLOGGING: AUTOLOGGING_INTEGRATION_NAME})
-                _create_child_runs_for_parameter_search(
-                    parent_estimator=estimator,
-                    parent_model=spark_model,
-                    parent_run=mlflow.active_run(),
-                    child_tags=child_tags,
-                )
-            except Exception:
-                msg = (
-                    "Encountered exception during creation of child runs for parameter search."
-                    f" Child runs may be missing. Exception: {traceback.format_exc()}"
-                )
-                _logger.warning(msg)
-
-            estimator_param_maps = _get_tuning_param_maps(
-                estimator, estimator._autologging_metadata.uid_to_indexed_name_map
-            )
-
-            metrics_dict, best_index = _get_param_search_metrics_and_best_index(
-                estimator, spark_model
-            )
-            _log_parameter_search_results_as_artifact(
-                estimator_param_maps, metrics_dict, mlflow.active_run().info.run_id
-            )
-
-            # Log best_param_map as JSON artifact
-            best_param_map = estimator_param_maps[best_index]
-            mlflow.log_dict(best_param_map, artifact_file="best_parameters.json")
-
-            # Log best_param_map as autologging parameters as well
-            _log_estimator_params(
-                {
-                    f"best_{param_name}": param_value
-                    for param_name, param_value in best_param_map.items()
-                }
-            )
-
+    def _log_posttraining_metadata(estimator, spark_model, params, input_df) -> Optional[str]:
+        spark_model_id = None
+        best_model_id = None
         if log_models:
             if _should_log_model(spark_model):
                 from mlflow.pyspark.ml._autolog import (
@@ -1120,20 +1119,63 @@ def autolog(
                     ).toPandas()
                 else:
                     input_example = None
-                mlflow.spark.log_model(
+                spark_model_id = mlflow.spark.log_model(
                     spark_model,
-                    "model",
+                    name="model",
                     registered_model_name=registered_model_name,
                     input_example=input_example,
                     signature=signature,
-                )
+                ).model_id
                 if _is_parameter_search_model(spark_model):
-                    mlflow.spark.log_model(
+                    best_model_id = mlflow.spark.log_model(
                         spark_model.bestModel,
-                        "best_model",
-                    )
+                        name="best_model",
+                    ).model_id
             else:
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
+        if _is_parameter_search_estimator(estimator):
+            estimator_param_maps = _get_tuning_param_maps(
+                estimator, estimator._autologging_metadata.uid_to_indexed_name_map
+            )
+
+            metrics_dict, best_index = _get_param_search_metrics_and_best_index(
+                estimator, spark_model
+            )
+            _log_parameter_search_results_as_artifact(
+                estimator_param_maps, metrics_dict, mlflow.active_run().info.run_id
+            )
+
+            # Log best_param_map as JSON artifact
+            best_param_map = estimator_param_maps[best_index]
+            mlflow.log_dict(best_param_map, artifact_file="best_parameters.json")
+
+            # Log best_param_map as autologging parameters as well
+            _log_estimator_params(
+                {
+                    f"best_{param_name}": param_value
+                    for param_name, param_value in best_param_map.items()
+                }
+            )
+            try:
+                # Fetch environment-specific tags (e.g., user and source) to ensure that lineage
+                # information is consistent with the parent run
+                child_tags = context_registry.resolve_tags()
+                child_tags.update({MLFLOW_AUTOLOGGING: AUTOLOGGING_INTEGRATION_NAME})
+                _create_child_runs_for_parameter_search(
+                    parent_estimator=estimator,
+                    parent_model=spark_model,
+                    parent_run=mlflow.active_run(),
+                    child_tags=child_tags,
+                    best_model_id=best_model_id,
+                    best_model_params=best_param_map,
+                )
+            except Exception:
+                msg = (
+                    "Encountered exception during creation of child runs for parameter search."
+                    f" Child runs may be missing. Exception: {traceback.format_exc()}"
+                )
+                _logger.warning(msg)
+        return spark_model_id
 
     def fit_mlflow(original, self, *args, **kwargs):
         params = get_method_call_arg_value(1, "params", None, args, kwargs)
@@ -1156,9 +1198,12 @@ def autolog(
             input_training_df = args[0].persist(StorageLevel.MEMORY_AND_DISK)
             _log_pretraining_metadata(estimator, params, input_training_df)
             spark_model = original(self, *args, **kwargs)
-            _log_posttraining_metadata(estimator, spark_model, params, input_training_df)
+            spark_model_id = _log_posttraining_metadata(
+                estimator, spark_model, params, input_training_df
+            )
             input_training_df.unpersist()
 
+            _AUTOLOGGING_METRICS_MANAGER.record_model_id(spark_model, spark_model_id)
             return spark_model
 
     def patched_fit(original, self, *args, **kwargs):
@@ -1188,7 +1233,10 @@ def autolog(
                 self, eval_dataset
             )
             _AUTOLOGGING_METRICS_MANAGER.register_prediction_result(
-                run_id, eval_dataset_name, predict_result
+                run_id,
+                eval_dataset_name,
+                predict_result,
+                model_id=_AUTOLOGGING_METRICS_MANAGER.get_model_id_for_model(self),
             )
             return predict_result
         else:
@@ -1208,18 +1256,23 @@ def autolog(
                 evaluator_info = _AUTOLOGGING_METRICS_MANAGER.gen_evaluator_info(evaluator)
 
                 pred_result_dataset = get_method_call_arg_value(0, "dataset", None, args, kwargs)
-                (
-                    run_id,
-                    dataset_name,
-                ) = _AUTOLOGGING_METRICS_MANAGER.get_run_id_and_dataset_name_for_evaluator_call(
-                    pred_result_dataset
-                )
+                dataset_name, run_id, model_id = None, None, None
+                if (
+                    prediction_result_info
+                    := _AUTOLOGGING_METRICS_MANAGER.get_info_for_metric_api_call(
+                        pred_result_dataset
+                    )
+                ):
+                    dataset_name = prediction_result_info.dataset_name
+                    run_id = prediction_result_info.run_id
+                    model_id = prediction_result_info.model_id
+
                 if run_id and dataset_name:
                     metric_key = _AUTOLOGGING_METRICS_MANAGER.register_evaluator_call(
                         run_id, metric_name, dataset_name, evaluator_info
                     )
                     _AUTOLOGGING_METRICS_MANAGER.log_post_training_metric(
-                        run_id, metric_key, metric
+                        run_id, metric_key, metric, model_id=model_id
                     )
                     if log_datasets:
                         try:

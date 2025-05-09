@@ -239,7 +239,7 @@ def test_diviner_log_model(grouped_prophet, tmp_path, should_start_run):
         _mlflow_conda_env(conda_env, additional_pip_deps=["diviner"])
         model_info = mlflow.diviner.log_model(
             grouped_prophet,
-            artifact_path,
+            name=artifact_path,
             conda_env=str(conda_env),
         )
         reloaded_model = mlflow.diviner.load_model(model_uri=model_info.model_uri)
@@ -265,7 +265,7 @@ def test_diviner_log_model_calls_register_model(grouped_pmdarima, tmp_path):
         _mlflow_conda_env(conda_env, additional_pip_deps=["diviner"])
         model_info = mlflow.diviner.log_model(
             grouped_pmdarima,
-            artifact_path,
+            name=artifact_path,
             conda_env=str(conda_env),
             registered_model_name="DivinerModel",
         )
@@ -282,7 +282,7 @@ def test_diviner_log_model_no_registered_model_name(grouped_prophet, tmp_path):
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["diviner"])
-        mlflow.diviner.log_model(grouped_prophet, artifact_path, conda_env=str(conda_env))
+        mlflow.diviner.log_model(grouped_prophet, name=artifact_path, conda_env=str(conda_env))
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -319,14 +319,14 @@ def test_diviner_log_model_with_pip_requirements(grouped_prophet, tmp_path):
     req_file.write_text("a")
     with mlflow.start_run():
         model_info = mlflow.diviner.log_model(
-            grouped_prophet, "model", pip_requirements=str(req_file)
+            grouped_prophet, name="model", pip_requirements=str(req_file)
         )
         _assert_pip_requirements(model_info.model_uri, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
         model_info = mlflow.diviner.log_model(
-            grouped_prophet, "model", pip_requirements=[f"-r {req_file}", "b"]
+            grouped_prophet, name="model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, "a", "b"], strict=True
@@ -335,7 +335,7 @@ def test_diviner_log_model_with_pip_requirements(grouped_prophet, tmp_path):
     # Constraints file
     with mlflow.start_run():
         model_info = mlflow.diviner.log_model(
-            grouped_prophet, "model", pip_requirements=[f"-c {req_file}", "b"]
+            grouped_prophet, name="model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri,
@@ -354,7 +354,7 @@ def test_diviner_log_model_with_extra_pip_requirements(grouped_pmdarima, tmp_pat
     req_file.write_text("a")
     with mlflow.start_run():
         model_info = mlflow.diviner.log_model(
-            grouped_pmdarima, "model", extra_pip_requirements=str(req_file)
+            grouped_pmdarima, name="model", extra_pip_requirements=str(req_file)
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, *default_reqs, "a"]
@@ -363,7 +363,7 @@ def test_diviner_log_model_with_extra_pip_requirements(grouped_pmdarima, tmp_pat
     # List of requirements
     with mlflow.start_run():
         model_info = mlflow.diviner.log_model(
-            grouped_pmdarima, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
+            grouped_pmdarima, name="model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -372,7 +372,7 @@ def test_diviner_log_model_with_extra_pip_requirements(grouped_pmdarima, tmp_pat
     # Constraints file
     with mlflow.start_run():
         model_info = mlflow.diviner.log_model(
-            grouped_pmdarima, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
+            grouped_pmdarima, name="model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_uri=model_info.model_uri,
@@ -394,7 +394,7 @@ def test_diviner_model_log_without_conda_env_uses_default_env_with_expected_depe
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        model_info = mlflow.diviner.log_model(grouped_pmdarima, artifact_path)
+        model_info = mlflow.diviner.log_model(grouped_pmdarima, name=artifact_path)
     _assert_pip_requirements(model_info.model_uri, mlflow.diviner.get_default_pip_requirements())
 
 
@@ -402,7 +402,7 @@ def test_pmdarima_pyfunc_serve_and_score(grouped_prophet):
     artifact_path = "model"
     with mlflow.start_run():
         model_info = mlflow.diviner.log_model(
-            grouped_prophet, artifact_path, input_example={"horizon": 10, "frequency": "W"}
+            grouped_prophet, name=artifact_path, input_example={"horizon": 10, "frequency": "W"}
         )
 
     local_predict = grouped_prophet.forecast(horizon=10, frequency="W")
@@ -425,7 +425,7 @@ def test_pmdarima_pyfunc_serve_and_score_groups(grouped_prophet, diviner_groups)
     with mlflow.start_run():
         model_info = mlflow.diviner.log_model(
             grouped_prophet,
-            artifact_path,
+            name=artifact_path,
         )
 
     local_predict = grouped_prophet.predict_groups(groups=diviner_groups, horizon=10, frequency="W")
@@ -455,7 +455,7 @@ def test_log_model_with_code_paths(grouped_pmdarima):
         mock.patch("mlflow.diviner._add_code_from_conf_to_system_path") as add_mock,
     ):
         model_info = mlflow.diviner.log_model(
-            grouped_pmdarima, artifact_path, code_paths=[__file__]
+            grouped_pmdarima, name=artifact_path, code_paths=[__file__]
         )
         _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.diviner.FLAVOR_NAME)
         mlflow.diviner.load_model(model_info.model_uri)
@@ -485,7 +485,7 @@ def test_model_log_with_metadata(grouped_pmdarima):
     with mlflow.start_run():
         model_info = mlflow.pmdarima.log_model(
             grouped_pmdarima,
-            artifact_path,
+            name=artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
 

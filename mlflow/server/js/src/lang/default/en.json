@@ -15,10 +15,6 @@
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
   },
-  "+RYBrq": {
-    "defaultMessage": "Promote model",
-    "description": "Button text to pomote the model to a different registered model"
-  },
   "+dGAnC": {
     "defaultMessage": "Preview",
     "description": "Run page > artifact view > logged table view > preview box > title"
@@ -1539,6 +1535,10 @@
     "defaultMessage": "Value",
     "description": "Add new key-value tag modal > Value input label"
   },
+  "OWCfFp": {
+    "defaultMessage": "Promote {sourceModelName} version {sourceModelVersion}",
+    "description": "Modal title to promote the model to a different registered model"
+  },
   "OfLABN": {
     "defaultMessage": "Close",
     "description": "Error modal close button text"
@@ -1650,6 +1650,10 @@
   "QuU1sl": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab text for parallel coordinates plot on the model comparison page"
+  },
+  "Qv7cZx": {
+    "defaultMessage": "Promote model",
+    "description": "Button text to promote the model to a different registered model"
   },
   "R/4/8G": {
     "defaultMessage": "Metric",
@@ -1931,10 +1935,6 @@
     "defaultMessage": "Open dataset",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
   },
-  "VzuUre": {
-    "defaultMessage": "Supported formats: image, text, html, pdf, audio, geojson files",
-    "description": "Text to explain users which formats are supported to display the artifacts"
-  },
   "W8bOkn": {
     "defaultMessage": "250",
     "description": "Label for 250 first runs visible in run count selector within runs compare configuration modal"
@@ -1990,6 +1990,10 @@
   "WmDiY9": {
     "defaultMessage": "Source",
     "description": "Run page > Overview > Run source section label"
+  },
+  "Wv3B3G": {
+    "defaultMessage": "Supported formats: image, text, html, pdf, audio, video, geojson files",
+    "description": "Text to explain users which formats are supported to display the artifacts"
   },
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
@@ -3094,10 +3098,6 @@
   "oBKd1E": {
     "defaultMessage": "Value",
     "description": "Column title for value column in editable tags table view in MLflow"
-  },
-  "oBjwod": {
-    "defaultMessage": "Promote {sourceModelName} version {sourceModelVersion}",
-    "description": "Modal title to pomote the model to a different registered model"
   },
   "oHW+ks": {
     "defaultMessage": "Description",

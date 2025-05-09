@@ -15,6 +15,7 @@ import {
   PDF_EXTENSIONS,
   DATA_EXTENSIONS,
   AUDIO_EXTENSIONS,
+  VIDEO_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { getLoggedModelPathsFromTags, getLoggedTablesFromTags } from '../../../common/utils/TagUtils';
 import { ONE_MB } from '../../constants';
@@ -24,6 +25,7 @@ import { LazyShowArtifactMapView } from './LazyShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
 import { LazyShowArtifactPdfView } from './LazyShowArtifactPdfView';
 import { LazyShowArtifactTableView } from './LazyShowArtifactTableView';
+import { LazyShowArtifactVideoView } from './LazyShowArtifactVideoView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import previewIcon from '../../../common/static/preview-icon.png';
 import warningSvg from '../../../common/static/warning.svg';
@@ -111,6 +113,8 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
           return <LazyShowArtifactPdfView {...commonArtifactProps} />;
         } else if (AUDIO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactAudioView {...commonArtifactProps} />;
+        } else if (VIDEO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+          return <LazyShowArtifactVideoView {...commonArtifactProps} />;
         }
       }
     }
@@ -136,7 +140,7 @@ const getSelectFileView = () => {
         }
         description={
           <FormattedMessage
-            defaultMessage="Supported formats: image, text, html, pdf, audio, geojson files"
+            defaultMessage="Supported formats: image, text, html, pdf, audio, video, geojson files"
             description="Text to explain users which formats are supported to display the artifacts"
           />
         }

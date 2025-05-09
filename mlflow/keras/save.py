@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import tempfile
+from typing import Any, Optional
 
 import keras
 import yaml
@@ -22,7 +23,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import TensorSpec
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -99,7 +99,6 @@ def _export_keras_model(model, path, signature):
     export_archive.write_out(path)
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
@@ -274,11 +273,10 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     save_exported_model=False,
     conda_env=None,
     signature: ModelSignature = None,
@@ -289,6 +287,12 @@ def log_model(
     extra_pip_requirements=None,
     save_model_kwargs=None,
     metadata=None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a Keras model along with metadata to MLflow.
@@ -298,7 +302,7 @@ def log_model(
 
     Args:
         model: an instance of `keras.Model`. The Keras model to be saved.
-        artifact_path: the run-relative path to which to log model artifacts.
+        artifact_path: Deprecated. Use `name` instead.
         save_exported_model: defaults to False. If True, save Keras model in exported
             model format, otherwise save in `.keras` format. For more information, please
             refer to `Keras doc <https://keras.io/guides/serialization_and_saving/>`_.
@@ -319,6 +323,12 @@ def log_model(
             `keras.Model.save` method.
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel
             file.
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     .. code-block:: python
         :caption: Example
@@ -334,10 +344,11 @@ def log_model(
             ]
         )
         with mlflow.start_run() as run:
-            mlflow.keras.log_model(model, "model")
+            mlflow.keras.log_model(model, name="model")
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.keras,
         model=model,
         conda_env=conda_env,
@@ -350,4 +361,9 @@ def log_model(
         save_model_kwargs=save_model_kwargs,
         save_exported_model=save_exported_model,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )

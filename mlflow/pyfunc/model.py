@@ -68,6 +68,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
@@ -78,6 +79,7 @@ CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
 _DEFAULT_CHAT_AGENT_METADATA_TASK = "agent/v2/chat"
+_DEFAULT_RESPONSES_AGENT_METADATA_TASK = "agent/v1/responses"
 
 _logger = logging.getLogger(__name__)
 
@@ -280,7 +282,6 @@ class PythonModelContext:
         """
         return self._artifacts
 
-    @experimental
     @property
     def model_config(self):
         """
@@ -291,7 +292,6 @@ class PythonModelContext:
         return self._model_config
 
 
-@experimental
 class ChatModel(PythonModel, metaclass=ABCMeta):
     """
     .. tip::
@@ -536,7 +536,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
         with mlflow.start_run():
             logged_agent_info = mlflow.pyfunc.log_model(
-                artifact_path="agent",
+                name="agent",
                 python_model=os.path.join(os.getcwd(), "agent"),
                 # Add serving endpoints, tools, and vector search indexes here
                 resources=[],
@@ -566,7 +566,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
           :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` and
           :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` schemas
     - Metadata
-        - ``{“task”: “agent/v2/chat”}`` will be automatically appended to any metadata that you may
+        - ``{"task": "agent/v2/chat"}`` will be automatically appended to any metadata that you may
           pass in when logging the model
     - Input Example
         - Providng an input example is optional, ``mlflow.types.agent.CHAT_AGENT_INPUT_EXAMPLE``
@@ -781,6 +781,43 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
             "Streaming implementation not provided. Please override the "
             "`predict_stream` method on your model to generate streaming predictions"
         )
+
+
+if IS_PYDANTIC_V2_OR_NEWER:
+    from mlflow.types.responses import (
+        ResponsesAgentRequest,
+        ResponsesAgentResponse,
+        ResponsesAgentStreamEvent,
+    )
+
+    class ResponsesAgent(PythonModel, metaclass=ABCMeta):
+        _skip_type_hint_validation = True
+
+        def __init_subclass__(cls, **kwargs) -> None:
+            super().__init_subclass__(**kwargs)
+            for attr_name in ("predict", "predict_stream"):
+                attr = cls.__dict__.get(attr_name)
+                if callable(attr):
+                    setattr(
+                        cls,
+                        attr_name,
+                        wrap_non_list_predict_pydantic(
+                            attr,
+                            ResponsesAgentRequest,
+                            "Invalid dictionary input for a ResponsesAgent. "
+                            "Expected a dictionary with the ResponsesRequest schema.",
+                        ),
+                    )
+
+        @abstractmethod
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            pass
+
+        @abstractmethod
+        def predict_stream(
+            self, request: ResponsesAgentRequest
+        ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+            pass
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
@@ -1171,6 +1208,8 @@ def _get_pyfunc_loader_module(python_model):
         return mlflow.pyfunc.loaders.chat_model.__name__
     elif isinstance(python_model, ChatAgent):
         return mlflow.pyfunc.loaders.chat_agent.__name__
+    elif IS_PYDANTIC_V2_OR_NEWER and isinstance(python_model, ResponsesAgent):
+        return mlflow.pyfunc.loaders.responses_agent.__name__
     return __name__
 
 

@@ -6,11 +6,9 @@ from mlflow.metrics.genai.genai_metric import make_genai_metric
 from mlflow.metrics.genai.utils import _get_latest_metric_version
 from mlflow.models import EvaluationMetric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
 
 
-@experimental
 def answer_similarity(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
@@ -101,7 +99,6 @@ def answer_similarity(
     )
 
 
-@experimental
 def answer_correctness(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
@@ -193,7 +190,6 @@ def answer_correctness(
     )
 
 
-@experimental
 def faithfulness(
     model: Optional[str] = None,
     metric_version: Optional[str] = _get_latest_metric_version(),
@@ -282,7 +278,6 @@ def faithfulness(
     )
 
 
-@experimental
 def answer_relevance(
     model: Optional[str] = None,
     metric_version: Optional[str] = _get_latest_metric_version(),

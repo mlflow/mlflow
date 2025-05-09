@@ -47,7 +47,7 @@ The following table summarizes the different methods for logging models with the
         with mlflow.start_run():
             mlflow.transformers.log_model(
                 transformers_model=pipeline,
-                artifact_path="model",
+                name="model",
             )
         ```
       </td>
@@ -67,7 +67,7 @@ The following table summarizes the different methods for logging models with the
                 transformers_model="/path/to/local/checkpoint",
                 # Task argument is required for this saving mode.
                 task="text-generation",
-                artifact_path="model",
+                name="model",
             )
         ```
       </td>
@@ -90,7 +90,7 @@ The following table summarizes the different methods for logging models with the
         with mlflow.start_run():
             mlflow.transformers.log_model(
                 transformers_model=pipeline,
-                artifact_path="model",
+                name="model",
                 # Set save_pretrained to False to save storage space
                 save_pretrained=False,
             )
@@ -114,7 +114,7 @@ with mlflow.start_run():
         transformers_model="path/to/local/checkpoint",
         # Task argument is required for this saving mode.
         task="text-generation",
-        artifact_path="model",
+        name="model",
     )
 ```
 
@@ -160,7 +160,7 @@ pipeline = transformers.pipeline(
 with mlflow.start_run():
     mlflow.transformers.log_model(
         transformers_model=pipeline,
-        artifact_path="model",
+        name="model",
         # Set save_pretrained to False to save storage space
         save_pretrained=False,
     )
@@ -209,7 +209,7 @@ mlflow.set_registry_uri("databricks-uc")
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model="meta-llama/Meta-Llama-3.1-70B-Instruct",
-        artifact_path="model",
+        name="model",
     )
 
 # When registering the model to Unity Catalog Model Registry, MLflow will automatically
@@ -231,7 +231,7 @@ import mlflow
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model="meta-llama/Meta-Llama-3.1-70B-Instruct",
-        artifact_path="model",
+        name="model",
     )
 
 # Before registering the model to the non-UC model registry, persist the model weight

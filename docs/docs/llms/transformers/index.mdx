@@ -7,11 +7,6 @@ import { APILink } from "@site/src/components/APILink";
 
 # MLflow Transformers Flavor
 
-:::warning attention
-The `transformers` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
-subject to be added as additional functionality is brought to the flavor.
-:::
-
 ## Introduction
 
 **Transformers** by 🤗 [Hugging Face](https://huggingface.co/docs/transformers/index) represents a cornerstone in the realm of
@@ -188,7 +183,6 @@ These more advanced tutorials are designed to showcase different applications of
 
 When working with the transformers flavor in MLflow, there are several important considerations to keep in mind:
 
-- **Experimental Status**: The Transformers flavor in MLflow is marked as experimental, which means that APIs are subject to change, and new features may be added over time with potentially breaking changes.
 - **PyFunc Limitations**: Not all output from a Transformers pipeline may be captured when using the python_function flavor. For example, if additional references or scores are required from the output, the native implementation should be used instead. Also not all the pipeline types are supported for pyfunc. Please refer to [Loading a Transformers Model as a Python Function](/llms/transformers/guide#loading-a-transformers-model-as-a-python-function) for the supported pipeline types and their input and output format.
 - **Supported Pipeline Types**: Not all Transformers pipeline types are currently supported for use with the python_function flavor. In particular, new model architectures may not be supported until the transformers library has a designated pipeline type in its supported pipeline implementations.
 - **Input and Output Types**: The input and output types for the python_function implementation may differ from those expected from the native pipeline. Users need to ensure compatibility with their data processing workflows.

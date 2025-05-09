@@ -79,7 +79,7 @@ Then log the chain to MLflow and specify the prompt URL in the `prompts` paramet
 ```python
 with mlflow.start_run(run_name="summarizer-model"):
     mlflow.langchain.log_model(
-        chain, artifact_path="model", prompts=["prompts:/summarization-prompt/2"]
+        chain, name="model", prompts=["prompts:/summarization-prompt/2"]
     )
 ```
 
@@ -184,7 +184,7 @@ Specify the file path to the script in the `model` parameter:
 with mlflow.start_run():
     model_info = mlflow.langchain.log_model(
         lc_model="./chatbot.py",
-        artifact_path="graph",
+        name="graph",
     )
 ```
 

@@ -22,7 +22,7 @@ from tests.gateway.tools import (
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "openai",
             "name": "gpt-4o-mini",
@@ -207,7 +207,7 @@ async def test_chat_stream(resp):
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "openai",
             "name": "gpt-4-32k",
@@ -379,7 +379,7 @@ async def test_completions_stream(resp):
 def embedding_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "openai",
             "name": "text-embedding-ada-002",
@@ -523,7 +523,7 @@ async def test_embeddings_batch_input():
 def azure_config(api_type: str):
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "openai",
             "name": "gpt-4o-mini",
@@ -650,7 +650,7 @@ def test_openai_provider_can_be_constructed_with_valid_configs(
     )
     route_config = RouteConfig(
         name="completions",
-        route_type="llm/v1/completions",
+        endpoint_type="llm/v1/completions",
         model={
             "provider": "openai",
             "name": "text-davinci-003",

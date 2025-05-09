@@ -58,7 +58,7 @@ with mlflow.start_run() as run:
     # Log the sklearn model and register as version 1
     mlflow.sklearn.log_model(
         sk_model=model,
-        artifact_path="sklearn-model",
+        name="sklearn-model",
         input_example=X_train,
         registered_model_name="sk-learn-random-forest-reg-model",
     )
