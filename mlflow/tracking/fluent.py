@@ -2240,7 +2240,7 @@ def _create_logged_model(
 
 
 @experimental
-def finalize_logged_model(model_id: str, status: LoggedModelStatus) -> LoggedModel:
+def finalize_logged_model(model_id: str, status: Union[LoggedModelStatus, str]) -> LoggedModel:
     """
     Finalize a model by updating its status.
 
