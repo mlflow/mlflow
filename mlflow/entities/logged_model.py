@@ -57,7 +57,7 @@ class LoggedModel(_MlflowObject):
         return "LoggedModel({})".format(
             ", ".join(
                 f"{k}={v!r}"
-                for k, v in self
+                for k, v in sorted(self, key=lambda x: x[0])
                 if (
                     k
                     not in [
