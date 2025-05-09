@@ -584,9 +584,10 @@ class MlflowClient:
                 to retrieve the next page of results.  Defaults to `None`.
 
         Returns:
+
             :py:class:`Prompt <mlflow.entities.model_registry.Prompt>`:
-                A pageable list of :py:class:`Prompt <mlflow.entities.model_registry.Prompt>` 
-                entities representing prompt templates. Inspect the returned object's 
+                A pageable list of :py:class:`Prompt <mlflow.entities.model_registry.Prompt>`
+                entities representing prompt templates. Inspect the returned object's
                 `.token` attribute to fetch subsequent pages.
         """
         fls = f"tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
