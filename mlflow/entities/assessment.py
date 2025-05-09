@@ -215,11 +215,11 @@ class Expectation(_MlflowObject):
         if self._need_serialization():
             try:
                 serialized_value = json.dumps(self.value)
-            except Exception:
+            except Exception as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to serialize value {self.value} to JSON string. "
                     "Expectation value must be JSON-serializable."
-                )
+                ) from e
             return ProtoExpectation(
                 serialized_value=ProtoExpectation.SerializedValue(
                     serialization_format=_JSON_SERIALIZATION_FORMAT,
