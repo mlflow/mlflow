@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+import mlflow.genai.evaluation
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 
