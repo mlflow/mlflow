@@ -5220,7 +5220,9 @@ class MlflowClient:
         )
 
     @experimental
-    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
+    def finalize_logged_model(
+        self, model_id: str, status: Union[str, LoggedModelStatus]
+    ) -> LoggedModel:
         """
         Finalize a model by updating its status.
 
@@ -5231,7 +5233,9 @@ class MlflowClient:
         Returns:
             The updated model.
         """
-        return self._tracking_client.finalize_logged_model(model_id, status)
+        return self._tracking_client.finalize_logged_model(
+            model_id, LoggedModelStatus(status) if isinstance(status, str) else status
+        )
 
     @experimental
     def get_logged_model(self, model_id: str) -> LoggedModel:
