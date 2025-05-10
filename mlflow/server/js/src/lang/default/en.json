@@ -31,10 +31,6 @@
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
   },
-  "+iY2p8": {
-    "defaultMessage": "Custom",
-    "description": "Header for custom tracing tab in the MLflow Tracing quickstart guide"
-  },
   "+w9a+1": {
     "defaultMessage": "Open runs in this group in the new tab",
     "description": "Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
@@ -327,10 +323,6 @@
     "defaultMessage": "Chart view",
     "description": "Label for the table view toggle button in the logged model list page"
   },
-  "44f6Jl": {
-    "defaultMessage": "DSPy",
-    "description": "Header for DSPy tab in the MLflow Tracing quickstart guide"
-  },
   "46xd2Z": {
     "defaultMessage": "Compare",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Compare config section"
@@ -559,10 +551,6 @@
     "defaultMessage": "OK",
     "description": "Confirmation button text on the model version stage transition request/approval modal"
   },
-  "7UncLb": {
-    "defaultMessage": "LlamaIndex",
-    "description": "Header for LlamaIndex tab in the MLflow Tracing quickstart guide"
-  },
   "7WkP1e": {
     "defaultMessage": "Delete",
     "description": "Menu item to delete an experiment run"
@@ -702,10 +690,6 @@
   "9CqEWy": {
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
-  },
-  "9DDsiU": {
-    "defaultMessage": "Anthropic",
-    "description": "Header for Anthropic tab in the MLflow Tracing quickstart guide"
   },
   "9HXup+": {
     "defaultMessage": "Toggle visibility of runs",
@@ -1639,10 +1623,6 @@
     "defaultMessage": "Hide all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
   },
-  "QqY6kD": {
-    "defaultMessage": "Bedrock",
-    "description": "Header for Bedrock tab in the MLflow Tracing quickstart guide"
-  },
   "Qsgg+9": {
     "defaultMessage": "Experiment Name:",
     "description": "Row title for the experiment IDs of runs on the experiment compare runs page"
@@ -1742,10 +1722,6 @@
   "SrXYrV": {
     "defaultMessage": "Previewing the first {numRows} rows",
     "description": "Title for showing the number of rows in the parsed data preview"
-  },
-  "Sviop4": {
-    "defaultMessage": "Gemini",
-    "description": "Header for Gemini tab in the MLflow Tracing quickstart guide"
   },
   "SzapEm": {
     "defaultMessage": "Your models will appear here once you log them using newest version of MLflow. <link>Learn more</link>.",
@@ -2238,10 +2214,6 @@
   "ag05Pe": {
     "defaultMessage": "Refresh",
     "description": "refresh button text to refresh the experiment runs"
-  },
-  "aseJdC": {
-    "defaultMessage": "LangChain / LangGraph",
-    "description": "Header for LangChain / LangGraph tab in the MLflow Tracing quickstart guide"
   },
   "atcZM5": {
     "defaultMessage": "Status",
@@ -3011,10 +2983,6 @@
     "defaultMessage": "Close",
     "description": "Button for closing modal with the logged models quickstart example code"
   },
-  "n4m7x9": {
-    "defaultMessage": "OpenAI",
-    "description": "Header for OpenAI tab in the MLflow Tracing quickstart guide"
-  },
   "nC54Nf": {
     "defaultMessage": "Tags",
     "description": "Column title for model tags in the registered model page"
@@ -3030,10 +2998,6 @@
   "nPWZsh": {
     "defaultMessage": "Make sure that at least one experiment run is visible and available to compare",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > subtitle with the hint"
-  },
-  "nPqKse": {
-    "defaultMessage": "AutoGen",
-    "description": "Header for AutoGen tab in the MLflow Tracing quickstart guide"
   },
   "nQoUED": {
     "defaultMessage": "Step",
@@ -3142,10 +3106,6 @@
   "orKoPo": {
     "defaultMessage": "Delete",
     "description": "A label for the confirm button in the delete prompt version modal"
-  },
-  "ouTk0h": {
-    "defaultMessage": "LiteLLM",
-    "description": "Header for LiteLLM tab in the MLflow Tracing quickstart guide"
   },
   "owr9l2": {
     "defaultMessage": "No group by columns selected",
@@ -3411,6 +3371,50 @@
     "defaultMessage": "Custom expression",
     "description": "Experiment tracking > runs charts > line chart configuration > custom expression label"
   },
+  "traces.quickstart.tab.anthropic": {
+    "defaultMessage": "Anthropic",
+    "description": "Header for Anthropic tab in the MLflow Tracing quickstart guide"
+  },
+  "traces.quickstart.tab.autogen": {
+    "defaultMessage": "AutoGen",
+    "description": "Header for AutoGen tab in the MLflow Tracing quickstart guide"
+  },
+  "traces.quickstart.tab.bedrock": {
+    "defaultMessage": "Bedrock",
+    "description": "Header for Bedrock tab in the MLflow Tracing quickstart guide"
+  },
+  "traces.quickstart.tab.crewai": {
+    "defaultMessage": "CrewAI",
+    "description": "Header for CrewAI tab in the MLflow Tracing quickstart guide"
+  },
+  "traces.quickstart.tab.custom": {
+    "defaultMessage": "Custom",
+    "description": "Header for custom tracing tab in the MLflow Tracing quickstart guide"
+  },
+  "traces.quickstart.tab.dspy": {
+    "defaultMessage": "DSPy",
+    "description": "Header for DSPy tab in the MLflow Tracing quickstart guide"
+  },
+  "traces.quickstart.tab.gemini": {
+    "defaultMessage": "Gemini",
+    "description": "Header for Gemini tab in the MLflow Tracing quickstart guide"
+  },
+  "traces.quickstart.tab.langchain": {
+    "defaultMessage": "LangChain / LangGraph",
+    "description": "Header for LangChain / LangGraph tab in the MLflow Tracing quickstart guide"
+  },
+  "traces.quickstart.tab.litellm": {
+    "defaultMessage": "LiteLLM",
+    "description": "Header for LiteLLM tab in the MLflow Tracing quickstart guide"
+  },
+  "traces.quickstart.tab.llamaIndex": {
+    "defaultMessage": "LlamaIndex",
+    "description": "Header for LlamaIndex tab in the MLflow Tracing quickstart guide"
+  },
+  "traces.quickstart.tab.openai": {
+    "defaultMessage": "OpenAI",
+    "description": "Header for OpenAI tab in the MLflow Tracing quickstart guide"
+  },
   "ttyLD4": {
     "defaultMessage": "Okay",
     "description": "Experiment page > new notebook run modal > okay button label"
@@ -3502,10 +3506,6 @@
   "vPqFJE": {
     "defaultMessage": "Artifacts",
     "description": "Run details page > tab selector > artifacts tab"
-  },
-  "vUxxkd": {
-    "defaultMessage": "CrewAI",
-    "description": "Header for CrewAI tab in the MLflow Tracing quickstart guide"
   },
   "vaJYHp": {
     "defaultMessage": "At least one form field has incorrect value. Please correct and try again.",
