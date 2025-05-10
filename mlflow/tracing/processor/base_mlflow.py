@@ -26,11 +26,8 @@ from mlflow.tracing.utils import (
     maybe_get_logged_model_id,
     maybe_get_request_id,
 )
-from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
-from mlflow.tracking.context.git_context import GitRunContext
-from mlflow.tracking.context.registry import resolve_tags
+from mlflow.tracing.utils.environment import resolve_env_metadata
 from mlflow.tracking.fluent import _get_experiment_id, _get_latest_active_run, get_active_model_id
-from mlflow.utils.mlflow_tags import TRACE_RESOLVE_TAGS_ALLOWLIST
 
 _logger = logging.getLogger(__name__)
 
@@ -49,17 +46,7 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         self.span_exporter = span_exporter
         self._experiment_id = experiment_id
         self._trace_manager = InMemoryTraceManager.get_instance()
-
-        # Common environment metadata to be saved in the trace info. These should not
-        # change over time, so we resolve them once at the processor initialization.
-        # TODO: Update this to metadata field rather than tags in the follow-up,
-        #   because tags are designed for mutable values.
-        unfiltered_tags = resolve_tags(ignore=[DatabricksRepoRunContext, GitRunContext])
-        self._env_tags = {
-            key: value
-            for key, value in unfiltered_tags.items()
-            if key in TRACE_RESOLVE_TAGS_ALLOWLIST
-        }
+        self._env_metadata = resolve_env_metadata()
 
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
         """
@@ -136,7 +123,10 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         return _get_experiment_id()
 
     def _get_basic_trace_metadata(self) -> dict[str, Any]:
-        metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
+        metadata = {
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+            **self._env_metadata,
+        }
 
         # If the span is started within an active MLflow run, we should record it as a trace tag
         # Note `mlflow.active_run()` can only get thread-local active run,
@@ -158,7 +148,7 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         # If the trace is created in the context of MLflow model evaluation, we extract the request
         # ID from the prediction context. Otherwise, we create a new trace info by calling the
         # backend API.
-        tags = self._env_tags.copy()
+        tags = {}
         if request_id := maybe_get_request_id(is_evaluate=True):
             tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
         if dependencies_schema := maybe_get_dependencies_schemas():
