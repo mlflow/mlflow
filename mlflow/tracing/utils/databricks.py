@@ -16,7 +16,6 @@ def get_full_traces_databricks(trace_infos: list[TraceInfo]):
     databricks_client = WorkspaceClient()
     databricks_auth_headers = databricks_client.config.authenticate()
 
-    # TODO: Replace with Tmpdir util to clean up directory?
     dst_dir = tempfile.mkdtemp()
     with open(os.path.join(dst_dir, "trace_ids.json"), "w") as f:
         f.write(json.dumps([trace_info.request_id for trace_info in trace_infos]))
