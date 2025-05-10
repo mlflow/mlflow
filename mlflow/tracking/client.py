@@ -931,6 +931,56 @@ class MlflowClient:
             sql_warehouse_id=sql_warehouse_id,
         )
 
+    def search_traces_databricks(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+        run_id: Optional[str] = None,
+        include_spans: bool = True,
+        model_id: Optional[str] = None,
+    ):
+        """
+        Return traces that match the given list of search expressions within the experiments.
+        This API is more performant than the standard search_traces API and is recommended for use
+        on Databricks.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            max_results: Maximum number of traces desired.
+            order_by: List of order_by clauses.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_traces`` call.
+            run_id: A run id to scope the search. When a trace is created under an active run,
+                it will be associated with the run and you can filter on the run id to retrieve
+                the trace.
+            include_spans: If ``True``, include spans in the returned traces. Otherwise, only
+                the trace metadata is returned, e.g., trace ID, start time, end time, etc,
+                without any spans.
+            model_id: If specified, return traces associated with the model ID.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`Trace <mlflow.entities.Trace>` objects that satisfy the search
+            expressions. If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object; however,
+            some store implementations may not support pagination and thus the returned token would
+            not be meaningful in such cases.
+        """
+        return self._tracing_client.search_traces_databricks(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+            run_id=run_id,
+            include_spans=include_spans,
+            model_id=model_id,
+        )
+
     def start_trace(
         self,
         name: str,
