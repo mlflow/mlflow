@@ -52,6 +52,8 @@ def download_trace(trace_id, databricks_host, databricks_auth_headers):
         data_response.raise_for_status()  # Raise an error for bad responses
         return {"trace_id": trace_id, "trace_data": data_response.json()}
     except Exception as e:
+        if "429" in str(e):
+            return download_trace(trace_id, databricks_host, databricks_auth_headers)
         logger.warning(f"Exception while downloading trace {trace_id}: {e}")
 
 
