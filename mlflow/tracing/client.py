@@ -401,7 +401,7 @@ class TracingClient:
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
         model_id: Optional[str] = None,
-    ):
+    ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
         This API is more performant than the standard search_traces API and is recommended for use
@@ -443,9 +443,10 @@ class TracingClient:
             include_spans=False,
             model_id=model_id,
         )
-        return get_full_traces_databricks(
+        full_traces = get_full_traces_databricks(
             trace_infos=[trace.info for trace in traces_without_spans],
         )
+        return PagedList(full_traces, traces_without_spans.token)
 
     def set_trace_tags(self, request_id, tags):
         """

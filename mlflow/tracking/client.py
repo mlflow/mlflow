@@ -940,7 +940,7 @@ class MlflowClient:
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
         model_id: Optional[str] = None,
-    ):
+    ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
         This API is more performant than the standard search_traces API and is recommended for use
