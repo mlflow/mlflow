@@ -6,7 +6,6 @@ import mlflow.genai
 from mlflow.genai.scorers import (
     chunk_relevance,
     context_sufficiency,
-    document_recall,
     global_guideline_adherence,
     groundedness,
     guideline_adherence,
@@ -27,7 +26,6 @@ def normalize_config(config):
 ALL_SCORERS = [
     chunk_relevance(),
     context_sufficiency(),
-    document_recall(),
     groundedness(),
     guideline_adherence(),
     global_guideline_adherence(["Be polite", "Be kind"]),
@@ -40,7 +38,6 @@ expected = {
         "metrics": [
             "chunk_relevance",
             "context_sufficiency",
-            "document_recall",
             "groundedness",
             "guideline_adherence",
             "relevance_to_query",
@@ -101,7 +98,6 @@ def test_evaluate_parameters():
     [
         (chunk_relevance(), "chunk_relevance"),
         (context_sufficiency(), "context_sufficiency"),
-        (document_recall(), "document_recall"),
         (groundedness(), "groundedness"),
         (guideline_adherence(), "guideline_adherence"),
         (relevance_to_query(), "relevance_to_query"),
