@@ -5,11 +5,11 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.genai import scorer
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
 )
-from mlflow.genai.scorers import scorer
 
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
