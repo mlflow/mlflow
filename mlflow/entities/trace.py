@@ -109,18 +109,16 @@ class Trace(_MlflowObject):
         return {
             "trace_id": self.info.trace_id,
             "trace": self,
-            "timestamp_ms": self.info.timestamp_ms,
-            "status": self.info.status,
-            "execution_time_ms": self.info.execution_time_ms,
+            "client_request_id": self.info.client_request_id,
+            "state": self.info.state,
+            "request_time": self.info.request_time,
+            "execution_duration": self.info.execution_duration,
             "request": self._deserialize_json_attr(self.data.request),
             "response": self._deserialize_json_attr(self.data.response),
-            "request_metadata": self.info.request_metadata,
-            "spans": [span.to_dict() for span in self.data.spans],
+            "trace_metadata": self.info.trace_metadata,
             "tags": self.info.tags,
+            "spans": [span.to_dict() for span in self.data.spans],
             "assessments": self.info.assessments,
-            # For backward compatibility, we need to keep the old "request_id" field
-            # Ref: https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
-            "request_id": self.info.request_id,
         }
 
     def _deserialize_json_attr(self, value: str):
@@ -233,16 +231,16 @@ class Trace(_MlflowObject):
         return [
             "trace_id",
             "trace",
-            "timestamp_ms",
-            "status",
-            "execution_time_ms",
+            "client_request_id",
+            "state",
+            "request_time",
+            "execution_duration",
             "request",
             "response",
-            "request_metadata",
-            "spans",
+            "trace_metadata",
             "tags",
+            "spans",
             "assessments",
-            "request_id",
         ]
 
     def to_proto(self):

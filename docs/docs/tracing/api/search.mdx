@@ -187,20 +187,44 @@ The `return_type` parameter is only available in MLflow version 2.21.1 and later
 API will always return a Pandas DataFrame. To get a list of Trace objects, you can use the <APILink fn="mlflow.client.MlflowClient.search_traces">`MlflowClient.search_traces()`</APILink> API instead.
 :::
 
-#### DataFrame Schema
+### DataFrame Schema
 
-When using `return_type="pandas"` (default), the returned DataFrame includes these columns:
+When using `return_type="pandas"` (default), MLflow returns the retrieved traces as a Pandas DataFrame, where
+each row corresponds to a single trace. The DataFrame format has changed between MLflow 2.x and 3.x.
 
-- **trace_id**: A primary identifier of a trace
-- **trace**: A trace object
-- **timestamp_ms**: The start time of the trace in milliseconds
-- **status**: The status of the trace
-- **execution_time_ms**: The duration of the trace in milliseconds
-- **request**: The input to the traced logic
-- **response**: The output of the traced logic
-- **request_metadata**: Key-value pairs associated with the trace
-- **spans**: Spans in the trace
-- **tags**: Tags associated with the trace
+<Tabs>
+  <TabItem value="3.x" label="MLflow 3.x">
+    - **trace_id**: A primary identifier of a trace
+    - **trace**: A trace object
+    - **client_request_id**: Client supplied request ID associated with the trace.
+    - **state**: State of the trace, can be one of [`OK`, `ERROR`, `IN_PROGRESS`, `STATE_UNSPECIFIED`].
+    - **request_time**: The start time of the trace in milliseconds
+    - **execution_duration**: The duration of the trace in milliseconds
+    - **request**: The input to the traced logic
+    - **response**: The output of the traced logic
+    - **trace_metadata**: Key-value pairs associated with the trace
+    - **spans**: List of spans in the trace
+    - **tags**: List of assessments associated with the trace.
+  </TabItem>
+  <TabItem value="2.x" label="MLflow 2.x">
+    - **request_id**: A primary identifier of a trace
+    - **trace**: A trace object
+    - **timestamp_ms**: The start time of the trace in milliseconds
+    - **status**: The status of the trace
+    - **execution_time_ms**: The duration of the trace in milliseconds
+    - **request**: The input to the traced logic
+    - **response**: The output of the traced logic
+    - **request_metadata**: Key-value pairs associated with the trace
+    - **spans**: Spans in the trace
+    - **tags**: Tags associated with the trace
+  </TabItem>
+</Tabs>
+
+:::note
+The format of the DataFrame depends on the MLflow version when you call the `search_traces` API,
+**not** the version used for logging the traces. For example, if you log traces using MLflow 2.x
+and then query them using MLflow 3.x, the DataFrame will be returned in the MLflow 3.x schema.
+:::
 
 ### Order Traces
 
