@@ -4,17 +4,22 @@ from unittest.mock import patch
 
 import pandas as pd
 import pytest
+from packaging.version import Version
 
 import mlflow
-from mlflow.evaluation import Assessment
+from mlflow.entities import Assessment
+from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.genai import Scorer, scorer
 from mlflow.genai.evaluation.utils import _convert_scorer_to_legacy_metric
-from mlflow.genai.scorers import Scorer, scorer
 from mlflow.models import Model
 from mlflow.models.evaluation.base import _get_model_from_function
 from mlflow.pyfunc import PyFuncModel
 
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
+
+agent_sdk_version = Version(importlib.import_module("databricks.agents").__version__)
 
 
 def mock_init_auth(config_instance):
@@ -208,24 +213,39 @@ def test_trace_passed_correctly():
         42.0,
         Assessment(
             name="big_question",
-            value=42,
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="123"),
+            feedback=Feedback(value=42),
             rationale="It's the answer to everything",
         ),
         [
             Assessment(
                 name="big_question",
-                value=42,
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.LLM_JUDGE, source_id="judge_1"
+                ),
+                feedback=Feedback(value=42),
                 rationale="It's the answer to everything",
             ),
             Assessment(
                 name="small_question",
-                value=-1,
+                feedback=Feedback(value=1),
                 rationale="Not sure, just a guess",
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.LLM_JUDGE, source_id="judge_2"
+                ),
             ),
         ],
     ],
 )
 def test_scorer_on_genai_evaluate(sample_new_data, scorer_return):
+    # Skip if `databricks-agents` SDK is not 1.x. It doesn't
+    # support the `mlflow.entities.Assessment` type.
+    is_return_assessment = isinstance(scorer_return, Assessment) or (
+        isinstance(scorer_return, list) and isinstance(scorer_return[0], Assessment)
+    )
+    if is_return_assessment and agent_sdk_version.major < 1:
+        pytest.skip("Skipping test for assessment return type")
+
     @scorer
     def dummy_scorer(inputs, outputs):
         return scorer_return
@@ -250,9 +270,9 @@ def test_scorer_on_genai_evaluate(sample_new_data, scorer_return):
             scorer_return_values = set()
             if isinstance(scorer_return, list):
                 for _assessment in scorer_return:
-                    scorer_return_values.add(_assessment.value)
+                    scorer_return_values.add(_assessment.feedback.value)
             elif isinstance(scorer_return, Assessment):
-                scorer_return_values.add(scorer_return.value)
+                scorer_return_values.add(scorer_return.feedback.value)
             else:
                 scorer_return_values.add(scorer_return)
 

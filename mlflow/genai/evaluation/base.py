@@ -14,6 +14,7 @@ from mlflow.models.evaluation.base import (
     _get_model_from_deployment_endpoint_uri,
     _is_model_deployment_endpoint_uri,
 )
+from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
     from genai.evaluation.utils import EvaluationDatasetTypes
@@ -102,7 +103,7 @@ def evaluate(
             "Please install it with `pip install databricks-agents`."
         )
 
-    if mlflow.get_tracking_uri() != "databricks":
+    if not is_databricks_uri(mlflow.get_tracking_uri()):
         raise ValueError(
             "The genai evaluation function is only supported on Databricks. "
             "Please set the tracking URI to Databricks."
