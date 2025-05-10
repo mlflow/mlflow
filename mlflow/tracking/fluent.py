@@ -12,7 +12,7 @@ import os
 import threading
 from contextvars import ContextVar
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Generator, Optional, Union
 
 import mlflow
 from mlflow.entities import (
@@ -2131,6 +2131,23 @@ def initialize_logged_model(
     return model
 
 
+@contextlib.contextmanager
+def _use_logged_model(model: LoggedModel) -> Generator[LoggedModel, None, None]:
+    """
+    Context manager to wrap a LoggedModel and update the model
+    status after the context is exited.
+    If any exception occurs, the model status is set to FAILED.
+    Otherwise, it is set to READY.
+    """
+    try:
+        yield model
+    except Exception:
+        finalize_logged_model(model.model_id, LoggedModelStatus.FAILED)
+        raise
+    else:
+        finalize_logged_model(model.model_id, LoggedModelStatus.READY)
+
+
 def create_external_model(
     name: Optional[str] = None,
     source_run_id: Optional[str] = None,
@@ -2240,7 +2257,7 @@ def _create_logged_model(
 
 
 @experimental
-def finalize_logged_model(model_id: str, status: LoggedModelStatus) -> LoggedModel:
+def finalize_logged_model(model_id: str, status: Union[str, LoggedModelStatus]) -> LoggedModel:
     """
     Finalize a model by updating its status.
 
@@ -2432,16 +2449,29 @@ def search_logged_models(
             page_token=page_token,
         )
         models.extend(logged_models_page.to_list())
+        if max_results is not None and len(models) >= max_results:
+            break
         if not logged_models_page.token:
             break
         page_token = logged_models_page.token
+
+    # Only return at most max_results logged models if specified
+    if max_results is not None:
+        models = models[:max_results]
 
     if output_format == "list":
         return models
     elif output_format == "pandas":
         import pandas as pd
 
-        return pd.DataFrame([model.to_dictionary() for model in models])
+        model_dicts = []
+        for model in models:
+            model_dict = model.to_dictionary()
+            # Convert the status back from int to the enum string
+            model_dict["status"] = LoggedModelStatus.from_int(model_dict["status"])
+            model_dicts.append(model_dict)
+
+        return pd.DataFrame(model_dicts)
 
     else:
         raise MlflowException(

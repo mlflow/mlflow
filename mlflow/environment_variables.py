@@ -684,6 +684,12 @@ MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
     "MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING", True
 )
 
+#: Specifies the artifact compression method used when logging a model
+#: allowed values are "lzma", "bzip2" and "gzip"
+#: (default: ``None``, indicating no compression)
+MLFLOW_LOG_MODEL_COMPRESSION = _EnvironmentVariable("MLFLOW_LOG_MODEL_COMPRESSION", str, None)
+
+
 # Specifies whether to convert a {"messages": [{"role": "...", "content": "..."}]} input
 # to a List[BaseMessage] object when invoking a PyFunc model saved with langchain flavor.
 # This takes precedence over the default behavior of trying such conversion if the model

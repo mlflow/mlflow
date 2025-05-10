@@ -4825,8 +4825,8 @@ def test_finalize_logged_model(store: SqlAlchemyStore):
     store.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
     assert store.get_logged_model(model.model_id).status == LoggedModelStatus.READY
 
-    with pytest.raises(MlflowException, match="Invalid model status: UNSPECIFIED"):
-        store.finalize_logged_model(model.model_id, status=LoggedModelStatus.UNSPECIFIED)
+    store.finalize_logged_model(model.model_id, status=LoggedModelStatus.FAILED)
+    assert store.get_logged_model(model.model_id).status == LoggedModelStatus.FAILED
 
     with pytest.raises(MlflowException, match="not found"):
         store.finalize_logged_model("does-not-exist", status=LoggedModelStatus.READY)

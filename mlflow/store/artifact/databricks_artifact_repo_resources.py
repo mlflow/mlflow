@@ -1,6 +1,6 @@
 import posixpath
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Optional
 
@@ -41,7 +41,7 @@ class HttpHeader:
 class ArtifactCredentialInfo:
     signed_uri: str
     type: Any
-    headers: list[HttpHeader]
+    headers: list[HttpHeader] = field(default_factory=list)
 
 
 @dataclass
@@ -64,9 +64,13 @@ class _Resource(ABC):
     def __init__(self, id_: str, artifact_uri: str, call_endpoint: Callable[..., Any]):
         self.id = id_
         self.artifact_uri = artifact_uri
-        self.call_endpoint = call_endpoint
+        self._call_endpoint = call_endpoint
         self._artifact_root = None
         self._relative_path = None
+
+    @property
+    def call_endpoint(self) -> Callable[..., Any]:
+        return self._call_endpoint
 
     @property
     def artifact_root(self) -> str:
@@ -234,7 +238,10 @@ class _Run(_Resource):
         path: Optional[str] = None,
         page_token: Optional[str] = None,
     ) -> ListArtifactsPage:
-        json_body = message_to_json(ListArtifacts(run_id=self.id, path=path, page_token=page_token))
+        path = posixpath.join(self.relative_path, path) if path else self.relative_path
+        json_body = message_to_json(
+            ListArtifacts(run_id=self.id, path=path, page_token=page_token),
+        )
         response = self.call_endpoint(MlflowService, ListArtifacts, json_body)
         files = response.files
         # If `path` is a file, ListArtifacts returns a single list element with the

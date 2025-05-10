@@ -1145,7 +1145,7 @@ def test_search_traces_with_run_id():
     def _create_trace(name, tags=None):
         with mlflow.start_span(name=name) as span:
             for k, v in (tags or {}).items():
-                TracingClient().set_trace_tag(request_id=span.request_id, key=k, value=v)
+                mlflow.set_trace_tag(trace_id=span.request_id, key=k, value=v)
         return span.request_id
 
     def _get_names(traces):
@@ -1178,6 +1178,9 @@ def test_search_traces_with_run_id():
             run_id=run2.info.run_id,
             filter_string="metadata.mlflow.sourceRun = '123'",
         )
+
+    with pytest.raises(MlflowException, match=f"Run {run1.info.run_id} belongs to"):
+        mlflow.search_traces(run_id=run1.info.run_id, experiment_ids=["1"])
 
 
 @pytest.mark.parametrize(
@@ -1590,3 +1593,25 @@ def test_log_trace_success(inputs, outputs, intermediate_outputs):
     assert root_span.name == "test"
     assert root_span.start_time_ns == start_time_ms * 1000000
     assert root_span.end_time_ns == (start_time_ms + execution_time_ms) * 1000000
+
+
+def test_set_delete_trace_tag():
+    with mlflow.start_span("span1") as span:
+        trace_id = span.trace_id
+
+    mlflow.set_trace_tag(trace_id=trace_id, key="key1", value="value1")
+    trace = mlflow.get_trace(trace_id=trace_id)
+    assert trace.info.tags["key1"] == "value1"
+
+    mlflow.delete_trace_tag(trace_id=trace_id, key="key1")
+    trace = mlflow.get_trace(trace_id=trace_id)
+    assert "key1" not in trace.info.tags
+
+    # Test with request_id kwarg (backward compatibility)
+    mlflow.set_trace_tag(request_id=trace_id, key="key3", value="value3")
+    trace = mlflow.get_trace(request_id=trace_id)
+    assert trace.info.tags["key3"] == "value3"
+
+    mlflow.delete_trace_tag(request_id=trace_id, key="key3")
+    trace = mlflow.get_trace(request_id=trace_id)
+    assert "key3" not in trace.info.tags

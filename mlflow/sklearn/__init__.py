@@ -1585,7 +1585,7 @@ def _autolog(  # noqa: D417
                 }
             if logged_model := _log_model_with_except_handling(
                 estimator,
-                "model",
+                name="model",
                 signature=signature,
                 input_example=input_example,
                 serialization_format=serialization_format,
@@ -1629,7 +1629,7 @@ def _autolog(  # noqa: D417
                 best_estimator_params = estimator.best_estimator_.get_params(deep=True)
                 if model_info := _log_model_with_except_handling(
                     estimator.best_estimator_,
-                    "best_estimator",
+                    name="best_estimator",
                     signature=signature,
                     input_example=input_example,
                     serialization_format=serialization_format,

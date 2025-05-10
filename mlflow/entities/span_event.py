@@ -21,7 +21,7 @@ class SpanEvent(_MlflowObject):
 
     Args:
         name: Name of the event.
-        timestamp:  The exact time the event occurred, measured in microseconds.
+        timestamp:  The exact time the event occurred, measured in nanoseconds.
             If not provided, the current time will be used.
         attributes: A collection of key-value pairs representing detailed
             attributes of the event, such as the exception stack trace.
