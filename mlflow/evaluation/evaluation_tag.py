@@ -4,8 +4,10 @@ IN NEW CODE. INSTEAD, USE `mlflow/entities/assessment.py` FOR ASSESSMENT CLASSES
 """
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.utils.annotations import deprecated
 
 
+@deprecated(since="3.0.0")
 class EvaluationTag(_MlflowObject):
     """Key-value tag associated with an evaluation."""
 
