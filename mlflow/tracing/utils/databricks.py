@@ -47,6 +47,7 @@ def get_full_traces_databricks(trace_infos: list[TraceInfo]):
         if trace_data is not None:
             trace_data = TraceData.from_dict(trace_data)
         else:
+            trace_data = TraceData()
             _logger.warning(
                 f"Trace data not found for trace ID {trace_info.request_id}. "
                 "This may indicate a failure in the download process."
