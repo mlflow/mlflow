@@ -2087,6 +2087,7 @@ def test_search_prompt_multiple_versions(tracking_uri):
     versions = sorted([mv.version for mv in prompt.latest_versions])
     assert versions == [2]
 
+
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment_id = client.create_experiment("test")
@@ -2130,4 +2131,3 @@ def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
     ]
     artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="dir")
     assert artifacts == [FileInfo(path="dir/another_file", is_dir=False, file_size=2)]
-
