@@ -44,7 +44,9 @@ def sample_dict_data_single():
     return [
         {
             "inputs": "What is the difference between reduceByKey and groupByKey in Spark?",
-            "outputs": {"choices": [{"message": {"content": "response"}}]},
+            "outputs": {
+                "choices": [{"message": {"content": "actual response for first question"}}]
+            },
             "expectations": "expected response for first question",
         },
     ]
@@ -55,7 +57,9 @@ def sample_dict_data_multiple():
     return [
         {
             "inputs": "What is the difference between reduceByKey and groupByKey in Spark?",
-            "outputs": {"choices": [{"message": {"content": "response"}}]},
+            "outputs": {
+                "choices": [{"message": {"content": "actual response for first question"}}]
+            },
             "expectations": "expected response for first question",
             # Additional columns required by the judges
             "retrieved_context": [
@@ -75,7 +79,9 @@ def sample_dict_data_multiple():
                     {"role": "user", "content": "How can you minimize data shuffling in Spark?"}
                 ]
             },
-            "outputs": {"choices": [{"message": {"content": "response"}}]},
+            "outputs": {
+                "choices": [{"message": {"content": "actual response for second question"}}]
+            },
             "expectations": "expected response for second question",
             "retrieved_context": [],
         },

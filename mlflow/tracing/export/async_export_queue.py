@@ -14,6 +14,7 @@ from mlflow.environment_variables import (
 
 _logger = logging.getLogger(__name__)
 
+
 @dataclass
 class Task:
     """A dataclass to represent a simple task."""
