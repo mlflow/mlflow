@@ -20,7 +20,7 @@ REQUEST_TIMEOUT = 120
 
 
 def download_trace(trace_id, databricks_host, databricks_auth_headers):
-    url_path = f"/api/3.0/mlflow/traces/{trace_id}/download"
+    url_path = f"/api/3.0/mlflow/traces/{trace_id}/credentials-for-data-download"
     url = f"{databricks_host.lstrip('/')}{url_path}"
 
     session = requests.Session()
