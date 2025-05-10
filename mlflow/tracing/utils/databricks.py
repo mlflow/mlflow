@@ -19,7 +19,7 @@ def get_full_traces_databricks(trace_infos: list[TraceInfo]):
         f.write(json.dumps([trace_info.request_id for trace_info in trace_infos]))
 
     download_trace_spans_databricks_script_path = os.path.join(
-        __file__, "download_trace_spans_databricks.py"
+        os.path.dirname(__file__), "download_trace_spans_databricks.py"
     )
     proc = subprocess.Popen(
         [
