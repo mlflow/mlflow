@@ -33,7 +33,7 @@ def download_trace(trace_id, databricks_host, databricks_auth_headers):
         "https://",
         HTTPAdapter(
             max_retries=Retry(
-                total=10, backoff_factor=0.25, status_forcelist=TRANSIENT_FAILURE_RESPONSE_CODES
+                total=8, backoff_factor=0.25, status_forcelist=TRANSIENT_FAILURE_RESPONSE_CODES
             )
         ),
     )
