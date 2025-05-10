@@ -597,3 +597,37 @@ def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch):
     assert info.image_version == "15.4"
     assert info.runtime_version == "15.4"
     assert info.platform_machine == platform.machine()
+
+
+def test_construct_databricks_uc_registered_model_url():
+    # Test case with workspace ID
+    workspace_url = "https://databricks.com"
+    registered_model_name = "name.mlflow.echo_model"
+    version = "6"
+    workspace_id = "123"
+
+    expected_url = (
+        "https://databricks.com/explore/data/models/name/mlflow/echo_model/version/6?o=123"
+    )
+
+    result = databricks_utils._construct_databricks_uc_registered_model_url(
+        workspace_url=workspace_url,
+        registered_model_name=registered_model_name,
+        version=version,
+        workspace_id=workspace_id,
+    )
+
+    assert result == expected_url
+
+    # Test case without workspace ID
+    expected_url_no_workspace = (
+        "https://databricks.com/explore/data/models/name/mlflow/echo_model/version/6"
+    )
+
+    result_no_workspace = databricks_utils._construct_databricks_uc_registered_model_url(
+        workspace_url=workspace_url,
+        registered_model_name=registered_model_name,
+        version=version,
+    )
+
+    assert result_no_workspace == expected_url_no_workspace
