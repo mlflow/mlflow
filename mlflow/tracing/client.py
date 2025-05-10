@@ -26,6 +26,7 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
@@ -446,6 +447,7 @@ class TracingClient:
         full_traces = get_full_traces_databricks(
             trace_infos=[trace.info for trace in traces_without_spans],
         )
+        get_display_handler().display_traces(full_traces)
         return PagedList(full_traces, traces_without_spans.token)
 
     def set_trace_tags(self, request_id, tags):
