@@ -243,7 +243,7 @@ def test_scorer_on_genai_evaluate(sample_new_data, scorer_return):
     is_return_assessment = isinstance(scorer_return, Assessment) or (
         isinstance(scorer_return, list) and isinstance(scorer_return[0], Assessment)
     )
-    if is_return_assessment and not agent_sdk_version.major < 1:
+    if is_return_assessment and agent_sdk_version.major < 1:
         pytest.skip("Skipping test for assessment return type")
 
     @scorer
