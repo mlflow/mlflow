@@ -400,7 +400,6 @@ class TracingClient:
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         run_id: Optional[str] = None,
-        include_spans: bool = True,
         model_id: Optional[str] = None,
     ):
         """
@@ -418,9 +417,6 @@ class TracingClient:
             run_id: A run id to scope the search. When a trace is created under an active run,
                 it will be associated with the run and you can filter on the run id to retrieve
                 the trace.
-            include_spans: If ``True``, include spans in the returned traces. Otherwise, only
-                the trace metadata is returned, e.g., trace ID, start time, end time, etc,
-                without any spans.
             model_id: If specified, return traces associated with the model ID.
 
         Returns:
