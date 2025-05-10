@@ -44,7 +44,12 @@ const serializePersistedState = async (state: ShareableViewState) => {
   return JSON.stringify(state);
 };
 
-const getShareableUrl = (experimentId: string, shareStateHash: string, viewMode?: ExperimentViewRunsCompareMode) => {
+const getShareableUrl = (
+  experimentId: string,
+  shareStateHash: string,
+  viewMode?: ExperimentViewRunsCompareMode,
+  searchFilter?: string,
+) => {
   // As a start, get the route
   const route = Routes.getExperimentPageRoute(experimentId);
 
@@ -57,6 +62,10 @@ const getShareableUrl = (experimentId: string, shareStateHash: string, viewMode?
   // If the view mode is set, add it to the query params
   if (viewMode) {
     queryParams.set(EXPERIMENT_PAGE_VIEW_MODE_QUERY_PARAM_KEY, viewMode);
+  }
+  // If a search filter is provided, add it as "searchExperiment".
+  if (searchFilter) {
+    queryParams.set('searchExperiment', searchFilter);
   }
 
   // In regular implementation, build the hash part of the URL
@@ -107,8 +116,11 @@ export const ExperimentGetShareLinkModal = ({
 
         setLinkInProgress(false);
         setGeneratedState(state);
-
-        setSharedStateUrl(getShareableUrl(experimentId, hash, viewMode));
+        // Retrieve the search filter.
+        // First, check if it's in the merged state; if not, try the URL.
+        const searchFilter =
+          (state as any).searchExperiment || new URLSearchParams(window.location.href).get('searchExperiment') || '';
+        setSharedStateUrl(getShareableUrl(experimentId, hash, viewMode, searchFilter));
       } catch (e) {
         Utils.logErrorAndNotifyUser('Failed to create shareable link for experiment');
         throw e;
