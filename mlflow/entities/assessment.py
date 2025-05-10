@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass
 from typing import Any, Optional, Union
@@ -17,7 +18,7 @@ from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
 from mlflow.utils.annotations import experimental
 
-# Assessment value should be one of the following types:
+# Feedback value should be one of the following types:
 # - float
 # - int
 # - str
@@ -25,7 +26,7 @@ from mlflow.utils.annotations import experimental
 # - list of values of the same types as above
 # - dict with string keys and values of the same types as above
 PbValueType = Union[float, int, str, bool]
-AssessmentValueType = Union[PbValueType, dict[str, PbValueType], list[PbValueType]]
+FeedbackValueType = Union[PbValueType, dict[str, PbValueType], list[PbValueType]]
 
 
 @experimental
@@ -194,22 +195,51 @@ class Assessment(_MlflowObject):
         )
 
 
+_JSON_SERIALIZATION_FORMAT = "JSON_FORMAT"
+
+
 @experimental
 @dataclass
 class Expectation(_MlflowObject):
     """
     Represents an expectation about the output of an operation, such as the expected response
     that a generative AI application should provide to a particular user query.
+
+    Args:
+        value: The expected value of the operation. This can be any JSON-serializable value.
     """
 
-    value: AssessmentValueType
+    value: Any
 
     def to_proto(self):
+        if self._need_serialization():
+            try:
+                serialized_value = json.dumps(self.value)
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to serialize value {self.value} to JSON string. "
+                    "Expectation value must be JSON-serializable."
+                ) from e
+            return ProtoExpectation(
+                serialized_value=ProtoExpectation.SerializedValue(
+                    serialization_format=_JSON_SERIALIZATION_FORMAT,
+                    value=serialized_value,
+                )
+            )
+
         return ProtoExpectation(value=ParseDict(self.value, Value()))
 
     @classmethod
     def from_proto(cls, proto) -> "Expectation":
-        return cls(value=MessageToDict(proto.value))
+        if proto.HasField("serialized_value"):
+            if proto.serialized_value.serialization_format != _JSON_SERIALIZATION_FORMAT:
+                raise MlflowException.invalid_parameter_value(
+                    f"Unknown serialization format: {proto.serialized_value.serialization_format}. "
+                    "Only JSON_FORMAT is supported."
+                )
+            return cls(value=json.loads(proto.serialized_value.value))
+        else:
+            return cls(value=MessageToDict(proto.value))
 
     def to_dictionary(self):
         return {"value": self.value}
@@ -217,6 +247,10 @@ class Expectation(_MlflowObject):
     @classmethod
     def from_dictionary(cls, d):
         return cls(d["value"])
+
+    def _need_serialization(self):
+        # Values like None, lists, dicts, should be serialized as a JSON string
+        return self.value is not None and not isinstance(self.value, (int, float, bool, str))
 
 
 @experimental
@@ -226,9 +260,20 @@ class Feedback(_MlflowObject):
     Represents feedback about the output of an operation. For example, if the response from a
     generative AI application to a particular user query is correct, then a human or LLM judge
     may provide feedback with the value ``"correct"``.
+
+    Args:
+        value: The feedback value. This can be one of the following types:
+            - float
+            - int
+            - str
+            - bool
+            - list of values of the same types as above
+            - dict with string keys and values of the same types as above
+        error: An optional error associated with the feedback. This is used to indicate
+            that the feedback is not valid or cannot be processed.
     """
 
-    value: AssessmentValueType
+    value: FeedbackValueType
     error: Optional[AssessmentError] = None
 
     def to_proto(self):

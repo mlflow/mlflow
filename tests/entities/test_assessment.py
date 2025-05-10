@@ -1,3 +1,4 @@
+import json
 import time
 
 import pytest
@@ -11,6 +12,7 @@ from mlflow.entities.assessment import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
+from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 
 
@@ -174,6 +176,7 @@ def test_assessment_value_validation():
     ("expectation", "feedback"),
     [
         (Expectation("MLflow"), None),
+        (Expectation({"complex": {"expectation": ["structure"]}}), None),
         (None, Feedback("This is correct.")),
         (None, Feedback(None, AssessmentError(error_code="E001"))),
         (
@@ -232,7 +235,71 @@ def test_assessment_conversion(expectation, feedback, source, metadata):
     assert dict.get("metadata") == metadata
 
     if expectation:
-        assert dict["expectation"] == {"value": expectation.value}
+        if isinstance(expectation.value, str):
+            assert dict["expectation"] == {"value": expectation.value}
+        else:
+            assert dict["expectation"] == {
+                "serialized_value": {
+                    "value": json.dumps(expectation.value),
+                    "serialization_format": "JSON_FORMAT",
+                }
+            }
 
     if feedback:
         assert dict["feedback"] == feedback.to_dictionary()
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "MLflow",  # string
+        42,  # integer
+        3.14,  # float
+        True,  # boolean
+    ],
+    ids=["string", "integer", "float", "boolean"],
+)
+def test_expectation_proto_conversion(value):
+    expectation = Expectation(value)
+    proto = expectation.to_proto()
+    assert isinstance(proto, ProtoExpectation)
+
+    result = Expectation.from_proto(proto)
+    assert result.value == expectation.value
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"key": "value"},
+        ["a", "b", "c"],
+        {"nested": {"dict": {"with": ["mixed", "types", 1, 2.0, True]}}},
+        [1, "two", 3.0, False, {"mixed": "list"}],
+        [{"complex": "structure"}, [1, 2, 3], {"with": ["nested", "arrays"]}],
+    ],
+)
+def test_expectation_serialization(value):
+    expectation = Expectation(value)
+    proto = expectation.to_proto()
+
+    assert proto.HasField("serialized_value")
+    assert proto.serialized_value.serialization_format == "JSON_FORMAT"
+
+    result = Expectation.from_proto(proto)
+    assert result.value == expectation.value
+
+
+def test_expectation_invalid_values():
+    class CustomObject:
+        pass
+
+    with pytest.raises(MlflowException, match="Expectation value must be JSON-serializable"):
+        Expectation(CustomObject()).to_proto()
+
+    # Test invalid serialization format
+    proto = ProtoExpectation()
+    proto.serialized_value.serialization_format = "INVALID_FORMAT"
+    proto.serialized_value.value = '{"key": "value"}'
+
+    with pytest.raises(MlflowException, match="Unknown serialization format"):
+        Expectation.from_proto(proto)
