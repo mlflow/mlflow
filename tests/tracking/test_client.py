@@ -2041,6 +2041,53 @@ def test_log_and_detach_prompt(tracking_uri):
     assert [p.name for p in prompts] == ["p2"]
 
 
+def test_search_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(name="prompt_1", template="Hi, {{name}}!")
+    client.register_prompt(name="prompt_2", template="Hello, {{name}}!")
+    client.register_prompt(name="prompt_3", template="Greetings, {{name}}!")
+    client.register_prompt(name="prompt_4", template="Howdy, {{name}}!")
+    client.register_prompt(name="prompt_5", template="Salutations, {{name}}!")
+    client.register_prompt(name="prompt_6", template="Bonjour, {{name}}!")
+    client.register_prompt(name="test", template="Test Template")
+    client.register_prompt(name="new", template="Bonjour, {{name}}!")
+
+    prompts = client.search_prompts(filter_string="name='prompt_1'")
+    assert len(prompts) == 1
+    assert prompts[0].name == "prompt_1"
+
+    prompts = client.search_prompts(filter_string="name LIKE '%prompt%'")
+    assert len(prompts) == 6
+    assert all("prompt" in prompt.name for prompt in prompts)
+
+    prompts = client.search_prompts()
+    assert len(prompts) == 8
+
+    prompts = client.search_prompts(max_results=3)
+    assert len(prompts) == 3
+
+
+def test_search_prompt_multiple_versions(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+    name = "prompt_multi"
+
+    v1 = client.register_prompt(name=name, template="First version, {{x}}")
+    assert v1.version == 1
+    assert v1.template == "First version, {{x}}"
+
+    v2 = client.register_prompt(name=name, template="Second version, {{x}}")
+    assert v2.version == 2
+    assert v2.template == "Second version, {{x}}"
+
+    prompts = client.search_prompts()
+    assert len(prompts) == 1
+
+    prompt = prompts[0]
+    versions = sorted([mv.version for mv in prompt.latest_versions])
+    assert versions == [2]
+
+
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment_id = client.create_experiment("test")

@@ -14,6 +14,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -522,6 +523,23 @@ def register_prompt(
         commit_message=commit_message,
         tags=tags,
         version_metadata=version_metadata,
+    )
+
+
+@require_prompt_registry
+def search_prompts(
+    filter_string: Optional[str] = None,
+    max_results: Optional[int] = None,
+) -> PagedList[Prompt]:
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_prompts(
+            filter_string=filter_string, max_results=number_to_get, page_token=next_page_token
+        )
+
+    return get_results_from_paginated_fn(
+        pagination_wrapper_func,
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        max_results,
     )
 
 
