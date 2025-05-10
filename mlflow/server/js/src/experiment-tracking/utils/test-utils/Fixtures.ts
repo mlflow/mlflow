@@ -1,7 +1,8 @@
+import { DEFAULT_EXPERIMENT_ID } from '../../constants';
 import { ExperimentEntity, RunInfoEntity } from '../../types';
 
 const createExperiment = ({
-  experimentId = '0',
+  experimentId = DEFAULT_EXPERIMENT_ID,
   name = 'Default',
   artifactLocation = 'dbfs:/databricks/mlflow/0',
   lifecycleStage = 'active',
@@ -21,7 +22,7 @@ const createExperiment = ({
 const createRunInfo = (): RunInfoEntity => {
   return {
     runUuid: '0',
-    experimentId: '0',
+    experimentId: DEFAULT_EXPERIMENT_ID,
     artifactUri: '',
     endTime: 0,
     status: 'RUNNING',
