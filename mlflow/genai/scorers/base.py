@@ -4,7 +4,7 @@ from typing import Callable, Literal, Optional, Union
 
 from pydantic import BaseModel
 
-from mlflow.evaluation import Assessment
+from mlflow.entities import Assessment
 
 
 class Scorer(BaseModel):

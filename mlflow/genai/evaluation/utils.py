@@ -2,8 +2,7 @@ import inspect
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.data.evaluation_dataset import EvaluationDataset
-from mlflow.entities import Trace
-from mlflow.evaluation import Assessment
+from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric

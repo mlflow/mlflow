@@ -47,15 +47,13 @@ if not IS_TRACING_SDK_ONLY:
         config,  # noqa: F401
         data,  # noqa: F401
         exceptions,  # noqa: F401
+        genai,  # noqa: F401
         models,  # noqa: F401
         projects,  # noqa: F401
         tracking,  # noqa: F401
     )
 
-from mlflow import (
-    genai,  # noqa: F401
-    tracing,  # noqa: F401
-)
+from mlflow import tracing  # noqa: F401
 from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.utils.lazy_load import LazyLoader
