@@ -1,10 +1,13 @@
 import json
+import logging
 import os
 import subprocess
 import sys
 import tempfile
 
 from mlflow.entities import Trace, TraceData, TraceInfo
+
+_logger = logging.getLogger(__name__)
 
 
 def get_full_traces_databricks(trace_infos: list[TraceInfo]):
@@ -43,8 +46,10 @@ def get_full_traces_databricks(trace_infos: list[TraceInfo]):
     for trace_info in trace_infos:
         trace_data = trace_ids_and_data.get(trace_info.request_id)
         if trace_data is None:
-            # TODO: Log a warning when data is not found for a trace
-            continue
+            _logger.warning(
+                f"Trace data not found for trace ID {trace_info.request_id}. "
+                "This may indicate a failure in the download process."
+            )
 
         full_trace = Trace(
             info=trace_info,
