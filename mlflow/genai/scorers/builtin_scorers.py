@@ -11,6 +11,30 @@ class _BaseBuiltInScorer(BuiltInScorer):
     inherit from this class.
     """
 
+    def __call__(self, *args, **kwargs):
+        try:
+            from databricks.agents.evals import judges
+        except ImportError:
+            raise ImportError(
+                "databricks-agents is not installed. Please install it with "
+                "`pip install databricks-agents`"
+            )
+
+        if self.name and self.name in set(dir(judges)):
+            import pandas as pd
+
+            from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
+
+            converted_kwargs = _convert_to_legacy_eval_set(pd.DataFrame([kwargs])).iloc[0].to_dict()
+            return getattr(judges, self.name)(*args, **converted_kwargs)
+        elif self.name:
+            raise ValueError(
+                f"The scorer '{self.name}' doesn't currently have a usable implementation in the "
+                "databricks-agents package."
+            )
+        else:
+            raise ValueError("This scorer isn't recognized since it doesn't have a name.")
+
     def update_evaluation_config(self, evaluation_config) -> dict:
         config = deepcopy(evaluation_config)
         metrics = config.setdefault(GENAI_CONFIG_NAME, {}).setdefault("metrics", [])
