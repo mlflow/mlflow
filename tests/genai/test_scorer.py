@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pandas as pd
 import pytest
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities import Assessment
@@ -17,6 +18,8 @@ from mlflow.pyfunc import PyFuncModel
 
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
+
+agent_sdk_version = Version(importlib.import_module("databricks.agents").__version__)
 
 
 def mock_init_auth(config_instance):
@@ -235,6 +238,14 @@ def test_trace_passed_correctly():
     ],
 )
 def test_scorer_on_genai_evaluate(sample_new_data, scorer_return):
+    # Skip if `databricks-agents` SDK is not 1.x. It doesn't
+    # support the `mlflow.entities.Assessment` type.
+    is_return_assessment = isinstance(scorer_return, Assessment) or (
+        isinstance(scorer_return, list) and isinstance(scorer_return[0], Assessment)
+    )
+    if is_return_assessment and not agent_sdk_version.major < 1:
+        pytest.skip("Skipping test for assessment return type")
+
     @scorer
     def dummy_scorer(inputs, outputs):
         return scorer_return

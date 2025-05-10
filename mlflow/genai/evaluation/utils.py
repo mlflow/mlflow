@@ -6,7 +6,6 @@ from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
-from mlflow.types.llm import ChatCompletionRequest
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -105,6 +104,8 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
             "The `databricks-agents` package is required to use mlflow.genai.evaluate() "
             "Please install it with `pip install databricks-agents`."
         )
+
+    from mlflow.types.llm import ChatCompletionRequest
 
     def eval_fn(
         request_id: str,
