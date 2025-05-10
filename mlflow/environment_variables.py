@@ -756,9 +756,9 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
 
 
 #: Timeout seconds for retrying trace logging.
-#: (default: ``5``)
+#: (default: ``500``)
 MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
-    "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 5
+    "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 500
 )
 
 
