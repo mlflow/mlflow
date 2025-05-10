@@ -3213,9 +3213,7 @@ class ActiveModel(LoggedModel):
         super().__init__(**logged_model.to_dictionary())
         self.last_active_model_context = _ACTIVE_MODEL_CONTEXT.get()
         self.last_active_model_id_env_var = MLFLOW_ACTIVE_MODEL_ID.get()
-        _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(self.model_id, set_by_user))
-        _update_active_model_id_env_var(self.model_id)
-        _logger.info(f"Active model set to model with ID: {self.model_id}")
+        _set_active_model_id(self.model_id, set_by_user)
 
     def __enter__(self):
         return self
@@ -3313,6 +3311,19 @@ def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = N
         else:
             logged_model = logged_models[0]
     return ActiveModel(logged_model=logged_model, set_by_user=False)
+
+
+def _set_active_model_id(model_id: str, set_by_user: bool = False) -> None:
+    """
+    Set the active model ID in the active model context and update the
+    corresponding environment variable. This should only be used when
+    we know the LoggedModel with the model_id exists.
+    This function should be used inside MLflow to set the active model
+    while not blocking other code execution.
+    """
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(model_id, set_by_user))
+    _update_active_model_id_env_var(model_id)
+    _logger.info(f"Active model set to model with ID: {model_id}")
 
 
 def _get_active_model_context() -> ActiveModelContext:
