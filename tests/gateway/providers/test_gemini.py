@@ -415,7 +415,7 @@ def chat_stream_response_incomplete():
 
 @pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
 @pytest.mark.asyncio
-async def test_gemini_chat_stream(resp, monkeypatch):
+async def test_gemini_chat_stream(resp):
     config = chat_config()
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
     with mock.patch("time.time", return_value=1):
@@ -493,7 +493,7 @@ def completions_stream_response_incomplete():
     "resp", [completions_stream_response(), completions_stream_response_incomplete()]
 )
 @pytest.mark.asyncio
-async def test_gemini_completions_stream(resp, monkeypatch):
+async def test_gemini_completions_stream(resp):
     config = completions_config()
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
     with mock.patch("time.time", return_value=1):
