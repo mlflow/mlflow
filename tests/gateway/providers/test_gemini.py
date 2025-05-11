@@ -249,19 +249,6 @@ async def test_gemini_completions():
 
 
 @pytest.mark.asyncio
-async def test_gemini_completions_streaming_not_supported():
-    config = completions_config()
-    provider = GeminiProvider(RouteConfig(**config))
-    payload = {"prompt": "Tell me a joke", "stream": True}
-
-    with pytest.raises(
-        AIGatewayException,
-        match="Streaming is not yet supported for completions with Gemini AI Gateway",
-    ):
-        await provider.completions(completions.RequestPayload(**payload))
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("override", "exclude_keys", "expected_msg"),
     [
@@ -461,6 +448,76 @@ async def test_gemini_chat_stream(resp, monkeypatch):
                     "delta": {"role": "assistant", "content": "b"},
                 }
             ],
+        },
+    ]
+
+    mock_build_client.assert_called_once()
+
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        "gemini-2.0-flash:streamGenerateContent?alt=sse"
+    )
+
+    mock_client.post.assert_called_once_with(
+        expected_url,
+        json=mock.ANY,
+        timeout=mock.ANY,
+    )
+
+
+def completions_stream_response():
+    return [
+        b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'
+        b'id":"test-id","object":"text_completion.chunk","created":1,"model":"test"}\n',
+        b"\n",
+        b'data: {"candidates":[{"content":{"parts":[{"text":"b"}]},"finishReason":"stop"}],"'
+        b'id":"test-id","object":"text_completion.chunk","created":1,"model":"test"}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+def completions_stream_response_incomplete():
+    return [
+        b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'
+        b'id":"test-id","object":"text_completion.chunk",',
+        b'"created":1,"model":"test"}\n\n'
+        b'data: {"candidates":[{"content":{"parts":[{"text":"b"}]},"finishReason":"stop"}],"'
+        b'id":"test-id","object":"text_completion.chunk",',
+        b'"created":1,"model":"test"}\n\n',
+        b"data: [DONE]\n",
+    ]
+
+
+@pytest.mark.parametrize(
+    "resp", [completions_stream_response(), completions_stream_response_incomplete()]
+)
+@pytest.mark.asyncio
+async def test_gemini_completions_stream(resp, monkeypatch):
+    config = completions_config()
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    with mock.patch("time.time", return_value=1):
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+            provider = GeminiProvider(RouteConfig(**config))
+            payload = {"prompt": "Recite the song jhony jhony yes papa"}
+
+            stream = provider.completions_stream(completions.RequestPayload(**payload))
+            chunks = [jsonable_encoder(chunk) async for chunk in stream]
+
+    assert chunks == [
+        {
+            "id": "gemini-completions-stream-1",
+            "object": "text_completion.chunk",
+            "created": 1,
+            "model": "gemini-2.0-flash",
+            "choices": [{"index": 0, "finish_reason": None, "text": "a"}],
+        },
+        {
+            "id": "gemini-completions-stream-1",
+            "object": "text_completion.chunk",
+            "created": 1,
+            "model": "gemini-2.0-flash",
+            "choices": [{"index": 0, "finish_reason": "stop", "text": "b"}],
         },
     ]
 

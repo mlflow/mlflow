@@ -290,6 +290,49 @@ class GeminiAdapter(ProviderAdapter):
         )
 
     @classmethod
+    def model_to_completions_streaming(
+        cls, resp: dict, config
+    ) -> completions.StreamResponsePayload:
+        # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
+
+        # Example SSE chunk for streaming completions:
+        # {
+        #   "candidates": [
+        #     {
+        #       "content": {
+        #         "parts": [
+        #           { "text": "Hello, world!" }
+        #         ]
+        #       },
+        #       "finishReason": "stop"
+        #     }
+        #   ],
+        #   "id": "gemini-completions-stream-1234567890",
+        #   "object": "text_completion.chunk",
+        #   "created": 1234567890,
+        #   "model": "gemini-2.0-flash"
+        # }
+        choices = []
+        for idx, cand in enumerate(resp.get("candidates", [])):
+            parts = cand.get("content", {}).get("parts", [])
+            delta_text = parts[0].get("text", "") if parts else ""
+            choices.append(
+                completions.StreamChoice(
+                    index=idx,
+                    finish_reason=cand.get("finishReason"),
+                    text=delta_text or None,
+                )
+            )
+
+        return completions.StreamResponsePayload(
+            id=f"gemini-completions-stream-{int(time.time())}",
+            object="text_completion.chunk",
+            created=int(time.time()),
+            model=config.model.name,
+            choices=choices,
+        )
+
+    @classmethod
     def embeddings_to_model(cls, payload, config):
         # Example payload for the embedding API.
         # Documentation: https://ai.google.dev/api/embeddings#v1beta.ContentEmbedding
@@ -431,6 +474,32 @@ class GeminiProvider(BaseProvider):
         )
         return self.adapter_class.model_to_embeddings(resp, self.config)
 
+    async def completions_stream(
+        self, payload: completions.RequestPayload
+    ) -> AsyncIterable[completions.StreamResponsePayload]:
+        from fastapi.encoders import jsonable_encoder
+
+        body = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(body)
+
+        model_payload = self.adapter_class.completions_to_model(body, self.config)
+        path = f"{self.config.model.name}:streamGenerateContent?alt=sse"
+
+        # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
+        sse = send_stream_request(
+            headers=self.headers, base_url=self.base_url, path=path, payload=model_payload
+        )
+
+        async for raw in handle_incomplete_chunks(sse):
+            text = raw.decode("utf-8", errors="ignore").strip()
+            if not text.startswith("data:"):
+                continue
+            data = strip_sse_prefix(text)
+            if data == "[DONE]":
+                break
+            resp = json.loads(data)
+            yield self.adapter_class.model_to_completions_streaming(resp, self.config)
+
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
@@ -439,13 +508,6 @@ class GeminiProvider(BaseProvider):
 
         completions_payload = self.adapter_class.completions_to_model(payload, self.config)
         # Documentation: https://ai.google.dev/api/generate-content
-
-        if payload.get("stream", False):
-            # TODO: Implement streaming for completions
-            raise AIGatewayException(
-                status_code=422,
-                detail="Streaming is not yet supported for completions with Gemini AI Gateway",
-            )
 
         resp = await self._request(
             f"{self.config.model.name}:generateContent",
