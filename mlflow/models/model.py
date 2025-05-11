@@ -1119,19 +1119,15 @@ class Model:
 
                 # Print a link to the UC model version page if the model is in UC.
                 registry_uri = mlflow.get_registry_uri()
-                workspace_url = get_workspace_url()
-                if workspace_url is not None and is_databricks_unity_catalog_uri(registry_uri):
+                if is_databricks_unity_catalog_uri(registry_uri) and (url := get_workspace_url()):
                     uc_model_url = _construct_databricks_uc_registered_model_url(
-                        workspace_url,
+                        url,
                         registered_model_name,
                         registered_model.version,
                         get_workspace_id(),
                     )
-                    if uc_model_url:
-                        # Use sys.stdout.write to make the link clickable in the UI
-                        sys.stdout.write(
-                            f"🔗 View model version in Unity Catalog at: {uc_model_url}\n"
-                        )
+                    # Use sys.stdout.write to make the link clickable in the UI
+                    sys.stdout.write(f"🔗 View model version in Unity Catalog at: {uc_model_url}\n")
 
         # If the model signature is Mosaic AI Agent compatible, render a recipe for evaluation.
         from mlflow.models.display_utils import maybe_render_agent_eval_recipe

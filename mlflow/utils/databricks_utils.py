@@ -1085,13 +1085,9 @@ def _construct_databricks_uc_registered_model_url(
     Returns:
         The Databricks URL for a registered model in Unity Catalog.
     """
-    uc_model_url = f"{workspace_url}/explore/data/models/"
-    model_name_as_url = registered_model_name.replace(".", "/")
-    uc_model_url += f"{model_name_as_url}/version/{version}"
-    if workspace_id and workspace_id != "0":
-        uc_model_url += "?o=" + str(workspace_id)
-
-    return uc_model_url
+    path = registered_model_name.replace(".", "/")
+    query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
+    return f"{workspace_url}/explore/data/models/{path}/version/{version}{query}"
 
 
 def _get_databricks_creds_config(tracking_uri):
