@@ -914,11 +914,21 @@ class RestStore(AbstractStore):
         Returns:
             The fetched model.
         """
+        if not model_id:
+            raise MlflowException(
+                "Parameter `model_id` must be specified",
+                databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
         endpoint = get_logged_model_endpoint(model_id)
         response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
         return LoggedModel.from_proto(response_proto.model)
 
     def delete_logged_model(self, model_id) -> None:
+        if not model_id:
+            raise MlflowException(
+                "Parameter `model_id` must be specified",
+                databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
         request = DeleteLoggedModel(model_id=model_id)
         endpoint = get_logged_model_endpoint(model_id)
         self._call_endpoint(
@@ -1004,6 +1014,11 @@ class RestStore(AbstractStore):
         Returns:
             The updated model.
         """
+        if not model_id:
+            raise MlflowException(
+                "Parameter `model_id` must be specified",
+                databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
         endpoint = get_logged_model_endpoint(model_id)
         json_body = message_to_json(
             FinalizeLoggedModel(model_id=model_id, status=status.to_proto())
@@ -1024,6 +1039,11 @@ class RestStore(AbstractStore):
         Returns:
             None
         """
+        if not model_id:
+            raise MlflowException(
+                "Parameter `model_id` must be specified",
+                databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
         endpoint = get_logged_model_endpoint(model_id)
         json_body = message_to_json(SetLoggedModelTags(tags=[tag.to_proto() for tag in tags]))
         self._call_endpoint(SetLoggedModelTags, json_body=json_body, endpoint=f"{endpoint}/tags")
@@ -1039,6 +1059,11 @@ class RestStore(AbstractStore):
         Returns:
             The model with the specified tag removed.
         """
+        if not model_id:
+            raise MlflowException(
+                "Parameter `model_id` must be specified",
+                databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
         endpoint = get_logged_model_endpoint(model_id)
         self._call_endpoint(DeleteLoggedModelTag, endpoint=f"{endpoint}/tags/{key}")
 
