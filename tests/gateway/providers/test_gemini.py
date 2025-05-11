@@ -8,7 +8,11 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse
+from tests.gateway.tools import (
+    MockAsyncResponse,
+    MockAsyncStreamingResponse,
+    mock_http_client,
+)
 
 
 def completions_config():
@@ -363,22 +367,6 @@ async def test_gemini_chat():
 
 
 @pytest.mark.asyncio
-async def test_gemini_chat_streaming_not_supported():
-    config = chat_config()
-    provider = GeminiProvider(RouteConfig(**config))
-    payload = {
-        "messages": [{"role": "user", "content": "Tell me a joke"}],
-        "stream": True,
-    }
-
-    with pytest.raises(
-        AIGatewayException,
-        match="Streaming is not yet supported for chat completions with Gemini AI Gateway",
-    ):
-        await provider.chat(chat.RequestPayload(**payload))
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("override", "exclude_keys", "expected_msg"),
     [
@@ -412,3 +400,79 @@ async def test_invalid_parameters_chat(override, exclude_keys, expected_msg):
 
     with pytest.raises(AIGatewayException, match=expected_msg):
         await provider.chat(chat.RequestPayload(**payload))
+
+
+def chat_stream_response():
+    return [
+        b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'
+        b'id":"test-id","object":"chat.completion.chunk","created":1,"model":"test"}\n',
+        b"\n",
+        b'data: {"candidates":[{"content":{"parts":[{"text":"b"}]},"finishReason":"stop"}],"'
+        b'id":"test-id","object":"chat.completion.chunk","created":1,"model":"test"}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+def chat_stream_response_incomplete():
+    return [
+        b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'
+        b'id":"test-id","object":"chat.completion.chunk",',
+        b'"created":1,"model":"test"}\n\n'
+        b'data: {"candidates":[{"content":{"parts":[{"text":"b"}]},"finishReason":"stop"}],"'
+        b'id":"test-id","object":"chat.completion.chunk","created":1,"model":"test"}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+@pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
+@pytest.mark.asyncio
+async def test_gemini_chat_stream(resp, monkeypatch):
+    config = chat_config()
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    with mock.patch("time.time", return_value=1):
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+            provider = GeminiProvider(RouteConfig(**config))
+            payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
+
+            stream = provider.chat_stream(chat.RequestPayload(**payload))
+            chunks = [jsonable_encoder(chunk) async for chunk in stream]
+
+    assert chunks == [
+        {
+            "id": "gemini-chat-stream-1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "gemini-2.0-flash",
+            "choices": [
+                {"index": 0, "finish_reason": None, "delta": {"role": "assistant", "content": "a"}}
+            ],
+        },
+        {
+            "id": "gemini-chat-stream-1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "gemini-2.0-flash",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "delta": {"role": "assistant", "content": "b"},
+                }
+            ],
+        },
+    ]
+
+    mock_build_client.assert_called_once()
+
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        "gemini-2.0-flash:streamGenerateContent?alt=sse"
+    )
+
+    mock_client.post.assert_called_once_with(
+        expected_url,
+        json=mock.ANY,
+        timeout=mock.ANY,
+    )
