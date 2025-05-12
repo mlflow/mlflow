@@ -2,7 +2,7 @@
 
 ## Can MLflow 3.x load runs/models/traces logged with MLflow 2.x?
 
-Yes, MLflow 3.x can load runs/models/traces logged with MLflow 2.x.
+Yes, MLflow 3.x can load runs/models/traces logged with MLflow 2.x. However, the reverse is not true.
 
 ## `load_model` throws a `ResourceNotFound` error when loading a model logged with MLflow 2.x. What's wrong?
 
