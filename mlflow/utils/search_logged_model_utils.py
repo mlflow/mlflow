@@ -1,3 +1,4 @@
+import ast
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -61,7 +62,7 @@ class Entity:
 
     def validate_op(self, op: str) -> None:
         numeric_ops = ("<", "<=", ">", ">=", "=", "!=")
-        string_ops = ("=", "!=", "LIKE", "ILIKE")
+        string_ops = ("=", "!=", "LIKE", "ILIKE", "IN", "NOT IN")
         ops = numeric_ops if self.is_numeric() else string_ops
         if op not in ops:
             raise MlflowException.invalid_parameter_value(
@@ -92,7 +93,8 @@ def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
         )
 
     comparisons: list[sqlalchemy.BinaryExpression] = []
-    for stmt in parsed[0]:
+    statements = iter(s for s in parsed[0] if not s.is_whitespace)
+    while stmt := next(statements, None):
         if isinstance(stmt, sqlparse.sql.Comparison):
             non_whitespace_tokens = [str(t) for t in stmt.tokens if not t.is_whitespace]
             if len(non_whitespace_tokens) != 3:
@@ -104,8 +106,37 @@ def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
             entity.validate_op(op)
             value = float(value) if entity.is_numeric() else value.strip("'")
             comparisons.append(Comparison(entity=entity, op=op, value=value))
-        # Ignore whitespace and 'AND' tokens, otherwise raise an error
-        elif (stripped := stmt.value.strip()) and stripped.lower() != "and":
+        elif stmt.value.strip().upper() == "AND":
+            # Do nothing, this is just a separator
+            pass
+        elif isinstance(stmt, sqlparse.sql.Identifier):
+            # Handle IN and NOT IN comparisons
+            second_stmt = (s := next(statements, None)) and s.value.upper()
+            if second_stmt == "IN":
+                value = next(statements, None)
+                entity = Entity.from_str(stmt.value)
+                entity.validate_op("IN")
+                op = "IN"
+            elif second_stmt == "NOT":
+                in_op = (s := next(statements, None)) and s.value.upper()
+                if in_op.upper() != "IN":
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid filter string: {filter_string!r}. Expected 'NOT IN'."
+                    )
+                value = next(statements, None)
+                entity = Entity.from_str(stmt.value)
+                entity.validate_op("NOT IN")
+                op = "NOT IN"
+
+            value = ast.literal_eval(value.value)
+            if not isinstance(value, (tuple, str)):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid filter string: {filter_string!r}. "
+                    f"Expected a tuple for NOT IN clause but got {value!r}."
+                )
+            value = (value,) if isinstance(value, str) else value
+            comparisons.append(Comparison(entity=entity, op=op, value=value))
+        else:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid filter string: {filter_string!r}. Expected a list of comparisons "
                 f"separated by 'AND' (e.g. 'metrics.loss > 0.1 AND params.lr = 0.01')."
