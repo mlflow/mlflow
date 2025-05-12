@@ -1277,6 +1277,48 @@ def test_update_current_trace():
 
 
 @skip_when_testing_trace_sdk
+def test_update_current_trace_should_not_raise_during_model_logging():
+    """
+    Tracing is disabled while model logging. When the model includes
+    `update_current_trace` call, it should be no-op.
+    """
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        @mlflow.trace
+        def predict(self, model_inputs):
+            mlflow.update_current_trace(tags={"fruit": "apple"})
+            return [model_inputs[0] + 1]
+
+    model = MyModel()
+
+    model.predict([1])
+    trace = get_traces()[0]
+    assert trace.info.state == "OK"
+    assert trace.info.tags["fruit"] == "apple"
+    purge_traces()
+
+    model_info = mlflow.pyfunc.log_model(
+        python_model=model,
+        name="model",
+        input_example=[0],
+    )
+    # Trace should not be generated while logging the model
+    assert get_traces() == []
+
+    # Signature should be inferred properly without raising any exception
+    assert model_info.signature is not None
+    assert model_info.signature.inputs is not None
+    assert model_info.signature.outputs is not None
+
+    # Loading back the model
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_model.predict([1])
+    trace = get_traces()[0]
+    assert trace.info.status == "OK"
+    assert trace.info.tags["fruit"] == "apple"
+
+
+@skip_when_testing_trace_sdk
 def test_non_ascii_characters_not_encoded_as_unicode():
     with mlflow.start_span() as span:
         span.set_inputs({"japanese": "あ", "emoji": "👍"})
