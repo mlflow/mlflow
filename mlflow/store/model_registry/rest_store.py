@@ -1,7 +1,6 @@
 import logging
 from typing import Optional
 
-from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,

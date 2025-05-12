@@ -7,7 +7,6 @@ import urllib
 from os.path import join
 from typing import Optional
 
-from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
