@@ -2307,9 +2307,15 @@ def get_logged_model(model_id: str) -> LoggedModel:
 
         import mlflow
 
-        model = mlflow.create_external_model(name="model")
-        logged_model = mlflow.get_logged_model(model_id=model.model_id)
-        assert logged_model.model_id == model.model_id
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        logged_model = mlflow.get_logged_model(model_id=model_info.model_id)
+        assert logged_model.model_id == model_info.model_id
 
     """
     return MlflowClient().get_logged_model(model_id)
@@ -2329,19 +2335,17 @@ def last_logged_model() -> Optional[LoggedModel]:
         :test:
         :caption: Example
 
-        from typing import List
-
         import mlflow
 
 
-        class Model(mlflow.pyfunc.PythonModel):
-            def predict(self, integers: List[int]) -> List[int]:
-                return integers * 2
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
 
 
-        logged_model = mlflow.pyfunc.log_model(python_model=Model())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
         last_model = mlflow.last_logged_model()
-        assert last_model.model_id == logged_model.model_id
+        assert last_model.model_id == model_info.model_id
     """
     if id := _last_logged_model_id.get():
         return get_logged_model(id)
@@ -2446,8 +2450,16 @@ def search_logged_models(
 
         import mlflow
 
-        mlflow.create_external_model(name="model")
-        mlflow.create_external_model(name="another_model")
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        another_model_info = mlflow.pyfunc.log_model(
+            name="another_model", python_model=DummyModel()
+        )
         models = mlflow.search_logged_models(output_format="list")
         assert [m.name for m in models] == ["another_model", "model"]
         models = mlflow.search_logged_models(
@@ -2571,9 +2583,15 @@ def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
 
         import mlflow
 
-        model = mlflow.initialize_logged_model(name="my_model")
-        mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
-        model = mlflow.get_logged_model(model.model_id)
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.set_logged_model_tags(model_info.model_id, {"key": "value"})
+        model = mlflow.get_logged_model(model_info.model_id)
         assert model.tags["key"] == "value"
     """
     MlflowClient().set_logged_model_tags(model_id, tags)
@@ -2594,12 +2612,18 @@ def delete_logged_model_tag(model_id: str, key: str) -> None:
 
         import mlflow
 
-        model = mlflow.initialize_logged_model(name="my_model")
-        mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
-        model = mlflow.get_logged_model(model.model_id)
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.set_logged_model_tags(model_info.model_id, {"key": "value"})
+        model = mlflow.get_logged_model(model_info.model_id)
         assert model.tags["key"] == "value"
-        mlflow.delete_logged_model_tag(model.model_id, "key")
-        model = mlflow.get_logged_model(model.model_id)
+        mlflow.delete_logged_model_tag(model_info.model_id, "key")
+        model = mlflow.get_logged_model(model_info.model_id)
         assert "key" not in model.tags
     """
     MlflowClient().delete_logged_model_tag(model_id, key)
