@@ -43,7 +43,6 @@ def context_sufficiency():
     return _ContextSufficiency()
 
 
-
 class _Groundedness(_BaseBuiltInScorer):
     name: str = "groundedness"
 
