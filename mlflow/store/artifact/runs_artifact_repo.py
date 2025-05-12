@@ -179,7 +179,6 @@ class RunsArtifactRepository(ArtifactRepository):
                 if not page.token:
                     break
                 page_token = page.token
-
             _logger.debug(
                 f"Failed to find any models with name {model_name} associated with the "
                 f"run {run_id}."
