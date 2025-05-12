@@ -1,3 +1,4 @@
+import json
 from typing import Optional
 from unittest import mock
 
@@ -6,6 +7,7 @@ import pytest
 import mlflow
 from mlflow.entities import LiveSpan, Trace
 from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
@@ -68,6 +70,17 @@ def test_export(dual_write_enabled, monkeypatch):
     assert trace_info["client_request_id"] == _DATABRICKS_REQUEST_ID_1
     assert trace_info["request_time"] == "1970-01-01T00:00:00Z"
     assert trace_info["execution_duration_ms"] == 1
+
+    # Verify that the SIZE_BYTES field is present with the correct value
+    # in trace metadata
+    assert TraceMetadataKey.SIZE_BYTES in trace_info["trace_metadata"]
+    size_bytes = int(trace_info["trace_metadata"][TraceMetadataKey.SIZE_BYTES])
+    # Verify that the size_bytes value matches the actual size of the trace in bytes
+    trace_json = json.dumps(trace_dict)
+    actual_size_bytes = len(trace_json.encode("utf-8"))
+    assert size_bytes == actual_size_bytes, (
+        f"Expected size_bytes to match actual size, but got {size_bytes} != {actual_size_bytes}"
+    )
 
     spans = trace_dict["data"]["spans"]
     assert len(spans) == 2

@@ -16,6 +16,7 @@ from mlflow.entities.trace_location import (
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.protos import service_pb2 as pb
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.destination import Databricks
 from mlflow.tracing.provider import _get_trace_exporter
 
@@ -91,6 +92,16 @@ def test_export(experiment_id, is_async, monkeypatch):
 
     # Basic validation of the trace object
     assert trace["trace_info"]["trace_id"] is not None
+
+    # Verify that the SIZE_BYTES entry is present with the correct value
+    # in trace metadata
+    assert TraceMetadataKey.SIZE_BYTES in trace["trace_info"]["trace_metadata"]
+    size_bytes = int(trace["trace_info"]["trace_metadata"][TraceMetadataKey.SIZE_BYTES])
+    # Verify that the size_bytes value matches the actual size of the trace in bytes
+    actual_size_bytes = len(trace_json.encode("utf-8"))
+    assert size_bytes == actual_size_bytes, (
+        f"Expected size_bytes to match actual size, but got {size_bytes} != {actual_size_bytes}"
+    )
 
     # Validate the data was passed to upload_trace_data
     call_args = mock_upload_trace_data.call_args
