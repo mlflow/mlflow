@@ -105,10 +105,15 @@ def test_export(experiment_id, is_async, monkeypatch):
     assert mlflow.get_last_active_trace_id() is not None
 
 
-def test_async_logging_disabled_in_notebook():
-    with mock.patch("mlflow.tracing.export.mlflow_v3.is_in_databricks_notebook", return_value=True):
-        exporter = MlflowV3SpanExporter()
-        assert not exporter._is_async_enabled
+@mock.patch("mlflow.tracing.export.mlflow_v3.is_in_databricks_notebook", return_value=True)
+def test_async_logging_disabled_in_databricks_notebook(mock_is_in_db_notebook, monkeypatch):
+    exporter = MlflowV3SpanExporter()
+    assert not exporter._is_async_enabled
+
+    # If the env var is set explicitly, we should respect that
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
+    exporter = MlflowV3SpanExporter()
+    assert exporter._is_async_enabled
 
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
