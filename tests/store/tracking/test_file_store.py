@@ -29,7 +29,7 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.models import Model
@@ -79,7 +79,7 @@ def store_and_trace_info(store):
 
 
 class TraceInfos(NamedTuple):
-    trace_infos: list[TraceInfo]
+    trace_infos: list[TraceInfoV2]
     store: FileStore
     exp_id: str
     request_ids: list[str]

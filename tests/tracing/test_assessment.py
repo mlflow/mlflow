@@ -6,7 +6,7 @@ import mlflow
 from mlflow.entities.assessment import Assessment, AssessmentError, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace_data import TraceData
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 
@@ -269,7 +269,7 @@ def test_search_traces_with_assessments(store, tracking_uri):
         feedback=Feedback("test"),
     )
 
-    trace_info = TraceInfo(
+    trace_info = TraceInfoV2(
         request_id="test",
         experiment_id="test",
         timestamp_ms=0,
