@@ -33,6 +33,7 @@ from mlflow.tracking.fluent import _use_logged_model
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
+    get_databricks_model_version_url,
     get_databricks_runtime_version,
     get_workspace_id,
     get_workspace_url,
@@ -1130,6 +1131,15 @@ class Model:
                     sys.stdout.write(
                         f"🔗 View model version '{registered_model.version}' of "
                         + f"'{registered_model_name}' in Unity Catalog at: {uc_model_url}\n"
+                    )
+                elif model_url := get_databricks_model_version_url(
+                    registry_uri=registry_uri,
+                    name=registered_model_name,
+                    version=registered_model.version,
+                ):
+                    sys.stdout.write(
+                        f"🔗 View logged model model version '{registered_model.version}' of "
+                        + f"'{registered_model_name}' at: {model_url}\n"
                     )
 
         # If the model signature is Mosaic AI Agent compatible, render a recipe for evaluation.
