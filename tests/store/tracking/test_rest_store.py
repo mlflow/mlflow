@@ -1339,13 +1339,15 @@ def test_log_logged_model_params():
             3,
             200,
             100,
-        ),  # 250 params with larger create batch - CreateLoggedModel + 1 LogLoggedModelParamsRequest + GetLoggedModel
+        ),  # 250 params with larger create batch - CreateLoggedModel
+        # + 1 LogLoggedModelParamsRequest + GetLoggedModel
         (
             250,
             5,
             100,
             50,
-        ),  # 250 params with smaller log batch - CreateLoggedModel + 4 LogLoggedModelParamsRequest calls + GetLoggedModel
+        ),  # 250 params with smaller log batch - CreateLoggedModel
+        # + 4 LogLoggedModelParamsRequest calls + GetLoggedModel
     ],
 )
 def test_create_logged_models_with_params(
