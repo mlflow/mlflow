@@ -904,12 +904,14 @@ class RestStore(AbstractStore):
 
         response_proto = self._call_endpoint(CreateLoggedModel, req_body)
         model = LoggedModel.from_proto(response_proto.model)
-        self.log_logged_model_params(model_id=model.model_id, params=params)
-        return self.get_logged_model(model_id=model.model_id)
+        _logger.info(f"oue model_id: {model.model_id}")
+        if params:
+            self.log_logged_model_params(model_id=model.model_id, params=params)
+            return self.get_logged_model(model_id=model.model_id)
+        else:
+            return model
 
-    def log_logged_model_params(
-        self, model_id: str, params: list[LoggedModelParameter]
-    ) -> None:
+    def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]) -> None:
         """
         Log parameters for a logged model in batches of 100.
 

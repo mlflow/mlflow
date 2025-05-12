@@ -35,6 +35,7 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     CreateAssessment,
+    CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
     DeleteRun,
@@ -42,6 +43,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTraces,
     EndTrace,
     GetExperimentByName,
+    GetLoggedModel,
     GetTraceInfo,
     GetTraceInfoV3,
     LogBatch,
@@ -72,6 +74,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
+    get_logged_model_endpoint,
     get_search_traces_v3_endpoint,
 )
 
@@ -1273,23 +1276,25 @@ def test_log_logged_model_params():
             for i in range(250)  # Create enough params to test batching
         ]
 
-        batches = [message_to_json(
-            LogLoggedModelParamsRequest(
-                model_id=model_id,
-                params=[p.to_proto() for p in params[:100]],
-            )
-        ), message_to_json(
-            LogLoggedModelParamsRequest(
-                model_id=model_id,
-                params=[p.to_proto() for p in params[100:200]],
-            )
-        ),
+        batches = [
+            message_to_json(
+                LogLoggedModelParamsRequest(
+                    model_id=model_id,
+                    params=[p.to_proto() for p in params[:100]],
+                )
+            ),
+            message_to_json(
+                LogLoggedModelParamsRequest(
+                    model_id=model_id,
+                    params=[p.to_proto() for p in params[100:200]],
+                )
+            ),
             message_to_json(
                 LogLoggedModelParamsRequest(
                     model_id=model_id,
                     params=[p.to_proto() for p in params[200:]],
                 )
-            )
+            ),
         ]
 
         store = RestStore(lambda: None)
@@ -1305,3 +1310,62 @@ def test_log_logged_model_params():
             assert endpoint, method == _METHOD_TO_INFO[LogLoggedModelParamsRequest]
             assert json_body == batches[i]
 
+
+def test_create_logged_models_no_params():
+    store = RestStore(lambda: None)
+    with (
+        mock.patch("mlflow.entities.logged_model.LoggedModel.from_proto"),
+        mock.patch.object(store, "_call_endpoint") as mock_call_endpoint,
+    ):
+        mock_response = mock.MagicMock()
+        mock_response.model = mock.MagicMock()
+        mock_call_endpoint.return_value = mock_response
+
+        store.create_logged_model("experiment_id")
+
+        mock_call_endpoint.assert_called_once_with(
+            CreateLoggedModel,
+            message_to_json(
+                CreateLoggedModel(
+                    experiment_id="experiment_id",
+                )
+            ),
+        )
+
+
+def test_create_logged_models_with_params():
+    store = RestStore(lambda: None)
+    with (
+        mock.patch("mlflow.entities.logged_model.LoggedModel.from_proto") as mock_from_proto,
+        mock.patch.object(store, "_call_endpoint") as mock_call_endpoint,
+    ):
+        mock_response = mock.MagicMock()
+        model_id = "model_123"
+        mock_response.model_id = model_id
+        mock_from_proto.return_value = mock_response
+
+        param = LoggedModelParameter(key="key", value="value")
+        store.create_logged_model("experiment_id", params=[param])
+
+        assert mock_call_endpoint.call_count == 3
+
+        mock_call_endpoint.assert_any_call(
+            CreateLoggedModel,
+            message_to_json(
+                CreateLoggedModel(
+                    experiment_id="experiment_id",
+                )
+            ),
+        )
+        mock_call_endpoint.assert_any_call(
+            LogLoggedModelParamsRequest,
+            message_to_json(
+                LogLoggedModelParamsRequest(
+                    model_id=model_id,
+                    params=[param.to_proto()],
+                )
+            ),
+        )
+        mock_call_endpoint.assert_any_call(
+            GetLoggedModel, endpoint=get_logged_model_endpoint(model_id)
+        )
