@@ -68,7 +68,10 @@ def update_config(config_path, cut_date):
         package = flavor_cfg["package_info"]["pip_release"]
         cut_version = get_cut_version(package, cut_date)
         for category in ["autologging", "models"]:
-            new_src = update_min_version(new_src, flavor, cut_version, category)
+            if category in flavor_cfg:
+                old_min_version = flavor_cfg[category]["minimum"]
+                if cut_version is not None and Version(cut_version) > Version(old_min_version):
+                    new_src = update_min_version(new_src, flavor, cut_version, category)
         print(f"Updated flavor {flavor}")
 
     with open(config_path, "w") as f:
