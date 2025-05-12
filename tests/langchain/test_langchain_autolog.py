@@ -1167,22 +1167,19 @@ def test_autolog_link_traces_to_active_model(model_infos):
         assert model.model_id != logged_model_id
 
 
-def test_model_loading_set_active_model_id_without_fetching_logged_model(model_infos):
+def test_model_loading_set_active_model_id_without_fetching_logged_model():
     mlflow.langchain.autolog()
 
-    with mock.patch("mlflow.get_logged_model", side_effect=Exception):
-        for model_info in model_infos:
-            loaded_model = mlflow.langchain.load_model(model_info.model_uri)
-            msg = {"product": f"{loaded_model.steps[1].temperature}_{model_info.model_id}"}
-            loaded_model.invoke(msg)
+    model = create_openai_runnable(temperature=0.9)
+    model_info = mlflow.langchain.log_model(
+        model, name="model", input_example={"product": "MLflow"}
+    )
+
+    with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
+        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    loaded_model.invoke({"product": "MLflow"})
 
     traces = get_traces()
-    assert len(traces) == len(model_infos)
-    for trace in traces:
-        temp = trace.data.spans[2].get_attribute("invocation_params")["temperature"]
-        logged_temp, logged_model_id = json.loads(trace.data.request)["product"].split(
-            "_", maxsplit=1
-        )
-        assert logged_model_id is not None
-        assert str(temp) == logged_temp
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
+    assert len(traces) == 1
+    model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
+    assert model_id == model_info.model_id

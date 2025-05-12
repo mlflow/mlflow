@@ -769,7 +769,7 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(c
         messages=[{"role": "system", "content": "You are an MLflow expert."}],
     )
 
-    with mock.patch("mlflow.get_logged_model", side_effect=Exception):
+    with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
         model_dict = mlflow.openai.load_model(model_info.model_uri)
     resp = client.chat.completions.create(
         messages=[{"role": "user", "content": f"test {model_info.model_id}"}],

@@ -29,7 +29,11 @@ from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
-from mlflow.tracking.fluent import _use_logged_model
+from mlflow.tracking.fluent import (
+    _get_active_model_context,
+    _set_active_model_id,
+    _use_logged_model,
+)
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
@@ -1393,3 +1397,23 @@ def set_model(model) -> None:
             pass
 
     raise mlflow.MlflowException(SET_MODEL_ERROR)
+
+
+def _update_active_model_id_based_on_mlflow_model(mlflow_model: Model):
+    """
+    Update the current active model ID based on the provided MLflow model.
+    Only set the active model ID if it is not already set by the user.
+    This is useful for setting the active model ID when loading a model
+    to ensure traces generated are associated with the loaded model.
+    """
+    if (
+        mlflow_model.model_id
+        and (amc := _get_active_model_context())
+        # only set the active model if the model is not set by the user
+        and not amc.set_by_user
+        and amc.model_id != mlflow_model.model_id
+    ):
+        _set_active_model_id(model_id=mlflow_model.model_id)
+        _logger.info(
+            "Use `mlflow.set_active_model` to set the active model to a different one if needed."
+        )

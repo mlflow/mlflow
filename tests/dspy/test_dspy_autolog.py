@@ -964,9 +964,9 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
 
     model_info = mlflow.dspy.log_model(dspy_model, name="model")
 
-    with mock.patch("mlflow.get_logged_model", side_effect=Exception):
+    with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
         loaded_model = mlflow.dspy.load_model(model_info.model_uri)
-        loaded_model(model_info.model_id)
+    loaded_model(model_info.model_id)
 
     traces = get_traces()
     assert len(traces) == 1

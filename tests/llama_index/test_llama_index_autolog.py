@@ -347,9 +347,9 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
         name="model",
         input_example={"topic": "Hello"},
     )
-    with mock.patch("mlflow.get_logged_model", side_effect=Exception):
+    with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
         loaded_workflow = mlflow.pyfunc.load_model(model_info.model_uri)
-        loaded_workflow.predict({"topic": f"Hello {model_info.model_id}"})
+    loaded_workflow.predict({"topic": f"Hello {model_info.model_id}"})
 
     traces = get_traces()
     assert len(traces) == 1

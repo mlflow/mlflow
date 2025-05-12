@@ -3321,9 +3321,13 @@ def _set_active_model_id(model_id: str, set_by_user: bool = False) -> None:
     This function should be used inside MLflow to set the active model
     while not blocking other code execution.
     """
-    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(model_id, set_by_user))
-    _update_active_model_id_env_var(model_id)
-    _logger.info(f"Active model set to model with ID: {model_id}")
+    try:
+        _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(model_id, set_by_user))
+        _update_active_model_id_env_var(model_id)
+    except Exception as e:
+        _logger.warning(f"Failed to set active model ID to {model_id}, error: {e}")
+    else:
+        _logger.info(f"Active model set to model with ID: {model_id}")
 
 
 def _get_active_model_context() -> ActiveModelContext:
