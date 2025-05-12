@@ -11,14 +11,11 @@ $ python dev/update_ml_package_versions.py
 import argparse
 import json
 import re
-import requests
 import sys
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime
-from dateutil.parser import isoparse
-from dateutil.relativedelta import relativedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import yaml
@@ -220,7 +217,8 @@ def get_cut_version(package):
     """
     Get the minimum version that is released within the past two years
     """
-    cut_date = datetime.now() - relativedelta(years=2, months=0)
+    import requests
+    cut_date = datetime.now() - timedelta(days=2 * 365)
     cut_date = cut_date.replace(tzinfo=None)
     url = f"https://pypi.org/pypi/{package}/json"
     resp = requests.get(url)
@@ -235,7 +233,9 @@ def get_cut_version(package):
             yanked = any(file.get("yanked", False) for file in files)
             pyver = Version(version)
             is_official = not (pyver.is_devrelease or pyver.is_prerelease or pyver.is_postrelease)
-            upload_time = isoparse(files[0]["upload_time_iso_8601"]).replace(tzinfo=None)
+            upload_time = datetime.fromisoformat(
+                files[0]["upload_time_iso_8601"].replace("Z", "")
+            ).replace(tzinfo=None)
 
             if is_official and not yanked and upload_time > cut_date:
                 if min_upload_time is None or upload_time < min_upload_time:
@@ -285,7 +285,9 @@ def update(skip_yml=False):
                 if Version(latest_version) <= Version(max_ver):
                     continue
 
-                new_src = update_version(new_src, flavor_key, latest_version, category, update_max=True)
+                new_src = update_version(
+                    new_src, flavor_key, latest_version, category, update_max=True
+                )
 
         save_file(new_src, yml_path)
 
