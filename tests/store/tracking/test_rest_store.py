@@ -1236,7 +1236,7 @@ def test_get_trace_info_v3_api():
     )
 
     with mock.patch(
-        "mlflow.entities.trace_info_v3.TraceInfoV3.from_proto", return_value=trace_info_v3
+        "mlflow.entities.trace_info.TraceInfo.from_proto", return_value=trace_info_v3
     ) as mock_from_proto:
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
 
