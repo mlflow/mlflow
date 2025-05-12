@@ -63,8 +63,8 @@ export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
 /**
  * Determines if logged models UI (part of model-centric IA shift) is enabled
  */
-export const isExperimentLoggedModelsUIEnabled = () => false;
-export const isLoggedModelsFilteringAndSortingEnabled = () => false;
+export const isExperimentLoggedModelsUIEnabled = () => true;
+export const isLoggedModelsFilteringAndSortingEnabled = () => true;
 export const isRunPageLoggedModelsTableEnabled = () => isExperimentLoggedModelsUIEnabled();
 
 /**
