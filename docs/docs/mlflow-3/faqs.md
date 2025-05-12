@@ -30,3 +30,11 @@ with mlflow.start_run() as run:
     # or neither `model_id` nor `model_uri` is available
     mlflow.sklearn.load_model(f"runs:/{run.info.run_id}/model")
 ```
+
+## I'm still not ready to upgrade to MLflow 3.x. How can I pin my MLflow version to 2.x?
+
+You can pin MLflow to the latest 2.x version by using the following command:
+
+```bash
+pip install 'mlflow<3'
+```
