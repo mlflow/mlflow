@@ -29,7 +29,11 @@ from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT
+from mlflow.environment_variables import (
+    MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
+    MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
@@ -1311,61 +1315,105 @@ def test_log_logged_model_params():
             assert json_body == batches[i]
 
 
-def test_create_logged_models_no_params():
-    store = RestStore(lambda: None)
-    with (
-        mock.patch("mlflow.entities.logged_model.LoggedModel.from_proto"),
-        mock.patch.object(store, "_call_endpoint") as mock_call_endpoint,
-    ):
-        mock_response = mock.MagicMock()
-        mock_response.model = mock.MagicMock()
-        mock_call_endpoint.return_value = mock_response
+@pytest.mark.parametrize(
+    ("params_count", "expected_call_count", "create_batch_size", "log_batch_size"),
+    [
+        (None, 1, 100, 100),  # None params - only CreateLoggedModel
+        (0, 1, 100, 100),  # No params - only CreateLoggedModel
+        (5, 1, 100, 100),  # Few params - only CreateLoggedModel
+        (100, 1, 100, 100),  # Exactly 100 params - only CreateLoggedModel
+        (
+            150,
+            3,
+            100,
+            100,
+        ),  # 150 params - CreateLoggedModel + LogLoggedModelParamsRequest + GetLoggedModel
+        (
+            250,
+            4,
+            100,
+            100,
+        ),  # 250 params - CreateLoggedModel + 2 LogLoggedModelParamsRequest calls + GetLoggedModel
+        (
+            250,
+            3,
+            200,
+            100,
+        ),  # 250 params with larger create batch - CreateLoggedModel + 1 LogLoggedModelParamsRequest + GetLoggedModel
+        (
+            250,
+            5,
+            100,
+            50,
+        ),  # 250 params with smaller log batch - CreateLoggedModel + 4 LogLoggedModelParamsRequest calls + GetLoggedModel
+    ],
+)
+def test_create_logged_models_with_params(
+    monkeypatch, params_count, expected_call_count, create_batch_size, log_batch_size
+):
+    """Test creating logged models with parameters."""
+    # Set environment variables using monkeypatch
+    monkeypatch.setenv(MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, create_batch_size)
+    monkeypatch.setenv(MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, log_batch_size)
 
-        store.create_logged_model("experiment_id")
-
-        mock_call_endpoint.assert_called_once_with(
-            CreateLoggedModel,
-            message_to_json(
-                CreateLoggedModel(
-                    experiment_id="experiment_id",
-                )
-            ),
-        )
-
-
-def test_create_logged_models_with_params():
     store = RestStore(lambda: None)
     with (
         mock.patch("mlflow.entities.logged_model.LoggedModel.from_proto") as mock_from_proto,
         mock.patch.object(store, "_call_endpoint") as mock_call_endpoint,
     ):
-        mock_response = mock.MagicMock()
+        # Setup mocks
+        mock_model = mock.MagicMock()
         model_id = "model_123"
-        mock_response.model_id = model_id
-        mock_from_proto.return_value = mock_response
+        mock_model.model_id = model_id
+        mock_from_proto.return_value = mock_model
+        mock_response = mock.MagicMock()
+        mock_response.model = mock.MagicMock()
+        mock_call_endpoint.return_value = mock_response
 
-        param = LoggedModelParameter(key="key", value="value")
-        store.create_logged_model("experiment_id", params=[param])
+        # Create params
+        params = (
+            [LoggedModelParameter(key=f"key_{i}", value=f"value_{i}") for i in range(params_count)]
+            if params_count
+            else None
+        )
 
-        assert mock_call_endpoint.call_count == 3
+        # Call the method
+        store.create_logged_model("experiment_id", params=params)
 
+        # Verify calls
         endpoint = get_logged_model_endpoint(model_id)
+
+        # CreateLoggedModel should always be called
+        initial_params = [p.to_proto() for p in params[:create_batch_size]] if params else None
         mock_call_endpoint.assert_any_call(
             CreateLoggedModel,
             message_to_json(
                 CreateLoggedModel(
                     experiment_id="experiment_id",
+                    params=initial_params,
                 )
             ),
         )
-        mock_call_endpoint.assert_any_call(
-            LogLoggedModelParamsRequest,
-            json_body=message_to_json(
-                LogLoggedModelParamsRequest(
-                    model_id=model_id,
-                    params=[param.to_proto()],
+
+        # If params > create_batch_size, additional calls should be made
+        if params_count and params_count > create_batch_size:
+            # LogLoggedModelParamsRequest should be called for remaining params
+            remaining_params = params[create_batch_size:]
+            for i in range(0, len(remaining_params), log_batch_size):
+                batch = remaining_params[i : i + log_batch_size]
+                mock_call_endpoint.assert_any_call(
+                    LogLoggedModelParamsRequest,
+                    json_body=message_to_json(
+                        LogLoggedModelParamsRequest(
+                            model_id=model_id,
+                            params=[p.to_proto() for p in batch],
+                        )
+                    ),
+                    endpoint=f"{endpoint}/params",
                 )
-            ),
-            endpoint=f"{endpoint}/params",
-        )
-        mock_call_endpoint.assert_any_call(GetLoggedModel, endpoint=endpoint)
+
+            # GetLoggedModel should be called to get the updated model
+            mock_call_endpoint.assert_any_call(GetLoggedModel, endpoint=endpoint)
+
+        # Verify total number of calls
+        assert mock_call_endpoint.call_count == expected_call_count

@@ -23,7 +23,11 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v3 import TraceInfoV3
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT
+from mlflow.environment_variables import (
+    MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
+    MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
@@ -892,23 +896,36 @@ class RestStore(AbstractStore):
         Returns:
             The created model.
         """
+        # Include the first 100 params in the initial request
+        initial_params = []
+        remaining_params = []
+        if params:
+            initial_batch_size = MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE.get()
+            initial_params = params[:initial_batch_size]
+            remaining_params = (
+                params[initial_batch_size:] if len(params) > initial_batch_size else []
+            )
+
         req_body = message_to_json(
             CreateLoggedModel(
                 experiment_id=experiment_id,
                 name=name,
                 model_type=model_type,
                 source_run_id=source_run_id,
+                params=[p.to_proto() for p in initial_params],
                 tags=[t.to_proto() for t in tags or []],
             )
         )
 
         response_proto = self._call_endpoint(CreateLoggedModel, req_body)
         model = LoggedModel.from_proto(response_proto.model)
-        if params:
-            self.log_logged_model_params(model_id=model.model_id, params=params)
-            return self.get_logged_model(model_id=model.model_id)
-        else:
-            return model
+
+        # Log remaining params if there are any
+        if remaining_params:
+            self.log_logged_model_params(model_id=model.model_id, params=remaining_params)
+            model = self.get_logged_model(model_id=model.model_id)
+
+        return model
 
     def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]) -> None:
         """
@@ -922,12 +939,11 @@ class RestStore(AbstractStore):
             None
         """
         # Process params in batches of 100
-        batch_size = 100
+        batch_size = MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE.get()
         num_params = len(params)
         endpoint = get_logged_model_endpoint(model_id)
         for i in range(0, num_params, batch_size):
-            end = min(num_params, i + batch_size)
-            batch = params[i:end]
+            batch = params[i : i + batch_size]
             req_body = message_to_json(
                 LogLoggedModelParamsRequest(
                     model_id=model_id,
