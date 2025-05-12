@@ -6,16 +6,18 @@ from opentelemetry import trace
 
 import mlflow
 from mlflow.exceptions import MlflowTracingException
-from mlflow.tracing.destination import Databricks, MlflowExperiment
+from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceServer
 from mlflow.tracing.export.databricks import DatabricksSpanExporter
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
 )
 from mlflow.tracing.export.mlflow import MlflowSpanExporter
+from mlflow.tracing.export.trace_server import TraceServerSpanExporter
 from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
+from mlflow.tracing.processor.trace_server import TraceServerSpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
     _setup_tracer_provider,
@@ -113,6 +115,36 @@ def test_set_destination_databricks():
     assert isinstance(processors[0], DatabricksSpanProcessor)
     assert processors[0]._experiment_id == "123"
     assert isinstance(processors[0].span_exporter, DatabricksSpanExporter)
+
+
+def test_set_destination_trace_server():
+    # Mock IngestApiSdk and TableProperties to avoid actual API calls
+    with mock.patch("mlflow.tracing.export.trace_server.IngestApiSdk"), \
+         mock.patch("mlflow.tracing.export.trace_server.TableProperties"):
+        
+        # Set up a TraceServer destination
+        mlflow.tracing.set_destination(
+            destination=TraceServer(
+                spans_table_name="test_spans_table",
+                ingest_url="https://test-ingest.example.com",
+                workspace_url="https://test-workspace.example.com",
+                pat="test-token"
+            )
+        )
+
+        # Verify that the correct processor and exporter are created
+        tracer = _get_tracer("test")
+        processors = tracer.span_processor._span_processors
+        assert len(processors) == 1
+        assert isinstance(processors[0], DatabricksSpanProcessor)
+        assert isinstance(processors[0].span_exporter, TraceServerSpanExporter)
+        
+        # Verify that the exporter was initialized with the correct parameters
+        exporter = processors[0].span_exporter
+        assert exporter._spans_table_name == "test_spans_table"
+        
+        # Check that the stream is initialized as None (lazy initialization)
+        assert exporter._stream is None
 
 
 def test_disable_enable_tracing():
