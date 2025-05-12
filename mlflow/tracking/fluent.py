@@ -3277,13 +3277,12 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
         traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
         assert len(traces) == 1
     """
-    active_model = _set_active_model(name=name, model_id=model_id)
-    active_model_ctx = _ACTIVE_MODEL_CONTEXT.get()
-    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(active_model_ctx.model_id, set_by_user=True))
-    return active_model
+    return _set_active_model(name=name, model_id=model_id, set_by_user=True)
 
 
-def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
+def _set_active_model(
+    *, name: Optional[str] = None, model_id: Optional[str] = None, set_by_user: bool = False
+) -> ActiveModel:
     if name is None and model_id is None:
         raise MlflowException.invalid_parameter_value(
             message="Either name or model_id must be provided",
@@ -3310,7 +3309,7 @@ def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = N
             logged_model = mlflow.create_external_model(name=name)
         else:
             logged_model = logged_models[0]
-    return ActiveModel(logged_model=logged_model, set_by_user=False)
+    return ActiveModel(logged_model=logged_model, set_by_user=set_by_user)
 
 
 def _set_active_model_id(model_id: str, set_by_user: bool = False) -> None:
