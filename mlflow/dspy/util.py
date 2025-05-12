@@ -60,7 +60,7 @@ def log_dspy_dataset(dataset: list["Example"], file_name: str):
         for example in dataset:
             for k, v in example.items():
                 result[k].append(v)
-        mlflow.log_table(result, file_name)
+        mlflow.log_input(mlflow.data.from_numpy(result), file_name)
     except Exception as e:
         _logger.warning(f"Failed to log dataset: {e}")
 
