@@ -24,7 +24,7 @@ def get_cut_version(package, cut_date):
 
     releases = data["releases"]
 
-    min_verion = None
+    min_version = None
     min_upload_time = None
     for version, files in releases.items():
         if files:  # skip empty releases
@@ -35,10 +35,10 @@ def get_cut_version(package, cut_date):
 
             if is_official and not yanked and upload_time > cut_date:
                 if min_upload_time is None or upload_time < min_upload_time:
-                    min_verion = version
+                    min_version = version
                     min_upload_time = upload_time
 
-    return min_verion
+    return min_version
 
 
 def update_min_version(src, key, new_min_version, category):
