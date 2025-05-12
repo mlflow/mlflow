@@ -1,10 +1,10 @@
 # FAQs
 
-## Can MLflow 3.x load runs/models/traces logged with MLflow 2.x?
+#### Can MLflow 3.x load runs/models/traces logged with MLflow 2.x?
 
 Yes, MLflow 3.x can load runs/models/traces logged with MLflow 2.x. However, the reverse is not true.
 
-## `load_model` throws a `ResourceNotFound` error when loading a model logged with MLflow 2.x. What's wrong?
+#### `load_model` throws a `ResourceNotFound` error when loading a model logged with MLflow 2.x. What's wrong?
 
 For example, the following code fails to load the model in MLflow 3.x since the model artifacts are NOT stored as run artifacts:
 
@@ -50,7 +50,7 @@ experiments/
           └── ... # model artifacts are stored here
 ```
 
-## I'm still not ready to upgrade to MLflow 3.x. How can I pin my MLflow version to 2.x?
+#### I'm still not ready to upgrade to MLflow 3.x. How can I pin my MLflow version to 2.x?
 
 You can pin MLflow to the latest 2.x version by using the following command:
 
