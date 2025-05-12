@@ -31,23 +31,23 @@ with mlflow.start_run() as run:
     mlflow.sklearn.load_model(f"runs:/{run.info.run_id}/model")
 ```
 
-Why does this happen? In MLflow 3.x, the model artifacts are stored in a different location than in MLflow 2.x. The following is a comparison of the two versions:
+Why does this happen? In MLflow 3.x, the model artifacts are stored in a different location than in MLflow 2.x. The following is a comparison of the two versions using the `tree` format:
 
-```bash
+```shell
 # MLflow 2.x
-- experiments:
-  - <experiment_id>
-    - <run_id>
-      - artifacts
-        - ... # model artifacts are stored here
+experiments/
+  └── <experiment_id>/
+    └── <run_id>/
+      └── artifacts/
+        └── ... # model artifacts are stored here
 
 # MLflow 3.x
-- experiments:
-  - <experiment_id>
-    - logged_models
-      - <model_id>
-        - artifacts
-          - ... # model artifacts are stored here
+experiments/
+  └── <experiment_id>/
+    └── logged_models/
+      └── <model_id>/
+        └── artifacts/
+          └── ... # model artifacts are stored here
 ```
 
 ## I'm still not ready to upgrade to MLflow 3.x. How can I pin my MLflow version to 2.x?
