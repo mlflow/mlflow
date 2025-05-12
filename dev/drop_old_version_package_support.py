@@ -1,6 +1,6 @@
 """
 A script to update the minimum package versions in 'mlflow/ml-package-versions.yml'.
-The flavor package versions those are older than 1.5 years are dropped.
+The flavor package versions those are older than 2 years are dropped.
 
 # How to run (make sure you're in the repository root):
 $ python dev/drop_old_version_package_support.py
@@ -79,7 +79,7 @@ def update_config(config_path, cut_date):
 
 
 def main():
-    cut_date = datetime.now() - relativedelta(years=1, months=6)
+    cut_date = datetime.now() - relativedelta(years=2, months=0)
     update_config("mlflow/ml-package-versions.yml", cut_date)
 
 
