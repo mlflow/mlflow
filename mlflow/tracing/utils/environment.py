@@ -37,6 +37,12 @@ def resolve_env_metadata():
 
 def _resolve_git_metadata():
     try:
+        import git  # noqa: F401
+    except ImportError:
+        _logger.debug("Git python package is not installed. Skipping git metadata resolution.")
+        return {}
+
+    try:
         repo = os.getcwd()
         return {
             MLFLOW_GIT_COMMIT: get_git_commit(repo) or "",
