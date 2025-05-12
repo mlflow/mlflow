@@ -3,7 +3,7 @@ from typing import Any, Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
@@ -136,8 +136,8 @@ class TraceInfo(_MlflowObject):
         trace_info_dict["status"] = TraceStatus(trace_info_dict["status"])
         return cls(**trace_info_dict)
 
-    def to_v3(self, request: Optional[str] = None, response: Optional[str] = None) -> TraceInfoV3:
-        return TraceInfoV3(
+    def to_v3(self, request: Optional[str] = None, response: Optional[str] = None) -> TraceInfo:
+        return TraceInfo(
             trace_id=self.request_id,
             client_request_id=self.client_request_id,
             trace_location=TraceLocation.from_experiment_id(self.experiment_id),

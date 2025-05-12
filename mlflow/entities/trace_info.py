@@ -14,7 +14,7 @@ from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
 
 
 @dataclass
-class TraceInfoV3(_MlflowObject):
+class TraceInfo(_MlflowObject):
     """Metadata about a trace, such as its ID, location, timestamp, etc.
 
     Args:
@@ -61,7 +61,7 @@ class TraceInfoV3(_MlflowObject):
         return res
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "TraceInfoV3":
+    def from_dict(cls, d: dict[str, Any]) -> "TraceInfo":
         """Create a TraceInfoV3 object from a dictionary."""
         if "request_id" in d:
             from mlflow.entities.trace_info import TraceInfo as TraceInfoV2
@@ -112,7 +112,7 @@ class TraceInfoV3(_MlflowObject):
         )
 
     @classmethod
-    def from_proto(cls, proto) -> "TraceInfoV3":
+    def from_proto(cls, proto) -> "TraceInfo":
         return cls(
             trace_id=proto.trace_id,
             client_request_id=proto.client_request_id,
