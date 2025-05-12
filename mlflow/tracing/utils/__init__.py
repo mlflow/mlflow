@@ -17,7 +17,7 @@ from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
-from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
+from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS, MLFLOW_TRACE_SIZE_BYTES
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ _logger = logging.getLogger(__name__)
 SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
-    from mlflow.entities import LiveSpan
+    from mlflow.entities import LiveSpan, Trace
     from mlflow.pyfunc.context import Context
     from mlflow.types.chat import ChatMessage, ChatTool
 
@@ -447,3 +447,15 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
 
     except Exception:
         pass
+
+
+def add_size_bytes_tag_to_trace(trace: Trace):
+    """
+    Calculate the size of the trace in bytes and add it as a tag to the trace.
+
+    This method modifies the trace object in place by adding a new tag.
+    """
+    prev_trace_size_bytes = len(trace.to_json().encode("utf-8"))
+    tag_size_bytes = len(str(prev_trace_size_bytes)) + len(MLFLOW_TRACE_SIZE_BYTES.encode("utf-8"))
+    trace_size_bytes = prev_trace_size_bytes + tag_size_bytes
+    trace.info.tags[MLFLOW_TRACE_SIZE_BYTES] = str(trace_size_bytes)

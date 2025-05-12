@@ -77,6 +77,9 @@ LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
 # A set of tags that cannot be updated by the user
 IMMUTABLE_TAGS = {MLFLOW_USER, MLFLOW_ARTIFACT_LOCATION}
 
+# For tracing
+MLFLOW_TRACE_SIZE_BYTES = "mlflow.trace.size_bytes"
+
 # The list of tags generated from resolve_tags() that are required for tracing UI
 TRACE_RESOLVE_TAGS_ALLOWLIST = (
     MLFLOW_DATABRICKS_NOTEBOOK_COMMAND_ID,

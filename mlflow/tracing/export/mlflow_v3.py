@@ -14,7 +14,7 @@ from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import maybe_get_request_id
+from mlflow.tracing.utils import add_size_bytes_tag_to_trace, maybe_get_request_id
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 
 _logger = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ class MlflowV3SpanExporter(SpanExporter):
                 continue
 
             trace = InMemoryTraceManager.get_instance().pop_trace(span.context.trace_id)
+            add_size_bytes_tag_to_trace(trace)
             if trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
