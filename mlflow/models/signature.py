@@ -400,7 +400,6 @@ def _infer_signature_from_type_hints(
     if _contains_params(input_example):
         input_example, params = input_example
 
-    _logger.info("Inferring model signature from type hints")
     try:
         input_schema = _infer_schema_from_list_type_hint(type_hints.input)
     except InvalidTypeHintException:

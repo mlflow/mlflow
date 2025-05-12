@@ -952,3 +952,23 @@ def test_autolog_link_traces_active_model():
         model_id = json.loads(trace.data.request)["args"][0]
         assert model_id != model.model_id
         assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
+
+
+@skip_when_testing_trace_sdk
+def test_model_loading_set_active_model_id_without_fetching_logged_model():
+    mlflow.dspy.autolog()
+    dspy.settings.configure(
+        lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}])
+    )
+    dspy_model = CoT()
+
+    model_info = mlflow.dspy.log_model(dspy_model, name="model")
+
+    with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
+        loaded_model = mlflow.dspy.load_model(model_info.model_uri)
+    loaded_model(model_info.model_id)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    model_id = json.loads(traces[0].data.request)["args"][0]
+    assert model_id == traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
