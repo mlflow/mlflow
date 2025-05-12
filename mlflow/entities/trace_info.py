@@ -64,7 +64,7 @@ class TraceInfo(_MlflowObject):
     def from_dict(cls, d: dict[str, Any]) -> "TraceInfo":
         """Create a TraceInfoV3 object from a dictionary."""
         if "request_id" in d:
-            from mlflow.entities.trace_info import TraceInfo as TraceInfoV2
+            from mlflow.entities.trace_info_v2 import TraceInfoV2
 
             return TraceInfoV2.from_dict(d).to_v3()
 
@@ -89,7 +89,7 @@ class TraceInfo(_MlflowObject):
         return cls(**d)
 
     def to_proto(self):
-        from mlflow.entities.trace_info import _truncate_request_metadata, _truncate_tags
+        from mlflow.entities.trace_info_v2 import _truncate_request_metadata, _truncate_tags
 
         request_time = Timestamp()
         request_time.FromMilliseconds(self.request_time)

@@ -33,7 +33,7 @@ def _truncate_tags(d: dict[str, Any]) -> dict[str, str]:
 
 
 @dataclass
-class TraceInfo(_MlflowObject):
+class TraceInfoV2(_MlflowObject):
     """Metadata about a trace.
 
     Args:

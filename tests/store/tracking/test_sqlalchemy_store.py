@@ -36,7 +36,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     _MLFLOW_GO_STORE_TESTING,
@@ -4193,7 +4193,7 @@ def _create_trace(
     status=TraceStatus.OK,
     request_metadata=None,
     tags=None,
-) -> TraceInfo:
+) -> TraceInfoV2:
     """Helper function to create a test trace in the database."""
     if not store.get_experiment(experiment_id):
         store.create_experiment(store, experiment_id)

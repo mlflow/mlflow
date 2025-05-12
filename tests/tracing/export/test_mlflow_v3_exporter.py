@@ -8,7 +8,7 @@ import pytest
 
 import mlflow
 from mlflow.entities.span_event import SpanEvent
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocation,
@@ -47,7 +47,7 @@ def test_export(experiment_id, is_async, monkeypatch):
     mlflow.tracing.set_destination(Databricks(experiment_id=experiment_id))
 
     # Create mock for returned trace from _start_trace_v3
-    mock_trace_info = TraceInfoV3(
+    mock_trace_info = TraceInfo(
         trace_id="12345",
         trace_location=TraceLocation(
             type=TraceLocationType.MLFLOW_EXPERIMENT,
@@ -94,7 +94,7 @@ def test_export(experiment_id, is_async, monkeypatch):
 
     # Validate the data was passed to upload_trace_data
     call_args = mock_upload_trace_data.call_args
-    assert isinstance(call_args.args[0], TraceInfoV3)
+    assert isinstance(call_args.args[0], TraceInfo)
     assert call_args.args[0].trace_id == "12345"
 
     # We don't need to validate the exact JSON structure anymore since
