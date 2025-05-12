@@ -2498,6 +2498,7 @@ def test_model_save_load_compression(
     )
 
 
+@pytest.mark.skip(reason="Enable once we re-enable the warning")
 def test_load_model_warning():
     class Model(mlflow.pyfunc.PythonModel):
         def predict(self, model_input: list[str]):
