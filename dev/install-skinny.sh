@@ -13,7 +13,7 @@ REF=${1:-HEAD}
 TEMP_DIR=$(mktemp -d)
 git clone --filter=blob:none --no-checkout https://github.com/mlflow/mlflow.git $TEMP_DIR
 cd $TEMP_DIR
-git sparse-checkout set --no-cone /mlflow /skinny /pyproject.toml
+git sparse-checkout set --no-cone /mlflow /skinny /pyproject.toml '!mlflow/server/js/*'
 git fetch origin "$REF"
 git config advice.detachedHead false
 git checkout FETCH_HEAD
