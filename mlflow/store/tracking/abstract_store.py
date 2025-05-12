@@ -10,7 +10,7 @@ from mlflow.entities import (
     LoggedModelParameter,
     LoggedModelStatus,
     LoggedModelTag,
-    TraceInfo,
+    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.metric import MetricWithRunId
@@ -247,7 +247,7 @@ class AbstractStore:
         timestamp_ms: int,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Start an initial TraceInfo object in the backend store.
 
@@ -271,7 +271,7 @@ class AbstractStore:
         status: TraceStatus,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
@@ -343,7 +343,7 @@ class AbstractStore:
     ) -> int:
         raise NotImplementedError
 
-    def get_trace_info(self, request_id: str) -> TraceInfo:
+    def get_trace_info(self, request_id: str) -> TraceInfoV2:
         """
         Get the trace matching the `request_id`.
 
@@ -375,7 +375,7 @@ class AbstractStore:
         page_token: Optional[str] = None,
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
-    ) -> tuple[list[TraceInfo], Optional[str]]:
+    ) -> tuple[list[TraceInfoV2], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 

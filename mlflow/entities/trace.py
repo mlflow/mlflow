@@ -10,7 +10,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -27,11 +27,11 @@ class Trace(_MlflowObject):
         data: A container object that holds the spans data of a trace.
     """
 
-    info: TraceInfoV3
+    info: TraceInfo
     data: TraceData
 
     def __post_init__(self):
-        if isinstance(self.info, TraceInfo):
+        if isinstance(self.info, TraceInfoV2):
             self.info = self.info.to_v3(request=self.data.request, response=self.data.response)
 
     def __repr__(self) -> str:
@@ -57,7 +57,7 @@ class Trace(_MlflowObject):
             )
 
         return cls(
-            info=TraceInfoV3.from_dict(info),
+            info=TraceInfo.from_dict(info),
             data=TraceData.from_dict(data),
         )
 

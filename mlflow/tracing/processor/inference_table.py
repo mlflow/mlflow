@@ -7,7 +7,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
@@ -86,7 +86,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
             tags.update(dependencies_schema)
 
         if span._parent is None:
-            trace_info = TraceInfo(
+            trace_info = TraceInfoV2(
                 request_id=trace_id,
                 client_request_id=databricks_request_id,
                 # NB: Agent framework populate the MLFLOW_EXPERIMENT_ID environment variable

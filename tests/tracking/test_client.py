@@ -21,7 +21,7 @@ from mlflow.entities import (
     SpanStatusCode,
     SpanType,
     Trace,
-    TraceInfo,
+    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.file_info import FileInfo
@@ -175,7 +175,7 @@ def test_client_create_run_with_name(mock_store, mock_time):
 
 
 def test_client_get_trace(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfo(
+    mock_store.get_trace_info.return_value = TraceInfoV2(
         request_id="tr-1234567",
         experiment_id="0",
         timestamp_ms=123,
@@ -232,7 +232,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
 
 
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfo(
+    mock_store.get_trace_info.return_value = TraceInfoV2(
         request_id="1234567",
         experiment_id="0",
         timestamp_ms=123,
@@ -259,7 +259,7 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
 @pytest.mark.parametrize("include_spans", [True, False])
 def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
     mock_traces = [
-        TraceInfo(
+        TraceInfoV2(
             request_id="1234567",
             experiment_id="1",
             timestamp_ms=123,
@@ -267,7 +267,7 @@ def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
             status=TraceStatus.OK,
             tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
         ),
-        TraceInfo(
+        TraceInfoV2(
             request_id="8910",
             experiment_id="2",
             timestamp_ms=456,
@@ -322,7 +322,7 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
         return_value=CustomArtifactRepository("test"),
     ) as mock_get_artifact_repository:
         mock_traces = [
-            TraceInfo(
+            TraceInfoV2(
                 request_id="1234567",
                 experiment_id="1",
                 timestamp_ms=123,
