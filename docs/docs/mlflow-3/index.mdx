@@ -281,11 +281,4 @@ MLflow 3.0 introduces some key API changes while also removes some outdated feat
 
 ### Compatibility with MLflow 2.x
 
-We strongly recommend upgrading both client and server to MLflow 3.0.0 for the best experience. However, if you need to use a 2.x client with a 3.x server, or vice versa, here are the compatibility details:
-
-| Client MLflow version | Server MLflow version | Compatibility                        |
-| --------------------- | --------------------- | ------------------------------------ |
-| 2.x                   | 2.x                   | ✅                                   |
-| 3.x                   | 3.x                   | ✅                                   |
-| 2.x                   | 3.x                   | ✅ (not recommended but should work) |
-| 3.x                   | 2.x                   | ❌                                   |
+We strongly recommend upgrading **both client and server** to MLflow 3.0.0 for the best experience. A mismatch between client and server versions may lead to unexpected behavior.
