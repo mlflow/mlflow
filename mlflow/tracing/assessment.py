@@ -8,7 +8,7 @@ from mlflow.entities.assessment import (
     FeedbackValueType,
     experimental,
 )
-from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.client import TracingClient
 
@@ -192,7 +192,7 @@ def delete_expectation(trace_id: str, assessment_id: str):
 def log_feedback(
     trace_id: str,
     name: str,
-    source: AssessmentSource,
+    source: Optional[AssessmentSource] = None,
     value: Optional[FeedbackValueType] = None,
     error: Optional[AssessmentError] = None,
     rationale: Optional[str] = None,
@@ -209,8 +209,9 @@ def log_feedback(
     Args:
         trace_id: The ID of the trace.
         name: The name of the feedback assessment e.g., "faithfulness"
-        source: The source of the feedback assessment. Must be an instance of
-                :py:class:`~mlflow.entities.AssessmentSource`.
+        source: The source of the feedback assessment. Must be either an instance of
+                :py:class:`~mlflow.entities.AssessmentSource` or a string that is a valid value in the
+                AssessmentSourceType enum. If not provided, defaults to CODE source type.
         value: The value of the feedback. Must be one of the following types:
             - float
             - int
@@ -239,7 +240,7 @@ def log_feedback(
         from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
 
         source = AssessmentSource(
-            source_type=Type.LLM_JUDGE,
+            source_type=AssessmentSourceType.LLM_JUDGE,
             source_id="faithfulness-judge",
         )
 
@@ -252,6 +253,20 @@ def log_feedback(
             metadata={"model": "gpt-4o-mini"},
         )
 
+    You can also use the function without specifying a source, in which case CODE source type
+    will be used by default:
+
+    .. code-block:: python
+
+        import mlflow
+
+        mlflow.log_feedback(
+            trace_id="1234",
+            name="faithfulness",
+            value=0.9,
+            rationale="The model is faithful to the input.",
+        )
+
     You can also log an error information during the feedback generation process. To do so,
     provide an instance of :py:class:`~mlflow.entities.AssessmentError` to the `error`
     parameter, and leave the `value` parameter as `None`.
@@ -261,11 +276,6 @@ def log_feedback(
         import mlflow
         from mlflow.entities.assessment import AssessmentError
 
-        source = AssessmentSource(
-            source_type=Type.LLM_JUDGE,
-            source_id="faithfulness-judge",
-        )
-
         error = AssessmentError(
             error_code="RATE_LIMIT_EXCEEDED",
             error_message="Rate limit for the judge exceeded.",
@@ -274,7 +284,6 @@ def log_feedback(
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
-            source=source,
             error=error,
         )
 
@@ -282,7 +291,13 @@ def log_feedback(
     if value is None and error is None:
         raise MlflowException.invalid_parameter_value("Either `value` or `error` must be provided.")
 
-    if not isinstance(source, AssessmentSource):
+    # If source is not provided, use CODE as the default source type
+    if source is None:
+        source = AssessmentSource(
+            source_type=AssessmentSourceType.CODE,
+            source_id="log_feedback_default",
+        )
+    elif not isinstance(source, AssessmentSource):
         raise MlflowException.invalid_parameter_value(
             f"`source` must be an instance of `AssessmentSource`. Got {type(source)} instead."
         )
