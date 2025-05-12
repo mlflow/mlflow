@@ -1,4 +1,5 @@
 from unittest import mock
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -6,6 +7,11 @@ import pytest
 import mlflow
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
+
+
+def mock_init_auth(config_instance):
+    config_instance.host = "https://databricks.com/"
+    config_instance._header_factory = lambda: {}
 
 
 @pytest.mark.parametrize(
@@ -93,3 +99,22 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
             extra_metrics=[],
             model_id="test_model_id",
         )
+
+
+def test_evaluate_accepts_managed_dataset():
+    try:
+        import pandas as pd
+        from databricks.rag_eval.datasets.entities import Dataset as ManagedDataset
+    except ImportError:
+        pytest.skip("`pandas`/`databricks-agents` package is not installed")
+
+    df = pd.DataFrame([{"inputs": "foo", "outputs": "bar"}])
+
+    with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
+        with patch.object(ManagedDataset, "to_df", return_value=df):
+            with patch("mlflow.get_tracking_uri", return_value="databricks"):
+                results = mlflow.genai.evaluate(data=ManagedDataset("test-id"))
+
+                assert results.result_df["request"].tolist() == ["foo"]
+
+                assert results.result_df["response"].tolist() == ["bar"]
