@@ -75,7 +75,6 @@ def test_log_expectation_invalid_parameters(tracking_uri):
         )
 
 
-
 def test_update_expectation(store, tracking_uri):
     mlflow.update_expectation(
         assessment_id="1234",
