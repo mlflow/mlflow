@@ -2,6 +2,7 @@ import json
 import time
 from unittest import mock
 
+from mlflow.version import IS_TRACING_SDK_ONLY
 import pytest
 
 import mlflow.tracking.context.default_context
@@ -53,18 +54,23 @@ def test_on_start(monkeypatch):
 
     processor.on_start(span)
 
-    mock_client.start_trace.assert_called_once_with(
-        experiment_id=_get_experiment_id(),
-        timestamp_ms=5,
-        request_metadata={
-            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-            MLFLOW_USER: mock.ANY,
-            MLFLOW_SOURCE_NAME: mock.ANY,
-            MLFLOW_SOURCE_TYPE: "LOCAL",
+    expected_metadata = {
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+        MLFLOW_USER: mock.ANY,
+        MLFLOW_SOURCE_NAME: mock.ANY,
+        MLFLOW_SOURCE_TYPE: "LOCAL",
+    }
+    if not IS_TRACING_SDK_ONLY:
+        expected_metadata.update({
             MLFLOW_GIT_BRANCH: mock.ANY,
             MLFLOW_GIT_COMMIT: mock.ANY,
             MLFLOW_GIT_REPO_URL: mock.ANY,
-        },
+        })
+
+    mock_client.start_trace.assert_called_once_with(
+        experiment_id=_get_experiment_id(),
+        timestamp_ms=5,
+        request_metadata=expected_metadata,
         tags={TraceTagKey.TRACE_NAME: "test_span"},
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
@@ -126,15 +132,7 @@ def test_on_start_with_experiment_id(monkeypatch):
     mock_client.start_trace.assert_called_once_with(
         experiment_id=experiment_id,
         timestamp_ms=5,
-        request_metadata={
-            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-            MLFLOW_USER: mock.ANY,
-            MLFLOW_SOURCE_NAME: mock.ANY,
-            MLFLOW_SOURCE_TYPE: "LOCAL",
-            MLFLOW_GIT_BRANCH: mock.ANY,
-            MLFLOW_GIT_COMMIT: mock.ANY,
-            MLFLOW_GIT_REPO_URL: mock.ANY,
-        },
+        request_metadata=mock.ANY,
         tags={TraceTagKey.TRACE_NAME: "test_span"},
     )
     assert span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(_REQUEST_ID)
@@ -184,21 +182,27 @@ def test_on_start_during_run(monkeypatch):
         processor.on_start(span)
         expected_run_id = run.info.run_id
 
+    expected_metadata = {
+        TraceMetadataKey.SOURCE_RUN: expected_run_id,
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+        MLFLOW_USER: mock.ANY,
+        MLFLOW_SOURCE_NAME: mock.ANY,
+        MLFLOW_SOURCE_TYPE: "LOCAL",
+    }
+    if not IS_TRACING_SDK_ONLY:
+        expected_metadata.update({
+            MLFLOW_GIT_BRANCH: mock.ANY,
+            MLFLOW_GIT_COMMIT: mock.ANY,
+            MLFLOW_GIT_REPO_URL: mock.ANY,
+        })
+
+
     mock_client.start_trace.assert_called_once_with(
         # expect experiment id to be from the run, not from the environment
         experiment_id=run_experiment_id,
         timestamp_ms=5,
         # expect run id to be set
-        request_metadata={
-            TraceMetadataKey.SOURCE_RUN: expected_run_id,
-            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-            MLFLOW_USER: mock.ANY,
-            MLFLOW_SOURCE_NAME: mock.ANY,
-            MLFLOW_SOURCE_TYPE: "LOCAL",
-            MLFLOW_GIT_BRANCH: mock.ANY,
-            MLFLOW_GIT_COMMIT: mock.ANY,
-            MLFLOW_GIT_REPO_URL: mock.ANY,
-        },
+        request_metadata=expected_metadata,
         tags=mock.ANY,
     )
 
@@ -222,15 +226,7 @@ def test_on_start_with_experiment_id_override(monkeypatch):
     mock_client.start_trace.assert_called_once_with(
         experiment_id="another_experiment",
         timestamp_ms=mock.ANY,
-        request_metadata={
-            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-            MLFLOW_USER: mock.ANY,
-            MLFLOW_SOURCE_NAME: mock.ANY,
-            MLFLOW_SOURCE_TYPE: "LOCAL",
-            MLFLOW_GIT_BRANCH: mock.ANY,
-            MLFLOW_GIT_COMMIT: mock.ANY,
-            MLFLOW_GIT_REPO_URL: mock.ANY,
-        },
+        request_metadata=mock.ANY,
         tags=mock.ANY,
     )
 

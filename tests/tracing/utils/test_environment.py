@@ -1,5 +1,6 @@
 from unittest import mock
 
+from mlflow.version import IS_TRACING_SDK_ONLY
 import pytest
 
 from mlflow.tracing.utils.environment import resolve_env_metadata
@@ -21,14 +22,18 @@ def clear_lru_cache():
 
 
 def test_resolve_env_metadata():
-    assert resolve_env_metadata() == {
+    expected_metadata = {
         MLFLOW_USER: mock.ANY,
         MLFLOW_SOURCE_NAME: mock.ANY,
         MLFLOW_SOURCE_TYPE: "LOCAL",
-        MLFLOW_GIT_COMMIT: mock.ANY,
-        MLFLOW_GIT_REPO_URL: mock.ANY,
-        MLFLOW_GIT_BRANCH: mock.ANY,
     }
+    if not IS_TRACING_SDK_ONLY:
+        expected_metadata.update({
+            MLFLOW_GIT_BRANCH: mock.ANY,
+            MLFLOW_GIT_COMMIT: mock.ANY,
+            MLFLOW_GIT_REPO_URL: mock.ANY,
+        })
+    assert resolve_env_metadata() == expected_metadata
 
 
 def test_resolve_env_metadata_in_databricks_notebook():
