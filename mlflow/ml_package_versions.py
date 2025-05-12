@@ -150,7 +150,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "prophet"
         },
         "models": {
-            "minimum": "1.1.3",
+            "minimum": "1.1.6",
             "maximum": "1.1.6"
         }
     },
@@ -355,7 +355,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "sentence-transformers"
         },
         "models": {
-            "minimum": "2.3.0",
+            "minimum": "2.3.1",
             "maximum": "4.1.0"
         }
     },

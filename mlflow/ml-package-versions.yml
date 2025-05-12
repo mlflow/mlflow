@@ -7,6 +7,8 @@ sklearn:
   models:
     minimum: "1.3.0"
     maximum: "1.6.1"
+    requirements:
+      "<= 1.3.0": ["numpy<2"]
     python:
       "== dev": "3.10"
     run: |
@@ -16,6 +18,7 @@ sklearn:
     minimum: "1.3.0"
     maximum: "1.6.1"
     requirements:
+      "<= 1.3.0": ["numpy<2"]
       ">= 0.0.0": ["matplotlib"]
     python:
       "== dev": "3.10"
@@ -188,6 +191,7 @@ catboost:
     maximum: "1.2.8"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
+      "< 1.3": ["numpy<2"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py
 
@@ -334,7 +338,7 @@ prophet:
     pip_release: "prophet"
 
   models:
-    minimum: "1.1.3"
+    minimum: "1.1.6"
     maximum: "1.1.6"
     requirements:
       # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
@@ -342,7 +346,6 @@ prophet:
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
       # older version of prophet. Compatibility updates have been released as part of the 1.1.4
       # release of prophet.
-      "<= 1.1.3": ["holidays<=0.24"]
     run: |
       pytest tests/prophet/test_prophet_model_export.py
 
@@ -878,7 +881,7 @@ sentence_transformers:
     install_dev: |
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
-    minimum: "2.3.0"
+    minimum: "2.3.1"
     maximum: "4.1.0"
     requirements:
       ">= 0.0.0": [
