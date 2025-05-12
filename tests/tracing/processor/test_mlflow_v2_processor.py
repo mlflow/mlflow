@@ -2,7 +2,6 @@ import json
 import time
 from unittest import mock
 
-from mlflow.version import IS_TRACING_SDK_ONLY
 import pytest
 
 import mlflow.tracking.context.default_context
@@ -28,6 +27,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
 )
 from mlflow.utils.os import is_windows
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import (
     create_mock_otel_span,
@@ -61,11 +61,13 @@ def test_on_start(monkeypatch):
         MLFLOW_SOURCE_TYPE: "LOCAL",
     }
     if not IS_TRACING_SDK_ONLY:
-        expected_metadata.update({
-            MLFLOW_GIT_BRANCH: mock.ANY,
-            MLFLOW_GIT_COMMIT: mock.ANY,
-            MLFLOW_GIT_REPO_URL: mock.ANY,
-        })
+        expected_metadata.update(
+            {
+                MLFLOW_GIT_BRANCH: mock.ANY,
+                MLFLOW_GIT_COMMIT: mock.ANY,
+                MLFLOW_GIT_REPO_URL: mock.ANY,
+            }
+        )
 
     mock_client.start_trace.assert_called_once_with(
         experiment_id=_get_experiment_id(),
@@ -190,12 +192,13 @@ def test_on_start_during_run(monkeypatch):
         MLFLOW_SOURCE_TYPE: "LOCAL",
     }
     if not IS_TRACING_SDK_ONLY:
-        expected_metadata.update({
-            MLFLOW_GIT_BRANCH: mock.ANY,
-            MLFLOW_GIT_COMMIT: mock.ANY,
-            MLFLOW_GIT_REPO_URL: mock.ANY,
-        })
-
+        expected_metadata.update(
+            {
+                MLFLOW_GIT_BRANCH: mock.ANY,
+                MLFLOW_GIT_COMMIT: mock.ANY,
+                MLFLOW_GIT_REPO_URL: mock.ANY,
+            }
+        )
 
     mock_client.start_trace.assert_called_once_with(
         # expect experiment id to be from the run, not from the environment

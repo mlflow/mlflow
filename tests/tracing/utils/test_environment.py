@@ -1,6 +1,5 @@
 from unittest import mock
 
-from mlflow.version import IS_TRACING_SDK_ONLY
 import pytest
 
 from mlflow.tracing.utils.environment import resolve_env_metadata
@@ -14,6 +13,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_USER,
 )
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 
 @pytest.fixture(autouse=True)
@@ -28,11 +28,13 @@ def test_resolve_env_metadata():
         MLFLOW_SOURCE_TYPE: "LOCAL",
     }
     if not IS_TRACING_SDK_ONLY:
-        expected_metadata.update({
-            MLFLOW_GIT_BRANCH: mock.ANY,
-            MLFLOW_GIT_COMMIT: mock.ANY,
-            MLFLOW_GIT_REPO_URL: mock.ANY,
-        })
+        expected_metadata.update(
+            {
+                MLFLOW_GIT_BRANCH: mock.ANY,
+                MLFLOW_GIT_COMMIT: mock.ANY,
+                MLFLOW_GIT_REPO_URL: mock.ANY,
+            }
+        )
     assert resolve_env_metadata() == expected_metadata
 
 
