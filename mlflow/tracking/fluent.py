@@ -2536,7 +2536,7 @@ def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
 
 
         model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
-        mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
+        mlflow.set_logged_model_tags(model_info.model_id, {"key": "value"})
         model = mlflow.get_logged_model(model_info.model_id)
         assert model.tags["key"] == "value"
     """
