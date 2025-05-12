@@ -114,7 +114,7 @@ def get_default_conda_env():
 
         # Log PyTorch model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model", signature=signature)
+            mlflow.pytorch.log_model(model, name="model", signature=signature)
 
         # Fetch the associated conda environment
         env = mlflow.pytorch.get_default_conda_env()
@@ -257,11 +257,11 @@ def log_model(
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model")
+            mlflow.pytorch.log_model(model, name="model")
 
             # convert to scripted model and log the model
             scripted_pytorch_model = torch.jit.script(model)
-            mlflow.pytorch.log_model(scripted_pytorch_model, "scripted_model")
+            mlflow.pytorch.log_model(scripted_pytorch_model, name="scripted_model")
 
         # Fetch the logged model artifacts
         print(f"run_id: {run.info.run_id}")
@@ -624,7 +624,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model")
+            mlflow.pytorch.log_model(model, name="model")
 
         # Inference after loading the logged model
         model_uri = f"runs:/{run.info.run_id}/model"

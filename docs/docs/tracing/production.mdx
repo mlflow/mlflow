@@ -3,13 +3,40 @@ sidebar_position: 6
 sidebar_label: Production Monitoring
 ---
 
-import { CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import { CardGroup, SmallLogoCard, Card } from "@site/src/components/Card";
 
 
 # Monitoring GenAI Application in Production
 
 Machine learning projects don't conclude with their initial launch. Ongoing monitoring and incremental enhancements are critical for long-term success. [MLflow Tracing](/tracing) offers observability for your production application, supporting the iterative process of continuous improvement.
 
+
+## Pro Tip: Using the Lightweight Tracing SDK for Reducing the Footprint
+
+The [MLflow Tracing SDK `mlflow-tracing`](/tracing/lightweight-sdk) is a lightweight package that only includes the minimum set of dependencies to instrument your code/models/agents with MLflow Tracing.
+
+<Card>
+  <div className="flex-column">
+    <div className="flex-row">
+      <div className="flex-item">
+        #### Key Benefits
+
+        - **⚡️ Faster Deployment**: Significantly smaller package size and fewer dependencies enable quicker deployments in containers and serverless environments
+        - **🔧 Simple Dependency Management**: Reduced dependencies mean less maintenance overhead and fewer potential conflicts
+        - **📦 Enhanced Portability**: Easily deploy across different platforms with minimal compatibility concerns
+        - **🔒 Improved Security**: Smaller attack surface with fewer dependencies reduces security risks
+      </div>
+    </div>
+  </div>
+</Card>
+
+<br/>
+
+:::warning
+
+    When installing the MLflow Tracing SDK, make sure the environment does not have the full MLflow package installed. Having both in the same environment might cause conflicts and unexpected behaviors.
+
+:::
 
 ## Managed Monitoring for GenAI Application [Recommended]
 
@@ -33,6 +60,18 @@ This solution provides an instant access to a fully functional monitoring system
 Lakehouse Monitoring for GenAI can be used for your GenAI application, regardless of whether it is hosted on Databricks or not. You can run the application hosted on any cloud or on-premise, and configure MLflow Tracing to send traces to Databricks to monitor the application.
 
 For more details about the product and how to set it up, please refer to the [Lakehouse Monitoring for GenAI](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring) documentation.
+
+### Configurations
+
+When using Lakehouse Monitoring for GenAI, MLflow logs traces asynchronously by default, allowing your application to continue serving requests without waiting for trace logging to complete.
+
+| Environment Variable | Description | Default Value |
+|----------------------|-------------|---------------|
+| `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING` | Whether to log traces asynchronously. When set to `False`, traces will be logged in a blocking manner. | `True` |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS` | The maximum number of worker threads to use for async trace logging per process. Increasing this allows higher throughput of trace logging, but also increases the CPU usage and memory consumption. | `10` |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | The maximum number of traces that can be queued before being logged to backend by the worker threads. When the queue is full, new traces will be discarded. Increasing this allows higher durability of trace logging, but also increases the memory consumption. | `50` |
+| `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT` | The timeout in seconds for retrying failed trace logging. When a trace logging fails, it will be retried up to this timeout with backoff, after which it will be discarded. | `5` |
+
 
 ## OpenTelemetry Integration
 

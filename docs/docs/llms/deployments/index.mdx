@@ -288,6 +288,12 @@ Note that ✅ mark does not mean all models from the provider are compatible wit
       <td>✅</td>
       <td>✅</td>
     </tr>
+    <tr>
+      <td>Gemini</td>
+      <td>✅\*</td>
+      <td>✅\*</td>
+      <td>✅\*\*</td>
+    </tr>
   </tbody>
 </table>
 
@@ -336,6 +342,7 @@ As of now, the MLflow AI Gateway supports the following providers:
 - **bedrock**: This is used for models offered by [Amazon Bedrock](https://aws.amazon.com/bedrock/).
 - **mistral**: This is used for models offered by [Mistral](https://docs.mistral.ai/).
 - **togetherai**: This is used for models offered by [TogetherAI](https://docs.together.ai/docs/).
+- **gemini**: This is used for models offered by [Gemini](https://ai.google.dev/api/models#rest-resource:-models).
 
 More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
 most up-to-date list of supported providers.
@@ -924,6 +931,27 @@ This will ensure seamless interaction and reliable security for your Azure-OpenA
   </tbody>
 </table>
 
+###### Gemini
+
+<table>
+  <thead>
+    <tr>
+      <th>Configuration Parameter</th>
+      <th>Required</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>**gemini_api_key**</td>
+      <td>Yes</td>
+      <td>N/A</td>
+      <td>This is the API key for the Gemini service.</td>
+    </tr>
+  </tbody>
+</table>
+
 An example configuration for Azure OpenAI is:
 
 ```yaml
@@ -1327,7 +1355,7 @@ result = llm_chain.run(adjective="funny")
 print(result)
 
 with mlflow.start_run():
-    model_info = mlflow.langchain.log_model(llm_chain, "model")
+    model_info = mlflow.langchain.log_model(llm_chain, name="model")
 
 model = mlflow.pyfunc.load_model(model_info.model_uri)
 print(model.predict([{"adjective": "funny"}]))
@@ -1384,7 +1412,7 @@ with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
         python_model=predict,
         registered_model_name="anthropic_completions",
-        artifact_path="anthropic_completions",
+        name="anthropic_completions",
         input_example=input_example,
         signature=signature,
     )
@@ -1457,11 +1485,8 @@ Here are some examples for how you might use curl to interact with the MLflow AI
 
 **Note:** Remember to replace `my.deployments:8888` with the URL of your actual MLflow AI Gateway.
 
-## Plugin LLM Provider (Experimental) \{#deployments-plugin}
+## Plugin LLM Provider \{#deployments-plugin}
 
-:::warning attention
-This feature is in active development and is marked as Experimental. It may change in a future release without warning.
-:::
 
 The MLflow AI Gateway supports the use of custom language model providers through the use of plugins.
 A plugin is a Python package that provides a custom implementation of a language model provider.

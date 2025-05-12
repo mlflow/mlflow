@@ -4,6 +4,8 @@ from unittest import mock
 import mlflow
 from mlflow.tracing.utils.warning import suppress_warning
 
+from tests.tracing.helper import skip_when_testing_trace_sdk
+
 
 def test_suppress_token_detach_warning(caplog):
     logger = logging.getLogger("opentelemetry.context")
@@ -32,6 +34,7 @@ def test_suppress_token_detach_warning(caplog):
     assert caplog.records[2].levelname == "DEBUG"
 
 
+@skip_when_testing_trace_sdk
 @mock.patch("mlflow.tracing.utils.warning.warnings")
 def test_request_id_backward_compatible(mock_warnings):
     client = mlflow.MlflowClient()

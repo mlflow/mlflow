@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
-import pandas as pd
 import pytest
 
 import mlflow
@@ -22,9 +21,9 @@ from mlflow.entities import (
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
-from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
@@ -33,12 +32,18 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.export.inference_table import pop_trace
-from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
-from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
+from mlflow.tracing.fluent import start_span_no_context
+from mlflow.tracing.provider import _get_tracer
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path
-from mlflow.utils.os import is_windows
+from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.tracing.helper import create_test_trace_info, get_traces
+from tests.tracing.helper import (
+    create_test_trace_info,
+    get_traces,
+    purge_traces,
+    skip_when_testing_trace_sdk,
+)
 
 
 class DefaultTestModel:
@@ -165,7 +170,7 @@ class ErroringStreamTestModel:
 @pytest.fixture
 def mock_client():
     client = mock.MagicMock()
-    with mock.patch("mlflow.tracing.fluent.MlflowClient", return_value=client):
+    with mock.patch("mlflow.tracing.fluent.TracingClient", return_value=client):
         yield client
 
 
@@ -175,6 +180,9 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
     model = DefaultTestModel() if wrap_sync_func else DefaultAsyncTestModel()
 
     if with_active_run:
+        if IS_TRACING_SDK_ONLY:
+            pytest.skip("Skipping test because mlflow or mlflow-skinny is not installed.")
+
         with mlflow.start_run() as run:
             model.predict(2, 5) if wrap_sync_func else asyncio.run(model.predict(2, 5))
             run_id = run.info.run_id
@@ -188,7 +196,7 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.trace_id is not None
-    assert trace.info.experiment_id == "0"  # default experiment
+    assert trace.info.experiment_id == _get_experiment_id()
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace.info.status == SpanStatusCode.OK
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2, "y": 5}'
@@ -267,7 +275,7 @@ def test_trace_stream(wrap_sync_func):
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.trace_id is not None
-    assert trace.info.experiment_id == "0"  # default experiment
+    assert trace.info.experiment_id == _get_experiment_id()
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace.info.status == SpanStatusCode.OK
     metadata = trace.info.request_metadata
@@ -315,7 +323,7 @@ def test_trace_with_databricks_tracking_uri(
     model = DefaultTestModel()
 
     with mock.patch(
-        "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+        "mlflow.tracing.client.TracingClient._upload_trace_data"
     ) as mock_upload_trace_data:
         model.predict(2, 5)
         if async_logging_enabled:
@@ -328,11 +336,14 @@ def test_trace_with_databricks_tracking_uri(
 
 # NB: async logging should be no-op for model serving,
 # but we test it here to make sure it doesn't break
+@skip_when_testing_trace_sdk
 def test_trace_in_databricks_model_serving(
     mock_databricks_serving_with_tracing_env, async_logging_enabled
 ):
     # Dummy flask app for prediction
     import flask
+
+    from mlflow.pyfunc.context import Context, set_prediction_context
 
     app = flask.Flask(__name__)
 
@@ -385,7 +396,8 @@ def test_trace_in_databricks_model_serving(
 
     trace_dict = response.json["trace"]
     trace = Trace.from_dict(trace_dict)
-    assert trace.info.trace_id == databricks_request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == databricks_request_id
     assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
     assert len(trace.data.spans) == 3
 
@@ -398,7 +410,7 @@ def test_trace_in_databricks_model_serving(
     assert root_span.status.status_code.value == "OK"
     assert root_span.status.description == ""
     assert root_span.attributes == {
-        "mlflow.traceRequestId": databricks_request_id,
+        "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.UNKNOWN,
         "mlflow.spanFunctionName": "predict",
         "mlflow.spanInputs": {"x": 2, "y": 5},
@@ -410,7 +422,7 @@ def test_trace_in_databricks_model_serving(
     assert child_span_1.parent_id == root_span.span_id
     assert child_span_1.attributes == {
         "delta": 1,
-        "mlflow.traceRequestId": databricks_request_id,
+        "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.LLM,
         "mlflow.spanFunctionName": "add_one",
         "mlflow.spanInputs": {"z": 7},
@@ -421,7 +433,7 @@ def test_trace_in_databricks_model_serving(
     child_span_2 = span_name_to_span["square"]
     assert child_span_2.parent_id == root_span.span_id
     assert child_span_2.attributes == {
-        "mlflow.traceRequestId": databricks_request_id,
+        "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.UNKNOWN,
     }
     assert asdict(child_span_2.events[0]) == {
@@ -438,7 +450,10 @@ def test_trace_in_databricks_model_serving(
     assert len(traces) == 0
 
 
+@skip_when_testing_trace_sdk
 def test_trace_in_model_evaluation(monkeypatch, async_logging_enabled):
+    from mlflow.pyfunc.context import Context, set_prediction_context
+
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
 
@@ -571,6 +586,16 @@ def test_trace_ignore_exception(monkeypatch, model):
 
     assert get_traces() == []
 
+    # Exception during inspecting inputs: trace should be logged without inputs field
+    with mock.patch("inspect.signature", side_effect=ValueError("Some error")) as mock_input_args:
+        _call_model_and_assert_output(model)
+        assert mock_input_args.call_count > 0
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == TraceStatus.OK
+    purge_traces()
+
     # Exception during ending span: trace should not be logged.
     tracer = _get_tracer(__name__)
 
@@ -580,16 +605,6 @@ def test_trace_ignore_exception(monkeypatch, model):
     monkeypatch.setattr(tracer.span_processor, "on_end", _always_fail)
     _call_model_and_assert_output(model)
     assert len(get_traces()) == 0
-    monkeypatch.undo()
-
-    # Exception during inspecting inputs: trace should be logged without inputs field
-    with mock.patch("inspect.signature", side_effect=ValueError("Some error")) as mock_input_args:
-        _call_model_and_assert_output(model)
-        assert mock_input_args.call_count > 0
-
-    traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].info.status == TraceStatus.OK
 
 
 def test_trace_skip_resolving_unrelated_tags_to_traces():
@@ -640,7 +655,7 @@ def test_start_span_context_manager(async_logging_enabled):
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.trace_id is not None
-    assert trace.info.experiment_id == "0"  # default experiment
+    assert trace.info.experiment_id == _get_experiment_id()
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace.info.status == TraceStatus.OK
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
@@ -689,19 +704,15 @@ def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
     # should be supported for the advanced use cases like using LangChain callbacks as a
     # part of broader tracing.
     class TestModel:
-        def __init__(self):
-            self._mlflow_client = mlflow.tracking.MlflowClient()
-
         def predict(self, x, y):
             with mlflow.start_span(name="root_span") as root_span:
                 root_span.set_inputs({"x": x, "y": y})
                 z = x + y
 
-                child_span = self._mlflow_client.start_span(
+                child_span = start_span_no_context(
                     name="child_span_1",
                     span_type=SpanType.LLM,
-                    trace_id=root_span.trace_id,
-                    parent_id=root_span.span_id,
+                    parent_span=root_span,
                 )
                 child_span.set_inputs(z)
 
@@ -725,7 +736,7 @@ def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.trace_id is not None
-    assert trace.info.experiment_id == "0"  # default experiment
+    assert trace.info.experiment_id == _get_experiment_id()
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
     assert trace.info.status == TraceStatus.OK
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
@@ -792,7 +803,7 @@ def test_mlflow_trace_isolated_from_other_otel_processors():
     assert other_exporter.exported_spans[0].name == "non_mlflow_span"
 
 
-@mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
+@mock.patch("mlflow.tracing.display.get_display_handler")
 def test_get_trace(mock_get_display_handler):
     model = DefaultTestModel()
     model.predict(2, 5)
@@ -821,19 +832,23 @@ def test_test_search_traces_empty(mock_client):
     mock_client.search_traces.return_value = PagedList([], token=None)
 
     traces = mlflow.search_traces()
-    assert traces.empty
+    assert len(traces) == 0
 
-    default_columns = Trace.pandas_dataframe_columns()
-    assert traces.columns.tolist() == default_columns
+    if not IS_TRACING_SDK_ONLY:
+        default_columns = Trace.pandas_dataframe_columns()
+        assert traces.columns.tolist() == default_columns
 
-    traces = mlflow.search_traces(extract_fields=["foo.inputs.bar"])
-    assert traces.columns.tolist() == [*default_columns, "foo.inputs.bar"]
+        traces = mlflow.search_traces(extract_fields=["foo.inputs.bar"])
+        assert traces.columns.tolist() == [*default_columns, "foo.inputs.bar"]
 
-    mock_client.search_traces.assert_called()
+        mock_client.search_traces.assert_called()
 
 
 @pytest.mark.parametrize("return_type", ["pandas", "list"])
 def test_search_traces(return_type, mock_client):
+    if return_type == "pandas" and IS_TRACING_SDK_ONLY:
+        pytest.skip("Skipping test because mlflow or mlflow-skinny is not installed.")
+
     mock_client.search_traces.return_value = PagedList(
         [
             Trace(
@@ -854,6 +869,8 @@ def test_search_traces(return_type, mock_client):
     )
 
     if return_type == "pandas":
+        import pandas as pd
+
         assert isinstance(traces, pd.DataFrame)
     else:
         assert isinstance(traces, list)
@@ -916,7 +933,7 @@ def test_search_traces_with_pagination(mock_client):
 
 def test_search_traces_with_default_experiment_id(mock_client):
     mock_client.search_traces.return_value = PagedList([], token=None)
-    with mock.patch("mlflow.tracing.fluent._get_experiment_id", return_value="123"):
+    with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"):
         mlflow.search_traces()
 
     mock_client.search_traces.assert_called_once_with(
@@ -931,80 +948,79 @@ def test_search_traces_with_default_experiment_id(mock_client):
     )
 
 
+@skip_when_testing_trace_sdk
 def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     model = DefaultTestModel()
-    client = mlflow.MlflowClient()
     expected_traces = []
     for _ in range(10):
         model.predict(2, 5)
         time.sleep(0.1)
 
-        trace = client.get_trace(mlflow.get_last_active_trace_id())
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         expected_traces.append(trace)
 
     df = mlflow.search_traces(max_results=10, order_by=["timestamp ASC"])
     assert df.columns.tolist() == [
         "trace_id",
         "trace",
-        "timestamp_ms",
-        "status",
-        "execution_time_ms",
+        "client_request_id",
+        "state",
+        "request_time",
+        "execution_duration",
         "request",
         "response",
-        "request_metadata",
-        "spans",
+        "trace_metadata",
         "tags",
+        "spans",
         "assessments",
-        "request_id",
     ]
     for idx, trace in enumerate(expected_traces):
         assert df.iloc[idx].trace_id == trace.info.trace_id
         assert df.iloc[idx].trace.info.trace_id == trace.info.trace_id
-        assert df.iloc[idx].timestamp_ms == trace.info.timestamp_ms
-        assert df.iloc[idx].status == trace.info.status
-        assert df.iloc[idx].execution_time_ms == trace.info.execution_time_ms
+        assert df.iloc[idx].client_request_id == trace.info.client_request_id
+        assert df.iloc[idx].state == trace.info.state
+        assert df.iloc[idx].request_time == trace.info.request_time
+        assert df.iloc[idx].execution_duration == trace.info.execution_duration
         assert df.iloc[idx].request == json.loads(trace.data.request)
         assert df.iloc[idx].response == json.loads(trace.data.response)
-        assert df.iloc[idx].request_metadata == trace.info.request_metadata
+        assert df.iloc[idx].trace_metadata == trace.info.trace_metadata
         assert df.iloc[idx].spans == [s.to_dict() for s in trace.data.spans]
         assert df.iloc[idx].tags == trace.info.tags
         assert df.iloc[idx].assessments == trace.info.assessments
-        assert df.iloc[idx].request_id == trace.info.request_id
 
 
-def test_search_traces_handles_missing_response_tags_and_metadata(monkeypatch):
-    class MockMlflowClient:
-        def search_traces(self, *args, **kwargs):
-            return [
-                Trace(
-                    info=TraceInfo(
-                        request_id=5,
-                        experiment_id="test",
-                        timestamp_ms=1,
-                        execution_time_ms=2,
-                        status=TraceStatus.OK,
-                    ),
-                    data=TraceData(spans=[]),
-                )
-            ]
-
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
+@skip_when_testing_trace_sdk
+def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
+    mock_client.search_traces.return_value = PagedList(
+        [
+            Trace(
+                info=TraceInfo(
+                    request_id=5,
+                    experiment_id="test",
+                    timestamp_ms=1,
+                    execution_time_ms=2,
+                    status=TraceStatus.OK,
+                ),
+                data=TraceData(
+                    spans=[],
+                    request="request",
+                    # Response is missing
+                ),
+            )
+        ],
+        token=None,
+    )
 
     df = mlflow.search_traces()
     assert df["response"].isnull().all()
     assert df["tags"].tolist() == [{}]
-    assert df["request_metadata"].tolist() == [{}]
+    assert df["trace_metadata"].tolist() == [{}]
 
 
-def test_search_traces_extracts_fields_as_expected(monkeypatch):
+@skip_when_testing_trace_sdk
+def test_search_traces_extracts_fields_as_expected():
     model = DefaultTestModel()
     model.predict(2, 5)
-
-    class MockMlflowClient:
-        def search_traces(self, *args, **kwargs):
-            return get_traces()
-
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
 
     df = mlflow.search_traces(
         extract_fields=["predict.inputs.x", "predict.outputs", "add_one_with_custom_name.inputs.z"]
@@ -1014,29 +1030,12 @@ def test_search_traces_extracts_fields_as_expected(monkeypatch):
     assert df["add_one_with_custom_name.inputs.z"].tolist() == [7]
 
 
-# Test cases should cover case where there are no spans at all
-def test_search_traces_with_no_spans(monkeypatch):
-    class MockMlflowClient:
-        def search_traces(self, *args, **kwargs):
-            return []
-
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
-
-    df = mlflow.search_traces()
-    assert df.empty
-
-
 # no spans have the input or output with name,
 # some span has an input but we're looking for output,
-def test_search_traces_with_input_and_no_output(monkeypatch):
+@skip_when_testing_trace_sdk
+def test_search_traces_with_input_and_no_output():
     with mlflow.start_span(name="with_input_and_no_output") as span:
         span.set_inputs({"a": 1})
-
-    class MockMlflowClient:
-        def search_traces(self, *args, **kwargs):
-            return get_traces()
-
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
 
     df = mlflow.search_traces(
         extract_fields=["with_input_and_no_output.inputs.a", "with_input_and_no_output.outputs"]
@@ -1045,41 +1044,11 @@ def test_search_traces_with_input_and_no_output(monkeypatch):
     assert df["with_input_and_no_output.outputs"].isnull().all()
 
 
-# Test case where span content is invalid
-def test_search_traces_with_invalid_span_content(monkeypatch):
-    class MockMlflowClient:
-        def search_traces(self, *args, **kwargs):
-            # Invalid span content
-            return [
-                Trace(
-                    info=TraceInfo(
-                        request_id=5,
-                        experiment_id="test",
-                        timestamp_ms=1,
-                        execution_time_ms=2,
-                        status=TraceStatus.OK,
-                    ),
-                    data=TraceData(spans=[None]),
-                )
-            ]
-
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
-
-    with pytest.raises(AttributeError, match="NoneType"):
-        mlflow.search_traces()
-
-
-# Test case where span inputs / outputs aren't dict
-def test_search_traces_with_non_dict_span_inputs_outputs(monkeypatch):
+@skip_when_testing_trace_sdk
+def test_search_traces_with_non_dict_span_inputs_outputs():
     with mlflow.start_span(name="non_dict_span") as span:
         span.set_inputs(["a", "b"])
         span.set_outputs([1, 2, 3])
-
-    class MockMlflowClient:
-        def search_traces(self, *args, **kwargs):
-            return get_traces()
-
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
 
     df = mlflow.search_traces(
         extract_fields=["non_dict_span.inputs", "non_dict_span.outputs", "non_dict_span.inputs.x"]
@@ -1089,8 +1058,8 @@ def test_search_traces_with_non_dict_span_inputs_outputs(monkeypatch):
     assert df["non_dict_span.inputs.x"].isnull().all()
 
 
-# Test case where there are multiple spans with the same name
-def test_search_traces_with_multiple_spans_with_same_name(monkeypatch):
+@skip_when_testing_trace_sdk
+def test_search_traces_with_multiple_spans_with_same_name():
     class TestModel:
         @mlflow.trace(name="duplicate_name")
         def predict(self, x, y):
@@ -1110,12 +1079,6 @@ def test_search_traces_with_multiple_spans_with_same_name(monkeypatch):
 
     model = TestModel()
     model.predict(2, 5)
-
-    class MockMlflowClient:
-        def search_traces(self, *args, **kwargs):
-            return get_traces()
-
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
 
     df = mlflow.search_traces(
         extract_fields=[
@@ -1137,15 +1100,10 @@ def test_search_traces_with_multiple_spans_with_same_name(monkeypatch):
 
 
 # Test a field that doesn't exist for extraction - we shouldn't throw, just return empty column
-def test_search_traces_with_non_existent_field(monkeypatch):
+@skip_when_testing_trace_sdk
+def test_search_traces_with_non_existent_field():
     model = DefaultTestModel()
     model.predict(2, 5)
-
-    class MockMlflowClient:
-        def search_traces(self, *args, **kwargs):
-            return get_traces()
-
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
 
     df = mlflow.search_traces(
         extract_fields=[
@@ -1161,21 +1119,7 @@ def test_search_traces_with_non_existent_field(monkeypatch):
     assert df["add_one_with_custom_name.inputs.z"].tolist() == [7]
 
 
-# Test experiment ID doesn't need to be specified
-def test_search_traces_without_experiment_id(monkeypatch):
-    model = DefaultTestModel()
-    model.predict(2, 5)
-
-    class MockMlflowClient:
-        def search_traces(self, experiment_ids, *args, **kwargs):
-            assert experiment_ids == ["0"]
-            return get_traces()
-
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
-
-    mlflow.search_traces()
-
-
+@skip_when_testing_trace_sdk
 def test_search_traces_span_and_field_name_with_dot():
     with mlflow.start_span(name="span.name") as span:
         span.set_inputs({"a.b": 0})
@@ -1196,40 +1140,13 @@ def test_search_traces_span_and_field_name_with_dot():
     assert df["span.name.outputs.x.y"].tolist() == [1]
 
 
-def test_search_traces_with_span_name(monkeypatch):
-    class TestModel:
-        @mlflow.trace(name="span.llm")
-        def predict(self, x, y):
-            z = x + y
-            z = self.add_one(z)
-            z = mlflow.trace(self.square)(z)
-            return z  # noqa: RET504
-
-        @mlflow.trace(span_type=SpanType.LLM, name="span.invalidname", attributes={"delta": 1})
-        def add_one(self, z):
-            return z + 1
-
-        def square(self, t):
-            res = t**2
-            time.sleep(0.1)
-            return res
-
-    model = TestModel()
-    model.predict(2, 5)
-
-    class MockMlflowClient:
-        def search_traces(self, experiment_ids, *args, **kwargs):
-            return get_traces()
-
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
-
-
+@skip_when_testing_trace_sdk
 def test_search_traces_with_run_id():
     def _create_trace(name, tags=None):
         with mlflow.start_span(name=name) as span:
             for k, v in (tags or {}).items():
-                mlflow.MlflowClient().set_trace_tag(trace_id=span.trace_id, key=k, value=v)
-        return span.trace_id
+                mlflow.set_trace_tag(trace_id=span.request_id, key=k, value=v)
+        return span.request_id
 
     def _get_names(traces):
         tags = traces["tags"].tolist()
@@ -1262,6 +1179,9 @@ def test_search_traces_with_run_id():
             filter_string="metadata.mlflow.sourceRun = '123'",
         )
 
+    with pytest.raises(MlflowException, match=f"Run {run1.info.run_id} belongs to"):
+        mlflow.search_traces(run_id=run1.info.run_id, experiment_ids=["1"])
+
 
 @pytest.mark.parametrize(
     "extract_fields",
@@ -1271,6 +1191,7 @@ def test_search_traces_with_run_id():
         ["span.llm.outputs"],
     ],
 )
+@skip_when_testing_trace_sdk
 def test_search_traces_invalid_extract_fields(extract_fields):
     with pytest.raises(MlflowException, match="Invalid field type"):
         mlflow.search_traces(extract_fields=extract_fields)
@@ -1294,7 +1215,7 @@ def test_get_last_active_trace_id():
 
     # Mutation of the copy should not affect the original trace logged in the backend
     trace.info.status = TraceStatus.ERROR
-    original_trace = mlflow.MlflowClient().get_trace(trace.info.trace_id)
+    original_trace = mlflow.get_trace(trace.info.trace_id)
     assert original_trace.info.status == TraceStatus.OK
 
 
@@ -1348,18 +1269,61 @@ def test_update_current_trace():
     assert tags == expected_tags
 
     # Validate backend trace
-    traces = mlflow.MlflowClient().search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     tags = {k: v for k, v in traces[0].info.tags.items() if not k.startswith("mlflow.")}
     assert tags == expected_tags
 
 
+@skip_when_testing_trace_sdk
+def test_update_current_trace_should_not_raise_during_model_logging():
+    """
+    Tracing is disabled while model logging. When the model includes
+    `update_current_trace` call, it should be no-op.
+    """
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        @mlflow.trace
+        def predict(self, model_inputs):
+            mlflow.update_current_trace(tags={"fruit": "apple"})
+            return [model_inputs[0] + 1]
+
+    model = MyModel()
+
+    model.predict([1])
+    trace = get_traces()[0]
+    assert trace.info.state == "OK"
+    assert trace.info.tags["fruit"] == "apple"
+    purge_traces()
+
+    model_info = mlflow.pyfunc.log_model(
+        python_model=model,
+        name="model",
+        input_example=[0],
+    )
+    # Trace should not be generated while logging the model
+    assert get_traces() == []
+
+    # Signature should be inferred properly without raising any exception
+    assert model_info.signature is not None
+    assert model_info.signature.inputs is not None
+    assert model_info.signature.outputs is not None
+
+    # Loading back the model
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_model.predict([1])
+    trace = get_traces()[0]
+    assert trace.info.status == "OK"
+    assert trace.info.tags["fruit"] == "apple"
+
+
+@skip_when_testing_trace_sdk
 def test_non_ascii_characters_not_encoded_as_unicode():
     with mlflow.start_span() as span:
         span.set_inputs({"japanese": "あ", "emoji": "👍"})
 
-    trace = mlflow.MlflowClient().get_trace(span.trace_id)
+    trace = mlflow.get_trace(span.trace_id)
     span = trace.data.spans[0]
     assert span.inputs == {"japanese": "あ", "emoji": "👍"}
 
@@ -1369,39 +1333,6 @@ def test_non_ascii_characters_not_encoded_as_unicode():
     assert "👍" in data
     assert json.dumps("あ").strip('"') not in data
     assert json.dumps("👍").strip('"') not in data
-
-
-@pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
-def test_export_to_otel_collector(otel_collector, mock_client, monkeypatch):
-    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-
-    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:4317/v1/traces")
-
-    # Create a trace
-    model = DefaultTestModel()
-    model.predict(2, 5)
-    time.sleep(10)
-
-    # Tracer should be configured to export to OTLP
-    exporter = _get_trace_exporter()
-    assert isinstance(exporter, OTLPSpanExporter)
-    assert exporter._endpoint == "127.0.0.1:4317"
-
-    # Traces should not be logged to MLflow
-    mock_client._start_stacked_trace.assert_not_called()
-    mock_client._upload_trace_data.assert_not_called()
-    mock_client._upload_ended_trace_info.assert_not_called()
-
-    # Analyze the logs of the collector
-    _, output_file = otel_collector
-    with open(output_file) as f:
-        collector_logs = f.read()
-
-    # 3 spans should be exported
-    assert "Span #0" in collector_logs
-    assert "Span #1" in collector_logs
-    assert "Span #2" in collector_logs
-    assert "Span #3" not in collector_logs
 
 
 _SAMPLE_REMOTE_TRACE = {
@@ -1541,10 +1472,9 @@ def test_add_trace_no_current_active_trace():
 
 
 def test_add_trace_specific_target_span():
-    client = mlflow.MlflowClient()
-    span = client.start_trace(name="parent")
+    span = start_span_no_context(name="parent")
     mlflow.add_trace(_SAMPLE_REMOTE_TRACE, target=span)
-    client.end_trace(span.trace_id)
+    span.end()
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 3
@@ -1557,7 +1487,7 @@ def test_add_trace_specific_target_span():
 
 
 def test_add_trace_merge_tags():
-    client = mlflow.MlflowClient()
+    client = TracingClient()
 
     # Start the parent trace and merge the above trace as a child
     with mlflow.start_span(name="parent") as span:
@@ -1603,7 +1533,10 @@ def test_add_trace_raise_for_invalid_trace():
         mlflow.add_trace(unordered_trace)
 
 
+@skip_when_testing_trace_sdk
 def test_add_trace_in_databricks_model_serving(mock_databricks_serving_with_tracing_env):
+    from mlflow.pyfunc.context import Context, set_prediction_context
+
     # Mimic a remote service call that returns a trace as a part of the response
     def dummy_remote_call():
         return {"prediction": 1, "trace": _SAMPLE_REMOTE_TRACE}
@@ -1623,9 +1556,10 @@ def test_add_trace_in_databricks_model_serving(mock_databricks_serving_with_trac
     # Pop the trace to be written to the inference table
     trace = Trace.from_dict(pop_trace(request_id=db_request_id))
 
-    assert trace.info.trace_id == db_request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == db_request_id
     assert len(trace.data.spans) == 3
-    assert all(span.trace_id == db_request_id for span in trace.data.spans)
+    assert all(span.trace_id == trace.info.trace_id for span in trace.data.spans)
     parent_span, child_span, grandchild_span = trace.data.spans
     assert child_span.parent_id == parent_span.span_id
     assert child_span._trace_id == parent_span._trace_id
@@ -1638,10 +1572,11 @@ def test_add_trace_in_databricks_model_serving(mock_databricks_serving_with_trac
     assert child_span.end_time_ns == rs.end_time_ns
 
 
+@skip_when_testing_trace_sdk
 def test_add_trace_logging_model_from_code():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model="tests/tracing/sample_code/model_with_add_trace.py",
             input_example=[1, 2],
         )
@@ -1702,10 +1637,23 @@ def test_log_trace_success(inputs, outputs, intermediate_outputs):
     assert root_span.end_time_ns == (start_time_ms + execution_time_ms) * 1000000
 
 
-def test_log_trace_fail_within_span_context():
-    with pytest.raises(MlflowException, match="Another trace is already set in the global context"):
-        with mlflow.start_span("span"):
-            mlflow.log_trace(
-                request="Does mlflow support tracing?",
-                response="Yes",
-            )
+def test_set_delete_trace_tag():
+    with mlflow.start_span("span1") as span:
+        trace_id = span.trace_id
+
+    mlflow.set_trace_tag(trace_id=trace_id, key="key1", value="value1")
+    trace = mlflow.get_trace(trace_id=trace_id)
+    assert trace.info.tags["key1"] == "value1"
+
+    mlflow.delete_trace_tag(trace_id=trace_id, key="key1")
+    trace = mlflow.get_trace(trace_id=trace_id)
+    assert "key1" not in trace.info.tags
+
+    # Test with request_id kwarg (backward compatibility)
+    mlflow.set_trace_tag(request_id=trace_id, key="key3", value="value3")
+    trace = mlflow.get_trace(request_id=trace_id)
+    assert trace.info.tags["key3"] == "value3"
+
+    mlflow.delete_trace_tag(request_id=trace_id, key="key3")
+    trace = mlflow.get_trace(request_id=trace_id)
+    assert "key3" not in trace.info.tags

@@ -6,21 +6,21 @@ from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import maybe_get_request_id
-from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
 
 
-class MlflowSpanExporter(SpanExporter):
+class MlflowV2SpanExporter(SpanExporter):
     """
-    An exporter implementation that logs the traces to MLflow.
+    An exporter implementation that logs the traces to MLflow Tracking Server
+    using the V2 trace schema and API.
 
     MLflow backend (will) only support logging the complete trace, not incremental updates
     for spans, so this exporter is designed to aggregate the spans into traces in memory.
@@ -34,13 +34,9 @@ class MlflowSpanExporter(SpanExporter):
     :meta private:
     """
 
-    def __init__(
-        self,
-        client: Optional[MlflowClient] = None,
-        display_handler: Optional[IPythonTraceDisplayHandler] = None,
-    ):
-        self._client = client or MlflowClient()
-        self._display_handler = display_handler or get_display_handler()
+    def __init__(self, tracking_uri: Optional[str] = None):
+        self._client = TracingClient(tracking_uri)
+        self._display_handler = get_display_handler()
         self._trace_manager = InMemoryTraceManager.get_instance()
         self._async_queue = AsyncTraceExportQueue()
 

@@ -3,7 +3,7 @@ from unittest import mock
 import pandas as pd
 import pytest
 
-import mlflow.genai.evaluation
+import mlflow
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 
@@ -62,3 +62,34 @@ def test_model_from_deployment_endpoint(mock_deploy_client, model_input):
     else:
         assert mock_deploy_client.return_value.predict.call_count == 2
         assert pd.Series(response).equals(pd.Series(["This is a response"] * 2))
+
+
+def test_evaluate_passes_model_id_to_mlflow_evaluate():
+    # Tracking URI = databricks is required to use mlflow.genai.evaluate()
+    mlflow.set_tracking_uri("databricks")
+    data = [
+        {"inputs": {"foo": "bar"}, "outputs": "response from model"},
+        {"inputs": {"baz": "qux"}, "outputs": "response from model"},
+    ]
+
+    with mock.patch("mlflow.evaluate") as mock_evaluate:
+
+        @mlflow.trace
+        def model(x):
+            return x
+
+        mlflow.genai.evaluate(
+            data=data,
+            predict_fn=model,
+            model_id="test_model_id",
+        )
+
+        # Verify the call was made with the right parameters
+        mock_evaluate.assert_called_once_with(
+            model=model,
+            data=mock.ANY,
+            evaluator_config={},
+            model_type="databricks-agent",
+            extra_metrics=[],
+            model_id="test_model_id",
+        )

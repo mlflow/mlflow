@@ -43,36 +43,6 @@ def context_sufficiency():
     return _ContextSufficiency()
 
 
-class _DocumentRecall(_BaseBuiltInScorer):
-    name: str = "document_recall"
-
-
-def document_recall():
-    """
-    Document recall measures the proportion of ground truth relevant documents that were
-    retrieved compared to the total number of relevant documents in ground truth.
-    """
-    return _DocumentRecall()
-
-
-class _GlobalGuidelineAdherence(_BaseBuiltInScorer):
-    name: str = "global_guideline_adherence"
-    global_guideline: str
-
-    def update_evaluation_config(self, evaluation_config) -> dict:
-        config = super().update_evaluation_config(evaluation_config)
-        config[GENAI_CONFIG_NAME]["global_guideline"] = self.global_guideline
-        return config
-
-
-def global_guideline_adherence(guideline: str):
-    """
-    Guideline adherence evaluates whether the agent’s response follows specific constraints or
-    instructions provided in the guidelines.
-    """
-    return _GlobalGuidelineAdherence(global_guideline=guideline)
-
-
 class _Groundedness(_BaseBuiltInScorer):
     name: str = "groundedness"
 
@@ -91,10 +61,111 @@ class _GuidelineAdherence(_BaseBuiltInScorer):
 
 def guideline_adherence():
     """
-    Guideline adherence evaluates whether the agent’s response follows specific constraints
+    Guideline adherence evaluates whether the agent's response follows specific constraints
     or instructions provided in the guidelines.
+
+    This judge should be used when each example has a different set of guidelines. The guidelines
+    must be specified in the `guidelines` column of the input dataset.
+
+    If you want to apply the same set of guidelines to all examples, use the
+    :py:func:`global_guideline_adherence` scorer instead.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import guideline_adherence
+
+        eval_set = [
+            {
+                "inputs": "Translate the following text to English: 'Hello, world!'",
+                "guidelines": ["The response must be in English"],
+            },
+            {
+                "inputs": "Translate the following text to German: 'Hello, world!'",
+                "guidelines": ["The response must be in German"],
+            },
+        ]
+
+        # Run evaluation
+        mlflow.genai.evaluate(
+            data=data,
+            scorers=[guideline_adherence()],
+        )
     """
     return _GuidelineAdherence()
+
+
+class _GlobalGuidelineAdherence(_GuidelineAdherence):
+    guidelines: list[str]
+
+    def update_evaluation_config(self, evaluation_config) -> dict:
+        config = deepcopy(evaluation_config)
+        metrics = config.setdefault(GENAI_CONFIG_NAME, {}).setdefault("metrics", [])
+        if "guideline_adherence" not in metrics:
+            metrics.append("guideline_adherence")
+
+        # NB: The agent eval harness will take multiple global guidelines in a dictionary format
+        #   where the key is the name of the global guideline judge. Therefore, when multiple
+        #   judges are specified, we merge them into a single dictionary.
+        #   https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/llm-judge-reference#examples
+        global_guidelines = config[GENAI_CONFIG_NAME].get("global_guidelines", {})
+        global_guidelines[self.name] = self.guidelines
+        config[GENAI_CONFIG_NAME]["global_guidelines"] = global_guidelines
+        return config
+
+
+def global_guideline_adherence(
+    guidelines: list[str],
+    name: str = "guideline_adherence",
+):
+    """
+    Guideline adherence evaluates whether the agent's response follows specific constraints or
+    instructions provided in the guidelines.
+
+    Args:
+        guidelines: A list of global guidelines to evaluate the agent's response against.
+        name: The name of the judge. Defaults to "guideline_adherence".
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import global_guideline_adherence
+
+        # A single judge with multiple guidelines
+        guideline = global_guideline_adherence(["Be polite", "Be kind"])
+
+        # Create a judge with different names
+        english = global_guideline_adherence(
+            name="english_guidelines",
+            guidelines=["The response must be in English"],
+        )
+
+        clarify = global_guideline_adherence(
+            name="clarify_guidelines",
+            guidelines=["The response must be clear, coherent, and concise"],
+        )
+
+        # Dataset
+        eval_set = [
+            {
+                "inputs": "What is the capital of France?",
+                "outputs": "The capital of France is Paris.",
+            },
+            {
+                "inputs": "What is the capital of Germany?",
+                "outputs": "The capital of Germany is Berlin.",
+            },
+        ]
+
+        # Run evaluation
+        mlflow.genai.evaluate(
+            data=data,
+            scorers=[guideline, english, clarify],
+        )
+    """
+    return _GlobalGuidelineAdherence(guidelines=guidelines, name=name)
 
 
 class _RelevanceToQuery(_BaseBuiltInScorer):
@@ -120,17 +191,27 @@ def safety():
     return _Safety()
 
 
+class _Correctness(_BaseBuiltInScorer):
+    name: str = "correctness"
+
+
+def correctness():
+    """
+    Correctness ensures that the agent’s responses are correct and accurate.
+    """
+    return _Correctness()
+
+
 # === Shorthand for all builtin RAG scorers ===
 def rag_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of built-in scorers for evaluating RAG models. Contains scorers
-    chunk_relevance, context_sufficiency, document_recall, global_guideline_adherence,
+    chunk_relevance, context_sufficiency, global_guideline_adherence,
     groundedness, and relevance_to_query.
     """
     return [
         chunk_relevance(),
         context_sufficiency(),
-        document_recall(),
         groundedness(),
         relevance_to_query(),
     ]

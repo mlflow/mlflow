@@ -19,8 +19,11 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
@@ -59,6 +62,7 @@ from mlflow.protos.service_pb2 import (
     SearchLoggedModels,
     SearchRuns,
     SearchTraces,
+    SearchTracesV3Request,
     SearchUnifiedTraces,
     SetExperimentTag,
     SetLoggedModelTags,
@@ -82,6 +86,7 @@ from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
     get_create_assessment_endpoint,
     get_logged_model_endpoint,
+    get_search_traces_v3_endpoint,
     get_set_trace_tag_endpoint,
     get_single_assessment_endpoint,
     get_single_trace_endpoint,
@@ -107,7 +112,13 @@ class RestStore(AbstractStore):
         super().__init__()
         self.get_host_creds = get_host_creds
 
-    def _call_endpoint(self, api, json_body=None, endpoint=None):
+    def _call_endpoint(
+        self,
+        api,
+        json_body=None,
+        endpoint=None,
+        retry_timeout_seconds=None,
+    ):
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{request_id}/info.
@@ -115,7 +126,14 @@ class RestStore(AbstractStore):
         else:
             endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
-        return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
+        return call_endpoint(
+            self.get_host_creds(),
+            endpoint,
+            method,
+            json_body,
+            response_proto,
+            retry_timeout_seconds=retry_timeout_seconds,
+        )
 
     def search_experiments(
         self,
@@ -313,6 +331,7 @@ class RestStore(AbstractStore):
             StartTraceV3,
             req_body,
             endpoint="/api/3.0/mlflow/traces",
+            retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
         )
         return TraceInfoV3.from_proto(response_proto.trace.trace_info)
 
@@ -364,7 +383,8 @@ class RestStore(AbstractStore):
             )
         )
         # EndTrace endpoint is a dynamic path built with the request_id
-        endpoint = get_single_trace_endpoint(request_id)
+        # Always use v2 endpoint (not v3) for this endpoint to maintain compatibility
+        endpoint = get_single_trace_endpoint(request_id, use_v3=False)
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
         return TraceInfo.from_proto(response_proto.trace_info)
 
@@ -398,14 +418,18 @@ class RestStore(AbstractStore):
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
+        # If explicitly set, use the provided value, otherwise detect based on the tracking URI
+
         if should_query_v3:
             trace_v3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
-            trace_v3_endpoint = get_trace_assessment_endpoint(request_id)
+            trace_v3_endpoint = get_trace_assessment_endpoint(
+                request_id, is_databricks=should_query_v3
+            )
             try:
                 trace_v3_response_proto = self._call_endpoint(
                     GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
                 )
-                return TraceInfoV3.from_proto(trace_v3_response_proto)
+                return TraceInfoV3.from_proto(trace_v3_response_proto.trace.trace_info)
             except Exception:
                 # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
                 _logger.debug(
@@ -416,6 +440,19 @@ class RestStore(AbstractStore):
         endpoint = get_trace_info_endpoint(request_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
         return TraceInfo.from_proto(response_proto.trace_info)
+
+    def _is_databricks_tracking_uri(self):
+        """
+        Check if the tracking URI associated with this store is a Databricks URI.
+        """
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.uri import is_databricks_uri
+
+        try:
+            tracking_uri = get_tracking_uri()
+            return is_databricks_uri(tracking_uri)
+        except Exception:
+            return False
 
     def get_online_trace_details(
         self,
@@ -445,15 +482,59 @@ class RestStore(AbstractStore):
         sql_warehouse_id: Optional[str] = None,
     ):
         if sql_warehouse_id is None:
-            request = SearchTraces(
-                experiment_ids=experiment_ids,
-                filter=filter_string,
-                max_results=max_results,
-                order_by=order_by,
-                page_token=page_token,
-            )
-            req_body = message_to_json(request)
-            response_proto = self._call_endpoint(SearchTraces, req_body)
+            is_databricks = self._is_databricks_tracking_uri()
+
+            if is_databricks:
+                # Create trace_locations from experiment_ids for the V3 API
+                trace_locations = []
+                for exp_id in experiment_ids:
+                    try:
+                        location = TraceLocation.from_experiment_id(exp_id)
+                        proto_location = location.to_proto()
+                        trace_locations.append(proto_location)
+                    except Exception as e:
+                        raise MlflowException(
+                            f"Invalid experiment ID format: {exp_id}. Error: {e!s}"
+                        ) from e
+
+                # Create V3 request message using protobuf
+                request = SearchTracesV3Request(
+                    locations=trace_locations,
+                    filter=filter_string,
+                    max_results=max_results,
+                    order_by=order_by,
+                    page_token=page_token,
+                )
+
+                req_body = message_to_json(request)
+                endpoint = get_search_traces_v3_endpoint(is_databricks=is_databricks)
+
+                try:
+                    response_proto = self._call_endpoint(
+                        SearchTracesV3Request, req_body, endpoint=endpoint
+                    )
+                    trace_infos = [TraceInfoV3.from_proto(t) for t in response_proto.traces]
+                except Exception as e:
+                    _logger.error(f"Error searching traces: {e!s}")
+                    raise
+            else:
+                # Non-Databricks environment - use V2 request format
+                request = SearchTraces(
+                    experiment_ids=experiment_ids,
+                    filter=filter_string,
+                    max_results=max_results,
+                    order_by=order_by,
+                    page_token=page_token,
+                )
+
+                req_body = message_to_json(request)
+
+                try:
+                    response_proto = self._call_endpoint(SearchTraces, req_body)
+                    trace_infos = [TraceInfo.from_proto(t).to_v3() for t in response_proto.traces]
+                except Exception as e:
+                    _logger.error(f"Error searching traces: {e!s}")
+                    raise
         else:
             response_proto = self._search_unified_traces(
                 model_id=model_id,
@@ -464,7 +545,8 @@ class RestStore(AbstractStore):
                 order_by=order_by,
                 page_token=page_token,
             )
-        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+            # Convert TraceInfo (v2) objects to TraceInfoV3 objects for consistency
+            trace_infos = [TraceInfo.from_proto(t).to_v3() for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
 
     def _search_unified_traces(
@@ -498,8 +580,13 @@ class RestStore(AbstractStore):
             key: The string key of the tag.
             value: The string value of the tag.
         """
+        # Always use v2 endpoint
         req_body = message_to_json(SetTraceTag(key=key, value=value))
-        self._call_endpoint(SetTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id))
+        self._call_endpoint(
+            SetTraceTag,
+            req_body,
+            endpoint=get_set_trace_tag_endpoint(request_id, is_databricks=False),
+        )
 
     def delete_trace_tag(self, request_id: str, key: str):
         """
@@ -509,9 +596,12 @@ class RestStore(AbstractStore):
             request_id: The ID of the trace.
             key: The string key of the tag.
         """
+        # Always use v2 endpoint
         req_body = message_to_json(DeleteTraceTag(key=key))
         self._call_endpoint(
-            DeleteTraceTag, req_body, endpoint=get_set_trace_tag_endpoint(request_id)
+            DeleteTraceTag,
+            req_body,
+            endpoint=get_set_trace_tag_endpoint(request_id, is_databricks=False),
         )
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
@@ -524,11 +614,14 @@ class RestStore(AbstractStore):
         Returns:
             The created Assessment object.
         """
+        is_databricks = self._is_databricks_tracking_uri()
         req_body = message_to_json(CreateAssessment(assessment=assessment.to_proto()))
         response_proto = self._call_endpoint(
             CreateAssessment,
             req_body,
-            endpoint=get_create_assessment_endpoint(assessment.trace_id),
+            endpoint=get_create_assessment_endpoint(
+                assessment.trace_id, is_databricks=is_databricks
+            ),
         )
         return Assessment.from_proto(response_proto.assessment)
 
@@ -559,6 +652,7 @@ class RestStore(AbstractStore):
                 "Exactly one of `expectation` or `feedback` should be specified."
             )
 
+        is_databricks = self._is_databricks_tracking_uri()
         update = UpdateAssessment()
 
         # The assessment object to be sent to the backend (only contains fields to update and IDs)
@@ -589,7 +683,9 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(
             UpdateAssessment,
             req_body,
-            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
+            endpoint=get_single_assessment_endpoint(
+                trace_id, assessment_id, is_databricks=is_databricks
+            ),
         )
         return Assessment.from_proto(response_proto.assessment)
 
@@ -601,11 +697,14 @@ class RestStore(AbstractStore):
             trace_id: String ID of the trace.
             assessment_id: String ID of the assessment to delete.
         """
+        is_databricks = self._is_databricks_tracking_uri()
         req_body = message_to_json(DeleteAssessment(trace_id=trace_id, assessment_id=assessment_id))
         self._call_endpoint(
             DeleteAssessment,
             req_body,
-            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
+            endpoint=get_single_assessment_endpoint(
+                trace_id, assessment_id, is_databricks=is_databricks
+            ),
         )
 
     def log_metric(self, run_id: str, metric: Metric):

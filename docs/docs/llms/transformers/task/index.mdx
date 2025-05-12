@@ -69,7 +69,7 @@ import mlflow
 with mlflow.start_run():
     mlflow.transformers.log_model(
         transformers_model=pipeline,
-        artifact_path="model",
+        name="model",
         task="llm/v1/chat",  # <= Specify the llm/v1 task type
         # Optional, recommended for large models to avoid creating a local copy of the model weights
         save_pretrained=False,
@@ -131,7 +131,7 @@ pipeline = transformers.pipeline("text-generation", "gpt2")
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=pipeline,
-        artifact_path="model",
+        name="model",
         task="llm/v1/chat",
         input_example={
             "messages": [
@@ -212,7 +212,7 @@ You can override them by either passing the values at inference time, or by sett
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=pipeline,
-        artifact_path="model",
+        name="model",
         task="llm/v1/chat",
         model_config={
             "temperature": 0.5,  # <= Set the default temperature

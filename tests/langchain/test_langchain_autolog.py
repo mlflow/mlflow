@@ -55,12 +55,16 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.models.dependencies_schemas import DependenciesSchemasType, set_retriever_schema
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey, TraceMetadataKey
 
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.conftest import async_logging_enabled
-from tests.tracing.helper import get_traces, purge_traces, score_in_model_serving
+from tests.tracing.helper import (
+    get_traces,
+    purge_traces,
+    score_in_model_serving,
+    skip_when_testing_trace_sdk,
+)
 
 MODEL_DIR = "model"
 # The mock OpenAI endpoint simply echos the prompt back as the completion.
@@ -94,7 +98,7 @@ def model_infos():
     for model in models:
         with mlflow.start_run():
             model_infos.append(
-                mlflow.langchain.log_model(model, "model", input_example={"product": "MLflow"})
+                mlflow.langchain.log_model(model, name="model", input_example={"product": "MLflow"})
             )
     return model_infos
 
@@ -223,6 +227,7 @@ def test_llmchain_autolog(async_logging_enabled):
         ]
 
 
+@skip_when_testing_trace_sdk
 def test_llmchain_autolog_should_not_generate_trace_while_saving_models(tmp_path):
     mlflow.langchain.autolog()
     question = "MLflow"
@@ -231,12 +236,13 @@ def test_llmchain_autolog_should_not_generate_trace_while_saving_models(tmp_path
     # Either save_model or log_model should not generate traces
     mlflow.langchain.save_model(model, path=tmp_path / "model", input_example=question)
     with mlflow.start_run():
-        mlflow.langchain.log_model(model, "model", input_example=question)
+        mlflow.langchain.log_model(model, name="model", input_example=question)
 
     traces = get_traces()
     assert len(traces) == 0
 
 
+@skip_when_testing_trace_sdk
 def test_llmchain_autolog_no_optional_artifacts_by_default():
     mlflow.langchain.autolog()
     question = "MLflow"
@@ -325,12 +331,14 @@ def test_chat_model_autolog():
     reason="langchain-openai.ChatOpenAI requires LangChain >= 0.3.0",
 )
 def test_chat_model_bind_tool_autolog():
+    from langchain.tools import tool
+
     # Community version of ChatOpenAI does not support bind_tools
     from langchain_openai import ChatOpenAI
 
     mlflow.langchain.autolog()
 
-    @langchain.tools.tool
+    @tool
     def get_weather(location: str) -> str:
         """Get the weather for a location."""
         return f"Weather in {location} is 70F."
@@ -375,6 +383,7 @@ def test_chat_model_bind_tool_autolog():
     ]
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.2.0"),
@@ -648,6 +657,7 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
             assert set(handler.logs) == {"chain_start", "chain_end"}
 
 
+@skip_when_testing_trace_sdk
 def test_tracing_source_run_in_batch():
     mlflow.langchain.autolog()
 
@@ -660,6 +670,7 @@ def test_tracing_source_run_in_batch():
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 def test_tracing_source_run_in_pyfunc_model_predict():
     mlflow.langchain.autolog()
@@ -667,7 +678,7 @@ def test_tracing_source_run_in_pyfunc_model_predict():
     model = create_openai_runnable()
     input = {"product": "MLflow"}
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(model, "model")
+        model_info = mlflow.langchain.log_model(model, name="model")
 
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with mlflow.start_run() as run:
@@ -895,8 +906,11 @@ def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_lo
         assert len(traces) == 0
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.skip(reason="This test is not thread safe, please run locally")
 def test_set_retriever_schema_work_for_langchain_model():
+    from mlflow.models.dependencies_schemas import DependenciesSchemasType, set_retriever_schema
+
     set_retriever_schema(
         primary_key="primary-key",
         text_column="text-column",
@@ -906,7 +920,7 @@ def test_set_retriever_schema_work_for_langchain_model():
 
     model = create_openai_runnable()
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(model, "model", input_example="MLflow")
+        model_info = mlflow.langchain.log_model(model, name="model", input_example="MLflow")
 
     mlflow.langchain.autolog()
 
@@ -950,6 +964,7 @@ def test_langchain_auto_tracing_work_when_langchain_parent_package_not_installed
         assert all(len(trace.data.spans) == 11 for trace in traces)
 
 
+@skip_when_testing_trace_sdk
 def test_langchain_auto_tracing_in_serving_runnable():
     mlflow.langchain.autolog()
 
@@ -958,20 +973,21 @@ def test_langchain_auto_tracing_in_serving_runnable():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             chain,
-            "model",
+            name="model",
             input_example={"product": "MLflow"},
         )
 
     expected_output = '[{"role": "user", "content": "What is MLflow?"}]'
 
-    request_id, predictions, trace = score_in_model_serving(
+    databricks_request_id, predictions, trace = score_in_model_serving(
         model_info.model_uri,
         [{"product": "MLflow"}],
     )
 
     assert predictions == [expected_output]
     trace = Trace.from_dict(trace)
-    assert trace.info.request_id == request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == databricks_request_id
     assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
     spans = trace.data.spans
     assert len(spans) == 4
@@ -995,6 +1011,7 @@ def test_langchain_auto_tracing_in_serving_runnable():
     assert child_span.span_type == "CHAT_MODEL"
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.2.0"),
     reason="ToolCall message is not available in older versions",
@@ -1008,17 +1025,18 @@ def test_langchain_auto_tracing_in_serving_agent():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langchain/sample_code/openai_agent.py",
-            "langchain_model",
+            name="langchain_model",
             input_example=input_example,
         )
 
-    request_id, response, trace_dict = score_in_model_serving(
+    databricks_request_id, response, trace_dict = score_in_model_serving(
         model_info.model_uri,
         input_example,
     )
 
     trace = Trace.from_dict(trace_dict)
-    assert trace.info.request_id == request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == databricks_request_id
     assert trace.info.status == "OK"
 
     spans = trace.data.spans
@@ -1058,6 +1076,7 @@ def test_langchain_tracing_multi_threads():
     )
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.parametrize("func", ["invoke", "batch", "stream"])
 def test_autolog_link_traces_to_loaded_model(model_infos, func):
     mlflow.langchain.autolog()
@@ -1084,6 +1103,7 @@ def test_autolog_link_traces_to_loaded_model(model_infos, func):
         assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.parametrize("func", ["ainvoke", "abatch", "astream"])
 @pytest.mark.asyncio
 async def test_autolog_link_traces_to_loaded_model_async(model_infos, func):
@@ -1112,6 +1132,7 @@ async def test_autolog_link_traces_to_loaded_model_async(model_infos, func):
         assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
 
 
+@skip_when_testing_trace_sdk
 def test_autolog_link_traces_to_loaded_model_pyfunc(model_infos):
     mlflow.langchain.autolog()
 
@@ -1127,6 +1148,7 @@ def test_autolog_link_traces_to_loaded_model_pyfunc(model_infos):
         assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
 
 
+@skip_when_testing_trace_sdk
 def test_autolog_link_traces_to_active_model(model_infos):
     model = mlflow.create_external_model(name="test_model")
     mlflow.set_active_model(model_id=model.model_id)
@@ -1143,3 +1165,21 @@ def test_autolog_link_traces_to_active_model(model_infos):
         assert logged_model_id is not None
         assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
         assert model.model_id != logged_model_id
+
+
+def test_model_loading_set_active_model_id_without_fetching_logged_model():
+    mlflow.langchain.autolog()
+
+    model = create_openai_runnable(temperature=0.9)
+    model_info = mlflow.langchain.log_model(
+        model, name="model", input_example={"product": "MLflow"}
+    )
+
+    with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
+        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    loaded_model.invoke({"product": "MLflow"})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
+    assert model_id == model_info.model_id

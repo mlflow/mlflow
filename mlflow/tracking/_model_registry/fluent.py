@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
+from mlflow.entities.run import Run
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
@@ -14,6 +15,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -76,7 +78,7 @@ def register_model(
             rfr = RandomForestRegressor(**params).fit(X, y)
             signature = infer_signature(X, rfr.predict(X))
             mlflow.log_params(params)
-            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+            mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
         model_uri = f"runs:/{run.info.run_id}/sklearn-model"
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
         print(f"Name: {mv.name}")
@@ -193,7 +195,7 @@ def _register_model(
     return create_version_response
 
 
-def _get_logged_models_from_run(source_run: str, model_name: str) -> list[LoggedModel]:
+def _get_logged_models_from_run(source_run: Run, model_name: str) -> list[LoggedModel]:
     """Get all logged models from the source rnu that have the specified model name.
 
     Args:
@@ -207,17 +209,12 @@ def _get_logged_models_from_run(source_run: str, model_name: str) -> list[Logged
     while True:
         logged_models_page = client.search_logged_models(
             experiment_ids=[source_run.info.experiment_id],
-            # TODO: Use filter_string once the backend supports it
-            # filter_string="...",
+            # TODO: Filter by 'source_run_id' once Databricks backend supports it
+            filter_string=f"name = '{model_name}'",
             page_token=page_token,
         )
         logged_models.extend(
-            [
-                logged_model
-                for logged_model in logged_models_page
-                if logged_model.source_run_id == source_run.info.run_id
-                and logged_model.name == model_name
-            ]
+            m for m in logged_models_page if m.source_run_id == source_run.info.run_id
         )
         if not logged_models_page.token:
             break
@@ -271,12 +268,12 @@ def search_registered_models(
         with mlflow.start_run():
             mlflow.sklearn.log_model(
                 LogisticRegression(),
-                "Cordoba",
+                name="Cordoba",
                 registered_model_name="CordobaWeatherForecastModel",
             )
             mlflow.sklearn.log_model(
                 LogisticRegression(),
-                "Boston",
+                name="Boston",
                 registered_model_name="BostonWeatherForecastModel",
             )
 
@@ -385,7 +382,7 @@ def search_model_versions(
             with mlflow.start_run():
                 mlflow.sklearn.log_model(
                     LogisticRegression(),
-                    "Cordoba",
+                    name="Cordoba",
                     registered_model_name="CordobaWeatherForecastModel",
                 )
 
@@ -522,6 +519,23 @@ def register_prompt(
         commit_message=commit_message,
         tags=tags,
         version_metadata=version_metadata,
+    )
+
+
+@require_prompt_registry
+def search_prompts(
+    filter_string: Optional[str] = None,
+    max_results: Optional[int] = None,
+) -> PagedList[Prompt]:
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_prompts(
+            filter_string=filter_string, max_results=number_to_get, page_token=next_page_token
+        )
+
+    return get_results_from_paginated_fn(
+        pagination_wrapper_func,
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        max_results,
     )
 
 

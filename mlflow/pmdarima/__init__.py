@@ -46,7 +46,7 @@ Pmdarima format
     with mlflow.start_run():
         wrapper = PmdarimaWrapper()
         mlflow.pyfunc.log_model(
-            artifact_path="model",
+            name="model",
             python_model=wrapper,
             artifacts={"model": mlflow.pyfunc.model_to_dict(model)},
         )
@@ -392,7 +392,7 @@ def log_model(
             signature = infer_signature(input_sample, output_sample)
 
             # Log model
-            mlflow.pmdarima.log_model(model, ARTIFACT_PATH, signature=signature)
+            mlflow.pmdarima.log_model(model, name=ARTIFACT_PATH, signature=signature)
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -477,7 +477,7 @@ def load_model(model_uri, dst_path=None):
             # Log model
             input_example = input_sample.head()
             mlflow.pmdarima.log_model(
-                model, ARTIFACT_PATH, signature=signature, input_example=input_example
+                model, name=ARTIFACT_PATH, signature=signature, input_example=input_example
             )
 
             # Get the model URI for loading

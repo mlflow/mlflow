@@ -55,7 +55,7 @@ def test_basic_save():
     dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(dspy_model, "model")
+        model_info = mlflow.dspy.log_model(dspy_model, name="model")
 
     # Clear the lm setting to test the loading logic.
     dspy.settings.configure(lm=None)
@@ -90,7 +90,7 @@ def test_save_compiled_model(dummy_model):
     optimized_cot = optimizer.compile(dspy_model, trainset=trainset)
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(optimized_cot, "model")
+        model_info = mlflow.dspy.log_model(optimized_cot, name="model")
 
     # Clear the lm setting to test the loading logic.
     dspy.settings.configure(lm=None)
@@ -145,7 +145,7 @@ def test_dspy_save_preserves_object_state():
     optimized_cot = optimizer.compile(dspy_model, trainset=trainset)
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(optimized_cot, "model")
+        model_info = mlflow.dspy.log_model(optimized_cot, name="model")
 
     original_settings = dict(dspy.settings.config)
     original_settings["traces"] = None
@@ -202,7 +202,7 @@ def test_load_logged_model_in_native_dspy(dummy_model):
     dspy.settings.configure(lm=dummy_model)
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(dspy_model, "model")
+        model_info = mlflow.dspy.log_model(dspy_model, name="model")
     loaded_dspy_model = mlflow.dspy.load_model(model_info.model_uri)
 
     assert isinstance(loaded_dspy_model, CoT)
@@ -230,7 +230,7 @@ def test_serving_logged_model(dummy_model):
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(
             dspy_model,
-            artifact_path,
+            name=artifact_path,
             signature=signature,
             input_example=input_examples,
         )
@@ -272,7 +272,7 @@ def test_save_chat_model_with_string_output(dummy_model):
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(
             dspy_model,
-            artifact_path,
+            name=artifact_path,
             task="llm/v1/chat",
             input_example=input_examples,
         )
@@ -304,7 +304,7 @@ def test_serve_chat_model(dummy_model):
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(
             dspy_model,
-            artifact_path,
+            name=artifact_path,
             task="llm/v1/chat",
             input_example=input_examples,
         )
@@ -335,7 +335,7 @@ def test_code_paths_is_used():
         mlflow.start_run(),
         mock.patch("mlflow.dspy.load._add_code_from_conf_to_system_path") as add_mock,
     ):
-        model_info = mlflow.dspy.log_model(dspy_model, artifact_path, code_paths=[__file__])
+        model_info = mlflow.dspy.log_model(dspy_model, name=artifact_path, code_paths=[__file__])
         _compare_logged_code_paths(__file__, model_info.model_uri, "dspy")
         mlflow.dspy.load_model(model_info.model_uri)
         add_mock.assert_called()
@@ -347,7 +347,7 @@ def test_additional_pip_requirements():
     dspy_model = CoT()
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(
-            dspy_model, artifact_path, extra_pip_requirements=["dummy"]
+            dspy_model, name=artifact_path, extra_pip_requirements=["dummy"]
         )
 
         _assert_pip_requirements(model_info.model_uri, [expected_mlflow_version, "dummy"])
@@ -359,7 +359,7 @@ def test_infer_signature_from_input_examples(dummy_model):
     dspy.settings.configure(lm=dummy_model)
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(
-            dspy_model, artifact_path, input_example="what is 2 + 2?"
+            dspy_model, name=artifact_path, input_example="what is 2 + 2?"
         )
 
         loaded_model = Model.load(model_info.model_uri)

@@ -67,7 +67,7 @@ def _train(params, fpath, hyperopt=False):
     predictions = mod.predict(X_train)
     signature = infer_signature(X_train, predictions)
 
-    mlflow.sklearn.log_model(mod, "saved_models", signature=signature)
+    mlflow.sklearn.log_model(mod, name="saved_models", signature=signature)
 
     if not hyperopt:
         return mod
@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
         mlflow.sklearn.log_model(
             final_model,
-            artifact_path=artifact_path,
+            name=artifact_path,
             registered_model_name="rapids_mlflow_cli",
             conda_env="envs/conda.yaml",
         )

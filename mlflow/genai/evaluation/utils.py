@@ -1,12 +1,11 @@
+import inspect
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.data.evaluation_dataset import EvaluationDataset
-from mlflow.entities import Trace
-from mlflow.evaluation import Assessment
+from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
-from mlflow.types.llm import ChatCompletionRequest
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -25,7 +24,7 @@ if TYPE_CHECKING:
         EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
 
 
-def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
+def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
     Takes in a dataset in the format that mlflow.genai.evaluate() expects and converts it into
     to the current eval-set schema that Agent Evaluation takes in. The transformed schema should
@@ -36,7 +35,6 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
     column_mapping = {
         "inputs": "request",
         "outputs": "response",
-        "trace": "trace",
     }
 
     if isinstance(data, list):
@@ -51,7 +49,7 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
                     "Every item in the list must have an 'inputs' key."
                 )
 
-        df = pd.DataFrame(data) if 1 < len(data) else pd.DataFrame(data[0])
+        df = pd.DataFrame(data)
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
         df = data.copy()
@@ -72,8 +70,9 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
                 "Please install it with `pip install pyspark`."
             )
 
-    renamed_df = df.filter(items=column_mapping.keys()).rename(columns=column_mapping)
+    renamed_df = df.rename(columns=column_mapping)
 
+    # expand out expectations into separate columns
     if "expectations" in df.columns:
         for field in ["expected_response", "expected_retrieved_context", "expected_facts"]:
             renamed_df[field] = None
@@ -87,6 +86,8 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
             # Non-dictionary values go to expected_response
             elif value is not None:
                 renamed_df.at[idx, "expected_response"] = value
+
+        renamed_df.drop(columns=["expectations"], inplace=True)
 
     return renamed_df
 
@@ -104,21 +105,44 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
             "Please install it with `pip install databricks-agents`."
         )
 
+    from mlflow.types.llm import ChatCompletionRequest
+
     def eval_fn(
         request_id: str,
         request: Union[ChatCompletionRequest, str],
         response: Optional[Any],
         expected_response: Optional[Any],
         trace: Optional[Trace],
+        retrieved_context: Optional[list[dict[str, str]]],
+        guidelines: Optional[Union[list[str], dict[str, list[str]]]],
+        expected_facts: Optional[list[str]],
+        expected_retrieved_context: Optional[list[dict[str, str]]],
+        custom_expected: Optional[dict[str, Any]],
+        custom_inputs: Optional[dict[str, Any]],
+        custom_outputs: Optional[dict[str, Any]],
+        tool_calls: Optional[list[Any]],
         **kwargs,
     ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
         # TODO: scorer.aggregations require a refactor on the agents side
-        return scorer(
-            inputs=request,
-            outputs=response,
-            expectations=expected_response,
-            trace=trace,
-        )
+        merged = {
+            "inputs": request,
+            "outputs": response,
+            "expectations": expected_response,
+            "trace": trace,
+            "guidelines": guidelines,
+            "retrieved_context": retrieved_context,
+            "expected_facts": expected_facts,
+            "expected_retrieved_context": expected_retrieved_context,
+            "custom_expected": custom_expected,
+            "custom_inputs": custom_inputs,
+            "custom_outputs": custom_outputs,
+            "tool_calls": tool_calls,
+            **kwargs,
+        }
+        # Filter to only the parameters the scorer actually expects
+        sig = inspect.signature(scorer)
+        filtered = {k: v for k, v in merged.items() if k in sig.parameters}
+        return scorer(**filtered)
 
     return metric(
         eval_fn=eval_fn,

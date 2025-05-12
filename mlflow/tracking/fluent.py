@@ -12,10 +12,9 @@ import os
 import threading
 from contextvars import ContextVar
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union, overload
 
 import mlflow
-from mlflow.data.dataset import Dataset
 from mlflow.entities import (
     DatasetInput,
     Experiment,
@@ -47,10 +46,8 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracing.provider import _get_trace_exporter
-from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
-from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.context import registry as context_registry
-from mlflow.tracking.default_experiment import registry as default_experiment_registry
+from mlflow.tracking._tracking_service.client import TrackingServiceClient
+from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -77,6 +74,15 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
+from mlflow.version import IS_TRACING_SDK_ONLY
+
+if not IS_TRACING_SDK_ONLY:
+    from mlflow.data.dataset import Dataset
+    from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
+    from mlflow.tracking.client import MlflowClient
+    from mlflow.tracking.context import registry as context_registry
+    from mlflow.tracking.default_experiment import registry as default_experiment_registry
+
 
 if TYPE_CHECKING:
     import matplotlib
@@ -167,7 +173,7 @@ def set_experiment(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    client = MlflowClient()
+    client = TrackingServiceClient(_resolve_tracking_uri())
 
     with _experiment_lock:
         if experiment_id is None:
@@ -894,7 +900,7 @@ def log_metric(
     timestamp: Optional[int] = None,
     run_id: Optional[str] = None,
     model_id: Optional[str] = None,
-    dataset: Optional[Dataset] = None,
+    dataset: Optional["Dataset"] = None,
 ) -> Optional[RunOperations]:
     """
     Log a metric under the current run. If no run is active, this method will create
@@ -980,7 +986,7 @@ def log_metric(
 
 
 def _log_inputs_for_metrics_if_necessary(
-    run_id, metrics: list[Metric], datasets: Optional[list[Dataset]] = None
+    run_id, metrics: list[Metric], datasets: Optional[list["Dataset"]] = None
 ) -> None:
     client = MlflowClient()
     run = client.get_run(run_id)
@@ -1027,7 +1033,7 @@ def log_metrics(
     run_id: Optional[str] = None,
     timestamp: Optional[int] = None,
     model_id: Optional[str] = None,
-    dataset: Optional[Dataset] = None,
+    dataset: Optional["Dataset"] = None,
 ) -> Optional[RunOperations]:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
@@ -1156,7 +1162,7 @@ def log_params(
 
 
 def _create_dataset_input(
-    dataset: Optional[Dataset],
+    dataset: Optional["Dataset"],
     context: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
 ) -> Optional[DatasetInput]:
@@ -1174,7 +1180,7 @@ def _create_dataset_input(
 
 
 def log_input(
-    dataset: Optional[Dataset] = None,
+    dataset: Optional["Dataset"] = None,
     context: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
     model: Optional[LoggedModelInput] = None,
@@ -1212,7 +1218,7 @@ def log_input(
 
 
 def log_inputs(
-    datasets: Optional[list[Optional[Dataset]]] = None,
+    datasets: Optional[list[Optional["Dataset"]]] = None,
     contexts: Optional[list[Optional[str]]] = None,
     tags_list: Optional[list[Optional[dict[str, str]]]] = None,
     models: Optional[list[Optional[LoggedModelInput]]] = None,
@@ -2125,6 +2131,23 @@ def initialize_logged_model(
     return model
 
 
+@contextlib.contextmanager
+def _use_logged_model(model: LoggedModel) -> Generator[LoggedModel, None, None]:
+    """
+    Context manager to wrap a LoggedModel and update the model
+    status after the context is exited.
+    If any exception occurs, the model status is set to FAILED.
+    Otherwise, it is set to READY.
+    """
+    try:
+        yield model
+    except Exception:
+        finalize_logged_model(model.model_id, LoggedModelStatus.FAILED)
+        raise
+    else:
+        finalize_logged_model(model.model_id, LoggedModelStatus.READY)
+
+
 def create_external_model(
     name: Optional[str] = None,
     source_run_id: Optional[str] = None,
@@ -2234,7 +2257,9 @@ def _create_logged_model(
 
 
 @experimental
-def finalize_logged_model(model_id: str, status: LoggedModelStatus) -> LoggedModel:
+def finalize_logged_model(
+    model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
+) -> LoggedModel:
     """
     Finalize a model by updating its status.
 
@@ -2244,6 +2269,22 @@ def finalize_logged_model(model_id: str, status: LoggedModelStatus) -> LoggedMod
 
     Returns:
         The updated model.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+        from mlflow.entities import LoggedModelStatus
+
+        model = mlflow.initialize_logged_model(name="model")
+        logged_model = mlflow.finalize_logged_model(
+            model_id=model.model_id,
+            status=LoggedModelStatus.READY,
+        )
+        assert logged_model.status == LoggedModelStatus.READY
+
     """
     return MlflowClient().finalize_logged_model(model_id, status)
 
@@ -2258,6 +2299,24 @@ def get_logged_model(model_id: str) -> LoggedModel:
 
     Returns:
         The logged model.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        logged_model = mlflow.get_logged_model(model_id=model_info.model_id)
+        assert logged_model.model_id == model_info.model_id
+
     """
     return MlflowClient().get_logged_model(model_id)
 
@@ -2276,22 +2335,42 @@ def last_logged_model() -> Optional[LoggedModel]:
         :test:
         :caption: Example
 
-        from typing import List
-
         import mlflow
 
 
-        class Model(mlflow.pyfunc.PythonModel):
-            def predict(self, integers: List[int]) -> List[int]:
-                return integers * 2
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
 
 
-        logged_model = mlflow.pyfunc.log_model(python_model=Model())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
         last_model = mlflow.last_logged_model()
-        assert last_model.model_id == logged_model.model_id
+        assert last_model.model_id == model_info.model_id
     """
     if id := _last_logged_model_id.get():
         return get_logged_model(id)
+
+
+@overload
+def search_logged_models(
+    experiment_ids: Optional[list[str]] = None,
+    filter_string: Optional[str] = None,
+    datasets: Optional[list[dict[str, str]]] = None,
+    max_results: Optional[int] = None,
+    order_by: Optional[list[dict[str, Any]]] = None,
+    output_format: Literal["pandas"] = "pandas",
+) -> "pandas.DataFrame": ...
+
+
+@overload
+def search_logged_models(
+    experiment_ids: Optional[list[str]] = None,
+    filter_string: Optional[str] = None,
+    datasets: Optional[list[dict[str, str]]] = None,
+    max_results: Optional[int] = None,
+    order_by: Optional[list[dict[str, Any]]] = None,
+    output_format: Literal["list"] = "list",
+) -> list[LoggedModel]: ...
 
 
 @experimental
@@ -2301,7 +2380,7 @@ def search_logged_models(
     datasets: Optional[list[dict[str, str]]] = None,
     max_results: Optional[int] = None,
     order_by: Optional[list[dict[str, Any]]] = None,
-    output_format: str = "pandas",
+    output_format: Literal["pandas", "list"] = "pandas",
 ) -> Union[list[LoggedModel], "pandas.DataFrame"]:
     """
     Search for logged models that match the specified search criteria.
@@ -2363,6 +2442,34 @@ def search_logged_models(
 
     Returns:
         The search results in the specified output format.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        another_model_info = mlflow.pyfunc.log_model(
+            name="another_model", python_model=DummyModel()
+        )
+        models = mlflow.search_logged_models(output_format="list")
+        assert [m.name for m in models] == ["another_model", "model"]
+        models = mlflow.search_logged_models(
+            filter_string="name = 'another_model'", output_format="list"
+        )
+        assert [m.name for m in models] == ["another_model"]
+        models = mlflow.search_logged_models(
+            order_by=[{"field_name": "creation_time", "ascending": True}], output_format="list"
+        )
+        assert [m.name for m in models] == ["model", "another_model"]
     """
     experiment_ids = experiment_ids or [_get_experiment_id()]
     client = MlflowClient()
@@ -2378,16 +2485,29 @@ def search_logged_models(
             page_token=page_token,
         )
         models.extend(logged_models_page.to_list())
+        if max_results is not None and len(models) >= max_results:
+            break
         if not logged_models_page.token:
             break
         page_token = logged_models_page.token
+
+    # Only return at most max_results logged models if specified
+    if max_results is not None:
+        models = models[:max_results]
 
     if output_format == "list":
         return models
     elif output_format == "pandas":
         import pandas as pd
 
-        return pd.DataFrame([model.to_dictionary() for model in models])
+        model_dicts = []
+        for model in models:
+            model_dict = model.to_dictionary()
+            # Convert the status back from int to the enum string
+            model_dict["status"] = LoggedModelStatus.from_int(model_dict["status"])
+            model_dicts.append(model_dict)
+
+        return pd.DataFrame(model_dicts)
 
     else:
         raise MlflowException(
@@ -2455,6 +2575,24 @@ def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
 
     Returns:
         None
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.set_logged_model_tags(model_info.model_id, {"key": "value"})
+        model = mlflow.get_logged_model(model_info.model_id)
+        assert model.tags["key"] == "value"
     """
     MlflowClient().set_logged_model_tags(model_id, tags)
 
@@ -2467,6 +2605,26 @@ def delete_logged_model_tag(model_id: str, key: str) -> None:
         model_id: ID of the model.
         key: Tag key to delete.
 
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.set_logged_model_tags(model_info.model_id, {"key": "value"})
+        model = mlflow.get_logged_model(model_info.model_id)
+        assert model.tags["key"] == "value"
+        mlflow.delete_logged_model_tag(model_info.model_id, "key")
+        model = mlflow.get_logged_model(model_info.model_id)
+        assert "key" not in model.tags
     """
     MlflowClient().delete_logged_model_tag(model_id, key)
 
@@ -2964,9 +3122,11 @@ def autolog(
         "langchain": "mlflow.langchain",
         "dspy": "mlflow.dspy",
         "crewai": "mlflow.crewai",
+        "smolagents": "mlflow.smolagents",
         "groq": "mlflow.groq",
         "boto3": "mlflow.bedrock",
         "mistralai": "mlflow.mistral",
+        "pydantic_ai": "mlflow.pydantic_ai",
     }
 
     # Currently, GenAI libraries are not enabled by `mlflow.autolog` in Databricks,
@@ -3101,9 +3261,7 @@ class ActiveModel(LoggedModel):
         super().__init__(**logged_model.to_dictionary())
         self.last_active_model_context = _ACTIVE_MODEL_CONTEXT.get()
         self.last_active_model_id_env_var = MLFLOW_ACTIVE_MODEL_ID.get()
-        _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(self.model_id, set_by_user))
-        _update_active_model_id_env_var(self.model_id)
-        _logger.info(f"Active model set to model with ID: {self.model_id}")
+        _set_active_model_id(self.model_id, set_by_user)
 
     def __enter__(self):
         return self
@@ -3167,13 +3325,12 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
         traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
         assert len(traces) == 1
     """
-    active_model = _set_active_model(name=name, model_id=model_id)
-    active_model_ctx = _ACTIVE_MODEL_CONTEXT.get()
-    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(active_model_ctx.model_id, set_by_user=True))
-    return active_model
+    return _set_active_model(name=name, model_id=model_id, set_by_user=True)
 
 
-def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
+def _set_active_model(
+    *, name: Optional[str] = None, model_id: Optional[str] = None, set_by_user: bool = False
+) -> ActiveModel:
     if name is None and model_id is None:
         raise MlflowException.invalid_parameter_value(
             message="Either name or model_id must be provided",
@@ -3200,7 +3357,29 @@ def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = N
             logged_model = mlflow.create_external_model(name=name)
         else:
             logged_model = logged_models[0]
-    return ActiveModel(logged_model=logged_model, set_by_user=False)
+    return ActiveModel(logged_model=logged_model, set_by_user=set_by_user)
+
+
+def _set_active_model_id(model_id: str, set_by_user: bool = False) -> None:
+    """
+    Set the active model ID in the active model context and update the
+    corresponding environment variable. This should only be used when
+    we know the LoggedModel with the model_id exists.
+    This function should be used inside MLflow to set the active model
+    while not blocking other code execution.
+    """
+    try:
+        _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(model_id, set_by_user))
+        _update_active_model_id_env_var(model_id)
+    except Exception as e:
+        _logger.warning(f"Failed to set active model ID to {model_id}, error: {e}")
+    else:
+        _logger.info(f"Active model is set to the logged model with ID: {model_id}")
+        if not set_by_user:
+            _logger.info(
+                "Use `mlflow.set_active_model` to set the active model "
+                "to a different one if needed."
+            )
 
 
 def _get_active_model_context() -> ActiveModelContext:

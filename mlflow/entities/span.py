@@ -6,6 +6,7 @@ from typing import Any, Optional, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
+from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
@@ -257,6 +258,10 @@ class Span:
                     status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
                     description=data["status"].get("message"),
                 ).to_otel_status(),
+                # Setting an empty resource explicitly. Otherwise OTel create a new Resource by
+                # Resource.create(), which introduces a significant overhead in some environments.
+                # https://github.com/mlflow/mlflow/issues/15625
+                resource=_OTelResource.get_empty(),
                 events=[
                     OTelEvent(
                         name=event["name"],
@@ -442,24 +447,52 @@ class LiveSpan(Span):
         """
         self._span.add_event(event.name, event.attributes, event.timestamp)
 
-    def end(self, end_time: Optional[int] = None):
+    def end(
+        self,
+        outputs: Optional[Any] = None,
+        attributes: Optional[dict[str, Any]] = None,
+        status: Optional[Union[SpanStatus, str]] = None,
+        end_time_ns: Optional[int] = None,
+    ):
         """
-        End the span. This is a thin wrapper around the OpenTelemetry's end method but just
-        to handle the status update.
+        End the span.
 
-        This method should not be called directly by the user, only by called via fluent APIs
-        context exit or by MlflowClient APIs.
+        outputs: Outputs to set on the span.
+        attributes: A dictionary of attributes to set on the span. If the span already has
+            attributes, the new attributes will be merged with the existing ones. If the same
+            key already exists, the new value will overwrite the old one.
+        status: The status of the span. This can be a
+            :py:class:`SpanStatus <mlflow.entities.SpanStatus>` object or a string
+            representing the status code defined in
+            :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
+            e.g. ``"OK"``, ``"ERROR"``. The default status is OK.
+        end_time_ns: The end time of the span in nano seconds since the UNIX epoch.
+            If not provided, the current time will be used.
 
         :meta private:
         """
-        # NB: In OpenTelemetry, status code remains UNSET if not explicitly set
-        # by the user. However, there is not way to set the status when using
-        # @mlflow.trace decorator. Therefore, we just automatically set the status
-        # to OK if it is not ERROR.
-        if self.status.status_code != SpanStatusCode.ERROR:
-            self.set_status(SpanStatus(SpanStatusCode.OK))
+        try:
+            self.set_attributes(attributes or {})
+            if outputs is not None:
+                self.set_outputs(outputs)
+            if status is not None:
+                self.set_status(status)
 
-        self._span.end(end_time=end_time)
+            # NB: In OpenTelemetry, status code remains UNSET if not explicitly set
+            # by the user. However, there is not way to set the status when using
+            # @mlflow.trace decorator. Therefore, we just automatically set the status
+            # to OK if it is not ERROR.
+            if self.status.status_code != SpanStatusCode.ERROR:
+                self.set_status(SpanStatus(SpanStatusCode.OK))
+
+            self._span.end(end_time=end_time_ns)
+
+        except Exception as e:
+            _logger.warning(
+                f"Failed to end span {self.span_id}: {e}. "
+                "For full traceback, set logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
 
     def from_dict(cls, data: dict[str, Any]) -> "Span":
         raise NotImplementedError("The `from_dict` method is not supported for the LiveSpan class.")
@@ -542,7 +575,7 @@ class LiveSpan(Span):
         )
 
         # Mark the span completed with the original end time
-        clone_span.end(end_time=span.end_time_ns)
+        clone_span.end(end_time_ns=span.end_time_ns)
         return clone_span
 
 
@@ -629,7 +662,13 @@ class NoOpSpan(Span):
     def add_event(self, event: SpanEvent):
         pass
 
-    def end(self):
+    def end(
+        self,
+        outputs: Optional[Any] = None,
+        attributes: Optional[dict[str, Any]] = None,
+        status: Optional[Union[SpanStatus, str]] = None,
+        end_time_ns: Optional[int] = None,
+    ):
         pass
 
 

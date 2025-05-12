@@ -2,6 +2,7 @@ import os
 import pickle
 import sys
 import time
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -23,6 +24,7 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
+from mlflow.entities.file_info import FileInfo
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
@@ -72,7 +74,9 @@ def reset_registry_uri():
 @pytest.fixture
 def mock_store():
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
-        yield mock_get_store.return_value
+        mock_store = mock_get_store.return_value
+        with mock.patch("mlflow.tracing.client._get_store", return_value=mock_store):
+            yield mock_store
 
 
 @pytest.fixture
@@ -80,7 +84,9 @@ def mock_artifact_repo():
     with mock.patch(
         "mlflow.tracking._tracking_service.client.get_artifact_repository"
     ) as mock_get_repo:
-        yield mock_get_repo.return_value
+        mock_repo = mock_get_repo.return_value
+        with mock.patch("mlflow.tracing.client.get_artifact_repository", return_value=mock_repo):
+            yield mock_repo
 
 
 @pytest.fixture
@@ -312,7 +318,7 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
             raise Exception("Failed to download trace data")
 
     with mock.patch(
-        "mlflow.tracking._tracking_service.client.get_artifact_repository",
+        "mlflow.tracing.client.get_artifact_repository",
         return_value=CustomArtifactRepository("test"),
     ) as mock_get_artifact_repository:
         mock_traces = [
@@ -600,11 +606,6 @@ def test_log_trace_with_databricks_tracking_uri(
 
     mock_experiment = mock.MagicMock()
     mock_experiment.experiment_id = "test_experiment_id"
-    monkeypatch.setattr(
-        mock_store_for_tracing,
-        "get_experiment_by_name",
-        mock.MagicMock(return_value=mock_experiment),
-    )
 
     class TestModel:
         def __init__(self):
@@ -649,16 +650,20 @@ def test_log_trace_with_databricks_tracking_uri(
 
     with (
         mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data"
+            "mlflow.tracing.client.TracingClient._upload_trace_data"
         ) as mock_upload_trace_data,
         mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tags",
+            "mlflow.tracing.client.TracingClient.set_trace_tags",
         ),
         mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient.set_trace_tag",
+            "mlflow.tracing.client.TracingClient.set_trace_tag",
         ),
         mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_trace_info",
+            "mlflow.tracing.client.TracingClient.get_trace_info",
+        ),
+        mock.patch(
+            "mlflow.MlflowClient.get_experiment_by_name",
+            return_value=mock_experiment,
         ),
         mock.patch(
             "mlflow.tracing.trace_manager.InMemoryTraceManager.update_trace_info",
@@ -741,9 +746,9 @@ def test_start_trace_raise_error_when_active_trace_exists():
 
 def test_end_trace_raise_error_when_trace_not_exist():
     client = mlflow.tracking.MlflowClient()
-    mock_tracking_client = mock.MagicMock()
-    mock_tracking_client.get_trace.return_value = None
-    client._tracking_client = mock_tracking_client
+    mock_tracing_client = mock.MagicMock()
+    mock_tracing_client.get_trace.return_value = None
+    client._tracing_client = mock_tracing_client
 
     with pytest.raises(MlflowException, match=r"Trace with ID test not found"):
         client.end_trace("test")
@@ -752,11 +757,11 @@ def test_end_trace_raise_error_when_trace_not_exist():
 @pytest.mark.parametrize("status", TraceStatus.pending_statuses())
 def test_end_trace_works_for_trace_in_pending_status(status):
     client = mlflow.tracking.MlflowClient()
-    mock_tracking_client = mock.MagicMock()
-    mock_tracking_client.get_trace.return_value = Trace(
+    mock_tracing_client = mock.MagicMock()
+    mock_tracing_client.get_trace.return_value = Trace(
         info=create_test_trace_info("test", status=status), data=TraceData()
     )
-    client._tracking_client = mock_tracking_client
+    client._tracing_client = mock_tracing_client
     client.end_span = lambda *args: None
 
     client.end_trace("test")
@@ -765,11 +770,11 @@ def test_end_trace_works_for_trace_in_pending_status(status):
 @pytest.mark.parametrize("status", TraceStatus.end_statuses())
 def test_end_trace_raise_error_for_trace_in_end_status(status):
     client = mlflow.tracking.MlflowClient()
-    mock_tracking_client = mock.MagicMock()
-    mock_tracking_client.get_trace.return_value = Trace(
+    mock_tracing_client = mock.MagicMock()
+    mock_tracing_client.get_trace.return_value = Trace(
         info=create_test_trace_info("test", status=status), data=TraceData()
     )
-    client._tracking_client = mock_tracking_client
+    client._tracing_client = mock_tracing_client
 
     with pytest.raises(MlflowException, match=r"Trace with ID test already finished"):
         client.end_trace("test")
@@ -2034,3 +2039,95 @@ def test_log_and_detach_prompt(tracking_uri):
     client.detach_prompt_from_run(run_id, "prompts:/p1/1")
     prompts = client.list_logged_prompts(run_id)
     assert [p.name for p in prompts] == ["p2"]
+
+
+def test_search_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(name="prompt_1", template="Hi, {{name}}!")
+    client.register_prompt(name="prompt_2", template="Hello, {{name}}!")
+    client.register_prompt(name="prompt_3", template="Greetings, {{name}}!")
+    client.register_prompt(name="prompt_4", template="Howdy, {{name}}!")
+    client.register_prompt(name="prompt_5", template="Salutations, {{name}}!")
+    client.register_prompt(name="prompt_6", template="Bonjour, {{name}}!")
+    client.register_prompt(name="test", template="Test Template")
+    client.register_prompt(name="new", template="Bonjour, {{name}}!")
+
+    prompts = client.search_prompts(filter_string="name='prompt_1'")
+    assert len(prompts) == 1
+    assert prompts[0].name == "prompt_1"
+
+    prompts = client.search_prompts(filter_string="name LIKE '%prompt%'")
+    assert len(prompts) == 6
+    assert all("prompt" in prompt.name for prompt in prompts)
+
+    prompts = client.search_prompts()
+    assert len(prompts) == 8
+
+    prompts = client.search_prompts(max_results=3)
+    assert len(prompts) == 3
+
+
+def test_search_prompt_multiple_versions(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+    name = "prompt_multi"
+
+    v1 = client.register_prompt(name=name, template="First version, {{x}}")
+    assert v1.version == 1
+    assert v1.template == "First version, {{x}}"
+
+    v2 = client.register_prompt(name=name, template="Second version, {{x}}")
+    assert v2.version == 2
+    assert v2.template == "Second version, {{x}}"
+
+    prompts = client.search_prompts()
+    assert len(prompts) == 1
+
+    prompt = prompts[0]
+    versions = sorted([mv.version for mv in prompt.latest_versions])
+    assert versions == [2]
+
+
+def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment_id = client.create_experiment("test")
+    model = client.create_logged_model(experiment_id=experiment_id)
+    tmp_path = tmp_path.joinpath("artifacts")
+    tmp_path.mkdir()
+    tmp_file = tmp_path.joinpath("file")
+    tmp_file.write_text("a")
+    client.log_model_artifact(model_id=model.model_id, local_path=str(tmp_file))
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
+    assert artifacts == [FileInfo(path="file", is_dir=False, file_size=1)]
+    another_tmp_file = tmp_path.joinpath("another_file")
+    another_tmp_file.write_text("aa")
+    client.log_model_artifact(model_id=model.model_id, local_path=str(another_tmp_file))
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
+    artifacts = sorted(artifacts, key=lambda x: x.path)
+    assert artifacts == [
+        FileInfo(path="another_file", is_dir=False, file_size=2),
+        FileInfo(path="file", is_dir=False, file_size=1),
+    ]
+
+
+def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment_id = client.create_experiment("test")
+    model = client.create_logged_model(experiment_id=experiment_id)
+    tmp_path = tmp_path.joinpath("artifacts")
+    tmp_path.mkdir()
+    tmp_file = tmp_path.joinpath("file")
+    tmp_file.write_text("a")
+    tmp_dir = tmp_path.joinpath("dir")
+    tmp_dir.mkdir()
+    another_file = tmp_dir.joinpath("another_file")
+    another_file.write_text("aa")
+    client.log_model_artifacts(model_id=model.model_id, local_dir=str(tmp_path))
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
+    artifacts = sorted(artifacts, key=lambda x: x.path)
+    assert artifacts == [
+        FileInfo(path="dir", is_dir=True, file_size=None),
+        FileInfo(path="file", is_dir=False, file_size=1),
+    ]
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="dir")
+    assert artifacts == [FileInfo(path="dir/another_file", is_dir=False, file_size=2)]

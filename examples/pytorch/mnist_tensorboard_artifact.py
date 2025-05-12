@@ -222,9 +222,7 @@ with mlflow.start_run():
 
     # Log the model as an artifact of the MLflow run.
     print("\nLogging the trained model as a run artifact...")
-    model_info = mlflow.pytorch.log_model(
-        model, artifact_path="pytorch-model", pickle_module=pickle
-    )
+    model_info = mlflow.pytorch.log_model(model, name="pytorch-model", pickle_module=pickle)
     print(f"\nThe model is logged at:\n{model_info.artifact_path}")
 
     # Get the device (GPU or CPU)

@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
@@ -13,16 +14,26 @@ from mlflow.models.evaluation.base import (
     _get_model_from_deployment_endpoint_uri,
     _is_model_deployment_endpoint_uri,
 )
+from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
     from genai.evaluation.utils import EvaluationDatasetTypes
 
+try:
+    # `pandas` is not required for `mlflow-skinny`.
+    import pandas as pd
+except ImportError:
+    pass
+
+
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
+    result_df: "pd.DataFrame"
 
 
 def evaluate(
@@ -33,6 +44,12 @@ def evaluate(
 ) -> EvaluationResult:
     """
     TODO: updating docstring with real examples and API links
+
+    .. warning::
+
+        This function is not thread-safe. Please do not use it in multi-threaded
+        environments.
+
     Args:
         data: Dataset for the evaluation. It must be one of the following format:
             * A EvaluationDataset entity
@@ -47,7 +64,7 @@ def evaluate(
                    by MLflow so not required.
               - expectations (optional): A column that contains a ground truth, or a
                    dictionary of ground truths for individual output fields.
-              - traces (optional): A column that contains a single trace object
+              - trace (optional): A column that contains a single trace object
                    corresponding to the prediction for the row. Only required when
                    any of scorers requires a trace in order to compute
                    assessments/metrics.
@@ -78,12 +95,18 @@ def evaluate(
                mlflow.evaluate(data, ...)
                ```
     """
-    if mlflow.get_tracking_uri() != "databricks":
+    try:
+        from databricks.rag_eval.evaluation.metrics import Metric as DBAgentsMetric
+    except ImportError:
+        raise ImportError(
+            "The `databricks-agents` package is required to use mlflow.genai.evaluate() "
+            "Please install it with `pip install databricks-agents`."
+        )
+
+    if not is_databricks_uri(mlflow.get_tracking_uri()):
         raise ValueError(
-            (
-                "The genai evaluation function is only supported on Databricks. ",
-                "Please set the tracking URI to Databricks.",
-            )
+            "The genai evaluation function is only supported on Databricks. "
+            "Please set the tracking URI to Databricks."
         )
 
     builtin_scorers = []
@@ -94,6 +117,12 @@ def evaluate(
             builtin_scorers.append(scorer)
         elif isinstance(scorer, Scorer):
             custom_scorers.append(scorer)
+        elif isinstance(scorer, DBAgentsMetric):
+            logger.warning(
+                f"{scorer} is a legacy metric and will soon be deprecated in future releases. "
+                "Please use the @scorer decorator or use builtin scorers instead."
+            )
+            custom_scorers.append(scorer)
         else:
             raise TypeError(
                 (
@@ -102,11 +131,7 @@ def evaluate(
                 )
             )
 
-    evaluation_config = {
-        GENAI_CONFIG_NAME: {
-            "metrics": [],
-        }
-    }
+    evaluation_config = {}
     for _scorer in builtin_scorers:
         evaluation_config = _scorer.update_evaluation_config(evaluation_config)
 
@@ -114,17 +139,28 @@ def evaluate(
     for _scorer in custom_scorers:
         extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
 
-    if not is_model_traced(predict_fn):
-        logger.info("Annotating predict_fn with tracing since it is not already traced.")
-        predict_fn = mlflow.trace(predict_fn)
+    # convert into a pandas dataframe with current evaluation set schema
+    data = _convert_to_legacy_eval_set(data)
 
-    mlflow.evaluate(
+    if predict_fn:
+        sample_input = data.iloc[0]["request"]
+        if not is_model_traced(predict_fn, sample_input):
+            logger.info("Annotating predict_fn with tracing since it is not already traced.")
+            predict_fn = mlflow.trace(predict_fn)
+
+    result = mlflow.evaluate(
         model=predict_fn,
-        # convert into a pandas dataframe with current evaluation set schema
-        data=_convert_to_legacy_eval_set(data),
+        data=data,
         evaluator_config=evaluation_config,
         extra_metrics=extra_metrics,
         model_type=GENAI_CONFIG_NAME,
+        model_id=model_id,
+    )
+
+    return EvaluationResult(
+        run_id=result._run_id,
+        metrics=result.metrics,
+        result_df=result.tables["eval_results"],
     )
 
 

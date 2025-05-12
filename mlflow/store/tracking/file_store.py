@@ -58,7 +58,7 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.tracing.utils import generate_request_id
+from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.file_utils import (
     append_to,
@@ -72,13 +72,10 @@ from mlflow.utils.file_utils import (
     make_containing_dirs,
     mkdir,
     mv,
-    overwrite_yaml,
     path_to_local_file_uri,
     read_file,
     read_file_lines,
-    read_yaml,
     write_to,
-    write_yaml,
 )
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
@@ -115,6 +112,7 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag_name,
 )
+from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
 
 _logger = logging.getLogger(__name__)
 
@@ -1616,7 +1614,7 @@ class FileStore(AbstractStore):
         Returns:
             The created TraceInfo object.
         """
-        request_id = generate_request_id()
+        request_id = generate_request_id_v2()
         _validate_experiment_id(experiment_id)
         experiment_dir = self._get_experiment_path(
             experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
@@ -2032,11 +2030,6 @@ class FileStore(AbstractStore):
         Returns:
             The updated model.
         """
-        if status != LoggedModelStatus.READY:
-            raise MlflowException(
-                f"Invalid model status: {status}. Expected statuses: [{LoggedModelStatus.READY}]",
-                databricks_pb2.INVALID_PARAMETER_VALUE,
-            )
         model_dict = self._get_model_dict(model_id)
         model = LoggedModel.from_dictionary(model_dict)
         model.status = status

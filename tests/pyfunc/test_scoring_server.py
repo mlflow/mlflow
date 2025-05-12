@@ -611,7 +611,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
     with TempDir(chdr=True):
         with mlflow.start_run():
             model_info = mlflow.pyfunc.log_model(
-                "model", python_model=TestModel(), signature=ModelSignature(schema)
+                name="model", python_model=TestModel(), signature=ModelSignature(schema)
             )
         response = pyfunc_serve_and_score_model(
             model_uri=model_info.model_uri,
@@ -725,7 +725,7 @@ def test_parse_json_input_including_path():
             return 1
 
     with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=TestModel())
+        mlflow.pyfunc.log_model(name="model", python_model=TestModel())
 
     pandas_split_content = pd.DataFrame(
         {

@@ -342,7 +342,9 @@ can simply log a predict method via the keyword argument ``python_model``.
 
     # Save the function as a model
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("model", python_model=predict, pip_requirements=["pandas"])
+        mlflow.pyfunc.log_model(
+            name="model", python_model=predict, pip_requirements=["pandas"]
+        )
         run_id = mlflow.active_run().info.run_id
 
     # Load the model from the tracking server and perform inference
@@ -377,7 +379,7 @@ we would recommend using the functional-based Model instead for this simple case
     # Save the function as a model
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            "model", python_model=MyModel(), pip_requirements=["pandas"]
+            name="model", python_model=MyModel(), pip_requirements=["pandas"]
         )
         run_id = mlflow.active_run().info.run_id
 
@@ -985,7 +987,7 @@ class PyFuncModel:
             some_input = 1
             # save the model
             with mlflow.start_run():
-                model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())
+                model_info = mlflow.pyfunc.log_model(name="model", python_model=MyModel())
 
             # load the model
             loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -2075,9 +2077,8 @@ def spark_udf(
 
     .. note::
         When using Databricks Connect to connect to a remote Databricks cluster,
-        the Databricks cluster must use runtime version >= 16, and when 'spark_udf'
-        param 'env_manager' is set as 'virtualenv', the 'prebuilt_env_uri' param is
-        required to be specified.
+        the Databricks cluster must use runtime version >= 16, and if the 'prebuilt_env_uri'
+        parameter is set, 'env_manager' parameter should not be set.
 
     .. note::
         Please be aware that when operating in Databricks Serverless,
@@ -2922,7 +2923,7 @@ def save_model(
 
                 with mlflow.start_run():
                     model_info = mlflow.pyfunc.log_model(
-                        artifact_path="model",
+                        name="model",
                         python_model="code.py",
                     )
 
@@ -3412,7 +3413,7 @@ def log_model(
 
                 with mlflow.start_run():
                     model_info = mlflow.pyfunc.log_model(
-                        artifact_path="model",
+                        name="model",
                         python_model=MyModel(),
                     )
 
@@ -3438,7 +3439,7 @@ def log_model(
 
                 with mlflow.start_run():
                     model_info = mlflow.pyfunc.log_model(
-                        artifact_path="model", python_model=predict, input_example=["a"]
+                        name="model", python_model=predict, input_example=["a"]
                     )
 
 
@@ -3470,7 +3471,7 @@ def log_model(
 
                 with mlflow.start_run():
                     model_info = mlflow.pyfunc.log_model(
-                        artifact_path="model",
+                        name="model",
                         python_model="code.py",
                     )
 
@@ -3753,8 +3754,8 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
         RESPONSES_AGENT_INPUT_EXAMPLE,
         RESPONSES_AGENT_INPUT_SCHEMA,
         RESPONSES_AGENT_OUTPUT_SCHEMA,
-        ResponsesRequest,
-        ResponsesResponse,
+        ResponsesAgentRequest,
+        ResponsesAgentResponse,
     )
 
     if signature is not None:
@@ -3776,7 +3777,7 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
     # We accept either a dict or a ResponsesRequest object as input
     if input_example:
         try:
-            model_validate(ResponsesRequest, input_example)
+            model_validate(ResponsesAgentRequest, input_example)
         except pydantic.ValidationError as e:
             raise MlflowException(
                 message=(
@@ -3785,15 +3786,15 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
                 ),
                 error_code=INTERNAL_ERROR,
             ) from e
-        if isinstance(input_example, ResponsesRequest):
+        if isinstance(input_example, ResponsesAgentRequest):
             input_example = input_example.model_dump_compat(exclude_none=True)
     else:
         input_example = RESPONSES_AGENT_INPUT_EXAMPLE
     _logger.info("Predicting on input example to validate output")
-    request = ResponsesRequest(**input_example)
+    request = ResponsesAgentRequest(**input_example)
     output = python_model.predict(request)
     try:
-        model_validate(ResponsesResponse, output)
+        model_validate(ResponsesAgentResponse, output)
     except Exception as e:
         raise MlflowException(
             "Failed to save ResponsesAgent. Ensure your model's predict() method returns a "

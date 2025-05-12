@@ -919,8 +919,8 @@ def test_validation_thresholds_no_mock():
             return len(model_input) * [1]
 
     with mlflow.start_run():
-        base = mlflow.pyfunc.log_model("base", python_model=BaseModel())
-        candidate = mlflow.pyfunc.log_model("candidate", python_model=CandidateModel())
+        base = mlflow.pyfunc.log_model(name="base", python_model=BaseModel())
+        candidate = mlflow.pyfunc.log_model(name="candidate", python_model=CandidateModel())
 
         candidate_result = evaluate(
             candidate.model_uri,

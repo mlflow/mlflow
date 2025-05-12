@@ -10,7 +10,7 @@ def test_langgraph_save_as_code():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langgraph/sample_code/langgraph_prebuilt.py",
-            "langgraph",
+            name="langgraph",
             input_example=input_example,
         )
 
@@ -59,7 +59,7 @@ def test_langgraph_model_invoke_with_dictionary_params(monkeypatch):
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langgraph/sample_code/langgraph_prebuilt.py",
-            "model",
+            name="model",
             input_example=(input_example, params),
         )
     assert model_info.signature.params == ParamSchema(

@@ -9,7 +9,7 @@ model = LogisticRegression().fit(X, y)
 signature = infer_signature(X, model.predict(X))
 
 with mlflow.start_run() as run:
-    mlflow.sklearn.log_model(model, "model", signature=signature)
+    mlflow.sklearn.log_model(model, name="model", signature=signature)
     runs_uri = f"runs:/{run.info.run_id}/model"
     model = mlflow.sklearn.load_model(runs_uri)
     print(model.predict(X)[:10])

@@ -43,7 +43,6 @@ def test_export(experiment_id, is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
-    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", "3")
 
     mlflow.tracing.set_destination(Databricks(experiment_id=experiment_id))
 
@@ -72,7 +71,7 @@ def test_export(experiment_id, is_async, monkeypatch):
             "mlflow.store.tracking.rest_store.call_endpoint", return_value=mock_response
         ) as mock_call_endpoint,
         mock.patch(
-            "mlflow.tracking.MlflowClient._upload_trace_data", return_value=None
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
         ) as mock_upload_trace_data,
     ):
         _predict("hello")
@@ -110,7 +109,6 @@ def test_export_catch_failure(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
-    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", "3")
 
     mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
 
@@ -120,10 +118,10 @@ def test_export_catch_failure(is_async, monkeypatch):
 
     with (
         mock.patch(
-            "mlflow.tracking.MlflowClient._start_trace_v3",
+            "mlflow.tracing.client.TracingClient.start_trace_v3",
             side_effect=Exception("Failed to start trace"),
         ),
-        mock.patch("mlflow.tracing.export.databricks._logger") as mock_logger,
+        mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
     ):
         _predict("hello")
 
@@ -138,8 +136,7 @@ def test_async_bulk_export(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
-    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", "3")
-    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", "3")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", "1000")
 
     mlflow.tracing.set_destination(Databricks(experiment_id=0))
 
@@ -153,10 +150,10 @@ def test_async_bulk_export(monkeypatch):
 
     with (
         mock.patch(
-            "mlflow.tracking.MlflowClient._start_trace_v3", side_effect=_mock_client_method
+            "mlflow.tracing.client.TracingClient.start_trace_v3", side_effect=_mock_client_method
         ) as mock_start_trace,
         mock.patch(
-            "mlflow.tracking.MlflowClient._upload_trace_data", return_value=None
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
         ) as mock_upload_trace_data,
     ):
         # Log many traces

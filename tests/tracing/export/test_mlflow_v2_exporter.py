@@ -1,7 +1,8 @@
+from unittest import mock
 from unittest.mock import MagicMock
 
 from mlflow.entities import LiveSpan
-from mlflow.tracing.export.mlflow import MlflowSpanExporter
+from mlflow.tracing.export.mlflow_v2 import MlflowV2SpanExporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
@@ -34,9 +35,15 @@ def test_export(async_logging_enabled):
     # Invalid span should be also ignored
     invalid_otel_span = create_mock_otel_span(trace_id=23456, span_id=1)
 
-    mock_client = MagicMock()
     mock_display = MagicMock()
-    exporter = MlflowSpanExporter(mock_client, mock_display)
+    mock_client = MagicMock()
+    with (
+        mock.patch("mlflow.tracing.export.mlflow_v2.TracingClient", return_value=mock_client),
+        mock.patch(
+            "mlflow.tracing.export.mlflow_v2.get_display_handler", return_value=mock_display
+        ),
+    ):
+        exporter = MlflowV2SpanExporter()
 
     exporter.export([otel_span, non_root_otel_span, invalid_otel_span])
 

@@ -16,19 +16,35 @@ from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
-from mlflow import set_active_model
 from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
-from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracking import MlflowClient
+from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.dspy.test_save import CoT
-from tests.tracing.helper import get_traces, score_in_model_serving
+from tests.tracing.helper import get_traces, score_in_model_serving, skip_when_testing_trace_sdk
+
+if not IS_TRACING_SDK_ONLY:
+    from mlflow.tracking import MlflowClient
+
 
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
 
 _DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
+
+
+# Test module
+class CoT(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.prog = dspy.ChainOfThought("question -> answer")
+        mlflow.models.set_retriever_schema(
+            primary_key="id",
+            text_column="text",
+            doc_uri="source",
+        )
+
+    def forward(self, question):
+        return self.prog(question=question)
 
 
 def test_autolog_lm():
@@ -451,27 +467,17 @@ def test_disable_autolog():
     assert len(get_traces()) == 1
 
 
+@skip_when_testing_trace_sdk
 def test_autolog_set_retriever_schema():
+    from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
+
     mlflow.dspy.autolog()
     dspy.settings.configure(
         lm=DummyLM([{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]])
     )
 
-    class CoT(dspy.Module):
-        def __init__(self):
-            super().__init__()
-            self.prog = dspy.ChainOfThought("question -> answer")
-            mlflow.models.set_retriever_schema(
-                primary_key="id",
-                text_column="text",
-                doc_uri="source",
-            )
-
-        def forward(self, question):
-            return self.prog(question=question)
-
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(CoT(), "model")
+        model_info = mlflow.dspy.log_model(CoT(), name="model")
 
     # Reset retriever schema
     _clear_retriever_schema()
@@ -493,8 +499,11 @@ def test_autolog_set_retriever_schema():
     ]
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.parametrize("with_dependencies_schema", [True, False])
 def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema):
+    from mlflow.models.dependencies_schemas import DependenciesSchemasType
+
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
@@ -519,15 +528,16 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
     input_example = "What castle did David Gregory inherit?"
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(RAG(), "model", input_example=input_example)
+        model_info = mlflow.dspy.log_model(RAG(), name="model", input_example=input_example)
 
-    request_id, response, trace_dict = score_in_model_serving(
+    databricks_request_id, response, trace_dict = score_in_model_serving(
         model_info.model_uri,
         input_example,
     )
 
     trace = Trace.from_dict(trace_dict)
-    assert trace.info.request_id == request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == databricks_request_id
     assert trace.info.status == "OK"
 
     spans = trace.data.spans
@@ -555,6 +565,7 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
         ]
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.parametrize("log_compiles", [True, False])
 def test_autolog_log_compile(log_compiles):
     class DummyOptimizer(dspy.teleprompt.Teleprompter):
@@ -583,6 +594,7 @@ def test_autolog_log_compile(log_compiles):
         assert mlflow.last_active_run() is None
 
 
+@skip_when_testing_trace_sdk
 def test_autolog_log_compile_disable():
     class DummyOptimizer(dspy.teleprompt.Teleprompter):
         def compile(self, program):
@@ -607,6 +619,7 @@ def test_autolog_log_compile_disable():
     assert len(runs) == 1
 
 
+@skip_when_testing_trace_sdk
 def test_autolog_log_nested_compile():
     class NestedOptimizer(dspy.teleprompt.Teleprompter):
         def compile(self, program):
@@ -651,6 +664,7 @@ skip_if_evaluate_callback_unavailable = pytest.mark.skipif(
 is_2_7_or_newer = Version(importlib.metadata.version("dspy")) >= Version("2.7.0")
 
 
+@skip_when_testing_trace_sdk
 @skip_if_evaluate_callback_unavailable
 @pytest.mark.parametrize("log_evals", [True, False])
 @pytest.mark.parametrize("return_outputs", [True, False])
@@ -746,6 +760,7 @@ def test_autolog_log_evals(
         assert run is None
 
 
+@skip_when_testing_trace_sdk
 @skip_if_evaluate_callback_unavailable
 def test_autolog_nested_evals():
     lm = DummyLM(
@@ -791,6 +806,7 @@ def test_autolog_nested_evals():
         assert "model.json" in artifacts
 
 
+@skip_when_testing_trace_sdk
 @skip_if_evaluate_callback_unavailable
 def test_autolog_log_compile_with_evals():
     class EvalOptimizer(dspy.teleprompt.Teleprompter):
@@ -863,6 +879,7 @@ def test_autolog_log_compile_with_evals():
         }
 
 
+@skip_when_testing_trace_sdk
 def test_autolog_link_traces_loaded_model_custom_module():
     mlflow.dspy.autolog()
     dspy.settings.configure(
@@ -873,7 +890,7 @@ def test_autolog_link_traces_loaded_model_custom_module():
     model_infos = []
     for _ in range(5):
         with mlflow.start_run():
-            model_infos.append(mlflow.dspy.log_model(dspy_model, "model"))
+            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model"))
 
     for model_info in model_infos:
         loaded_model = mlflow.dspy.load_model(model_info.model_uri)
@@ -886,6 +903,7 @@ def test_autolog_link_traces_loaded_model_custom_module():
         assert model_id == trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
 
 
+@skip_when_testing_trace_sdk
 def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
     mlflow.dspy.autolog()
     dspy.settings.configure(
@@ -896,7 +914,7 @@ def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
     model_infos = []
     for _ in range(5):
         with mlflow.start_run():
-            model_infos.append(mlflow.dspy.log_model(dspy_model, "model"))
+            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model"))
 
     for model_info in model_infos:
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -909,9 +927,10 @@ def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
         assert model_id == trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
 
 
+@skip_when_testing_trace_sdk
 def test_autolog_link_traces_active_model():
     model = mlflow.create_external_model(name="test_model")
-    set_active_model(model_id=model.model_id)
+    mlflow.set_active_model(model_id=model.model_id)
     mlflow.dspy.autolog()
     dspy.settings.configure(
         lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}] * 5)
@@ -921,7 +940,7 @@ def test_autolog_link_traces_active_model():
     model_infos = []
     for _ in range(5):
         with mlflow.start_run():
-            model_infos.append(mlflow.dspy.log_model(dspy_model, "model"))
+            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model"))
 
     for model_info in model_infos:
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -933,3 +952,23 @@ def test_autolog_link_traces_active_model():
         model_id = json.loads(trace.data.request)["args"][0]
         assert model_id != model.model_id
         assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
+
+
+@skip_when_testing_trace_sdk
+def test_model_loading_set_active_model_id_without_fetching_logged_model():
+    mlflow.dspy.autolog()
+    dspy.settings.configure(
+        lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}])
+    )
+    dspy_model = CoT()
+
+    model_info = mlflow.dspy.log_model(dspy_model, name="model")
+
+    with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
+        loaded_model = mlflow.dspy.load_model(model_info.model_uri)
+    loaded_model(model_info.model_id)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    model_id = json.loads(traces[0].data.request)["args"][0]
+    assert model_id == traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
