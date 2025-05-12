@@ -358,7 +358,6 @@ pmdarima:
     minimum: "2.0.4"
     maximum: "2.0.4"
     requirements:
-      "< 1.9": ["scikit-learn<1.3"]
       ">= 0.0.0": [
           "prophet",
           # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
