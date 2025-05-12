@@ -156,7 +156,7 @@ class DspyChatModelWrapper(DspyModelWrapper):
                 elif isinstance(output, dspy.Prediction):
                     role = output.get("role", "assistant")
                     choices.append(
-                        self._construct_chat_message(isinstance, json.dumps(outputs.toDict()))
+                        self._construct_chat_message(role, json.dumps(outputs.toDict()))
                     )
                 else:
                     raise MlflowException(
