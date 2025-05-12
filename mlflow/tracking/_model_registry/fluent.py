@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
+from mlflow.entities.run import Run
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
@@ -193,7 +194,7 @@ def _register_model(
     return create_version_response
 
 
-def _get_logged_models_from_run(source_run: str, model_name: str) -> list[LoggedModel]:
+def _get_logged_models_from_run(source_run: Run, model_name: str) -> list[LoggedModel]:
     """Get all logged models from the source rnu that have the specified model name.
 
     Args:
@@ -207,10 +208,12 @@ def _get_logged_models_from_run(source_run: str, model_name: str) -> list[Logged
     while True:
         logged_models_page = client.search_logged_models(
             experiment_ids=[source_run.info.experiment_id],
-            filter_string=f"name = {model_name} and source_run_id = '{source_run.info.run_id}'",
+            filter_string=f"name = {model_name}",
             page_token=page_token,
         )
-        logged_models.extend(logged_models_page)
+        logged_models.extend(
+            m for m in logged_models_page if m.source_run_id == source_run.info.run_id
+        )
         if not logged_models_page.token:
             break
         page_token = logged_models_page.token
