@@ -66,7 +66,7 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class RequestPayload(ChatCompletionRequest, RequestModel):
-    messages: list[RequestMessage] = Field(..., min_items=1)
+    messages: list[RequestMessage] = Field(..., min_length=1)
     tools: Optional[list[ChatToolWithUC]] = None
 
     class Config:
