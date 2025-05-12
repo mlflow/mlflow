@@ -734,6 +734,7 @@ def test_model_log_with_unity_catalog_url(capsys):
             ),
         ) as mock_register,
     ):
+        orig_registry_uri = mlflow.get_registry_uri()
         mlflow.set_registry_uri("databricks-uc")
 
         # Create a test model and log it
@@ -768,3 +769,5 @@ def test_model_log_with_unity_catalog_url(capsys):
         mock_url.assert_called_once()
         mock_workspace_id.assert_called_once()
         mock_register.assert_called_once()
+        # Clean up the global variables set by the server
+        mlflow.set_registry_uri(orig_registry_uri)
