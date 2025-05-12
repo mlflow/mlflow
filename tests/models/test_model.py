@@ -684,55 +684,6 @@ def test_save_model_with_prompts():
     assert associated_prompts[1].name == prompt_1.name
 
 
-def test_model_log_with_unity_catalog_url():
-    # Mock the necessary functions and environment
-    with (
-        mock.patch("mlflow.models.model.get_workspace_url", return_value="https://databricks.com"),
-        mock.patch("mlflow.models.model.get_workspace_id", return_value="123"),
-        mock.patch("sys.stdout.write") as mock_stdout,
-        mock.patch("mlflow.tracking._model_registry.fluent._register_model") as mock_register,
-    ):
-        mlflow.set_registry_uri("databricks-uc")
-
-        # Mock the registered model response
-        mock_register.return_value = ModelVersion(
-            name="name.mlflow.test_model",
-            version="6",
-            creation_timestamp=0,
-            last_updated_timestamp=0,
-            description="",
-            user_id="",
-            source="",
-            run_id="",
-            status="",
-            status_message="",
-            run_link="",
-        )
-
-        # Create a test model and log it
-        class MyModel(mlflow.pyfunc.PythonModel):
-            def predict(self, context, model_input: list[str], params=None):
-                return model_input
-
-        with mlflow.start_run():
-            model_info = mlflow.pyfunc.log_model(
-                registered_model_name="name.mlflow.test_model",
-                python_model=MyModel(),
-                input_example=["abc"],
-            )
-
-        # Verify the model info
-        assert model_info.registered_model_version == "6"
-
-        # Verify the URL was printed correctly
-        expected_url = (
-            "https://databricks.com/explore/data/models/name/mlflow/test_model/version/6?o=123"
-        )
-        mock_stdout.assert_called_once_with(
-            f"🔗 View model version in Unity Catalog at: {expected_url}\n"
-        )
-
-
 def test_logged_model_status():
     def predict_fn(model_input: list[str]):
         return model_input
@@ -757,3 +708,59 @@ def test_logged_model_status():
             )
     logged_model = mlflow.last_logged_model()
     assert logged_model.status == "FAILED"
+
+
+def test_model_log_with_unity_catalog_url(capsys):
+    # Mock the necessary functions and environment
+    with (
+        mock.patch(
+            "mlflow.models.model.get_workspace_url", return_value="https://databricks.com"
+        ) as mock_url,
+        mock.patch("mlflow.models.model.get_workspace_id", return_value="123") as mock_workspace_id,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent._register_model",
+            return_value=ModelVersion(
+                name="name.mlflow.test_model",
+                version="6",
+                creation_timestamp=0,
+                last_updated_timestamp=0,
+                description="",
+                user_id="",
+                source="",
+                run_id="",
+                status="",
+                status_message="",
+                run_link="",
+            ),
+        ) as mock_register,
+    ):
+        mlflow.set_registry_uri("databricks-uc")
+
+        # Create a test model and log it
+        class MyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str], params=None):
+                return model_input
+
+        with mlflow.start_run():
+            model_info = mlflow.pyfunc.log_model(
+                registered_model_name="name.mlflow.test_model",
+                python_model=MyModel(),
+                input_example=["abc"],
+            )
+
+        # Verify the model info
+        assert model_info.registered_model_version == "6"
+
+        # Using capsys to capture output
+        captured = capsys.readouterr()
+
+        # Verify the URL was printed correctly
+        expected_url = (
+            "https://databricks.com/explore/data/models/name/mlflow/test_model/version/6?o=123\n"
+        )
+        assert f"🔗 View model version in Unity Catalog at: {expected_url}" in captured.out
+
+        # Ensure all the mocks are called using assert_called_once.
+        mock_url.assert_called_once()
+        mock_workspace_id.assert_called_once()
+        mock_register.assert_called_once()
