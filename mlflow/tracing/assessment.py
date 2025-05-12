@@ -210,8 +210,8 @@ def log_feedback(
         trace_id: The ID of the trace.
         name: The name of the feedback assessment e.g., "faithfulness"
         source: The source of the feedback assessment. Must be either an instance of
-                :py:class:`~mlflow.entities.AssessmentSource` or a string that is a valid value in the
-                AssessmentSourceType enum. If not provided, defaults to CODE source type.
+                :py:class:`~mlflow.entities.AssessmentSource` or a string that is a valid value
+                in the AssessmentSourceType enum. If not provided, defaults to CODE source type.
         value: The value of the feedback. Must be one of the following types:
             - float
             - int
