@@ -11,11 +11,14 @@ $ python dev/update_ml_package_versions.py
 import argparse
 import json
 import re
+import requests
 import sys
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime
+from dateutil.parser import isoparse
+from dateutil.relativedelta import relativedelta
 from pathlib import Path
 
 import yaml
@@ -71,7 +74,7 @@ def get_latest_version(candidates):
     return sorted(candidates, key=Version, reverse=True)[0]
 
 
-def update_max_version(src, key, new_max_version, category):
+def update_version(src, key, new_version, category, update_max):
     """
     Examples
     ========
@@ -87,8 +90,8 @@ def update_max_version(src, key, new_max_version, category):
     ...     minimum: "1.1.1"
     ...     maximum: "1.1.1"
     ... '''.strip()
-    >>> new_src = update_max_version(src, "sklearn", "0.1.0", "models")
-    >>> new_src = update_max_version(new_src, "xgboost", "1.2.1", "autologging")
+    >>> new_src = update_version(src, "sklearn", "0.1.0", "models", update_max=True)
+    >>> new_src = update_version(new_src, "xgboost", "1.2.1", "autologging", update_max=True)
     >>> print(new_src)
     sklearn:
       ...
@@ -101,8 +104,9 @@ def update_max_version(src, key, new_max_version, category):
         minimum: "1.1.1"
         maximum: "1.2.1"
     """
-    pattern = r"((^|\n){key}:.+?{category}:.+?maximum: )\".+?\"".format(
-        key=re.escape(key), category=category
+    match = "maximum" if update_max else "minimum"
+    pattern = r"((^|\n){key}:.+?{category}:.+?{match}: )\".+?\"".format(
+        key=re.escape(key), category=category, match=match
     )
     # Matches the following pattern:
     #
@@ -111,7 +115,7 @@ def update_max_version(src, key, new_max_version, category):
     #   <category>:
     #     ...
     #     maximum: "1.2.3"
-    return re.sub(pattern, rf'\g<1>"{new_max_version}"', src, flags=re.DOTALL)
+    return re.sub(pattern, rf'\g<1>"{new_version}"', src, flags=re.DOTALL)
 
 
 def extract_field(d, keys):
@@ -212,6 +216,35 @@ def parse_args():
     return parser.parse_args()
 
 
+def get_cut_version(package):
+    """
+    Get the minimum version that is released within the past two years
+    """
+    cut_date = datetime.now() - relativedelta(years=2, months=0)
+    cut_date = cut_date.replace(tzinfo=None)
+    url = f"https://pypi.org/pypi/{package}/json"
+    resp = requests.get(url)
+    data = resp.json()
+
+    releases = data["releases"]
+
+    min_version = None
+    min_upload_time = None
+    for version, files in releases.items():
+        if files:  # skip empty releases
+            yanked = any(file.get("yanked", False) for file in files)
+            pyver = Version(version)
+            is_official = not (pyver.is_devrelease or pyver.is_prerelease or pyver.is_postrelease)
+            upload_time = isoparse(files[0]["upload_time_iso_8601"]).replace(tzinfo=None)
+
+            if is_official and not yanked and upload_time > cut_date:
+                if min_upload_time is None or upload_time < min_upload_time:
+                    min_version = version
+                    min_upload_time = upload_time
+
+    return min_version
+
+
 def update(skip_yml=False):
     yml_path = "mlflow/ml-package-versions.yml"
 
@@ -220,12 +253,29 @@ def update(skip_yml=False):
         new_src = old_src
         config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
         for flavor_key, config in config_dict.items():
+            package_name = config["package_info"]["pip_release"]
+            cut_version = get_cut_version(package_name)
+
             for category in ["autologging", "models"]:
-                if (category not in config) or config[category].get("pin_maximum", False):
-                    continue
                 print("Processing", flavor_key, category)
 
-                package_name = config["package_info"]["pip_release"]
+                if category in config:
+                    old_min_version = config[category]["minimum"]
+                    if cut_version is None:
+                        # The latest release version is 2 years ago.
+                        # set the min version to be the same with the max version.
+                        max_ver = config[category]["maximum"]
+                        new_src = update_version(
+                            new_src, flavor_key, max_ver, category, update_max=False
+                        )
+                    elif Version(cut_version) > Version(old_min_version):
+                        new_src = update_version(
+                            new_src, flavor_key, cut_version, category, update_max=False
+                        )
+
+                if (category not in config) or config[category].get("pin_maximum", False):
+                    continue
+
                 max_ver = config[category]["maximum"]
                 versions = get_package_versions(package_name)
                 unsupported = config[category].get("unsupported", [])
@@ -235,7 +285,7 @@ def update(skip_yml=False):
                 if Version(latest_version) <= Version(max_ver):
                     continue
 
-                new_src = update_max_version(new_src, flavor_key, latest_version, category)
+                new_src = update_version(new_src, flavor_key, latest_version, category, update_max=True)
 
         save_file(new_src, yml_path)
 
