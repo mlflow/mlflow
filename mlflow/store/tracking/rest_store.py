@@ -51,6 +51,7 @@ from mlflow.protos.service_pb2 import (
     GetTraceInfoV3,
     LogBatch,
     LogInputs,
+    LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogOutputs,
@@ -897,12 +898,41 @@ class RestStore(AbstractStore):
                 name=name,
                 model_type=model_type,
                 source_run_id=source_run_id,
-                params=[p.to_proto() for p in params or []],
                 tags=[t.to_proto() for t in tags or []],
             )
         )
+
         response_proto = self._call_endpoint(CreateLoggedModel, req_body)
-        return LoggedModel.from_proto(response_proto.model)
+        model = LoggedModel.from_proto(response_proto.model)
+        self.log_logged_model_params(model_id=model.model_id, params=params)
+        return self.get_logged_model(model_id=model.model_id)
+
+    def log_logged_model_params(
+        self, model_id: str, params: list[LoggedModelParameter]
+    ) -> None:
+        """
+        Log parameters for a logged model in batches of 100.
+
+        Args:
+            model_id: ID of the model to log parameters for.
+            params: List of parameters to log.
+
+        Returns:
+            None
+        """
+        # Process params in batches of 100
+        batch_size = 100
+        num_params = len(params)
+        for i in range(0, num_params, batch_size):
+            end = min(num_params, i + batch_size)
+            batch = params[i:end]
+            req_body = message_to_json(
+                LogLoggedModelParamsRequest(
+                    model_id=model_id,
+                    params=[p.to_proto() for p in batch],
+                )
+            )
+            self._call_endpoint(LogLoggedModelParamsRequest, req_body)
 
     def get_logged_model(self, model_id: str) -> LoggedModel:
         """

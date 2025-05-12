@@ -13,6 +13,7 @@ from mlflow.entities import (
     ExperimentTag,
     InputTag,
     LifecycleStage,
+    LoggedModelParameter,
     Metric,
     Param,
     RunTag,
@@ -45,6 +46,7 @@ from mlflow.protos.service_pb2 import (
     GetTraceInfoV3,
     LogBatch,
     LogInputs,
+    LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogParam,
@@ -61,7 +63,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
-from mlflow.store.tracking.rest_store import RestStore
+from mlflow.store.tracking.rest_store import _METHOD_TO_INFO, RestStore
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
@@ -1260,3 +1262,46 @@ def test_get_trace_info_v3_api():
             assert result.trace_metadata == {"key1": "value1"}
             assert result.tags == {"tag1": "value1"}
             assert result.state == TraceState.OK
+
+
+def test_log_logged_model_params():
+    with mock.patch("mlflow.store.tracking.rest_store.call_endpoint") as mock_call_endpoint:
+        # Create test data
+        model_id = "model_123"
+        params = [
+            LoggedModelParameter(key=f"param_{i}", value=f"value_{i}")
+            for i in range(250)  # Create enough params to test batching
+        ]
+
+        batches = [message_to_json(
+            LogLoggedModelParamsRequest(
+                model_id=model_id,
+                params=[p.to_proto() for p in params[:100]],
+            )
+        ), message_to_json(
+            LogLoggedModelParamsRequest(
+                model_id=model_id,
+                params=[p.to_proto() for p in params[100:200]],
+            )
+        ),
+            message_to_json(
+                LogLoggedModelParamsRequest(
+                    model_id=model_id,
+                    params=[p.to_proto() for p in params[200:]],
+                )
+            )
+        ]
+
+        store = RestStore(lambda: None)
+
+        store.log_logged_model_params(model_id=model_id, params=params)
+
+        # Verify call_endpoint was called with the correct arguments
+        assert mock_call_endpoint.call_count == 3
+        for i, call in enumerate(mock_call_endpoint.call_args_list):
+            _, endpoint, method, json_body, response_proto = call.args
+
+            # Verify endpoint and method are correct
+            assert endpoint, method == _METHOD_TO_INFO[LogLoggedModelParamsRequest]
+            assert json_body == batches[i]
+
