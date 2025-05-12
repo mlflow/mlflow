@@ -208,6 +208,7 @@ def _get_logged_models_from_run(source_run: Run, model_name: str) -> list[Logged
     while True:
         logged_models_page = client.search_logged_models(
             experiment_ids=[source_run.info.experiment_id],
+            # TODO: Use 'source_run_id' once Databricks backend supports it
             filter_string=f"name = '{model_name}'",
             page_token=page_token,
         )

@@ -147,32 +147,38 @@ class RunsArtifactRepository(ArtifactRepository):
             run = client.get_run(run_id)
             [model_name, *rest] = artifact_path.split("/", 1)
             artifact_path = rest[0] if rest else "."
-            models = client.search_logged_models(
-                experiment_ids=[run.info.experiment_id],
-                filter_string=f"name = '{model_name}'",
-                max_results=1,
-            )
-            if models:
-                model = models[0]
-                # Return the first model that matches the run_id and artifact_path
-                if model.source_run_id == run_id and model.name == model_name:
-                    repo = get_artifact_repository(model.artifact_location)
-                    # TODO: Disabled for now. Consider re-enabling this once we migrate docs
-                    # and examples to use the new model URI format.
-                    # color_warning(
-                    #     "`runs:/<run_id>/artifact_path` is deprecated for loading models, "
-                    #     "use `models:/<model_id>` instead. Alternatively, retrieve "
-                    #     "`model_info.model_uri` from the model_info returned by "
-                    #     "mlflow.<flavor>.log_model. For example: "
-                    #     "model_info = mlflow.<flavor>.log_model(...); "
-                    #     "model = mlflow.<flavor>.load_model(model_info.model_uri)",
-                    #     stacklevel=1,
-                    #     color="yellow",
-                    # )
-                    return repo.download_artifacts(
-                        artifact_path=artifact_path,  # root directory
-                        dst_path=dst_path,
-                    )
+            page_token = None
+            while True:
+                page = client.search_logged_models(
+                    experiment_ids=[run.info.experiment_id],
+                    # TODO: Filter by 'source_run_id' once Databricks backend supports it
+                    filter_string=f"name = '{model_name}'",
+                    page_token=page_token,
+                )
+                for model in page:
+                    # Return the first model that matches the run_id and artifact_path
+                    if model.source_run_id == run_id:
+                        repo = get_artifact_repository(model.artifact_location)
+                        # TODO: Disabled for now. Consider re-enabling this once we migrate docs
+                        # and examples to use the new model URI format.
+                        # color_warning(
+                        #     "`runs:/<run_id>/artifact_path` is deprecated for loading models, "
+                        #     "use `models:/<model_id>` instead. Alternatively, retrieve "
+                        #     "`model_info.model_uri` from the model_info returned by "
+                        #     "mlflow.<flavor>.log_model. For example: "
+                        #     "model_info = mlflow.<flavor>.log_model(...); "
+                        #     "model = mlflow.<flavor>.load_model(model_info.model_uri)",
+                        #     stacklevel=1,
+                        #     color="yellow",
+                        # )
+                        return repo.download_artifacts(
+                            artifact_path=artifact_path,  # root directory
+                            dst_path=dst_path,
+                        )
+
+                if not page.token:
+                    break
+                page_token = page.token
 
             _logger.debug(
                 f"Failed to find any models with name {model_name} associated with the "
