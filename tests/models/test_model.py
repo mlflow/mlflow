@@ -758,7 +758,11 @@ def test_model_log_with_unity_catalog_url(capsys):
         expected_url = (
             "https://databricks.com/explore/data/models/name/mlflow/test_model/version/6?o=123\n"
         )
-        assert f"🔗 View model version in Unity Catalog at: {expected_url}" in captured.out
+        assert (
+            "🔗 View model version '6' of 'name.mlflow.test_model' in "
+            + f"Unity Catalog at: {expected_url}"
+            in captured.out
+        )
 
         # Ensure all the mocks are called using assert_called_once.
         mock_url.assert_called_once()

@@ -1127,7 +1127,10 @@ class Model:
                         get_workspace_id(),
                     )
                     # Use sys.stdout.write to make the link clickable in the UI
-                    sys.stdout.write(f"🔗 View model version in Unity Catalog at: {uc_model_url}\n")
+                    sys.stdout.write(
+                        f"🔗 View model version '{registered_model.version}' of "
+                        + f"'{registered_model_name}' in Unity Catalog at: {uc_model_url}\n"
+                    )
 
         # If the model signature is Mosaic AI Agent compatible, render a recipe for evaluation.
         from mlflow.models.display_utils import maybe_render_agent_eval_recipe
