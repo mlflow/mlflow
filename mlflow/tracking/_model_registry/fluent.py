@@ -207,18 +207,10 @@ def _get_logged_models_from_run(source_run: str, model_name: str) -> list[Logged
     while True:
         logged_models_page = client.search_logged_models(
             experiment_ids=[source_run.info.experiment_id],
-            # TODO: Use filter_string once the backend supports it
-            # filter_string="...",
+            filter_string=f"name = {model_name} and source_run_id = '{source_run.info.run_id}'",
             page_token=page_token,
         )
-        logged_models.extend(
-            [
-                logged_model
-                for logged_model in logged_models_page
-                if logged_model.source_run_id == source_run.info.run_id
-                and logged_model.name == model_name
-            ]
-        )
+        logged_models.extend(logged_models_page)
         if not logged_models_page.token:
             break
         page_token = logged_models_page.token
