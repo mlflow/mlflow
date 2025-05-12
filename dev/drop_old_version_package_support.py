@@ -6,14 +6,14 @@ The flavor package versions those are older than 1.5 years are dropped.
 $ python dev/drop_old_version_package_support.py
 """
 
-from datetime import datetime
 import re
+from datetime import datetime
+
 import requests
 import yaml
-
-from packaging.version import Version
 from dateutil.parser import isoparse
 from dateutil.relativedelta import relativedelta
+from packaging.version import Version
 
 
 def get_cut_version(package, cut_date):
@@ -80,10 +80,7 @@ def update_config(config_path, cut_date):
 
 def main():
     cut_date = datetime.now() - relativedelta(years=1, months=6)
-    update_config(
-        "mlflow/ml-package-versions.yml",
-        cut_date
-    )
+    update_config("mlflow/ml-package-versions.yml", cut_date)
 
 
 if __name__ == "__main__":
