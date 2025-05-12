@@ -50,6 +50,8 @@ from mlflow.store.model_registry import (
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracking.fluent import (
+    _ACTIVE_MODEL_CONTEXT,
+    ActiveModelContext,
     _get_experiment_id,
     _get_experiment_id_from_env,
     _reset_last_logged_model_id,
@@ -1983,16 +1985,13 @@ def test_set_active_model():
 
     set_active_model(name=model.name)
     assert mlflow.get_active_model_id() == model.model_id
-    assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
 
     set_active_model(model_id=model.model_id)
     assert mlflow.get_active_model_id() == model.model_id
-    assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
 
     model2 = mlflow.create_external_model(name="test_model")
     set_active_model(name="test_model")
     assert mlflow.get_active_model_id() == model2.model_id
-    assert MLFLOW_ACTIVE_MODEL_ID.get() == model2.model_id
 
     set_active_model(name="new_model")
     logged_model = mlflow.search_logged_models(
@@ -2000,19 +1999,14 @@ def test_set_active_model():
     )[0]
     assert logged_model.name == "new_model"
     assert mlflow.get_active_model_id() == logged_model.model_id
-    assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
 
     with set_active_model(model_id=model.model_id) as active_model:
         assert active_model.model_id == model.model_id
         assert mlflow.get_active_model_id() == model.model_id
-        assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
         with set_active_model(name="new_model"):
             assert mlflow.get_active_model_id() == logged_model.model_id
-            assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
         assert mlflow.get_active_model_id() == model.model_id
-        assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
     assert mlflow.get_active_model_id() == logged_model.model_id
-    assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
 
 
 def test_set_active_model_error():
@@ -2029,16 +2023,12 @@ def test_set_active_model_error():
 
 def test_set_active_model_env_var(monkeypatch):
     monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "1234")
+    # mimic the behavior when mlflow is imported
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
     assert mlflow.get_active_model_id() == "1234"
-
-    with set_active_model(name="abc") as model:
-        model_id = mlflow.get_active_model_id()
-        assert model_id == model.model_id
-        assert MLFLOW_ACTIVE_MODEL_ID.get() == model_id
-    assert mlflow.get_active_model_id() == "1234"
-    assert MLFLOW_ACTIVE_MODEL_ID.get() == "1234"
 
     monkeypatch.delenv(MLFLOW_ACTIVE_MODEL_ID.name)
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
     assert mlflow.get_active_model_id() is None
     assert MLFLOW_ACTIVE_MODEL_ID.get() is None
 

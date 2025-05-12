@@ -3405,5 +3405,5 @@ def _reset_active_model_context() -> None:
     """
     Should be called only for testing purposes.
     """
-    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
     MLFLOW_ACTIVE_MODEL_ID.unset()
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
