@@ -1,0 +1,90 @@
+syntax = "proto2";
+package mlflow.tracing.export;
+
+message Span {
+  // A unique identifier for a trace.
+  optional string trace_id = 1;
+
+  // A unique identifier for a span within a trace.
+  optional string span_id = 2;
+
+  // Conveys information about request position in multiple distributed tracing graphs.
+  optional string trace_state = 3;
+
+  // The span_id of this span's parent span. If this is a root span, then this field may be empty.
+  optional string parent_span_id = 4;
+
+  // Flags, a bit field.
+  optional int32 flags = 5;
+
+  // A description of the span's operation.
+  optional string name = 6;
+
+  // SpanKind represented as string ("INTERNAL", "SERVER", "CLIENT", etc).
+  optional string kind = 7;
+
+  // Start time of the span in nanoseconds since epoch.
+  optional int64 start_time_unix_nano = 8;
+
+  // End time of the span in nanoseconds since epoch.
+  optional int64 end_time_unix_nano = 9;
+
+  // JSON string representation of attributes.
+  optional string attributes = 10;
+
+  // The number of attributes that were discarded.
+  optional int32 dropped_attributes_count = 11;
+
+  // JSON string representation of events.
+  optional string events = 12;
+
+  // The number of dropped events.
+  optional int32 dropped_events_count = 13;
+
+  // JSON string representation of links.
+  optional string links = 14;
+
+  // The number of dropped links.
+  optional int32 dropped_links_count = 15;
+
+  // Status code of the span.
+  optional string status_code = 16;
+
+  // A developer-facing human readable error message.
+  optional string status_message = 17;
+}
+
+message Event {
+  // The name of the event.
+  optional string event_name = 1;
+
+  // A unique identifier for a trace.
+  optional string trace_id = 2;
+
+  // A unique identifier for a span within a trace.
+  optional string span_id = 3;
+
+  // The time the event occurred in nanoseconds since epoch.
+  optional int64 time_unix_nano = 4;
+  
+  // The time the event was observed in nanoseconds since epoch.
+  optional int64 observed_time_unix_nano = 5;
+
+  // The severity number of the event.
+  optional string severity_number = 6;
+
+  // The severity text of the event.
+  optional string severity_text = 7;
+
+  // The body content of the event, often containing JSON or other structured data.
+  optional string body = 8;
+
+  // A map of attribute key-value pairs associated with the event.
+  optional string attributes = 9;
+
+  // The number of attributes that were discarded.
+  optional int32 dropped_attributes_count = 10;
+
+  // Flags, a bit field.
+  optional int32 flags = 11;
+} 

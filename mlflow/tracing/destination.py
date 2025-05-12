@@ -77,3 +77,30 @@ class Databricks(TraceDestination):
     @property
     def type(self) -> str:
         return "databricks"
+
+
+@experimental
+@dataclass
+class TraceServer(TraceDestination):
+    """
+    A destination representing a Databricks Trace Server using the IngestApi.
+
+    By setting this destination in the :py:func:`mlflow.tracing.set_destination` function,
+    MLflow will ingest traces directly to the specified Databricks Trace Server
+    using the IngestApi.
+
+    Attributes:
+        spans_table_name: The name of the table to ingest spans into.
+        ingest_url: The URL of the ingest API.
+        workspace_url: The URL of the Databricks workspace.
+        pat: The personal access token for authentication.
+    """
+
+    spans_table_name: str
+    ingest_url: str
+    workspace_url: str
+    pat: str
+
+    @property
+    def type(self) -> str:
+        return "trace_server"

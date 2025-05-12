@@ -21,7 +21,7 @@ from opentelemetry.sdk.trace import TracerProvider
 import mlflow
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
+from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination, TraceServer
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
@@ -262,6 +262,18 @@ def _setup_tracer_provider(disabled=False):
             processor = DatabricksSpanProcessor(
                 span_exporter=exporter, experiment_id=_MLFLOW_TRACE_USER_DESTINATION.experiment_id
             )
+            
+        elif isinstance(_MLFLOW_TRACE_USER_DESTINATION, TraceServer):
+            from mlflow.tracing.export.trace_server import TraceServerSpanExporter
+            from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
+
+            exporter = TraceServerSpanExporter(
+                spans_table_name=_MLFLOW_TRACE_USER_DESTINATION.spans_table_name,
+                ingest_url=_MLFLOW_TRACE_USER_DESTINATION.ingest_url,
+                workspace_url=_MLFLOW_TRACE_USER_DESTINATION.workspace_url,
+                pat=_MLFLOW_TRACE_USER_DESTINATION.pat
+            )
+            processor = DatabricksSpanProcessor(span_exporter=exporter)
 
     elif should_use_otlp_exporter():
         # Export to OpenTelemetry Collector when configured
