@@ -12,7 +12,7 @@ import os
 import threading
 from contextvars import ContextVar
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union, overload
 
 import mlflow
 from mlflow.entities import (
@@ -2347,6 +2347,28 @@ def last_logged_model() -> Optional[LoggedModel]:
         return get_logged_model(id)
 
 
+@overload
+def search_logged_models(
+    experiment_ids: Optional[list[str]] = None,
+    filter_string: Optional[str] = None,
+    datasets: Optional[list[dict[str, str]]] = None,
+    max_results: Optional[int] = None,
+    order_by: Optional[list[dict[str, Any]]] = None,
+    output_format: Literal["pandas"] = "pandas",
+) -> "pandas.DataFrame": ...
+
+
+@overload
+def search_logged_models(
+    experiment_ids: Optional[list[str]] = None,
+    filter_string: Optional[str] = None,
+    datasets: Optional[list[dict[str, str]]] = None,
+    max_results: Optional[int] = None,
+    order_by: Optional[list[dict[str, Any]]] = None,
+    output_format: Literal["list"] = "list",
+) -> list[LoggedModel]: ...
+
+
 @experimental
 def search_logged_models(
     experiment_ids: Optional[list[str]] = None,
@@ -2354,7 +2376,7 @@ def search_logged_models(
     datasets: Optional[list[dict[str, str]]] = None,
     max_results: Optional[int] = None,
     order_by: Optional[list[dict[str, Any]]] = None,
-    output_format: str = "pandas",
+    output_format: Literal["pandas", "list"] = "pandas",
 ) -> Union[list[LoggedModel], "pandas.DataFrame"]:
     """
     Search for logged models that match the specified search criteria.
@@ -3215,9 +3237,7 @@ class ActiveModel(LoggedModel):
         super().__init__(**logged_model.to_dictionary())
         self.last_active_model_context = _ACTIVE_MODEL_CONTEXT.get()
         self.last_active_model_id_env_var = MLFLOW_ACTIVE_MODEL_ID.get()
-        _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(self.model_id, set_by_user))
-        _update_active_model_id_env_var(self.model_id)
-        _logger.info(f"Active model set to model with ID: {self.model_id}")
+        _set_active_model_id(self.model_id, set_by_user)
 
     def __enter__(self):
         return self
@@ -3281,13 +3301,12 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
         traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
         assert len(traces) == 1
     """
-    active_model = _set_active_model(name=name, model_id=model_id)
-    active_model_ctx = _ACTIVE_MODEL_CONTEXT.get()
-    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(active_model_ctx.model_id, set_by_user=True))
-    return active_model
+    return _set_active_model(name=name, model_id=model_id, set_by_user=True)
 
 
-def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
+def _set_active_model(
+    *, name: Optional[str] = None, model_id: Optional[str] = None, set_by_user: bool = False
+) -> ActiveModel:
     if name is None and model_id is None:
         raise MlflowException.invalid_parameter_value(
             message="Either name or model_id must be provided",
@@ -3314,7 +3333,29 @@ def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = N
             logged_model = mlflow.create_external_model(name=name)
         else:
             logged_model = logged_models[0]
-    return ActiveModel(logged_model=logged_model, set_by_user=False)
+    return ActiveModel(logged_model=logged_model, set_by_user=set_by_user)
+
+
+def _set_active_model_id(model_id: str, set_by_user: bool = False) -> None:
+    """
+    Set the active model ID in the active model context and update the
+    corresponding environment variable. This should only be used when
+    we know the LoggedModel with the model_id exists.
+    This function should be used inside MLflow to set the active model
+    while not blocking other code execution.
+    """
+    try:
+        _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(model_id, set_by_user))
+        _update_active_model_id_env_var(model_id)
+    except Exception as e:
+        _logger.warning(f"Failed to set active model ID to {model_id}, error: {e}")
+    else:
+        _logger.info(f"Active model is set to the logged model with ID: {model_id}")
+        if not set_by_user:
+            _logger.info(
+                "Use `mlflow.set_active_model` to set the active model "
+                "to a different one if needed."
+            )
 
 
 def _get_active_model_context() -> ActiveModelContext:
