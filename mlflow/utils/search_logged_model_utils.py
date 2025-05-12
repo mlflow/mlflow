@@ -127,6 +127,11 @@ def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
                 entity = Entity.from_str(stmt.value)
                 entity.validate_op("NOT IN")
                 op = "NOT IN"
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid filter string: {filter_string!r}. Expected a list of comparisons "
+                    f"separated by 'AND' (e.g. 'metrics.loss > 0.1 AND params.lr = 0.01')."
+                )
 
             value = ast.literal_eval(value.value)
             if not isinstance(value, (tuple, str)):
