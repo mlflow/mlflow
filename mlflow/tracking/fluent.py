@@ -2324,9 +2324,9 @@ def last_logged_model() -> Optional[LoggedModel]:
                 return model_input
 
 
-        model = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
         last_model = mlflow.last_logged_model()
-        assert last_model.model_id == model.model_id
+        assert last_model.model_id == model_info.model_id
     """
     if id := _last_logged_model_id.get():
         return get_logged_model(id)
