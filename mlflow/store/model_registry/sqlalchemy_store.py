@@ -719,7 +719,6 @@ class SqlAlchemyStore(AbstractStore):
         description=None,
         local_model_path=None,
         model_id: Optional[str] = None,
-        model_params: Optional[list[LoggedModelParameter]] = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -735,7 +734,6 @@ class SqlAlchemyStore(AbstractStore):
             local_model_path: Unused.
             model_id: The ID of the model (from an Experiment) that is being promoted to a
                 registered model version, if applicable.
-            model_params: The parameters of the model (from an Experiment) that is being promoted
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
