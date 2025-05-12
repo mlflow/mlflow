@@ -17,7 +17,7 @@ import tempfile
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union
 
 import yaml
 
@@ -5264,7 +5264,7 @@ class MlflowClient:
 
     @experimental
     def finalize_logged_model(
-        self, model_id: str, status: Union[str, LoggedModelStatus]
+        self, model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
     ) -> LoggedModel:
         """
         Finalize a model by updating its status.
