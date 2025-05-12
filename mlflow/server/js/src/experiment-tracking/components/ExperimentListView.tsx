@@ -15,13 +15,14 @@ import {
 } from '@databricks/design-system';
 import { List as VList, AutoSizer, ListRowRenderer } from 'react-virtualized';
 import 'react-virtualized/styles.css';
-import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
+import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
+import { DEFAULT_EXPERIMENT_ID } from '../constants';
 
 type Props = {
   activeExperimentIds: string[];
@@ -50,7 +51,7 @@ export class ExperimentListView extends Component<Props, State> {
     showCreateExperimentModal: false,
     showDeleteExperimentModal: false,
     showRenameExperimentModal: false,
-    selectedExperimentId: '0',
+    selectedExperimentId: DEFAULT_EXPERIMENT_ID,
     selectedExperimentName: '',
   };
 
@@ -159,6 +160,7 @@ export class ExperimentListView extends Component<Props, State> {
     const { activeExperimentIds } = this.props;
     const isActive = activeExperimentIds.includes(item.experimentId);
     const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
+    const isDefaultExperiment = item.experimentId === DEFAULT_EXPERIMENT_ID;
     const { theme } = this.props.designSystemThemeApi;
     // Clicking the link removes all checks and marks other experiments
     // as not active.
@@ -167,10 +169,9 @@ export class ExperimentListView extends Component<Props, State> {
         css={{
           display: 'flex',
           alignItems: 'center',
-          // gap: theme.spacing.xs,
           paddingLeft: theme.spacing.xs,
           paddingRight: theme.spacing.xs,
-          borderLeft: isActive ? `solid ${theme.colors.primary}` : 'solid transparent',
+          borderLeft: isActive ? `solid ${theme.colors.actionPrimaryBackgroundDefault}` : 'solid transparent',
           borderLeftWidth: 4,
           backgroundColor: isActive ? theme.colors.actionDefaultBackgroundPress : 'transparent',
           fontSize: theme.typography.fontSizeBase,
@@ -211,9 +212,13 @@ export class ExperimentListView extends Component<Props, State> {
             size="small"
           />
         </Tooltip>
-        <Tooltip componentId="mlflow.experiment_list_view.delete_experiment_button.tooltip" content="Delete experiment">
+        <Tooltip
+          componentId="mlflow.experiment_list_view.delete_experiment_button.tooltip"
+          content={isDefaultExperiment ? 'Default experiment cannot be deleted' : 'Delete experiment'}
+        >
           <Button
             type="link"
+            disabled={isDefaultExperiment}
             componentId="mlflow.experiment_list_view.delete_experiment_button"
             icon={<TrashIcon />}
             onClick={this.handleDeleteExperiment(item.experimentId, item.name)}

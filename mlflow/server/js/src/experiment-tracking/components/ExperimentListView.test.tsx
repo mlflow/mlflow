@@ -1,4 +1,3 @@
-import React from 'react';
 import userEvent from '@testing-library/user-event';
 import { screen, fireEvent, renderWithIntl } from '../../common/utils/TestUtils.react18';
 import { BrowserRouter } from '../../common/utils/RoutingUtils';
@@ -84,10 +83,27 @@ test('If button to create experiment is pressed then open CreateExperimentModal'
   expect(screen.getByText('Create Experiment')).toBeInTheDocument();
 });
 
+test('should be disabled to delete the default experiment', () => {
+  const localExperiments = [
+    Fixtures.createExperiment(),
+    Fixtures.createExperiment({ experimentId: '1', name: 'Test' }),
+  ];
+  mountComponent({ experiments: localExperiments, activeExperimentIds: ['0', '1'] });
+  const selected = screen.getAllByTestId('active-experiment-list-item');
+  expect(selected.length).toEqual(2);
+  expect(screen.getAllByTestId('delete-experiment-button')[0]).toBeDisabled();
+});
+
 test('If button to delete experiment is pressed then open DeleteExperimentModal', async () => {
-  mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
-  await userEvent.click(screen.getAllByTestId('delete-experiment-button')[0]);
-  expect(screen.getByText(`Delete Experiment "${Fixtures.experiments[0].name}"`)).toBeInTheDocument();
+  const localExperiments = [
+    Fixtures.createExperiment(),
+    Fixtures.createExperiment({ experimentId: '1', name: 'Test' }),
+  ];
+  mountComponent({ experiments: localExperiments, activeExperimentIds: ['0', '1'] });
+  const selected = screen.getAllByTestId('active-experiment-list-item');
+  expect(selected.length).toEqual(2);
+  await userEvent.click(screen.getAllByTestId('delete-experiment-button')[1]);
+  expect(screen.getByText(`Delete Experiment "${localExperiments[1].name}"`)).toBeInTheDocument();
 });
 
 test('If button to edit experiment is pressed then open RenameExperimentModal', async () => {
