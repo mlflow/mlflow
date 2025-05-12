@@ -3231,7 +3231,10 @@ class ActiveModelContext:
     """
 
     def __init__(self, model_id: Optional[str] = None, set_by_user: bool = False):
-        self._model_id = model_id
+        # use MLFLOW_ACTIVE_MODEL_ID as the default value for model_id
+        # so that for subprocesses the default _ACTIVE_MODEL_CONTEXT.model_id
+        # is still valid, and we don't need to read from env var.
+        self._model_id = model_id or MLFLOW_ACTIVE_MODEL_ID.get()
         self._set_by_user = set_by_user
 
     def __repr__(self):
@@ -3239,7 +3242,7 @@ class ActiveModelContext:
 
     @property
     def model_id(self) -> Optional[str]:
-        return self._model_id or MLFLOW_ACTIVE_MODEL_ID.get()
+        return self._model_id
 
     @property
     def set_by_user(self) -> bool:
@@ -3260,7 +3263,6 @@ class ActiveModel(LoggedModel):
     def __init__(self, logged_model: LoggedModel, set_by_user: bool):
         super().__init__(**logged_model.to_dictionary())
         self.last_active_model_context = _ACTIVE_MODEL_CONTEXT.get()
-        self.last_active_model_id_env_var = MLFLOW_ACTIVE_MODEL_ID.get()
         _set_active_model_id(self.model_id, set_by_user)
 
     def __enter__(self):
@@ -3268,7 +3270,6 @@ class ActiveModel(LoggedModel):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         _ACTIVE_MODEL_CONTEXT.set(self.last_active_model_context)
-        _update_active_model_id_env_var(self.last_active_model_id_env_var)
 
 
 # NB: This function is only intended to be used publicly by users to set the
@@ -3280,8 +3281,7 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
     Set the active model with the specified name or model ID, and it will be used for linking
     traces that are generated during the lifecycle of the model. The return value can be used as
     a context manager within a ``with`` block; otherwise, you must call ``set_active_model()``
-    to update active model. Note that this function also sets the environment variable
-    ``MLFLOW_ACTIVE_MODEL_ID`` to the model ID of the active model.
+    to update active model.
 
     Args:
         name: The name of the :py:class:`mlflow.entities.LoggedModel` to set as active.
@@ -3370,7 +3370,6 @@ def _set_active_model_id(model_id: str, set_by_user: bool = False) -> None:
     """
     try:
         _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(model_id, set_by_user))
-        _update_active_model_id_env_var(model_id)
     except Exception as e:
         _logger.warning(f"Failed to set active model ID to {model_id}, error: {e}")
     else:
@@ -3392,9 +3391,9 @@ def _get_active_model_context() -> ActiveModelContext:
 
 def get_active_model_id() -> Optional[str]:
     """
-    Get the active model ID. If no active model is set with ``set_active_model()``, this will
-    try to get the model ID from the environment variable ``MLFLOW_ACTIVE_MODEL_ID``.
-    If neither is set, return None.
+    Get the active model ID. If no active model is set with ``set_active_model()``, the
+    default active model is set using model ID from the environment variable
+    ``MLFLOW_ACTIVE_MODEL_ID``. If neither is set, return None.
 
     Returns:
         The active model ID if set, otherwise None.
@@ -3407,11 +3406,4 @@ def _reset_active_model_context() -> None:
     Should be called only for testing purposes.
     """
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
-    _update_active_model_id_env_var(None)
-
-
-def _update_active_model_id_env_var(value):
-    if value is None:
-        MLFLOW_ACTIVE_MODEL_ID.unset()
-    else:
-        MLFLOW_ACTIVE_MODEL_ID.set(value)
+    MLFLOW_ACTIVE_MODEL_ID.unset()
