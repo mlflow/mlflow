@@ -1,6 +1,7 @@
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from typing import Any, Optional, Union
 
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
@@ -239,7 +240,6 @@ class TracingClient:
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
-        is_databricks = is_databricks_uri(self.tracking_uri)
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -285,6 +285,32 @@ class TracingClient:
                 else None
             )
 
+        if run_id:
+            run = self.store.get_run(run_id)
+            if run.info.experiment_id not in experiment_ids:
+                raise MlflowException(
+                    f"Run {run_id} belongs to experiment {run.info.experiment_id}, which is not "
+                    f"in the list of experiment IDs provided: {experiment_ids}. Please include "
+                    f"experiment {run.info.experiment_id} in the `experiment_ids` parameter to "
+                    "search for traces from this run.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
+            if filter_string:
+                if TraceMetadataKey.SOURCE_RUN in filter_string:
+                    raise MlflowException(
+                        "You cannot filter by run_id when it is already part of the filter string."
+                        f"Please remove the {TraceMetadataKey.SOURCE_RUN} filter from the filter "
+                        "string and try again.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                filter_string += f" AND {additional_filter}"
+            else:
+                filter_string = additional_filter
+
+        is_databricks = is_databricks_uri(self.tracking_uri)
+
         def download_trace_extra_fields(
             trace_info: Union[TraceInfo, TraceInfoV3],
         ) -> Optional[Trace]:
@@ -301,9 +327,6 @@ class TracingClient:
             is_v3 = isinstance(trace_info, TraceInfoV3)
             trace_id = trace_info.trace_id if is_v3 else trace_info.request_id
             is_online_trace = is_uuid(trace_id)
-
-            if not include_spans:
-                return Trace(trace_info, TraceData(spans=[]))
 
             # For online traces in Databricks, we need to get trace data from a different endpoint
             try:
@@ -335,25 +358,12 @@ class TracingClient:
             else:
                 return Trace(trace_info, trace_data)
 
-        # If run_id is provided, add it to the filter string
-        if run_id:
-            additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
-            if filter_string:
-                if TraceMetadataKey.SOURCE_RUN in filter_string:
-                    raise MlflowException(
-                        "You cannot filter by run_id when it is already part of the filter string."
-                        f"Please remove the {TraceMetadataKey.SOURCE_RUN} filter from the filter "
-                        "string and try again.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                filter_string += f" AND {additional_filter}"
-            else:
-                filter_string = additional_filter
-
         traces = []
         next_max_results = max_results
         next_token = page_token
-        with ThreadPoolExecutor() as executor:
+
+        executor = ThreadPoolExecutor() if include_spans else nullcontext()
+        with executor:
             while len(traces) < max_results:
                 trace_infos, next_token = self._search_traces(
                     experiment_ids=experiment_ids,
@@ -364,9 +374,15 @@ class TracingClient:
                     model_id=model_id,
                     sql_warehouse_id=sql_warehouse_id,
                 )
-                traces.extend(
-                    t for t in executor.map(download_trace_extra_fields, trace_infos) if t
-                )
+
+                if include_spans:
+                    traces.extend(
+                        t for t in executor.map(download_trace_extra_fields, trace_infos) if t
+                    )
+                else:
+                    traces.extend(
+                        Trace(trace_info, TraceData(spans=[])) for trace_info in trace_infos
+                    )
 
                 if not next_token:
                     break

@@ -1820,12 +1820,6 @@ class SqlAlchemyStore(AbstractStore):
             session.commit()
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
-        if status != LoggedModelStatus.READY:
-            raise MlflowException(
-                f"Invalid model status: {status}. Expected statuses: [{LoggedModelStatus.READY}]",
-                INVALID_PARAMETER_VALUE,
-            )
-
         with self.ManagedSessionMaker() as session:
             logged_model = session.query(SqlLoggedModel).get(model_id)
             if not logged_model:

@@ -17,6 +17,7 @@ from mlflow.azure.client import (
     put_block_list,
 )
 from mlflow.environment_variables import (
+    MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
@@ -240,7 +241,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 raise MlflowTraceDataCorrupted(request_id=self.resource.id) from e
 
     def upload_trace_data(self, trace_data: str) -> None:
-        [cred], _ = self.resource.get_credentials(cred_type=_CredentialType.WRITE)
+        [cred], _ = self.resource.get_credentials(
+            cred_type=_CredentialType.WRITE,
+            timeout=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
+        )
         with write_local_temp_trace_data_file(trace_data) as temp_file:
             if cred.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
                 self._azure_adls_gen2_upload_file(

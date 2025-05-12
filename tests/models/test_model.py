@@ -15,6 +15,7 @@ from packaging.version import Version
 from scipy.sparse import csc_matrix
 
 import mlflow
+from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature, set_model, validate_schema
 from mlflow.models.model import METADATA_FILES, SET_MODEL_ERROR
@@ -681,3 +682,92 @@ def test_save_model_with_prompts():
     assert len(associated_prompts) == 2
     assert associated_prompts[0].name == prompt_2.name
     assert associated_prompts[1].name == prompt_1.name
+
+
+def test_logged_model_status():
+    def predict_fn(model_input: list[str]):
+        return model_input
+
+    model_info = mlflow.pyfunc.log_model(
+        name="test_model",
+        python_model=predict_fn,
+        input_example=["a", "b", "c"],
+    )
+    logged_model = mlflow.get_logged_model(model_info.model_id)
+    assert logged_model.status == "READY"
+
+    with pytest.raises(Exception, match=r"mock exception"):
+        with mock.patch(
+            "mlflow.pyfunc.model._save_model_with_class_artifacts_params",
+            side_effect=Exception("mock exception"),
+        ):
+            mlflow.pyfunc.log_model(
+                name="test_model",
+                python_model=predict_fn,
+                input_example=["a", "b", "c"],
+            )
+    logged_model = mlflow.last_logged_model()
+    assert logged_model.status == "FAILED"
+
+
+def test_model_log_with_unity_catalog_url(capsys):
+    # Mock the necessary functions and environment
+    with (
+        mock.patch(
+            "mlflow.models.model.get_workspace_url", return_value="https://databricks.com"
+        ) as mock_url,
+        mock.patch("mlflow.models.model.get_workspace_id", return_value="123") as mock_workspace_id,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent._register_model",
+            return_value=ModelVersion(
+                name="name.mlflow.test_model",
+                version="6",
+                creation_timestamp=0,
+                last_updated_timestamp=0,
+                description="",
+                user_id="",
+                source="",
+                run_id="",
+                status="",
+                status_message="",
+                run_link="",
+            ),
+        ) as mock_register,
+    ):
+        orig_registry_uri = mlflow.get_registry_uri()
+        mlflow.set_registry_uri("databricks-uc")
+
+        # Create a test model and log it
+        class MyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str], params=None):
+                return model_input
+
+        with mlflow.start_run():
+            model_info = mlflow.pyfunc.log_model(
+                registered_model_name="name.mlflow.test_model",
+                python_model=MyModel(),
+                input_example=["abc"],
+            )
+
+        # Verify the model info
+        assert model_info.registered_model_version == "6"
+
+        # Using capsys to capture output
+        captured = capsys.readouterr()
+
+        # Verify the URL was printed correctly
+        expected_url = (
+            "https://databricks.com/explore/data/models/name/mlflow/test_model/version/6?o=123\n"
+        )
+        assert (
+            "🔗 View model version '6' of 'name.mlflow.test_model' in "
+            + f"Unity Catalog at: {expected_url}"
+            in captured.out
+        )
+
+        # Ensure all the mocks are called using assert_called_once.
+        mock_url.assert_called_once()
+        mock_workspace_id.assert_called_once()
+        mock_register.assert_called_once()
+        # Clean up the global variables set by the server
+        mlflow.set_registry_uri(orig_registry_uri)

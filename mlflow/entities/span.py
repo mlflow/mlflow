@@ -6,6 +6,7 @@ from typing import Any, Optional, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
+from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
@@ -257,6 +258,10 @@ class Span:
                     status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
                     description=data["status"].get("message"),
                 ).to_otel_status(),
+                # Setting an empty resource explicitly. Otherwise OTel create a new Resource by
+                # Resource.create(), which introduces a significant overhead in some environments.
+                # https://github.com/mlflow/mlflow/issues/15625
+                resource=_OTelResource.get_empty(),
                 events=[
                     OTelEvent(
                         name=event["name"],

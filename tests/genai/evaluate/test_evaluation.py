@@ -3,7 +3,7 @@ from unittest import mock
 import pandas as pd
 import pytest
 
-import mlflow.genai.evaluation
+import mlflow
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 
