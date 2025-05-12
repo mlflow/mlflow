@@ -67,7 +67,7 @@ def pytest_configure(config):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_cmdline_main(config: pytest.Config):
-    if not_exists := [p for p in config.getoption("ignore", []) if not os.path.exists(p)]:
+    if not_exists := [p for p in config.getoption("ignore") or [] if not os.path.exists(p)]:
         raise pytest.UsageError(f"The following paths are ignored but do not exist: {not_exists}")
 
     group = config.getoption("group")
