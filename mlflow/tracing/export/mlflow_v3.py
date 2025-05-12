@@ -51,11 +51,11 @@ class MlflowV3SpanExporter(SpanExporter):
                 continue
 
             trace = InMemoryTraceManager.get_instance().pop_trace(span.context.trace_id)
-            add_size_bytes_to_trace_metadata(trace)
             if trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
 
+            add_size_bytes_to_trace_metadata(trace)
             _set_last_active_trace_id(trace.info.request_id)
 
             # Store mapping from eval request ID to trace ID so that the evaluation
