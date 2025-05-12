@@ -151,13 +151,13 @@ class RunsArtifactRepository(ArtifactRepository):
             while True:
                 page = client.search_logged_models(
                     experiment_ids=[run.info.experiment_id],
-                    # TODO: Use filter_string once the backend supports it
-                    # filter_string="...",
+                    # TODO: Filter by 'source_run_id' once Databricks backend supports it
+                    filter_string=f"name = '{model_name}'",
                     page_token=page_token,
                 )
                 for model in page:
                     # Return the first model that matches the run_id and artifact_path
-                    if model.source_run_id == run_id and model.name == model_name:
+                    if model.source_run_id == run_id:
                         repo = get_artifact_repository(model.artifact_location)
                         # TODO: Disabled for now. Consider re-enabling this once we migrate docs
                         # and examples to use the new model URI format.
