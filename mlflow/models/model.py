@@ -1406,14 +1406,9 @@ def _update_active_model_id_based_on_mlflow_model(mlflow_model: Model):
     This is useful for setting the active model ID when loading a model
     to ensure traces generated are associated with the loaded model.
     """
-    if (
-        mlflow_model.model_id
-        and (amc := _get_active_model_context())
-        # only set the active model if the model is not set by the user
-        and not amc.set_by_user
-        and amc.model_id != mlflow_model.model_id
-    ):
+    if mlflow_model.model_id is None:
+        return
+    amc = _get_active_model_context()
+    # only set the active model if the model is not set by the user
+    if amc.model_id != mlflow_model.model_id and not amc.set_by_user:
         _set_active_model_id(model_id=mlflow_model.model_id)
-        _logger.info(
-            "Use `mlflow.set_active_model` to set the active model to a different one if needed."
-        )

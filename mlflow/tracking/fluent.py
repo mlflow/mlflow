@@ -3327,7 +3327,12 @@ def _set_active_model_id(model_id: str, set_by_user: bool = False) -> None:
     except Exception as e:
         _logger.warning(f"Failed to set active model ID to {model_id}, error: {e}")
     else:
-        _logger.info(f"Active model set to model with ID: {model_id}")
+        _logger.info(f"Active model is set to the logged model with ID: {model_id}")
+        if not set_by_user:
+            _logger.info(
+                "Use `mlflow.set_active_model` to set the active model "
+                "to a different one if needed."
+            )
 
 
 def _get_active_model_context() -> ActiveModelContext:
