@@ -12,7 +12,7 @@ import os
 import threading
 from contextvars import ContextVar
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Generator, Optional, Union
+from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union
 
 import mlflow
 from mlflow.entities import (
@@ -2257,7 +2257,9 @@ def _create_logged_model(
 
 
 @experimental
-def finalize_logged_model(model_id: str, status: Union[str, LoggedModelStatus]) -> LoggedModel:
+def finalize_logged_model(
+    model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
+) -> LoggedModel:
     """
     Finalize a model by updating its status.
 
