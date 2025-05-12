@@ -41,9 +41,9 @@ def _resolve_git_metadata():
     try:
         if main_file := _get_main_file():
             return {
-                MLFLOW_GIT_COMMIT: get_git_commit(main_file),
-                MLFLOW_GIT_REPO_URL: get_git_repo_url(main_file),
-                MLFLOW_GIT_BRANCH: get_git_branch(main_file),
+                MLFLOW_GIT_COMMIT: get_git_commit(main_file) or "",
+                MLFLOW_GIT_REPO_URL: get_git_repo_url(main_file) or "",
+                MLFLOW_GIT_BRANCH: get_git_branch(main_file) or "",
             }
     except Exception:
         _logger.debug("Failed to resolve git metadata", exc_info=True)
