@@ -189,8 +189,7 @@ API will always return a Pandas DataFrame. To get a list of Trace objects, you c
 
 ### DataFrame Schema
 
-When using `return_type="pandas"` (default), MLflow returns the retrieved traces as a Pandas DataFrame, where
-each row corresponds to a single trace. The DataFrame format has changed between MLflow 2.x and 3.x.
+When using `return_type="pandas"` (default), MLflow returns the retrieved traces as a Pandas DataFrame. Each row represents a single trace. The DataFrame columns have changed between MLflow 2.x and 3.x.
 
 <Tabs>
   <TabItem value="3.x" label="MLflow 3.x">
@@ -221,7 +220,7 @@ each row corresponds to a single trace. The DataFrame format has changed between
 </Tabs>
 
 :::note
-The format of the DataFrame depends on the MLflow version when you call the `search_traces` API,
+The format of the DataFrame depends on the MLflow version used to call the `search_traces` API,
 **not** the version used for logging the traces. For example, if you log traces using MLflow 2.x
 and then query them using MLflow 3.x, the DataFrame will be returned in the MLflow 3.x schema.
 :::
