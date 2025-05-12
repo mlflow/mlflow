@@ -904,7 +904,6 @@ class RestStore(AbstractStore):
 
         response_proto = self._call_endpoint(CreateLoggedModel, req_body)
         model = LoggedModel.from_proto(response_proto.model)
-        _logger.info(f"oue model_id: {model.model_id}")
         if params:
             self.log_logged_model_params(model_id=model.model_id, params=params)
             return self.get_logged_model(model_id=model.model_id)
@@ -925,6 +924,7 @@ class RestStore(AbstractStore):
         # Process params in batches of 100
         batch_size = 100
         num_params = len(params)
+        endpoint = get_logged_model_endpoint(model_id)
         for i in range(0, num_params, batch_size):
             end = min(num_params, i + batch_size)
             batch = params[i:end]
@@ -934,7 +934,9 @@ class RestStore(AbstractStore):
                     params=[p.to_proto() for p in batch],
                 )
             )
-            self._call_endpoint(LogLoggedModelParamsRequest, req_body)
+            self._call_endpoint(
+                LogLoggedModelParamsRequest, json_body=req_body, endpoint=f"{endpoint}/params"
+            )
 
     def get_logged_model(self, model_id: str) -> LoggedModel:
         """

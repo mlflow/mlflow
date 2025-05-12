@@ -1349,6 +1349,7 @@ def test_create_logged_models_with_params():
 
         assert mock_call_endpoint.call_count == 3
 
+        endpoint = get_logged_model_endpoint(model_id)
         mock_call_endpoint.assert_any_call(
             CreateLoggedModel,
             message_to_json(
@@ -1359,13 +1360,14 @@ def test_create_logged_models_with_params():
         )
         mock_call_endpoint.assert_any_call(
             LogLoggedModelParamsRequest,
-            message_to_json(
+            json_body=message_to_json(
                 LogLoggedModelParamsRequest(
                     model_id=model_id,
                     params=[param.to_proto()],
                 )
             ),
+            endpoint=f"{endpoint}/params"
         )
         mock_call_endpoint.assert_any_call(
-            GetLoggedModel, endpoint=get_logged_model_endpoint(model_id)
+            GetLoggedModel, endpoint=endpoint
         )
