@@ -1,12 +1,18 @@
 from unittest import mock
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
 
 import mlflow
-import mlflow.genai.evaluation
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
+
+
+def mock_init_auth(config_instance):
+    config_instance.host = "https://databricks.com/"
+    config_instance._header_factory = lambda: {}
 
 
 @pytest.mark.parametrize(
@@ -89,8 +95,19 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
         mock_evaluate.assert_called_once_with(
             model=model,
             data=mock.ANY,
-            evaluator_config={},
+            evaluator_config={GENAI_CONFIG_NAME: {"metrics": []}},
             model_type="databricks-agent",
             extra_metrics=[],
             model_id="test_model_id",
         )
+
+
+def test_no_scorers_by_default():
+    # Make sure no scorers are run by default
+    with patch("mlflow.get_tracking_uri", return_value="databricks"):
+        with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
+            results = mlflow.genai.evaluate(
+                data=[{"inputs": "What is the capital of France?", "outputs": "Paris"}],
+            )
+
+            assert not any("metric" in col for col in results.result_df.keys())
