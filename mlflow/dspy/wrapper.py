@@ -155,9 +155,7 @@ class DspyChatModelWrapper(DspyModelWrapper):
                     choices.append(self._construct_chat_message(role, json.dumps(outputs)))
                 elif isinstance(output, dspy.Prediction):
                     role = output.get("role", "assistant")
-                    choices.append(
-                        self._construct_chat_message(role, json.dumps(outputs.toDict()))
-                    )
+                    choices.append(self._construct_chat_message(role, json.dumps(outputs.toDict())))
                 else:
                     raise MlflowException(
                         f"Unsupported output type: {type(output)}. To log a DSPy model with task "
