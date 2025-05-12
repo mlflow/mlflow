@@ -3,9 +3,9 @@ from typing import Any, Optional
 from mlflow.entities.assessment import (
     Assessment,
     AssessmentError,
-    AssessmentValueType,
     Expectation,
     Feedback,
+    FeedbackValueType,
     experimental,
 )
 from mlflow.entities.assessment_source import AssessmentSource
@@ -18,7 +18,7 @@ def log_expectation(
     trace_id: str,
     name: str,
     source: AssessmentSource,
-    value: AssessmentValueType,
+    value: Any,
     metadata: Optional[dict[str, Any]] = None,
     span_id: Optional[str] = None,
 ) -> Assessment:
@@ -63,6 +63,35 @@ def log_expectation(
             value=42,
             source=source,
         )
+
+    The expectation value can be any JSON-serializable value. For example, you may
+     record the full LLM message as the expectation value.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
+
+        mlflow.log_expectation(
+            trace_id="1234",
+            name="expected_message",
+            # Full LLM message including expected tool calls
+            value={
+                "role": "assistant",
+                "content": "The answer is 42.",
+                "tool_calls": [
+                    {
+                        "id": "1234",
+                        "type": "function",
+                        "function": {"name": "add", "arguments": "40 + 2"},
+                    }
+                ],
+            },
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN,
+                source_id="john@example.com",
+            ),
+        )
     """
     if value is None:
         raise MlflowException.invalid_parameter_value("Expectation value cannot be None.")
@@ -87,7 +116,7 @@ def update_expectation(
     trace_id: str,
     assessment_id: str,
     name: Optional[str] = None,
-    value: Optional[AssessmentValueType] = None,
+    value: Any = None,
     metadata: Optional[dict[str, Any]] = None,
 ) -> Assessment:
     """
@@ -164,7 +193,7 @@ def log_feedback(
     trace_id: str,
     name: str,
     source: AssessmentSource,
-    value: Optional[AssessmentValueType] = None,
+    value: Optional[FeedbackValueType] = None,
     error: Optional[AssessmentError] = None,
     rationale: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
@@ -182,7 +211,13 @@ def log_feedback(
         name: The name of the feedback assessment e.g., "faithfulness"
         source: The source of the feedback assessment. Must be an instance of
                 :py:class:`~mlflow.entities.AssessmentSource`.
-        value: The value of the feedback.
+        value: The value of the feedback. Must be one of the following types:
+            - float
+            - int
+            - str
+            - bool
+            - list of values of the same types as above
+            - dict with string keys and values of the same types as above
         error: An error object representing any issues encountered while computing the
             feedback, e.g., a timeout error from an LLM judge. Either this or `value`
             must be provided.
@@ -268,7 +303,7 @@ def update_feedback(
     trace_id: str,
     assessment_id: str,
     name: Optional[str] = None,
-    value: Optional[AssessmentValueType] = None,
+    value: Optional[FeedbackValueType] = None,
     rationale: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
 ) -> Assessment:
