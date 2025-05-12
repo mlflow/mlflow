@@ -441,6 +441,9 @@ nitpick_ignore = [
     ("py:class", "mlflow.entities.assessment.Expectation"),
     ("py:class", "mlflow.entities.assessment.Feedback"),
     ("py:class", "Prompt"),
+    # Literal values for search_logged_models status
+    ("py:class", "READY"),
+    ("py:class", "FAILED"),
 ]
 
 
