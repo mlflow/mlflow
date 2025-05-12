@@ -15,7 +15,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import add_size_bytes_tag_to_trace
+from mlflow.tracing.utils import add_size_bytes_to_trace_metadata
 
 _logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class InferenceTableSpanExporter(SpanExporter):
                 continue
 
             trace = self._trace_manager.pop_trace(span.context.trace_id)
-            add_size_bytes_tag_to_trace(trace)
+            add_size_bytes_to_trace_metadata(trace)
             if trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
