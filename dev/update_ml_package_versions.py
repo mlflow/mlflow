@@ -38,7 +38,7 @@ def uploaded_recently(dist) -> bool:
     return False
 
 
-def get_package_versions(package_name):
+def get_package_versions_and_upload_times(package_name):
     url = f"https://pypi.python.org/pypi/{package_name}/json"
     for _ in range(5):  # Retry up to 5 times
         try:
@@ -57,7 +57,12 @@ def get_package_versions(package_name):
         return v.is_devrelease or v.is_prerelease
 
     return [
-        version
+        (
+            version,
+            datetime.fromisoformat(
+                dist_files[0]["upload_time_iso_8601"].replace("Z", "")
+            ).replace(tzinfo=None)
+        )
         for version, dist_files in data["releases"].items()
         if (
             len(dist_files) > 0
@@ -213,34 +218,20 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_cut_version(package):
+def get_cut_version(versions_and_upload_times):
     """
     Get the minimum version that is released within the past two years
     """
-    import requests
-    cut_date = datetime.now() - timedelta(days=2 * 365)
-    cut_date = cut_date.replace(tzinfo=None)
-    url = f"https://pypi.org/pypi/{package}/json"
-    resp = requests.get(url)
-    data = resp.json()
-
-    releases = data["releases"]
-
     min_version = None
     min_upload_time = None
-    for version, files in releases.items():
-        if files:  # skip empty releases
-            yanked = any(file.get("yanked", False) for file in files)
-            pyver = Version(version)
-            is_official = not (pyver.is_devrelease or pyver.is_prerelease or pyver.is_postrelease)
-            upload_time = datetime.fromisoformat(
-                files[0]["upload_time_iso_8601"].replace("Z", "")
-            ).replace(tzinfo=None)
+    cut_date = datetime.now() - timedelta(days=2 * 365)
+    cut_date = cut_date.replace(tzinfo=None)
 
-            if is_official and not yanked and upload_time > cut_date:
-                if min_upload_time is None or upload_time < min_upload_time:
-                    min_version = version
-                    min_upload_time = upload_time
+    for version, upload_time in versions_and_upload_times:
+        if upload_time > cut_date:
+            if min_upload_time is None or upload_time < min_upload_time:
+                min_version = version
+                min_upload_time = upload_time
 
     return min_version
 
@@ -254,7 +245,8 @@ def update(skip_yml=False):
         config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
         for flavor_key, config in config_dict.items():
             package_name = config["package_info"]["pip_release"]
-            cut_version = get_cut_version(package_name)
+            versions_and_upload_times = get_package_versions_and_upload_times(package_name)
+            cut_version = get_cut_version(versions_and_upload_times)
 
             for category in ["autologging", "models"]:
                 print("Processing", flavor_key, category)
@@ -277,7 +269,7 @@ def update(skip_yml=False):
                     continue
 
                 max_ver = config[category]["maximum"]
-                versions = get_package_versions(package_name)
+                versions = [version for version, upload_time in versions_and_upload_times]
                 unsupported = config[category].get("unsupported", [])
                 versions = set(versions).difference(unsupported)  # exclude unsupported versions
                 latest_version = get_latest_version(versions)
