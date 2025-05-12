@@ -2416,7 +2416,7 @@ def search_logged_models(
 
 
         model = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
-        another_model = mlflow.pyfunc.log_model(name="another", python_model=DummyModel())
+        another_model = mlflow.pyfunc.log_model(name="another_model", python_model=DummyModel())
         models = mlflow.search_logged_models(output_format="list")
         assert [m.name for m in models] == ["another_model", "model"]
         models = mlflow.search_logged_models(
