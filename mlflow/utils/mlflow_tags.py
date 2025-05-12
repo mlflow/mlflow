@@ -61,6 +61,9 @@ MLFLOW_DATABRICKS_GIT_REPO_REFERENCE = "mlflow.databricks.gitRepoReference"
 MLFLOW_DATABRICKS_GIT_REPO_REFERENCE_TYPE = "mlflow.databricks.gitRepoReferenceType"
 MLFLOW_DATABRICKS_GIT_REPO_STATUS = "mlflow.databricks.gitRepoStatus"
 
+# Databricks model serving endpoint information
+MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME = "mlflow.databricks.modelServingEndpointName"
+
 # For MLflow Dataset tracking
 MLFLOW_DATASET_CONTEXT = "mlflow.data.context"
 
