@@ -1366,8 +1366,6 @@ def test_create_logged_models_with_params():
                     params=[param.to_proto()],
                 )
             ),
-            endpoint=f"{endpoint}/params"
+            endpoint=f"{endpoint}/params",
         )
-        mock_call_endpoint.assert_any_call(
-            GetLoggedModel, endpoint=endpoint
-        )
+        mock_call_endpoint.assert_any_call(GetLoggedModel, endpoint=endpoint)
