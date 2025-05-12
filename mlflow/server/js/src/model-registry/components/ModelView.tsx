@@ -28,7 +28,7 @@ import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
-const LAST_MODIFIED_COLUMN_INDEX = 'creation_timestamp';
+const CREATION_TIMESTAMP_COLUMN_INDEX = 'creation_timestamp';
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -112,7 +112,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
 
   static getSortFieldName = (column: any) => {
     switch (column) {
-      case LAST_MODIFIED_COLUMN_INDEX:
+      case CREATION_TIMESTAMP_COLUMN_INDEX:
         return MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD;
       default:
         return null;
@@ -125,7 +125,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const fieldMappedToSortKey =
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       {
-        timestamp: 'creation_timestamp',
+        'creation_timestamp': 'creation_timestamp',
       }[orderByKey] || orderByKey;
 
     this.handleTableChange(undefined, undefined, {
@@ -137,6 +137,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   handleTableChange = (pagination: any, filters: any, sorter: any) => {
     this.props.onClickSortableColumn(ModelViewImpl.getSortFieldName(sorter.field), sorter.order);
   };
+
   handleStageFilterChange = (e: any) => {
     this.setState({ stageFilter: e.target.value });
   };
@@ -480,13 +481,13 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             onSortChange={this.unifiedTableSortChange}
             pagination={
               <div
-                data-testid="model-list-view-pagination"
+                data-testid="model-view-pagination-section"
                 css={{ width: '100%', alignItems: 'center', display: 'flex' }}
               >
                 <div css={{ flex: 1 }}>{shouldShowModelsNextUI() && <ModelsNextUIToggleSwitch />}</div>
-                <div>
+                <div css={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
                   <CursorPagination
-                    componentId="codegen_mlflow_app_src_model-registry_components_modellistview.tsx_305"
+                    componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_646"
                     hasNextPage={Boolean(nextPageToken)}
                     hasPreviousPage={currentPage > 1}
                     onNextPage={this.handleClickNext}

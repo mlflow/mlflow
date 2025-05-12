@@ -107,7 +107,7 @@ export const REGISTERED_MODELS_SEARCH_NAME_FIELD = 'name';
 
 export const REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD = 'timestamp';
 
-export const MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD = 'timestamp';
+export const MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD = 'creation_timestamp';
 
 export const AntdTableSortOrder = {
   ASC: 'ascend',

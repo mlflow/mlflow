@@ -119,18 +119,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     return this.props.location ? Utils.getSearchParamsFromUrl(this.props.location.search) : {};
   }
 
-  parseTagFiltersFromTagSearchInput(tagSearchInput: string): string {
-    const tagFilters = tagSearchInput
-      .split(' AND ')
-      .map((tagFilter: string) => {
-        return tagFilter.trim();
-      })
-      .filter((tagFilter: string) => {
-        return tagFilter.startsWith('tags.');
-      });
-    return tagFilters.join(' AND ');
-  }
-
   updateUrlWithState = (orderByAsc: any, page: any) => {
     const urlParams = {};
     
@@ -142,8 +130,11 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       urlParams['page'] = page;
     }
-    const newUrl = createMLflowRoutePath(`/models?${Utils.getSearchUrlFromState(urlParams)}`);
+    const newUrl = createMLflowRoutePath(
+      `${ModelRegistryRoutes.getModelPageRoute(this.props.modelName)}?${Utils.getSearchUrlFromState(urlParams)}`
+    );
     if (newUrl !== this.props.location.pathname + this.props.location.search) {
+      console.log("Navigating to new URL:", newUrl);
       this.props.navigate(newUrl);
     }
   };
@@ -164,9 +155,11 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   };
 
   // Loads the initial set of model versions.
-  loadModelVersions(isInitialLoading = false) {
-    this.loadPage(this.state.currentPage, isInitialLoading);
+  loadModelVersions(isInitialLoading = true) {
+
+    this.loadPage(this.state.currentPage, isInitialLoading, true);
   }
+  
   /**
    * Returns a LocalStorageStore instance that can be used to persist data associated with the
    * ModelRegistry component.
@@ -199,6 +192,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
       return MODEL_VERSIONS_PER_PAGE_COMPACT;
     }
   }
+
   setMaxResultsInStore(max_results: any) {
     const store = ModelPageImpl.getLocalStore(this.modelPageStoreKey);
     store.setItem('max_results', max_results.toString());
@@ -208,15 +202,18 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     const { model } = this.props;
     return this.props
       .updateRegisteredModelApi(model.name, description, this.updateRegisteredModelApiId)
-      .then(this.loadPage(1, false));
+      .then(() => this.loadPage(1, false, true));
   };
 
   handleDelete = () => {
     const { model } = this.props;
-    return this.props.deleteRegisteredModelApi(model.name, this.deleteRegisteredModelApiId);
+    return this.
+      props.deleteRegisteredModelApi(model.name, this.deleteRegisteredModelApiId)
+      .then(() => {
+        this.props.navigate(ModelRegistryRoutes.modelListPageRoute);})
   };
 
-  loadPage = (page: any, isInitialLoading: any) => {
+  loadPage = (page: any, isInitialLoading: any, loadModelMetadata: boolean = false) => {
     const { modelName } = this.props;
     const {
       pageTokens,
@@ -227,24 +224,29 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     this.setState({ loading: true, error: undefined });
     this.updateUrlWithState(orderByAsc, page);
     const filters_obj = { name: modelName };
-    this.props
-      .searchModelVersionsApi(
+    const promiseValues = [
+      this.props.searchModelVersionsApi(
         filters_obj,
         this.state.maxResultsSelection,
         ModelPageImpl.getOrderByExpr(orderByKey, orderByAsc),
         pageTokens[page],
-        isInitialLoading ? this.initgetRegisteredModelApiRequestId : this.searchModelVersionsApiRequestId,
+        isInitialLoading ? this.initSearchModelVersionsApiRequestId : this.searchModelVersionsApiRequestId,
       )
       .then((r: any) => {
         this.updatePageState(page, r);
       })
-      .catch((e: any) => {
-        this.setState({ currentPage: 1, error: e });
-        this.resetHistoryState();
-      })
-      .finally(() => {
-        this.setState({ loading: false });
-      });
+    ];
+    if (loadModelMetadata) {
+      promiseValues.push(
+        this.props.getRegisteredModelApi(
+          modelName,
+          isInitialLoading === true ? this.initgetRegisteredModelApiRequestId : this.getRegisteredModelApiRequestId,
+        ),
+      );
+    }
+    return Promise.all(promiseValues).then((r) => {
+      this.setState({ loading: false });
+    });
   };
 
   getNextPageTokenFromResponse(response: any) {
@@ -324,6 +326,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
           // eslint-disable-next-line no-trailing-spaces
         >
           {(loading: any, hasError: any, requests: any) => {
+
             if (hasError) {
               if (Utils.shouldRender404(requests, [this.initgetRegisteredModelApiRequestId])) {
                 return (
@@ -338,7 +341,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
                         modelName: modelName,
                       },
                     )}
-                    fallbackHomePageReactRoute={ModelRegistryRoutes.modelListPageRoute}
                   />
                 );
               }
@@ -362,7 +364,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
                         errorMsg: permissionDeniedErrors[0].error?.getMessageField(),
                       },
                     )}
-                    fallbackHomePageReactRoute={ModelRegistryRoutes.modelListPageRoute}
                   />
                 );
               }
