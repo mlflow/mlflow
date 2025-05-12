@@ -917,7 +917,7 @@ def update_current_trace(
     if not active_span:
         _logger.warning(
             "No active trace found. Please create a span using `mlflow.start_span` or "
-            "`@mlflow.trace` before calling this function.",
+            "`@mlflow.trace` before calling `mlflow.update_current_trace`.",
         )
         return
 
