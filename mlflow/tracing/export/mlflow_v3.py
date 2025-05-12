@@ -27,7 +27,12 @@ class MlflowV3SpanExporter(SpanExporter):
     """
 
     def __init__(self, tracking_uri: Optional[str] = None):
-        self._is_async_enabled = MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+        # NB: We don't turn on async logging in Databricks notebook until we are
+        # confident that the async logging is working on the offline workload on
+        # Databricks, to derisk the inclusion to the standard image.
+        self._is_async_enabled = (
+            not is_in_databricks_notebook() and MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+        )
         if self._is_async_enabled:
             self._async_queue = AsyncTraceExportQueue()
         self._client = TracingClient(tracking_uri)
