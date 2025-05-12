@@ -12,7 +12,7 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
-from mlflow.protos.trace_server_archival_pb2 import Span as ProtoSpan
+from mlflow.tracing.export.trace_server_archival_pb2 import Span as ProtoSpan
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -63,6 +63,9 @@ class TraceServerSpanExporter(SpanExporter):
         # Initialize an event loop for the exporter
         self._loop = asyncio.new_event_loop()
 
+        # Initialize stream (will be created lazily when needed)
+        self._stream = None
+
     def export(self, spans: Sequence[ReadableSpan]):
         """
         Export the spans to the Databricks Trace Server.
@@ -72,10 +75,6 @@ class TraceServerSpanExporter(SpanExporter):
                 a span processor. Only root spans for each trace should be exported.
         """
         for span in spans:
-            if span._parent is not None:
-                _logger.debug("Received a non-root span. Skipping export.")
-                continue
-
             trace = InMemoryTraceManager.get_instance().pop_trace(span.context.trace_id)
             if trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
@@ -110,34 +109,47 @@ class TraceServerSpanExporter(SpanExporter):
             proto_spans = self._convert_trace_to_proto_spans(trace)
             
             # Run the async ingest function in the event loop
-            for proto_span in proto_spans:
-                self._loop.run_until_complete(self._ingest_span(proto_span))
+            self._loop.run_until_complete(self._ingest_spans(proto_spans))
                 
         except Exception as e:
             _logger.warning(f"Failed to send trace to Databricks Trace Server: {e}")
 
-    async def _ingest_span(self, proto_span: ProtoSpan):
+    async def _get_stream(self):
         """
-        Ingest a single span into the trace server.
+        Get the stream for ingesting spans, creating it if it doesn't exist.
+        
+        Returns:
+            A stream object for ingesting records.
+        """
+        if self._stream is None:
+            self._stream = await self._sdk_handle.create_stream(self._spans_table_properties)
+        return self._stream
+
+    async def _ingest_spans(self, proto_spans: list[ProtoSpan]):
+        """
+        Ingest all spans from a trace into the trace server in a batch.
         
         Args:
-            proto_span: A ProtoSpan object to be ingested.
+            proto_spans: A list of ProtoSpan objects to be ingested.
         """
+        if not proto_spans:
+            return
+            
         try:
-            # Create stream to table
-            stream = await self._sdk_handle.create_stream(self._spans_table_properties)
+            # Get or create stream to table
+            stream = await self._get_stream()
             
-            # Ingest the span
-            await stream.ingest_record(proto_span)
+            # Ingest all spans for the trace
+            for proto_span in proto_spans:
+                await stream.ingest_record(proto_span)
             
-            # Wait until we receive the ack for the record
+            # Wait until we receive the ack for all records
             await stream.flush()
             
-            # Close the stream
-            await stream.close()
-            
         except Exception as e:
-            _logger.warning(f"Failed to ingest span: {e}")
+            _logger.warning(f"Failed to ingest spans: {e}")
+            # If we encounter an error with the stream, reset it so we'll create a new one next time
+            self._stream = None
 
     def _convert_trace_to_proto_spans(self, trace: Trace) -> list[ProtoSpan]:
         """
@@ -221,9 +233,14 @@ class TraceServerSpanExporter(SpanExporter):
         
     def shutdown(self):
         """
-        Shutdown the exporter, closing the event loop.
+        Shutdown the exporter, closing the stream and event loop.
         """
         try:
+            if self._stream is not None:
+                # Close the stream in the event loop
+                self._loop.run_until_complete(self._stream.close())
+                self._stream = None
+                
             if not self._loop.is_closed():
                 self._loop.close()
         except Exception as e:
