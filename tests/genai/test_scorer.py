@@ -78,8 +78,8 @@ def sample_new_data():
                 {"choices": [{"message": {"content": "actual response for second question"}}]},
             ],
             "expectations": [
-                "expected response for first question",
-                "expected response for second question",
+                {"expected_response": "expected response for first question"},
+                {"expected_response": "expected response for second question"},
             ],
         }
     )
@@ -157,7 +157,9 @@ def test_scorer_is_called_with_correct_arguments(sample_data):
             for sample_data_input in sample_data_set["inputs"]
         )
         assert str(actual_args["outputs"]) in sample_data_set["outputs"]
-        assert str(actual_args["expectations"]) in sample_data_set["expectations"]
+        assert (
+            str(actual_args["expectations"]["expected_response"]) in sample_data_set["expectations"]
+        )
 
 
 def test_trace_passed_correctly():
@@ -250,33 +252,32 @@ def test_scorer_on_genai_evaluate(sample_new_data, scorer_return):
     def dummy_scorer(inputs, outputs):
         return scorer_return
 
-    with patch("mlflow.get_tracking_uri", return_value="databricks"):
-        with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
-            results = mlflow.genai.evaluate(
-                data=sample_new_data,
-                scorers=[dummy_scorer],
-            )
+    with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
+        results = mlflow.genai.evaluate(
+            data=sample_new_data,
+            scorers=[dummy_scorer],
+        )
 
-            assert any("metric/dummy_scorer" in metric for metric in results.metrics.keys())
+        assert any("metric/dummy_scorer" in metric for metric in results.metrics.keys())
 
-            dummy_scorer_cols = [
-                col for col in results.result_df.keys() if "dummy_scorer" in col and "value" in col
-            ]
-            dummy_scorer_values = set()
-            for col in dummy_scorer_cols:
-                for _val in results.result_df[col]:
-                    dummy_scorer_values.add(_val)
+        dummy_scorer_cols = [
+            col for col in results.result_df.keys() if "dummy_scorer" in col and "value" in col
+        ]
+        dummy_scorer_values = set()
+        for col in dummy_scorer_cols:
+            for _val in results.result_df[col]:
+                dummy_scorer_values.add(_val)
 
-            scorer_return_values = set()
-            if isinstance(scorer_return, list):
-                for _assessment in scorer_return:
-                    scorer_return_values.add(_assessment.feedback.value)
-            elif isinstance(scorer_return, Assessment):
-                scorer_return_values.add(scorer_return.feedback.value)
-            else:
-                scorer_return_values.add(scorer_return)
+        scorer_return_values = set()
+        if isinstance(scorer_return, list):
+            for _assessment in scorer_return:
+                scorer_return_values.add(_assessment.feedback.value)
+        elif isinstance(scorer_return, Assessment):
+            scorer_return_values.add(scorer_return.feedback.value)
+        else:
+            scorer_return_values.add(scorer_return)
 
-            assert dummy_scorer_values == scorer_return_values
+        assert dummy_scorer_values == scorer_return_values
 
 
 def test_builtin_scorers_are_callable():
