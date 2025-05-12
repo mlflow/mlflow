@@ -2,8 +2,7 @@ import { Header, Tabs, Typography, useDesignSystemTheme } from '@databricks/desi
 import { FormattedMessage } from 'react-intl';
 import { isNil, keys } from 'lodash';
 import { TraceTableGenericQuickstart } from './TraceTableGenericQuickstart';
-import { QUICKSTART_CONTENT, QUICKSTART_FLAVOR } from './TraceTableQuickstart.utils';
-import { QUICKSTART_TAB_MESSAGES } from './TraceTableQuickstart.messages';
+import { QUICKSTART_CONTENT, QUICKSTART_FLAVOR, QUICKSTART_TAB_MESSAGES } from './TraceTableQuickstart.utils';
 
 export const TracesViewTableNoTracesQuickstart = ({
   baseComponentId,
