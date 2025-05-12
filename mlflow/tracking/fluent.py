@@ -2294,9 +2294,9 @@ def get_logged_model(model_id: str) -> LoggedModel:
                 return model_input
 
 
-        model = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
-        logged_model = mlflow.get_logged_model(model_id=model.model_id)
-        assert logged_model.model_id == model.model_id
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        logged_model = mlflow.get_logged_model(model_id=model_info.model_id)
+        assert logged_model.model_id == model_info.model_id
 
     """
     return MlflowClient().get_logged_model(model_id)
@@ -2415,8 +2415,10 @@ def search_logged_models(
                 return model_input
 
 
-        model = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
-        another_model = mlflow.pyfunc.log_model(name="another_model", python_model=DummyModel())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        another_model_info = mlflow.pyfunc.log_model(
+            name="another_model", python_model=DummyModel()
+        )
         models = mlflow.search_logged_models(output_format="list")
         assert [m.name for m in models] == ["another_model", "model"]
         models = mlflow.search_logged_models(
@@ -2533,9 +2535,9 @@ def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
                 return model_input
 
 
-        model = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
         mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
-        model = mlflow.get_logged_model(model.model_id)
+        model = mlflow.get_logged_model(model_info.model_id)
         assert model.tags["key"] == "value"
     """
     MlflowClient().set_logged_model_tags(model_id, tags)
@@ -2562,12 +2564,12 @@ def delete_logged_model_tag(model_id: str, key: str) -> None:
                 return model_input
 
 
-        model = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
-        mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
-        model = mlflow.get_logged_model(model.model_id)
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.set_logged_model_tags(model_info.model_id, {"key": "value"})
+        model = mlflow.get_logged_model(model_info.model_id)
         assert model.tags["key"] == "value"
-        mlflow.delete_logged_model_tag(model.model_id, "key")
-        model = mlflow.get_logged_model(model.model_id)
+        mlflow.delete_logged_model_tag(model_info.model_id, "key")
+        model = mlflow.get_logged_model(model_info.model_id)
         assert "key" not in model.tags
     """
     MlflowClient().delete_logged_model_tag(model_id, key)
