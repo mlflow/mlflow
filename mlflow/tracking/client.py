@@ -1920,9 +1920,12 @@ class MlflowClient:
             metrics: {'m': 1.5}
             status: FINISHED
         """
+        from mlflow.tracking.fluent import get_active_model_id
+
         synchronous = (
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
+        model_id = model_id or get_active_model_id()
         return self._tracking_client.log_metric(
             run_id,
             key,

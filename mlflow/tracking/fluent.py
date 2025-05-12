@@ -949,6 +949,7 @@ def log_metric(
     """
     run_id = run_id or _get_or_start_run().info.run_id
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+    model_id = model_id or get_active_model_id()
     _log_inputs_for_metrics_if_necessary(
         run_id,
         [
@@ -1083,6 +1084,7 @@ def log_metrics(
     step = step or 0
     dataset_name = dataset.name if dataset is not None else None
     dataset_digest = dataset.digest if dataset is not None else None
+    model_id = model_id or get_active_model_id()
     model_ids = (
         [model_id]
         if model_id is not None
