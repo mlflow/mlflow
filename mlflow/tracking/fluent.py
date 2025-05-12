@@ -12,7 +12,7 @@ import os
 import threading
 from contextvars import ContextVar
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Generator, Optional, Union
+from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union, overload
 
 import mlflow
 from mlflow.entities import (
@@ -2345,6 +2345,28 @@ def last_logged_model() -> Optional[LoggedModel]:
         return get_logged_model(id)
 
 
+@overload
+def search_logged_models(
+    experiment_ids: Optional[list[str]] = None,
+    filter_string: Optional[str] = None,
+    datasets: Optional[list[dict[str, str]]] = None,
+    max_results: Optional[int] = None,
+    order_by: Optional[list[dict[str, Any]]] = None,
+    output_format: Literal["pandas"] = "pandas",
+) -> "pandas.DataFrame": ...
+
+
+@overload
+def search_logged_models(
+    experiment_ids: Optional[list[str]] = None,
+    filter_string: Optional[str] = None,
+    datasets: Optional[list[dict[str, str]]] = None,
+    max_results: Optional[int] = None,
+    order_by: Optional[list[dict[str, Any]]] = None,
+    output_format: Literal["list"] = "list",
+) -> list[LoggedModel]: ...
+
+
 @experimental
 def search_logged_models(
     experiment_ids: Optional[list[str]] = None,
@@ -2352,7 +2374,7 @@ def search_logged_models(
     datasets: Optional[list[dict[str, str]]] = None,
     max_results: Optional[int] = None,
     order_by: Optional[list[dict[str, Any]]] = None,
-    output_format: str = "pandas",
+    output_format: Literal["pandas", "list"] = "pandas",
 ) -> Union[list[LoggedModel], "pandas.DataFrame"]:
     """
     Search for logged models that match the specified search criteria.
