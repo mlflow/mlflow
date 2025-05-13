@@ -15,9 +15,9 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections import namedtuple
 from datetime import datetime, timedelta
 from pathlib import Path
-from collections import namedtuple
 
 import yaml
 from packaging.version import Version
@@ -239,9 +239,7 @@ def get_min_supported_version(versions_and_upload_times):
         return None
 
     # Get minimum version according to upload date
-    min_version = min(recent_versions, key=lambda x: x[1])[0]
-
-    return min_version
+    return min(recent_versions, key=lambda x: x[1])[0]
 
 
 def update(skip_yml=False):

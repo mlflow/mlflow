@@ -1,8 +1,8 @@
 import json
 import re
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest import mock
-from datetime import datetime, timedelta
 
 import pytest
 
