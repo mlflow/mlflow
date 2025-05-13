@@ -1,10 +1,11 @@
 import importlib
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.evaluation.utils import (
     _convert_to_legacy_eval_set,
@@ -171,6 +172,30 @@ def test_scorer_receives_correct_data(data_fixture, request):
         assert set(all_inputs) == set(expected_inputs)
         assert set(all_outputs) == set(expected_outputs)
         assert set(all_expectations) == set(expected_expectations)
+
+
+def test_input_is_required_if_trace_is_not_provided():
+    with patch("mlflow.evaluate") as mock_evaluate:
+        with pytest.raises(MlflowException, match="inputs.*required"):
+            mlflow.genai.evaluate(
+                data=pd.DataFrame({"outputs": ["Paris"]}),
+            )
+
+        mock_evaluate.assert_not_called()
+
+        mlflow.genai.evaluate(
+            data=pd.DataFrame({"inputs": ["What is the capital of France?"], "outputs": ["Paris"]}),
+        )
+        mock_evaluate.assert_called_once()
+
+
+def test_input_is_optional_if_trace_is_provided():
+    with patch("mlflow.evaluate") as mock_evaluate:
+        mlflow.genai.evaluate(
+            data=pd.DataFrame({"outputs": ["Paris"], "trace": [MagicMock()]}),
+        )
+
+        mock_evaluate.assert_called_once()
 
 
 @pytest.mark.parametrize(
