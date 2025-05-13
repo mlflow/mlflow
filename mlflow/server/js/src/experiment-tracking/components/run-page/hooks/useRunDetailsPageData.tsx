@@ -120,7 +120,6 @@ export const useRunDetailsPageData = ({
       });
 
     const detailsPageGraphqlResponse = graphQLQuery();
-    console.log('@@@ graphQLQuery', detailsPageGraphqlResponse);
 
     // If model versions are colocated in the GraphQL response, we don't need to make an additional API call
     useEffect(() => {
