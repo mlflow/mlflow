@@ -1,5 +1,7 @@
 from copy import deepcopy
+from typing import Any
 
+from mlflow.entities import Assessment
 from mlflow.genai.scorers import BuiltInScorer
 
 GENAI_CONFIG_NAME = "databricks-agent"
@@ -11,7 +13,7 @@ class _BaseBuiltInScorer(BuiltInScorer):
     inherit from this class.
     """
 
-    def __call__(self, *, **kwargs):
+    def __call__(self, **kwargs):
         try:
             from databricks.agents.evals import judges
         except ImportError:
@@ -26,7 +28,7 @@ class _BaseBuiltInScorer(BuiltInScorer):
             from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
 
             converted_kwargs = _convert_to_legacy_eval_set(pd.DataFrame([kwargs])).iloc[0].to_dict()
-            return getattr(judges, self.name)(*args, **converted_kwargs)
+            return getattr(judges, self.name)(**converted_kwargs)
         elif self.name:
             raise ValueError(
                 f"The scorer '{self.name}' doesn't currently have a usable implementation in the "
@@ -47,6 +49,10 @@ class _BaseBuiltInScorer(BuiltInScorer):
 class _ChunkRelevance(_BaseBuiltInScorer):
     name: str = "chunk_relevance"
 
+    def __call__(self, *, inputs: Any, retrieved_context: list[dict[str, Any]]) -> list[Assessment]:
+        """Evaluate chunk relevance for each context chunk."""
+        return super().__call__(inputs=inputs, retrieved_context=retrieved_context)
+
 
 def chunk_relevance():
     """
@@ -57,6 +63,10 @@ def chunk_relevance():
 
 class _ContextSufficiency(_BaseBuiltInScorer):
     name: str = "context_sufficiency"
+
+    def __call__(self, *, inputs: Any, retrieved_context: list[dict[str, Any]]) -> Assessment:
+        """Evaluate context sufficiency based on retrieved documents."""
+        return super().__call__(inputs=inputs, retrieved_context=retrieved_context)
 
 
 def context_sufficiency():
@@ -82,6 +92,12 @@ def document_recall():
 class _Groundedness(_BaseBuiltInScorer):
     name: str = "groundedness"
 
+    def __call__(
+        self, *, inputs: Any, outputs: Any, retrieved_context: list[dict[str, Any]]
+    ) -> Assessment:
+        """Evaluate groundedness of response against context."""
+        return super().__call__(inputs=inputs, outputs=outputs, retrieved_context=retrieved_context)
+
 
 def groundedness():
     """
@@ -93,6 +109,22 @@ def groundedness():
 
 class _GuidelineAdherence(_BaseBuiltInScorer):
     name: str = "guideline_adherence"
+
+    def __call__(
+        self,
+        *,
+        inputs: Any,
+        outputs: Any,
+        guidelines: dict[str, list[str]],
+        guidelines_context: dict[str, Any],
+    ) -> Assessment:
+        """Evaluate adherence to specified guidelines."""
+        return super().__call__(
+            inputs=inputs,
+            outputs=outputs,
+            guidelines=guidelines,
+            guidelines_context=guidelines_context,
+        )
 
 
 def guideline_adherence():
@@ -148,6 +180,10 @@ class _GlobalGuidelineAdherence(_GuidelineAdherence):
         global_guidelines[self.name] = self.guidelines
         config[GENAI_CONFIG_NAME]["global_guidelines"] = global_guidelines
         return config
+
+    def __call__(self, *, inputs: Any, outputs: Any) -> Assessment:
+        """Evaluate adherence to global guidelines."""
+        return super().__call__(inputs=inputs, outputs=outputs)
 
 
 def global_guideline_adherence(
@@ -207,6 +243,10 @@ def global_guideline_adherence(
 class _RelevanceToQuery(_BaseBuiltInScorer):
     name: str = "relevance_to_query"
 
+    def __call__(self, *, inputs: Any, outputs: Any) -> Assessment:
+        """Evaluate relevance to the user's query."""
+        return super().__call__(inputs=inputs, outputs=outputs)
+
 
 def relevance_to_query():
     """
@@ -219,6 +259,10 @@ def relevance_to_query():
 class _Safety(_BaseBuiltInScorer):
     name: str = "safety"
 
+    def __call__(self, *, inputs: Any, outputs: Any) -> Assessment:
+        """Evaluate safety of the response."""
+        return super().__call__(inputs=inputs, outputs=outputs)
+
 
 def safety():
     """
@@ -229,6 +273,10 @@ def safety():
 
 class _Correctness(_BaseBuiltInScorer):
     name: str = "correctness"
+
+    def __call__(self, *, inputs: Any, outputs: Any, expectations: list[str]) -> Assessment:
+        """Evaluate correctness of the response against expectations."""
+        return super().__call__(inputs=inputs, outputs=outputs, expectations=expectations)
 
 
 def correctness():
