@@ -4810,7 +4810,17 @@ def test_get_logged_model(store: SqlAlchemyStore):
 
 def test_delete_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
-    model = store.create_logged_model(experiment_id=exp_id)
+    run = store.create_run(exp_id, "user", 0, [], "test_run")
+    model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+    metric = Metric(
+        key="metric",
+        value=0,
+        timestamp=0,
+        step=0,
+        model_id=model.model_id,
+        run_id=run.info.run_id,
+    )
+    store.log_metric(run.info.run_id, metric)
     store.delete_logged_model(model.model_id)
     with pytest.raises(MlflowException, match="not found"):
         store.get_logged_model(model.model_id)

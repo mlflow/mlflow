@@ -226,7 +226,18 @@ def test_get_logged_model(store):
 
 
 def test_delete_logged_model(store: FileStore):
-    logged_model = store.create_logged_model()
+    exp_id = store.create_experiment("test")
+    run = store.create_run(exp_id, "user", 0, [], "test_run")
+    logged_model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+    metric = Metric(
+        key="metric",
+        value=0,
+        timestamp=0,
+        step=0,
+        model_id=logged_model.model_id,
+        run_id=run.info.run_id,
+    )
+    store.log_metric(run.info.run_id, metric)
     assert store.get_logged_model(logged_model.model_id) is not None
     store.delete_logged_model(logged_model.model_id)
     with pytest.raises(MlflowException, match=r"not found"):
