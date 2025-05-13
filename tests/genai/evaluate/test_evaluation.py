@@ -104,16 +104,17 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
 def test_evaluate_accepts_managed_dataset():
     try:
         import pandas as pd
-        from databricks.rag_eval.datasets.entities import Dataset as ManagedDataset
+
+        from mlflow.genai.datasets import EvaluationDataset
     except ImportError:
         pytest.skip("`pandas`/`databricks-agents` package is not installed")
 
     df = pd.DataFrame([{"inputs": "foo", "outputs": "bar"}])
 
     with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
-        with patch.object(ManagedDataset, "to_df", return_value=df):
+        with patch.object(EvaluationDataset, "to_df", return_value=df):
             with patch("mlflow.get_tracking_uri", return_value="databricks"):
-                results = mlflow.genai.evaluate(data=ManagedDataset("test-id"))
+                results = mlflow.genai.evaluate(data=EvaluationDataset("test-id"))
 
                 assert results.result_df["request"].tolist() == ["foo"]
 

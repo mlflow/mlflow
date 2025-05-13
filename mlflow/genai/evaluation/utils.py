@@ -1,7 +1,6 @@
 import inspect
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
@@ -16,17 +15,17 @@ except ImportError:
 if TYPE_CHECKING:
     try:
         import pyspark.sql.dataframe
-        from databricks.rag_eval.datasets.entities import Dataset as ManagedDataset
+
+        from mlflow.genai.datasets import EvaluationDataset
 
         EvaluationDatasetTypes = Union[
             pd.DataFrame,
             pyspark.sql.dataframe.DataFrame,
             list[dict],
             EvaluationDataset,
-            ManagedDataset,
         ]
     except ImportError:
-        EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
+        EvaluationDatasetTypes = Union[pd.DataFrame, list[dict]]
 
 
 def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
@@ -38,7 +37,7 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
     https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
     """
     try:
-        from databricks.rag_eval.datasets.entities import Dataset as ManagedDataset
+        from mlflow.genai.datasets import EvaluationDataset
     except ImportError:
         raise ImportError(
             "The `databricks-agents` package is required to use mlflow.genai.evaluate() "
@@ -66,7 +65,7 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
         df = data.copy()
-    elif isinstance(data, ManagedDataset):
+    elif isinstance(data, EvaluationDataset):
         df = data.to_df()
     else:
         try:
