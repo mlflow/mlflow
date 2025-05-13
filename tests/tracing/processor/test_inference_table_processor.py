@@ -5,13 +5,14 @@ import pytest
 
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.processor.inference_table import (
     _HEADER_REQUEST_ID_KEY,
     InferenceTableSpanProcessor,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME
 
 from tests.tracing.helper import (
     create_mock_otel_span,
@@ -37,7 +38,9 @@ def test_on_start(context_type):
     processor = InferenceTableSpanProcessor(span_exporter=mock.MagicMock())
 
     if context_type == "mlflow":
-        with set_prediction_context(Context(request_id=_DATABRICKS_REQUEST_ID)):
+        with set_prediction_context(
+            Context(request_id=_DATABRICKS_REQUEST_ID, endpoint_name="test-endpoint")
+        ):
             processor.on_start(span)
     else:
         with mock.patch(
@@ -59,6 +62,12 @@ def test_on_start(context_type):
         assert trace.info.timestamp_ms == 5
         assert trace.info.execution_time_ms is None
         assert trace.info.status == TraceStatus.IN_PROGRESS
+
+        if context_type == "mlflow":
+            assert trace.info.request_metadata == {
+                TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+                MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME: "test-endpoint",
+            }
 
     # Child span should not create a new trace
     child_span = create_mock_otel_span(

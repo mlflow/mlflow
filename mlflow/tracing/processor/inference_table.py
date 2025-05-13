@@ -13,12 +13,14 @@ from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
+    _try_get_prediction_context,
     deduplicate_span_names_in_place,
     generate_trace_id_v3,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
     maybe_get_request_id,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -97,7 +99,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
                 execution_time_ms=None,
                 status=TraceStatus.IN_PROGRESS,
-                request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+                request_metadata=self._get_trace_metadata(),
                 tags=tags,
             )
             self._trace_manager.register_trace(span.context.trace_id, trace_info)
@@ -124,3 +126,10 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
             deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
         super().on_end(span)
+
+    def _get_trace_metadata(self) -> dict[str, str]:
+        metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
+
+        if context := _try_get_prediction_context():
+            metadata[MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME] = context.endpoint_name or ""
+        return metadata
