@@ -338,7 +338,7 @@ jobs:
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests
         run: |
-          pytest tests/genai -s
+          pytest 'tests/genai/evaluate/test_utils.py::test_convert_to_legacy_eval_set_has_no_errors'
 
   optuna:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

@@ -100,9 +100,15 @@ def sample_spark_data(sample_pd_data, spark):
     return spark.createDataFrame(sample_pd_data)
 
 
+@pytest.mark.repeat(10)
 @pytest.mark.parametrize(
     "data_fixture",
-    ["sample_dict_data_single", "sample_dict_data_multiple", "sample_pd_data", "sample_spark_data"],
+    [
+        "sample_dict_data_single",
+        "sample_dict_data_multiple",
+        "sample_pd_data",
+        "sample_spark_data",
+    ],
 )
 def test_convert_to_legacy_eval_set_has_no_errors(data_fixture, request):
     sample_data = request.getfixturevalue(data_fixture)
