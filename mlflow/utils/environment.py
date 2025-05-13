@@ -15,8 +15,8 @@ from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
 from mlflow.environment_variables import (
+    _MLFLOW_ACTIVE_MODEL_ID,
     _MLFLOW_TESTING,
-    MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
@@ -871,7 +871,7 @@ class Environment:
         if exp_id := _get_experiment_id():
             command_env[MLFLOW_EXPERIMENT_ID.name] = exp_id
         if active_model_id := get_active_model_id():
-            command_env[MLFLOW_ACTIVE_MODEL_ID.name] = active_model_id
+            command_env[_MLFLOW_ACTIVE_MODEL_ID.name] = active_model_id
         command_env.update(self._extra_env)
         if not isinstance(command, list):
             command = [command]

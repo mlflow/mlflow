@@ -32,7 +32,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
-    MLFLOW_ACTIVE_MODEL_ID,
+    _MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
@@ -3231,10 +3231,10 @@ class ActiveModelContext:
     """
 
     def __init__(self, model_id: Optional[str] = None, set_by_user: bool = False):
-        # use MLFLOW_ACTIVE_MODEL_ID as the default value for model_id
+        # use _MLFLOW_ACTIVE_MODEL_ID as the default value for model_id
         # so that for subprocesses the default _ACTIVE_MODEL_CONTEXT.model_id
         # is still valid, and we don't need to read from env var.
-        self._model_id = model_id or MLFLOW_ACTIVE_MODEL_ID.get()
+        self._model_id = model_id or _MLFLOW_ACTIVE_MODEL_ID.get()
         self._set_by_user = set_by_user
 
     def __repr__(self):
@@ -3393,7 +3393,7 @@ def get_active_model_id() -> Optional[str]:
     """
     Get the active model ID. If no active model is set with ``set_active_model()``, the
     default active model is set using model ID from the environment variable
-    ``MLFLOW_ACTIVE_MODEL_ID``. If neither is set, return None.
+    ``_MLFLOW_ACTIVE_MODEL_ID``. If neither is set, return None.
 
     Returns:
         The active model ID if set, otherwise None.
@@ -3405,5 +3405,5 @@ def _reset_active_model_context() -> None:
     """
     Should be called only for testing purposes.
     """
-    MLFLOW_ACTIVE_MODEL_ID.unset()
+    _MLFLOW_ACTIVE_MODEL_ID.unset()
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())

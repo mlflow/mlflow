@@ -35,7 +35,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
-    MLFLOW_ACTIVE_MODEL_ID,
+    _MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_REGISTRY_URI,
@@ -2022,15 +2022,15 @@ def test_set_active_model_error():
 
 
 def test_set_active_model_env_var(monkeypatch):
-    monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "1234")
+    monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "1234")
     # mimic the behavior when mlflow is imported
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
     assert mlflow.get_active_model_id() == "1234"
 
-    monkeypatch.delenv(MLFLOW_ACTIVE_MODEL_ID.name)
+    monkeypatch.delenv(_MLFLOW_ACTIVE_MODEL_ID.name)
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
     assert mlflow.get_active_model_id() is None
-    assert MLFLOW_ACTIVE_MODEL_ID.get() is None
+    assert _MLFLOW_ACTIVE_MODEL_ID.get() is None
 
 
 def test_set_active_model_link_traces():
