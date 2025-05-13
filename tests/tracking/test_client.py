@@ -25,6 +25,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
@@ -2131,3 +2132,22 @@ def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
     ]
     artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="dir")
     assert artifacts == [FileInfo(path="dir/another_file", is_dir=False, file_size=2)]
+
+
+def test_logged_model_model_id_required(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.finalize_logged_model("", LoggedModelStatus.READY)
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.get_logged_model("")
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.delete_logged_model("")
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.set_logged_model_tags("", {})
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.delete_logged_model_tag("", "")

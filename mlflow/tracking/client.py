@@ -137,6 +137,14 @@ def _model_not_found(name: str) -> MlflowException:
     )
 
 
+def _validate_model_id_specified(model_id: str) -> None:
+    if not model_id:
+        raise MlflowException(
+            f"`model_id` must be a non-empty string, but got {model_id!r}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
 class MlflowClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs, and of an
@@ -5276,6 +5284,7 @@ class MlflowClient:
         Returns:
             The updated model.
         """
+        _validate_model_id_specified(model_id)
         return self._tracking_client.finalize_logged_model(
             model_id, LoggedModelStatus(status) if isinstance(status, str) else status
         )
@@ -5291,6 +5300,7 @@ class MlflowClient:
         Returns:
             The fetched model.
         """
+        _validate_model_id_specified(model_id)
         return self._tracking_client.get_logged_model(model_id)
 
     @experimental
@@ -5301,6 +5311,7 @@ class MlflowClient:
         Args:
             model_id: ID of the model to delete.
         """
+        _validate_model_id_specified(model_id)
         return self._tracking_client.delete_logged_model(model_id)
 
     @experimental
@@ -5315,6 +5326,7 @@ class MlflowClient:
         Returns:
             None
         """
+        _validate_model_id_specified(model_id)
         self._tracking_client.set_logged_model_tags(model_id, tags)
 
     @experimental
@@ -5327,6 +5339,7 @@ class MlflowClient:
             key: Tag key to delete.
 
         """
+        _validate_model_id_specified(model_id)
         return self._tracking_client.delete_logged_model_tag(model_id, key)
 
     def log_model_artifact(self, model_id: str, local_path: str) -> None:
