@@ -29,7 +29,7 @@ with mlflow.start_run() as run:
     # if the result of `log_model` is available (recommended)
     mlflow.sklearn.load_model(info.model_uri)
     # if only `model_id` is available
-    mlflow.sklearn.load_model(f"models:/{info.model_id}/model")
+    mlflow.sklearn.load_model(f"models:/{info.model_id}")
     # if neither `model_id` nor `model_uri` is available (deprecated and will be removed in future versions)
     mlflow.sklearn.load_model(f"runs:/{run.info.run_id}/model")
 ```
