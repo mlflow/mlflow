@@ -26,7 +26,11 @@ from tests.tracing.helper import get_traces
 def remove_pip_index_env(monkeypatch):
     # Remove PIP_EXTRA_INDEX_URL env var to avoid UV searching
     # for other packages from this index
-    monkeypatch.delenv("PIP_EXTRA_INDEX_URL", raising=False)
+    env_var = os.environ.get("PIP_EXTRA_INDEX_URL")
+    if env_var:
+        urls = env_var.split(" ")
+        urls = list(set(urls) - {"https://download.pytorch.org/whl/cpu"})
+        monkeypatch.setenv("PIP_EXTRA_INDEX_URL", " ".join(urls))
 
 
 @pytest.mark.parametrize(
