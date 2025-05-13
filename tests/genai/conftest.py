@@ -1,14 +1,14 @@
-# # TODO: Remove this file once `databricks-agents` releases a new version that's compatible with
-# # trace v3.
-# from unittest import mock
+import cProfile
+import pstats
+from pstats import SortKey
 
-# import pytest
-
-# from mlflow.entities import TraceInfoV2
+import pytest
 
 
-# @pytest.fixture(scope="module", autouse=True)
-# def mock_trace_info():
-#     # Monkey patch TraceInfo (V3) to use TraceInfoV2
-#     with mock.patch("mlflow.entities.TraceInfo", wraps=TraceInfoV2):
-#         yield
+@pytest.fixture(autouse=True)
+def profile():
+    with cProfile.Profile() as pr:
+        yield
+
+    stats = pstats.Stats(pr).sort_stats(SortKey.TIME)
+    stats.print_stats(0.1)
