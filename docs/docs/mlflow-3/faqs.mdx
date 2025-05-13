@@ -67,7 +67,6 @@ class DummyModel(mlflow.pyfunc.PythonModel):
 
 
 model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
-
 mlflow.models.update_model_requirements(
     model_uri=model_info.model_uri,
     operation="add",
