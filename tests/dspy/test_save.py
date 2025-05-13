@@ -392,8 +392,7 @@ def test_predict_stream_unsupported_schema(dummy_model):
     dspy_model = NumericalCoT()
     dspy.settings.configure(lm=dummy_model)
 
-    with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(dspy_model, name="model")
+    model_info = mlflow.dspy.log_model(dspy_model, name="model")
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
     assert not loaded_model._model_meta.flavors["python_function"]["streamable"]
@@ -410,10 +409,9 @@ def test_predict_stream_success(dummy_model):
     dspy_model = CoT()
     dspy.settings.configure(lm=dummy_model)
 
-    with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(
-            dspy_model, name="model", input_example={"question": "what is 2 + 2?"}
-        )
+    model_info = mlflow.dspy.log_model(
+        dspy_model, name="model", input_example={"question": "what is 2 + 2?"}
+    )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
     assert loaded_model._model_meta.flavors["python_function"]["streamable"]
