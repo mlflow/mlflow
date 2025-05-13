@@ -1,7 +1,7 @@
 from typing import Union
 
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
@@ -9,7 +9,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 TRACE_DATA_FILE_NAME = "traces.json"
 
 
-def get_artifact_uri_for_trace(trace_info: Union[TraceInfo, TraceInfoV3]):
+def get_artifact_uri_for_trace(trace_info: Union[TraceInfoV2, TraceInfo]):
     """
     Get the artifact uri for accessing the trace data.
 

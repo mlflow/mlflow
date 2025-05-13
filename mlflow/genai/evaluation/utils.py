@@ -2,12 +2,10 @@ import inspect
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.data.evaluation_dataset import EvaluationDataset
-from mlflow.entities import Trace
-from mlflow.evaluation import Assessment
+from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
-from mlflow.types.llm import ChatCompletionRequest
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -26,7 +24,7 @@ if TYPE_CHECKING:
         EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
 
 
-def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
+def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
     Takes in a dataset in the format that mlflow.genai.evaluate() expects and converts it into
     to the current eval-set schema that Agent Evaluation takes in. The transformed schema should
@@ -51,7 +49,7 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> dict:
                     "Every item in the list must have an 'inputs' key."
                 )
 
-        df = pd.DataFrame(data) if 1 < len(data) else pd.DataFrame(data[0])
+        df = pd.DataFrame(data)
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
         df = data.copy()
@@ -106,6 +104,8 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
             "The `databricks-agents` package is required to use mlflow.genai.evaluate() "
             "Please install it with `pip install databricks-agents`."
         )
+
+    from mlflow.types.llm import ChatCompletionRequest
 
     def eval_fn(
         request_id: str,

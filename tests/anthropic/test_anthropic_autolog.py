@@ -296,7 +296,7 @@ def test_messages_autolog_tool_calling(is_async):
     assert span.name == "AsyncMessages.create" if is_async else "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST
-    assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict()
+    assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict(exclude_unset=False)
 
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
         {

@@ -14,6 +14,7 @@ from mlflow.models.evaluation.base import (
     _get_model_from_deployment_endpoint_uri,
     _is_model_deployment_endpoint_uri,
 )
+from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
     from genai.evaluation.utils import EvaluationDatasetTypes
@@ -43,6 +44,12 @@ def evaluate(
 ) -> EvaluationResult:
     """
     TODO: updating docstring with real examples and API links
+
+    .. warning::
+
+        This function is not thread-safe. Please do not use it in multi-threaded
+        environments.
+
     Args:
         data: Dataset for the evaluation. It must be one of the following format:
             * A EvaluationDataset entity
@@ -96,7 +103,7 @@ def evaluate(
             "Please install it with `pip install databricks-agents`."
         )
 
-    if mlflow.get_tracking_uri() != "databricks":
+    if not is_databricks_uri(mlflow.get_tracking_uri()):
         raise ValueError(
             "The genai evaluation function is only supported on Databricks. "
             "Please set the tracking URI to Databricks."
@@ -132,14 +139,18 @@ def evaluate(
     for _scorer in custom_scorers:
         extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
 
-    if predict_fn and not is_model_traced(predict_fn):
-        logger.info("Annotating predict_fn with tracing since it is not already traced.")
-        predict_fn = mlflow.trace(predict_fn)
+    # convert into a pandas dataframe with current evaluation set schema
+    data = _convert_to_legacy_eval_set(data)
+
+    if predict_fn:
+        sample_input = data.iloc[0]["request"]
+        if not is_model_traced(predict_fn, sample_input):
+            logger.info("Annotating predict_fn with tracing since it is not already traced.")
+            predict_fn = mlflow.trace(predict_fn)
 
     result = mlflow.evaluate(
         model=predict_fn,
-        # convert into a pandas dataframe with current evaluation set schema
-        data=_convert_to_legacy_eval_set(data),
+        data=data,
         evaluator_config=evaluation_config,
         extra_metrics=extra_metrics,
         model_type=GENAI_CONFIG_NAME,

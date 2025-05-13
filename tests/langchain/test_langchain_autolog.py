@@ -1165,3 +1165,21 @@ def test_autolog_link_traces_to_active_model(model_infos):
         assert logged_model_id is not None
         assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
         assert model.model_id != logged_model_id
+
+
+def test_model_loading_set_active_model_id_without_fetching_logged_model():
+    mlflow.langchain.autolog()
+
+    model = create_openai_runnable(temperature=0.9)
+    model_info = mlflow.langchain.log_model(
+        model, name="model", input_example={"product": "MLflow"}
+    )
+
+    with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
+        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    loaded_model.invoke({"product": "MLflow"})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
+    assert model_id == model_info.model_id

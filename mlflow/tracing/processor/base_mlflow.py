@@ -7,7 +7,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
@@ -87,7 +87,7 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
 
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
 
-    def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
+    def _start_trace(self, root_span: OTelSpan) -> TraceInfoV2:
         raise NotImplementedError("Subclasses must implement this method.")
 
     def on_end(self, span: OTelReadableSpan) -> None:
