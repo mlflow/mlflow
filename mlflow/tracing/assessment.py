@@ -209,9 +209,8 @@ def log_feedback(
     Args:
         trace_id: The ID of the trace.
         name: The name of the feedback assessment e.g., "faithfulness"
-        source: The source of the feedback assessment. Must be either an instance of
-                :py:class:`~mlflow.entities.AssessmentSource` or a string that is a valid value
-                in the AssessmentSourceType enum. If not provided, defaults to CODE source type.
+        source: The source of the feedback assessment. Must be an instance of
+                :py:class:`~mlflow.entities.AssessmentSource`. If not provided, defaults to CODE source type.
         value: The value of the feedback. Must be one of the following types:
             - float
             - int
@@ -285,6 +284,7 @@ def log_feedback(
             trace_id="1234",
             name="faithfulness",
             error=error,
+            source=source,
         )
 
     """
@@ -295,7 +295,7 @@ def log_feedback(
     if source is None:
         source = AssessmentSource(
             source_type=AssessmentSourceType.CODE,
-            source_id="log_feedback_default",
+            source_id="default",
         )
     elif not isinstance(source, AssessmentSource):
         raise MlflowException.invalid_parameter_value(
