@@ -28,6 +28,9 @@ def chunk_relevance():
     """
     Chunk relevance measures whether each chunk is relevant to the input request.
 
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate`for running full evaluation on a dataset.
+
     Example (direct usage):
     .. code-block:: python
 
@@ -35,7 +38,7 @@ def chunk_relevance():
         from mlflow.genai.scorers import chunk_relevance
 
         assessment = chunk_relevance()(
-            inputs="What is the capital of France?",
+            inputs={"question": "What is the capital of France?"},
             retrieved_context=[
                 {"content": "Paris is the capital city of France."},
                 {"content": "The chicken crossed the road."},
@@ -50,7 +53,7 @@ def chunk_relevance():
 
         data = [
             {
-                "inputs": "What is the capital of France?",
+                "inputs": {"question": "What is the capital of France?"},
                 "retrieved_context": [
                     {"content": "Paris is the capital city of France."},
                     {"content": "The chicken crossed the road."},
@@ -72,6 +75,9 @@ def context_sufficiency():
     Context sufficiency evaluates whether the retrieved documents provide all necessary
     information to generate the expected response.
 
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
     Example (direct usage):
     .. code-block:: python
 
@@ -79,7 +85,7 @@ def context_sufficiency():
         from mlflow.genai.scorers import context_sufficiency
 
         assessment = context_sufficiency()(
-            inputs="What is the capital of France?",
+            inputs={"question": "What is the capital of France?"},
             retrieved_context=[{"content": "Paris is the capital city of France."}],
         )
         print(assessment)
@@ -91,7 +97,7 @@ def context_sufficiency():
 
         data = [
             {
-                "inputs": "What is the capital of France?",
+                "inputs": {"question": "What is the capital of France?"},
                 "retrieved_context": [{"content": "Paris is the capital city of France."}],
             }
         ]
@@ -110,6 +116,9 @@ def groundedness():
     Groundedness assesses whether the agent's response is aligned with the information provided
     in the retrieved context.
 
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
     Example (direct usage):
     .. code-block:: python
 
@@ -117,7 +126,7 @@ def groundedness():
         from mlflow.genai.scorers import groundedness
 
         assessment = groundedness()(
-            inputs="What is the capital of France?",
+            inputs={"question": "What is the capital of France?"},
             outputs="The capital of France is Paris.",
             retrieved_context=[{"content": "Paris is the capital city of France."}],
         )
@@ -130,7 +139,7 @@ def groundedness():
 
         data = [
             {
-                "inputs": "What is the capital of France?",
+                "inputs": {"question": "What is the capital of France?"},
                 "outputs": "The capital of France is Paris.",
                 "retrieved_context": [{"content": "Paris is the capital city of France."}],
             }
@@ -150,6 +159,9 @@ def guideline_adherence():
     Guideline adherence evaluates whether the agent's response follows specific constraints
     or instructions provided in the guidelines.
 
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
     This judge should be used when each example has a different set of guidelines. The guidelines
     must be specified in the `guidelines` column of the input dataset.
 
@@ -163,12 +175,10 @@ def guideline_adherence():
         from mlflow.genai.scorers import guideline_adherence
 
         assessment = guideline_adherence()(
-            inputs="What is the capital of France?",
+            inputs={"question": "What is the capital of France?"},
             outputs="The capital of France is Paris.",
             guidelines={
                 "english": ["The response must be in English"],
-                "clarity": ["The response must be clear, coherent, and concise"],
-                "grounded": ["The response must be grounded in the tool call result"],
             },
             guidelines_context={
                 "tool_call_result": "{'country': 'France', 'capital': 'Paris'}",
@@ -183,7 +193,7 @@ def guideline_adherence():
 
         data = [
             {
-                "inputs": "What is the capital of France?",
+                "inputs": {"question": "What is the capital of France?"},
                 "outputs": "The capital of France is Paris.",
                 "guidelines": {
                     "english": ["The response must be in English"],
@@ -228,6 +238,9 @@ def global_guideline_adherence(
     Guideline adherence evaluates whether the agent's response follows specific global
     constraints or instructions provided in the guidelines.
 
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
     Args:
         guidelines: A list of global guidelines to evaluate the agent's response against.
         name: The name of the judge. Defaults to "guideline_adherence".
@@ -244,7 +257,7 @@ def global_guideline_adherence(
             name="english_guidelines",
         )
         assessment = english()(
-            inputs="What is the capital of France?",
+            inputs={"question": "What is the capital of France?"},
             outputs="The capital of France is Paris.",
         )
         print(assessment)
@@ -267,11 +280,11 @@ def global_guideline_adherence(
 
         data = [
             {
-                "inputs": "What is the capital of France?",
+                "inputs": {"question": "What is the capital of France?"},
                 "outputs": "The capital of France is Paris.",
             },
             {
-                "inputs": "What is the capital of Germany?",
+                "inputs": {"question": "What is the capital of Germany?"},
                 "outputs": "The capital of Germany is Berlin.",
             },
         ]
@@ -293,6 +306,9 @@ def relevance_to_query():
     Relevance ensures that the agent's response directly addresses the user's input without
     deviating into unrelated topics.
 
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
     Example (direct usage):
     .. code-block:: python
 
@@ -300,7 +316,7 @@ def relevance_to_query():
         from mlflow.genai.scorers import relevance_to_query
 
         assessment = relevance_to_query()(
-            inputs="What is the capital of France?",
+            inputs={"question": "What is the capital of France?"},
             outputs="The capital of France is Paris.",
         )
         print(assessment)
@@ -313,7 +329,7 @@ def relevance_to_query():
 
         data = [
             {
-                "inputs": "What is the capital of France?",
+                "inputs": {"question": "What is the capital of France?"},
                 "outputs": "The capital of France is Paris.",
             }
         ]
@@ -331,6 +347,9 @@ def safety():
     """
     Safety ensures that the agent's responses do not contain harmful, offensive, or toxic content.
 
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
     Example (direct usage):
     .. code-block:: python
 
@@ -338,7 +357,7 @@ def safety():
         from mlflow.genai.scorers import safety
 
         assessment = safety()(
-            inputs="What is the capital of France?",
+            inputs={"question": "What is the capital of France?"},
             outputs="The capital of France is Paris.",
         )
         print(assessment)
@@ -351,7 +370,7 @@ def safety():
 
         data = [
             {
-                "inputs": "What is the capital of France?",
+                "inputs": {"question": "What is the capital of France?"},
                 "outputs": "The capital of France is Paris.",
             }
         ]
@@ -369,6 +388,9 @@ def correctness():
     """
     Correctness ensures that the agent's responses are correct and accurate.
 
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
     Example (direct usage):
     .. code-block:: python
 
@@ -376,7 +398,9 @@ def correctness():
         from mlflow.genai.scorers import correctness
 
         assessment = correctness()(
-            inputs="What is the difference between reduceByKey and groupByKey in Spark?",
+            inputs={
+                "question": "What is the difference between reduceByKey and groupByKey in Spark?"
+            },
             outputs=(
                 "reduceByKey aggregates data before shuffling, whereas groupByKey "
                 "shuffles all data, making reduceByKey more efficient."
@@ -396,7 +420,11 @@ def correctness():
 
         data = [
             {
-                "inputs": "What is the difference between reduceByKey and groupByKey in Spark?",
+                "inputs": {
+                    "question": (
+                        "What is the difference between reduceByKey and groupByKey in Spark?"
+                    )
+                },
                 "outputs": (
                     "reduceByKey aggregates data before shuffling, whereas groupByKey "
                     "shuffles all data, making reduceByKey more efficient."
@@ -427,7 +455,7 @@ def rag_scorers() -> list[BuiltInScorer]:
 
         data = [
             {
-                "inputs": "What is the capital of France?",
+                "inputs": {"question": "What is the capital of France?"},
                 "outputs": "The capital of France is Paris.",
                 "retrieved_context": [
                     {"content": "Paris is the capital city of France."},
