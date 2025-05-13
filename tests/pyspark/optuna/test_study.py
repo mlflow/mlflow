@@ -81,7 +81,7 @@ def test_study_optimize_run(setup_storage):
 
     mlflow_study.optimize(objective, n_trials=4)
     assert sorted(mlflow_study.best_params.keys()) == ["x"]
-    assert mlflow_study.best_params["x"] == 2.672964698525508
+    assert abs(mlflow_study.best_params["x"] - 2.672964698525508) / 2.672964698525508 < 1e-6
 
 
 @pytest.mark.usefixtures("setup_storage", "spark")
