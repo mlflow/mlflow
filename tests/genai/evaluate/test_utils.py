@@ -1,4 +1,6 @@
+import cProfile
 import importlib
+import pstats
 from unittest.mock import patch
 
 import pandas as pd
@@ -120,10 +122,14 @@ def test_convert_to_legacy_eval_set_has_no_errors(data_fixture, request):
         assert "response" in transformed_data.columns
         assert "expected_response" in transformed_data.columns
 
-        mlflow.evaluate(
-            data=transformed_data,
-            model_type="databricks-agent",
-        )
+        with cProfile.Profile() as pr:
+            mlflow.evaluate(
+                data=transformed_data,
+                model_type="databricks-agent",
+            )
+
+        stats = pstats.Stats(pr).sort_stats(pstats.SortKey.TIME)
+        stats.print_stats(0.1)
 
 
 @pytest.mark.parametrize(
