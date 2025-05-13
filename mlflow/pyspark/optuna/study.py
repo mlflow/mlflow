@@ -14,8 +14,10 @@ except ImportError:
     sys.exit()
 
 from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
 
 import mlflow
+from mlflow.exceptions import ExecutionException
 from mlflow.optuna.storage import MlflowStorage
 
 logger = logging.getLogger("optuna-spark")
@@ -131,9 +133,12 @@ class MLFlowSparkStudy(Study):
             except BaseException:
                 _traceback_string = traceback.format_exc()
                 error_message.append(_traceback_string)
-                mlflow.set_tag("error_message", error_message)
+                filename = "error_message.txt"
+                with open(filename, "w") as f:
+                    f.write(_traceback_string)
+                # Log the file as an artifact in the active MLflow run
+                mlflow.log_artifact(filename)
                 mlflow.set_tag("LOG_STATUS", "FAILED")
-                raise
             finally:
                 df = pd.DataFrame(
                     {
@@ -167,3 +172,7 @@ class MLFlowSparkStudy(Study):
                 self.spark.sparkContext.cancelJobGroup(trial_tag)
             logger.debug("MLFlowSparkStudy.optimize terminated by user.")
             raise e
+        error_count = input_df.filter(col("error") != "").count()
+        if error_count > 0:
+            raise ExecutionException(f"optuna optimize run failed")
+
