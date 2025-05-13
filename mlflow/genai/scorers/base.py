@@ -38,7 +38,7 @@ class Scorer(BaseModel):
 
         The scorer will be called for each row in the input evaluation dataset.
 
-        You scorer doesn't need to have all the parameters defined in the base
+        Your scorer doesn't need to have all the parameters defined in the base
         signature. You can define a custom scorer with only the parameters you need.
         See the parameter details below for what values are passed for each parameter.
 
@@ -64,12 +64,12 @@ class Scorer(BaseModel):
                 - When the dataset contains `outputs` column, the value will be
                     passed as is.
                 - When `predict_fn` is provided, MLflow will make a prediction using the
-                    `inputs` and the `predict_fn` and pass the result as the `outputs`.
+                    `inputs` and the `predict_fn`, and pass the result as the `outputs`.
                 - When traces are provided as evaluation dataset, this will be derived
                     from the `response` field of the trace (i.e. outputs captured as the
                     root span of the trace).
             * - `expectations`
-              - Ground truth or any expectation for each prediction e.g., expected retrieved docs.
+              - Ground truth or any expectation for each prediction, e.g. expected retrieved docs.
               - Derived from either dataset or trace.
                 - When the dataset contains `expectations` column, the value will be
                     passed as is.
