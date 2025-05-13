@@ -767,3 +767,33 @@ def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai):
 )
 def test_parse_tools_handles_openai_not_given_sentinel(sentinel):
     assert _parse_tools({"tools": sentinel}) == []
+
+@skip_when_testing_trace_sdk
+@pytest.mark.asyncio
+async def test_model_loading_set_active_model_id_without_fetching_logged_model(client):
+    mlflow.openai.autolog()
+
+    model_info = mlflow.openai.log_model(
+        "gpt-4o-mini",
+        "chat.completions",
+        name="model",
+        temperature=0.9,
+        messages=[{"role": "system", "content": "You are an MLflow expert."}],
+    )
+
+    with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
+        model_dict = mlflow.openai.load_model(model_info.model_uri)
+    resp = client.chat.completions.create(
+        messages=[{"role": "user", "content": f"test {model_info.model_id}"}],
+        model=model_dict["model"],
+        temperature=model_dict["temperature"],
+    )
+    if client._is_async:
+        await resp
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
+    assert model_id is not None
+    assert span.inputs["messages"][0]["content"] == f"test {model_id}"

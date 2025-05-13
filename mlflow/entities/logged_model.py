@@ -53,6 +53,23 @@ class LoggedModel(_MlflowObject):
         self._metrics: Optional[list[Metric]] = metrics
         self._model_uri = f"models:/{self.model_id}"
 
+    def __repr__(self) -> str:
+        return "LoggedModel({})".format(
+            ", ".join(
+                f"{k}={v!r}"
+                for k, v in sorted(self, key=lambda x: x[0])
+                if (
+                    k
+                    not in [
+                        # These fields can be large and take up space on the notebook or terminal
+                        "tags",
+                        "params",
+                        "metrics",
+                    ]
+                )
+            )
+        )
+
     @property
     def experiment_id(self) -> str:
         """String. Experiment ID associated with this Model."""

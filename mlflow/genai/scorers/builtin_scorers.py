@@ -43,18 +43,6 @@ def context_sufficiency():
     return _ContextSufficiency()
 
 
-class _DocumentRecall(_BaseBuiltInScorer):
-    name: str = "document_recall"
-
-
-def document_recall():
-    """
-    Document recall measures the proportion of ground truth relevant documents that were
-    retrieved compared to the total number of relevant documents in ground truth.
-    """
-    return _DocumentRecall()
-
-
 class _Groundedness(_BaseBuiltInScorer):
     name: str = "groundedness"
 
@@ -218,13 +206,12 @@ def correctness():
 def rag_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of built-in scorers for evaluating RAG models. Contains scorers
-    chunk_relevance, context_sufficiency, document_recall, global_guideline_adherence,
+    chunk_relevance, context_sufficiency, global_guideline_adherence,
     groundedness, and relevance_to_query.
     """
     return [
         chunk_relevance(),
         context_sufficiency(),
-        document_recall(),
         groundedness(),
         relevance_to_query(),
     ]

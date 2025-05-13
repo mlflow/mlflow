@@ -21,7 +21,7 @@ from mlflow.entities import (
     SpanStatusCode,
     SpanType,
     Trace,
-    TraceInfo,
+    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.file_info import FileInfo
@@ -175,7 +175,7 @@ def test_client_create_run_with_name(mock_store, mock_time):
 
 
 def test_client_get_trace(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfo(
+    mock_store.get_trace_info.return_value = TraceInfoV2(
         request_id="tr-1234567",
         experiment_id="0",
         timestamp_ms=123,
@@ -232,7 +232,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
 
 
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfo(
+    mock_store.get_trace_info.return_value = TraceInfoV2(
         request_id="1234567",
         experiment_id="0",
         timestamp_ms=123,
@@ -259,7 +259,7 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
 @pytest.mark.parametrize("include_spans", [True, False])
 def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
     mock_traces = [
-        TraceInfo(
+        TraceInfoV2(
             request_id="1234567",
             experiment_id="1",
             timestamp_ms=123,
@@ -267,7 +267,7 @@ def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
             status=TraceStatus.OK,
             tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
         ),
-        TraceInfo(
+        TraceInfoV2(
             request_id="8910",
             experiment_id="2",
             timestamp_ms=456,
@@ -322,7 +322,7 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
         return_value=CustomArtifactRepository("test"),
     ) as mock_get_artifact_repository:
         mock_traces = [
-            TraceInfo(
+            TraceInfoV2(
                 request_id="1234567",
                 experiment_id="1",
                 timestamp_ms=123,
@@ -2039,6 +2039,53 @@ def test_log_and_detach_prompt(tracking_uri):
     client.detach_prompt_from_run(run_id, "prompts:/p1/1")
     prompts = client.list_logged_prompts(run_id)
     assert [p.name for p in prompts] == ["p2"]
+
+
+def test_search_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(name="prompt_1", template="Hi, {{name}}!")
+    client.register_prompt(name="prompt_2", template="Hello, {{name}}!")
+    client.register_prompt(name="prompt_3", template="Greetings, {{name}}!")
+    client.register_prompt(name="prompt_4", template="Howdy, {{name}}!")
+    client.register_prompt(name="prompt_5", template="Salutations, {{name}}!")
+    client.register_prompt(name="prompt_6", template="Bonjour, {{name}}!")
+    client.register_prompt(name="test", template="Test Template")
+    client.register_prompt(name="new", template="Bonjour, {{name}}!")
+
+    prompts = client.search_prompts(filter_string="name='prompt_1'")
+    assert len(prompts) == 1
+    assert prompts[0].name == "prompt_1"
+
+    prompts = client.search_prompts(filter_string="name LIKE '%prompt%'")
+    assert len(prompts) == 6
+    assert all("prompt" in prompt.name for prompt in prompts)
+
+    prompts = client.search_prompts()
+    assert len(prompts) == 8
+
+    prompts = client.search_prompts(max_results=3)
+    assert len(prompts) == 3
+
+
+def test_search_prompt_multiple_versions(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+    name = "prompt_multi"
+
+    v1 = client.register_prompt(name=name, template="First version, {{x}}")
+    assert v1.version == 1
+    assert v1.template == "First version, {{x}}"
+
+    v2 = client.register_prompt(name=name, template="Second version, {{x}}")
+    assert v2.version == 2
+    assert v2.template == "Second version, {{x}}"
+
+    prompts = client.search_prompts()
+    assert len(prompts) == 1
+
+    prompt = prompts[0]
+    versions = sorted([mv.version for mv in prompt.latest_versions])
+    assert versions == [2]
 
 
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
