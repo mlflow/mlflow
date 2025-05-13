@@ -44,7 +44,7 @@ experiments/
 # MLflow 3.x
 experiments/
   └── <experiment_id>/
-    └── logged_models/
+    └── models/
       └── <model_id>/
         └── artifacts/
           └── ... # model artifacts are stored here
