@@ -7,10 +7,10 @@ import pytest
 from packaging.version import Version
 
 import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, safety
 

@@ -29,6 +29,7 @@ AGENT_EVAL_RESERVED_EXPECTATION_KEYS = {
     "expected_response",
     "expected_retrieved_context",
     "expected_facts",
+    "guidelines",
 }
 AGENT_EVAL_CUSTOM_EXPECTATION_KEY = "custom_expected"
 
@@ -90,7 +91,6 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
             "Either `inputs` or `trace` column is required in the dataset. Please provide inputs "
             "for every datapoint or provide a trace."
         )
-
 
     return (
         df.rename(columns=column_mapping)
