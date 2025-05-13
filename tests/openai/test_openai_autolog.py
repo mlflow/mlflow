@@ -768,6 +768,7 @@ def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai):
 def test_parse_tools_handles_openai_not_given_sentinel(sentinel):
     assert _parse_tools({"tools": sentinel}) == []
 
+
 @skip_when_testing_trace_sdk
 @pytest.mark.asyncio
 async def test_model_loading_set_active_model_id_without_fetching_logged_model(client):
