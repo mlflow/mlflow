@@ -46,7 +46,7 @@ class VersionData:
     upload_time: datetime
 
 
-def get_package_versions_and_upload_times(package_name: str) -> list[VersionData]:
+def get_package_version_infos(package_name: str) -> list[VersionData]:
     url = f"https://pypi.python.org/pypi/{package_name}/json"
     for _ in range(5):  # Retry up to 5 times
         try:
@@ -224,7 +224,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_min_supported_version(versions_and_upload_times: VersionData) -> Optional[str]:
+def get_min_supported_version(versions_and_upload_times: list[VersionData]) -> Optional[str]:
     """
     Get the minimum version that is released within the past two years
     """
@@ -250,7 +250,7 @@ def update(skip_yml=False):
         config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
         for flavor_key, config in config_dict.items():
             package_name = config["package_info"]["pip_release"]
-            versions_and_upload_times = get_package_versions_and_upload_times(package_name)
+            versions_and_upload_times = get_package_version_infos(package_name)
             min_supported_version = get_min_supported_version(versions_and_upload_times)
 
             for category in ["autologging", "models"]:

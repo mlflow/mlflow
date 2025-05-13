@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 from dev import update_ml_package_versions
+from dev.update_ml_package_versions import VersionData
 
 
 class MockResponse:
@@ -23,23 +24,33 @@ class MockResponse:
         pass
 
     @classmethod
-    def from_versions(cls, versions, uploaded_year_diff_list=None):
-        uploaded_year_diff_list = uploaded_year_diff_list or ([1] * len(versions))
-
-        def gen_upload_time(years_diff):
-            days_diff = int(years_diff * 365)
-            return (datetime.now() - timedelta(days=days_diff)).isoformat()
-
+    def from_versions(cls, versions):
         return cls(
             {
                 "releases": {
                     v: [
                         {
                             "filename": v + ".whl",
-                            "upload_time": gen_upload_time(d),
+                            "upload_time": "2023-10-04T16:38:57",
                         }
                     ]
-                    for v, d in zip(versions, uploaded_year_diff_list)
+                    for v in versions
+                }
+            }
+        )
+
+    @classmethod
+    def from_version_infos(cls, version_data):
+        return cls(
+            {
+                "releases": {
+                    v.version: [
+                        {
+                            "filename": v.version + ".whl",
+                            "upload_time": v.upload_time.isoformat(),
+                        }
+                    ]
+                    for v in version_data
                 }
             }
         )
@@ -207,7 +218,11 @@ sklearn:
     maximum: "0.0.8"
 """
     mock_responses = {
-        "sklearn": MockResponse.from_versions(["0.0.2", "0.0.3", "0.0.8"], [3, 1, 0.5]),
+        "sklearn": MockResponse.from_version_infos([
+            VersionData("0.0.2", datetime.now() - timedelta(days=1000)),
+            VersionData("0.0.3", datetime.now() - timedelta(days=365)),
+            VersionData("0.0.8", datetime.now() - timedelta(days=180)),
+        ])
     }
     src_expected = """
 sklearn:
@@ -230,7 +245,10 @@ sklearn:
     maximum: "0.0.8"
 """
     mock_responses = {
-        "sklearn": MockResponse.from_versions(["0.0.7", "0.0.8"], [3, 2.5]),
+        "sklearn": MockResponse.from_version_infos([
+            VersionData("0.0.7", datetime.now() - timedelta(days=1000)),
+            VersionData("0.0.8", datetime.now() - timedelta(days=800)),
+        ])
     }
     src_expected = """
 sklearn:
