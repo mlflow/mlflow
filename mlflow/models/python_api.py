@@ -48,7 +48,7 @@ def build_docker(
         If ``model_uri`` is unspecified, the resulting image doesn't support serving models with
         the RFunc server.
 
-    NB: by default, the container will start nginx and gunicorn processes. If you don't need the
+    NB: by default, the container will start nginx and uvicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),
     you can disable it via the DISABLE_NGINX environment variable:
 
