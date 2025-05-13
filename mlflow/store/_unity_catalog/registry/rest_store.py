@@ -351,7 +351,7 @@ class UcModelRegistryStore(BaseRestStore):
                 name=full_name,
                 description=description,
                 tags=uc_registered_model_tag_from_mlflow_tags(tags),
-                deployment_job_id=deployment_job_id,
+                deployment_job_id=str(deployment_job_id) if deployment_job_id else None,
             )
         )
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
