@@ -1,0 +1,21 @@
+# Breaking changes
+
+MLflow 3 introduces the following breaking changes:
+
+- [Recipes] Remove Recipe feature (#15250, @WeichenXu123)
+- [Tracking, Models] Remove `fastai` flavor (#15255, @WeichenXu123)
+- [Models] Remove `example_no_conversion` argument from model logging APIs (#15322, @WeichenXu123)
+- [Models] Remove `mleap` flavor (#15259, @WeichenXu123)
+- [AI Gateway] Remove 'routes' and 'route_type' config keys in gateway server configuration (#15331, @WeichenXu123)
+- [Deployments] Remove MLflow deployment server application and start-server CLI command (#15327, @WeichenXu123)
+- [Tracking] Remove `run_uuid` attribute from `RunInfo` object (#15342, @WeichenXu123)
+- [Evaluate] Remove `higher_is_better` argument from the constructor of class `MetricThreshold` (#15343, @WeichenXu123)
+- [Evaluate] Remove `baseline_model` and relevant arguments from the evaluation API (#15362, @WeichenXu123)
+- [Evaluate] Remove `custom_metrics` argument from the evaluation API (#15361, @WeichenXu123)
+- [Models] Remove the environment variable MLFLOW_GCS_DEFAULT_TIMEOUT configuration (#15365, @WeichenXu123)
+- [Tracking] Remove run tags `mlflow.gitBranchName` and `mlflow.gitRepoURL` (#15366, @WeichenXu123)
+- [Models] Remove `signature_dict` property from `ModelInfo` object (#15367, @WeichenXu123)
+- [Models] Remove `code_path` argument from model logging and model saving APIs (#15368, @WeichenXu123)
+- [Models] Remove torch flavor `requirements_file` argument from `pytorch` flavor model logging and model saving APIs (#15369, @WeichenXu123)
+- [Tracking] Remove `every_n_iter` parameter from tensorflow autologging (#15412, @WeichenXu123)
+- [Models] Remove `inference_config` argument from `transformers` flavor model logging and model saving APIs (#15415, @WeichenXu123)
