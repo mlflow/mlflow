@@ -54,34 +54,6 @@ const config: Config = {
     },
   ],
 
-  // presets: [
-  //   [
-  //     "classic",
-  //     {
-  //       docs: {
-  //         routeBasePath: "/",
-  //         sidebarPath: "./sidebars.ts",
-  //         async sidebarItemsGenerator({
-  //           defaultSidebarItemsGenerator,
-  //           ...args
-  //         }) {
-  //           const sidebarItems = await defaultSidebarItemsGenerator(args);
-  //           return postProcessSidebar(sidebarItems);
-  //         },
-  //       },
-  //       theme: {
-  //         customCss: "./src/css/custom.css",
-  //       },
-  //       googleTagManager: {
-  //         containerId: process.env.GTM_ID || "GTM-TEST",
-  //       },
-  //       gtag: {
-  //         trackingID: [process.env.GTM_ID || "GTM-TEST", "AW-16857946923"],
-  //         anonymizeIP: true,
-  //       },
-  //     } satisfies Preset.Options,
-  //   ],
-  // ],
   presets: [
     [
       "classic",
@@ -124,24 +96,6 @@ const config: Config = {
         src: "images/logo-light.svg",
         srcDark: "images/logo-dark.svg",
       },
-      // items: [
-      //   {
-      //     type: "docSidebar",
-      //     sidebarId: "docsSidebar",
-      //     position: "left",
-      //     label: "Docs",
-      //   },
-      //   {
-      //     to: `${apiReferencePrefix()}api_reference/index.html`,
-      //     position: "left",
-      //     label: "API Reference",
-      //   },
-      //   {
-      //     href: "https://github.com/mlflow/mlflow",
-      //     label: "GitHub",
-      //     position: "right",
-      //   },
-      // ],
       items: [
         // Classic ML docs
         {
@@ -149,7 +103,7 @@ const config: Config = {
           sidebarId: "classicMLSidebar",
           position: "left",
           label: "ML Docs",
-          docsPluginId: "classic-ml", // Must match plugin ID below
+          docsPluginId: "classic-ml",
         },
         // GenAI docs
         {
@@ -157,7 +111,7 @@ const config: Config = {
           sidebarId: "genAISidebar",
           position: "left",
           label: "GenAI Docs",
-          docsPluginId: "genai", // Must match plugin ID below
+          docsPluginId: "genai",
         },
         {
           to: `${apiReferencePrefix()}api_reference/index.html`,
@@ -285,64 +239,64 @@ const config: Config = {
       {
         redirects: [
           {
-            to: "/tracing",
-            from: ["/llms/tracing"],
+            to: "/genai/tracing",
+            from: ["/llms/tracing", "/tracing"],
           },
           {
-            to: "/dataset",
-            from: ["/tracking/data-api/index", "/tracking/data-api"],
+            to: "/ml", //TODO: update
+            from: ["/tracking/data-api/index", "/tracking/data-api", "/dataset"],
           },
           {
-            to: "/model",
-            from: ["/models"],
+            to: "/ml", //TODO: update
+            from: ["/models", "/model"],
           },
           {
-            to: "/tracing/integrations/bedrock",
-            from: ["/llms/bedrock/autologging"],
+            to: "/genai/tracing", //TODO: update
+            from: ["/llms/bedrock/autologging", "/tracing/integrations/bedrock"],
           },
           {
-            to: "/getting-started/databricks-trial",
-            from: ["/getting-started/community-edition"],
+            to: "/genai/getting-started", //TODO: verify location
+            from: ["/getting-started/community-edition", "/getting-started/databricks-trial"],
           },
           {
-            to: "/tracing/integrations/contribute",
-            from: ["/llms/tracing/contribute"],
+            to: "/genai/tracing", //TODO: update
+            from: ["/llms/tracing/contribute", "/tracing/integrations/contribute"],
           },
           {
-            to: "/tracing/tutorials/jupyter-trace-demo",
-            from: ["/llms/tracing/notebooks/jupyter-trace-demo"],
+            to: "/genai/tracing", //TODO: update
+            from: ["/llms/tracing/notebooks/jupyter-trace-demo", "/tracing/tutorials/jupyter-trace-demo"],
           },
           {
-            to: "/tracing/tutorials/concept",
-            from: ["/llms/tracing/overview"],
+            to: "/genai/tracing/features", //TODO: verify location
+            from: ["/llms/tracing/overview", "/tracing/tutorials/concept"],
           },
           {
-            to: "/tracing/api/search",
-            from: ["/llms/tracing/search-traces"],
+            to: "/genai/tracing", //TODO: verify location
+            from: ["/llms/tracing/search-traces", "/tracing/api/search"],
           },
           {
-            to: "/tracing/tracing-schema",
-            from: ["/llms/tracing/tracing-schema"],
+            to: "/genai/tracing/features", //TODO: update
+            from: ["/llms/tracing/tracing-schema", "/tracing/tracing-schema"],
           },
           {
-            to: "/model-registry",
-            from: ["/registry"],
+            to: "/ml", //TODO: update
+            from: ["/registry", "/model-registry"],
           },
           {
-            to: "/llms/deployments",
-            from: ["/llms/gateway/index", "/llms/gateway"],
+            to: "/genai/governance/ai-gateway",
+            from: ["/llms/gateway/index", "/llms/gateway", "/llms/deployments"],
           },
           {
-            to: "/llms/deployments/guides",
-            from: ["/llms/gateway/guides/index", "/llms/gateway/guide"],
+            to: "/genai/governance/ai-gateway", //TODO: verify location
+            from: ["/llms/gateway/guides/index", "/llms/gateway/guide", "/llms/deployments/guides"],
           },
           {
-            to: "/llms/deployments/guides/step1-create-deployments",
-            from: ["/llms/gateway/guides/step1-create-gateway"],
+            to: "/genai/governance/ai-gateway", //TODO: update
+            from: ["/llms/gateway/guides/step1-create-gateway", "/llms/deployments/guides/step1-create-deployments"],
           },
           {
-            to: "/llms/deployments/guides/step2-query-deployments",
-            from: ["/llms/gateway/guides/step2-query-gateway"],
+            to: "/genai/governance/ai-gateway", //TODO: update
+            from: ["/llms/gateway/guides/step2-query-gateway", "/llms/deployments/guides/step2-query-deployments"],
           },
         ],
       },
