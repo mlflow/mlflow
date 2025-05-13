@@ -15,7 +15,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from collections import namedtuple
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -39,10 +39,13 @@ def uploaded_recently(dist) -> bool:
     return False
 
 
-VersionData = namedtuple('VersionData', ['version', 'upload_time'])
+@dataclass
+class VersionData:
+    version: str
+    upload_time: str
 
 
-def get_package_versions_and_upload_times(package_name):
+def get_package_versions_and_upload_times(package_name: str) -> VersionData:
     url = f"https://pypi.python.org/pypi/{package_name}/json"
     for _ in range(5):  # Retry up to 5 times
         try:
@@ -63,9 +66,7 @@ def get_package_versions_and_upload_times(package_name):
     return [
         VersionData(
             version=version,
-            upload_time=datetime.fromisoformat(
-                dist_files[0]["upload_time"]
-            ).replace(tzinfo=None)
+            upload_time=datetime.fromisoformat(dist_files[0]["upload_time"]),
         )
         for version, dist_files in data["releases"].items()
         if (
@@ -222,7 +223,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_min_supported_version(versions_and_upload_times):
+def get_min_supported_version(versions_and_upload_times: VersionData) -> str:
     """
     Get the minimum version that is released within the past two years
     """
@@ -231,8 +232,9 @@ def get_min_supported_version(versions_and_upload_times):
 
     # Extract versions that were released in the past two years
     recent_versions = [
-        (version, upload_time) for version, upload_time in versions_and_upload_times
-        if upload_time > min_support_date
+        (v.version, v.upload_time)
+        for v in versions_and_upload_times
+        if v.upload_time > min_support_date
     ]
 
     if not recent_versions:
@@ -275,7 +277,7 @@ def update(skip_yml=False):
                     continue
 
                 max_ver = config[category]["maximum"]
-                versions = [version for version, upload_time in versions_and_upload_times]
+                versions = [v.version for v in versions_and_upload_times]
                 unsupported = config[category].get("unsupported", [])
                 versions = set(versions).difference(unsupported)  # exclude unsupported versions
                 latest_version = get_latest_version(versions)
