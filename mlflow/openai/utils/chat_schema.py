@@ -285,6 +285,14 @@ def _find_tool_message(messages, tool_type):
 def _parse_tools(inputs: dict[str, Any]) -> list[ChatTool]:
     tools = inputs.get("tools", [])
 
+    try:
+        from openai._types import NOT_GIVEN, NotGiven
+
+        if tools is NOT_GIVEN or isinstance(tools, NotGiven):
+            return []
+    except ImportError:
+        pass
+
     parsed_tools = []
     for tool in tools:
         tool_type = tool.get("type", "function")
