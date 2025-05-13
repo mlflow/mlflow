@@ -24,6 +24,12 @@ _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
 
 _DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
 
+_DSPY_2_6_23_OR_OLDER = _DSPY_VERSION <= Version("2.6.23")
+skip_if_2_6_23_or_older = pytest.mark.skipif(
+    _DSPY_2_6_23_OR_OLDER,
+    reason="Streaming API is only supported in dspy 2.6.24 or later.",
+)
+
 _REASONING_KEYWORD = "rationale" if _DSPY_UNDER_2_6 else "reasoning"
 
 
@@ -41,6 +47,15 @@ class CoT(dspy.Module):
 
     def forward(self, question):
         return self.prog(question=question)
+
+
+class NumericalCoT(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.prog = dspy.ChainOfThought("question -> answer: int")
+
+    def forward(self, question):
+        return self.prog(question=question).answer
 
 
 @pytest.fixture(autouse=True)
@@ -370,3 +385,59 @@ def test_infer_signature_from_input_examples(dummy_model):
                 ColSpec(name=_REASONING_KEYWORD, type="string"),
             ]
         )
+
+
+@skip_if_2_6_23_or_older
+def test_predict_stream_unsupported_schema(dummy_model):
+    dspy_model = NumericalCoT()
+    dspy.settings.configure(lm=dummy_model)
+
+    model_info = mlflow.dspy.log_model(dspy_model, name="model")
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    assert not loaded_model._model_meta.flavors["python_function"]["streamable"]
+    output = loaded_model.predict_stream({"question": "What is 2 + 2?"})
+    with pytest.raises(
+        mlflow.exceptions.MlflowException,
+        match="This model does not support predict_stream method.",
+    ):
+        next(output)
+
+
+@skip_if_2_6_23_or_older
+def test_predict_stream_success(dummy_model):
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dummy_model)
+
+    model_info = mlflow.dspy.log_model(
+        dspy_model, name="model", input_example={"question": "what is 2 + 2?"}
+    )
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    assert loaded_model._model_meta.flavors["python_function"]["streamable"]
+    results = []
+
+    def dummy_streamify(*args, **kwargs):
+        yield dspy.streaming.StreamResponse(
+            predict_name="prog.predict",
+            signature_field_name="answer",
+            chunk="2",
+        )
+        yield dspy.streaming.StreamResponse(
+            predict_name="prog.predict",
+            signature_field_name=_REASONING_KEYWORD,
+            chunk="reason",
+        )
+
+    with mock.patch("dspy.streamify", return_value=dummy_streamify):
+        output = loaded_model.predict_stream({"question": "What is 2 + 2?"})
+        for o in output:
+            results.append(o)
+    assert results == [
+        {"predict_name": "prog.predict", "signature_field_name": "answer", "chunk": "2"},
+        {
+            "predict_name": "prog.predict",
+            "signature_field_name": _REASONING_KEYWORD,
+            "chunk": "reason",
+        },
+    ]
