@@ -232,8 +232,7 @@ def get_min_supported_version(versions_and_upload_times: VersionData) -> str:
 
     # Extract versions that were released in the past two years
     recent_versions = [
-        (v.version, v.upload_time)
-        for v in versions_and_upload_times
+        v for v in versions_and_upload_times
         if v.upload_time > min_support_date
     ]
 
@@ -241,7 +240,7 @@ def get_min_supported_version(versions_and_upload_times: VersionData) -> str:
         return None
 
     # Get minimum version according to upload date
-    return min(recent_versions, key=lambda x: x[1])[0]
+    return min(recent_versions, key=lambda v: v.upload_time).version
 
 
 def update(skip_yml=False):
