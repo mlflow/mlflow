@@ -17,6 +17,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
+from collections import namedtuple
 
 import yaml
 from packaging.version import Version
@@ -38,6 +39,9 @@ def uploaded_recently(dist) -> bool:
     return False
 
 
+VersionData = namedtuple('VersionData', ['version', 'upload_time'])
+
+
 def get_package_versions_and_upload_times(package_name):
     url = f"https://pypi.python.org/pypi/{package_name}/json"
     for _ in range(5):  # Retry up to 5 times
@@ -57,10 +61,10 @@ def get_package_versions_and_upload_times(package_name):
         return v.is_devrelease or v.is_prerelease
 
     return [
-        (
-            version,
-            datetime.fromisoformat(
-                dist_files[0]["upload_time_iso_8601"].replace("Z", "")
+        VersionData(
+            version=version,
+            upload_time=datetime.fromisoformat(
+                dist_files[0]["upload_time"]
             ).replace(tzinfo=None)
         )
         for version, dist_files in data["releases"].items()
@@ -218,20 +222,24 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_cut_version(versions_and_upload_times):
+def get_min_supported_version(versions_and_upload_times):
     """
     Get the minimum version that is released within the past two years
     """
-    min_version = None
-    min_upload_time = None
-    cut_date = datetime.now() - timedelta(days=2 * 365)
-    cut_date = cut_date.replace(tzinfo=None)
+    min_support_date = datetime.now() - timedelta(days=2 * 365)
+    min_support_date = min_support_date.replace(tzinfo=None)
 
-    for version, upload_time in versions_and_upload_times:
-        if upload_time > cut_date:
-            if min_upload_time is None or upload_time < min_upload_time:
-                min_version = version
-                min_upload_time = upload_time
+    # Extract versions that were released in the past two years
+    recent_versions = [
+        (version, upload_time) for version, upload_time in versions_and_upload_times
+        if upload_time > min_support_date
+    ]
+
+    if not recent_versions:
+        return None
+
+    # Get minimum version according to upload date
+    min_version = min(recent_versions, key=lambda x: x[1])[0]
 
     return min_version
 
@@ -246,23 +254,23 @@ def update(skip_yml=False):
         for flavor_key, config in config_dict.items():
             package_name = config["package_info"]["pip_release"]
             versions_and_upload_times = get_package_versions_and_upload_times(package_name)
-            cut_version = get_cut_version(versions_and_upload_times)
+            min_supported_version = get_min_supported_version(versions_and_upload_times)
 
             for category in ["autologging", "models"]:
                 print("Processing", flavor_key, category)
 
-                if category in config:
+                if category in config and "minimum" in config[category]:
                     old_min_version = config[category]["minimum"]
-                    if cut_version is None:
-                        # The latest release version is 2 years ago.
+                    if min_supported_version is None:
+                        # The latest release version was 2 years ago.
                         # set the min version to be the same with the max version.
                         max_ver = config[category]["maximum"]
                         new_src = update_version(
                             new_src, flavor_key, max_ver, category, update_max=False
                         )
-                    elif Version(cut_version) > Version(old_min_version):
+                    elif Version(min_supported_version) > Version(old_min_version):
                         new_src = update_version(
-                            new_src, flavor_key, cut_version, category, update_max=False
+                            new_src, flavor_key, min_supported_version, category, update_max=False
                         )
 
                 if (category not in config) or config[category].get("pin_maximum", False):

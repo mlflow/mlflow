@@ -2,6 +2,7 @@ import json
 import re
 from pathlib import Path
 from unittest import mock
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -22,17 +23,23 @@ class MockResponse:
         pass
 
     @classmethod
-    def from_versions(cls, versions):
+    def from_versions(cls, versions, uploaded_year_diff_list=None):
+        uploaded_year_diff_list = uploaded_year_diff_list or ([1] * len(versions))
+
+        def gen_upload_time(years_diff):
+            days_diff = int(years_diff * 365)
+            return (datetime.now() - timedelta(days=days_diff)).isoformat()
+
         return cls(
             {
                 "releases": {
                     v: [
                         {
                             "filename": v + ".whl",
-                            "upload_time": "2023-10-04T16:38:57",
+                            "upload_time": gen_upload_time(d),
                         }
                     ]
-                    for v in versions
+                    for v, d in zip(versions, uploaded_year_diff_list)
                 }
             }
         )
@@ -186,5 +193,51 @@ sklearn:
   autologging:
     pin_maximum: True
     maximum: "0.0.1"
+"""
+    run_test(src, src_expected, mock_responses)
+
+
+def test_update_min_supported_version():
+    src = """
+sklearn:
+  package_info:
+    pip_release: sklearn
+  autologging:
+    minimum: "0.0.1"
+    maximum: "0.0.8"
+"""
+    mock_responses = {
+        "sklearn": MockResponse.from_versions(["0.0.2", "0.0.3", "0.0.8"], [3, 1, 0.5]),
+    }
+    src_expected = """
+sklearn:
+  package_info:
+    pip_release: sklearn
+  autologging:
+    minimum: "0.0.3"
+    maximum: "0.0.8"
+"""
+    run_test(src, src_expected, mock_responses)
+
+
+def test_update_min_supported_version_for_dead_package():
+    src = """
+sklearn:
+  package_info:
+    pip_release: sklearn
+  autologging:
+    minimum: "0.0.7"
+    maximum: "0.0.8"
+"""
+    mock_responses = {
+        "sklearn": MockResponse.from_versions(["0.0.7", "0.0.8"], [3, 2.5]),
+    }
+    src_expected = """
+sklearn:
+  package_info:
+    pip_release: sklearn
+  autologging:
+    minimum: "0.0.8"
+    maximum: "0.0.8"
 """
     run_test(src, src_expected, mock_responses)
