@@ -245,9 +245,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2]
+        group: [1, 2, 3, 4]
         include:
-          - splits: 2
+          - splits: 4
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -263,7 +263,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 tests/models
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
