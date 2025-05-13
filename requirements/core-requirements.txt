@@ -13,8 +13,5 @@ gunicorn<24; platform_system != 'Windows'
 waitress<4; platform_system == 'Windows'
 scikit-learn<2
 pyarrow<20,>=4.0.0
-markdown<4,>=3.3
-Jinja2<4,>=2.11; platform_system != 'Windows'
-Jinja2<4,>=3.0; platform_system == 'Windows'
 matplotlib<4
 graphene<4
