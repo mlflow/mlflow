@@ -1870,7 +1870,8 @@ class MlflowClient:
                 ``dataset_digest`` must also be provided.
             dataset_digest: The digest of the dataset associated with the metric. If specified,
                 ``dataset_name`` must also be provided.
-            model_id: The ID of the model associated with the metric.
+            model_id: The ID of the model associated with the metric. If not specified, use the
+                current active model ID.
 
         Returns:
             When `synchronous=True` or None, returns None. When `synchronous=False`, returns an

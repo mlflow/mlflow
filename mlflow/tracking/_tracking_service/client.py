@@ -491,7 +491,6 @@ class TrackingServiceClient:
         """
         from mlflow.tracking.fluent import get_active_model_id
 
-        active_model_id = get_active_model_id()
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
 
@@ -503,7 +502,7 @@ class TrackingServiceClient:
                 step=metric.step,
                 dataset_name=metric.dataset_name,
                 dataset_digest=metric.dataset_digest,
-                model_id=metric.model_id or active_model_id,
+                model_id=metric.model_id or get_active_model_id(),
                 run_id=metric.run_id,
             )
             for metric in metrics

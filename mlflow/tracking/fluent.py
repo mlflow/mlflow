@@ -924,8 +924,9 @@ def log_metric(
         timestamp: Time when this metric was calculated. Defaults to the current system time.
         run_id: If specified, log the metric to the specified run. If not specified, log the metric
             to the currently active run.
-        model_id: The ID of the model associated with the metric. If not specified, the models IDs
-            associated with the specified or active run will be used.
+        model_id: The ID of the model associated with the metric. If not specified, use the current
+            active model ID. If no active model exists, the models IDs associated with the
+            specified or active run will be used.
         dataset: The dataset associated with the metric.
 
     Returns:
@@ -1054,8 +1055,9 @@ def log_metrics(
         run_id: Run ID. If specified, log metrics to the specified run. If not specified, log
             metrics to the currently active run.
         timestamp: Time when these metrics were calculated. Defaults to the current system time.
-        model_id: The ID of the model associated with the metrics. If not specified, the models IDs
-            associated with the specified or active run will be used.
+        model_id: The ID of the model associated with the metric. If not specified, use the current
+            active model ID. If no active model exists, the models IDs associated with the
+            specified or active run will be used.
         dataset: The dataset associated with the metrics.
 
     Returns:
