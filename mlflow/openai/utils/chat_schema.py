@@ -1,5 +1,6 @@
 import json
 import logging
+from collections.abc import Iterable
 from typing import Any, Optional, Union
 
 from pydantic import BaseModel
@@ -285,13 +286,8 @@ def _find_tool_message(messages, tool_type):
 def _parse_tools(inputs: dict[str, Any]) -> list[ChatTool]:
     tools = inputs.get("tools", [])
 
-    try:
-        from openai._types import NOT_GIVEN, NotGiven
-
-        if tools is NOT_GIVEN or isinstance(tools, NotGiven):
-            return []
-    except ImportError:
-        pass
+    if tools is None or not isinstance(tools, Iterable):
+        return []
 
     parsed_tools = []
     for tool in tools:

@@ -4,7 +4,6 @@ from unittest import mock
 import httpx
 import openai
 import pytest
-from openai._types import NOT_GIVEN, NotGiven
 from packaging.version import Version
 from pydantic import BaseModel
 
@@ -760,10 +759,7 @@ def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai):
 
 @pytest.mark.parametrize(
     "sentinel",
-    [
-        NOT_GIVEN,
-        NotGiven(),
-    ],
+    [None, 42, object()],
 )
 def test_parse_tools_handles_openai_not_given_sentinel(sentinel):
     assert _parse_tools({"tools": sentinel}) == []
