@@ -2081,3 +2081,27 @@ def test_set_active_model_link_traces():
     assert len(traces) == 6
     assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == new_model.model_id
     assert new_model.model_id != model_id
+
+
+def test_log_metric_link_to_active_model():
+    model = mlflow.create_external_model(name="test_model")
+    set_active_model(name=model.name)
+    with mlflow.start_run():
+        mlflow.log_metric("metric", 1)
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.name == model.name
+    assert logged_model.model_id == model.model_id
+    assert logged_model.metrics[0].key == "metric"
+    assert logged_model.metrics[0].value == 1
+
+
+def test_log_metrics_link_to_active_model():
+    model = mlflow.create_external_model(name="test_model")
+    set_active_model(name=model.name)
+    with mlflow.start_run():
+        mlflow.log_metrics({"metric1": 1, "metric2": 2})
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.name == model.name
+    assert logged_model.model_id == model.model_id
+    assert len(logged_model.metrics) == 2
+    assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
