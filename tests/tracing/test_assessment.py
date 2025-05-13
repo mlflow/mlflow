@@ -313,5 +313,5 @@ def test_log_feedback_default_source(store, tracking_uri):
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.source.source_type == AssessmentSourceType.CODE
-    assert assessment.source.source_id == "log_feedback_default"
+    assert assessment.source.source_id == "default"
     assert assessment.feedback.value == 1.0
