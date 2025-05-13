@@ -50,6 +50,17 @@ experiments/
           └── ... # model artifacts are stored here
 ```
 
+#### I want to modify `requirements.txt` of my model. How can I do that?
+
+In MLflow 3.x, the `requirements.txt` file is stored as a model artifact. You can modify it by using the `log_model_artifact` method of the `MlflowClient` class. Here's an example:
+
+```python
+import mlflow
+
+client = mlflow.MlflowClient()
+client.log_model_artifact(model_id, "requirements.txt")
+```
+
 #### I'm still not ready to upgrade to MLflow 3.x. How can I pin my MLflow version to 2.x?
 
 You can pin MLflow to the latest 2.x version by using the following command:
