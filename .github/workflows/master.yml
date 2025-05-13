@@ -333,10 +333,11 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
+          # GenAI evaluation tests require databricks-agents that only work with Python 3.10~
+          pip install openai https://ml-team-public-read.s3.us-west-2.amazonaws.com/wheels/rag-studio/dev/samraj.moorjani/databricks_agents-1.0.0.dev0-py3-none-any.whl
+      - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests
         run: |
-          # GenAI evaluation tests require databricks-agents that only work with Python 3.10~
-          pip install databricks-agents openai
           pytest tests/genai
 
   optuna:
