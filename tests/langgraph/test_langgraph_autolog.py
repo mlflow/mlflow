@@ -212,3 +212,5 @@ def test_langgraph_autolog_with_update_current_span():
         input_example={"status": "done"},
     )
     assert model_info.signature is not None
+    assert model_info.signature.inputs is not None
+    assert model_info.signature.outputs is not None
