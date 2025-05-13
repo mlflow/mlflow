@@ -1,7 +1,6 @@
 import logging
 from typing import Optional
 
-from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
@@ -240,7 +239,6 @@ class RestStore(BaseRestStore):
         description=None,
         local_model_path=None,
         model_id: Optional[str] = None,
-        model_params: Optional[list[LoggedModelParameter]] = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -256,7 +254,6 @@ class RestStore(BaseRestStore):
             local_model_path: Unused.
             model_id: The ID of the model (from an Experiment) that is being promoted to a
                 registered model version, if applicable.
-            model_params: The parameters of the model (from an Experiment) that is being promoted
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -273,7 +270,6 @@ class RestStore(BaseRestStore):
                 tags=proto_tags,
                 description=description,
                 model_id=model_id,
-                model_params=model_params,
             )
         )
         response_proto = self._call_endpoint(CreateModelVersion, req_body)

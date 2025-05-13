@@ -1957,7 +1957,6 @@ def _create_model_version():
             "run_link": [_assert_string],
             "description": [_assert_string],
             "model_id": [_assert_string],
-            "model_params": [_assert_array],
         },
     )
 
@@ -1976,7 +1975,6 @@ def _create_model_version():
         tags=request_message.tags,
         description=request_message.description,
         model_id=request_message.model_id,
-        model_params=request_message.model_params,
     )
     if not _is_prompt_request(request_message) and request_message.model_id:
         tracking_store = _get_tracking_store()
