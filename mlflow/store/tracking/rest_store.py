@@ -14,13 +14,13 @@ from mlflow.entities import (
     Metric,
     Run,
     RunInfo,
-    TraceInfo,
+    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT
@@ -272,7 +272,7 @@ class RestStore(AbstractStore):
         timestamp_ms: int,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Start an initial TraceInfo object in the backend store.
 
@@ -308,9 +308,9 @@ class RestStore(AbstractStore):
             )
         )
         response_proto = self._call_endpoint(StartTrace, req_body)
-        return TraceInfo.from_proto(response_proto.trace_info)
+        return TraceInfoV2.from_proto(response_proto.trace_info)
 
-    def start_trace_v3(self, trace: Trace) -> TraceInfoV3:
+    def start_trace_v3(self, trace: Trace) -> TraceInfo:
         """
         Start a trace using the V3 API format.
 
@@ -333,7 +333,7 @@ class RestStore(AbstractStore):
             endpoint="/api/3.0/mlflow/traces",
             retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
         )
-        return TraceInfoV3.from_proto(response_proto.trace.trace_info)
+        return TraceInfo.from_proto(response_proto.trace.trace_info)
 
     def end_trace(
         self,
@@ -342,7 +342,7 @@ class RestStore(AbstractStore):
         status: TraceStatus,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
@@ -386,7 +386,7 @@ class RestStore(AbstractStore):
         # Always use v2 endpoint (not v3) for this endpoint to maintain compatibility
         endpoint = get_single_trace_endpoint(request_id, use_v3=False)
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
-        return TraceInfo.from_proto(response_proto.trace_info)
+        return TraceInfoV2.from_proto(response_proto.trace_info)
 
     def _delete_traces(
         self,
@@ -429,7 +429,7 @@ class RestStore(AbstractStore):
                 trace_v3_response_proto = self._call_endpoint(
                     GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
                 )
-                return TraceInfoV3.from_proto(trace_v3_response_proto.trace.trace_info)
+                return TraceInfo.from_proto(trace_v3_response_proto.trace.trace_info)
             except Exception:
                 # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
                 _logger.debug(
@@ -439,7 +439,7 @@ class RestStore(AbstractStore):
         req_body = message_to_json(GetTraceInfo(request_id=request_id))
         endpoint = get_trace_info_endpoint(request_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
-        return TraceInfo.from_proto(response_proto.trace_info)
+        return TraceInfoV2.from_proto(response_proto.trace_info)
 
     def _is_databricks_tracking_uri(self):
         """
@@ -513,7 +513,7 @@ class RestStore(AbstractStore):
                     response_proto = self._call_endpoint(
                         SearchTracesV3Request, req_body, endpoint=endpoint
                     )
-                    trace_infos = [TraceInfoV3.from_proto(t) for t in response_proto.traces]
+                    trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
                 except Exception as e:
                     _logger.error(f"Error searching traces: {e!s}")
                     raise
@@ -531,7 +531,7 @@ class RestStore(AbstractStore):
 
                 try:
                     response_proto = self._call_endpoint(SearchTraces, req_body)
-                    trace_infos = [TraceInfo.from_proto(t).to_v3() for t in response_proto.traces]
+                    trace_infos = [TraceInfoV2.from_proto(t).to_v3() for t in response_proto.traces]
                 except Exception as e:
                     _logger.error(f"Error searching traces: {e!s}")
                     raise
@@ -546,7 +546,7 @@ class RestStore(AbstractStore):
                 page_token=page_token,
             )
             # Convert TraceInfo (v2) objects to TraceInfoV3 objects for consistency
-            trace_infos = [TraceInfo.from_proto(t).to_v3() for t in response_proto.traces]
+            trace_infos = [TraceInfoV2.from_proto(t).to_v3() for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
 
     def _search_unified_traces(

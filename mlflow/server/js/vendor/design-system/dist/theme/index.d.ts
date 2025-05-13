@@ -10,6 +10,7 @@ export type ComponentTheme = ReturnType<typeof getTheme>;
 export interface ThemeOptions {
     enableAnimation: boolean;
     zIndexBase: number;
+    useNewBorderColors: boolean;
 }
 export interface Theme {
     colors: ReturnType<typeof getColors>;
@@ -33,5 +34,7 @@ export interface Theme {
         colors: ReturnType<typeof getProtectedSemanticColors>;
     };
 }
-export declare function getTheme(isDarkMode: boolean, options?: ThemeOptions): Theme;
+export declare const getTheme: typeof getThemeImpl & import("lodash").MemoizedFunction;
+declare function getThemeImpl(isDarkMode: boolean, options?: ThemeOptions): Theme;
+export {};
 //# sourceMappingURL=index.d.ts.map

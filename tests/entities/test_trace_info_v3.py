@@ -5,7 +5,7 @@ from mlflow.entities.assessment import (
     Expectation,
     Feedback,
 )
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 
@@ -38,7 +38,7 @@ def test_trace_info_v3():
             ),
         ]
     ]
-    trace_info = TraceInfoV3(
+    trace_info = TraceInfo(
         trace_id="trace_id",
         client_request_id="client_request_id",
         trace_location=TraceLocation.from_experiment_id("123"),
@@ -52,8 +52,8 @@ def test_trace_info_v3():
         assessments=assessments,
     )
 
-    from_proto = TraceInfoV3.from_proto(trace_info.to_proto())
-    assert isinstance(from_proto, TraceInfoV3)
+    from_proto = TraceInfo.from_proto(trace_info.to_proto())
+    assert isinstance(from_proto, TraceInfo)
     assert from_proto == trace_info
 
     trace_info_dict = trace_info.to_dict()
@@ -99,11 +99,11 @@ def test_trace_info_v3():
         ],
         "tags": {"baz": "qux"},
     }
-    assert TraceInfoV3.from_dict(trace_info_dict) == trace_info
+    assert TraceInfo.from_dict(trace_info_dict) == trace_info
 
 
 def test_backwards_compatibility_with_v2():
-    trace_info = TraceInfoV3(
+    trace_info = TraceInfo(
         trace_id="trace_id",
         client_request_id="client_request_id",
         trace_location=TraceLocation.from_experiment_id("123"),

@@ -27,7 +27,7 @@ type ExperimentLoggedModelOpenDatasetDetailsContextType = {
   onDatasetClicked: (params: { datasetName: string; datasetDigest: string; runId: string }) => Promise<void>;
 };
 
-const ExperimentLoggedModelOpenDatasetDetailsContext =
+export const ExperimentLoggedModelOpenDatasetDetailsContext =
   createContext<ExperimentLoggedModelOpenDatasetDetailsContextType>({
     onDatasetClicked: () => Promise.resolve(),
   });
@@ -69,6 +69,7 @@ export const ExperimentLoggedModelOpenDatasetDetailsContextProvider = ({ childre
 
             // Ensure that the datasets and run info are present
             if (!datasets || !data.mlflowGetRun?.run?.info) {
+              resolve();
               return;
             }
 
@@ -81,6 +82,7 @@ export const ExperimentLoggedModelOpenDatasetDetailsContextProvider = ({ childre
 
             // If the dataset is not found, return early
             if (!matchingDataset) {
+              resolve();
               return;
             }
             const { info, data: runData } = data.mlflowGetRun.run;

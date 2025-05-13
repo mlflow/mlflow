@@ -29,13 +29,10 @@ requires-python = ">=3.9"
 dependencies = [
   "mlflow-skinny==3.0.0.dev0",
   "Flask<4",
-  "Jinja2<4,>=2.11; platform_system != 'Windows'",
-  "Jinja2<4,>=3.0; platform_system == 'Windows'",
   "alembic<2,!=1.10.0",
   "docker<8,>=4.0.0",
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
-  "markdown<4,>=3.3",
   "matplotlib<4",
   "numpy<3",
   "pandas<3",

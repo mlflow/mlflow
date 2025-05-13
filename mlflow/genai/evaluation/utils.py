@@ -87,6 +87,12 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
 
     renamed_df = df.rename(columns=column_mapping)
 
+    if "trace" not in renamed_df.columns and column_mapping["inputs"] not in renamed_df.columns:
+        raise MlflowException.invalid_parameter_value(
+            "Either `inputs` or `trace` column is required in the dataset. Please provide inputs "
+            "for every datapoint or provide a trace."
+        )
+
     # expand out expectations into separate columns
     if "expectations" in df.columns:
         for field in ["expected_response", "expected_retrieved_context", "expected_facts"]:

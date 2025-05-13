@@ -25,6 +25,7 @@ import {
 import type { LoggedModelProto, LoggedModelMetricProto, RunEntity } from '../../types';
 import { ExperimentLoggedModelDetailsTableRunCellRenderer } from './ExperimentLoggedModelDetailsTableRunCellRenderer';
 import { ExperimentLoggedModelDatasetButton } from './ExperimentLoggedModelDatasetButton';
+import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 
 interface LoggedModelMetricWithRunData extends LoggedModelMetricProto {
   experimentId?: string | null;
@@ -32,6 +33,9 @@ interface LoggedModelMetricWithRunData extends LoggedModelMetricProto {
 }
 
 type MetricTableCellRenderer = ColumnDefTemplate<CellContext<LoggedModelMetricWithRunData, unknown>>;
+type ColumnMeta = {
+  styles?: React.CSSProperties;
+};
 
 const SingleDatasetCellRenderer = ({
   getValue,
@@ -62,6 +66,12 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
   relatedRunsLoading?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const {
+    usingUnifiedDetailsLayout,
+    detailsPageTableStyles,
+    detailsPageNoEntriesStyles,
+    detailsPageNoResultsWrapperStyles,
+  } = useExperimentTrackingDetailsPageLayoutStyles();
   const intl = useIntl();
   const [filter, setFilter] = useState('');
 
@@ -143,10 +153,18 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
           description: 'Label for the value column in the logged model details metrics table',
         }),
         accessorKey: 'value',
-        enableResizing: true,
+        // In full-width layout, let "Value" fill the remaining space
+        enableResizing: !usingUnifiedDetailsLayout,
+        meta: usingUnifiedDetailsLayout
+          ? {
+              styles: {
+                minWidth: 120,
+              },
+            }
+          : {},
       },
     ],
-    [intl],
+    [intl, usingUnifiedDetailsLayout],
   );
 
   const table = useReactTable({
@@ -165,7 +183,7 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
     }
     if (!metricsWithRunData.length) {
       return (
-        <div css={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div css={detailsPageNoEntriesStyles}>
           <Empty
             description={
               <FormattedMessage
@@ -200,7 +218,7 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
           scrollable
           empty={
             areAllResultsFiltered ? (
-              <div css={{ marginTop: theme.spacing.md * 4 }}>
+              <div css={detailsPageNoResultsWrapperStyles}>
                 <Empty
                   description={
                     <FormattedMessage
@@ -212,6 +230,7 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
               </div>
             ) : null
           }
+          css={detailsPageTableStyles}
         >
           <TableRow isHeader>
             {table.getLeafHeaders().map((header, index) => (
@@ -224,6 +243,7 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
                 isResizing={header.column.getIsResizing()}
                 css={{
                   flexGrow: header.column.getCanResize() ? 0 : 1,
+                  ...(header.column.columnDef.meta as ColumnMeta)?.styles,
                 }}
                 style={{
                   flexBasis: header.column.getCanResize() ? header.column.getSize() : undefined,
@@ -241,6 +261,9 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
                   style={{
                     flexGrow: cell.column.getCanResize() ? 0 : 1,
                     flexBasis: cell.column.getCanResize() ? cell.column.getSize() : undefined,
+                  }}
+                  css={{
+                    ...(cell.column.columnDef.meta as ColumnMeta)?.styles,
                   }}
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}

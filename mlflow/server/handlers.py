@@ -36,7 +36,7 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
@@ -223,7 +223,7 @@ def _get_artifact_repo_mlflow_artifacts():
     return _artifact_repo
 
 
-def _get_trace_artifact_repo(trace_info: TraceInfo):
+def _get_trace_artifact_repo(trace_info: TraceInfoV2):
     """
     Resolve the artifact repository for fetching data for the given trace.
 
@@ -1957,7 +1957,6 @@ def _create_model_version():
             "run_link": [_assert_string],
             "description": [_assert_string],
             "model_id": [_assert_string],
-            "model_params": [_assert_array],
         },
     )
 
@@ -1976,7 +1975,6 @@ def _create_model_version():
         tags=request_message.tags,
         description=request_message.description,
         model_id=request_message.model_id,
-        model_params=request_message.model_params,
     )
     if not _is_prompt_request(request_message) and request_message.model_id:
         tracking_store = _get_tracking_store()
