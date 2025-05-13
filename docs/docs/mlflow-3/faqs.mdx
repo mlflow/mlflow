@@ -1,3 +1,5 @@
+import { APILink } from "@site/src/components/APILink";
+
 # FAQs
 
 #### Can MLflow 3.x load runs/models/traces logged with MLflow 2.x?
@@ -24,10 +26,11 @@ import mlflow
 
 with mlflow.start_run() as run:
     info = mlflow.sklearn.log_model(my_model, name="model")
+    # if the result of `log_model` is available (recommended)
     mlflow.sklearn.load_model(info.model_uri)
-    # or if only `model_id` is available
+    # if only `model_id` is available
     mlflow.sklearn.load_model(f"models:/{info.model_id}/model")
-    # or neither `model_id` nor `model_uri` is available
+    # if neither `model_id` nor `model_uri` is available (deprecated and will be removed in future versions)
     mlflow.sklearn.load_model(f"runs:/{run.info.run_id}/model")
 ```
 
@@ -52,13 +55,14 @@ experiments/
 
 #### I want to modify `requirements.txt` of my model. How can I do that?
 
-In MLflow 3.x, the `requirements.txt` file is stored as a model artifact. You can modify it by using the `log_model_artifact` method of the `MlflowClient` class. Here's an example:
+You can modify the `requirements.txt` of your model using <APILink fn="mlflow.models.update_requirements" /> to add or remove requirements. The `update_requirements` function allows you to specify a new requirements file or a list of new requirements to be added.
 
 ```python
 import mlflow
 
-client = mlflow.MlflowClient()
-client.log_model_artifact(model_id, "requirements.txt")
+mlflow.models.update_model_requirements(
+    model_uri="models:/<model_id>", operation="add", requirement_list=["..."]
+)
 ```
 
 #### I'm still not ready to upgrade to MLflow 3.x. How can I pin my MLflow version to 2.x?
