@@ -925,8 +925,8 @@ def log_metric(
         run_id: If specified, log the metric to the specified run. If not specified, log the metric
             to the currently active run.
         model_id: The ID of the model associated with the metric. If not specified, use the current
-            active model ID. If no active model exists, the models IDs associated with the
-            specified or active run will be used.
+            active model ID set by :py:func:`mlflow.set_active_model`. If no active model exists,
+            the models IDs associated with the specified or active run will be used.
         dataset: The dataset associated with the metric.
 
     Returns:
@@ -1056,8 +1056,8 @@ def log_metrics(
             metrics to the currently active run.
         timestamp: Time when these metrics were calculated. Defaults to the current system time.
         model_id: The ID of the model associated with the metric. If not specified, use the current
-            active model ID. If no active model exists, the models IDs associated with the
-            specified or active run will be used.
+            active model ID set by :py:func:`mlflow.set_active_model`. If no active model
+            exists, the models IDs associated with the specified or active run will be used.
         dataset: The dataset associated with the metrics.
 
     Returns:
