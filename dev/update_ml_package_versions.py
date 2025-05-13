@@ -45,7 +45,7 @@ class VersionData:
     upload_time: str
 
 
-def get_package_versions_and_upload_times(package_name: str) -> VersionData:
+def get_package_versions_and_upload_times(package_name: str) -> list[VersionData]:
     url = f"https://pypi.python.org/pypi/{package_name}/json"
     for _ in range(5):  # Retry up to 5 times
         try:
