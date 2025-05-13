@@ -120,7 +120,6 @@ def reset_mlflow_uri():
     if "DISABLE_RESET_MLFLOW_URI_FIXTURE" not in os.environ:
         os.environ.pop("MLFLOW_TRACKING_URI", None)
         os.environ.pop("MLFLOW_REGISTRY_URI", None)
-        mlflow.set_tracking_uri(None)
         try:
             from mlflow.tracking import set_registry_uri
 
