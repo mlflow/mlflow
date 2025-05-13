@@ -10,10 +10,10 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
-from mlflow.pyfunc.context import get_prediction_context
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
+    _try_get_prediction_context,
     deduplicate_span_names_in_place,
     generate_trace_id_v3,
     get_otel_attribute,
@@ -129,6 +129,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
 
     def _get_trace_metadata(self) -> dict[str, str]:
         metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
-        if context := get_prediction_context():
+
+        if context := _try_get_prediction_context():
             metadata[MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME] = context.endpoint_name or ""
         return metadata
