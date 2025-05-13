@@ -2101,15 +2101,15 @@ class FileStore(AbstractStore):
 
     def delete_logged_model(self, model_id: str) -> None:
         model = self.get_logged_model(model_id)
-        model_dir = self._get_model_dir(model.experiment_id, model_id)
-        if not exists(model_dir):
-            raise MlflowException(
-                f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
-            )
-
-        model_dict = self._get_model_dict(model_id)
+        model_dict = self._make_persisted_model_dict(model)
         model_dict["lifecycle_stage"] = LifecycleStage.DELETED
-        write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_dict, overwrite=True)
+        model_dir = self._get_model_dir(model.experiment_id, model.model_id)
+        write_yaml(
+            model_dir,
+            FileStore.META_DATA_FILE_NAME,
+            model_dict,
+            overwrite=True,
+        )
 
     def _get_model_artifact_dir(self, experiment_id: str, model_id: str) -> str:
         return append_to_uri_path(
