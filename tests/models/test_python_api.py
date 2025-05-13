@@ -19,6 +19,13 @@ from mlflow.models.python_api import (
 from mlflow.utils.env_manager import CONDA, LOCAL, UV, VIRTUALENV
 
 
+@pytest.fixture(autouse=True)
+def remove_pip_index_env(monkeypatch):
+    # Remove PIP_EXTRA_INDEX_URL env var to avoid UV searching
+    # for other packages from this index
+    monkeypatch.delenv("PIP_EXTRA_INDEX_URL", raising=False)
+
+
 @pytest.mark.parametrize(
     ("input_data", "expected_data", "content_type"),
     [
