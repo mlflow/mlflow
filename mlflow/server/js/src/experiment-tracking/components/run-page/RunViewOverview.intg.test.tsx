@@ -31,6 +31,13 @@ jest.mock('../../actions', () => ({
   getRunApi: jest.fn(() => ({ type: 'getRunApi', payload: Promise.resolve() })),
 }));
 
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableGraphQLRunDetailsPage: () => false,
+}));
+
 const testPromptName = 'test-prompt';
 const testPromptVersion = 1;
 
