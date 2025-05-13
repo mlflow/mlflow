@@ -74,14 +74,6 @@ def test_log_expectation_invalid_parameters(tracking_uri):
             source=_HUMAN_ASSESSMENT_SOURCE,
         )
 
-    with pytest.raises(MlflowException, match=r"`source` must be an instance of"):
-        mlflow.log_feedback(
-            trace_id="1234",
-            name="faithfulness",
-            value=1.0,
-            source=None,
-        )
-
 
 def test_update_expectation(store, tracking_uri):
     mlflow.update_expectation(
@@ -187,12 +179,13 @@ def test_log_feedback_invalid_parameters(tracking_uri):
             source=_LLM_ASSESSMENT_SOURCE,
         )
 
+    # Test with a non-AssessmentSource object that is not None
     with pytest.raises(MlflowException, match=r"`source` must be an instance of"):
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
             value=1.0,
-            source=None,
+            source="invalid_source_type",
         )
 
 
@@ -305,3 +298,20 @@ def test_search_traces_with_assessments(store, tracking_uri):
 
     # We no longer expect get_trace_info to be called
     assert store.get_trace_info.call_count == 0
+
+
+def test_log_feedback_default_source(store, tracking_uri):
+    # Test that the default CODE source is used when no source is provided
+    mlflow.log_feedback(
+        trace_id="1234",
+        name="faithfulness",
+        value=1.0,
+    )
+
+    assert store.create_assessment.call_count == 1
+    assessment = store.create_assessment.call_args[0][0]
+    assert assessment.name == "faithfulness"
+    assert assessment.trace_id == "1234"
+    assert assessment.source.source_type == AssessmentSourceType.CODE
+    assert assessment.source.source_id == "default"
+    assert assessment.feedback.value == 1.0
