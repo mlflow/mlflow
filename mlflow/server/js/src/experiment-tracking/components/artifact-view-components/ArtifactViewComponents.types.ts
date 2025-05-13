@@ -15,4 +15,6 @@ export interface LoggedModelArtifactViewerProps {
    * This is used when the run does not have the artifacts but the related logged model does.
    */
   isFallbackToLoggedModelArtifacts?: boolean;
+
+  experimentId: string;
 }

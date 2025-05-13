@@ -48,6 +48,10 @@ export interface DatasetsCellRendererProps {
 const DRAWER_WITDH = '800px';
 const MAX_PROFILE_LENGTH = 80;
 
+const areDatasetsEqual = (datasetA: RunDatasetWithTags, datasetB: RunDatasetWithTags) => {
+  return datasetA.dataset.digest === datasetB.dataset.digest && datasetA.dataset.name === datasetB.dataset.name;
+};
+
 const ExperimentViewDatasetDrawerImpl = ({
   isOpen,
   setIsOpen,
@@ -129,38 +133,44 @@ const ExperimentViewDatasetDrawerImpl = ({
             </Typography.Text>
             <div
               css={{
-                display: 'flex',
-                flexDirection: 'column',
                 height: '100%',
+                display: 'flex',
                 overflow: 'auto',
               }}
               onWheel={(e) => e.stopPropagation()}
             >
-              {runData.datasets.map((dataset) => (
-                <div
-                  key={`${dataset.dataset.name}-${dataset.dataset.digest}`}
-                  css={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    backgroundColor:
-                      dataset.dataset.name === datasetWithTags.dataset.name &&
-                      dataset.dataset.digest === datasetWithTags.dataset.digest
-                        ? theme.colors.backgroundSecondary
-                        : 'transparent',
-                    borderTop: `1px solid ${theme.colors.border}`,
-                    paddingBottom: theme.spacing.sm,
-                    paddingTop: theme.spacing.sm,
-                    paddingLeft: theme.spacing.sm,
-                  }}
-                >
-                  <Button
-                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetdrawer.tsx_151"
-                    type="link"
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'visible',
+                  flex: 1,
+                }}
+              >
+                {runData.datasets.map((dataset) => (
+                  <Typography.Link
+                    componentId="mlflow.dataset_drawer.dataset_link"
+                    aria-label={`${dataset.dataset.name} (${dataset.dataset.digest})`}
+                    key={`${dataset.dataset.name}-${dataset.dataset.digest}`}
                     css={{
-                      textAlign: 'left',
-                      overflowX: 'auto',
-                      overflowY: 'hidden',
+                      display: 'flex',
+                      whiteSpace: 'nowrap',
+                      textDecoration: 'none',
+                      cursor: 'pointer',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      alignItems: 'flex-start',
+                      backgroundColor: areDatasetsEqual(dataset, datasetWithTags)
+                        ? theme.colors.actionTertiaryBackgroundPress
+                        : 'transparent',
+                      paddingBottom: theme.spacing.sm,
+                      paddingTop: theme.spacing.sm,
+                      paddingLeft: theme.spacing.sm,
+                      border: 0,
+                      borderTop: `1px solid ${theme.colors.border}`,
+                      '&:hover': {
+                        backgroundColor: theme.colors.actionTertiaryBackgroundHover,
+                      },
                     }}
                     onClick={() => {
                       setSelectedDatasetWithRun({ datasetWithTags: dataset, runData: runData });
@@ -168,9 +178,9 @@ const ExperimentViewDatasetDrawerImpl = ({
                     }}
                   >
                     <ExperimentViewDatasetWithContext datasetWithTags={dataset} displayTextAsLink={false} />
-                  </Button>
-                </div>
-              ))}
+                  </Typography.Link>
+                ))}
+              </div>
             </div>
           </div>
           {/* column for dataset details */}

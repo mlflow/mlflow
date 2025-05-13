@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import React from 'react';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
 import type { AnalyticsEventProps, HTMLDataAttributes } from '../types';
-export interface TableHeaderProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement>, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface TableHeaderProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement>, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /** @deprecated Use `multiline` prop instead. This prop will be removed soon. */
     ellipsis?: boolean;
     /** Enables multiline wrapping */

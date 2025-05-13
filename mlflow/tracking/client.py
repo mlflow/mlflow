@@ -1870,7 +1870,8 @@ class MlflowClient:
                 ``dataset_digest`` must also be provided.
             dataset_digest: The digest of the dataset associated with the metric. If specified,
                 ``dataset_name`` must also be provided.
-            model_id: The ID of the model associated with the metric.
+            model_id: The ID of the model associated with the metric. If not specified, use the
+                current active model ID set by :py:func:`mlflow.set_active_model`.
 
         Returns:
             When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
@@ -1920,9 +1921,12 @@ class MlflowClient:
             metrics: {'m': 1.5}
             status: FINISHED
         """
+        from mlflow.tracking.fluent import get_active_model_id
+
         synchronous = (
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
+        model_id = model_id or get_active_model_id()
         return self._tracking_client.log_metric(
             run_id,
             key,

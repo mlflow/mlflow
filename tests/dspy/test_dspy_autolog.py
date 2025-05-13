@@ -514,6 +514,7 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
                     "reasoning": "No more responses",
                 },
             ]
+            * 2
         )
     )
 
