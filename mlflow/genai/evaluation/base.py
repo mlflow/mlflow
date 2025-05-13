@@ -58,7 +58,8 @@ def evaluate(
             * List of dictionary
 
             If a dataframe is specified, it must contain the following schema:
-              - inputs (required): A column that contains a single input.
+              - inputs (optional): A column that contains a single input. This is required
+                unless trace is provided.
               - outputs (optional): A column that contains a single output from the
                    target model/app. If the predict_fn is provided, this is generated
                    by MLflow so not required.
