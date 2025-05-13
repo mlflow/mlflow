@@ -23,10 +23,10 @@ To avoid this error, call `mlflow.<flavor>.load_model` with the model URI return
 import mlflow
 
 with mlflow.start_run() as run:
-    info = mlflow.sklearn.log_model(my_model, "model")
+    info = mlflow.sklearn.log_model(my_model, name="model")
     mlflow.sklearn.load_model(info.model_uri)
     # or if only `model_id` is available
-    mlflow.sklearn.load_model(f"model:/{info.model_id}/model")
+    mlflow.sklearn.load_model(f"models:/{info.model_id}/model")
     # or neither `model_id` nor `model_uri` is available
     mlflow.sklearn.load_model(f"runs:/{run.info.run_id}/model")
 ```
