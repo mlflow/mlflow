@@ -275,6 +275,11 @@ def log_feedback(
         import mlflow
         from mlflow.entities.assessment import AssessmentError
 
+        source = AssessmentSource(
+            source_type=Type.LLM_JUDGE,
+            source_id="faithfulness-judge",
+        )
+        
         error = AssessmentError(
             error_code="RATE_LIMIT_EXCEEDED",
             error_message="Rate limit for the judge exceeded.",
