@@ -2153,6 +2153,10 @@ def test_logged_model_model_id_required(tracking_uri):
         client.delete_logged_model_tag("", "")
 
 
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
 def test_log_metric_link_to_active_model(tracking_uri):
     model = mlflow.create_external_model(name="test_model")
     mlflow.set_active_model(name=model.name)
@@ -2166,6 +2170,10 @@ def test_log_metric_link_to_active_model(tracking_uri):
     assert logged_model.metrics[0].value == 1
 
 
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
 def test_log_batch_link_to_active_model(tracking_uri):
     model = mlflow.create_external_model(name="test_model")
     mlflow.set_active_model(name=model.name)
