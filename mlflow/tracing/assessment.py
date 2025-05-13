@@ -210,7 +210,8 @@ def log_feedback(
         trace_id: The ID of the trace.
         name: The name of the feedback assessment e.g., "faithfulness"
         source: The source of the feedback assessment. Must be an instance of
-                :py:class:`~mlflow.entities.AssessmentSource`. If not provided, defaults to CODE source type.
+                :py:class:`~mlflow.entities.AssessmentSource`. If not provided, defaults to
+                CODE source type.
         value: The value of the feedback. Must be one of the following types:
             - float
             - int
@@ -279,7 +280,7 @@ def log_feedback(
             source_type=Type.LLM_JUDGE,
             source_id="faithfulness-judge",
         )
-        
+
         error = AssessmentError(
             error_code="RATE_LIMIT_EXCEEDED",
             error_message="Rate limit for the judge exceeded.",
