@@ -17,6 +17,7 @@ from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracking import set_registry_uri
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -120,6 +121,8 @@ def reset_mlflow_uri():
     if "DISABLE_RESET_MLFLOW_URI_FIXTURE" not in os.environ:
         os.environ.pop("MLFLOW_TRACKING_URI", None)
         os.environ.pop("MLFLOW_REGISTRY_URI", None)
+        mlflow.set_tracking_uri(None)
+        set_registry_uri(None)
 
 
 @pytest.fixture(autouse=True)
