@@ -11,7 +11,7 @@ class _BaseBuiltInScorer(BuiltInScorer):
     inherit from this class.
     """
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *, **kwargs):
         try:
             from databricks.agents.evals import judges
         except ImportError:
