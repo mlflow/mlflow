@@ -390,7 +390,7 @@ def test_predict_traces_link_to_active_model():
     mlflow.models.predict(
         model_uri=model_info.model_uri,
         input_data=["a", "b", "c"],
-        env_manager=UV,
+        env_manager=VIRTUALENV,
     )
     traces = get_traces()
     assert len(traces) == 1
