@@ -238,7 +238,7 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'human-feedback/sme-feedback',
+          id: 'human-feedback/expert-feedback',
           label: 'Collecting Domain Expert Feedback',
         },
         {
