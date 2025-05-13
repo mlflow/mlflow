@@ -70,7 +70,7 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
     sample_row = df.iloc[0]
     if "inputs" in sample_row and not isinstance(sample_row["inputs"], dict):
         raise MlflowException.invalid_parameter_value(
-            "The 'inputs' column must be a dictionary. If you want to pass a single"
+            "The 'inputs' column must be a dictionary. If you want to pass a single "
             "argument to the `predict_fn`, use the argument name as the key in the "
             "dictionary. If you don't pass a `predict_fn`, you can use any string "
             "key to wrap the value into a dictionary."
