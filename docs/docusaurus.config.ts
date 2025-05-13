@@ -5,6 +5,8 @@ import {
   postProcessSidebar,
   apiReferencePrefix,
 } from "./docusaurusConfigUtils";
+import { onRouteDidUpdate } from './src/docusaurus.theme';
+
 
 // ensure baseUrl always ends in `/`
 const baseUrl = (process.env.DOCS_BASE_URL ?? "/").replace(/\/?$/, "/");
@@ -52,21 +54,39 @@ const config: Config = {
     },
   ],
 
+  // presets: [
+  //   [
+  //     "classic",
+  //     {
+  //       docs: {
+  //         routeBasePath: "/",
+  //         sidebarPath: "./sidebars.ts",
+  //         async sidebarItemsGenerator({
+  //           defaultSidebarItemsGenerator,
+  //           ...args
+  //         }) {
+  //           const sidebarItems = await defaultSidebarItemsGenerator(args);
+  //           return postProcessSidebar(sidebarItems);
+  //         },
+  //       },
+  //       theme: {
+  //         customCss: "./src/css/custom.css",
+  //       },
+  //       googleTagManager: {
+  //         containerId: process.env.GTM_ID || "GTM-TEST",
+  //       },
+  //       gtag: {
+  //         trackingID: [process.env.GTM_ID || "GTM-TEST", "AW-16857946923"],
+  //         anonymizeIP: true,
+  //       },
+  //     } satisfies Preset.Options,
+  //   ],
+  // ],
   presets: [
     [
       "classic",
       {
-        docs: {
-          routeBasePath: "/",
-          sidebarPath: "./sidebars.ts",
-          async sidebarItemsGenerator({
-            defaultSidebarItemsGenerator,
-            ...args
-          }) {
-            const sidebarItems = await defaultSidebarItemsGenerator(args);
-            return postProcessSidebar(sidebarItems);
-          },
-        },
+        docs: false, // Disable default docs plugin
         theme: {
           customCss: "./src/css/custom.css",
         },
@@ -79,6 +99,10 @@ const config: Config = {
         },
       } satisfies Preset.Options,
     ],
+  ],
+ 
+  clientModules: [
+    require.resolve('./src/docusaurus.theme.js'),
   ],
 
   themeConfig: {
@@ -100,12 +124,40 @@ const config: Config = {
         src: "images/logo-light.svg",
         srcDark: "images/logo-dark.svg",
       },
+      // items: [
+      //   {
+      //     type: "docSidebar",
+      //     sidebarId: "docsSidebar",
+      //     position: "left",
+      //     label: "Docs",
+      //   },
+      //   {
+      //     to: `${apiReferencePrefix()}api_reference/index.html`,
+      //     position: "left",
+      //     label: "API Reference",
+      //   },
+      //   {
+      //     href: "https://github.com/mlflow/mlflow",
+      //     label: "GitHub",
+      //     position: "right",
+      //   },
+      // ],
       items: [
+        // Classic ML docs
         {
           type: "docSidebar",
-          sidebarId: "docsSidebar",
+          sidebarId: "classicMLSidebar",
           position: "left",
-          label: "Docs",
+          label: "ML Docs",
+          docsPluginId: "classic-ml", // Must match plugin ID below
+        },
+        // GenAI docs
+        {
+          type: "docSidebar",
+          sidebarId: "genAISidebar",
+          position: "left",
+          label: "GenAI Docs",
+          docsPluginId: "genai", // Must match plugin ID below
         },
         {
           to: `${apiReferencePrefix()}api_reference/index.html`,
@@ -194,6 +246,40 @@ const config: Config = {
   } satisfies Preset.ThemeConfig,
 
   plugins: [
+    // Classic ML docs plugin
+    [
+      "@docusaurus/plugin-content-docs",
+      {
+        id: "classic-ml",
+        path: "docs/classic-ml",
+        routeBasePath: "ml",
+        sidebarPath: "./sidebarsClassicML.ts",
+        async sidebarItemsGenerator({
+          defaultSidebarItemsGenerator,
+          ...args
+        }) {
+          const sidebarItems = await defaultSidebarItemsGenerator(args);
+          return postProcessSidebar(sidebarItems);
+        },
+      },
+    ],
+    // GenAI docs plugin
+    [
+      "@docusaurus/plugin-content-docs",
+      {
+        id: "genai",
+        path: "docs/genai",
+        routeBasePath: "genai",
+        sidebarPath: "./sidebarsGenAI.ts",
+        async sidebarItemsGenerator({
+          defaultSidebarItemsGenerator,
+          ...args
+        }) {
+          const sidebarItems = await defaultSidebarItemsGenerator(args);
+          return postProcessSidebar(sidebarItems);
+        },
+      },
+    ],
     [
       "@docusaurus/plugin-client-redirects",
       {

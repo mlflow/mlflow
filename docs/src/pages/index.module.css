@@ -1,0 +1,241 @@
+.homeContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+}
+
+.headerSection {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.mainHeading {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(90deg, #0194e2, #FF3621);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  font-size: 1.5rem;
+  color: var(--ifm-color-emphasis-700);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.selectionGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  width: 100%;
+  max-width: 1600px;
+}
+
+/* Responsive layout for mobile */
+@media (max-width: 996px) {
+  .selectionGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .mainHeading {
+    font-size: 2.5rem;
+  }
+}
+
+/* Path Selector Cards */
+.pathCard {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--ifm-card-background-color);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  height: 100%;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  display: flex;
+  flex-direction: column;
+}
+
+.pathCardblue:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px rgba(1, 148, 226, 0.2);
+  border-color: rgba(1, 148, 226, 0.3);
+  background-color: rgba(1, 148, 226, 0.03);
+}
+
+.pathCardorange:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px rgba(255, 54, 33, 0.2);
+  border-color: rgba(255, 54, 33, 0.3);
+  background-color: rgba(255, 54, 33, 0.03);
+}
+
+.pathCardInner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1.5rem;
+}
+
+.cardTitle {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  line-height: 1.2;
+}
+
+.pathCardblue .cardTitle {
+  color: #0194e2;
+}
+
+.pathCardorange .cardTitle {
+  color: #FF3621;
+}
+
+.cardDescription {
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.cardImageContainer {
+  position: relative;
+  height: auto;
+  max-height: 300px;
+  overflow: hidden;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.cardImage {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: contain;
+  transition: transform 0.5s ease;
+}
+
+.pathCard:hover .cardImage {
+  transform: scale(1.03);
+}
+
+.imageOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.pathCard:hover .imageOverlay {
+  opacity: 1;
+}
+
+.imageOverlayblue {
+  background: radial-gradient(circle, rgba(1, 148, 226, 0.1) 0%, rgba(1, 148, 226, 0) 70%);
+}
+
+.imageOverlayorange {
+  background: radial-gradient(circle, rgba(255, 54, 33, 0.1) 0%, rgba(255, 54, 33, 0) 70%);
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.featureList {
+  margin-bottom: 1.5rem;
+  flex-grow: 1;
+}
+
+.featureItem {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.featureDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+}
+
+.featureDotblue {
+  background-color: #0194e2;
+}
+
+.featureDotorange {
+  background-color: #FF3621;
+}
+
+.cardAction {
+  margin-top: auto;
+}
+
+.cardButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  width: 100%;
+}
+
+.cardButtonblue {
+  background-color: #0194e2;
+  color: white;
+}
+
+.cardButtonblue:hover {
+  background-color: #0072b0;
+  color: white;
+  text-decoration: none;
+}
+
+.cardButtonorange {
+  background-color: #FF3621;
+  color: white;
+}
+
+.cardButtonorange:hover {
+  background-color: #D12819;
+  color: white;
+  text-decoration: none;
+}
+
+/* Dark mode adjustments */
+[data-theme='dark'] .pathCardblue:hover {
+  background-color: rgba(1, 148, 226, 0.1);
+}
+
+[data-theme='dark'] .pathCardorange:hover {
+  background-color: rgba(255, 54, 33, 0.1);
+}
+
+[data-theme='dark'] .cardImage {
+  filter: brightness(0.85);
+}
+
+[data-theme='dark'] .pathCard {
+  background: var(--ifm-card-background-color);
+  border-color: var(--ifm-color-emphasis-300);
+}
