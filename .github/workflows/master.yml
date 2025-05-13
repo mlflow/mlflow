@@ -90,7 +90,7 @@ jobs:
       - name: Import check
         run: |
           source .venv/bin/activate
-          python tests/check_mlflow_lazily_imports_ml_packages.py
+          python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
           source .venv/bin/activate
@@ -122,7 +122,7 @@ jobs:
       - name: Run tests
         run: |
           python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
-          pytest tests/types_/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py
+          pytest tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py
       - name: Run databricks-connect related tests
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other 
@@ -391,7 +391,7 @@ jobs:
       - name: Run tests
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
-            tests/pyfunc tests/types_ --ignore tests/pyfunc/test_spark_connect.py
+            tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
           pytest tests/pyfunc/test_spark_connect.py
@@ -399,7 +399,7 @@ jobs:
         run: |
           pip install 'pydantic<2'
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
-            tests/types_ tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
+            tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
   sagemaker:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
