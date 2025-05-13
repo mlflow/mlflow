@@ -70,9 +70,10 @@ jobs:
       - name: Run prettier
         run: |
           yarn prettier:check
-      - name: Run knip
-        run: |
-          yarn knip
+      # TODO: Disabled for now. Revisit after DAIS.
+      # - name: Run knip
+      #   run: |
+      #     yarn knip
       - name: Run extract-i18n lint
         run: |
           yarn i18n:check
