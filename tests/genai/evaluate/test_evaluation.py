@@ -5,7 +5,8 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
+from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, groundedness
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 
@@ -89,25 +90,24 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
             data=data,
             predict_fn=model,
             model_id="test_model_id",
+            scorers=[groundedness()],
         )
 
         # Verify the call was made with the right parameters
         mock_evaluate.assert_called_once_with(
             model=model,
             data=mock.ANY,
-            evaluator_config={GENAI_CONFIG_NAME: {"metrics": []}},
+            evaluator_config={GENAI_CONFIG_NAME: {"metrics": ["groundedness"]}},
             model_type="databricks-agent",
             extra_metrics=[],
             model_id="test_model_id",
         )
 
 
-def test_no_scorers_by_default():
-    # Make sure no scorers are run by default
-    with patch("mlflow.get_tracking_uri", return_value="databricks"):
-        with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
-            results = mlflow.genai.evaluate(
-                data=[{"inputs": "What is the capital of France?", "outputs": "Paris"}],
-            )
+@patch("mlflow.get_tracking_uri", return_value="databricks")
+def test_no_scorers(mock_get_tracking_uri):
+    with pytest.raises(TypeError, match=r"evaluate\(\) missing 1 required positional"):
+        mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}])
 
-            assert not any("metric" in col for col in results.result_df.keys())
+    with pytest.raises(MlflowException, match=r"At least one scorer is required"):
+        mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
