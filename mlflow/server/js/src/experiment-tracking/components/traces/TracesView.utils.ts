@@ -51,7 +51,11 @@ export const getTraceInfoOutputs = (traceInfo: ModelTraceInfo) => {
 };
 
 export const getTraceTagValue = (traceInfo: ModelTraceInfo, tagName: string) => {
-  return traceInfo.tags?.find(({ key }) => key === tagName)?.value;
+  if (Array.isArray(traceInfo.tags)) {
+    return traceInfo.tags?.find(({ key }) => key === tagName)?.value;
+  }
+
+  return traceInfo.tags?.[tagName];
 };
 
 export const getTraceDisplayName = (traceInfo: ModelTraceInfo) => {

@@ -1,10 +1,8 @@
-import { Button, Empty, Modal, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, DangerIcon, Empty, Modal, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-
-const DOCS_LINK =
-  'https://docs.google.com/document/d/1bjvwiEckOEMKTupt8ZxAmZLv7Es6Vy0BaAfFbjI1eYc/edit?tab=t.0#heading=h.yq2j4iyu8yqa';
+import { getMlflow3DocsLink } from '../../constants';
 
 const EXAMPLE_INSTALL_CODE = `pip install git+https://github.com/mlflow/mlflow@mlflow-3`;
 const EXAMPLE_CODE = `
@@ -80,8 +78,12 @@ with mlflow.start_run() as training_run:
 
 export const ExperimentLoggedModelListPageTableEmpty = ({
   displayShowExampleButton = true,
+  isFilteringActive = false,
+  badRequestError,
 }: {
   displayShowExampleButton?: boolean;
+  isFilteringActive?: boolean;
+  badRequestError?: Error;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -101,30 +103,52 @@ export const ExperimentLoggedModelListPageTableEmpty = ({
     >
       <Empty
         title={
-          <FormattedMessage
-            defaultMessage="No models logged"
-            description="Placeholder for empty models table on the logged models list page"
-          />
+          badRequestError ? (
+            <FormattedMessage
+              defaultMessage="Request error"
+              description="Error state title displayed in the logged models list page"
+            />
+          ) : isFilteringActive ? (
+            <FormattedMessage
+              defaultMessage="No models found"
+              description="Empty state title displayed when all models are filtered out in the logged models list page"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="No models logged"
+              description="Placeholder for empty models table on the logged models list page"
+            />
+          )
         }
         description={
-          <FormattedMessage
-            defaultMessage="Your models will appear here once you log them using newest version of MLflow. <link>Learn more</link>."
-            description="Placeholder for empty models table on the logged models list page"
-            values={{
-              link: (chunks) => (
-                <Typography.Link
-                  componentId="mlflow.logged_models.list.no_results_learn_more"
-                  openInNewTab
-                  href={DOCS_LINK}
-                >
-                  {chunks}
-                </Typography.Link>
-              ),
-            }}
-          />
+          badRequestError ? (
+            badRequestError.message
+          ) : isFilteringActive ? (
+            <FormattedMessage
+              defaultMessage="We couldn't find any models matching your search criteria. Try changing your search filters."
+              description="Empty state message displayed when all models are filtered out in the logged models list page"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="Your models will appear here once you log them using newest version of MLflow. <link>Learn more</link>."
+              description="Placeholder for empty models table on the logged models list page"
+              values={{
+                link: (chunks) => (
+                  <Typography.Link
+                    componentId="mlflow.logged_models.list.no_results_learn_more"
+                    openInNewTab
+                    href={getMlflow3DocsLink()}
+                  >
+                    {chunks}
+                  </Typography.Link>
+                ),
+              }}
+            />
+          )
         }
+        image={badRequestError ? <DangerIcon /> : undefined}
         button={
-          displayShowExampleButton ? (
+          displayShowExampleButton && !isFilteringActive && !badRequestError ? (
             <Button
               type="primary"
               componentId="mlflow.logged_models.list.show_example_code"

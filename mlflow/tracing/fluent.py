@@ -18,7 +18,6 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.client import TracingClient
@@ -916,11 +915,11 @@ def update_current_trace(
     active_span = get_current_active_span()
 
     if not active_span:
-        raise MlflowException(
+        _logger.warning(
             "No active trace found. Please create a span using `mlflow.start_span` or "
-            "`@mlflow.trace` before calling this function.",
-            error_code=BAD_REQUEST,
+            "`@mlflow.trace` before calling `mlflow.update_current_trace`.",
         )
+        return
 
     if isinstance(tags, dict):
         non_string_items = {k: v for k, v in tags.items() if not isinstance(v, str)}

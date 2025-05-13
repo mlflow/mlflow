@@ -27,7 +27,7 @@ class MlflowV3SpanExporter(SpanExporter):
     """
 
     def __init__(self, tracking_uri: Optional[str] = None):
-        self._is_async_enabled = MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+        self._is_async_enabled = self._should_enable_async_logging()
         if self._is_async_enabled:
             self._async_queue = AsyncTraceExportQueue()
         self._client = TracingClient(tracking_uri)
@@ -91,6 +91,21 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
             _logger.warning(f"Failed to send trace to MLflow backend: {e}")
+
+    def _should_enable_async_logging(self):
+        if is_in_databricks_notebook():
+            # NB: We don't turn on async logging in Databricks notebook by default
+            # until we are confident that the async logging is working on the
+            # offline workload on Databricks, to derisk the inclusion to the
+            # standard image. When it is enabled explicitly via the env var, we
+            # will respect that.
+            return (
+                MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+                if MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set()
+                else False
+            )
+
+        return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
 
     def _should_log_async(self):
         # During evaluate, the eval harness relies on the generated trace objects,

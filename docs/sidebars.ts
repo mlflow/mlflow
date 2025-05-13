@@ -34,6 +34,11 @@ const sidebars: SidebarsConfig = {
           id: 'mlflow-3/deep-learning',
           label: 'Deep Learning Development',
         },
+        {
+          type: 'doc',
+          id: 'mlflow-3/faqs',
+          label: 'FAQs',
+        },
       ],
       link: {
         type: 'doc',

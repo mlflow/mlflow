@@ -7,7 +7,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -41,7 +41,7 @@ class OtelSpanProcessor(BatchSpanProcessor):
         # with other tracing destinations. Doing this makes it much easier to handle
         # multiple tracing destinations.
         request_id = uuid.uuid4().hex
-        trace_info = TraceInfo(
+        trace_info = TraceInfoV2(
             request_id=request_id,
             experiment_id=None,
             timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond

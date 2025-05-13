@@ -1,10 +1,11 @@
 import functools
 import inspect
-from typing import Callable, Literal, Optional, Union
+from typing import Any, Callable, Literal, Optional, Union
 
 from pydantic import BaseModel
 
 from mlflow.entities import Assessment
+from mlflow.entities.trace import Trace
 
 
 class Scorer(BaseModel):
@@ -14,36 +15,105 @@ class Scorer(BaseModel):
     def __call__(
         self,
         *,
-        inputs=None,
-        outputs=None,
-        expectations=None,
-        trace=None,
+        inputs: Any = None,
+        outputs: Any = None,
+        expectations: Optional[dict[str, Any]] = None,
+        trace: Optional[Trace] = None,
         **kwargs,
     ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
         # TODO: make sure scorer's signature is simply equal to whatever keys are
         # in the eval dataset once we migrate from the agent eval harness
+        # Currently, the evaluation harness only passes the following reserved
+        # extra keyword arguments. This will be fully flexible once we migrate off
+        # the agent eval harness.
+        # - retrieved_context (optional): Retrieved context, can be from your
+        #   input eval dataset or from trace
+        # - custom_expected (optional): Custom expected results from input eval dataset
+        # - custom_inputs (optional): Custom inputs from your input eval dataset
+        # - custom_outputs (optional): Custom outputs from the agent's response
+        # - tool_calls (optional): Tool calls from the agent's response.
         """
+        Implement the custom scorer's logic here.
 
-        Args:
-            inputs (optional): A single input to the target model/app.
-            outputs (optional): A single output from the target model/app.
-            expectations (optional): Ground truth, or a dictionary of ground
-                truths for individual output fields.
-            trace (optional): Json representation of a trace object corresponding to
-                the prediction for the row. Required when any of scorers requires a
-                trace in order to compute assessments/scores.
-            **kwargs (optional): Additional keyword arguments passed to the scorer. The scorer
-                can take additional keyword arguments that are a part of the input eval dataset.
-                NB: Currently, the evaluation harness only passes the following reserved
-                    extra keyword arguments. This will be fully flexible once we migrate off
-                    the agent eval harness.
 
-                    - retrieved_context (optional): Retrieved context, can be from your
-                        input eval dataset or from trace
-                    - custom_expected (optional): Custom expected results from input eval dataset
-                    - custom_inputs (optional): Custom inputs from your input eval dataset
-                    - custom_outputs (optional): Custom outputs from the agent's response
-                    - tool_calls (optional): Tool calls from the agent's response.
+        The scorer will be called for each row in the input evaluation dataset.
+
+        Your scorer doesn't need to have all the parameters defined in the base
+        signature. You can define a custom scorer with only the parameters you need.
+        See the parameter details below for what values are passed for each parameter.
+
+        .. list-table::
+            :widths: 20 20 20 20
+            :header-rows: 1
+
+            * - Parameter
+              - Description
+              - Source
+
+            * - `inputs`
+              - A single input to the target model/app.
+              - Derived from either dataset or trace.
+                - When the dataset contains `inputs` column, the value will be
+                    passed as is.
+                - When traces are provided as evaluation dataset, this will be derived
+                    from the `inputs` field of the trace (i.e. inputs captured as the
+                    root span of the trace).
+            * - `outputs`
+              - A single output from the target model/app.
+              - Derived from either dataset, trace, or output of `predict_fn`.
+                - When the dataset contains `outputs` column, the value will be
+                    passed as is.
+                - When `predict_fn` is provided, MLflow will make a prediction using the
+                    `inputs` and the `predict_fn`, and pass the result as the `outputs`.
+                - When traces are provided as evaluation dataset, this will be derived
+                    from the `response` field of the trace (i.e. outputs captured as the
+                    root span of the trace).
+            * - `expectations`
+              - Ground truth or any expectation for each prediction, e.g. expected retrieved docs.
+              - Derived from either dataset or trace.
+                - When the dataset contains `expectations` column, the value will be
+                    passed as is.
+                - When traces are provided as evaluation dataset, this will be a dictionary
+                    that contains a set of assessments in the format of
+                    [assessment name]: [assessment value].
+            * - `trace`
+              - A trace object corresponding to the prediction for the row.
+              - Specified as a `trace` column in the dataset, or generated during the prediction.
+            * - **kwargs
+              - Additional keyword arguments passed to the scorer.
+              - Must be specified as extra columns in the input dataset.
+
+        Example:
+
+            .. code-block:: python
+
+                class NotEmpty(BaseScorer):
+                    name = "not_empty"
+
+                    def __call__(self, *, outputs) -> bool:
+                        return outputs != ""
+
+
+                class ExactMatch(BaseScorer):
+                    name = "exact_match"
+
+                    def __call__(self, *, outputs, expectations) -> bool:
+                        return outputs == expectations["expected_response"]
+
+
+                class NumToolCalls(BaseScorer):
+                    name = "num_tool_calls"
+
+                    def __call__(self, *, trace) -> int:
+                        spans = trace.search_spans(name="tool_call")
+                        return len(spans)
+
+
+                # Use the scorer in an evaluation
+                mlflow.genai.evaluate(
+                    data=data,
+                    scorers=[NotEmpty(), ExactMatch(), NumToolCalls()],
+                )
         """
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
@@ -68,9 +138,79 @@ def scorer(
     ] = None,
 ):
     """
-    Syntactic sugar that ensures the decorated function has the correct parameters (with inputs
-    as required, outputs, expectations, trace as optional) and returns float | bool |
-    str | Assessment.
+    A decorator to define a custom scorer that can be used in `mlflow.genai.evaluate()`.
+
+    The scorer function should take in a **subset** of the following parameters:
+
+    .. list-table::
+        :widths: 20 20 20 20
+        :header-rows: 1
+
+        * - Parameter
+          - Description
+          - Source
+
+        * - `inputs`
+          - A single input to the target model/app.
+          - Derived from either dataset or trace.
+            - When the dataset contains `inputs` column, the value will be
+              passed as is.
+            - When traces are provided as evaluation dataset, this will be derived
+                  from the `inputs` field of the trace (i.e. inputs captured as the
+                  root span of the trace).
+        * - `outputs`
+          - A single output from the target model/app.
+          - Derived from either dataset, trace, or output of `predict_fn`.
+            - When the dataset contains `outputs` column, the value will be
+                passed as is.
+            - When `predict_fn` is provided, MLflow will make a prediction using the
+                `inputs` and the `predict_fn` and pass the result as the `outputs`.
+            - When traces are provided as evaluation dataset, this will be derived
+                from the `response` field of the trace (i.e. outputs captured as the
+                root span of the trace).
+        * - `expectations`
+          - Ground truth or any expectation for each prediction e.g., expected retrieved docs.
+          - Derived from either dataset or trace.
+            - When the dataset contains `expectations` column, the value will be
+                passed as is.
+            - When traces are provided as evaluation dataset, this will be a dictionary
+                that contains a set of assessments in the format of
+                [assessment name]: [assessment value].
+        * - `trace`
+          - A trace object corresponding to the prediction for the row.
+          - Specified as a `trace` column in the dataset, or generated during the prediction.
+        * - **kwargs
+          - Additional keyword arguments passed to the scorer.
+          - Must be specified as extra columns in the input dataset.
+
+    Example:
+
+        .. code-block:: python
+
+            from mlflow.genai.scorers import scorer
+
+
+            @scorer
+            def not_empty(outputs) -> bool:
+                return outputs != ""
+
+
+            @scorer
+            def exact_match(outputs, expectations) -> bool:
+                return outputs == expectations["expected_response"]
+
+
+            @scorer
+            def num_tool_calls(trace) -> int:
+                spans = trace.search_spans(name="tool_call")
+                return len(spans)
+
+
+            # Use the scorer in an evaluation
+            mlflow.genai.evaluate(
+                data=data,
+                scorers=[not_empty, exact_match, num_tool_calls],
+            )
     """
 
     if func is None:

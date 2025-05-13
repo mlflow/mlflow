@@ -12,7 +12,7 @@ interface MultiSelectProps<T> extends CommonComboboxStateProps<T> {
     selectedItems: T[];
     setSelectedItems: React.Dispatch<React.SetStateAction<T[]>>;
 }
-interface CommonComboboxStateProps<T> extends AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+interface CommonComboboxStateProps<T> extends AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /**
      * The complete list of items, used for filtering. If you are going to render groups,
      * this list MUST be sorted so that groups are together and in the same order they are
@@ -30,7 +30,6 @@ interface CommonComboboxStateProps<T> extends AnalyticsEventValueChangeNoPiiFlag
     onStateChange?: (changes: UseComboboxStateChange<T>) => void;
     initialSelectedItem?: T;
     initialInputValue?: string;
-    shouldSetItemsOnAllItemsChanges?: boolean;
     /**
      * When using RHF adapters, single select TypeaheadCombobox clears the value on blur, this prop prevents that behavior.
      */
@@ -74,9 +73,12 @@ export declare const TypeaheadComboboxMultiSelectStateChangeTypes: {
     FunctionReset: import("downshift").UseMultipleSelectionStateChangeTypes.FunctionReset;
 };
 export type UseComboboxStateProps<T> = SingleSelectProps<T> | MultiSelectProps<T>;
-export type ComboboxStateAnalyticsReturnValue<T> = UseComboboxReturnValue<T> & AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange>;
-export declare function useComboboxState<T>({ allItems, items, itemToString, onIsOpenChange, allowNewValue, formValue, formOnChange, formOnBlur, componentId, valueHasNoPii, analyticsEvents, matcher, shouldSetItemsOnAllItemsChanges, preventUnsetOnBlur, ...props }: UseComboboxStateProps<T>): ComboboxStateAnalyticsReturnValue<T>;
-interface AnalyticsConfig extends AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export type ComboboxStateAnalyticsReturnValue<T> = UseComboboxReturnValue<T> & AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> & {
+    onView: (value: any) => void;
+    firstOnViewValue?: string;
+};
+export declare function useComboboxState<T>({ allItems, items, itemToString, onIsOpenChange, allowNewValue, formValue, formOnChange, formOnBlur, componentId, valueHasNoPii, analyticsEvents, matcher, preventUnsetOnBlur, ...props }: UseComboboxStateProps<T>): ComboboxStateAnalyticsReturnValue<T>;
+interface AnalyticsConfig extends AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     itemToString?: (item: any) => string;
 }
 export declare function useMultipleSelectionState<T>(selectedItems: T[], setSelectedItems: React.Dispatch<React.SetStateAction<T[]>>, { componentId, analyticsEvents, valueHasNoPii, itemToString, }: AnalyticsConfig): UseMultipleSelectionReturnValue<T>;

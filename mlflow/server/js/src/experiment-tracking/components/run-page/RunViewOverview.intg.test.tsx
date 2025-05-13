@@ -14,9 +14,13 @@ import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPag
 import type { KeyValueEntity, RunInfoEntity } from '../../types';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { setupServer } from '../../../common/utils/setup-msw';
+import type { LoggedModelProto } from '../../types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
-import { graphql } from 'msw';
+import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
+
+jest.mock('../../hooks/useExperimentTrackingDetailsPageLayoutStyles', () => ({
+  useExperimentTrackingDetailsPageLayoutStyles: jest.fn(),
+}));
 
 jest.mock('../../../common/components/Prompt', () => ({
   Prompt: jest.fn(() => <div />),
@@ -25,6 +29,13 @@ jest.mock('../../../common/components/Prompt', () => ({
 jest.mock('../../actions', () => ({
   setTagApi: jest.fn(() => ({ type: 'setTagApi', payload: Promise.resolve() })),
   getRunApi: jest.fn(() => ({ type: 'getRunApi', payload: Promise.resolve() })),
+}));
+
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableGraphQLRunDetailsPage: () => false,
 }));
 
 const testPromptName = 'test-prompt';
@@ -90,19 +101,25 @@ const testEntitiesState: Partial<ReduxState['entities']> = {
 };
 
 describe('RunViewOverview integration', () => {
-  const server = setupServer();
   const onRunDataUpdated = jest.fn();
 
+  beforeEach(() => {
+    jest.mocked<any>(useExperimentTrackingDetailsPageLayoutStyles).mockReturnValue({
+      usingUnifiedDetailsLayout: false,
+    });
+  });
   const renderComponent = ({
     tags = {},
     runInfo,
     reduxStoreEntities = {},
+    loggedModelsV3,
     registeredModelVersionSummaries = [],
   }: {
     tags?: Record<string, KeyValueEntity>;
     reduxStoreEntities?: DeepPartial<ReduxState['entities']>;
     runInfo?: Partial<RunInfoEntity>;
     registeredModelVersionSummaries?: RunPageModelVersionSummary[];
+    loggedModelsV3?: LoggedModelProto[] | undefined;
   } = {}) => {
     const state: DeepPartial<ReduxState> = {
       entities: merge(
@@ -122,7 +139,7 @@ describe('RunViewOverview integration', () => {
       <DesignSystemProvider>
         <QueryClientProvider client={queryClient}>
           <MockedReduxStoreProvider state={state}>
-            <TestApolloProvider disableCache>
+            <TestApolloProvider>
               <MemoryRouter>
                 <RunViewOverview
                   onRunDataUpdated={onRunDataUpdated}
@@ -132,6 +149,7 @@ describe('RunViewOverview integration', () => {
                   runInfo={{ ...testRunInfo, ...runInfo }}
                   tags={merge({}, testEntitiesState.tagsByRunUuid?.[testRunUuid], tags) || {}}
                   registeredModelVersionSummaries={registeredModelVersionSummaries}
+                  loggedModelsV3={loggedModelsV3}
                 />
               </MemoryRouter>
             </TestApolloProvider>
@@ -298,31 +316,35 @@ describe('RunViewOverview integration', () => {
     expect(screen.getByText('another-test-registered-model')).toBeInTheDocument();
   });
 
+  test('Render child run and check for the existing parent run link', () => {
+    const testParentRunUuid = 'test-parent-run-uuid';
+    const testParentRunName = 'Test parent run name';
+
+    renderComponent({
+      tags: {
+        [EXPERIMENT_PARENT_ID_TAG]: {
+          key: EXPERIMENT_PARENT_ID_TAG,
+          value: testParentRunUuid,
+        } as KeyValueEntity,
+      },
+      runInfo: {},
+      reduxStoreEntities: {
+        runInfosByUuid: {
+          [testParentRunUuid]: {
+            experimentId: testExperimentId,
+            runUuid: testParentRunUuid,
+            runName: testParentRunName,
+          },
+        },
+      },
+    });
+
+    expect(screen.getByRole('row', { name: /Parent run\s+Test parent run name/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Test parent run name/ })).toBeInTheDocument();
+  });
+
   test('Render child run and load the parent run name if it does not exist', async () => {
     const testParentRunUuid = 'test-parent-run-uuid';
-
-    // Mock parent run data in the API
-    server.use(
-      graphql.query('GetRun', (req, res, ctx) => {
-        return res(
-          ctx.data({
-            mlflowGetRun: {
-              run: {
-                info: {
-                  experimentId: testExperimentId,
-                  runUuid: testParentRunUuid,
-                  runName: 'Test parent run name',
-                  lifecycleStage: 'active',
-                  startTime: 1672578000000,
-                  endTime: 1672578300000,
-                  artifactUri: 'file:/mlflow/tracking/12345/artifacts',
-                },
-              },
-            },
-          }),
-        );
-      }),
-    );
 
     renderComponent({
       tags: {
@@ -334,7 +356,8 @@ describe('RunViewOverview integration', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Test parent run name')).toBeInTheDocument();
+      expect(screen.getByText('Parent run name loading')).toBeInTheDocument();
+      expect(getRunApi).toBeCalledWith(testParentRunUuid);
     });
   });
 

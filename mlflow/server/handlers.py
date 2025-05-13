@@ -36,7 +36,7 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
@@ -224,7 +224,7 @@ def _get_artifact_repo_mlflow_artifacts():
     return _artifact_repo
 
 
-def _get_trace_artifact_repo(trace_info: TraceInfo):
+def _get_trace_artifact_repo(trace_info: TraceInfoV2):
     """
     Resolve the artifact repository for fetching data for the given trace.
 
