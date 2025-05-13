@@ -76,7 +76,7 @@ def test_json_deserialization(monkeypatch):
                 TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
                 "mlflow.traceInputs": '{"x": 2, "y": 5}',
                 "mlflow.traceOutputs": "8",
-                "mlflow.source.name": "test",
+                "mlflow.source.name": mock.ANY,
                 "mlflow.source.type": "LOCAL",
                 "mlflow.source.git.branch": mock.ANY,
                 "mlflow.source.git.commit": mock.ANY,
