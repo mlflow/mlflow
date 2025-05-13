@@ -112,7 +112,9 @@ class TraceServerSpanExporter(SpanExporter):
             self._loop.run_until_complete(self._ingest_spans(proto_spans))
                 
         except Exception as e:
+            import traceback
             _logger.warning(f"Failed to send trace to Databricks Trace Server: {e}")
+            _logger.warning(f"Stack trace: {traceback.format_exc()}")
 
     async def _get_stream(self):
         """
@@ -190,8 +192,13 @@ class TraceServerSpanExporter(SpanExporter):
             proto_span.kind = kind_mapping.get(getattr(span, "kind", "internal").lower(), "INTERNAL")
             
             # Set timestamps
-            proto_span.start_time_unix_nano = getattr(span, "start_time_ns", current_time_ns)
-            proto_span.end_time_unix_nano = getattr(span, "end_time_ns", current_time_ns + 1000000000)
+            start_time_ns = getattr(span, "start_time_ns", current_time_ns)
+            end_time_ns = getattr(span, "end_time_ns", None)
+            if end_time_ns is None:
+                end_time_ns = start_time_ns + 1000000000  # fallback: 1s after start
+
+            proto_span.start_time_unix_nano = start_time_ns
+            proto_span.end_time_unix_nano = end_time_ns
             
             # Convert attributes to JSON string
             proto_span.attributes = json.dumps(getattr(span, "attributes", {}))
