@@ -55,13 +55,22 @@ experiments/
 
 #### I want to modify `requirements.txt` of my model. How can I do that?
 
-You can modify the `requirements.txt` of your model using <APILink fn="mlflow.models.update_requirements" /> to add or remove requirements. The `update_requirements` function allows you to specify a new requirements file or a list of new requirements to be added.
+You can modify `requirements.txt` of your model using <APILink fn="mlflow.models.update_model_requirements" /> to add or remove requirements. Here's an example of how to add a requirement to the model:
 
 ```python
 import mlflow
 
+
+class DummyModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input: list[str]) -> list[str]:
+        return model_input
+
+
+model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
 mlflow.models.update_model_requirements(
-    model_uri="models:/<model_id>", operation="add", requirement_list=["..."]
+    model_uri=model_info.model_uri,
+    operation="add",
+    requirement_list=["scikit-learn"],
 )
 ```
 
