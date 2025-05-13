@@ -93,8 +93,14 @@ def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
         )
 
     comparisons: list[sqlalchemy.BinaryExpression] = []
-    statements = iter(s for s in parsed[0] if not s.is_whitespace)
-    while stmt := next(statements, None):
+    statements = [s for s in parsed[0] if not s.is_whitespace]
+    index = 0
+    err_msg = (
+        f"Invalid filter string: {filter_string!r}. Expected a list of comparisons "
+        f"separated by 'AND' (e.g. 'metrics.loss > 0.1 AND params.lr = 0.01')."
+    )
+    while index < len(statements):
+        stmt = statements[index]
         if isinstance(stmt, sqlparse.sql.Comparison):
             non_whitespace_tokens = [str(t) for t in stmt.tokens if not t.is_whitespace]
             if len(non_whitespace_tokens) != 3:
@@ -106,33 +112,36 @@ def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
             entity.validate_op(op)
             value = float(value) if entity.is_numeric() else value.strip("'")
             comparisons.append(Comparison(entity=entity, op=op, value=value))
+            index += 1
         elif stmt.value.strip().upper() == "AND":
             # Do nothing, this is just a separator
-            pass
+            index += 1
         elif isinstance(stmt, sqlparse.sql.Identifier):
-            # Handle IN and NOT IN comparisons
-            second_stmt = (s := next(statements, None)) and s.value.upper()
-            if second_stmt == "IN":
-                value = next(statements, None)
-                entity = Entity.from_str(stmt.value)
-                entity.validate_op("IN")
-                op = "IN"
-            elif second_stmt == "NOT":
-                in_op = (s := next(statements, None)) and s.value.upper()
-                if in_op.upper() != "IN":
-                    raise MlflowException.invalid_parameter_value(
-                        f"Invalid filter string: {filter_string!r}. Expected 'NOT IN'."
-                    )
-                value = next(statements, None)
-                entity = Entity.from_str(stmt.value)
-                entity.validate_op("NOT IN")
-                op = "NOT IN"
-            else:
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid filter string: {filter_string!r}. Expected a list of comparisons "
-                    f"separated by 'AND' (e.g. 'metrics.loss > 0.1 AND params.lr = 0.01')."
-                )
+            # `IN` and `NOT IN` clauses are not parsed as `Comparison` objects by sqlparse.
+            try:
+                next_token = statements[index + 1].value.upper()
+                if next_token == "IN":
+                    # [stmt, "IN", value, ...]
+                    op = "IN"
+                    value = statements[index + 2]
+                    index += 3  # advance 3 tokens
+                elif next_token == "NOT":
+                    # [stmt, "NOT", "IN", value, ...]
+                    in_op = statements[index + 2].value.upper()
+                    if in_op != "IN":
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid filter string: {filter_string!r}. Expected 'IN' after 'NOT'."
+                        )
+                    op = "NOT IN"
+                    value = statements[index + 3]
+                    index += 4  # advance 4 tokens
+                else:
+                    raise MlflowException.invalid_parameter_value(err_msg)
+            except IndexError as e:
+                raise MlflowException.invalid_parameter_value(err_msg) from e
 
+            entity = Entity.from_str(stmt.value)
+            entity.validate_op(op)
             value = ast.literal_eval(value.value)
             if not isinstance(value, (tuple, str)):
                 raise MlflowException.invalid_parameter_value(
@@ -142,9 +151,6 @@ def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
             value = (value,) if isinstance(value, str) else value
             comparisons.append(Comparison(entity=entity, op=op, value=value))
         else:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid filter string: {filter_string!r}. Expected a list of comparisons "
-                f"separated by 'AND' (e.g. 'metrics.loss > 0.1 AND params.lr = 0.01')."
-            )
+            raise MlflowException.invalid_parameter_value(err_msg)
 
     return comparisons
