@@ -1891,7 +1891,9 @@ class SearchLoggedModelsUtils(SearchUtils):
 
     @classmethod
     def validate_list_supported(cls, key: str) -> None:
-        pass
+        """
+        Override to allow logged model attributes to be used with IN/NOT IN.
+        """
 
     @classmethod
     def filter_logged_models(cls, models: list[LoggedModel], filter_string: Optional[str] = None):
