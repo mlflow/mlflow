@@ -55,7 +55,7 @@ from mlflow.types.llm import (
     ChatParams,
 )
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
     is_in_databricks_serverless_runtime,
@@ -305,7 +305,8 @@ class PythonModelContext:
 class ChatModel(PythonModel, metaclass=ABCMeta):
     """
     .. tip::
-        Since MLflow 2.20.2, we recommend using :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`
+        Since MLflow 3.0.0, we recommend using
+        :py:class:`ResponsesAgent <mlflow.pyfunc.ResponsesAgent>`
         instead of :py:class:`ChatModel <mlflow.pyfunc.ChatModel>` unless you need strict
         compatibility with the OpenAI ChatCompletion API.
 
@@ -410,7 +411,6 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         )
 
 
-@experimental
 class ChatAgent(PythonModel, metaclass=ABCMeta):
     """
     **What is the ChatAgent Interface?**
@@ -579,7 +579,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         - ``{"task": "agent/v2/chat"}`` will be automatically appended to any metadata that you may
           pass in when logging the model
     - Input Example
-        - Providng an input example is optional, ``mlflow.types.agent.CHAT_AGENT_INPUT_EXAMPLE``
+        - Providing an input example is optional, ``mlflow.types.agent.CHAT_AGENT_INPUT_EXAMPLE``
           will be provided by default
         - If you do provide an input example, ensure it's a dict with the
           :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema
@@ -845,7 +845,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
                     )
 
         @abstractmethod
-        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+        def predict(self, request: ResponsesAgentRequest, context=None) -> ResponsesAgentResponse:
             pass
 
         @abstractmethod
