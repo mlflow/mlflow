@@ -4886,7 +4886,6 @@ def test_delete_logged_model_tag(store: SqlAlchemyStore):
 
 
 def test_search_logged_models(store: SqlAlchemyStore):
-    # TODO: Support filtering, ordering, and pagination
     exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
 
     model_1 = store.create_logged_model(experiment_id=exp_id_1)
@@ -4935,6 +4934,28 @@ def test_search_logged_models_filter_string(store: SqlAlchemyStore):
     )
     assert [m.name for m in models] == [model_1.name]
     assert models.token is None
+
+    for val in (
+        # A single item without a comma
+        f"('{model_1.name}')",
+        # A single item with a comma
+        f"('{model_1.name}',)",
+        # Multiple items
+        f"('{model_1.name}', 'foo')",
+    ):
+        # IN
+        models = store.search_logged_models(
+            experiment_ids=[exp_id_1],
+            filter_string=f"name IN {val}",
+        )
+        assert [m.name for m in models] == [model_1.name]
+        assert models.token is None
+        # NOT IN
+        models = store.search_logged_models(
+            experiment_ids=[exp_id_1],
+            filter_string=f"name NOT IN {val}",
+        )
+        assert [m.name for m in models] == []
 
     # Search by numeric attribute
     models = store.search_logged_models(
