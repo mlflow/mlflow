@@ -10,10 +10,11 @@ from google.protobuf.json_format import ParseDict
 import mlflow
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace import Trace
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.protos import service_pb2 as pb
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.destination import Databricks
+from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.provider import _get_trace_exporter
 
 _EXPERIMENT_ID = "dummy-experiment-id"
@@ -49,8 +50,8 @@ def test_export_with_size(is_async, monkeypatch):
         nonlocal trace_info
         trace_dict = json.loads(trace_json)
         trace_proto = ParseDict(trace_dict["trace"], pb.Trace())
-        trace_info_proto = ParseDict(trace_dict["trace"]["trace_info"], pb.TraceInfoV3())
-        trace_info = TraceInfoV3.from_proto(trace_info_proto)
+        trace_info_proto = ParseDict(trace_dict["trace"]["trace_info"], pb.TraceInfo())
+        trace_info = TraceInfo.from_proto(trace_info_proto)
         return pb.StartTraceV3.Response(trace=trace_proto)
 
     with (
@@ -88,7 +89,7 @@ def test_export_with_size(is_async, monkeypatch):
 
     # Validate the data was passed to upload_trace_data
     call_args = mock_upload_trace_data.call_args
-    assert isinstance(call_args.args[0], TraceInfoV3)
+    assert isinstance(call_args.args[0], TraceInfo)
     assert call_args.args[0].trace_id == trace_info.trace_id
 
     # We don't need to validate the exact JSON structure anymore since
@@ -96,6 +97,17 @@ def test_export_with_size(is_async, monkeypatch):
 
     # Last active trace ID should be set
     assert mlflow.get_last_active_trace_id() is not None
+
+
+@mock.patch("mlflow.tracing.export.mlflow_v3.is_in_databricks_notebook", return_value=True)
+def test_async_logging_disabled_in_databricks_notebook(mock_is_in_db_notebook, monkeypatch):
+    exporter = MlflowV3SpanExporter()
+    assert not exporter._is_async_enabled
+
+    # If the env var is set explicitly, we should respect that
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
+    exporter = MlflowV3SpanExporter()
+    assert exporter._is_async_enabled
 
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])

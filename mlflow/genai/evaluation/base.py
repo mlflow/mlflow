@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
@@ -38,8 +39,8 @@ class EvaluationResult:
 
 def evaluate(
     data: "EvaluationDatasetTypes",
+    scorers: list[Scorer],
     predict_fn: Optional[Callable[..., Any]] = None,
-    scorers: Optional[list[Scorer]] = None,
     model_id: Optional[str] = None,
 ) -> EvaluationResult:
     """
@@ -58,7 +59,8 @@ def evaluate(
             * List of dictionary
 
             If a dataframe is specified, it must contain the following schema:
-              - inputs (required): A column that contains a single input.
+              - inputs (optional): A column that contains a single input. This is required
+                unless trace is provided.
               - outputs (optional): A column that contains a single output from the
                    target model/app. If the predict_fn is provided, this is generated
                    by MLflow so not required.
@@ -72,16 +74,16 @@ def evaluate(
             If a list of dictionary is passed, each dictionary should contain keys
             following the above schema.
 
+        scorers: A list of Scorer objects that produces evaluation scores from
+            inputs, outputs, and other additional contexts. MLflow provides pre-defined
+            scorers, but you can also define custom ones.
+
         predict_fn: The target function to be evaluated. The specified function will be
             executed for each row in the input dataset, and outputs will be used for
             scoring.
 
             The function must emit a single trace per call. If it doesn't, decorate
             the function with @mlflow.trace decorator to ensure a trace to be emitted.
-
-        scorers: A list of Scorer objects that produces evaluation scores from
-            inputs, outputs, and other additional contexts. MLflow provides pre-defined
-            scorers, but you can also define custom ones.
 
         model_id: Optional. Specify an ID of the model e.g. models:/my-model/1 to
             associate the evaluation result with. There are several ways to associate
@@ -109,10 +111,15 @@ def evaluate(
             "Please set the tracking URI to Databricks."
         )
 
+    if not scorers:
+        raise MlflowException.invalid_parameter_value(
+            "At least one scorer is required to evaluate a model."
+        )
+
     builtin_scorers = []
     custom_scorers = []
 
-    for scorer in scorers or []:
+    for scorer in scorers:
         if isinstance(scorer, BuiltInScorer):
             builtin_scorers.append(scorer)
         elif isinstance(scorer, Scorer):
@@ -131,7 +138,11 @@ def evaluate(
                 )
             )
 
-    evaluation_config = {}
+    evaluation_config = {
+        GENAI_CONFIG_NAME: {
+            "metrics": [],
+        }
+    }
     for _scorer in builtin_scorers:
         evaluation_config = _scorer.update_evaluation_config(evaluation_config)
 

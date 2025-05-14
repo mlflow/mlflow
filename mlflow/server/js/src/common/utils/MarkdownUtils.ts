@@ -99,3 +99,10 @@ export const sanitizeConvertedHtml = (dirtyHtml: any) => {
 export const forceAnchorTagNewTab = (html: any) => {
   return html.replace(new RegExp('<a', 'g'), '<a target="_blank"');
 };
+
+export const useMarkdownConverter = () =>
+  useCallback((markdown?: string) => {
+    const converter = getMarkdownConverter();
+    const html = converter.makeHtml(markdown);
+    return sanitizeConvertedHtml(html);
+  }, []);

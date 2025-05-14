@@ -209,5 +209,5 @@ The following configurations are available for async logging:
 | Environment Variable | Description | Default Value |
 |----------------------|-------------|---------------|
 |`MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`|The maximum number of worker threads to use for async trace logging.|`10`|
-|`MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE`|The maximum number of traces that can be queued for logging. Traces will be discarded if the queue is full.|`50`|
-|`MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`|Timeout in seconds for retrying failed trace logging. Namely, failed traces will be retried up to this timeout with backoff, after which they will be discarded.|`5`|
+|`MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE`|The maximum number of traces that can be queued for logging. Traces will be discarded if the queue is full.|`1000`|
+|`MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`|Timeout in seconds for retrying failed trace logging. Namely, failed traces will be retried up to this timeout with backoff, after which they will be discarded.|`500`|

@@ -2,7 +2,7 @@ import pytest
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from mlflow.entities import TraceInfo
+from mlflow.entities import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -16,7 +16,7 @@ from mlflow.tracing.constant import (
 
 @pytest.fixture
 def trace_info():
-    return TraceInfo(
+    return TraceInfoV2(
         request_id="request_id",
         experiment_id="test_experiment",
         timestamp_ms=0,
@@ -104,7 +104,7 @@ def test_to_dict(trace_info):
 
 def test_trace_info_serialization_deserialization(trace_info_proto):
     # trace info proto -> TraceInfo
-    trace_info = TraceInfo.from_proto(trace_info_proto)
+    trace_info = TraceInfoV2.from_proto(trace_info_proto)
     assert trace_info.request_id == "request_id"
     assert trace_info.experiment_id == "test_experiment"
     assert trace_info.timestamp_ms == 0
@@ -137,7 +137,7 @@ def test_trace_info_serialization_deserialization(trace_info_proto):
         "assessments": [],
     }
     # python native dictionary -> TraceInfo
-    assert TraceInfo.from_dict(trace_info_as_dict) == trace_info
+    assert TraceInfoV2.from_dict(trace_info_as_dict) == trace_info
     # TraceInfo -> trace info proto
     assert trace_info.to_proto() == trace_info_proto
 

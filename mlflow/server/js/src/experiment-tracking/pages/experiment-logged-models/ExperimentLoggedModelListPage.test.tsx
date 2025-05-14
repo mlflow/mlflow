@@ -1,6 +1,6 @@
 import { graphql, rest } from 'msw';
 import { setupServer } from '../../../common/utils/setup-msw';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, act } from '@testing-library/react';
 import ExperimentLoggedModelListPage from './ExperimentLoggedModelListPage';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
@@ -19,6 +19,7 @@ jest.setTimeout(90000); // increase timeout due to testing heavier tables and ch
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  isLoggedModelsFilteringAndSortingEnabled: jest.fn(() => true),
   isExperimentLoggedModelsUIEnabled: jest.fn(() => true),
 }));
 
@@ -50,11 +51,28 @@ describe('ExperimentLoggedModelListPage', () => {
   // Simulate API returning logged models in particular order, configured by "ascending" flag
   const createTestLoggedModelsResponse = (
     experiment_id = 'test-experiment',
-    { ascending = false, pageToken }: { ascending?: boolean; pageToken?: string } = {},
+    {
+      ascending = false,
+      pageToken,
+      filter,
+    }: {
+      ascending?: boolean;
+      pageToken?: string;
+      // Filter string, the only supported one is "metrics.common-metric" one
+      filter?: string;
+    } = {},
   ) => {
     const allResults = 6;
     const pageSize = 3;
     const page = Number(pageToken) || 1;
+
+    const modelsWithRegisteredVersions = ['m-6', 'm-4'];
+    // Parse filter string to extract the value of "metrics.common-metric"
+    const parsedFilterMetric = filter ? filter.match(/metrics\.common-metric = (.+)/)?.[1] : undefined;
+
+    if (filter && !parsedFilterMetric) {
+      throw new Error('Parse error: invalid filter string');
+    }
 
     const allModels = Array.from({ length: allResults }, (_, i) => ({
       info: {
@@ -66,7 +84,19 @@ describe('ExperimentLoggedModelListPage', () => {
         source_run_id: 'test-run',
         status: LoggedModelStatusProtoEnum.LOGGED_MODEL_PENDING,
         status_message: 'Pending',
-        tags: [],
+        tags: modelsWithRegisteredVersions.includes(`m-${i + 1}`)
+          ? [
+              {
+                key: 'mlflow.modelVersions',
+                value: JSON.stringify([
+                  {
+                    name: 'registered-model-name-' + (i + 1),
+                    version: 1,
+                  },
+                ]),
+              },
+            ]
+          : [],
         creation_timestamp_ms: i * 1000,
       },
       data: {
@@ -76,16 +106,26 @@ describe('ExperimentLoggedModelListPage', () => {
             timestamp: i,
             step: i,
             value: i,
+            dataset_digest: undefined as string | undefined,
+            dataset_name: undefined as string | undefined,
           },
           {
             key: 'test-metric-for-model-' + (i + 1),
             timestamp: i,
             step: i,
             value: i,
+            dataset_digest: undefined as string | undefined,
+            dataset_name: undefined as string | undefined,
           },
         ],
       },
-    }));
+    })).filter(
+      (model) =>
+        !parsedFilterMetric ||
+        model.data.metrics.some(
+          (metric) => metric.key === 'common-metric' && metric.value === Number(parsedFilterMetric),
+        ),
+    );
 
     const next_page_token = page * pageSize < allResults ? (page + 1).toString() : null;
 
@@ -102,12 +142,17 @@ describe('ExperimentLoggedModelListPage', () => {
       return res(ctx.json({ run: { info: { run_uuid: 'test-run' } } }));
     }),
     rest.post<any>('/ajax-api/2.0/mlflow/logged-models/search', (req, res, ctx) => {
-      const responsePayload = createTestLoggedModelsResponse('test-experiment', {
-        ascending: (req?.body as any)?.order_by?.[0]?.ascending,
-        pageToken: (req?.body as any)?.page_token,
-      });
+      try {
+        const responsePayload = createTestLoggedModelsResponse('test-experiment', {
+          ascending: (req?.body as any)?.order_by?.[0]?.ascending,
+          pageToken: (req?.body as any)?.page_token,
+          filter: (req?.body as any)?.filter,
+        });
 
-      return res(ctx.json(responsePayload));
+        return res(ctx.json(responsePayload));
+      } catch (error: any) {
+        return res(ctx.status(400), ctx.json({ message: error.message, error_code: 400 }));
+      }
     }),
   );
 
@@ -148,30 +193,6 @@ describe('ExperimentLoggedModelListPage', () => {
       expect(screen.getByText('Test model 6')).toBeInTheDocument();
       expect(screen.getByText('Test model 5')).toBeInTheDocument();
       expect(screen.getByText('Test model 4')).toBeInTheDocument();
-    });
-  });
-
-  test('should change sort order for runs', async () => {
-    renderTestComponent();
-
-    await waitFor(() => {
-      expect(screen.getByText('Test model 6')).toBeInTheDocument();
-    });
-
-    expect(screen.getAllByRole('link', { name: /Test model \d/ }).map((cell) => cell.textContent)).toEqual([
-      'Test model 6',
-      'Test model 5',
-      'Test model 4',
-    ]);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Sort: Created' }));
-
-    await waitFor(() => {
-      expect(screen.getAllByRole('link', { name: /Test model \d/ }).map((cell) => cell.textContent)).toEqual([
-        'Test model 1',
-        'Test model 2',
-        'Test model 3',
-      ]);
     });
   });
 
@@ -223,6 +244,127 @@ describe('ExperimentLoggedModelListPage', () => {
       'href',
       createMLflowRoutePath('/experiments/test-experiment/runs/test-run'),
     );
+  });
+
+  test('should display registered model versions', async () => {
+    renderTestComponent();
+
+    // Wait for the data to be loaded
+    await waitFor(() => {
+      expect(screen.getByText('Test model 6')).toBeInTheDocument();
+    });
+
+    // Expect model 6 to have a link to the registered model version
+    expect(screen.getByRole('link', { name: /registered-model-name-6 v1/ })).toHaveAttribute(
+      'href',
+      createMLflowRoutePath('/models/registered-model-name-6/versions/1'),
+    );
+
+    // Expect model 5 to not have any registered model version links
+    expect(screen.queryByRole('link', { name: /registered-model-name-5/ })).not.toBeInTheDocument();
+  });
+
+  test('should use search query filter and display filtered results', async () => {
+    renderTestComponent();
+
+    // We should see run names as links
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('metrics.rmse >= 0.8')).toBeInTheDocument();
+    });
+
+    await userEvent.type(screen.getByPlaceholderText('metrics.rmse >= 0.8'), 'metrics.common-metric = 5{enter}');
+
+    await waitFor(() => {
+      expect(screen.getByText('Test model 6')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Test model 5')).not.toBeInTheDocument();
+    expect(screen.queryByText('Test model 4')).not.toBeInTheDocument();
+    expect(screen.queryByText('Test model 3')).not.toBeInTheDocument();
+    expect(screen.queryByText('Test model 2')).not.toBeInTheDocument();
+    expect(screen.queryByText('Test model 1')).not.toBeInTheDocument();
+  });
+
+  test('should use search query filter and display empty results with relevant message', async () => {
+    renderTestComponent();
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('metrics.rmse >= 0.8')).toBeInTheDocument();
+    });
+
+    await userEvent.type(screen.getByPlaceholderText('metrics.rmse >= 0.8'), 'metrics.common-metric = 55{enter}');
+
+    await waitFor(() => {
+      expect(screen.getByText('No models found')).toBeInTheDocument();
+    });
+  });
+
+  test('should use malformed search query filter and display error message', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    renderTestComponent();
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('metrics.rmse >= 0.8')).toBeInTheDocument();
+    });
+
+    await userEvent.type(screen.getByPlaceholderText('metrics.rmse >= 0.8'), 'metr.malformed_query="{enter}');
+
+    await waitFor(() => {
+      expect(screen.getByText('Parse error: invalid filter string')).toBeInTheDocument();
+    });
+
+    jest.restoreAllMocks();
+  });
+
+  test('should allow filtering by datasets', async () => {
+    const requestSpy = jest.fn();
+    server.use(
+      rest.post<any>('/ajax-api/2.0/mlflow/logged-models/search', (req, res, ctx) => {
+        requestSpy(req.body);
+        const responsePayload = createTestLoggedModelsResponse('test-experiment');
+        const firstModelResult = responsePayload.models[0];
+        const secondModelResult = responsePayload.models[1];
+
+        for (const metric of firstModelResult.data.metrics) {
+          metric.dataset_digest = '123456';
+          metric.dataset_name = 'train_dataset';
+        }
+        for (const metric of secondModelResult.data.metrics) {
+          metric.dataset_digest = '987654';
+          metric.dataset_name = 'test_dataset';
+        }
+
+        return res(ctx.json(responsePayload));
+      }),
+    );
+
+    renderTestComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Test model 6')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Datasets' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'train_dataset (#123456)' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'test_dataset (#987654)' })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('option', { name: 'train_dataset (#123456)' }));
+
+    await waitFor(() => {
+      expect(requestSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          datasets: [
+            {
+              dataset_digest: '123456',
+              dataset_name: 'train_dataset',
+            },
+          ],
+        }),
+      );
+    });
   });
 
   describe('ExperimentLoggedModelListPage: charts', () => {

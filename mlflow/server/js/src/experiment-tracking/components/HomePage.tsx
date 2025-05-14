@@ -73,7 +73,7 @@ const HomePage = () => {
         {shouldRenderTabbedView && <ExperimentPageTabs />}
         {!shouldRenderTabbedView && (
           // Main content with the experiment view
-          <div css={{ height: '100%', flex: 1, padding: theme.spacing.md, paddingTop: theme.spacing.lg, minWidth: 0 }}>
+          <div css={{ height: '100%', flex: 1, padding: theme.spacing.md, paddingTop: theme.spacing.lg }}>
             <GetExperimentsContextProvider actions={getExperimentActions}>
               {hasExperiments ? <ExperimentView /> : <NoExperimentView />}
             </GetExperimentsContextProvider>

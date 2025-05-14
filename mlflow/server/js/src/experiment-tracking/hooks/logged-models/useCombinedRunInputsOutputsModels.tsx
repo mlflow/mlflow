@@ -8,7 +8,7 @@ import type {
 import type { LoggedModelProto, RunInfoEntity } from '../../types';
 import { useGetLoggedModelQueries } from './useGetLoggedModelQuery';
 
-type LoggedModelProtoWithRunDirection = LoggedModelProto & { direction: 'input' | 'output' };
+type LoggedModelProtoWithRunDirection = LoggedModelProto & { direction: 'input' | 'output'; step?: string };
 
 const filterMetricsByMatchingRunId = (runUuid?: string | null) => (loggedModel: LoggedModelProtoWithRunDirection) => {
   if (loggedModel.data?.metrics) {
@@ -43,9 +43,12 @@ export const useCombinedRunInputsOutputsModels = (
   const outputLoggedModels = useMemo(() => {
     return outputModelQueries.map<LoggedModelProtoWithRunDirection | undefined>((query) => {
       if (!query.data?.model) return undefined;
-      return { ...query.data?.model, direction: 'output' as const };
+      const correspondingOutputEntry = outputs?.modelOutputs?.find(
+        ({ modelId }) => modelId === query.data?.model?.info?.model_id,
+      );
+      return { ...query.data?.model, direction: 'output' as const, step: correspondingOutputEntry?.step ?? undefined };
     });
-  }, [outputModelQueries]);
+  }, [outputModelQueries, outputs?.modelOutputs]);
 
   const models = useMemo(() => {
     return (

@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event';
 
 import { SchemaTable } from './SchemaTable';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
-import { renderWithIntl, within } from '../../common/utils/TestUtils.react18';
+import { getByPlaceholderText, renderWithIntl, within } from '../../common/utils/TestUtils.react18';
 
 async function clickHeaderRow(container: HTMLElement, name: string | RegExp): Promise<void> {
   const row = within(container).getByRole('row', { name });
@@ -268,5 +268,38 @@ describe('SchemaTable', () => {
     expect(signatures).toHaveLength(2);
     expect(signatures[0].textContent).toEqual('{\n  prop1: string\n}');
     expect(signatures[1].textContent).toEqual('Array(binary)');
+  });
+
+  test('should handle large schemas (>100 columns)', async () => {
+    const { container, getByRole, getByText, getByPlaceholderText } = renderWithIntl(
+      <MemoryRouter>
+        <SchemaTable
+          schema={{
+            ...props.schema,
+            // Render schema with 500 input columns
+            inputs: new Array(500)
+              .fill({ name: 'column1', type: 'string' })
+              .map((item, index) => ({ ...item, name: `column${index}` })),
+          }}
+        />
+      </MemoryRouter>,
+    );
+    expect(getByRole('table')).toBeInTheDocument();
+    await clickHeaderRow(container, /Inputs/);
+
+    expect(
+      getByText(
+        'Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing 100 results from 500 total rows.',
+      ),
+    ).toBeInTheDocument();
+
+    await userEvent.click(getByPlaceholderText('Search for a field'));
+    await userEvent.paste('column499');
+
+    expect(
+      getByText(
+        'Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing 1 results from 500 total rows.',
+      ),
+    ).toBeInTheDocument();
   });
 });

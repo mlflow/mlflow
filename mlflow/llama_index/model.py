@@ -12,7 +12,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.llama_index.constant import FLAVOR_NAME
 from mlflow.llama_index.pyfunc_wrapper import create_pyfunc_wrapper
 from mlflow.models import Model, ModelInputExample, ModelSignature
-from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
+from mlflow.models.model import (
+    MLMODEL_FILE_NAME,
+    MODEL_CODE_PATH,
+    MODEL_CONFIG,
+    _update_active_model_id_based_on_mlflow_model,
+)
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
     _load_model_code_path,
@@ -22,10 +27,6 @@ from mlflow.models.utils import (
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking.fluent import (
-    _get_active_model_context,
-    _set_active_model,
-)
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     disable_autologging_globally,
@@ -561,23 +562,14 @@ def load_model(model_uri, dst_path=None):
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     mlflow_model = Model.load(local_model_path)
-    if (
-        mlflow_model.model_id
-        and (amc := _get_active_model_context())
-        # only set the active model if the model is not set by the user
-        and not amc.set_by_user
-        and amc.model_id != mlflow_model.model_id
-    ):
-        _set_active_model(model_id=mlflow_model.model_id)
-        _logger.info(
-            "Use `mlflow.set_active_model` to set the active model to a different one if needed."
-        )
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
 
     settings_path = os.path.join(local_model_path, _SETTINGS_FILE)
     # NB: Settings is a singleton and can be loaded via llama_index.core.Settings
     deserialize_settings(settings_path)
-    return _load_llama_model(local_model_path, flavor_conf)
+    model = _load_llama_model(local_model_path, flavor_conf)
+    _update_active_model_id_based_on_mlflow_model(mlflow_model)
+    return model
 
 
 def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):

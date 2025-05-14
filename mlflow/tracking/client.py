@@ -17,7 +17,7 @@ import tempfile
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union
 
 import yaml
 
@@ -135,6 +135,14 @@ def _model_not_found(name: str) -> MlflowException:
         f"Registered Model with name={name!r} not found.",
         RESOURCE_DOES_NOT_EXIST,
     )
+
+
+def _validate_model_id_specified(model_id: str) -> None:
+    if not model_id:
+        raise MlflowException(
+            f"`model_id` must be a non-empty string, but got {model_id!r}",
+            INVALID_PARAMETER_VALUE,
+        )
 
 
 class MlflowClient:
@@ -1862,7 +1870,8 @@ class MlflowClient:
                 ``dataset_digest`` must also be provided.
             dataset_digest: The digest of the dataset associated with the metric. If specified,
                 ``dataset_name`` must also be provided.
-            model_id: The ID of the model associated with the metric.
+            model_id: The ID of the model associated with the metric. If not specified, use the
+                current active model ID set by :py:func:`mlflow.set_active_model`.
 
         Returns:
             When `synchronous=True` or None, returns None. When `synchronous=False`, returns an
@@ -1912,9 +1921,12 @@ class MlflowClient:
             metrics: {'m': 1.5}
             status: FINISHED
         """
+        from mlflow.tracking.fluent import get_active_model_id
+
         synchronous = (
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
+        model_id = model_id or get_active_model_id()
         return self._tracking_client.log_metric(
             run_id,
             key,
@@ -5264,7 +5276,7 @@ class MlflowClient:
 
     @experimental
     def finalize_logged_model(
-        self, model_id: str, status: Union[str, LoggedModelStatus]
+        self, model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
     ) -> LoggedModel:
         """
         Finalize a model by updating its status.
@@ -5276,6 +5288,7 @@ class MlflowClient:
         Returns:
             The updated model.
         """
+        _validate_model_id_specified(model_id)
         return self._tracking_client.finalize_logged_model(
             model_id, LoggedModelStatus(status) if isinstance(status, str) else status
         )
@@ -5291,6 +5304,7 @@ class MlflowClient:
         Returns:
             The fetched model.
         """
+        _validate_model_id_specified(model_id)
         return self._tracking_client.get_logged_model(model_id)
 
     @experimental
@@ -5301,6 +5315,7 @@ class MlflowClient:
         Args:
             model_id: ID of the model to delete.
         """
+        _validate_model_id_specified(model_id)
         return self._tracking_client.delete_logged_model(model_id)
 
     @experimental
@@ -5315,6 +5330,7 @@ class MlflowClient:
         Returns:
             None
         """
+        _validate_model_id_specified(model_id)
         self._tracking_client.set_logged_model_tags(model_id, tags)
 
     @experimental
@@ -5327,6 +5343,7 @@ class MlflowClient:
             key: Tag key to delete.
 
         """
+        _validate_model_id_specified(model_id)
         return self._tracking_client.delete_logged_model_tag(model_id, key)
 
     def log_model_artifact(self, model_id: str, local_path: str) -> None:

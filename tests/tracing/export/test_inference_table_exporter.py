@@ -6,7 +6,7 @@ import pytest
 
 import mlflow
 from mlflow.entities import LiveSpan, Trace
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
@@ -95,7 +95,7 @@ def test_export(dual_write_enabled, monkeypatch):
 
         assert mock_tracing_client.start_trace_v3.call_count == 1
         trace = mock_tracing_client.start_trace_v3.call_args[0][0]
-        assert isinstance(trace.info, TraceInfoV3)
+        assert isinstance(trace.info, TraceInfo)
         # The trace ID should be updated to the format that MLflow backend accept
         assert trace.info.trace_id == trace_id
         # The databricks request ID should be set to the client request ID

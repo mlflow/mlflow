@@ -24,7 +24,7 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
@@ -655,7 +655,7 @@ def test_start_trace():
             tags=tags,
         )
         _verify_requests(mock_http, creds, "traces", "POST", message_to_json(expected_request))
-        assert isinstance(res, TraceInfo)
+        assert isinstance(res, TraceInfoV2)
         assert res.request_id == request_id
         assert res.experiment_id == experiment_id
         assert res.timestamp_ms == timestamp_ms
@@ -671,7 +671,7 @@ def test_start_trace_v3(monkeypatch):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     trace = Trace(
-        info=TraceInfoV3(
+        info=TraceInfo(
             trace_id="tr-123",
             trace_location=TraceLocation.from_experiment_id("123"),
             request_time=123,
@@ -753,7 +753,7 @@ def test_end_trace():
                 message_to_json(expected_request),
                 use_v3=False,
             )
-            assert isinstance(res, TraceInfo)
+            assert isinstance(res, TraceInfoV2)
             assert res.request_id == request_id
             assert res.experiment_id == experiment_id
             assert res.timestamp_ms == timestamp_ms
@@ -864,7 +864,7 @@ def test_search_traces():
     # Verify the correct parameters were passed and the correct trace info objects were returned
     # for either endpoint
     assert len(trace_infos) == 1
-    assert isinstance(trace_infos[0], TraceInfoV3)
+    assert isinstance(trace_infos[0], TraceInfo)
     assert trace_infos[0].trace_id == "tr-1234"
     assert trace_infos[0].experiment_id == "1234"
     assert trace_infos[0].request_time == 123
@@ -931,7 +931,7 @@ def test_search_unified_traces():
 
         # Verify the correct trace info objects were returned
         assert len(trace_infos) == 1
-        assert isinstance(trace_infos[0], TraceInfoV3)
+        assert isinstance(trace_infos[0], TraceInfo)
         assert trace_infos[0].trace_id == "tr-1234"
         assert trace_infos[0].experiment_id == "1234"
         assert trace_infos[0].request_time == 123
@@ -947,7 +947,7 @@ def test_get_artifact_uri_for_trace_compatibility():
     from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 
     # Create a TraceInfo (v2) object
-    trace_info_v2 = TraceInfo(
+    trace_info_v2 = TraceInfoV2(
         request_id="tr-1234",
         experiment_id="1234",
         timestamp_ms=123,
@@ -959,7 +959,7 @@ def test_get_artifact_uri_for_trace_compatibility():
 
     # Create a TraceInfoV3 object
     trace_location = TraceLocation.from_experiment_id("5678")
-    trace_info_v3 = TraceInfoV3(
+    trace_info_v3 = TraceInfo(
         trace_id="tr-5678",
         trace_location=trace_location,
         request_time=789,
@@ -977,7 +977,7 @@ def test_get_artifact_uri_for_trace_compatibility():
     assert v3_uri == "s3://bucket/trace-v3-path"
 
     # Test that get_artifact_uri_for_trace raises the expected exception when tag is missing
-    trace_info_no_tag = TraceInfo(
+    trace_info_no_tag = TraceInfoV2(
         request_id="tr-1234",
         experiment_id="1234",
         timestamp_ms=123,
@@ -1226,7 +1226,7 @@ def test_get_trace_info_v3_api():
     """
     trace_id = "tr-123"
     trace_location = TraceLocation.from_experiment_id("exp-123")
-    trace_info_v3 = TraceInfoV3(
+    trace_info_v3 = TraceInfo(
         trace_id=trace_id,
         trace_location=trace_location,
         request_time=int(datetime.datetime(2023, 5, 1, 12, 0, 0).timestamp() * 1000),
@@ -1236,7 +1236,7 @@ def test_get_trace_info_v3_api():
     )
 
     with mock.patch(
-        "mlflow.entities.trace_info_v3.TraceInfoV3.from_proto", return_value=trace_info_v3
+        "mlflow.entities.trace_info.TraceInfo.from_proto", return_value=trace_info_v3
     ) as mock_from_proto:
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
 
@@ -1254,7 +1254,7 @@ def test_get_trace_info_v3_api():
 
             # Verify we get the expected object back
             assert result is trace_info_v3
-            assert isinstance(result, TraceInfoV3)
+            assert isinstance(result, TraceInfo)
             assert result.trace_id == trace_id
             assert result.experiment_id == "exp-123"
             assert result.trace_metadata == {"key1": "value1"}

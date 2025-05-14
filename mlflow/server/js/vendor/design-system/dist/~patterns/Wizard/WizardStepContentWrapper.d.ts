@@ -20,6 +20,10 @@ export interface WizardStepContentWrapperProps {
      * Description of the step displayed below the step title
      */
     description: React.ReactNode;
+    /**
+     * Content to display between header and scrollable area, typically used for errors or alerts
+     */
+    alertContent?: React.ReactNode;
 }
-export declare function WizardStepContentWrapper({ header, title, description, children, }: PropsWithChildren<WizardStepContentWrapperProps>): import("@emotion/react/jsx-runtime").JSX.Element;
+export declare function WizardStepContentWrapper({ header, title, description, alertContent, children, }: PropsWithChildren<WizardStepContentWrapperProps>): import("@emotion/react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=WizardStepContentWrapper.d.ts.map
