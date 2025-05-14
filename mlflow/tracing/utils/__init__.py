@@ -458,5 +458,8 @@ def add_size_bytes_to_trace_metadata(trace: Trace):
     Note: For simplicity, we calculate the size without considering the size metadata itself.
     This provides a close approximation without requiring complex calculations.
     """
-    trace_size_bytes = len(trace.to_json().encode("utf-8"))
-    trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)
+    try:
+        trace_size_bytes = len(trace.to_json().encode("utf-8"))
+        trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)
+    except Exception:
+        _logger.debug("Failed to compute trace size in bytes.", exc_info=True)
