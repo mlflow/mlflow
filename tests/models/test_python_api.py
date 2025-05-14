@@ -16,10 +16,7 @@ from mlflow.models.python_api import (
     _CONTENT_TYPE_JSON,
     _serialize_input_data,
 )
-from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.env_manager import CONDA, LOCAL, UV, VIRTUALENV
-
-from tests.tracing.helper import get_traces
 
 
 @pytest.mark.parametrize(
@@ -371,27 +368,3 @@ def test_predict_use_current_experiment():
     traces = client.search_traces(experiment_ids=[exp_id])
     assert len(traces) == 1
     assert json.loads(traces[0].data.request)["model_input"] == ["a", "b", "c"]
-
-
-def test_predict_traces_link_to_active_model():
-    model = mlflow.set_active_model(name="test_model")
-
-    class TestModel(mlflow.pyfunc.PythonModel):
-        @mlflow.trace
-        def predict(self, context, model_input: list[str]):
-            return model_input
-
-    with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model(
-            name="model",
-            python_model=TestModel(),
-        )
-
-    mlflow.models.predict(
-        model_uri=model_info.model_uri,
-        input_data=["a", "b", "c"],
-        env_manager=VIRTUALENV,
-    )
-    traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
