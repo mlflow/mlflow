@@ -107,7 +107,6 @@ from mlflow.protos.service_pb2 import (
     ListLoggedModelArtifacts,
     LogBatch,
     LogInputs,
-    LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogOutputs,
@@ -1571,11 +1570,18 @@ def upload_artifact_handler():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         dir_path = os.path.join(tmpdir, dirname) if dirname else tmpdir
-        file_path = os.path.join(dir_path, basename)
+        normalized_path = os.path.normpath(os.path.join(dir_path, basename))
+
+        # Ensure the normalized path is within the temporary directory
+        if not normalized_path.startswith(tmpdir):
+            raise MlflowException(
+                message="Invalid path: Path traversal detected.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
         os.makedirs(dir_path, exist_ok=True)
 
-        with open(file_path, "wb") as f:
+        with open(normalized_path, "wb") as f:
             f.write(data)
 
         _log_artifact_to_repo(file_path, run, dirname, artifact_dir)
@@ -2715,25 +2721,6 @@ def _create_logged_model():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _log_logged_model_params(model_id: str):
-    request_message = _get_request_message(
-        LogLoggedModelParamsRequest(),
-        schema={
-            "model_id": [_assert_string, _assert_required],
-            "params": [_assert_array],
-        },
-    )
-    params = (
-        [LoggedModelParameter.from_proto(param) for param in request_message.params]
-        if request_message.params
-        else []
-    )
-    _get_tracking_store().log_logged_model_params(model_id, params)
-    return _wrap_response(LogLoggedModelParamsRequest.Response())
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
 def _get_logged_model(model_id: str):
     model = _get_tracking_store().get_logged_model(model_id)
     response_message = GetLoggedModel.Response(model=model.to_proto())
@@ -3006,5 +2993,4 @@ HANDLERS = {
     DeleteLoggedModelTag: _delete_logged_model_tag,
     SearchLoggedModels: _search_logged_models,
     ListLoggedModelArtifacts: _list_logged_model_artifacts,
-    LogLoggedModelParamsRequest: _log_logged_model_params,
 }
