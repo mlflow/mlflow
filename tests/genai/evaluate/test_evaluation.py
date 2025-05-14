@@ -264,6 +264,7 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
             model_type="databricks-agent",
             extra_metrics=[],
             model_id="test_model_id",
+            _called_from_genai_evaluate=True,
         )
 
 
