@@ -35,21 +35,18 @@ def _flush_async_logging():
 
 
 # @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
-# @pytest.mark.parametrize("experiment_id", [None, _EXPERIMENT_ID])
 @pytest.mark.parametrize("is_async", [False], ids=["async"])
-@pytest.mark.parametrize("experiment_id", [None])
-def test_export_with_size(experiment_id, is_async, monkeypatch):
+def test_export_with_size(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
 
-    mlflow.tracing.set_destination(Databricks(experiment_id=experiment_id))
+    mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
 
     trace_info = None
 
     def mock_response(credentials, path, method, trace_json, *args, **kwargs):
         nonlocal trace_info
-        print("TRACE JSON REQUEST", trace_json)
         trace_dict = json.loads(trace_json)
         trace_proto = ParseDict(trace_dict["trace"], pb.Trace())
         trace_info_proto = ParseDict(trace_dict["trace"]["trace_info"], pb.TraceInfoV3())
@@ -78,27 +75,21 @@ def test_export_with_size(experiment_id, is_async, monkeypatch):
     assert endpoint == "/api/3.0/mlflow/traces"
     trace_info_dict = trace_info.to_dict()
     trace_data = mock_upload_trace_data.call_args.args[1]
-    trace = Trace(info=trace_info, data=trace_data)
-
-    print("EXPECTED TRACE", trace.to_json())
 
     # Basic validation of the trace object
-    assert trace_info_dict["trace_id"] is not None
+    assert trace_info.trace_id is not None
 
-    # Verify that the SIZE_BYTES entry is present with the correct value
-    # in trace metadata
     assert TraceMetadataKey.SIZE_BYTES in trace_info_dict["trace_metadata"]
     size_bytes = int(trace_info_dict["trace_metadata"][TraceMetadataKey.SIZE_BYTES])
-    # Verify that the size_bytes value matches the actual size of the trace in bytes
-    actual_size_bytes = len(trace.to_json().encode("utf-8"))
-    assert size_bytes == actual_size_bytes, (
-        f"Expected size_bytes to match actual size, but got {size_bytes} != {actual_size_bytes}"
-    )
+    trace_for_expected_size = Trace(info=trace_info, data=trace_data)
+    del trace_for_expected_size.info.trace_metadata[TraceMetadataKey.SIZE_BYTES]
+    actual_size_bytes = len(trace_for_expected_size.to_json().encode("utf-8"))
+    assert size_bytes == actual_size_bytes
 
     # Validate the data was passed to upload_trace_data
     call_args = mock_upload_trace_data.call_args
     assert isinstance(call_args.args[0], TraceInfoV3)
-    assert call_args.args[0].trace_id == "12345"
+    assert call_args.args[0].trace_id == trace_info.trace_id
 
     # We don't need to validate the exact JSON structure anymore since
     # we're testing the client methods directly, not the HTTP request

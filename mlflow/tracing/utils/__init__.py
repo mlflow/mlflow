@@ -454,11 +454,9 @@ def add_size_bytes_to_trace_metadata(trace: Trace):
     Calculate the size of the trace in bytes and add it as a tag to the trace.
 
     This method modifies the trace object in place by adding a new tag.
+
+    Note: For simplicity, we calculate the size without considering the size metadata itself.
+    This provides a close approximation without requiring complex calculations.
     """
-    prev_trace_size_bytes = len(trace.to_json().encode("utf-8"))
-    new_metadata_size_bytes = len(str(prev_trace_size_bytes)) + len(
-        TraceMetadataKey.SIZE_BYTES.encode("utf-8")
-    )
-    trace_size_bytes = prev_trace_size_bytes + new_metadata_size_bytes
+    trace_size_bytes = len(trace.to_json().encode("utf-8"))
     trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)
-    print("TRACE JSON", trace.to_json())

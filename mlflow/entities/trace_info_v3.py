@@ -58,7 +58,6 @@ class TraceInfoV3(_MlflowObject):
         if self.execution_duration is not None:
             res.pop("execution_duration", None)
             res["execution_duration_ms"] = self.execution_duration
-        print("TO DICT RES INFO", res)
         return res
 
     @classmethod
@@ -116,7 +115,9 @@ class TraceInfoV3(_MlflowObject):
     def from_proto(cls, proto) -> "TraceInfoV3":
         return cls(
             trace_id=proto.trace_id,
-            client_request_id=proto.client_request_id,
+            client_request_id=(
+                proto.client_request_id if proto.HasField("client_request_id") else None
+            ),
             trace_location=TraceLocation.from_proto(proto.trace_location),
             request_preview=proto.request_preview,
             response_preview=proto.response_preview,
