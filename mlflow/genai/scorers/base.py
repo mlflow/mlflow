@@ -215,7 +215,6 @@ def scorer(
                 data=data,
                 scorers=[not_empty, exact_match, num_tool_calls],
             )
-
     """
 
     if func is None:
