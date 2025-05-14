@@ -1,5 +1,4 @@
 from mlflow.entities.assessment import (
-    Assessment,
     AssessmentError,
     AssessmentSource,
     Expectation,
@@ -11,33 +10,26 @@ from mlflow.entities.trace_state import TraceState
 
 
 def test_trace_info_v3():
+    common_args = {
+        "trace_id": "trace_id",
+        "name": "relevance",
+        "source": AssessmentSource(source_type="HUMAN", source_id="user_1"),
+        "create_time_ms": 123456789,
+        "last_update_time_ms": 123456789,
+        "rationale": "Rationale text",
+        "metadata": {"key1": "value1"},
+        "span_id": "span_id",
+    }
+
     assessments = [
-        Assessment(
-            trace_id="trace_id",
-            name="relevance",
-            source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
-            create_time_ms=123456789,
-            last_update_time_ms=123456789,
-            expectation=expectation,
-            feedback=feedback,
-            rationale="Rationale text",
-            metadata={"key1": "value1"},
-            span_id="span_id",
-        )
-        for expectation, feedback in [
-            (
-                None,
-                Feedback(
-                    0.9,
-                    error=AssessmentError(error_code="error_code", error_message="Error message"),
-                ),
-            ),
-            (
-                Expectation(0.8),
-                None,
-            ),
-        ]
+        Feedback(
+            value=0.9,
+            error=AssessmentError(error_code="error_code", error_message="Error message"),
+            **common_args,
+        ),
+        Expectation(value=0.8, **common_args),
     ]
+
     trace_info = TraceInfo(
         trace_id="trace_id",
         client_request_id="client_request_id",

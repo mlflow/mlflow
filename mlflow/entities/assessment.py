@@ -11,7 +11,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
-from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType  # noqa: F401
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
@@ -33,46 +33,24 @@ FeedbackValueType = Union[PbValueType, dict[str, PbValueType], list[PbValueType]
 @dataclass
 class Assessment(_MlflowObject):
     """
-    An abstraction for annotating a trace. An Assessment should be one of the following types:
+    Base class for assessments that can be attached to a trace.
+    An Assessment should be one of the following types:
 
     - Expectations: A label that represents the expected value for a particular operation.
         For example, an expected answer for a user question from a chatbot.
     - Feedback: A label that represents the feedback on the quality of the operation.
         Feedback can come from different sources, such as human judges, heuristic scorers,
         or LLM-as-a-Judge.
-
-    You can log an assessment to a trace using the :py:func:`mlflow.log_expectation` or
-    :py:func:`mlflow.log_feedback` functions.
-
-    Args:
-        name: The name of the assessment.
-        source: The source of the assessment.
-        trace_id: The ID of the trace associated with the assessment. If unset, the assessment
-            is not associated with any trace yet.
-        expectation: The expectation value of the assessment.
-        feedback: The feedback value of the assessment.  Only one of `expectation` or `feedback`
-            should be specified.
-        rationale: The rationale / justification for the assessment.
-        metadata: The metadata associated with the assessment.
-        span_id: The ID of the span associated with the assessment, if the assessment should
-            be associated with a particular span in the trace.
-        create_time_ms: The creation time of the assessment in milliseconds. If unset, the
-            current time is used.
-        last_update_time_ms: The last update time of the assessment in milliseconds.
-            If unset, the current time is used.
-        assessment_id: The ID of the assessment. This must be generated in the backend.
     """
 
     name: str
-    source: AssessmentSource
+    source: Optional[AssessmentSource] = None
     # NB: The trace ID is optional because the assessment object itself may be created
     #   standalone. For example, a custom metric function returns an assessment object
     #   without a trace ID. That said, the trace ID is required when logging the
     #   assessment to a trace in the backend eventually.
     #   https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/custom-metrics#-metric-decorator
     trace_id: Optional[str] = None
-    expectation: Optional[Expectation] = None
-    feedback: Optional[Feedback] = None
     rationale: Optional[str] = None
     metadata: Optional[dict[str, str]] = None
     span_id: Optional[str] = None
@@ -85,6 +63,10 @@ class Assessment(_MlflowObject):
     # Deprecated, use `error` in Feedback instead. Just kept for backward compatibility
     # and will be removed in the 3.0.0 release.
     error: Optional[AssessmentError] = None
+    # Deprecated, to create an assessment with an expectation or feedback, use the
+    # `Expectation` or `Feedback` classes instead.
+    expectation: Optional[ExpectationValue] = None
+    feedback: Optional[FeedbackValue] = None
 
     def __post_init__(self):
         if (self.expectation is not None) + (self.feedback is not None) != 1:
@@ -110,6 +92,20 @@ class Assessment(_MlflowObject):
             self.create_time_ms = current_time
         if self.last_update_time_ms is None:
             self.last_update_time_ms = current_time
+
+        if not isinstance(self.source, AssessmentSource):
+            raise MlflowException.invalid_parameter_value(
+                "`source` must be an instance of `AssessmentSource`. "
+                f"Got {type(self.source)} instead."
+            )
+
+    @property
+    def value(self):
+        if self.expectation:
+            return self.expectation.value
+        elif self.feedback:
+            return self.feedback.value
+        return None
 
     def to_proto(self):
         assessment = ProtoAssessment()
@@ -142,11 +138,11 @@ class Assessment(_MlflowObject):
     @classmethod
     def from_proto(cls, proto):
         if proto.WhichOneof("value") == "expectation":
-            expectation = Expectation.from_proto(proto.expectation)
+            expectation = ExpectationValue.from_proto(proto.expectation)
             feedback = None
         elif proto.WhichOneof("value") == "feedback":
             expectation = None
-            feedback = Feedback.from_proto(proto.feedback)
+            feedback = FeedbackValue.from_proto(proto.feedback)
         else:
             expectation = None
             feedback = None
@@ -187,12 +183,142 @@ class Assessment(_MlflowObject):
             source=AssessmentSource.from_dictionary(d["source"]),
             create_time_ms=create_time_ms,
             last_update_time_ms=last_update_time_ms,
-            expectation=Expectation.from_dictionary(e) if (e := d.get("expectation")) else None,
-            feedback=Feedback.from_dictionary(f) if (f := d.get("feedback")) else None,
+            expectation=ExpectationValue.from_dictionary(e)
+            if (e := d.get("expectation"))
+            else None,
+            feedback=FeedbackValue.from_dictionary(f) if (f := d.get("feedback")) else None,
             rationale=d.get("rationale"),
             metadata=d.get("metadata"),
             span_id=d.get("span_id"),
         )
+
+
+@experimental
+@dataclass
+class Feedback(Assessment):
+    """
+    Represents feedback about the output of an operation. For example, if the response from a
+    generative AI application to a particular user query is correct, then a human or LLM judge
+    may provide feedback with the value ``"correct"``.
+
+    Args:
+        name: The name of the assessment.
+        value: The feedback value. This can be one of the following types:
+            - float
+            - int
+            - str
+            - bool
+            - list of values of the same types as above
+            - dict with string keys and values of the same types as above
+        error: An optional error associated with the feedback. This is used to indicate
+            that the feedback is not valid or cannot be processed.
+        rationale: The rationale / justification for the feedback.
+        source: The source of the assessment. If not provided, the default source is CODE.
+        trace_id: The ID of the trace associated with the assessment. If unset, the assessment
+            is not associated with any trace yet.
+            should be specified.
+        metadata: The metadata associated with the assessment.
+        span_id: The ID of the span associated with the assessment, if the assessment should
+            be associated with a particular span in the trace.
+        create_time_ms: The creation time of the assessment in milliseconds. If unset, the
+            current time is used.
+        last_update_time_ms: The last update time of the assessment in milliseconds.
+            If unset, the current time is used.
+
+    Example:
+
+        .. code-block:: python
+
+            from mlflow.entities import AssessmentSource, Feedback
+
+            feedback = Feedback(
+                name="correctness",
+                value=True,
+                rationale="The response is correct.",
+                source=AssessmentSource(
+                    source_type="HUMAN",
+                    source_id="john@example.com",
+                ),
+                metadata={"project": "my-project"},
+            )
+    """
+
+    value: Optional[FeedbackValueType] = None
+    error: Optional[AssessmentError] = None
+
+    def __post_init__(self):
+        if self.value is None and self.error is None:
+            raise MlflowException.invalid_parameter_value(
+                "Either `value` or `error` must be provided.",
+            )
+
+        self.feedback = FeedbackValue(value=self.value, error=self.error)
+
+        # Default to CODE source if not provided
+        if self.source is None:
+            self.source = AssessmentSource(
+                source_type=AssessmentSourceType.CODE, source_id="default"
+            )
+
+        super().__post_init__()
+
+
+@experimental
+@dataclass
+class Expectation(Assessment):
+    """
+    Represents an expectation about the output of an operation, such as the expected response
+    that a generative AI application should provide to a particular user query.
+
+    Args:
+        name: The name of the assessment.
+        value: The expected value of the operation. This can be any JSON-serializable value.
+        source: The source of the assessment. If not provided, the default source is HUMAN.
+        trace_id: The ID of the trace associated with the assessment. If unset, the assessment
+            is not associated with any trace yet.
+            should be specified.
+        metadata: The metadata associated with the assessment.
+        span_id: The ID of the span associated with the assessment, if the assessment should
+            be associated with a particular span in the trace.
+        create_time_ms: The creation time of the assessment in milliseconds. If unset, the
+            current time is used.
+        last_update_time_ms: The last update time of the assessment in milliseconds.
+            If unset, the current time is used.
+
+    Example:
+
+        .. code-block:: python
+
+            from mlflow.entities import AssessmentSource, Expectation
+
+            expectation = Expectation(
+                name="expected_response",
+                value="The capital of France is Paris.",
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.HUMAN,
+                    source_id="john@example.com",
+                ),
+                metadata={"project": "my-project"},
+            )
+    """
+
+    value: Any
+
+    def __post_init__(self):
+        if self.value is None:
+            raise MlflowException.invalid_parameter_value(
+                "The `value` field must be specified.",
+            )
+
+        self.expectation = ExpectationValue(value=self.value)
+
+        # Default to CODE source if not provided
+        if self.source is None:
+            self.source = AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="default"
+            )
+
+        super().__post_init__()
 
 
 _JSON_SERIALIZATION_FORMAT = "JSON_FORMAT"
@@ -200,14 +326,8 @@ _JSON_SERIALIZATION_FORMAT = "JSON_FORMAT"
 
 @experimental
 @dataclass
-class Expectation(_MlflowObject):
-    """
-    Represents an expectation about the output of an operation, such as the expected response
-    that a generative AI application should provide to a particular user query.
-
-    Args:
-        value: The expected value of the operation. This can be any JSON-serializable value.
-    """
+class ExpectationValue(_MlflowObject):
+    """Represents an expectation value."""
 
     value: Any
 
@@ -255,23 +375,8 @@ class Expectation(_MlflowObject):
 
 @experimental
 @dataclass
-class Feedback(_MlflowObject):
-    """
-    Represents feedback about the output of an operation. For example, if the response from a
-    generative AI application to a particular user query is correct, then a human or LLM judge
-    may provide feedback with the value ``"correct"``.
-
-    Args:
-        value: The feedback value. This can be one of the following types:
-            - float
-            - int
-            - str
-            - bool
-            - list of values of the same types as above
-            - dict with string keys and values of the same types as above
-        error: An optional error associated with the feedback. This is used to indicate
-            that the feedback is not valid or cannot be processed.
-    """
+class FeedbackValue(_MlflowObject):
+    """Represents a feedback value."""
 
     value: FeedbackValueType
     error: Optional[AssessmentError] = None
@@ -283,8 +388,8 @@ class Feedback(_MlflowObject):
         )
 
     @classmethod
-    def from_proto(cls, proto) -> "Feedback":
-        return Feedback(
+    def from_proto(cls, proto) -> "FeedbackValue":
+        return FeedbackValue(
             value=MessageToDict(proto.value),
             error=AssessmentError.from_proto(proto.error) if proto.HasField("error") else None,
         )

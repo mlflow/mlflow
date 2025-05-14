@@ -2,10 +2,11 @@ import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
-from mlflow.entities.assessment import Assessment, Expectation, Feedback
-from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.entities.assessment import (
+    Assessment,
+)
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -464,45 +465,21 @@ class TracingClient:
         else:
             self.store.delete_trace_tag(request_id, key)
 
-    def log_assessment(
-        self,
-        trace_id: str,
-        name: str,
-        source: AssessmentSource,
-        expectation: Optional[Expectation] = None,
-        feedback: Optional[Feedback] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        span_id: Optional[str] = None,
-    ) -> Assessment:
+    def log_assessment(self, trace_id: str, assessment: Assessment) -> Assessment:
         if not is_databricks_uri(self.tracking_uri):
             raise MlflowException(
                 "This API is currently only available for Databricks Managed MLflow. This "
                 "will be available in the open-source version of MLflow in a future release."
             )
 
-        assessment = Assessment(
-            # assessment_id must be None when creating a new assessment
-            trace_id=trace_id,
-            name=name,
-            source=source,
-            expectation=expectation,
-            feedback=feedback,
-            rationale=rationale,
-            metadata=metadata,
-            span_id=span_id,
-        )
+        assessment.trace_id = trace_id
         return self.store.create_assessment(assessment)
 
     def update_assessment(
         self,
         trace_id: str,
         assessment_id: str,
-        name: Optional[str] = None,
-        expectation: Optional[Expectation] = None,
-        feedback: Optional[Feedback] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
+        assessment: Assessment,
     ):
         """
         Update an existing assessment entity in the backend store.
@@ -510,11 +487,7 @@ class TracingClient:
         Args:
             trace_id: The ID of the trace.
             assessment_id: The ID of the feedback assessment to update.
-            name: The updated name of the feedback.
-            expectation: The updated expectation value of the assessment.
-            feedback: The updated feedback value of the assessment.
-            rationale: The updated rationale of the feedback.
-            metadata: Additional metadata for the feedback.
+            assessment: The updated assessment.
         """
         if not is_databricks_uri(self.tracking_uri):
             raise MlflowException(
@@ -525,11 +498,11 @@ class TracingClient:
         return self.store.update_assessment(
             trace_id=trace_id,
             assessment_id=assessment_id,
-            name=name,
-            expectation=expectation,
-            feedback=feedback,
-            rationale=rationale,
-            metadata=metadata,
+            name=assessment.name,
+            expectation=assessment.expectation,
+            feedback=assessment.feedback,
+            rationale=assessment.rationale,
+            metadata=assessment.metadata,
         )
 
     def delete_assessment(self, trace_id: str, assessment_id: str):
