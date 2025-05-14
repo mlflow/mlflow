@@ -110,7 +110,7 @@ class AsyncTraceExportQueue:
         try:
             future = self._worker_threadpool.submit(_handle, task)
             self._active_tasks.add(future)
-        except Exception as e:
+        except RuntimeError as e:
             # In case it fails to submit the task to the worker thread pool
             # such as interpreter shutdown, handle the task in this thread
             _logger.debug(
