@@ -1,3 +1,4 @@
+import multiprocessing
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -21,6 +22,30 @@ def test_async_queue_handle_tasks():
 
     queue.flush(terminate=True)
     assert counter == 10
+
+
+def exporter_process(counter):
+    # This process exits before waiting for the tasks to finish
+
+    queue = AsyncTraceExportQueue()
+
+    def _increment(counter):
+        time.sleep(1)
+        with counter.get_lock():
+            counter.value += 1
+
+    for _ in range(10):
+        task = Task(handler=_increment, args=(counter,))
+        queue.put(task)
+
+
+def test_async_queue_complete_task_process_finished():
+    counter = multiprocessing.Value("i", 0)
+    process = multiprocessing.Process(target=exporter_process, args=(counter,))
+    process.start()
+    process.join(timeout=15)
+
+    assert counter.value == 10
 
 
 @mock.patch("atexit.register")
