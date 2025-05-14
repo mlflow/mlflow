@@ -1783,6 +1783,17 @@ def test_initialize_logged_model_tags_from_context():
         m_get_source_version.assert_called_once()
 
 
+def test_log_logged_model_params():
+    model = mlflow.initialize_logged_model()
+
+    large_params = {f"param_{i}": f"value_{i}" for i in range(150)}
+    mlflow.log_logged_model_params(model.model_id, large_params)
+
+    logged_model = mlflow.get_logged_model(model.model_id)
+    for key, value in large_params.items():
+        assert logged_model.params.get(key) == value
+
+
 def test_finalized_logged_model():
     model = mlflow.initialize_logged_model()
     finalized_model = mlflow.finalize_logged_model(

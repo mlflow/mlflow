@@ -2261,6 +2261,21 @@ def _create_logged_model(
 
 
 @experimental
+def log_logged_model_params(model_id: str, params: dict[str, str]) -> None:
+    """
+    Set params on the specified logged model.
+
+    Args:
+        model_id: ID of the model.
+        params: Params to set on the model.
+
+    Returns:
+        None
+    """
+    MlflowClient().log_logged_model_params(model_id, params)
+
+
+@experimental
 def finalize_logged_model(
     model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
 ) -> LoggedModel:
