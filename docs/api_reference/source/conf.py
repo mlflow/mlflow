@@ -490,6 +490,8 @@ def _get_reference_map():
         valid_ref = f"mlflow.entities.model_registry.{entity_name}"
         ref_map[invalid_ref] = valid_ref
 
+    ref_map["mlflow.genai.scorers.base.Scorer"] = "mlflow.genai.Scorer"
+
     return ref_map
 
 
