@@ -120,5 +120,3 @@ a.md
 
 # Ignore a gunicorn config file
 gunicorn.conf.py
-
-**/.claude/settings.local.json
