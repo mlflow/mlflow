@@ -57,6 +57,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.uri import (
     append_to_uri_path,
     get_uri_scheme,
+    is_databricks_uri,
 )
 
 _logger = logging.getLogger(__name__)
@@ -947,11 +948,11 @@ class Model:
                     if tags is not None
                     else None,
                 )
-                if is_in_databricks_runtime():
+                if is_databricks_uri(tracking_uri):
                     logged_model_url = _construct_databricks_logged_model_url(
                         get_workspace_url(), model.experiment_id, model.model_id, get_workspace_id()
                     )
-                    eprint(f"🔗 Logged model created at: {logged_model_url}")
+                    eprint(f"🔗 Created Logged Model at: {logged_model_url}")
 
             with _use_logged_model(model=model):
                 if run_id is not None:
