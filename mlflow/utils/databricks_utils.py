@@ -1070,6 +1070,25 @@ def _construct_databricks_model_version_url(
     return model_version_url
 
 
+def _construct_databricks_logged_model_url(
+    workspace_url: str, experiment_id: str, model_id: str, workspace_id: Optional[str] = None
+) -> str:
+    """
+    Get a Databricks URL for a given registered model version in Unity Catalog.
+
+    Args:
+        workspace_url: The URL of the workspace the registered model is in.
+        experiment_id: The ID of the experiment the model is logged to.
+        model_id: The ID of the logged model to create the URL for.
+        workspace_id: The ID of the workspace to include as a query parameter (if provided).
+
+    Returns:
+        The Databricks URL for a registered model in Unity Catalog.
+    """
+    query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
+    return f"{workspace_url}/ml/experiments/{experiment_id}/{model_id}{query}"
+
+
 def _construct_databricks_uc_registered_model_url(
     workspace_url: str, registered_model_name: str, version: str, workspace_id: Optional[str] = None
 ) -> str:

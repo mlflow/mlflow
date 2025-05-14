@@ -35,7 +35,10 @@ from mlflow.tracking.fluent import (
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
+    _construct_databricks_logged_model_url,
     get_databricks_runtime_version,
+    get_workspace_id,
+    get_workspace_url,
     is_in_databricks_runtime,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -943,6 +946,10 @@ class Model:
                     if tags is not None
                     else None,
                 )
+                logged_model_url = _construct_databricks_logged_model_url(
+                    get_workspace_url(), model.experiment_id, model.model_id, get_workspace_id()
+                )
+                _logger.info(f"🔗 Logged model created at: {logged_model_url}")
 
             with _use_logged_model(model=model):
                 if run_id is not None:
@@ -968,9 +975,6 @@ class Model:
                     model_id=model.model_id,
                 )
                 flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-
-                ### Print a link to the model here
-
                 # `save_model` calls `load_model` to infer the model requirements, which may result
                 # in __pycache__ directories being created in the model directory.
                 for pycache in Path(local_path).rglob("__pycache__"):
