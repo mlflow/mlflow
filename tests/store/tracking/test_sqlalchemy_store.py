@@ -4957,7 +4957,6 @@ def test_search_logged_models_filter_string(store: SqlAlchemyStore):
         )
         assert [m.name for m in models] == []
 
-
     # Search by numeric attribute
     models = store.search_logged_models(
         experiment_ids=[exp_id_1],
