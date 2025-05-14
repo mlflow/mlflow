@@ -91,8 +91,8 @@ def evaluate(
             associate the evaluation result with. There are several ways to associate
             model with association.
 
-            1. Use the `model_id` parameters.
-            2. Use the `mlflow.set_active_model()` function to set model ID to global context.
+            1. Use the ``model_id`` parameters.
+            2. Use the ``mlflow.set_active_model()`` function to set model ID to global context.
 
                .. code-block:: python
 
