@@ -132,7 +132,6 @@ class AutologgingEventLogger:
                 f"Received {len(call_args)} positional arguments via `call_args`. `call_args` is"
                 " deprecated in MLflow > 1.13.1, and all arguments should be passed"
                 " in keyword form via `call_kwargs`.",
-                category=DeprecationWarning,
                 stacklevel=2,
             )
         _logger.debug(

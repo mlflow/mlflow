@@ -454,6 +454,35 @@ class Linter(ast.NodeVisitor):
             rules.ForbiddenSetActiveModelUsage(),
         )
 
+    def _resolve_call(self, node: ast.AST) -> list[str]:
+        """
+        Resolves the call to a function or method and returns the full name of the function.
+        For example, `foo.bar` will be resolved to `["foo", "bar"]`.
+        """
+        if isinstance(node, ast.Call):
+            return self._resolve_call(node.func)
+        elif isinstance(node, ast.Attribute):
+            return self._resolve_call(node.value) + [node.attr]
+        elif isinstance(node, ast.Name):
+            return [node.id]
+        return []
+
+    def _check_deprecation_warning(self, call: ast.Call) -> None:
+        if self._resolve_call(call) != ["warnings", "warn"]:
+            return
+
+        if len(call.args) >= 2:
+            # warnings.warn("message", WarningCategory)
+            category = call.args[1]
+        elif (kw := next((k for k in call.keywords if k.arg == "category"), None)) is not None:
+            # warnings.warn("message", category=WarningCategory)
+            category = kw.value
+        else:
+            return
+
+        if isinstance(category, ast.Name) and category.id == "DeprecationWarning":
+            self._check(Location.from_node(call), rules.WarnWithDeprecationWarning())
+
     def visit_Call(self, node: ast.Call) -> None:
         if (
             self.is_mlflow_init_py
@@ -481,6 +510,7 @@ class Linter(ast.NodeVisitor):
         if self.path.parts[0] != "tests" and _is_set_active_model(node.func):
             self._check(Location.from_node(node), rules.ForbiddenSetActiveModelUsage())
 
+        self._check_deprecation_warning(node)
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:

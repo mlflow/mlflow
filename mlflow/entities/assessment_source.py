@@ -114,7 +114,7 @@ class AssessmentSourceType:
         if source_type == AssessmentSourceType.AI_JUDGE:
             warnings.warn(
                 "AI_JUDGE is deprecated. Use LLM_JUDGE instead.",
-                DeprecationWarning,
+                FutureWarning,
             )
             source_type = AssessmentSourceType.LLM_JUDGE
 
