@@ -9,6 +9,7 @@ import sqlparse
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import SqlLoggedModel
+from mlflow.utils.search_utils import _join_in_comparison_tokens
 
 
 class EntityType(Enum):
@@ -93,14 +94,8 @@ def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
         )
 
     comparisons: list[sqlalchemy.BinaryExpression] = []
-    statements = [s for s in parsed[0] if not s.is_whitespace]
-    index = 0
-    err_msg = (
-        f"Invalid filter string: {filter_string!r}. Expected a list of comparisons "
-        f"separated by 'AND' (e.g. 'metrics.loss > 0.1 AND params.lr = 0.01')."
-    )
-    while index < len(statements):
-        stmt = statements[index]
+    for stmt in _join_in_comparison_tokens(parsed[0].tokens):
+        # while index < len(statements):
         if isinstance(stmt, sqlparse.sql.Comparison):
             non_whitespace_tokens = [str(t) for t in stmt.tokens if not t.is_whitespace]
             if len(non_whitespace_tokens) != 3:
@@ -111,46 +106,22 @@ def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
             entity = Entity.from_str(identifier)
             entity.validate_op(op)
             value = float(value) if entity.is_numeric() else value.strip("'")
+            if entity.is_numeric():
+                value = float(value)
+            else:
+                if value.startswith("(") and value.endswith(")"):
+                    value = ast.literal_eval(value)
+                    value = (value,) if isinstance(value, str) else value
+                else:
+                    value = value.strip("'")
             comparisons.append(Comparison(entity=entity, op=op, value=value))
-            index += 1
         elif stmt.value.strip().upper() == "AND":
             # Do nothing, this is just a separator
-            index += 1
-        elif isinstance(stmt, sqlparse.sql.Identifier):
-            # `IN` and `NOT IN` clauses are not parsed as `Comparison` objects by sqlparse.
-            try:
-                next_token = statements[index + 1].value.upper()
-                if next_token == "IN":
-                    # [stmt, "IN", value, ...]
-                    op = "IN"
-                    value = statements[index + 2]
-                    index += 3  # advance 3 tokens
-                elif next_token == "NOT":
-                    # [stmt, "NOT", "IN", value, ...]
-                    in_op = statements[index + 2].value.upper()
-                    if in_op != "IN":
-                        raise MlflowException.invalid_parameter_value(
-                            f"Invalid filter string: {filter_string!r}. Expected 'IN' after 'NOT'."
-                        )
-                    op = "NOT IN"
-                    value = statements[index + 3]
-                    index += 4  # advance 4 tokens
-                else:
-                    raise MlflowException.invalid_parameter_value(err_msg)
-            except IndexError as e:
-                raise MlflowException.invalid_parameter_value(err_msg) from e
-
-            entity = Entity.from_str(stmt.value)
-            entity.validate_op(op)
-            value = ast.literal_eval(value.value)
-            if not isinstance(value, (tuple, str)):
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid filter string: {filter_string!r}. "
-                    f"Expected a tuple for NOT IN clause but got {value!r}."
-                )
-            value = (value,) if isinstance(value, str) else value
-            comparisons.append(Comparison(entity=entity, op=op, value=value))
+            pass
         else:
-            raise MlflowException.invalid_parameter_value(err_msg)
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid filter string: {filter_string!r}. Expected a list of comparisons "
+                f"separated by 'AND' (e.g. 'metrics.loss > 0.1 AND params.lr = 0.01')."
+            )
 
     return comparisons
