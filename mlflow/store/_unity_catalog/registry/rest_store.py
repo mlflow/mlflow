@@ -356,7 +356,7 @@ class UcModelRegistryStore(BaseRestStore):
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)
 
-    def update_registered_model(self, name, description, deployment_job_id=None):
+    def update_registered_model(self, name, description=None, deployment_job_id=None):
         """
         Update description of the registered model.
 
@@ -371,7 +371,9 @@ class UcModelRegistryStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             UpdateRegisteredModelRequest(
-                name=full_name, description=description, deployment_job_id=deployment_job_id
+                name=full_name,
+                description=description,
+                deployment_job_id=str(deployment_job_id) if deployment_job_id else None,
             )
         )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
