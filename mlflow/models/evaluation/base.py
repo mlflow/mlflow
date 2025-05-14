@@ -7,7 +7,6 @@ import pathlib
 import signal
 import urllib
 import urllib.parse
-import warnings
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
@@ -1590,10 +1589,9 @@ def evaluate(  # noqa: D417
     from mlflow.utils import env_manager as _EnvManager
 
     if not _called_from_genai_evaluate and model_type == "databricks-agent":
-        warnings.warn(
+        _logger.warning(
             "'databricks-agent' model type is deprecated in MLflow 3.0.0. Please use the "
             "new `mlflow.genai.evaluate` API to evaluate LLMs and GenAI applications.",
-            DeprecationWarning,
         )
 
     # Inference params are currently only supported for passing a deployment endpoint as the model.

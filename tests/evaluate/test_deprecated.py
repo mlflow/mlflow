@@ -18,8 +18,8 @@ def tracking_uri(request):
             yield uri
 
 
-@patch("mlflow.models.evaluation.deprecated.warnings")
-def test_global_evaluate_deprecation(mock_warnings, tracking_uri):
+@patch("mlflow.models.evaluation.deprecated._logger")
+def test_global_evaluate_deprecation(mock_logger, tracking_uri):
     data = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
     # Issue a warning when mlflow.evaluate is used in Databricks
     mlflow.evaluate(
@@ -28,13 +28,13 @@ def test_global_evaluate_deprecation(mock_warnings, tracking_uri):
         extra_metrics=[mlflow.metrics.latency()],
     )
     if tracking_uri.startswith("databricks"):
-        mock_warnings.warn.assert_called_once()
-        assert mock_warnings.warn.call_args[0][0].startswith(
+        mock_logger.warning.assert_called_once()
+        assert mock_logger.warning.call_args[0][0].startswith(
             "The `mlflow.evaluate` API is deprecated"
         )
     else:
-        mock_warnings.assert_not_called()
-    mock_warnings.reset_mock()
+        mock_logger.warning.assert_not_called()
+    mock_logger.reset_mock()
 
     # No warning when mlflow.models.evaluate is used
     mlflow.models.evaluate(
@@ -42,4 +42,4 @@ def test_global_evaluate_deprecation(mock_warnings, tracking_uri):
         model=lambda x: x["x"] * 2,
         extra_metrics=[mlflow.metrics.latency()],
     )
-    mock_warnings.assert_not_called()
+    mock_logger.warning.assert_not_called()

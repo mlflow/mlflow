@@ -285,7 +285,7 @@ def test_genai_evaluate_does_not_warn_about_deprecated_model_type():
     with (
         patch("mlflow.genai.evaluation.base.is_databricks_uri", return_value=True),
         patch("mlflow.models.evaluation.base._evaluate") as mock_evaluate_impl,
-        patch("mlflow.models.evaluation.deprecated.warnings") as mock_warnings,
+        patch("mlflow.models.evaluation.deprecated._logger") as mock_logger,
     ):
         mlflow.genai.evaluate(
             data=[{"inputs": "Hello", "outputs": "Hi"}],
@@ -293,12 +293,12 @@ def test_genai_evaluate_does_not_warn_about_deprecated_model_type():
         )
 
     mock_evaluate_impl.assert_called_once()
-    mock_warnings.assert_not_called()
+    mock_logger.warning.assert_not_called()
 
     # Warning should be shown when "databricks-agent" model type is used with direct call
     data = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
     with (
-        patch("mlflow.models.evaluation.base.warnings") as mock_warnings,
+        patch("mlflow.models.evaluation.base._logger") as mock_logger,
         patch("mlflow.models.evaluation.base._evaluate") as mock_evaluate_impl,
     ):
         mlflow.models.evaluate(
@@ -307,8 +307,8 @@ def test_genai_evaluate_does_not_warn_about_deprecated_model_type():
             model_type="databricks-agent",
             extra_metrics=[mlflow.metrics.latency()],
         )
-    mock_warnings.warn.assert_called_once()
-    assert mock_warnings.warn.call_args[0][0].startswith(
+    mock_logger.warning.assert_called_once()
+    assert mock_logger.warning.call_args[0][0].startswith(
         "'databricks-agent' model type is deprecated"
     )
     mock_evaluate_impl.assert_called_once()
