@@ -500,9 +500,7 @@ def server(
     default=os.environ.get("MLFLOW_TRACKING_URI"),
     help="Tracking URI to use for deleting 'deleted' runs e.g. http://127.0.0.1:8080",
 )
-def gc(
-    older_than, backend_store_uri, artifacts_destination, run_ids, experiment_ids, tracking_uri
-):
+def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment_ids, tracking_uri):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
