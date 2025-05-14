@@ -9,7 +9,12 @@ export const expandedEvaluationRunRowsUIStateInitializer = (
   experiments: ExperimentEntity[],
   uiState: ExperimentPageUIState,
   runsData: ExperimentRunsSelectorResult,
+  isSeeded: boolean,
 ) => {
+  if (isSeeded) {
+    return uiState;
+  }
+
   const evaluationRunIds = runsData.runInfos
     .filter((run, index) => runsData.tagsList[index]?.[MLFLOW_RUN_TYPE_TAG]?.value === MLFLOW_RUN_TYPE_VALUE_EVALUATION)
     .map(({ runUuid }) => runUuid);

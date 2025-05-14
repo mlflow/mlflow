@@ -8,11 +8,6 @@ import { DeepPartial } from 'redux';
 
 const mockAction = (id: string) => ({ type: 'action', payload: Promise.resolve(), meta: { id } });
 
-jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
-  shouldEnableGraphQLRunDetailsPage: jest.fn(() => false),
-}));
-
 jest.mock('../../../actions', () => ({
   getExperimentApi: jest.fn(() => mockAction('experiment_request')),
   getRunApi: jest.fn(() => mockAction('run_request')),
@@ -20,6 +15,13 @@ jest.mock('../../../actions', () => ({
 
 jest.mock('../../../../model-registry/actions', () => ({
   searchModelVersionsApi: jest.fn(() => mockAction('models_request')),
+}));
+
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableGraphQLRunDetailsPage: () => false,
 }));
 
 const testRunUuid = 'test-run-uuid';

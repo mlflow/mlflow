@@ -90,7 +90,9 @@ jobs:
       - name: Import check
         run: |
           source .venv/bin/activate
-          python tests/check_mlflow_lazily_imports_ml_packages.py
+          # `-I` is used to avoid importing modules from user-specific site-packages
+          # that might conflict with the built-in modules (e.g. `types`).
+          python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
           source .venv/bin/activate

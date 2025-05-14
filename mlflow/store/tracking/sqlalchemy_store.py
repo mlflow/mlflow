@@ -25,7 +25,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
-    TraceInfo,
+    TraceInfoV2,
     ViewType,
     _DatasetSummary,
 )
@@ -2057,7 +2057,7 @@ class SqlAlchemyStore(AbstractStore):
         timestamp_ms: int,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Create an initial TraceInfo object in the database.
 
@@ -2112,7 +2112,7 @@ class SqlAlchemyStore(AbstractStore):
         status: TraceStatus,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the database with the completed trace info.
 
@@ -2142,7 +2142,7 @@ class SqlAlchemyStore(AbstractStore):
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
             return sql_trace_info.to_mlflow_entity()
 
-    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
+    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfoV2:
         """
         Fetch the trace info for the given request id.
 
@@ -2183,7 +2183,7 @@ class SqlAlchemyStore(AbstractStore):
         page_token: Optional[str] = None,
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
-    ) -> tuple[list[TraceInfo], Optional[str]]:
+    ) -> tuple[list[TraceInfoV2], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 

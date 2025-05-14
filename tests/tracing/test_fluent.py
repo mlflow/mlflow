@@ -16,7 +16,7 @@ from mlflow.entities import (
     SpanType,
     Trace,
     TraceData,
-    TraceInfo,
+    TraceInfoV2,
 )
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
@@ -994,7 +994,7 @@ def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
     mock_client.search_traces.return_value = PagedList(
         [
             Trace(
-                info=TraceInfo(
+                info=TraceInfoV2(
                     request_id=5,
                     experiment_id="test",
                     timestamp_ms=1,
@@ -1514,7 +1514,7 @@ def test_add_trace_raise_for_invalid_trace():
         mlflow.add_trace({"info": {}, "data": {}})
 
     in_progress_trace = Trace(
-        info=TraceInfo(
+        info=TraceInfoV2(
             request_id="123",
             status=TraceStatus.IN_PROGRESS,
             experiment_id="0",

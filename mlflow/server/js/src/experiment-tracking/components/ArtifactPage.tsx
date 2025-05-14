@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import _, { first } from 'lodash';
+import _, { first, isEmpty } from 'lodash';
 import React, { Component } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { WithRouterNextProps, withRouterNext } from '../../common/utils/withRouterNext';

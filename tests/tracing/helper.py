@@ -13,7 +13,7 @@ import pytest
 from opentelemetry.sdk.trace import Event, ReadableSpan
 
 import mlflow
-from mlflow.entities import Trace, TraceData, TraceInfo
+from mlflow.entities import Trace, TraceData, TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.tracing.client import TracingClient
@@ -117,7 +117,7 @@ def create_test_trace_info(
     request_metadata=None,
     tags=None,
 ):
-    return TraceInfo(
+    return TraceInfoV2(
         request_id=request_id,
         experiment_id=experiment_id,
         timestamp_ms=timestamp_ms,

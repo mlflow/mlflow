@@ -9,7 +9,7 @@ from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import (
     MlflowException,
@@ -85,7 +85,7 @@ class TracingClient:
             tags=tags,
         )
 
-    def start_trace_v3(self, trace: Trace) -> TraceInfoV3:
+    def start_trace_v3(self, trace: Trace) -> TraceInfo:
         """
         Start a trace using the V3 API format.
         NB: This method is named "Start" for internal reason in the backend, but actually
@@ -107,7 +107,7 @@ class TracingClient:
         status: TraceStatus,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
@@ -147,7 +147,7 @@ class TracingClient:
             request_ids=request_ids,
         )
 
-    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
+    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfoV2:
         """
         Get the trace info matching the ``request_id``.
 
@@ -312,7 +312,7 @@ class TracingClient:
         is_databricks = is_databricks_uri(self.tracking_uri)
 
         def download_trace_extra_fields(
-            trace_info: Union[TraceInfo, TraceInfoV3],
+            trace_info: Union[TraceInfoV2, TraceInfo],
         ) -> Optional[Trace]:
             """
             Download trace data and assessments for the given trace_info and returns a Trace object.
@@ -320,11 +320,11 @@ class TracingClient:
 
             The trace_info parameter can be either TraceInfo or TraceInfoV3 object.
             """
-            from mlflow.entities.trace_info_v3 import TraceInfoV3
+            from mlflow.entities.trace_info import TraceInfo
 
             # Determine if this is TraceInfo or TraceInfoV3
             # Helps while transitioning to V3 traces for offline & online
-            is_v3 = isinstance(trace_info, TraceInfoV3)
+            is_v3 = isinstance(trace_info, TraceInfo)
             trace_id = trace_info.trace_id if is_v3 else trace_info.request_id
             is_online_trace = is_uuid(trace_id)
 
@@ -548,12 +548,12 @@ class TracingClient:
 
         self.store.delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 
-    def _get_artifact_repo_for_trace(self, trace_info: TraceInfo):
+    def _get_artifact_repo_for_trace(self, trace_info: TraceInfoV2):
         artifact_uri = get_artifact_uri_for_trace(trace_info)
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
-    def _download_trace_data(self, trace_info: Union[TraceInfo, TraceInfoV3]) -> TraceData:
+    def _download_trace_data(self, trace_info: Union[TraceInfoV2, TraceInfo]) -> TraceData:
         """
         Download trace data from artifact repository.
 
@@ -566,15 +566,15 @@ class TracingClient:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         return TraceData.from_dict(artifact_repo.download_trace_data())
 
-    def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
+    def _upload_trace_data(self, trace_info: TraceInfoV2, trace_data: TraceData) -> None:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
     def _upload_ended_trace_info(
         self,
-        trace_info: TraceInfo,
-    ) -> TraceInfo:
+        trace_info: TraceInfoV2,
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 

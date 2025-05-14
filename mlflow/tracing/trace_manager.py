@@ -4,7 +4,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Generator, Optional
 
-from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
+from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfoV2
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
 
@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 # Dict[str, Span] is used instead of TraceData to allow access by span_id.
 @dataclass
 class _Trace:
-    info: TraceInfo
+    info: TraceInfoV2
     span_dict: dict[str, LiveSpan] = field(default_factory=dict)
 
     def to_mlflow_trace(self) -> Trace:
@@ -56,7 +56,7 @@ class InMemoryTraceManager:
         self._trace_id_to_request_id: dict[int, str] = {}
         self._lock = threading.Lock()  # Lock for _traces
 
-    def register_trace(self, trace_id: int, trace_info: TraceInfo):
+    def register_trace(self, trace_id: int, trace_info: TraceInfoV2):
         """
         Register a new trace info object to the in-memory trace registry.
 
@@ -70,7 +70,7 @@ class InMemoryTraceManager:
             self._traces[trace_info.request_id] = _Trace(trace_info)
             self._trace_id_to_request_id[trace_id] = trace_info.request_id
 
-    def update_trace_info(self, trace_info: TraceInfo):
+    def update_trace_info(self, trace_info: TraceInfoV2):
         """
         Update the trace info object in the in-memory trace registry.
 

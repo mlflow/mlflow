@@ -20,6 +20,25 @@ class Context:
     dependencies_schemas: Optional[dict] = None
     # The logged model ID associated with the current prediction request
     model_id: Optional[str] = None
+    # The model serving endpoint name where the prediction request is made
+    endpoint_name: Optional[str] = None
+
+    def __init__(
+        self,
+        request_id: Optional[str] = None,
+        is_evaluate: bool = False,
+        dependencies_schemas: Optional[dict] = None,
+        model_id: Optional[str] = None,
+        endpoint_name: Optional[str] = None,
+        # Accept extra kwargs so we don't need to worry backward compatibility
+        # when adding new attributes to the Context class
+        **kwargs,
+    ):
+        self.request_id = request_id
+        self.is_evaluate = is_evaluate
+        self.dependencies_schemas = dependencies_schemas
+        self.model_id = model_id
+        self.endpoint_name = endpoint_name
 
     def update(self, **kwargs):
         for key, value in kwargs.items():
