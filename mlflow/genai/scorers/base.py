@@ -67,7 +67,7 @@ class Scorer(BaseModel):
                 * When the dataset contains ``outputs`` column, the value will be
                   passed as is.
                 * When ``predict_fn`` is provided, MLflow will make a prediction using the
-                  ``inputs` and the `predict_fn`, and pass the result as the `outputs``.
+                  ``inputs`` and the ``predict_fn``, and pass the result as the ``outputs``.
                 * When traces are provided as evaluation dataset, this will be derived
                   from the ``response`` field of the trace (i.e. outputs captured as the
                   root span of the trace).
@@ -171,7 +171,7 @@ def scorer(
 
             * When the dataset contains ``outputs`` column, the value will be passed as is.
             * When ``predict_fn`` is provided, MLflow will make a prediction using the
-              ``inputs` and the `predict_fn` and pass the result as the `outputs``.
+              ``inputs`` and the ``predict_fn`` and pass the result as the ``outputs``.
             * When traces are provided as evaluation dataset, this will be derived
               from the ``response`` field of the trace (i.e. outputs captured as the
               root span of the trace).
