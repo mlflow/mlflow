@@ -1,5 +1,5 @@
 from unittest import mock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -102,6 +102,31 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
             extra_metrics=[],
             model_id="test_model_id",
         )
+
+
+def test_evaluate_accepts_managed_dataset():
+    from databricks.rag_eval.datasets.rest_entities import DatasetRecord, Expectation, Input
+
+    from mlflow.genai.datasets import EvaluationDataset
+
+    record = DatasetRecord(
+        inputs=[Input(key="question", value="foo")],
+        expectations={"expected_response": Expectation(value="bar")},
+    )
+
+    # build a fake client whose list_dataset_records() returns your record
+    fake_client = MagicMock()
+    fake_client.list_dataset_records.return_value = [record]
+
+    with (
+        patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth),
+        patch("databricks.rag_eval.datasets.entities._get_client", return_value=fake_client),
+        patch("mlflow.get_tracking_uri", return_value="databricks"),
+    ):
+        results = mlflow.genai.evaluate(data=EvaluationDataset("test-id"), scorers=[groundedness()])
+
+        assert results.result_df["request"].tolist() == [{"question": "foo"}]
+        assert results.result_df["expected_response"].tolist() == ["bar"]
 
 
 @patch("mlflow.get_tracking_uri", return_value="databricks")

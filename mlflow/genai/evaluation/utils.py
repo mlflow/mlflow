@@ -1,9 +1,9 @@
 import inspect
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
 
@@ -17,11 +17,16 @@ if TYPE_CHECKING:
     try:
         import pyspark.sql.dataframe
 
+        from mlflow.genai.datasets import EvaluationDataset
+
         EvaluationDatasetTypes = Union[
-            pd.DataFrame, pyspark.sql.dataframe.DataFrame, list[dict], EvaluationDataset
+            pd.DataFrame,
+            pyspark.sql.dataframe.DataFrame,
+            list[dict],
+            EvaluationDataset,
         ]
     except ImportError:
-        EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
+        EvaluationDatasetTypes = Union[pd.DataFrame, list[dict]]
 
 
 def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
@@ -53,6 +58,8 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
         df = data.copy()
+    elif isinstance(data, EvaluationDataset):
+        df = data.to_df()
     else:
         try:
             import pyspark.sql.dataframe
@@ -62,7 +69,8 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
             else:
                 raise MlflowException.invalid_parameter_value(
                     "Invalid type for parameter `data`. Expected a list of dictionaries, "
-                    f"a pandas DataFrame, or a Spark DataFrame. Got: {type(data)}"
+                    "a pandas DataFrame, a Spark DataFrame, or a Databricks Managed Dataset. "
+                    f"Got: {type(data)}"
                 )
         except ImportError:
             raise ImportError(

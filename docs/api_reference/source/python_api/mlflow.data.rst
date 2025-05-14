@@ -128,10 +128,6 @@ TensorFlow
     :undoc-members:
     :exclude-members: to_pyfunc, 
 
-.. autoclass:: mlflow.data.evaluation_dataset.EvaluationDataset()
-    :members:
-    :undoc-members:
-
 
 Dataset Sources 
 ~~~~~~~~~~~~~~~~
