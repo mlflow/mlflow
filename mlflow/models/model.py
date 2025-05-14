@@ -952,7 +952,7 @@ class Model:
                     logged_model_url = _construct_databricks_logged_model_url(
                         get_workspace_url(), model.experiment_id, model.model_id, get_workspace_id()
                     )
-                    eprint(f"🔗 Created Logged Model at: {logged_model_url}")
+                    eprint(f"🔗 View Logged Model at: {logged_model_url}")
 
             with _use_logged_model(model=model):
                 if run_id is not None:
