@@ -274,3 +274,22 @@ def test_no_scorers(mock_get_tracking_uri):
 
     with pytest.raises(MlflowException, match=r"At least one scorer is required"):
         mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
+
+
+def test_genai_evaluate_does_not_warn_about_deprecated_model_type():
+    """
+    MLflow shows a warning when model_type="databricks-agent" is used for mlflow.evaluate()
+    API. This test verifies that the warning is not shown when mlflow.genai.evaluate() is used.
+    """
+    with (
+        patch("mlflow.genai.evaluation.base.is_databricks_uri", return_value=True),
+        patch("mlflow.models.evaluation.base._evaluate") as mock_evaluate_impl,
+        patch("mlflow.models.evaluation.deprecated.warnings") as mock_warnings,
+    ):
+        mlflow.genai.evaluate(
+            data=[{"inputs": "Hello", "outputs": "Hi"}],
+            scorers=[groundedness()],
+        )
+
+    mock_evaluate_impl.assert_called_once()
+    mock_warnings.assert_not_called()
