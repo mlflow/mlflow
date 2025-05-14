@@ -923,7 +923,7 @@ class SearchUtils:
     def _parse_list_from_sql_token(cls, token):
         try:
             str_or_tuple = ast.literal_eval(token.value)
-            return [str_or_tuple] if isinstance(str_or_tuple, str) else str_or_tuple
+            return (str_or_tuple,) if isinstance(str_or_tuple, str) else str_or_tuple
         except SyntaxError as e:
             raise MlflowException(
                 "While parsing a list in the query,"
