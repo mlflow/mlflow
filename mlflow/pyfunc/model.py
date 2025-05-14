@@ -824,6 +824,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         ResponsesAgentStreamEvent,
     )
 
+    @experimental
     class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         _skip_type_hint_validation = True
 
