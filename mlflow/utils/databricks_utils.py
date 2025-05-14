@@ -1086,7 +1086,7 @@ def _construct_databricks_logged_model_url(
         The Databricks URL for a registered model in Unity Catalog.
     """
     query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
-    return f"{workspace_url}/ml/experiments/{experiment_id}/{model_id}{query}"
+    return f"{workspace_url}/ml/experiments/{experiment_id}/models/{model_id}{query}"
 
 
 def _construct_databricks_uc_registered_model_url(

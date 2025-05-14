@@ -52,6 +52,7 @@ from mlflow.utils.environment import (
     _write_requirements_to_file,
 )
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.uri import (
     append_to_uri_path,
@@ -949,7 +950,7 @@ class Model:
                 logged_model_url = _construct_databricks_logged_model_url(
                     get_workspace_url(), model.experiment_id, model.model_id, get_workspace_id()
                 )
-                _logger.info(f"🔗 Logged model created at: {logged_model_url}")
+                eprint(f"🔗 Logged model created at: {logged_model_url}")
 
             with _use_logged_model(model=model):
                 if run_id is not None:
