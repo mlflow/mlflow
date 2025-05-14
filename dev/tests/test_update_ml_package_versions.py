@@ -218,11 +218,13 @@ sklearn:
     maximum: "0.0.8"
 """
     mock_responses = {
-        "sklearn": MockResponse.from_version_infos([
-            VersionData("0.0.2", datetime.now() - timedelta(days=1000)),
-            VersionData("0.0.3", datetime.now() - timedelta(days=365)),
-            VersionData("0.0.8", datetime.now() - timedelta(days=180)),
-        ])
+        "sklearn": MockResponse.from_version_infos(
+            [
+                VersionData("0.0.2", datetime.now() - timedelta(days=1000)),
+                VersionData("0.0.3", datetime.now() - timedelta(days=365)),
+                VersionData("0.0.8", datetime.now() - timedelta(days=180)),
+            ]
+        )
     }
     src_expected = """
 sklearn:
@@ -245,10 +247,12 @@ sklearn:
     maximum: "0.0.8"
 """
     mock_responses = {
-        "sklearn": MockResponse.from_version_infos([
-            VersionData("0.0.7", datetime.now() - timedelta(days=1000)),
-            VersionData("0.0.8", datetime.now() - timedelta(days=800)),
-        ])
+        "sklearn": MockResponse.from_version_infos(
+            [
+                VersionData("0.0.7", datetime.now() - timedelta(days=1000)),
+                VersionData("0.0.8", datetime.now() - timedelta(days=800)),
+            ]
+        )
     }
     src_expected = """
 sklearn:
