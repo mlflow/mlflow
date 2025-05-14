@@ -410,7 +410,6 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         )
 
 
-@experimental
 class ChatAgent(PythonModel, metaclass=ABCMeta):
     """
     **What is the ChatAgent Interface?**
@@ -848,11 +847,13 @@ if IS_PYDANTIC_V2_OR_NEWER:
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             pass
 
-        @abstractmethod
         def predict_stream(
             self, request: ResponsesAgentRequest
         ) -> Generator[ResponsesAgentStreamEvent, None, None]:
-            pass
+            raise NotImplementedError(
+                "Streaming implementation not provided. Please override the "
+                "`predict_stream` method on your model to generate streaming predictions"
+            )
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
