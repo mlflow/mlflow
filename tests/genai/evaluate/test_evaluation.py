@@ -1,5 +1,5 @@
 from unittest import mock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -105,23 +105,29 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
 
 
 def test_evaluate_accepts_managed_dataset():
-    try:
-        import pandas as pd
+    from databricks.rag_eval.datasets.rest_entities import DatasetRecord, Expectation, Input
 
-        from mlflow.genai.datasets import EvaluationDataset
-    except ImportError:
-        pytest.skip("`pandas`/`databricks-agents` package is not installed")
+    from mlflow.genai.datasets import EvaluationDataset
 
-    df = pd.DataFrame([{"inputs": "foo", "outputs": "bar"}])
+    record = DatasetRecord(
+        inputs=[Input(key="question", value="foo")],
+        expectations={"expected_response": Expectation(value="bar")},
+    )
 
-    with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
-        with patch.object(EvaluationDataset, "to_df", return_value=df):
-            with patch("mlflow.get_tracking_uri", return_value="databricks"):
-                results = mlflow.genai.evaluate(data=EvaluationDataset("test-id"))
+    # build a fake client whose list_dataset_records() returns your record
+    fake_client = MagicMock()
+    fake_client.list_dataset_records.return_value = [record]
 
-                assert results.result_df["request"].tolist() == ["foo"]
+    with (
+        patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth),
+        patch("databricks.rag_eval.datasets.entities._get_client", return_value=fake_client),
+        patch("mlflow.get_tracking_uri", return_value="databricks"),
+    ):
+        results = mlflow.genai.evaluate(data=EvaluationDataset("test-id"))
 
-                assert results.result_df["response"].tolist() == ["bar"]
+        assert results.result_df["request"].tolist() == [{"question": "foo"}]
+        assert results.result_df["expected_response"].tolist() == ["bar"]
+
 
 @patch("mlflow.get_tracking_uri", return_value="databricks")
 def test_no_scorers(mock_get_tracking_uri):

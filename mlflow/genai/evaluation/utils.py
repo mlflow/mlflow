@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
 
@@ -36,14 +37,6 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
     The expected schema can be found at:
     https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
     """
-    try:
-        from mlflow.genai.datasets import EvaluationDataset
-    except ImportError:
-        raise ImportError(
-            "The `databricks-agents` package is required to use mlflow.genai.evaluate() "
-            "Please install it with `pip install databricks-agents`."
-        )
-
     column_mapping = {
         "inputs": "request",
         "outputs": "response",

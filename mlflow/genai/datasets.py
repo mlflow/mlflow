@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     # For type checking and IDE completion, import EvaluationDataset
-    from databricks.rag_eval.datasets.entities import Dataset as EvaluationDataset
+    from databricks.agents.datasets import Dataset as EvaluationDataset
 
 __all__ = ["EvaluationDataset"]
 
