@@ -2214,10 +2214,7 @@ class FileStore(AbstractStore):
 
     def _get_all_model_params(self, model_dir: str) -> list[LoggedModelParameter]:
         parent_path, param_files = self._get_resource_files(model_dir, FileStore.PARAMS_FOLDER_NAME)
-        params = []
-        for param_file in param_files:
-            params.append(self._get_param_from_file(parent_path, param_file))
-        return params
+        return [self._get_param_from_file(parent_path, param_file) for param_file in param_files]
 
     def _get_all_model_metrics(self, model_id: str, model_dir: str) -> list[Metric]:
         parent_path, metric_files = self._get_resource_files(

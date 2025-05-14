@@ -2261,17 +2261,18 @@ def _create_logged_model(
 
 
 @experimental
-def log_logged_model_params(model_id: str, params: dict[str, str]) -> None:
+def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> None:
     """
-    Set params on the specified logged model.
+    Log params to the specified logged model.
 
     Args:
         model_id: ID of the model.
-        params: Params to set on the model.
+        params: Params to log on the model.
 
     Returns:
         None
     """
+    model_id = model_id or get_active_model_id()
     MlflowClient().log_logged_model_params(model_id, params)
 
 
