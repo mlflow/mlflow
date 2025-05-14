@@ -6,11 +6,17 @@ mlflow
     :undoc-members:
     :exclude-members:
         MlflowClient,
+        add_trace,
         trace,
         start_span,
         start_span_no_context,
         get_trace,
         search_traces,
+        log_assessment,
+        log_expectation,
+        log_feedback,
+        update_assessment,
+        delete_assessment,
         get_current_active_span,
         get_last_active_trace_id,
         create_external_model,
@@ -38,6 +44,11 @@ guidance on how to use these tracing APIs, please refer to the `Tracing Fluent A
 .. autofunction:: mlflow.search_traces
 .. autofunction:: mlflow.get_current_active_span
 .. autofunction:: mlflow.get_last_active_trace_id
+.. autofunction:: mlflow.add_trace
+.. autofunction:: mlflow.log_assessment
+.. autofunction:: mlflow.update_assessment
+.. autofunction:: mlflow.delete_assessment
+
 .. automodule:: mlflow.tracing
     :members:
     :undoc-members:
