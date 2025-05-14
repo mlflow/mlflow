@@ -138,6 +138,7 @@ def _convert_expectations_to_legacy_columns(df: "pd.DataFrame") -> "pd.DataFrame
         # Process each row individually to handle mixed types
         for idx, value in df["expectations"].items():
             if isinstance(value, dict):
+                value = value.copy()
                 # Reserved expectation keys is propagated as a new column
                 for field in AgentEvaluationReserverKey.get_all():
                     if field in value:

@@ -32,9 +32,13 @@ class Scorer(BaseModel):
                 and all(isinstance(item, (Assessment, LegacyAssessment)) for item in result)
             )
         ):
+            if isinstance(result, list) and len(result) > 0:
+                result_type = "list[" + type(result[0]).__name__ + "]"
+            else:
+                result_type = type(result).__name__
             raise ValueError(
                 f"{self.name} must return one of int, float, bool, str, "
-                f"Assessment, or list[Assessment]. Got {type(result).__name__}"
+                f"Assessment, or list[Assessment]. Got {result_type}"
             )
         return result
 

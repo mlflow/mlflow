@@ -1,5 +1,5 @@
-from collections import defaultdict
 import importlib
+from collections import defaultdict
 from unittest.mock import patch
 
 import pandas as pd
@@ -80,7 +80,6 @@ def test_scorer_is_called_with_correct_arguments(sample_data):
         )
         return 0.0
 
-
     mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
 
     assert len(actual_call_args_list) == len(sample_data)
@@ -90,7 +89,9 @@ def test_scorer_is_called_with_correct_arguments(sample_data):
     for i in range(len(sample_data)):
         sample_data_set["inputs"].add(str(sample_data["inputs"][i]))
         sample_data_set["outputs"].add(str(sample_data["outputs"][i]))
-        sample_data_set["expectations"].add(str(sample_data["expectations"][i]))
+        sample_data_set["expectations"].add(
+            str(sample_data["expectations"][i]["expected_response"])
+        )
 
     for actual_args in actual_call_args_list:
         # do any check since actual passed input could be reformatted and larger than sample input

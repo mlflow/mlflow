@@ -27,8 +27,8 @@ def spark():
 
         with SparkSession.builder.getOrCreate() as spark:
             yield spark
-    except RuntimeError:
-        pytest.skip("Can't create a Spark session")
+    except Exception as e:
+        pytest.skip(f"Failed to create a spark session: {e}")
 
 
 @pytest.fixture
