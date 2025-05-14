@@ -444,6 +444,9 @@ nitpick_ignore = [
     # Literal values for search_logged_models status
     ("py:class", "READY"),
     ("py:class", "FAILED"),
+    # Types in `mlflow.genai`
+    ("py:class", "mlflow.genai.evaluation.base.EvaluationResult"),
+    ("py:class", "EvaluationDatasetTypes"),
 ]
 
 

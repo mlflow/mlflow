@@ -90,12 +90,14 @@ def evaluate(
             model with association.
 
             1. Use the `model_id` parameters.
-            2. Use the mlflow.set_active_model() function to set model ID to global context.
-               ```python
-               mlflow.set_active_model(model_id="xyz")
+            2. Use the `mlflow.set_active_model()` function to set model ID to global context.
 
-               mlflow.evaluate(data, ...)
-               ```
+               .. code-block:: python
+
+                    mlflow.set_active_model(model_id="xyz")
+
+                    mlflow.evaluate(data, ...)
+
     """
     try:
         from databricks.rag_eval.evaluation.metrics import Metric as DBAgentsMetric
