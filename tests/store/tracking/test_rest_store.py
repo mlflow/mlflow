@@ -31,8 +31,8 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
-    MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
-    MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -1355,8 +1355,8 @@ def test_create_logged_models_with_params(
 ):
     """Test creating logged models with parameters."""
     # Set environment variables using monkeypatch
-    monkeypatch.setenv(MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, create_batch_size)
-    monkeypatch.setenv(MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, log_batch_size)
+    monkeypatch.setenv(_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, create_batch_size)
+    monkeypatch.setenv(_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, log_batch_size)
 
     store = RestStore(lambda: None)
     with (

@@ -25,8 +25,8 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
-    MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
-    MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -900,11 +900,9 @@ class RestStore(AbstractStore):
         initial_params = []
         remaining_params = []
         if params:
-            initial_batch_size = MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE.get()
+            initial_batch_size = _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE.get()
             initial_params = params[:initial_batch_size]
-            remaining_params = (
-                params[initial_batch_size:] if len(params) > initial_batch_size else []
-            )
+            remaining_params = params[initial_batch_size:]
 
         req_body = message_to_json(
             CreateLoggedModel(
@@ -938,11 +936,10 @@ class RestStore(AbstractStore):
         Returns:
             None
         """
-        # Process params in batches of 100
-        batch_size = MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE.get()
-        num_params = len(params)
+        # Process params in batches to avoid exceeding per-request backend limits
+        batch_size = _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE.get()
         endpoint = get_logged_model_endpoint(model_id)
-        for i in range(0, num_params, batch_size):
+        for i in range(0, len(params), batch_size):
             batch = params[i : i + batch_size]
             req_body = message_to_json(
                 LogLoggedModelParamsRequest(
