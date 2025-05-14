@@ -1,6 +1,7 @@
 import atexit
 import logging
 import threading
+import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from queue import Empty, Queue
@@ -49,6 +50,8 @@ class AsyncTraceExportQueue:
 
         self._active_tasks = set()
 
+        self._last_full_queue_warning_time = None
+
     def put(self, task: Task):
         """Put a new task to the queue for processing."""
         if not self.is_active():
@@ -62,10 +65,17 @@ class AsyncTraceExportQueue:
             # Do not block if the queue is full, it will block the main application
             self._queue.put(task, block=False)
         except queue_Full:
-            _logger.warning(
-                "Trace export queue is full, trace will be discarded. "
-                "Consider increasing the queue size or number of workers."
-            )
+            if self._last_full_queue_warning_time is None or (
+                time.time() - self._last_full_queue_warning_time > 30
+            ):
+                _logger.warning(
+                    "Trace export queue is full, trace will be discarded. "
+                    "Consider increasing the queue size through "
+                    "`MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` environment variable or "
+                    "number of workers through `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`"
+                    " environment variable."
+                )
+                self._last_full_queue_warning_time = time.time()
 
     def _consumer_loop(self) -> None:
         while not self._stop_event.is_set():

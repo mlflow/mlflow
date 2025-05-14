@@ -60,7 +60,7 @@ def test_async_queue_activate_thread_safe(mock_atexit):
     assert _count_threads() == 0
 
 
-def test_async_queue_drop_task_when_full(monkeypatch):
+def test_async_queue_drop_task_when_full(monkeypatch, caplog):
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", "3")
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS", "1")
 
@@ -75,12 +75,19 @@ def test_async_queue_drop_task_when_full(monkeypatch):
         nonlocal processed_tasks
         processed_tasks += 1
 
-    for _ in range(10):
-        task = Task(handler=slow_handler, args=())
-        queue.put(task)
+    with mock.patch("mlflow.tracing.export.async_export_queue._logger.warning") as mock_warn:
+        for _ in range(10):
+            task = Task(handler=slow_handler, args=())
+            queue.put(task)
 
     queue.flush(terminate=True)
 
     # One more task than the queue size might be processed, because the first task
     # can be drained from the queue immediately, which creates a slot for another task
     assert processed_tasks <= 4
+    mock_warn.assert_called_once_with(
+        "Trace export queue is full, trace will be discarded. Consider increasing the "
+        "queue size through `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` environment variable "
+        "or number of workers through `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS` "
+        "environment variable."
+    )
