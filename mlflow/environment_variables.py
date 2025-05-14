@@ -783,3 +783,8 @@ _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
 _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
     "_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
 )
+
+
+#: Avoid printing experiment and run url to stdout at run termination
+#: (default: ``False``)
+MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable('_MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT', False)
