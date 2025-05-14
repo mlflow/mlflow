@@ -1,4 +1,3 @@
-import json
 from typing import Optional
 from unittest import mock
 
@@ -71,16 +70,22 @@ def test_export(dual_write_enabled, monkeypatch):
     assert trace_info["request_time"] == "1970-01-01T00:00:00Z"
     assert trace_info["execution_duration_ms"] == 1
 
-    # Verify that the SIZE_BYTES field is present with the correct value
-    # in trace metadata
+    # Verify that the SIZE_BYTES field is present in trace metadata
     assert TraceMetadataKey.SIZE_BYTES in trace_info["trace_metadata"]
     size_bytes = int(trace_info["trace_metadata"][TraceMetadataKey.SIZE_BYTES])
-    # Verify that the size_bytes value matches the actual size of the trace in bytes
-    trace_json = json.dumps(trace_dict)
-    actual_size_bytes = len(trace_json.encode("utf-8"))
-    assert size_bytes == actual_size_bytes, (
-        f"Expected size_bytes to match actual size, but got {size_bytes} != {actual_size_bytes}"
-    )
+
+    # Recreate a Trace object and calculate its size
+    trace = Trace.from_dict(trace_dict)
+
+    # Remove the size metadata to simulate what happens in add_size_bytes_to_trace_metadata
+    if TraceMetadataKey.SIZE_BYTES in trace.info.trace_metadata:
+        del trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES]
+
+    # Calculate size exactly the same way the function does
+    expected_size_bytes = len(trace.to_json().encode("utf-8"))
+
+    # Verify that size_bytes matches the size calculation
+    assert size_bytes == expected_size_bytes
 
     spans = trace_dict["data"]["spans"]
     assert len(spans) == 2
