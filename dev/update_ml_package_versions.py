@@ -41,12 +41,12 @@ def uploaded_recently(dist) -> bool:
 
 
 @dataclass
-class VersionData:
+class VersionInfo:
     version: str
     upload_time: datetime
 
 
-def get_package_version_infos(package_name: str) -> list[VersionData]:
+def get_package_version_infos(package_name: str) -> list[VersionInfo]:
     url = f"https://pypi.python.org/pypi/{package_name}/json"
     for _ in range(5):  # Retry up to 5 times
         try:
@@ -65,7 +65,7 @@ def get_package_version_infos(package_name: str) -> list[VersionData]:
         return v.is_devrelease or v.is_prerelease
 
     return [
-        VersionData(
+        VersionInfo(
             version=version,
             upload_time=datetime.fromisoformat(dist_files[0]["upload_time"]),
         )
@@ -224,7 +224,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_min_supported_version(versions_and_upload_times: list[VersionData]) -> Optional[str]:
+def get_min_supported_version(versions_infos: list[VersionInfo]) -> Optional[str]:
     """
     Get the minimum version that is released within the past two years
     """
@@ -232,7 +232,7 @@ def get_min_supported_version(versions_and_upload_times: list[VersionData]) -> O
     min_support_date = min_support_date.replace(tzinfo=None)
 
     # Extract versions that were released in the past two years
-    recent_versions = [v for v in versions_and_upload_times if v.upload_time > min_support_date]
+    recent_versions = [v for v in versions_infos if v.upload_time > min_support_date]
 
     if not recent_versions:
         return None

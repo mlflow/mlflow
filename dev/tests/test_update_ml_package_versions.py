@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 
 from dev import update_ml_package_versions
-from dev.update_ml_package_versions import VersionData
+from dev.update_ml_package_versions import VersionInfo
 
 
 class MockResponse:
@@ -40,7 +40,7 @@ class MockResponse:
         )
 
     @classmethod
-    def from_version_infos(cls, version_data):
+    def from_version_infos(cls, version_infos: list[VersionInfo]) -> "MockResponse":
         return cls(
             {
                 "releases": {
@@ -50,7 +50,7 @@ class MockResponse:
                             "upload_time": v.upload_time.isoformat(),
                         }
                     ]
-                    for v in version_data
+                    for v in version_infos
                 }
             }
         )
@@ -220,9 +220,9 @@ sklearn:
     mock_responses = {
         "sklearn": MockResponse.from_version_infos(
             [
-                VersionData("0.0.2", datetime.now() - timedelta(days=1000)),
-                VersionData("0.0.3", datetime.now() - timedelta(days=365)),
-                VersionData("0.0.8", datetime.now() - timedelta(days=180)),
+                VersionInfo("0.0.2", datetime.now() - timedelta(days=1000)),
+                VersionInfo("0.0.3", datetime.now() - timedelta(days=365)),
+                VersionInfo("0.0.8", datetime.now() - timedelta(days=180)),
             ]
         )
     }
@@ -249,8 +249,8 @@ sklearn:
     mock_responses = {
         "sklearn": MockResponse.from_version_infos(
             [
-                VersionData("0.0.7", datetime.now() - timedelta(days=1000)),
-                VersionData("0.0.8", datetime.now() - timedelta(days=800)),
+                VersionInfo("0.0.7", datetime.now() - timedelta(days=1000)),
+                VersionInfo("0.0.8", datetime.now() - timedelta(days=800)),
             ]
         )
     }
