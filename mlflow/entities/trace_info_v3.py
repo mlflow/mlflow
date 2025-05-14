@@ -58,6 +58,7 @@ class TraceInfoV3(_MlflowObject):
         if self.execution_duration is not None:
             res.pop("execution_duration", None)
             res["execution_duration_ms"] = self.execution_duration
+        print("TO DICT RES INFO", res)
         return res
 
     @classmethod

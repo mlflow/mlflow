@@ -461,3 +461,4 @@ def add_size_bytes_to_trace_metadata(trace: Trace):
     )
     trace_size_bytes = prev_trace_size_bytes + new_metadata_size_bytes
     trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)
+    print("TRACE JSON", trace.to_json())

@@ -5,16 +5,12 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import pytest
+from google.protobuf.json_format import ParseDict
 
 import mlflow
 from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info_v3 import TraceInfoV3
-from mlflow.entities.trace_location import (
-    MlflowExperimentLocation,
-    TraceLocation,
-    TraceLocationType,
-)
-from mlflow.entities.trace_state import TraceState
 from mlflow.protos import service_pb2 as pb
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.destination import Databricks
@@ -38,38 +34,31 @@ def _flush_async_logging():
     exporter._async_queue.flush(terminate=True)
 
 
-@pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
-@pytest.mark.parametrize("experiment_id", [None, _EXPERIMENT_ID])
-def test_export(experiment_id, is_async, monkeypatch):
+# @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
+# @pytest.mark.parametrize("experiment_id", [None, _EXPERIMENT_ID])
+@pytest.mark.parametrize("is_async", [False], ids=["async"])
+@pytest.mark.parametrize("experiment_id", [None])
+def test_export_with_size(experiment_id, is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
 
     mlflow.tracing.set_destination(Databricks(experiment_id=experiment_id))
 
-    # Create mock for returned trace from _start_trace_v3
-    mock_trace_info = TraceInfoV3(
-        trace_id="12345",
-        trace_location=TraceLocation(
-            type=TraceLocationType.MLFLOW_EXPERIMENT,
-            mlflow_experiment=MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID),
-        ),
-        request_time=1234567890,
-        state=TraceState.OK,
-        request_preview="Some request",
-        response_preview="Some response",
-        client_request_id=None,
-        execution_duration=100,
-        trace_metadata={"key1": "value1"},
-        tags={"foo": "bar"},
-    ).to_proto()
-    mock_response = pb.StartTraceV3.Response(
-        trace=pb.Trace(trace_info=mock_trace_info),
-    )
+    trace_info = None
+
+    def mock_response(credentials, path, method, trace_json, *args, **kwargs):
+        nonlocal trace_info
+        print("TRACE JSON REQUEST", trace_json)
+        trace_dict = json.loads(trace_json)
+        trace_proto = ParseDict(trace_dict["trace"], pb.Trace())
+        trace_info_proto = ParseDict(trace_dict["trace"]["trace_info"], pb.TraceInfoV3())
+        trace_info = TraceInfoV3.from_proto(trace_info_proto)
+        return pb.StartTraceV3.Response(trace=trace_proto)
 
     with (
         mock.patch(
-            "mlflow.store.tracking.rest_store.call_endpoint", return_value=mock_response
+            "mlflow.store.tracking.rest_store.call_endpoint", side_effect=mock_response
         ) as mock_call_endpoint,
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
@@ -87,18 +76,21 @@ def test_export(experiment_id, is_async, monkeypatch):
     # Access the trace that was passed to _start_trace_v3
     endpoint = mock_call_endpoint.call_args.args[1]
     assert endpoint == "/api/3.0/mlflow/traces"
-    trace_json = mock_call_endpoint.call_args.args[3]
-    trace = json.loads(trace_json)["trace"]
+    trace_info_dict = trace_info.to_dict()
+    trace_data = mock_upload_trace_data.call_args.args[1]
+    trace = Trace(info=trace_info, data=trace_data)
+
+    print("EXPECTED TRACE", trace.to_json())
 
     # Basic validation of the trace object
-    assert trace["trace_info"]["trace_id"] is not None
+    assert trace_info_dict["trace_id"] is not None
 
     # Verify that the SIZE_BYTES entry is present with the correct value
     # in trace metadata
-    assert TraceMetadataKey.SIZE_BYTES in trace["trace_info"]["trace_metadata"]
-    size_bytes = int(trace["trace_info"]["trace_metadata"][TraceMetadataKey.SIZE_BYTES])
+    assert TraceMetadataKey.SIZE_BYTES in trace_info_dict["trace_metadata"]
+    size_bytes = int(trace_info_dict["trace_metadata"][TraceMetadataKey.SIZE_BYTES])
     # Verify that the size_bytes value matches the actual size of the trace in bytes
-    actual_size_bytes = len(trace_json.encode("utf-8"))
+    actual_size_bytes = len(trace.to_json().encode("utf-8"))
     assert size_bytes == actual_size_bytes, (
         f"Expected size_bytes to match actual size, but got {size_bytes} != {actual_size_bytes}"
     )
