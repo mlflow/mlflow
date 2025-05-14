@@ -3,12 +3,12 @@ from typing import Any, Optional
 from mlflow.entities.assessment import (
     Assessment,
     AssessmentError,
-    AssessmentValueType,
     Expectation,
     Feedback,
+    FeedbackValueType,
     experimental,
 )
-from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.client import TracingClient
 
@@ -18,7 +18,7 @@ def log_expectation(
     trace_id: str,
     name: str,
     source: AssessmentSource,
-    value: AssessmentValueType,
+    value: Any,
     metadata: Optional[dict[str, Any]] = None,
     span_id: Optional[str] = None,
 ) -> Assessment:
@@ -63,6 +63,35 @@ def log_expectation(
             value=42,
             source=source,
         )
+
+    The expectation value can be any JSON-serializable value. For example, you may
+     record the full LLM message as the expectation value.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
+
+        mlflow.log_expectation(
+            trace_id="1234",
+            name="expected_message",
+            # Full LLM message including expected tool calls
+            value={
+                "role": "assistant",
+                "content": "The answer is 42.",
+                "tool_calls": [
+                    {
+                        "id": "1234",
+                        "type": "function",
+                        "function": {"name": "add", "arguments": "40 + 2"},
+                    }
+                ],
+            },
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN,
+                source_id="john@example.com",
+            ),
+        )
     """
     if value is None:
         raise MlflowException.invalid_parameter_value("Expectation value cannot be None.")
@@ -87,7 +116,7 @@ def update_expectation(
     trace_id: str,
     assessment_id: str,
     name: Optional[str] = None,
-    value: Optional[AssessmentValueType] = None,
+    value: Any = None,
     metadata: Optional[dict[str, Any]] = None,
 ) -> Assessment:
     """
@@ -163,8 +192,8 @@ def delete_expectation(trace_id: str, assessment_id: str):
 def log_feedback(
     trace_id: str,
     name: str,
-    source: AssessmentSource,
-    value: Optional[AssessmentValueType] = None,
+    source: Optional[AssessmentSource] = None,
+    value: Optional[FeedbackValueType] = None,
     error: Optional[AssessmentError] = None,
     rationale: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
@@ -181,8 +210,15 @@ def log_feedback(
         trace_id: The ID of the trace.
         name: The name of the feedback assessment e.g., "faithfulness"
         source: The source of the feedback assessment. Must be an instance of
-                :py:class:`~mlflow.entities.AssessmentSource`.
-        value: The value of the feedback.
+                :py:class:`~mlflow.entities.AssessmentSource`. If not provided, defaults to
+                CODE source type.
+        value: The value of the feedback. Must be one of the following types:
+            - float
+            - int
+            - str
+            - bool
+            - list of values of the same types as above
+            - dict with string keys and values of the same types as above
         error: An error object representing any issues encountered while computing the
             feedback, e.g., a timeout error from an LLM judge. Either this or `value`
             must be provided.
@@ -204,7 +240,7 @@ def log_feedback(
         from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
 
         source = AssessmentSource(
-            source_type=Type.LLM_JUDGE,
+            source_type=AssessmentSourceType.LLM_JUDGE,
             source_id="faithfulness-judge",
         )
 
@@ -215,6 +251,20 @@ def log_feedback(
             value=0.9,
             rationale="The model is faithful to the input.",
             metadata={"model": "gpt-4o-mini"},
+        )
+
+    You can also use the function without specifying a source, in which case CODE source type
+    will be used by default:
+
+    .. code-block:: python
+
+        import mlflow
+
+        mlflow.log_feedback(
+            trace_id="1234",
+            name="faithfulness",
+            value=0.9,
+            rationale="The model is faithful to the input.",
         )
 
     You can also log an error information during the feedback generation process. To do so,
@@ -239,15 +289,21 @@ def log_feedback(
         mlflow.log_feedback(
             trace_id="1234",
             name="faithfulness",
-            source=source,
             error=error,
+            source=source,
         )
 
     """
     if value is None and error is None:
         raise MlflowException.invalid_parameter_value("Either `value` or `error` must be provided.")
 
-    if not isinstance(source, AssessmentSource):
+    # If source is not provided, use CODE as the default source type
+    if source is None:
+        source = AssessmentSource(
+            source_type=AssessmentSourceType.CODE,
+            source_id="default",
+        )
+    elif not isinstance(source, AssessmentSource):
         raise MlflowException.invalid_parameter_value(
             f"`source` must be an instance of `AssessmentSource`. Got {type(source)} instead."
         )
@@ -268,7 +324,7 @@ def update_feedback(
     trace_id: str,
     assessment_id: str,
     name: Optional[str] = None,
-    value: Optional[AssessmentValueType] = None,
+    value: Optional[FeedbackValueType] = None,
     rationale: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
 ) -> Assessment:

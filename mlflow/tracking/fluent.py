@@ -12,7 +12,7 @@ import os
 import threading
 from contextvars import ContextVar
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Generator, Optional, Union
+from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union, overload
 
 import mlflow
 from mlflow.entities import (
@@ -32,7 +32,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
-    MLFLOW_ACTIVE_MODEL_ID,
+    _MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
@@ -924,8 +924,9 @@ def log_metric(
         timestamp: Time when this metric was calculated. Defaults to the current system time.
         run_id: If specified, log the metric to the specified run. If not specified, log the metric
             to the currently active run.
-        model_id: The ID of the model associated with the metric. If not specified, the models IDs
-            associated with the specified or active run will be used.
+        model_id: The ID of the model associated with the metric. If not specified, use the current
+            active model ID set by :py:func:`mlflow.set_active_model`. If no active model exists,
+            the models IDs associated with the specified or active run will be used.
         dataset: The dataset associated with the metric.
 
     Returns:
@@ -949,6 +950,7 @@ def log_metric(
     """
     run_id = run_id or _get_or_start_run().info.run_id
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+    model_id = model_id or get_active_model_id()
     _log_inputs_for_metrics_if_necessary(
         run_id,
         [
@@ -1053,8 +1055,9 @@ def log_metrics(
         run_id: Run ID. If specified, log metrics to the specified run. If not specified, log
             metrics to the currently active run.
         timestamp: Time when these metrics were calculated. Defaults to the current system time.
-        model_id: The ID of the model associated with the metrics. If not specified, the models IDs
-            associated with the specified or active run will be used.
+        model_id: The ID of the model associated with the metric. If not specified, use the current
+            active model ID set by :py:func:`mlflow.set_active_model`. If no active model
+            exists, the models IDs associated with the specified or active run will be used.
         dataset: The dataset associated with the metrics.
 
     Returns:
@@ -1083,6 +1086,7 @@ def log_metrics(
     step = step or 0
     dataset_name = dataset.name if dataset is not None else None
     dataset_digest = dataset.digest if dataset is not None else None
+    model_id = model_id or get_active_model_id()
     model_ids = (
         [model_id]
         if model_id is not None
@@ -2257,7 +2261,9 @@ def _create_logged_model(
 
 
 @experimental
-def finalize_logged_model(model_id: str, status: Union[str, LoggedModelStatus]) -> LoggedModel:
+def finalize_logged_model(
+    model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
+) -> LoggedModel:
     """
     Finalize a model by updating its status.
 
@@ -2305,9 +2311,15 @@ def get_logged_model(model_id: str) -> LoggedModel:
 
         import mlflow
 
-        model = mlflow.create_external_model(name="model")
-        logged_model = mlflow.get_logged_model(model_id=model.model_id)
-        assert logged_model.model_id == model.model_id
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        logged_model = mlflow.get_logged_model(model_id=model_info.model_id)
+        assert logged_model.model_id == model_info.model_id
 
     """
     return MlflowClient().get_logged_model(model_id)
@@ -2327,22 +2339,42 @@ def last_logged_model() -> Optional[LoggedModel]:
         :test:
         :caption: Example
 
-        from typing import List
-
         import mlflow
 
 
-        class Model(mlflow.pyfunc.PythonModel):
-            def predict(self, integers: List[int]) -> List[int]:
-                return integers * 2
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
 
 
-        logged_model = mlflow.pyfunc.log_model(python_model=Model())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
         last_model = mlflow.last_logged_model()
-        assert last_model.model_id == logged_model.model_id
+        assert last_model.model_id == model_info.model_id
     """
     if id := _last_logged_model_id.get():
         return get_logged_model(id)
+
+
+@overload
+def search_logged_models(
+    experiment_ids: Optional[list[str]] = None,
+    filter_string: Optional[str] = None,
+    datasets: Optional[list[dict[str, str]]] = None,
+    max_results: Optional[int] = None,
+    order_by: Optional[list[dict[str, Any]]] = None,
+    output_format: Literal["pandas"] = "pandas",
+) -> "pandas.DataFrame": ...
+
+
+@overload
+def search_logged_models(
+    experiment_ids: Optional[list[str]] = None,
+    filter_string: Optional[str] = None,
+    datasets: Optional[list[dict[str, str]]] = None,
+    max_results: Optional[int] = None,
+    order_by: Optional[list[dict[str, Any]]] = None,
+    output_format: Literal["list"] = "list",
+) -> list[LoggedModel]: ...
 
 
 @experimental
@@ -2352,7 +2384,7 @@ def search_logged_models(
     datasets: Optional[list[dict[str, str]]] = None,
     max_results: Optional[int] = None,
     order_by: Optional[list[dict[str, Any]]] = None,
-    output_format: str = "pandas",
+    output_format: Literal["pandas", "list"] = "pandas",
 ) -> Union[list[LoggedModel], "pandas.DataFrame"]:
     """
     Search for logged models that match the specified search criteria.
@@ -2422,8 +2454,16 @@ def search_logged_models(
 
         import mlflow
 
-        mlflow.create_external_model(name="model")
-        mlflow.create_external_model(name="another_model")
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        another_model_info = mlflow.pyfunc.log_model(
+            name="another_model", python_model=DummyModel()
+        )
         models = mlflow.search_logged_models(output_format="list")
         assert [m.name for m in models] == ["another_model", "model"]
         models = mlflow.search_logged_models(
@@ -2547,9 +2587,15 @@ def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
 
         import mlflow
 
-        model = mlflow.initialize_logged_model(name="my_model")
-        mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
-        model = mlflow.get_logged_model(model.model_id)
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.set_logged_model_tags(model_info.model_id, {"key": "value"})
+        model = mlflow.get_logged_model(model_info.model_id)
         assert model.tags["key"] == "value"
     """
     MlflowClient().set_logged_model_tags(model_id, tags)
@@ -2570,12 +2616,18 @@ def delete_logged_model_tag(model_id: str, key: str) -> None:
 
         import mlflow
 
-        model = mlflow.initialize_logged_model(name="my_model")
-        mlflow.set_logged_model_tags(model.model_id, {"key": "value"})
-        model = mlflow.get_logged_model(model.model_id)
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.set_logged_model_tags(model_info.model_id, {"key": "value"})
+        model = mlflow.get_logged_model(model_info.model_id)
         assert model.tags["key"] == "value"
-        mlflow.delete_logged_model_tag(model.model_id, "key")
-        model = mlflow.get_logged_model(model.model_id)
+        mlflow.delete_logged_model_tag(model_info.model_id, "key")
+        model = mlflow.get_logged_model(model_info.model_id)
         assert "key" not in model.tags
     """
     MlflowClient().delete_logged_model_tag(model_id, key)
@@ -3183,7 +3235,10 @@ class ActiveModelContext:
     """
 
     def __init__(self, model_id: Optional[str] = None, set_by_user: bool = False):
-        self._model_id = model_id
+        # use _MLFLOW_ACTIVE_MODEL_ID as the default value for model_id
+        # so that for subprocesses the default _ACTIVE_MODEL_CONTEXT.model_id
+        # is still valid, and we don't need to read from env var.
+        self._model_id = model_id or _MLFLOW_ACTIVE_MODEL_ID.get()
         self._set_by_user = set_by_user
 
     def __repr__(self):
@@ -3191,7 +3246,7 @@ class ActiveModelContext:
 
     @property
     def model_id(self) -> Optional[str]:
-        return self._model_id or MLFLOW_ACTIVE_MODEL_ID.get()
+        return self._model_id
 
     @property
     def set_by_user(self) -> bool:
@@ -3212,17 +3267,13 @@ class ActiveModel(LoggedModel):
     def __init__(self, logged_model: LoggedModel, set_by_user: bool):
         super().__init__(**logged_model.to_dictionary())
         self.last_active_model_context = _ACTIVE_MODEL_CONTEXT.get()
-        self.last_active_model_id_env_var = MLFLOW_ACTIVE_MODEL_ID.get()
-        _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(self.model_id, set_by_user))
-        _update_active_model_id_env_var(self.model_id)
-        _logger.info(f"Active model set to model with ID: {self.model_id}")
+        _set_active_model_id(self.model_id, set_by_user)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         _ACTIVE_MODEL_CONTEXT.set(self.last_active_model_context)
-        _update_active_model_id_env_var(self.last_active_model_id_env_var)
 
 
 # NB: This function is only intended to be used publicly by users to set the
@@ -3234,8 +3285,7 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
     Set the active model with the specified name or model ID, and it will be used for linking
     traces that are generated during the lifecycle of the model. The return value can be used as
     a context manager within a ``with`` block; otherwise, you must call ``set_active_model()``
-    to update active model. Note that this function also sets the environment variable
-    ``MLFLOW_ACTIVE_MODEL_ID`` to the model ID of the active model.
+    to update active model.
 
     Args:
         name: The name of the :py:class:`mlflow.entities.LoggedModel` to set as active.
@@ -3279,13 +3329,12 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
         traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
         assert len(traces) == 1
     """
-    active_model = _set_active_model(name=name, model_id=model_id)
-    active_model_ctx = _ACTIVE_MODEL_CONTEXT.get()
-    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(active_model_ctx.model_id, set_by_user=True))
-    return active_model
+    return _set_active_model(name=name, model_id=model_id, set_by_user=True)
 
 
-def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = None) -> ActiveModel:
+def _set_active_model(
+    *, name: Optional[str] = None, model_id: Optional[str] = None, set_by_user: bool = False
+) -> ActiveModel:
     if name is None and model_id is None:
         raise MlflowException.invalid_parameter_value(
             message="Either name or model_id must be provided",
@@ -3312,7 +3361,28 @@ def _set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = N
             logged_model = mlflow.create_external_model(name=name)
         else:
             logged_model = logged_models[0]
-    return ActiveModel(logged_model=logged_model, set_by_user=False)
+    return ActiveModel(logged_model=logged_model, set_by_user=set_by_user)
+
+
+def _set_active_model_id(model_id: str, set_by_user: bool = False) -> None:
+    """
+    Set the active model ID in the active model context and update the
+    corresponding environment variable. This should only be used when
+    we know the LoggedModel with the model_id exists.
+    This function should be used inside MLflow to set the active model
+    while not blocking other code execution.
+    """
+    try:
+        _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(model_id, set_by_user))
+    except Exception as e:
+        _logger.warning(f"Failed to set active model ID to {model_id}, error: {e}")
+    else:
+        _logger.info(f"Active model is set to the logged model with ID: {model_id}")
+        if not set_by_user:
+            _logger.info(
+                "Use `mlflow.set_active_model` to set the active model "
+                "to a different one if needed."
+            )
 
 
 def _get_active_model_context() -> ActiveModelContext:
@@ -3325,9 +3395,9 @@ def _get_active_model_context() -> ActiveModelContext:
 
 def get_active_model_id() -> Optional[str]:
     """
-    Get the active model ID. If no active model is set with ``set_active_model()``, this will
-    try to get the model ID from the environment variable ``MLFLOW_ACTIVE_MODEL_ID``.
-    If neither is set, return None.
+    Get the active model ID. If no active model is set with ``set_active_model()``, the
+    default active model is set using model ID from the environment variable
+    ``_MLFLOW_ACTIVE_MODEL_ID``. If neither is set, return None.
 
     Returns:
         The active model ID if set, otherwise None.
@@ -3339,12 +3409,5 @@ def _reset_active_model_context() -> None:
     """
     Should be called only for testing purposes.
     """
+    _MLFLOW_ACTIVE_MODEL_ID.unset()
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
-    _update_active_model_id_env_var(None)
-
-
-def _update_active_model_id_env_var(value):
-    if value is None:
-        MLFLOW_ACTIVE_MODEL_ID.unset()
-    else:
-        MLFLOW_ACTIVE_MODEL_ID.set(value)

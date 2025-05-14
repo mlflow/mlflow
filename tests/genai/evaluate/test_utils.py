@@ -1,14 +1,16 @@
 import importlib
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.evaluation.utils import (
     _convert_to_legacy_eval_set,
 )
+from mlflow.genai.scorers.builtin_scorers import groundedness
 
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
@@ -110,14 +112,9 @@ def test_convert_to_legacy_eval_set_has_no_errors(data_fixture, request):
     with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
         transformed_data = _convert_to_legacy_eval_set(sample_data)
 
-        assert "request" in transformed_data.columns
-        assert "response" in transformed_data.columns
-        assert "expected_response" in transformed_data.columns
-
-        mlflow.evaluate(
-            data=transformed_data,
-            model_type="databricks-agent",
-        )
+    assert "request" in transformed_data.columns
+    assert "response" in transformed_data.columns
+    assert "expected_response" in transformed_data.columns
 
 
 @pytest.mark.parametrize(
@@ -173,6 +170,33 @@ def test_scorer_receives_correct_data(data_fixture, request):
         assert set(all_expectations) == set(expected_expectations)
 
 
+def test_input_is_required_if_trace_is_not_provided():
+    with patch("mlflow.evaluate") as mock_evaluate:
+        with pytest.raises(MlflowException, match="inputs.*required"):
+            mlflow.genai.evaluate(
+                data=pd.DataFrame({"outputs": ["Paris"]}),
+                scorers=[groundedness()],
+            )
+
+        mock_evaluate.assert_not_called()
+
+        mlflow.genai.evaluate(
+            data=pd.DataFrame({"inputs": ["What is the capital of France?"], "outputs": ["Paris"]}),
+            scorers=[groundedness()],
+        )
+        mock_evaluate.assert_called_once()
+
+
+def test_input_is_optional_if_trace_is_provided():
+    with patch("mlflow.evaluate") as mock_evaluate:
+        mlflow.genai.evaluate(
+            data=pd.DataFrame({"outputs": ["Paris"], "trace": [MagicMock()]}),
+            scorers=[groundedness()],
+        )
+
+        mock_evaluate.assert_called_once()
+
+
 @pytest.mark.parametrize(
     "data_fixture",
     ["sample_dict_data_single", "sample_dict_data_multiple", "sample_pd_data", "sample_spark_data"],
@@ -190,6 +214,7 @@ def test_predict_fn_receives_correct_data(data_fixture, request):
         mlflow.genai.evaluate(
             predict_fn=predict_fn,
             data=sample_data,
+            scorers=[groundedness()],
         )
         received_args.pop(0)  # Remove the one-time prediction to check if a model is traced
         assert len(received_args) == len(sample_data)

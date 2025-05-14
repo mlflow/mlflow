@@ -36,7 +36,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     _MLFLOW_GO_STORE_TESTING,
@@ -4193,7 +4193,7 @@ def _create_trace(
     status=TraceStatus.OK,
     request_metadata=None,
     tags=None,
-) -> TraceInfo:
+) -> TraceInfoV2:
     """Helper function to create a test trace in the database."""
     if not store.get_experiment(experiment_id):
         store.create_experiment(store, experiment_id)
@@ -4810,7 +4810,17 @@ def test_get_logged_model(store: SqlAlchemyStore):
 
 def test_delete_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
-    model = store.create_logged_model(experiment_id=exp_id)
+    run = store.create_run(exp_id, "user", 0, [], "test_run")
+    model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+    metric = Metric(
+        key="metric",
+        value=0,
+        timestamp=0,
+        step=0,
+        model_id=model.model_id,
+        run_id=run.info.run_id,
+    )
+    store.log_metric(run.info.run_id, metric)
     store.delete_logged_model(model.model_id)
     with pytest.raises(MlflowException, match="not found"):
         store.get_logged_model(model.model_id)
