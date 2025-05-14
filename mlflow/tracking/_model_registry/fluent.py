@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Any, Optional
 
+import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.entities.run import Run
@@ -25,7 +26,13 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import active_run
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import (
+    _construct_databricks_uc_registered_model_url,
+    get_workspace_id,
+    get_workspace_url,
+)
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils.uri import is_databricks_unity_catalog_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -171,10 +178,23 @@ def _register_model(
         local_model_path=local_model_path,
         model_id=model_id,
     )
-    eprint(
+    created_message = (
         f"Created version '{create_version_response.version}' of model "
-        f"'{create_version_response.name}'."
+        f"'{create_version_response.name}'"
     )
+    # Print a link to the UC model version page if the model is in UC.
+    registry_uri = mlflow.get_registry_uri()
+    if is_databricks_unity_catalog_uri(registry_uri) and (url := get_workspace_url()):
+        uc_model_url = _construct_databricks_uc_registered_model_url(
+            url,
+            name,
+            create_version_response.version,
+            get_workspace_id(),
+        )
+        created_message = "🔗 " + created_message + f": {uc_model_url}"
+    else:
+        created_message += "."
+    eprint(created_message)
 
     if model_id:
         new_value = [

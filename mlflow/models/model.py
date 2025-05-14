@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import shutil
-import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -36,10 +35,7 @@ from mlflow.tracking.fluent import (
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
-    _construct_databricks_uc_registered_model_url,
     get_databricks_runtime_version,
-    get_workspace_id,
-    get_workspace_url,
     is_in_databricks_runtime,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -57,7 +53,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.uri import (
     append_to_uri_path,
     get_uri_scheme,
-    is_databricks_unity_catalog_uri,
 )
 
 _logger = logging.getLogger(__name__)
@@ -973,6 +968,9 @@ class Model:
                     model_id=model.model_id,
                 )
                 flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+
+                ### Print a link to the model here
+
                 # `save_model` calls `load_model` to infer the model requirements, which may result
                 # in __pycache__ directories being created in the model directory.
                 for pycache in Path(local_path).rglob("__pycache__"):
@@ -1120,21 +1118,6 @@ class Model:
             model_info = mlflow_model.get_model_info(model)
             if registered_model is not None:
                 model_info.registered_model_version = registered_model.version
-
-                # Print a link to the UC model version page if the model is in UC.
-                registry_uri = mlflow.get_registry_uri()
-                if is_databricks_unity_catalog_uri(registry_uri) and (url := get_workspace_url()):
-                    uc_model_url = _construct_databricks_uc_registered_model_url(
-                        url,
-                        registered_model_name,
-                        registered_model.version,
-                        get_workspace_id(),
-                    )
-                    # Use sys.stdout.write to make the link clickable in the UI
-                    sys.stdout.write(
-                        f"🔗 View model version '{registered_model.version}' of "
-                        + f"'{registered_model_name}' in Unity Catalog at: {uc_model_url}\n"
-                    )
 
         # If the model signature is Mosaic AI Agent compatible, render a recipe for evaluation.
         from mlflow.models.display_utils import maybe_render_agent_eval_recipe
