@@ -1795,13 +1795,12 @@ def test_log_model_params():
 
 
 def test_log_model_params_active_model():
-    model = mlflow.initialize_logged_model()
+    model = mlflow.create_external_model()
     with mlflow.set_active_model(model_id=model.model_id):
         large_params = {f"param_{i}": f"value_{i}" for i in range(150)}
         mlflow.log_model_params(large_params)
         logged_model = mlflow.get_logged_model(model.model_id)
-        for key, value in large_params.items():
-            assert logged_model.params.get(key) == value
+        assert logged_model.params == large_params
 
 
 def test_finalized_logged_model():

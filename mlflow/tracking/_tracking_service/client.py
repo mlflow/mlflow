@@ -827,7 +827,7 @@ class TrackingServiceClient:
             model_type=model_type,
         )
 
-    def log_logged_model_params(self, model_id: str, params: dict[str, str]) -> None:
+    def log_model_params(self, model_id: str, params: dict[str, str]) -> None:
         return self.store.log_logged_model_params(
             model_id=model_id,
             params=[LoggedModelParameter(str(key), str(value)) for key, value in params.items()],
