@@ -277,3 +277,19 @@ def test_scorer_on_genai_evaluate(sample_new_data, scorer_return):
                 scorer_return_values.add(scorer_return)
 
             assert dummy_scorer_values == scorer_return_values
+
+
+def test_builtin_scorers_are_callable():
+    from mlflow.genai.scorers import safety
+
+    # test with new scorer signature format
+    with patch("databricks.agents.evals.judges.safety") as mock_safety:
+        safety()(
+            inputs={"question": "What is the capital of France?"},
+            outputs="The capital of France is Paris.",
+        )
+
+        mock_safety.assert_called_once_with(
+            request={"question": "What is the capital of France?"},
+            response="The capital of France is Paris.",
+        )
