@@ -198,7 +198,7 @@ def test_prompt_associate_with_run(tmp_path):
     assert prompts[0].version == 1
 
 
-def test_register_model_prints_uc_model_version_url():
+def test_register_model_prints_uc_model_version_url(monkeypatch):
     orig_registry_uri = mlflow.get_registry_uri()
     mlflow.set_registry_uri("databricks-uc")
     workspace_id = "123"
@@ -240,5 +240,12 @@ def test_register_model_prints_uc_model_version_url():
         mock_create_version.assert_called_once()
         mock_get_logged_model.assert_called_once()
         mock_set_logged_model_tags.assert_called_once()
+
+        # Test that the URL is not printed when the environment variable is set to false
+        mock_eprint.reset_mock()
+        monkeypatch.setenv("MLFLOW_PRINT_MODEL_URLS_ON_CREATION", "false")
+        register_model(f"models:/{model_id}", name)
+        mock_eprint.assert_called_with("Created version '1' of model 'name.mlflow.test_model'.")
+
     # Clean up the global variables set by the server
     mlflow.set_registry_uri(orig_registry_uri)

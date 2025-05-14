@@ -6,6 +6,7 @@ import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.entities.run import Run
+from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
@@ -184,7 +185,11 @@ def _register_model(
     )
     # Print a link to the UC model version page if the model is in UC.
     registry_uri = mlflow.get_registry_uri()
-    if is_databricks_unity_catalog_uri(registry_uri) and (url := get_workspace_url()):
+    if (
+        MLFLOW_PRINT_MODEL_URLS_ON_CREATION.get()
+        and is_databricks_unity_catalog_uri(registry_uri)
+        and (url := get_workspace_url())
+    ):
         uc_model_url = _construct_databricks_uc_registered_model_url(
             url,
             create_version_response.name,

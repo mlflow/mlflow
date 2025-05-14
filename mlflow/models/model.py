@@ -15,7 +15,10 @@ from packaging.requirements import InvalidRequirement, Requirement
 import mlflow
 from mlflow.entities import LoggedModel, LoggedModelOutput, Metric
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
+from mlflow.environment_variables import (
+    MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
+    MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models.auth_policy import AuthPolicy
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
@@ -948,7 +951,7 @@ class Model:
                     if tags is not None
                     else None,
                 )
-                if is_databricks_uri(tracking_uri):
+                if MLFLOW_PRINT_MODEL_URLS_ON_CREATION.get() and is_databricks_uri(tracking_uri):
                     logged_model_url = _construct_databricks_logged_model_url(
                         get_workspace_url(), model.experiment_id, model.model_id, get_workspace_id()
                     )
