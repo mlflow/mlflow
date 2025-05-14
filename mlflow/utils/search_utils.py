@@ -921,6 +921,9 @@ class SearchUtils:
 
     @classmethod
     def _check_valid_identifier_list(cls, tup: tuple[Any, ...]) -> None:
+        """
+        Validate that `tup` is a non-empty tuple of strings.
+        """
         if len(tup) == 0:
             raise MlflowException(
                 "While parsing a list in the query,"
