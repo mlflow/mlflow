@@ -82,7 +82,6 @@ class InferenceTableSpanExporter(SpanExporter):
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
 
-            add_size_bytes_to_trace_metadata(trace)
             _set_last_active_trace_id(trace.info.request_id)
 
             # Add the trace to the in-memory buffer so it can be retrieved by upstream
@@ -114,5 +113,6 @@ class InferenceTableSpanExporter(SpanExporter):
                     _logger.warning("Failed to export trace to MLflow backend. Error: %s", e)
 
     def _log_trace_to_mlflow_backend(self, trace: Trace):
+        add_size_bytes_to_trace_metadata(trace)
         returned_trace_info = self._client.start_trace_v3(trace)
         self._client._upload_trace_data(returned_trace_info, trace.data)
