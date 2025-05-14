@@ -768,3 +768,18 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
 #: this environment variable directly.
 #: (default: ``None``)
 _MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("_MLFLOW_ACTIVE_MODEL_ID", str, None)
+
+#: Maximum number of parameters to include in the initial CreateLoggedModel request.
+#: Additional parameters will be logged in separate requests.
+#: (default: ``100``)
+_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
+    "_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
+)
+
+
+#: Maximum number of parameters to include in each batch when logging parameters
+#: for a logged model.
+#: (default: ``100``)
+_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
+    "_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
+)
