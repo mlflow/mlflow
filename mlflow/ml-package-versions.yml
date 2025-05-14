@@ -5,23 +5,21 @@ sklearn:
       pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
-    minimum: "0.24.1"
+    minimum: "1.3.0"
     maximum: "1.6.1"
     requirements:
-      "< 1.3.0": ["numpy<2"]
-      "< 1.0": ["scipy==1.7.3"]
+      "<= 1.3.0": ["numpy<2"]
     python:
       "== dev": "3.10"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py
 
   autologging:
-    minimum: "0.24.1"
+    minimum: "1.3.0"
     maximum: "1.6.1"
     requirements:
+      "<= 1.3.0": ["numpy<2"]
       ">= 0.0.0": ["matplotlib"]
-      "< 1.3.0": ["numpy<2"]
-      "< 1.0": ["scipy==1.7.3"]
     python:
       "== dev": "3.10"
     run: |
@@ -39,7 +37,7 @@ pytorch:
       pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
-    minimum: "1.9.0"
+    minimum: "2.1.0"
     maximum: "2.6.0"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
@@ -49,13 +47,10 @@ pytorch:
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
   autologging:
-    minimum: "1.9.0"
+    minimum: "2.1.0"
     maximum: "2.6.0"
     requirements:
       ">= 0.0.0": ["tensorboard"]
-      # Old pytorch uses setuptools.distutils.version, which is not available in setuptools>59.5
-      # https://github.com/pytorch/pytorch/blob/v1.10.2/torch/utils/tensorboard/__init__.py#L4
-      "<1.11.0": ["setuptools<=59.5.0"]
     run: |
       pytest tests/pytorch/test_tensorboard_autolog.py
 
@@ -68,7 +63,7 @@ pytorch-lightning:
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
-    minimum: "1.9.0"
+    minimum: "2.0.3"
     maximum: "2.5.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
@@ -106,12 +101,11 @@ tensorflow:
       pip install --pre tf-nightly
 
   models:
-    minimum: "2.7.4"
+    minimum: "2.12.1"
     maximum: "2.19.0"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
-      "< 2.12.0": ["numpy<2"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 and Pydantic v2 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
@@ -125,11 +119,10 @@ tensorflow:
         tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py
 
   autologging:
-    minimum: "2.7.4"
+    minimum: "2.12.1"
     maximum: "2.19.0"
     requirements:
       "== dev": ["scikit-learn"]
-      "< 2.12.0": ["numpy<2"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
@@ -144,22 +137,20 @@ xgboost:
       pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
-    minimum: "1.4.2"
+    minimum: "1.7.6"
     maximum: "3.0.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
-      "< 1.6": ["pandas<2", "numpy<2"]
     python:
       "== dev": "3.10"
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py
 
   autologging:
-    minimum: "1.4.2"
+    minimum: "1.7.6"
     maximum: "3.0.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
-      "< 1.6": ["pandas<2", "numpy<2"]
     python:
       "== dev": "3.10"
     run: |
@@ -174,7 +165,7 @@ lightgbm:
       bash build-python.sh install
 
   models:
-    minimum: "3.3.5"
+    minimum: "4.0.0"
     maximum: "4.6.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
@@ -183,7 +174,7 @@ lightgbm:
       pytest tests/lightgbm/test_lightgbm_model_export.py
 
   autologging:
-    minimum: "3.3.5"
+    minimum: "4.0.0"
     maximum: "4.6.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
@@ -196,12 +187,11 @@ catboost:
     pip_release: "catboost"
 
   models:
-    minimum: "1.0.0"
+    minimum: "1.2.1"
     maximum: "1.2.8"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
-      "< 1.1": ["pandas<2"]
-      "< 1.2": ["numpy<2"]
+      "< 1.3": ["numpy<2"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py
 
@@ -228,7 +218,7 @@ onnx:
       pip install dist/*manylinux2014_x86_64.whl
 
   models:
-    minimum: "1.13.1"
+    minimum: "1.14.1"
     maximum: "1.17.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
@@ -242,7 +232,7 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "3.4.4"
+    minimum: "3.5.3"
     maximum: "3.8.5"
     python:
       ">= 3.8.4": "3.10"
@@ -258,20 +248,14 @@ statsmodels:
       pip install git+https://github.com/statsmodels/statsmodels.git
 
   models:
-    minimum: "0.12.2"
+    minimum: "0.14.1"
     maximum: "0.14.4"
-    requirements:
-      "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
-      "== 0.13.*": ["numpy<2"]
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
-    minimum: "0.12.2"
+    minimum: "0.14.1"
     maximum: "0.14.4"
-    requirements:
-      "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
-      "== 0.13.*": ["numpy<2"]
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py
 
@@ -290,7 +274,7 @@ spark:
       pyspark --version
 
   models:
-    minimum: "3.1.2"
+    minimum: "3.4.1"
     maximum: "3.5.5"
     java:
       "> 3.4.1": "17"
@@ -300,7 +284,6 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow", "numpy<2"]
-      "< 3.4.0": ["pandas<2"]
       ">= 3.5.0": ["torch<2.6.0", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
     run: |
@@ -319,11 +302,8 @@ spark:
       fi
 
   autologging:
-    minimum: "3.1.2"
+    minimum: "3.4.1"
     maximum: "3.5.5"
-    runs_on:
-      # TODO: Remove this once ubuntu 24 is fully rolled out: https://github.com/actions/runner-images/issues/10636
-      "== 3.3.4": "ubuntu-24.04"
     java:
       ">= 3.4.1": "17"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
@@ -332,7 +312,6 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["scikit-learn", "numpy<2"]
-      "< 3.4.0": ["pandas<2"]
     run: |
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
@@ -359,7 +338,7 @@ prophet:
     pip_release: "prophet"
 
   models:
-    minimum: "1.1.1"
+    minimum: "1.1.6"
     maximum: "1.1.6"
     requirements:
       # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
@@ -367,7 +346,6 @@ prophet:
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
       # older version of prophet. Compatibility updates have been released as part of the 1.1.4
       # release of prophet.
-      "<= 1.1.3": ["holidays<=0.24"]
     run: |
       pytest tests/prophet/test_prophet_model_export.py
 
@@ -380,10 +358,9 @@ pmdarima:
     #   # pip install git+https://github.com/alkaline-ml/pmdarima.git
 
   models:
-    minimum: "1.8.1"
+    minimum: "2.0.4"
     maximum: "2.0.4"
     requirements:
-      "< 1.9": ["scikit-learn<1.3"]
       ">= 0.0.0": [
           "prophet",
           # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
@@ -426,7 +403,7 @@ h2o:
   package_info:
     pip_release: "h2o"
   models:
-    minimum: "3.40.0.1"
+    minimum: "3.42.0.1"
     maximum: "3.46.0.6"
     run: |
       pytest tests/h2o
@@ -905,7 +882,7 @@ sentence_transformers:
     install_dev: |
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
-    minimum: "2.2.2"
+    minimum: "2.3.1"
     maximum: "4.1.0"
     requirements:
       ">= 0.0.0": [
@@ -920,7 +897,6 @@ sentence_transformers:
           # Fix for https://github.com/huggingface/transformers/issues/37326
           "accelerate",
         ]
-      "== 2.2.2": ["huggingface-hub<0.26"]
     run: |
       pytest tests/sentence_transformers/test_sentence_transformers_model_export.py
 
