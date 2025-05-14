@@ -78,6 +78,7 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     ListArtifacts,
     LogBatch,
+    LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogParam,
@@ -482,6 +483,7 @@ LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
     FinalizeLoggedModel: validate_can_update_logged_model,
     DeleteLoggedModelTag: validate_can_delete_logged_model,
     SetLoggedModelTags: validate_can_update_logged_model,
+    LogLoggedModelParamsRequest: validate_can_update_logged_model,
 }
 
 
