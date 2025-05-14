@@ -35,8 +35,7 @@ def _flush_async_logging():
     exporter._async_queue.flush(terminate=True)
 
 
-# @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
-@pytest.mark.parametrize("is_async", [False], ids=["async"])
+@pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 def test_export(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
