@@ -43,43 +43,49 @@ class Scorer(BaseModel):
         See the parameter details below for what values are passed for each parameter.
 
         .. list-table::
-            :widths: 20 20 20 20
+            :widths: 20 20 20
             :header-rows: 1
 
             * - Parameter
               - Description
               - Source
 
-            * - `inputs`
+            * - ``inputs``
               - A single input to the target model/app.
               - Derived from either dataset or trace.
-                - When the dataset contains `inputs` column, the value will be
-                    passed as is.
-                - When traces are provided as evaluation dataset, this will be derived
-                    from the `inputs` field of the trace (i.e. inputs captured as the
-                    root span of the trace).
-            * - `outputs`
+
+                * When the dataset contains ``inputs`` column, the value will be
+                  passed as is.
+                * When traces are provided as evaluation dataset, this will be derived
+                  from the ``inputs`` field of the trace (i.e. inputs captured as the
+                  root span of the trace).
+
+            * - ``outputs``
               - A single output from the target model/app.
-              - Derived from either dataset, trace, or output of `predict_fn`.
-                - When the dataset contains `outputs` column, the value will be
-                    passed as is.
-                - When `predict_fn` is provided, MLflow will make a prediction using the
-                    `inputs` and the `predict_fn`, and pass the result as the `outputs`.
-                - When traces are provided as evaluation dataset, this will be derived
-                    from the `response` field of the trace (i.e. outputs captured as the
-                    root span of the trace).
-            * - `expectations`
+              - Derived from either dataset, trace, or output of ``predict_fn``.
+
+                * When the dataset contains ``outputs`` column, the value will be
+                  passed as is.
+                * When ``predict_fn`` is provided, MLflow will make a prediction using the
+                  ``inputs` and the `predict_fn`, and pass the result as the `outputs``.
+                * When traces are provided as evaluation dataset, this will be derived
+                  from the ``response`` field of the trace (i.e. outputs captured as the
+                  root span of the trace).
+
+            * - ``expectations``
               - Ground truth or any expectation for each prediction, e.g. expected retrieved docs.
               - Derived from either dataset or trace.
-                - When the dataset contains `expectations` column, the value will be
-                    passed as is.
-                - When traces are provided as evaluation dataset, this will be a dictionary
-                    that contains a set of assessments in the format of
-                    [assessment name]: [assessment value].
-            * - `trace`
+                * When the dataset contains ``expectations`` column, the value will be
+                  passed as is.
+                * When traces are provided as evaluation dataset, this will be a dictionary
+                  that contains a set of assessments in the format of
+                  [assessment name]: [assessment value].
+
+            * - ``trace``
               - A trace object corresponding to the prediction for the row.
-              - Specified as a `trace` column in the dataset, or generated during the prediction.
-            * - **kwargs
+              - Specified as a ``trace`` column in the dataset, or generated during the prediction.
+
+            * - ``**kwargs``
               - Additional keyword arguments passed to the scorer.
               - Must be specified as extra columns in the input dataset.
 
@@ -138,7 +144,7 @@ def scorer(
     ] = None,
 ):
     """
-    A decorator to define a custom scorer that can be used in `mlflow.genai.evaluate()`.
+    A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
 
     The scorer function should take in a **subset** of the following parameters:
 
@@ -150,40 +156,40 @@ def scorer(
           - Description
           - Source
 
-        * - `inputs`
+        * - ``inputs``
           - A single input to the target model/app.
           - Derived from either dataset or trace.
 
-            * When the dataset contains `inputs` column, the value will be passed as is.
+            * When the dataset contains ``inputs`` column, the value will be passed as is.
             * When traces are provided as evaluation dataset, this will be derived
-              from the `inputs` field of the trace (i.e. inputs captured as the
+              from the ``inputs`` field of the trace (i.e. inputs captured as the
               root span of the trace).
 
-        * - `outputs`
+        * - ``outputs``
           - A single output from the target model/app.
-          - Derived from either dataset, trace, or output of `predict_fn`.
+          - Derived from either dataset, trace, or output of ``predict_fn``.
 
-            * When the dataset contains `outputs` column, the value will be passed as is.
-            * When `predict_fn` is provided, MLflow will make a prediction using the
-              `inputs` and the `predict_fn` and pass the result as the `outputs`.
+            * When the dataset contains ``outputs`` column, the value will be passed as is.
+            * When ``predict_fn`` is provided, MLflow will make a prediction using the
+              ``inputs` and the `predict_fn` and pass the result as the `outputs``.
             * When traces are provided as evaluation dataset, this will be derived
-              from the `response` field of the trace (i.e. outputs captured as the
+              from the ``response`` field of the trace (i.e. outputs captured as the
               root span of the trace).
 
-        * - `expectations`
+        * - ``expectations``
           - Ground truth or any expectation for each prediction e.g., expected retrieved docs.
           - Derived from either dataset or trace.
 
-            * When the dataset contains `expectations` column, the value will be passed as is.
+            * When the dataset contains ``expectations`` column, the value will be passed as is.
             * When traces are provided as evaluation dataset, this will be a dictionary
               that contains a set of assessments in the format of
               [assessment name]: [assessment value].
 
-        * - `trace`
+        * - ``trace``
           - A trace object corresponding to the prediction for the row.
-          - Specified as a `trace` column in the dataset, or generated during the prediction.
+          - Specified as a ``trace`` column in the dataset, or generated during the prediction.
 
-        * - `**kwargs`
+        * - ``**kwargs``
           - Additional keyword arguments passed to the scorer.
           - Must be specified as extra columns in the input dataset.
 
