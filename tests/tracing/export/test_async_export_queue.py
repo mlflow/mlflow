@@ -60,7 +60,7 @@ def test_async_queue_activate_thread_safe(mock_atexit):
     assert _count_threads() == 0
 
 
-def test_async_queue_drop_task_when_full(monkeypatch, caplog):
+def test_async_queue_drop_task_when_full(monkeypatch):
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", "3")
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS", "1")
 
