@@ -920,16 +920,35 @@ class SearchUtils:
     VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS = {"name"}
 
     @classmethod
+    def _check_valid_identifier_list(cls, tup: tuple[Any, ...]) -> None:
+        if len(tup) == 0:
+            raise MlflowException(
+                "While parsing a list in the query,"
+                " expected a non-empty list of string values, but got empty list",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if not all(isinstance(x, str) for x in tup):
+            raise MlflowException(
+                "While parsing a list in the query, expected string value, punctuation, "
+                f"or whitespace, but got different type in list: {tup}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    @classmethod
     def _parse_list_from_sql_token(cls, token):
         try:
-            str_or_tuple = ast.literal_eval(token.value)
-            return (str_or_tuple,) if isinstance(str_or_tuple, str) else str_or_tuple
+            parsed = ast.literal_eval(token.value)
         except SyntaxError as e:
             raise MlflowException(
                 "While parsing a list in the query,"
                 " expected a non-empty list of string values, but got ill-formed list.",
                 error_code=INVALID_PARAMETER_VALUE,
             ) from e
+
+        parsed = parsed if isinstance(parsed, tuple) else (parsed,)
+        cls._check_valid_identifier_list(parsed)
+        return parsed
 
     @classmethod
     def _parse_run_ids(cls, token):
@@ -1785,7 +1804,6 @@ class SearchTraceUtils(SearchUtils):
 
     @classmethod
     def _parse_attribute_lists(cls, token):
-        cls._check_valid_identifier_list(token)
         return cls._parse_list_from_sql_token(token)
 
     @classmethod
