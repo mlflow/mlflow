@@ -5287,7 +5287,7 @@ class MlflowClient:
             None
         """
         _validate_model_id_specified(model_id)
-        return self._tracking_client.log_logged_model_params(model_id, params)
+        return self._tracking_client.log_model_params(model_id, params)
 
     @experimental
     def finalize_logged_model(
