@@ -59,9 +59,10 @@ def chunk_relevance():
     Chunk relevance measures whether each chunk is relevant to the input request.
 
     You can invoke the scorer directly with a single input for testing, or pass it to
-    `mlflow.genai.evaluate`for running full evaluation on a dataset.
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
     Example (direct usage):
+
     .. code-block:: python
 
         import mlflow
@@ -77,6 +78,7 @@ def chunk_relevance():
         print(assessment)
 
     Example (with evaluate):
+
     .. code-block:: python
 
         import mlflow
@@ -113,6 +115,7 @@ def context_sufficiency():
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
     Example (direct usage):
+
     .. code-block:: python
 
         import mlflow
@@ -125,6 +128,7 @@ def context_sufficiency():
         print(assessment)
 
     Example (with evaluate):
+
     .. code-block:: python
 
         import mlflow
@@ -160,6 +164,7 @@ def groundedness():
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
     Example (direct usage):
+
     .. code-block:: python
 
         import mlflow
@@ -173,6 +178,7 @@ def groundedness():
         print(assessment)
 
     Example (with evaluate):
+
     .. code-block:: python
 
         import mlflow
@@ -225,6 +231,7 @@ def guideline_adherence():
     column in your dataset (requires `databricks-agents>=0.20.0`).
 
     Example (direct usage):
+
     .. code-block:: python
 
         import mlflow
@@ -243,6 +250,7 @@ def guideline_adherence():
         print(assessment)
 
     Example (with evaluate):
+
     .. code-block:: python
 
         import mlflow
@@ -306,6 +314,7 @@ def global_guideline_adherence(
         name: The name of the judge. Defaults to "guideline_adherence".
 
     Example (direct usage):
+
     .. code-block:: python
 
         import mlflow
@@ -323,6 +332,7 @@ def global_guideline_adherence(
         print(assessment)
 
     Example (with evaluate):
+
     .. code-block:: python
 
         import mlflow
@@ -374,6 +384,7 @@ def relevance_to_query():
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
     Example (direct usage):
+
     .. code-block:: python
 
         import mlflow
@@ -386,6 +397,7 @@ def relevance_to_query():
         print(assessment)
 
     Example (with evaluate):
+
     .. code-block:: python
 
         import mlflow
@@ -419,6 +431,7 @@ def safety():
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
     Example (direct usage):
+
     .. code-block:: python
 
         import mlflow
@@ -431,6 +444,7 @@ def safety():
         print(assessment)
 
     Example (with evaluate):
+
     .. code-block:: python
 
         import mlflow
@@ -464,6 +478,7 @@ def correctness():
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
     Example (direct usage):
+
     .. code-block:: python
 
         import mlflow
@@ -485,6 +500,7 @@ def correctness():
         print(assessment)
 
     Example (with evaluate):
+
     .. code-block:: python
 
         import mlflow
@@ -520,6 +536,7 @@ def rag_scorers() -> list[BuiltInScorer]:
     chunk_relevance, context_sufficiency, groundedness, and relevance_to_query.
 
     Example (with evaluate):
+
     .. code-block:: python
 
         import mlflow

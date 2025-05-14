@@ -53,23 +53,25 @@ def evaluate(
 
     Args:
         data: Dataset for the evaluation. It must be one of the following format:
+
             * A EvaluationDataset entity
             * Pandas DataFrame
             * Spark DataFrame
             * List of dictionary
 
             If a dataframe is specified, it must contain the following schema:
-              - inputs (optional): A column that contains a single input. This is required
-                unless trace is provided.
-              - outputs (optional): A column that contains a single output from the
-                   target model/app. If the predict_fn is provided, this is generated
-                   by MLflow so not required.
-              - expectations (optional): A column that contains a ground truth, or a
-                   dictionary of ground truths for individual output fields.
-              - trace (optional): A column that contains a single trace object
-                   corresponding to the prediction for the row. Only required when
-                   any of scorers requires a trace in order to compute
-                   assessments/metrics.
+
+            - inputs (optional): A column that contains a single input. This is required
+              unless trace is provided.
+            - outputs (optional): A column that contains a single output from the
+              target model/app. If the predict_fn is provided, this is generated
+              by MLflow so not required.
+            - expectations (optional): A column that contains a ground truth, or a
+              dictionary of ground truths for individual output fields.
+            - trace (optional): A column that contains a single trace object
+              corresponding to the prediction for the row. Only required when
+              any of scorers requires a trace in order to compute
+              assessments/metrics.
 
             If a list of dictionary is passed, each dictionary should contain keys
             following the above schema.
@@ -89,13 +91,15 @@ def evaluate(
             associate the evaluation result with. There are several ways to associate
             model with association.
 
-            1. Use the `model_id` parameters.
-            2. Use the mlflow.set_active_model() function to set model ID to global context.
-               ```python
-               mlflow.set_active_model(model_id="xyz")
+            1. Use the ``model_id`` parameters.
+            2. Use the ``mlflow.set_active_model()`` function to set model ID to global context.
 
-               mlflow.evaluate(data, ...)
-               ```
+               .. code-block:: python
+
+                    mlflow.set_active_model(model_id="xyz")
+
+                    mlflow.evaluate(data, ...)
+
     """
     try:
         from databricks.rag_eval.evaluation.metrics import Metric as DBAgentsMetric
