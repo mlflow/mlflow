@@ -187,7 +187,7 @@ def _register_model(
     if is_databricks_unity_catalog_uri(registry_uri) and (url := get_workspace_url()):
         uc_model_url = _construct_databricks_uc_registered_model_url(
             url,
-            name,
+            create_version_response.name,
             create_version_response.version,
             get_workspace_id(),
         )
