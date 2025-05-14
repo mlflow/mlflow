@@ -24,9 +24,9 @@ from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
-    MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2

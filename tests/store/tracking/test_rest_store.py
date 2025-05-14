@@ -30,9 +30,9 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
-    MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
