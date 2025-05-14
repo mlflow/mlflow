@@ -163,6 +163,12 @@ Artifact store persists (typically large) artifacts for each run, such as model 
 images (e.g. PNGs), model and data files (e.g. [Parquet](https://parquet.apache.org) file). MLflow stores artifacts ina a
 local file (`mlruns`) by default, but also supports different storage options such as Amazon S3 and Azure Blob Storage.
 
+For models which are logged as MLflow artifacts, you can refer the model through a model URI of format: `runs:/<run_id>/<artifact_path>`,
+the 'run_id' is the run which the model is logged to, and the 'artifact_path' is the relative path of the artifact.
+If the model is registered in the [MLflow Model Registry](/model-registry),
+you can also refer the the model through a model URI of format: `models:/<model-name>/<model-version>`,
+see [MLflow Model Registry](/model-registry/#model-uri) for details.
+
 #### [MLflow Tracking Server](/tracking/server) (Optional) \{#tracking_server}
 
 MLflow Tracking Server is a stand-alone HTTP server that provides REST APIs for accessing backend and/or artifact store.

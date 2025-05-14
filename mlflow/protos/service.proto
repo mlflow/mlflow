@@ -708,6 +708,18 @@ service MlflowService {
     };
   }
 
+  rpc LogLoggedModelParams(LogLoggedModelParamsRequest) returns (LogLoggedModelParamsRequest.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/logged-models/{model_id}/params"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Log Logged Model Params",
+    };
+  }
+
   // Create an assessment associated with a trace.
   rpc createAssessment(CreateAssessment) returns (CreateAssessment.Response) {
     option (rpc) = {
@@ -2226,6 +2238,19 @@ message ListLoggedModelArtifacts {
 
     // Token that can be used to retrieve the next page of artifact results
     optional string next_page_token = 3;
+  }
+}
+
+message LogLoggedModelParamsRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the logged model to log params for.
+  optional string model_id = 1 [(validate_required) = true];
+
+  // Parameters attached to the model.
+  repeated LoggedModelParameter params = 2;
+
+  message Response {
   }
 }
 

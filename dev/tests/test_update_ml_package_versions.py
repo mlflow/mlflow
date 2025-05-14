@@ -1,11 +1,13 @@
 import json
 import re
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest import mock
 
 import pytest
 
 from dev import update_ml_package_versions
+from dev.update_ml_package_versions import VersionInfo
 
 
 class MockResponse:
@@ -33,6 +35,22 @@ class MockResponse:
                         }
                     ]
                     for v in versions
+                }
+            }
+        )
+
+    @classmethod
+    def from_version_infos(cls, version_infos: list[VersionInfo]) -> "MockResponse":
+        return cls(
+            {
+                "releases": {
+                    v.version: [
+                        {
+                            "filename": v.version + ".whl",
+                            "upload_time": v.upload_time.isoformat(),
+                        }
+                    ]
+                    for v in version_infos
                 }
             }
         )
@@ -186,5 +204,62 @@ sklearn:
   autologging:
     pin_maximum: True
     maximum: "0.0.1"
+"""
+    run_test(src, src_expected, mock_responses)
+
+
+def test_update_min_supported_version():
+    src = """
+sklearn:
+  package_info:
+    pip_release: sklearn
+  autologging:
+    minimum: "0.0.1"
+    maximum: "0.0.8"
+"""
+    mock_responses = {
+        "sklearn": MockResponse.from_version_infos(
+            [
+                VersionInfo("0.0.2", datetime.now() - timedelta(days=1000)),
+                VersionInfo("0.0.3", datetime.now() - timedelta(days=365)),
+                VersionInfo("0.0.8", datetime.now() - timedelta(days=180)),
+            ]
+        )
+    }
+    src_expected = """
+sklearn:
+  package_info:
+    pip_release: sklearn
+  autologging:
+    minimum: "0.0.3"
+    maximum: "0.0.8"
+"""
+    run_test(src, src_expected, mock_responses)
+
+
+def test_update_min_supported_version_for_dead_package():
+    src = """
+sklearn:
+  package_info:
+    pip_release: sklearn
+  autologging:
+    minimum: "0.0.7"
+    maximum: "0.0.8"
+"""
+    mock_responses = {
+        "sklearn": MockResponse.from_version_infos(
+            [
+                VersionInfo("0.0.7", datetime.now() - timedelta(days=1000)),
+                VersionInfo("0.0.8", datetime.now() - timedelta(days=800)),
+            ]
+        )
+    }
+    src_expected = """
+sklearn:
+  package_info:
+    pip_release: sklearn
+  autologging:
+    minimum: "0.0.8"
+    maximum: "0.0.8"
 """
     run_test(src, src_expected, mock_responses)
