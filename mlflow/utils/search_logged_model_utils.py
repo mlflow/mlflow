@@ -1,3 +1,4 @@
+import ast
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -8,6 +9,7 @@ import sqlparse
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import SqlLoggedModel
+from mlflow.utils.search_utils import _join_in_comparison_tokens
 
 
 class EntityType(Enum):
@@ -61,7 +63,7 @@ class Entity:
 
     def validate_op(self, op: str) -> None:
         numeric_ops = ("<", "<=", ">", ">=", "=", "!=")
-        string_ops = ("=", "!=", "LIKE", "ILIKE")
+        string_ops = ("=", "!=", "LIKE", "ILIKE", "IN", "NOT IN")
         ops = numeric_ops if self.is_numeric() else string_ops
         if op not in ops:
             raise MlflowException.invalid_parameter_value(
@@ -92,7 +94,8 @@ def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
         )
 
     comparisons: list[sqlalchemy.BinaryExpression] = []
-    for stmt in parsed[0]:
+    for stmt in _join_in_comparison_tokens(parsed[0].tokens):
+        # while index < len(statements):
         if isinstance(stmt, sqlparse.sql.Comparison):
             non_whitespace_tokens = [str(t) for t in stmt.tokens if not t.is_whitespace]
             if len(non_whitespace_tokens) != 3:
@@ -103,9 +106,19 @@ def parse_filter_string(filter_string: Optional[str]) -> list[Comparison]:
             entity = Entity.from_str(identifier)
             entity.validate_op(op)
             value = float(value) if entity.is_numeric() else value.strip("'")
+            if entity.is_numeric():
+                value = float(value)
+            else:
+                if value.startswith("(") and value.endswith(")"):
+                    value = ast.literal_eval(value)
+                    value = (value,) if isinstance(value, str) else value
+                else:
+                    value = value.strip("'")
             comparisons.append(Comparison(entity=entity, op=op, value=value))
-        # Ignore whitespace and 'AND' tokens, otherwise raise an error
-        elif (stripped := stmt.value.strip()) and stripped.lower() != "and":
+        elif stmt.value.strip().upper() == "AND":
+            # Do nothing, this is just a separator
+            pass
+        else:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid filter string: {filter_string!r}. Expected a list of comparisons "
                 f"separated by 'AND' (e.g. 'metrics.loss > 0.1 AND params.lr = 0.01')."
