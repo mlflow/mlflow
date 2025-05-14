@@ -947,10 +947,11 @@ class Model:
                     if tags is not None
                     else None,
                 )
-                logged_model_url = _construct_databricks_logged_model_url(
-                    get_workspace_url(), model.experiment_id, model.model_id, get_workspace_id()
-                )
-                eprint(f"🔗 Logged model created at: {logged_model_url}")
+                if is_in_databricks_runtime():
+                    logged_model_url = _construct_databricks_logged_model_url(
+                        get_workspace_url(), model.experiment_id, model.model_id, get_workspace_id()
+                    )
+                    eprint(f"🔗 Logged model created at: {logged_model_url}")
 
             with _use_logged_model(model=model):
                 if run_id is not None:
