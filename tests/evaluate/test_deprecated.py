@@ -30,7 +30,7 @@ def test_global_evaluate_deprecation(mock_logger, tracking_uri):
     if tracking_uri.startswith("databricks"):
         mock_logger.warning.assert_called_once()
         assert mock_logger.warning.call_args[0][0].startswith(
-            "The `mlflow.evaluate` API is deprecated"
+            "The `mlflow.evaluate` API has been deprecated"
         )
     else:
         mock_logger.warning.assert_not_called()

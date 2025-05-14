@@ -13,14 +13,12 @@ def evaluate(*args, **kwargs):
     tracking_uri = mlflow.get_tracking_uri()
     if is_databricks_uri(tracking_uri):
         _logger.warning(
-            "The `mlflow.evaluate` API is deprecated in MLflow 3.0.0. MLflow provides "
-            "new API for evaluating your models or applications.\n"
-            " - To evaluate traditional ML or deep learning models, please use "
-            "    `mlflow.models.evaluate` instead. It is 100% compatible with the old "
-            "    `mlflow.evaluate` API.\n"
-            " - To evaluate LLMs or GenAI applications, please use the new "
-            "    `mlflow.genai.evaluate` API. It provides more powerful features and "
-            "    easy interface for evaluating LLMs and GenAI applications.",
-            DeprecationWarning,
+            "The `mlflow.evaluate` API has been deprecated as of MLflow 3.0.0. "
+            "Please use these improved alternatives:\n\n"
+            " - For traditional ML or deep learning models: Use `mlflow.models.evaluate`, "
+            "which maintains full compatibility with the original `mlflow.evaluate` API.\n\n"
+            " - For LLMs or GenAI applications: Use the new `mlflow.genai.evaluate` API, "
+            "which offers enhanced features specifically designed for evaluating "
+            "LLMs and GenAI applications.\n",
         )
     return model_evaluate(*args, **kwargs)

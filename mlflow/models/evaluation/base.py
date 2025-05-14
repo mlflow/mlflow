@@ -1590,8 +1590,9 @@ def evaluate(  # noqa: D417
 
     if not _called_from_genai_evaluate and model_type == "databricks-agent":
         _logger.warning(
-            "'databricks-agent' model type is deprecated in MLflow 3.0.0. Please use the "
-            "new `mlflow.genai.evaluate` API to evaluate LLMs and GenAI applications.",
+            "The 'databricks-agent' model type is deprecated in MLflow 3.0.0. For "
+            "evaluating LLMs and GenAI applications, please migrate to the new "
+            "`mlflow.genai.evaluate` API."
         )
 
     # Inference params are currently only supported for passing a deployment endpoint as the model.

@@ -309,6 +309,6 @@ def test_genai_evaluate_does_not_warn_about_deprecated_model_type():
         )
     mock_logger.warning.assert_called_once()
     assert mock_logger.warning.call_args[0][0].startswith(
-        "'databricks-agent' model type is deprecated"
+        "The 'databricks-agent' model type is deprecated"
     )
     mock_evaluate_impl.assert_called_once()
