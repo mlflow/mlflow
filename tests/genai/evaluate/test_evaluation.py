@@ -123,7 +123,7 @@ def test_evaluate_accepts_managed_dataset():
         patch("databricks.rag_eval.datasets.entities._get_client", return_value=fake_client),
         patch("mlflow.get_tracking_uri", return_value="databricks"),
     ):
-        results = mlflow.genai.evaluate(data=EvaluationDataset("test-id"))
+        results = mlflow.genai.evaluate(data=EvaluationDataset("test-id"), scorers=[groundedness()])
 
         assert results.result_df["request"].tolist() == [{"question": "foo"}]
         assert results.result_df["expected_response"].tolist() == ["bar"]
