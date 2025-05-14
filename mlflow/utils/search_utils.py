@@ -13,7 +13,6 @@ from packaging.version import Version
 from sqlparse.sql import (
     Comparison,
     Identifier,
-    IdentifierList,
     Parenthesis,
     Statement,
     Token,
@@ -358,6 +357,15 @@ class SearchUtils:
         return {"type": identifier, "key": key}
 
     @classmethod
+    def validate_list_supported(cls, key: str) -> None:
+        if key != "run_id":
+            raise MlflowException(
+                "Only the 'run_id' attribute supports comparison with a list of quoted "
+                "string values.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    @classmethod
     def _get_value(cls, identifier_type, key, token):
         if identifier_type == cls._METRIC_IDENTIFIER:
             if token.ttype not in cls.NUMERIC_VALUE_TYPES:
@@ -387,12 +395,7 @@ class SearchUtils:
             elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
-                if key != "run_id":
-                    raise MlflowException(
-                        "Only the 'run_id' attribute supports comparison with a list of quoted "
-                        "string values.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
+                cls.validate_list_supported(key)
                 return cls._parse_run_ids(token)
             else:
                 raise MlflowException(
@@ -917,54 +920,19 @@ class SearchUtils:
     VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS = {"name"}
 
     @classmethod
-    def _check_valid_identifier_list(cls, value_token):
-        if len(value_token._groupable_tokens) == 0:
-            raise MlflowException(
-                "While parsing a list in the query,"
-                " expected a non-empty list of string values, but got empty list",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        # Single element (e.g. `('x')`)
-        if (
-            len(value_token._groupable_tokens) == 1
-            and value_token._groupable_tokens[0].ttype is TokenType.String.Single
-        ):
-            return
-
-        # Multiple elements (e.g. `('x','y')`)
-        if not isinstance(value_token._groupable_tokens[0], IdentifierList):
-            raise MlflowException(
-                "While parsing a list in the query,"
-                " expected a non-empty list of string values, but got ill-formed list.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        elif not all(
-            token.ttype
-            in {*cls.STRING_VALUE_TYPES, *cls.DELIMITER_VALUE_TYPES, cls.WHITESPACE_VALUE_TYPE}
-            for token in value_token._groupable_tokens[0].tokens
-        ):
-            raise MlflowException(
-                "While parsing a list in the query, expected string value, punctuation, "
-                f"or whitespace, but got different type in list: {value_token}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-    @classmethod
     def _parse_list_from_sql_token(cls, token):
         try:
             str_or_tuple = ast.literal_eval(token.value)
             return [str_or_tuple] if isinstance(str_or_tuple, str) else str_or_tuple
-        except SyntaxError:
+        except SyntaxError as e:
             raise MlflowException(
                 "While parsing a list in the query,"
                 " expected a non-empty list of string values, but got ill-formed list.",
                 error_code=INVALID_PARAMETER_VALUE,
-            )
+            ) from e
 
     @classmethod
     def _parse_run_ids(cls, token):
-        cls._check_valid_identifier_list(token)
         run_id_list = cls._parse_list_from_sql_token(token)
         # Because MySQL IN clause is case-insensitive, but all run_ids only contain lower
         # case letters, so that we filter out run_ids containing upper case letters here.
@@ -1899,6 +1867,10 @@ class SearchLoggedModelsUtils(SearchUtils):
             return False
 
         return SearchUtils.get_comparison_func(comparator)(lhs, value)
+
+    @classmethod
+    def validate_list_supported(cls, key: str) -> None:
+        pass
 
     @classmethod
     def filter_logged_models(cls, models: list[LoggedModel], filter_string: Optional[str] = None):
