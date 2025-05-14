@@ -16,15 +16,25 @@ from packaging.version import Version
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature, infer_signature
-from mlflow.models.utils import _enforce_params_schema, _enforce_schema
+from mlflow.models import (
+    Model,
+    ModelSignature,
+    convert_input_example_to_serving_input,
+    infer_signature,
+)
+from mlflow.models.utils import (
+    _enforce_params_schema,
+    _enforce_schema,
+)
 from mlflow.pyfunc import PyFuncModel
+from mlflow.pyfunc.scoring_server import is_unified_llm_input
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.schema import Array, Map, Object, Property
+from mlflow.types.schema import AnyType, Array, Map, Object, Property
 from mlflow.utils.proto_json_utils import dump_input_data
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_scoring_endpoint, pyfunc_serve_and_score_model
+from tests.tracing.helper import get_traces
 
 
 class TestModel:
@@ -72,19 +82,19 @@ def param_schema_basic():
 class PythonModelWithBasicParams(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input, params=None):
         assert isinstance(params, dict)
-        assert DataType.is_string(params["str_param"])
-        assert DataType.is_integer(params["int_param"])
-        assert DataType.is_boolean(params["bool_param"])
-        assert DataType.is_double(params["double_param"])
-        assert DataType.is_float(params["float_param"])
-        assert DataType.is_long(params["long_param"])
-        assert DataType.is_datetime(params["datetime_param"])
+        assert isinstance(params["str_param"], str)
+        assert isinstance(params["int_param"], int)
+        assert isinstance(params["bool_param"], bool)
+        assert isinstance(params["double_param"], float)
+        assert isinstance(params["float_param"], float)
+        assert isinstance(params["long_param"], int)
+        assert isinstance(params["datetime_param"], datetime.datetime)
         assert isinstance(params["str_list"], list)
-        assert all(DataType.is_string(x) for x in params["str_list"])
+        assert all(isinstance(x, str) for x in params["str_list"])
         assert isinstance(params["bool_list"], list)
-        assert all(DataType.is_boolean(x) for x in params["bool_list"])
+        assert all(isinstance(x, bool) for x in params["bool_list"])
         assert isinstance(params["double_array"], list)
-        assert all(DataType.is_double(x) for x in params["double_array"])
+        assert all(isinstance(x, float) for x in params["double_array"])
         return params
 
 
@@ -104,11 +114,11 @@ def sample_params_with_arrays():
 class PythonModelWithArrayParams(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input, params=None):
         assert isinstance(params, dict)
-        assert all(DataType.is_integer(x) for x in params["int_array"])
-        assert all(DataType.is_double(x) for x in params["double_array"])
-        assert all(DataType.is_float(x) for x in params["float_array"])
-        assert all(DataType.is_long(x) for x in params["long_array"])
-        assert all(DataType.is_datetime(x) for x in params["datetime_array"])
+        assert all(isinstance(x, int) for x in params["int_array"])
+        assert all(isinstance(x, float) for x in params["double_array"])
+        assert all(isinstance(x, float) for x in params["float_array"])
+        assert all(isinstance(x, int) for x in params["long_array"])
+        assert all(isinstance(x, datetime.datetime) for x in params["datetime_array"])
         return params
 
 
@@ -122,7 +132,7 @@ def test_schema_enforcement_single_column_2d_array():
     assert signature.outputs.inputs[0].shape == (-1,)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+        model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     pdf = pd.DataFrame(X)
@@ -287,7 +297,7 @@ def test_column_schema_enforcement():
         "g": ["a", "b", "c"],
         "f": [bytes(0), bytes(1), bytes(1)],
         "h": np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64),
-        # Extraneous multi-dimensional numpy array should be silenty dropped
+        # Extraneous multi-dimensional numpy array should be silently dropped
         "i": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
         # Extraneous multi-dimensional list should be silently dropped
         "j": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
@@ -1120,6 +1130,16 @@ def test_schema_enforcement_for_list_inputs():
     assert pd_check == data
 
 
+def test_enforce_schema_warns_with_extra_fields():
+    schema = Schema([ColSpec("string", "a")])
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        _enforce_schema({"a": "hi", "b": "bye"}, schema)
+        mock_warning.assert_called_once_with(
+            "Found extra inputs in the model input that are not defined in the model "
+            "signature: `['b']`. These inputs will be ignored."
+        )
+
+
 def test_enforce_params_schema_with_success():
     # Correct parameters & schema
     test_parameters = {
@@ -1132,6 +1152,7 @@ def test_enforce_params_schema_with_success():
         "datetime_param": np.datetime64("2023-06-26 00:00:00"),
         "str_list": ["a", "b", "c"],
         "bool_list": [True, False],
+        "object": {"a": 1, "b": ["x", "y"], "c": {"d": 2}},
     }
     test_schema = ParamSchema(
         [
@@ -1146,6 +1167,18 @@ def test_enforce_params_schema_with_success():
             ),
             ParamSpec("str_list", DataType.string, ["a", "b", "c"], (-1,)),
             ParamSpec("bool_list", DataType.boolean, [True, False], (-1,)),
+            ParamSpec(
+                "object",
+                Object(
+                    [
+                        Property("a", DataType.long),
+                        Property("b", Array(DataType.string)),
+                        Property("c", Object([Property("d", DataType.long)])),
+                    ]
+                ),
+                {"a": 1, "b": ["x", "y"], "c": {"d": 2}},
+                None,
+            ),
         ]
     )
     assert _enforce_params_schema(test_parameters, test_schema) == test_parameters
@@ -1273,9 +1306,9 @@ def test_enforce_params_schema_with_success():
     assert _enforce_params_schema(test_parameters, test_schema) == {"1": 1.0}
 
 
-def test__enforce_params_schema_add_default_values():
+def test_enforce_params_schema_add_default_values():
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, ctx, model_input, params):
+        def predict(self, context, model_input, params):
             return list(params.values())
 
     params = {"str_param": "string", "int_array": [1, 2, 3]}
@@ -1283,7 +1316,7 @@ def test__enforce_params_schema_add_default_values():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model=MyModel(), artifact_path="my_model", signature=signature
+            name="my_model", python_model=MyModel(), signature=signature
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1319,7 +1352,8 @@ def test_enforce_params_schema_errors():
         [ParamSpec("datetime_param", DataType.datetime, np.datetime64("2023-06-06"))]
     )
     with pytest.raises(
-        MlflowException, match=r"Failed to convert value 1.0 from type float to DataType.datetime"
+        MlflowException,
+        match=r"Failed to convert value `1.0` from type `<class 'float'>` to `DataType.datetime`",
     ):
         _enforce_params_schema({"datetime_param": 1.0}, test_schema)
     # With array
@@ -1334,25 +1368,30 @@ def test_enforce_params_schema_errors():
         ]
     )
     with pytest.raises(
-        MlflowException, match=r"Failed to convert value 1.0 from type float to DataType.datetime"
+        MlflowException,
+        match=r"Failed to convert value `1.0` from type `<class 'float'>` to `DataType.datetime`",
     ):
         _enforce_params_schema({"datetime_array": [1.0, 2.0]}, test_schema)
 
     # Raise error when failing to convert value to DataType.float
     test_schema = ParamSchema([ParamSpec("float_param", DataType.float, np.float32(1))])
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'float_param'"):
+    with pytest.raises(
+        MlflowException, match=r"Failed to validate type and shape for 'float_param'"
+    ):
         _enforce_params_schema({"float_param": "a"}, test_schema)
     # With array
     test_schema = ParamSchema(
         [ParamSpec("float_array", DataType.float, np.array([np.float32(1), np.float32(2)]), (-1,))]
     )
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'float_array'"):
+    with pytest.raises(
+        MlflowException, match=r"Failed to validate type and shape for 'float_array'"
+    ):
         _enforce_params_schema(
             {"float_array": [np.float32(1), np.float32(2), np.float64(3)]}, test_schema
         )
 
     # Raise error for any other conversions
-    error_msg = r"Incompatible types for param 'int_param'"
+    error_msg = r"Failed to validate type and shape for 'int_param'"
     test_schema = ParamSchema([ParamSpec("int_param", DataType.long, np.int32(1))])
     with pytest.raises(MlflowException, match=error_msg):
         _enforce_params_schema({"int_param": np.float32(1)}, test_schema)
@@ -1361,7 +1400,7 @@ def test_enforce_params_schema_errors():
     with pytest.raises(MlflowException, match=error_msg):
         _enforce_params_schema({"int_param": np.datetime64("2023-06-06")}, test_schema)
 
-    error_msg = r"Incompatible types for param 'str_param'"
+    error_msg = r"Failed to validate type and shape for 'str_param'"
     test_schema = ParamSchema([ParamSpec("str_param", DataType.string, "1")])
     with pytest.raises(MlflowException, match=error_msg):
         _enforce_params_schema({"str_param": np.float32(1)}, test_schema)
@@ -1400,7 +1439,7 @@ def test_enforce_params_schema_errors():
 
 def test_enforce_params_schema_warns_with_model_without_params():
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, ctx, model_input, params=None):
+        def predict(self, context, model_input, params=None):
             return list(params.values()) if isinstance(params, dict) else None
 
     params = {"str_param": "string", "int_array": [1, 2, 3], "123": 123}
@@ -1408,7 +1447,7 @@ def test_enforce_params_schema_warns_with_model_without_params():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model=MyModel(), artifact_path="model1", signature=signature
+            name="model1", python_model=MyModel(), signature=signature
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1424,7 +1463,7 @@ def test_enforce_params_schema_warns_with_model_without_params():
 
 def test_enforce_params_schema_errors_with_model_with_params():
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, ctx, model_input, params=None):
+        def predict(self, context, model_input, params=None):
             return list(params.values()) if isinstance(params, dict) else None
 
     params = {"str_param": "string", "int_array": [1, 2, 3], "123": 123}
@@ -1432,7 +1471,7 @@ def test_enforce_params_schema_errors_with_model_with_params():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            python_model=MyModel(), artifact_path="model2", signature=signature
+            name="test_model", python_model=MyModel(), signature=signature
         )
 
     loaded_model_with_params = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1480,13 +1519,13 @@ def test_param_spec_with_success():
 
 def test_param_spec_errors():
     # Raise error if default value can not be converted to specified type
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
+    with pytest.raises(MlflowException, match=r"Failed to validate type and shape for 'a'"):
         ParamSpec("a", DataType.integer, "1.0")
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
+    with pytest.raises(MlflowException, match=r"Failed to validate type and shape for 'a'"):
         ParamSpec("a", DataType.integer, [1.0, 2.0], (-1,))
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
+    with pytest.raises(MlflowException, match=r"Failed to validate type and shape for 'a'"):
         ParamSpec("a", DataType.string, True)
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'a'"):
+    with pytest.raises(MlflowException, match=r"Failed to validate type and shape for 'a'"):
         ParamSpec("a", DataType.string, [1.0, 2.0], (-1,))
     with pytest.raises(MlflowException, match=r"Binary type is not supported for parameters"):
         ParamSpec("a", DataType.binary, 1.0)
@@ -1494,22 +1533,18 @@ def test_param_spec_errors():
         ParamSpec("a", DataType.datetime, 1.0)
     with pytest.raises(MlflowException, match=r"Failed to convert value"):
         ParamSpec("a", DataType.datetime, [1.0, 2.0], (-1,))
-    with pytest.raises(MlflowException, match=r"Invalid value for param 'a'"):
+    with pytest.raises(MlflowException, match=r"Failed to convert value to `DataType.datetime`"):
         ParamSpec("a", DataType.datetime, np.datetime64("20230606"))
 
     # Raise error if shape is not specified for list value
     with pytest.raises(
         MlflowException,
-        match=re.escape(
-            "Value should be a scalar for param 'a': long (default: [1, 2, 3]) with shape None"
-        ),
+        match=re.escape("Value must be a scalar for type `DataType.long`"),
     ):
         ParamSpec("a", DataType.long, [1, 2, 3], shape=None)
     with pytest.raises(
         MlflowException,
-        match=re.escape(
-            "Value should be a scalar for param 'a': integer (default: [1 2 3]) with shape None"
-        ),
+        match=re.escape("Value must be a scalar for type `DataType.integer`"),
     ):
         ParamSpec("a", DataType.integer, np.array([1, 2, 3]), shape=None)
 
@@ -1525,7 +1560,9 @@ def test_param_spec_errors():
 
     # Raise error if shape specified is not allowed
     with pytest.raises(
-        MlflowException, match=r"Shape must be None for scalar value or \(-1,\) for 1D array value"
+        MlflowException,
+        match=r"Shape must be None for scalar or dictionary value, "
+        r"or \(-1,\) for 1D array value",
     ):
         ParamSpec("a", DataType.boolean, [True, False], (2,))
 
@@ -1546,8 +1583,8 @@ def test_enforce_schema_in_python_model_predict(sample_params_basic, param_schem
     signature = infer_signature(["input1"], params=test_params)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=PythonModelWithBasicParams(),
-            artifact_path="test_model",
             signature=signature,
         )
     assert signature.params == test_schema
@@ -1638,8 +1675,8 @@ def test_enforce_schema_in_python_model_serving(sample_params_basic):
     signature = infer_signature(["input1"], params=sample_params_basic)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=PythonModelWithBasicParams(),
-            artifact_path="test_model",
             signature=signature,
         )
 
@@ -1684,7 +1721,7 @@ def test_enforce_schema_in_python_model_serving(sample_params_basic):
     )
     assert response.status_code == 400
     assert (
-        "Incompatible types for param 'double_param'"
+        "Failed to validate type and shape for 'double_param'"
         in json.loads(response.content.decode("utf-8"))["message"]
     )
 
@@ -1705,7 +1742,7 @@ def test_python_model_serving_compatible(tmp_path):
     from mlflow.models import infer_signature
 
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, ctx, model_input):
+        def predict(self, context, model_input):
             return model_input
 
     with mlflow.start_run():
@@ -1755,7 +1792,7 @@ cloudpickle==2.2.1
     )
 
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, ctx, model_input):
+        def predict(self, context, model_input):
             return model_input
 
     python_model = MyModel()
@@ -1888,8 +1925,8 @@ def test_enforce_schema_with_arrays_in_python_model_predict(sample_params_with_a
     signature = infer_signature(["input1"], params=params)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=PythonModelWithArrayParams(),
-            artifact_path="test_model",
             signature=signature,
         )
 
@@ -1923,14 +1960,19 @@ def test_enforce_schema_with_arrays_in_python_model_predict(sample_params_with_a
 
     # Raise error if failing to convert the type
     with pytest.raises(
-        MlflowException, match=r"Failed to convert value 1.0 from type float to DataType.datetime"
+        MlflowException,
+        match=r"Failed to convert value `1.0` from type `<class 'float'>` to `DataType.datetime`",
     ):
         loaded_model.predict(["a", "b"], params={"datetime_array": [1.0, 2.0]})
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'int_array'"):
+    with pytest.raises(MlflowException, match=r"Failed to validate type and shape for 'int_array'"):
         loaded_model.predict(["a", "b"], params={"int_array": np.array([1.0, 2.0])})
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'float_array'"):
+    with pytest.raises(
+        MlflowException, match=r"Failed to validate type and shape for 'float_array'"
+    ):
         loaded_model.predict(["a", "b"], params={"float_array": [True, False]})
-    with pytest.raises(MlflowException, match=r"Incompatible types for param 'double_array'"):
+    with pytest.raises(
+        MlflowException, match=r"Failed to validate type and shape for 'double_array'"
+    ):
         loaded_model.predict(["a", "b"], params={"double_array": [1.0, "2.0"]})
 
 
@@ -1939,95 +1981,95 @@ def test_enforce_schema_with_arrays_in_python_model_serving(sample_params_with_a
     signature = infer_signature(["input1"], params=params)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=PythonModelWithArrayParams(),
-            artifact_path="test_model",
             signature=signature,
         )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params=params),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 200
-    prediction = json.loads(response.content.decode("utf-8"))["predictions"]
-    for param, value in params.items():
-        if param == "datetime_array":
-            assert prediction[param] == list(map(np.datetime_as_string, value))
-        else:
-            assert (prediction[param] == value).all()
+    with pyfunc_scoring_endpoint(
+        model_info.model_uri, extra_args=["--env-manager", "local"]
+    ) as endpoint:
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params=params),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 200
+        prediction = json.loads(response.content.decode("utf-8"))["predictions"]
+        for param, value in params.items():
+            if param == "datetime_array":
+                assert prediction[param] == list(map(np.datetime_as_string, value))
+            else:
+                assert (prediction[param] == value).all()
 
-    # Test invalid params for model serving
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"datetime_array": [1.0, 2.0]}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Failed to convert value 1.0 from type float to DataType.datetime"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+        # Test invalid params for model serving
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params={"datetime_array": [1.0, 2.0]}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 400
+        assert (
+            "Failed to convert value `1.0` from type `<class 'float'>` to `DataType.datetime`"
+            in json.loads(response.content.decode("utf-8"))["message"]
+        )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"int_array": np.array([1.0, 2.0])}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Incompatible types for param 'int_array'"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params={"int_array": np.array([1.0, 2.0])}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 400
+        assert (
+            "Failed to validate type and shape for 'int_array'"
+            in json.loads(response.content.decode("utf-8"))["message"]
+        )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"float_array": [True, False]}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Incompatible types for param 'float_array'"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params={"float_array": [True, False]}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 400
+        assert (
+            "Failed to validate type and shape for 'float_array'"
+            in json.loads(response.content.decode("utf-8"))["message"]
+        )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=dump_input_data(["a", "b"], params={"double_array": [1.0, "2.0"]}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 400
-    assert (
-        "Incompatible types for param 'double_array'"
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+        response = endpoint.invoke(
+            data=dump_input_data(["a", "b"], params={"double_array": [1.0, "2.0"]}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        assert response.status_code == 400
+        assert (
+            "Failed to validate type and shape for 'double_array'"
+            in json.loads(response.content.decode("utf-8"))["message"]
+        )
 
 
 @pytest.mark.parametrize(
-    ("example", "schema"),
+    ("example", "input_schema", "output_schema"),
     [
-        (["input1", "input2", "input3"], Schema([ColSpec(DataType.string)])),
+        (
+            ["input1", "input2", "input3"],
+            Schema([ColSpec(DataType.string)]),
+            Schema([ColSpec(DataType.string, 0)]),
+        ),
         (
             [{"a": "a", "b": "b"}, {"a": "b"}],
+            Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b", required=False)]),
             Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b", required=False)]),
         ),
         (
             {"a": ["a", "b", "c"], "b": "b"},
             Schema([ColSpec(Array(DataType.string), "a"), ColSpec(DataType.string, "b")]),
+            Schema([ColSpec(Array(DataType.string), "a"), ColSpec(DataType.string, "b")]),
         ),
         (
             pd.DataFrame({"a": ["a", "b", "c"], "b": "b"}),
+            Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b")]),
             Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b")]),
         ),
     ],
 )
 def test_pyfunc_model_input_example_with_params(
-    sample_params_basic, param_schema_basic, tmp_path, example, schema
+    sample_params_basic, param_schema_basic, tmp_path, example, input_schema, output_schema
 ):
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
@@ -2035,14 +2077,14 @@ def test_pyfunc_model_input_example_with_params(
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=(example, sample_params_basic),
         )
 
     # Test _infer_signature_from_input_example
-    assert model_info.signature.inputs == schema
-    assert model_info.signature.outputs == schema
+    assert model_info.signature.inputs == input_schema
+    assert model_info.signature.outputs == output_schema
     assert model_info.signature.params == param_schema_basic
 
     # Test predict
@@ -2058,29 +2100,213 @@ def test_pyfunc_model_input_example_with_params(
     if isinstance(example, list) and all(np.isscalar(x) for x in example):
         np.testing.assert_equal(loaded_example, example)
     else:
-        if isinstance(example, list):
-            expected_example = pd.DataFrame(example)
-        elif isinstance(example, dict):
-            expected_example = pd.DataFrame([example])
+        if isinstance(example, pd.DataFrame):
+            pd.testing.assert_frame_equal(loaded_example, example)
         else:
-            expected_example = example
-        pd.testing.assert_frame_equal(loaded_example, expected_example)
+            assert loaded_example == example
 
-    # Test model serving
-    if isinstance(example, pd.DataFrame):
-        payload = {"dataframe_split": example.to_dict(orient="split")}
+    for test_example in ["saved_example", "manual_example"]:
+        if test_example == "saved_example":
+            payload = mlflow_model.get_serving_input(local_path)
+        else:
+            if isinstance(example, pd.DataFrame):
+                payload = json.dumps({"dataframe_split": example.to_dict(orient="split")})
+            else:
+                payload = json.dumps({"inputs": example})
+
+        response = pyfunc_serve_and_score_model(
+            model_info.model_uri,
+            data=payload,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            extra_args=["--env-manager", "local"],
+        )
+        assert response.status_code == 200, response.content
+        result = json.loads(response.content.decode("utf-8"))["predictions"]
+        result = pd.DataFrame(result).values.tolist()[0]
+        np.testing.assert_equal(result, expected_df.values.tolist()[0])
+
+
+def test_invalid_input_example_warn_when_model_logging():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            # List[str] is converted to pandas DataFrame
+            # after schema enforcement, so this is invalid
+            assert isinstance(model_input, list)
+            return "string"
+
+    with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(
+                name="test_model",
+                python_model=MyModel(),
+                input_example=["some string"],
+            )
+        assert any(
+            "Failed to validate serving input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
+
+
+def assert_equal(a, b):
+    if isinstance(a, pd.DataFrame):
+        pd.testing.assert_frame_equal(a, b)
+    elif isinstance(a, np.ndarray) or isinstance(b, np.ndarray):
+        np.testing.assert_equal(a, b)
+    elif isinstance(a, dict):
+        assert a.keys() == b.keys()
+        for key in a:
+            assert_equal(a[key], b[key])
     else:
-        payload = {"inputs": example}
+        assert a == b
+
+
+@pytest.mark.parametrize(
+    ("example", "signature", "expected_input", "expected_output"),
+    [
+        (
+            pd.DataFrame({"a": ["input1", "input2", "input3"]}),
+            ModelSignature(
+                Schema([ColSpec(DataType.string, "a")]), Schema([ColSpec(DataType.string)])
+            ),
+            pd.DataFrame({"a": ["input1", "input2", "input3"]}),
+            "string output",
+        ),
+        (
+            np.array([1, 2, 3]),
+            ModelSignature(
+                Schema([TensorSpec(np.dtype("int64"), (-1,))]),
+                Schema([TensorSpec(np.dtype("float64"), (-1,))]),
+            ),
+            np.array([1, 2, 3]),
+            np.array([1.0, 2.0, 3.0]),
+        ),
+        (
+            np.array([1, 2, 3, np.nan]),
+            ModelSignature(
+                Schema([TensorSpec(np.dtype("float64"), (-1,))]),
+                Schema([TensorSpec(np.dtype("float64"), (-1,))]),
+            ),
+            np.array([1, 2, 3, np.nan]),
+            np.array([1.0, 2.0, 3.0, np.nan]),
+        ),
+        (
+            {"a": np.array([1, 2, 3])},
+            ModelSignature(
+                Schema([TensorSpec(np.dtype("int64"), (-1,), "a")]),
+                Schema([TensorSpec(np.dtype("float64"), (-1,), "b")]),
+            ),
+            {"a": np.array([1, 2, 3])},
+            {"b": np.array([1.0, 2.0, 3.0])},
+        ),
+        (
+            ["input1", "input2", "input3"],
+            ModelSignature(Schema([ColSpec(DataType.string)]), Schema([ColSpec(DataType.string)])),
+            # This is due to _enforce_schema
+            pd.DataFrame(["input1", "input2", "input3"]),
+            ["input1", "input2", "input3"],
+        ),
+        (
+            [{"a": ["sentence1", "sentence2"], "b": ["answer1", "answer2"]}],
+            ModelSignature(
+                Schema(
+                    [ColSpec(Array(DataType.string), "a"), ColSpec(Array(DataType.string), "b")]
+                ),
+                Schema([ColSpec(DataType.string, "output")]),
+            ),
+            pd.DataFrame([{"a": ["sentence1", "sentence2"], "b": ["answer1", "answer2"]}]),
+            {"output": "some prediction"},
+        ),
+        (
+            {"messages": [{"role": "user", "content": "some question"}]},
+            ModelSignature(
+                Schema(
+                    [
+                        ColSpec(
+                            Array(
+                                Object(
+                                    [
+                                        Property("role", DataType.string),
+                                        Property("content", DataType.string),
+                                    ]
+                                )
+                            ),
+                            "messages",
+                        )
+                    ]
+                ),
+                Schema([ColSpec(DataType.string, "output")]),
+            ),
+            # we assume the field is array so we need another list wrapper
+            pd.DataFrame([{"messages": [{"role": "user", "content": "some question"}]}]),
+            {"output": "some prediction"},
+        ),
+    ],
+)
+def test_input_example_validation_during_logging(
+    tmp_path, example, signature, expected_input, expected_output
+):
+    from mlflow.models import validate_serving_input
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            assert_equal(model_input, expected_input)
+            return expected_output
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name="test_model",
+            python_model=MyModel(),
+            input_example=example,
+        )
+        assert model_info.signature == signature
+
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    serving_input_example = mlflow_model.get_serving_input(local_path)
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
-        data=json.dumps(payload),
+        data=serving_input_example,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
-    result = json.loads(response.content.decode("utf-8"))["predictions"]
-    result = pd.DataFrame(result).values.tolist()[0]
-    np.testing.assert_equal(result, expected_df.values.tolist()[0])
+    if is_unified_llm_input(example):
+        result = json.loads(response.content.decode("utf-8"))
+    else:
+        result = json.loads(response.content.decode("utf-8"))["predictions"]
+    assert_equal(result, expected_output)
+
+    # make sure validate_serving_input has the same output
+    assert convert_input_example_to_serving_input(example) == serving_input_example
+    result = validate_serving_input(model_info.model_uri, serving_input_example)
+    assert_equal(result, expected_output)
+
+
+def test_pyfunc_schema_inference_not_generate_trace():
+    # Test that the model logging call does not generate a trace.
+    # When input example is provided, we run prediction to infer
+    # the model signature, but it should not generate a trace.
+    class MyModel(mlflow.pyfunc.PythonModel):
+        @mlflow.trace()
+        def predict(self, context, model_input):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name="test_model",
+            python_model=MyModel(),
+            input_example=["input"],
+        )
+
+    # No trace should be generated
+    traces = get_traces()
+    assert len(traces) == 0
+
+    # Normal prediction should emit a trace
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_model.predict("input")
+    traces = get_traces()
+    assert len(traces) == 1
 
 
 @pytest.mark.parametrize(
@@ -2127,8 +2353,8 @@ def test_pyfunc_model_schema_enforcement_with_dicts_and_lists(data, schema):
     signature = ModelSignature(schema)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             signature=signature,
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -2176,8 +2402,8 @@ def test_pyfunc_model_serving_with_dicts(data, schema, format_key):
     signature = ModelSignature(schema)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             signature=signature,
         )
 
@@ -2234,8 +2460,8 @@ def test_pyfunc_model_serving_with_lists_of_dicts(data, schema, format_key):
     signature = ModelSignature(schema)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             signature=signature,
         )
 
@@ -2323,7 +2549,11 @@ def test_pyfunc_model_serving_with_lists_of_dicts(data, schema, format_key):
 )
 def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
     class MyModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            self.pipeline = "pipeline"
+
         def predict(self, context, model_input, params=None):
+            assert self.pipeline == "pipeline"
             return model_input
 
     signature = infer_signature(data)
@@ -2333,8 +2563,8 @@ def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             signature=signature,
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -2373,8 +2603,8 @@ def test_pyfunc_model_scoring_with_objects_and_arrays(data, format_key):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             signature=infer_signature(data),
         )
 
@@ -2416,8 +2646,8 @@ def test_pyfunc_model_scoring_with_objects_and_arrays_instances(data):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             signature=infer_signature(data),
         )
 
@@ -2455,8 +2685,8 @@ def test_pyfunc_model_scoring_with_objects_and_arrays_instances_errors(data):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             signature=infer_signature(data),
         )
 
@@ -2497,8 +2727,8 @@ def test_pyfunc_model_scoring_instances_backwards_compatibility(data, schema):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             signature=ModelSignature(schema),
         )
 
@@ -2550,8 +2780,8 @@ def test_pyfunc_model_schema_enforcement_nested_array(data, schema):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             signature=signature,
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -2669,8 +2899,8 @@ def test_pyfunc_model_schema_enforcement_map_type(data, schema, format_key):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             signature=ModelSignature(inputs=schema, outputs=schema),
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -2752,8 +2982,8 @@ def test_pyfunc_model_schema_enforcement_complex(data, schema, format_key):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             signature=signature,
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -2770,6 +3000,154 @@ def test_pyfunc_model_schema_enforcement_complex(data, schema, format_key):
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=json.dumps(payload),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200, response.content
+    result = json.loads(response.content.decode("utf-8"))["predictions"]
+    expected_result = df.to_dict(orient="records")
+    np.testing.assert_equal(result, expected_result)
+
+
+def test_zero_or_one_longs_convert_to_floats():
+    zeros = pd.DataFrame([{"temperature": 0}, {"temperature": 0.9}, {"temperature": 1}, {}])
+    schema = Schema([ColSpec(DataType.double, name="temperature", required=False)])
+    data = _enforce_schema(zeros, schema)
+    pd.testing.assert_series_equal(
+        data["temperature"], pd.Series([0.0, 0.9, 1.0, np.nan], dtype=np.float64), check_names=False
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_example", "expected_schema", "payload_example"),
+    [
+        ({"a": None}, Schema([ColSpec(type=AnyType(), name="a", required=False)]), {"a": "string"}),
+        (
+            {"a": [None, []]},
+            Schema([ColSpec(Array(AnyType()), name="a", required=False)]),
+            {"a": ["abc", "123"]},
+        ),
+        (
+            {"a": [None]},
+            Schema([ColSpec(type=Array(AnyType()), name="a", required=False)]),
+            {"a": ["abc"]},
+        ),
+        (
+            {"a": [None, "string"]},
+            Schema([ColSpec(type=Array(DataType.string), name="a", required=False)]),
+            {"a": ["abc"]},
+        ),
+        (
+            {"a": {"x": None}},
+            Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
+            {"a": {"x": 234}},
+        ),
+        (
+            [
+                {
+                    "messages": [
+                        {
+                            "content": "You are a helpful assistant.",
+                            "additional_kwargs": {},
+                            "response_metadata": {},
+                            "type": "system",
+                            "name": None,
+                            "id": None,
+                        },
+                        {
+                            "content": "What would you like to ask?",
+                            "additional_kwargs": {},
+                            "response_metadata": {},
+                            "type": "ai",
+                            "name": None,
+                            "id": None,
+                            "example": False,
+                            "tool_calls": [],
+                            "invalid_tool_calls": [],
+                            "usage_metadata": None,
+                        },
+                        {
+                            "content": "Who owns MLflow?",
+                            "additional_kwargs": {},
+                            "response_metadata": {},
+                            "type": "human",
+                            "name": None,
+                            "id": None,
+                            "example": False,
+                        },
+                    ],
+                    "text": "Hello?",
+                }
+            ],
+            Schema(
+                [
+                    ColSpec(
+                        Array(
+                            Object(
+                                properties=[
+                                    Property("content", DataType.string),
+                                    Property("additional_kwargs", AnyType(), required=False),
+                                    Property("response_metadata", AnyType(), required=False),
+                                    Property("type", DataType.string),
+                                    Property("name", AnyType(), required=False),
+                                    Property("id", AnyType(), required=False),
+                                    Property("example", DataType.boolean, required=False),
+                                    Property("tool_calls", AnyType(), required=False),
+                                    Property("invalid_tool_calls", AnyType(), required=False),
+                                    Property("usage_metadata", AnyType(), required=False),
+                                ]
+                            )
+                        ),
+                        name="messages",
+                    ),
+                    ColSpec(DataType.string, name="text"),
+                ]
+            ),
+            [
+                {
+                    "messages": [
+                        {
+                            "content": "You are a helpful assistant.",
+                            "additional_kwargs": {"x": "x"},
+                            "response_metadata": {"y": "y"},
+                            "type": "system",
+                            "name": "test",
+                            "id": 1234567,
+                            "tool_calls": [{"tool1": "abc"}],
+                            "invalid_tool_calls": ["tool2", "tool3"],
+                        },
+                    ],
+                    "text": "Hello?",
+                }
+            ],
+        ),
+    ],
+)
+def test_schema_enforcement_for_anytype(input_example, expected_schema, payload_example):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name="test_model",
+            python_model=MyModel(),
+            input_example=input_example,
+        )
+    assert model_info.signature.inputs == expected_schema
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    prediction = loaded_model.predict(payload_example)
+    df = (
+        pd.DataFrame(payload_example)
+        if isinstance(payload_example, list)
+        else pd.DataFrame([payload_example])
+    )
+    pd.testing.assert_frame_equal(prediction, df)
+
+    data = convert_input_example_to_serving_input(payload_example)
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=data,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )

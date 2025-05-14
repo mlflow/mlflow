@@ -1,5 +1,13 @@
 import { isNil } from 'lodash';
-import { Button, CloseIcon, PinIcon, PinFillIcon, Tooltip, VisibleIcon, Typography } from '@databricks/design-system';
+import {
+  Button,
+  CloseIcon,
+  PinIcon,
+  PinFillIcon,
+  LegacyTooltip,
+  VisibleIcon,
+  Typography,
+} from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
@@ -20,40 +28,52 @@ import {
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
 } from '../runs-charts.types';
-import { normalizeMetricChartTooltipValue } from '../../../utils/MetricsUtils';
 import {
   type RunsCompareMultipleTracesTooltipData,
   type RunsMetricsSingleTraceTooltipData,
 } from './RunsMetricsLinePlot';
 import { RunsMultipleTracesTooltipBody } from './RunsMultipleTracesTooltipBody';
+import { shouldEnableRelativeTimeDateAxis } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { customMetricBehaviorDefs } from '../../experiment-page/utils/customMetricBehaviorUtils';
 
 interface RunsChartsContextMenuContentDataType {
   runs: RunsChartsRunData[];
   onTogglePin?: (runUuid: string) => void;
   onHideRun?: (runUuid: string) => void;
+  getDataTraceLink?: (experimentId: string, traceUuid: string) => string;
 }
 
 type RunsChartContextMenuHoverDataType = RunsChartsCardConfig;
 
 const createBarChartValuesBox = (cardConfig: RunsChartsBarCardConfig, activeRun: RunsChartsRunData) => {
-  const { metricKey } = cardConfig;
-  const metric = activeRun?.metrics[metricKey];
+  const { metricKey, dataAccessKey } = cardConfig;
+
+  const dataKey = dataAccessKey ?? metricKey;
+
+  const metric = activeRun?.metrics[dataKey];
 
   if (!metric) {
     return null;
   }
 
+  const customMetricBehaviorDef = customMetricBehaviorDefs[metric.key];
+  const displayName = customMetricBehaviorDef?.displayName ?? metric.key;
+  const displayValue = customMetricBehaviorDef?.valueFormatter({ value: metric.value }) ?? metric.value;
+
   return (
     <div css={styles.value}>
-      <strong>{metric.key}:</strong> {normalizeMetricChartTooltipValue(metric.value)}
+      <strong>{displayName}:</strong> {displayValue}
     </div>
   );
 };
 
 const createScatterChartValuesBox = (cardConfig: RunsChartsScatterCardConfig, activeRun: RunsChartsRunData) => {
   const { xaxis, yaxis } = cardConfig;
-  const xKey = xaxis.key;
-  const yKey = yaxis.key;
+  const xKey = xaxis.dataAccessKey ?? xaxis.key;
+  const yKey = xaxis.dataAccessKey ?? yaxis.key;
+
+  const xLabel = xaxis.key;
+  const yLabel = yaxis.key;
 
   const xValue = xaxis.type === 'METRIC' ? activeRun.metrics[xKey]?.value : activeRun.params[xKey]?.value;
 
@@ -63,12 +83,12 @@ const createScatterChartValuesBox = (cardConfig: RunsChartsScatterCardConfig, ac
     <>
       {xValue && (
         <div css={styles.value}>
-          <strong>X ({xKey}):</strong> {normalizeMetricChartTooltipValue(xValue)}
+          <strong>X ({xLabel}):</strong> {xValue}
         </div>
       )}
       {yValue && (
         <div css={styles.value}>
-          <strong>Y ({yKey}):</strong> {normalizeMetricChartTooltipValue(yValue)}
+          <strong>Y ({yLabel}):</strong> {yValue}
         </div>
       )}
     </>
@@ -91,21 +111,44 @@ const createContourChartValuesBox = (cardConfig: RunsChartsContourCardConfig, ac
     <>
       {xValue && (
         <div css={styles.value}>
-          <strong>X ({xKey}):</strong> {normalizeMetricChartTooltipValue(xValue)}
+          <strong>X ({xKey}):</strong> {xValue}
         </div>
       )}
       {yValue && (
         <div css={styles.value}>
-          <strong>Y ({yKey}):</strong> {normalizeMetricChartTooltipValue(yValue)}
+          <strong>Y ({yKey}):</strong> {yValue}
         </div>
       )}
       {zValue && (
         <div css={styles.value}>
-          <strong>Z ({zKey}):</strong> {normalizeMetricChartTooltipValue(zValue)}
+          <strong>Z ({zKey}):</strong> {zValue}
         </div>
       )}
     </>
   );
+};
+
+const normalizeRelativeTimeChartTooltipValue = (value: string | number) => {
+  if (typeof value === 'number') {
+    return value;
+  }
+  return value.split(' ')[1] || '00:00:00';
+};
+
+const getTooltipXValue = (
+  hoverData: RunsMetricsSingleTraceTooltipData | undefined,
+  xAxisKey: RunsChartsLineChartXAxisType,
+) => {
+  if (xAxisKey === RunsChartsLineChartXAxisType.METRIC) {
+    return hoverData?.xValue ?? '';
+  }
+
+  if (shouldEnableRelativeTimeDateAxis() && xAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE) {
+    return normalizeRelativeTimeChartTooltipValue(hoverData?.xValue ?? '');
+  }
+
+  // Default return for other cases
+  return hoverData?.xValue;
 };
 
 const createLineChartValuesBox = (
@@ -124,11 +167,7 @@ const createLineChartValuesBox = (
     return null;
   }
 
-  const xValue =
-    xAxisKey === RunsChartsLineChartXAxisType.METRIC
-      ? normalizeMetricChartTooltipValue(hoverData?.xValue ?? '')
-      : hoverData?.xValue;
-
+  const xValue = getTooltipXValue(hoverData, xAxisKey);
   return (
     <>
       {hoverData && (
@@ -137,7 +176,7 @@ const createLineChartValuesBox = (
         </div>
       )}
       <div css={styles.value}>
-        <strong>{metricKey}:</strong> {normalizeMetricChartTooltipValue(metricValue)}
+        <strong>{metricKey}:</strong> {metricValue}
       </div>
     </>
   );
@@ -154,7 +193,7 @@ const createParallelChartValuesBox = (
     if (param) {
       return (
         <div key={paramKey}>
-          <strong>{param.key}:</strong> {normalizeMetricChartTooltipValue(param.value)}
+          <strong>{param.key}:</strong> {param.value}
         </div>
       );
     }
@@ -165,7 +204,7 @@ const createParallelChartValuesBox = (
     if (metric) {
       return (
         <div key={metricKey}>
-          <strong>{metric.key}:</strong> {normalizeMetricChartTooltipValue(metric.value)}
+          <strong>{metric.key}:</strong> {metric.value}
         </div>
       );
     }
@@ -242,7 +281,7 @@ export const RunsChartsTooltipBody = ({
   RunsChartContextMenuHoverDataType,
   RunsMetricsSingleTraceTooltipData | RunsCompareMultipleTracesTooltipData
 >) => {
-  const { runs, onTogglePin, onHideRun } = contextData;
+  const { runs, onTogglePin, onHideRun, getDataTraceLink } = contextData;
   const [experimentId] = useExperimentIds();
   const activeRun = runs?.find((run) => run.uuid === runUuid);
 
@@ -272,7 +311,7 @@ export const RunsChartsTooltipBody = ({
             <Typography.Text>{runName + metricSuffix}</Typography.Text>
           ) : (
             <Link
-              to={Routes.getRunPageRoute(experimentId, runUuid)}
+              to={getDataTraceLink?.(experimentId, runUuid) ?? Routes.getRunPageRoute(experimentId, runUuid)}
               target="_blank"
               css={styles.runLink}
               onClick={closeContextMenu}
@@ -300,7 +339,7 @@ export const RunsChartsTooltipBody = ({
 
       <div css={styles.actionsWrapper}>
         {activeRun.pinnable && onTogglePin && (
-          <Tooltip
+          <LegacyTooltip
             title={
               activeRun.pinned ? (
                 <FormattedMessage
@@ -325,10 +364,10 @@ export const RunsChartsTooltipBody = ({
               }}
               icon={activeRun.pinned ? <PinFillIcon /> : <PinIcon />}
             />
-          </Tooltip>
+          </LegacyTooltip>
         )}
         {onHideRun && (
-          <Tooltip
+          <LegacyTooltip
             title={
               <FormattedMessage
                 defaultMessage="Click to hide the run"
@@ -347,7 +386,7 @@ export const RunsChartsTooltipBody = ({
               }}
               icon={<VisibleIcon />}
             />
-          </Tooltip>
+          </LegacyTooltip>
         )}
       </div>
     </div>
@@ -371,7 +410,6 @@ const styles = {
     alignItems: 'center',
   },
   value: {
-    maxWidth: 300,
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
     textOverflow: 'ellipsis',

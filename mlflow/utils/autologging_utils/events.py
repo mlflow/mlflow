@@ -1,6 +1,72 @@
 import warnings
+from typing import Any
 
 from mlflow.utils.autologging_utils import _logger
+
+
+def _catch_exception(fn):
+    """A decorator that catches exceptions thrown by the wrapped function and logs them."""
+
+    def wrapper(*args):
+        try:
+            fn(*args)
+        except Exception as e:
+            _logger.debug(f"Failed to log autologging event via '{fn}'. Exception: {e}")
+
+    return wrapper
+
+
+class AutologgingEventLoggerWrapper:
+    """
+    A wrapper around AutologgingEventLogger for DRY:
+      - Store common arguments to avoid passing them to each logger method
+      - Catches exceptions thrown by the logger and logs them
+
+    NB: We could not modify the AutologgingEventLogger class directly because
+        it is used in Databricks code base as well.
+    """
+
+    def __init__(self, session, destination: Any, function_name: str):
+        self._session = session
+        self._destination = destination
+        self._function_name = function_name
+        self._logger = AutologgingEventLogger.get_logger()
+
+    @_catch_exception
+    def log_patch_function_start(self, args, kwargs):
+        self._logger.log_patch_function_start(
+            self._session, self._destination, self._function_name, args, kwargs
+        )
+
+    @_catch_exception
+    def log_patch_function_success(self, args, kwargs):
+        self._logger.log_patch_function_success(
+            self._session, self._destination, self._function_name, args, kwargs
+        )
+
+    @_catch_exception
+    def log_patch_function_error(self, args, kwargs, exception):
+        self._logger.log_patch_function_error(
+            self._session, self._destination, self._function_name, args, kwargs, exception
+        )
+
+    @_catch_exception
+    def log_original_function_start(self, args, kwargs):
+        self._logger.log_original_function_start(
+            self._session, self._destination, self._function_name, args, kwargs
+        )
+
+    @_catch_exception
+    def log_original_function_success(self, args, kwargs):
+        self._logger.log_original_function_success(
+            self._session, self._destination, self._function_name, args, kwargs
+        )
+
+    @_catch_exception
+    def log_original_function_error(self, args, kwargs, exception):
+        self._logger.log_original_function_error(
+            self._session, self._destination, self._function_name, args, kwargs, exception
+        )
 
 
 class AutologgingEventLogger:
@@ -63,9 +129,9 @@ class AutologgingEventLogger:
         """
         if len(call_args) > 0:
             warnings.warn(
-                "Received %d positional arguments via `call_args`. `call_args` is"
+                f"Received {len(call_args)} positional arguments via `call_args`. `call_args` is"
                 " deprecated in MLflow > 1.13.1, and all arguments should be passed"
-                " in keyword form via `call_kwargs`." % len(call_args),
+                " in keyword form via `call_kwargs`.",
                 category=DeprecationWarning,
                 stacklevel=2,
             )

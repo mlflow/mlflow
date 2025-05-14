@@ -30,6 +30,7 @@ CREATE TABLE inputs (
 	source_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	destination_type VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	destination_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	step BIGINT DEFAULT ('0') NOT NULL,
 	CONSTRAINT inputs_pk PRIMARY KEY (source_type, source_id, destination_type, destination_id)
 )
 
@@ -53,7 +54,7 @@ CREATE TABLE datasets (
 	dataset_schema VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	dataset_profile VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
-	CONSTRAINT "FK__datasets__experi__6477ECF3" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_datasets_experiment_id_experiments FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
@@ -63,6 +64,23 @@ CREATE TABLE experiment_tags (
 	experiment_id INTEGER NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
 	CONSTRAINT "FK__experimen__exper__4F7CD00D" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE logged_models (
+	model_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	artifact_location VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	creation_timestamp_ms BIGINT NOT NULL,
+	last_updated_timestamp_ms BIGINT NOT NULL,
+	status INTEGER NOT NULL,
+	lifecycle_stage VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	model_type VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	source_run_id VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	status_message VARCHAR(1000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT logged_models_pk PRIMARY KEY (model_id),
+	CONSTRAINT fk_logged_models_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
@@ -123,6 +141,17 @@ CREATE TABLE runs (
 )
 
 
+CREATE TABLE trace_info (
+	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	timestamp_ms BIGINT NOT NULL,
+	execution_time_ms BIGINT,
+	status VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
+	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
 CREATE TABLE latest_metrics (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	value FLOAT NOT NULL,
@@ -132,6 +161,46 @@ CREATE TABLE latest_metrics (
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT latest_metric_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT "FK__latest_me__run_u__52593CB8" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE logged_model_metrics (
+	model_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	metric_name VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	metric_timestamp_ms BIGINT NOT NULL,
+	metric_step BIGINT NOT NULL,
+	metric_value FLOAT,
+	experiment_id INTEGER NOT NULL,
+	run_id VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	dataset_uuid VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	dataset_name VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	dataset_digest VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT logged_model_metrics_pk PRIMARY KEY (model_id, metric_name, metric_timestamp_ms, metric_step, run_id),
+	CONSTRAINT fk_logged_model_metrics_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_logged_model_metrics_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE,
+	CONSTRAINT fk_logged_model_metrics_run_id FOREIGN KEY(run_id) REFERENCES runs (run_uuid) ON DELETE CASCADE
+)
+
+
+CREATE TABLE logged_model_params (
+	model_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	param_key VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	param_value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT logged_model_params_pk PRIMARY KEY (model_id, param_key),
+	CONSTRAINT fk_logged_model_params_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_logged_model_params_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE logged_model_tags (
+	model_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	tag_key VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	tag_value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT logged_model_tags_pk PRIMARY KEY (model_id, tag_key),
+	CONSTRAINT fk_logged_model_tags_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_logged_model_tags_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE
 )
 
 
@@ -168,8 +237,26 @@ CREATE TABLE params (
 
 CREATE TABLE tags (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	value VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT "FK__tags__run_uuid__412EB0B6" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE trace_request_metadata (
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT trace_request_metadata_pk PRIMARY KEY (key, request_id),
+	CONSTRAINT fk_trace_request_metadata_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE trace_tags (
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT trace_tag_pk PRIMARY KEY (key, request_id),
+	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )

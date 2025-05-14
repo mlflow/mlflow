@@ -1,9 +1,12 @@
+import logging
 import re
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 
 import click
 from packaging.version import Version
+
+_logger = logging.getLogger(__name__)
 
 _PYTHON_VERSION_FILES = [
     Path("mlflow", "version.py"),
@@ -11,7 +14,8 @@ _PYTHON_VERSION_FILES = [
 
 _PYPROJECT_TOML_FILES = [
     Path("pyproject.toml"),
-    Path("pyproject.skinny.toml"),
+    Path("skinny/pyproject.toml"),
+    Path("pyproject.release.toml"),
 ]
 
 _JAVA_VERSION_FILES = Path("mlflow", "java").rglob("*.java")
@@ -52,7 +56,7 @@ def replace_dev_or_rc_suffix_with(version, repl):
     return base_version + repl if parsed.is_prerelease else version
 
 
-def replace_occurrences(files: List[Path], pattern: Union[str, re.Pattern], repl: str) -> None:
+def replace_occurrences(files: list[Path], pattern: Union[str, re.Pattern], repl: str) -> None:
     if not isinstance(pattern, re.Pattern):
         pattern = re.compile(pattern)
     for f in files:
@@ -63,7 +67,7 @@ def replace_occurrences(files: List[Path], pattern: Union[str, re.Pattern], repl
         f.write_text(new_text)
 
 
-def replace_python(old_version: str, new_py_version: str, paths: List[Path]) -> None:
+def replace_python(old_version: str, new_py_version: str, paths: list[Path]) -> None:
     replace_occurrences(
         files=paths,
         pattern=re.escape(old_version),
@@ -71,15 +75,20 @@ def replace_python(old_version: str, new_py_version: str, paths: List[Path]) -> 
     )
 
 
-def replace_pyproject_toml(new_py_version: str, paths: List[Path]) -> None:
+def replace_pyproject_toml(new_py_version: str, paths: list[Path]) -> None:
     replace_occurrences(
         files=paths,
         pattern=re.compile(r'^version\s+=\s+".+"$', re.MULTILINE),
         repl=f'version = "{new_py_version}"',
     )
+    replace_occurrences(
+        files=paths,
+        pattern=re.compile(r"^\s*\"mlflow-skinny==.+\",$", re.MULTILINE),
+        repl=f'  "mlflow-skinny=={new_py_version}",',
+    )
 
 
-def replace_js(old_version: str, new_py_version: str, paths: List[Path]) -> None:
+def replace_js(old_version: str, new_py_version: str, paths: list[Path]) -> None:
     replace_occurrences(
         files=paths,
         pattern=re.escape(old_version),
@@ -87,7 +96,7 @@ def replace_js(old_version: str, new_py_version: str, paths: List[Path]) -> None
     )
 
 
-def replace_java(old_version: str, new_py_version: str, paths: List[Path]) -> None:
+def replace_java(old_version: str, new_py_version: str, paths: list[Path]) -> None:
     old_py_version_pattern = get_java_py_version_pattern(old_version)
     dev_suffix_replaced = get_java_new_py_version(new_py_version)
 
@@ -102,7 +111,7 @@ def replace_java(old_version: str, new_py_version: str, paths: List[Path]) -> No
 # well. this causes issues when the mlflow version matches the
 # version of a dependency. to work around, we make sure to
 # match only the correct keys
-def replace_java_pom_xml(old_version: str, new_py_version: str, paths: List[Path]) -> None:
+def replace_java_pom_xml(old_version: str, new_py_version: str, paths: list[Path]) -> None:
     old_py_version_pattern = get_java_py_version_pattern(old_version)
     dev_suffix_replaced = get_java_new_py_version(new_py_version)
 
@@ -131,7 +140,7 @@ def replace_java_pom_xml(old_version: str, new_py_version: str, paths: List[Path
     )
 
 
-def replace_r(old_py_version: str, new_py_version: str, paths: List[Path]) -> None:
+def replace_r(old_py_version: str, new_py_version: str, paths: list[Path]) -> None:
     current_py_version_without_suffix = replace_dev_or_rc_suffix_with(old_py_version, "")
 
     replace_occurrences(
@@ -165,10 +174,17 @@ def validate_new_version(
 ) -> str:
     new = Version(value)
     current = Version(get_current_py_version())
+
+    # this could be the case if we just promoted an RC to a release
     if new < current:
-        raise click.BadParameter(
-            f"New version {new} is not greater than or equal to current version {current}"
+        _logger.warning(
+            f"New version {new} is not greater than or equal to current version {current}. "
+            "If the previous version was an RC, this is expected. If not, please make sure the "
+            "specified new version is correct."
         )
+        # exit with 0 to avoid failing the CI job
+        exit(0)
+
     return value
 
 

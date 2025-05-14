@@ -110,7 +110,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "anthropic.claude-v1",
@@ -129,7 +129,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "anthropic.claude-v2",
@@ -148,7 +148,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.ANTHROPIC,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "anthropic.claude-instant-v1",
@@ -167,7 +167,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.AMAZON,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "amazon.titan-tg1-large",
@@ -217,7 +217,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.AI21,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "ai21.j2-ultra",
@@ -234,7 +234,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.AI21,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "ai21.j2-mid",
@@ -254,7 +254,7 @@ bedrock_model_provider_fixtures = [
         "provider": AmazonBedrockModelProvider.COHERE,
         "config": {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {
                 "provider": "bedrock",
                 "name": "cohere.command",
@@ -382,9 +382,12 @@ def test_bedrock_aws_client(provider, config, aws_config):
 async def test_bedrock_request_response(
     provider, config, payload, response, expected, model_request, aws_config
 ):
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "mlflow.gateway.providers.bedrock.AmazonBedrockProvider._request", return_value=response
-    ) as mock_request:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "mlflow.gateway.providers.bedrock.AmazonBedrockProvider._request", return_value=response
+        ) as mock_request,
+    ):
         if not expected:
             pytest.skip("no expected value")
 

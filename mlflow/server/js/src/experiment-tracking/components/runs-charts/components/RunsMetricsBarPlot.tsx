@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
-import { highlightBarTraces, useRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
+import { highlightBarTraces, useRenderRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
 import {
   commonRunsChartStyles,
   RunsChartsRunData,
@@ -18,10 +18,12 @@ import {
 } from './RunsCharts.common';
 import type { MetricEntity } from '../../../types';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
-import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
+import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
+import { customMetricBehaviorDefs } from '../../experiment-page/utils/customMetricBehaviorUtils';
+import { RunsChartCardLoadingPlaceholder } from './cards/ChartCard.common';
 
 // We're not using params in bar plot
-export type BarPlotRunData = Omit<RunsChartsRunData, 'params'>;
+export type BarPlotRunData = Omit<RunsChartsRunData, 'params' | 'tags' | 'images'>;
 
 export interface RunsMetricsBarPlotHoverData {
   xValue: string;
@@ -62,9 +64,10 @@ const PLOT_CONFIG: Partial<Config> = {
   scrollZoom: false,
   doubleClick: 'autosize',
   showTips: false,
+  modeBarButtonsToRemove: ['toImage'],
 };
 
-export const Y_AXIS_PARAMS = {
+const Y_AXIS_PARAMS = {
   ticklabelposition: 'inside',
   tickfont: { size: 11 },
   fixedrange: true,
@@ -93,18 +96,27 @@ export const RunsMetricsBarPlot = React.memo(
     useDefaultHoverBox = true,
     displayMetricKey = true,
     selectedRunUuid,
+    onSetDownloadHandler,
   }: RunsMetricsBarPlotProps) => {
-    const usingV2ChartImprovements = shouldEnableDeepLearningUI();
-
     const plotData = useMemo(() => {
       // Run uuids
       const ids = runsData.map((d) => d.uuid);
+
+      // Trace names
+      const names = runsData.map(({ displayName }) => displayName);
 
       // Actual metric values
       const values = runsData.map((d) => normalizeChartValue(d.metrics[metricKey]?.value));
 
       // Displayed metric values
-      const textValues = runsData.map((d) => getFixedPointValue(d.metrics[metricKey]?.value));
+      const textValues = runsData.map((d) => {
+        const customMetricBehaviorDef = customMetricBehaviorDefs[metricKey];
+        if (customMetricBehaviorDef) {
+          return customMetricBehaviorDef.valueFormatter({ value: d.metrics[metricKey]?.value });
+        }
+
+        return getFixedPointValue(d.metrics[metricKey]?.value);
+      });
 
       // Colors corresponding to each run
       const colors = runsData.map((d) => d.color);
@@ -113,8 +125,9 @@ export const RunsMetricsBarPlot = React.memo(
         {
           y: ids,
           x: values,
+          names,
           text: textValues,
-          textposition: 'auto',
+          textposition: values.map((value) => (value === 0 ? 'outside' : 'auto')),
           textfont: {
             size: 11,
           },
@@ -131,7 +144,7 @@ export const RunsMetricsBarPlot = React.memo(
           marker: {
             color: colors,
           },
-        } as Data,
+        } as Data & { names: string[] },
       ];
     }, [runsData, metricKey, barWidth, useDefaultHoverBox]);
 
@@ -144,10 +157,12 @@ export const RunsMetricsBarPlot = React.memo(
     const [layout, setLayout] = useState<Partial<Layout>>({
       width: width || layoutWidth,
       height: height || layoutHeight,
+      hovermode: 'y',
       margin,
       xaxis: {
         title: displayMetricKey ? metricKey : undefined,
         tickfont: { size: 11, color: theme.colors.textSecondary },
+        tickformat: customMetricBehaviorDefs[metricKey]?.chartAxisTickFormat ?? undefined,
       },
       yaxis: {
         showticklabels: displayRunNames,
@@ -176,7 +191,7 @@ export const RunsMetricsBarPlot = React.memo(
       }));
     }, [layoutWidth, layoutHeight, margin, metricKey, width, height, displayMetricKey]);
 
-    const { setHoveredPointIndex } = useRunsChartTraceHighlight(
+    const { setHoveredPointIndex } = useRenderRunsChartTraceHighlight(
       containerDiv,
       selectedRunUuid,
       runsData,
@@ -218,6 +233,25 @@ export const RunsMetricsBarPlot = React.memo(
 
     const legendLabelData = useMemo(() => getLegendDataFromRuns(runsData), [runsData]);
 
+    useEffect(() => {
+      // Prepare layout and data traces to export
+      const layoutToExport = {
+        ...layout,
+        yaxis: {
+          ...layout.yaxis,
+          showticklabels: true,
+          automargin: true,
+        },
+      };
+
+      const dataToExport = plotData.map((trace) => ({
+        ...trace,
+        // In exported image, use names for Y axes
+        y: trace.names,
+      }));
+      onSetDownloadHandler?.(createChartImageDownloadHandler(dataToExport, layoutToExport));
+    }, [layout, onSetDownloadHandler, plotData]);
+
     const chart = (
       <div
         css={[commonRunsChartStyles.chartWrapper(theme), styles.highlightStyles]}
@@ -233,15 +267,12 @@ export const RunsMetricsBarPlot = React.memo(
           config={PLOT_CONFIG}
           onHover={mutableHoverCallback}
           onUnhover={unhoverCallback}
+          fallback={<RunsChartCardLoadingPlaceholder />}
         />
       </div>
     );
 
-    return usingV2ChartImprovements ? (
-      <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>
-    ) : (
-      chart
-    );
+    return <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>;
   },
 );
 

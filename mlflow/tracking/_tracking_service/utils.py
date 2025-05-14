@@ -4,18 +4,18 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
-from typing import Union
+from typing import Generator, Union
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
+from mlflow.tracing.provider import reset
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
+from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME, _OSS_UNITY_CATALOG_SCHEME
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
@@ -66,24 +66,36 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
         # then .resolve() to clean the path
         uri = uri.absolute().resolve().as_uri()
     global _tracking_uri
-    _tracking_uri = uri
+
+    if _tracking_uri != uri:
+        _tracking_uri = uri
+        if _tracking_uri is not None:
+            # Set 'MLFLOW_TRACKING_URI' environment variable
+            # so that subprocess can inherit it.
+            MLFLOW_TRACKING_URI.set(_tracking_uri)
+        else:
+            MLFLOW_TRACKING_URI.unset()
+
+        # Tracer provider uses tracking URI to determine where to export traces.
+        # Tracer provider stores the URI as its state so we need to reset
+        # it explicitly when the global tracking URI changes.
+        reset()
 
 
 @contextmanager
-def _use_tracking_uri(uri: str) -> None:
+def _use_tracking_uri(uri: str) -> Generator[None, None, None]:
     """Temporarily use the specified tracking URI.
 
     Args:
         uri: The tracking URI to use.
 
     """
-    global _tracking_uri
     old_tracking_uri = _tracking_uri
     try:
-        _tracking_uri = uri
+        set_tracking_uri(uri)
         yield
     finally:
-        _tracking_uri = old_tracking_uri
+        set_tracking_uri(old_tracking_uri)
 
 
 def _resolve_tracking_uri(tracking_uri=None):
@@ -109,7 +121,6 @@ def get_tracking_uri() -> str:
 
         Current tracking uri: file:///.../mlruns
     """
-    global _tracking_uri
     if _tracking_uri is not None:
         return _tracking_uri
     elif uri := MLFLOW_TRACKING_URI.get():
@@ -119,6 +130,8 @@ def get_tracking_uri() -> str:
 
 
 def _get_file_store(store_uri, **_):
+    from mlflow.store.tracking.file_store import FileStore
+
     return FileStore(store_uri, store_uri)
 
 
@@ -142,11 +155,10 @@ def _get_databricks_uc_rest_store(store_uri, **_):
     from mlflow.exceptions import MlflowException
     from mlflow.version import VERSION
 
-    global _tracking_store_registry
     supported_schemes = [
         scheme
         for scheme in _tracking_store_registry._registry
-        if scheme != _DATABRICKS_UNITY_CATALOG_SCHEME
+        if scheme not in {_DATABRICKS_UNITY_CATALOG_SCHEME, _OSS_UNITY_CATALOG_SCHEME}
     ]
     raise MlflowException(
         f"Detected Unity Catalog tracking URI '{store_uri}'. "
@@ -158,10 +170,12 @@ def _get_databricks_uc_rest_store(store_uri, **_):
         "Catalog, please upgrade to the latest version of the MLflow Python "
         "client, then specify a Unity Catalog model registry URI via "
         f"mlflow.set_registry_uri('{_DATABRICKS_UNITY_CATALOG_SCHEME}') or "
-        f"mlflow.set_registry_uri('{_DATABRICKS_UNITY_CATALOG_SCHEME}://profile_name'), where "
+        f"mlflow.set_registry_uri('{_DATABRICKS_UNITY_CATALOG_SCHEME}://profile_name') where "
         "'profile_name' is the name of the Databricks CLI profile to use for "
-        "authentication. Be sure to leave the tracking URI configured to use "
-        "one of the supported schemes listed above."
+        "authentication. A OSS Unity Catalog model registry URI can also be specified via "
+        f"mlflow.set_registry_uri('{_OSS_UNITY_CATALOG_SCHEME}:http://localhost:8080')."
+        "Be sure to leave the registry URI configured to use one of the supported"
+        "schemes listed above."
     )
 
 
@@ -169,13 +183,13 @@ _tracking_store_registry = TrackingStoreRegistry()
 
 
 def _register_tracking_stores():
-    global _tracking_store_registry
     _tracking_store_registry.register("", _get_file_store)
     _tracking_store_registry.register("file", _get_file_store)
     _tracking_store_registry.register("databricks", _get_databricks_rest_store)
     _tracking_store_registry.register(
         _DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store
     )
+    _tracking_store_registry.register(_OSS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store)
 
     for scheme in ["http", "https"]:
         _tracking_store_registry.register(scheme, _get_rest_store)

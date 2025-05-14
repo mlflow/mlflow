@@ -26,9 +26,9 @@ print(
 )
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=openai.chat.completions,
-        artifact_path="model",
+        name="model",
         messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
     )
 
@@ -64,9 +64,9 @@ print(
 )
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=openai.chat.completions,
-        artifact_path="model",
+        name="model",
         messages=[{"role": "user", "content": "Tell me a {adjective} joke about {animal}."}],
     )
 
@@ -96,9 +96,9 @@ print(
 )
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=openai.chat.completions,
-        artifact_path="model",
+        name="model",
         messages=[
             {"role": "system", "content": "You are {person}"},
             {"role": "user", "content": "Let me hear your thoughts on {topic}"},
@@ -131,9 +131,9 @@ print(
 )
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=openai.chat.completions,
-        artifact_path="model",
+        name="model",
         messages=[{"role": "system", "content": "You are Elon Musk"}],
     )
 
@@ -172,9 +172,9 @@ print(
 )
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         task=openai.chat.completions,
-        artifact_path="model",
+        name="model",
         messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
         signature=ModelSignature(
             inputs=Schema([ColSpec(type="string", name=None)]),

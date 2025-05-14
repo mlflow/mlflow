@@ -13,6 +13,7 @@ to act as a custom inference logic layer in inference time.
 
 ```
 ├── train.py
+├── infer_model_code_path.py
 └── custom_code.py
 ```
 
@@ -22,6 +23,12 @@ to act as a custom inference logic layer in inference time.
 
 ```
 $ python train.py
+```
+
+or train and log the model using inferred code paths
+
+```
+$ python infer_model_code_paths.py
 ```
 
 2. Serve the pyfunc model

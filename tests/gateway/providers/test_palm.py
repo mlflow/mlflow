@@ -2,12 +2,12 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.palm import PaLMProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -17,7 +17,7 @@ from tests.gateway.tools import MockAsyncResponse
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "palm",
             "name": "text-bison",
@@ -46,9 +46,10 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch("time.time", return_value=1677858242), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = PaLMProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
@@ -105,7 +106,7 @@ async def test_completions_temperature_is_scaled_correctly():
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "palm",
             "name": "chat-bison",
@@ -169,9 +170,10 @@ def chat_response():
 async def test_chat(payload, expected_llm_input):
     resp = chat_response()
     config = chat_config()
-    with mock.patch("time.time", return_value=1700242674), mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+    with (
+        mock.patch("time.time", return_value=1700242674),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
         provider = PaLMProvider(RouteConfig(**config))
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -184,6 +186,8 @@ async def test_chat(payload, expected_llm_input):
                     "message": {
                         "role": "1",
                         "content": "Hi there! How can I help you today?",
+                        "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": None,
                     "index": 0,
@@ -205,7 +209,7 @@ async def test_chat(payload, expected_llm_input):
 def embeddings_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "palm",
             "name": "embedding-gecko",
@@ -237,22 +241,26 @@ def embeddings_response():
 def embeddings_batch_response():
     return {
         "embeddings": [
-            [
-                3.25,
-                0.7685547,
-                2.65625,
-                -0.30126953,
-                -2.3554688,
-                1.2597656,
-            ],
-            [
-                7.25,
-                0.7685547,
-                4.65625,
-                -0.30126953,
-                -2.3554688,
-                8.2597656,
-            ],
+            {
+                "value": [
+                    3.25,
+                    0.7685547,
+                    2.65625,
+                    -0.30126953,
+                    -2.3554688,
+                    1.2597656,
+                ]
+            },
+            {
+                "value": [
+                    7.25,
+                    0.7685547,
+                    4.65625,
+                    -0.30126953,
+                    -2.3554688,
+                    8.2597656,
+                ]
+            },
         ],
         "headers": {"Content-Type": "application/json"},
     }
@@ -290,6 +298,7 @@ async def test_embeddings(prompt):
         mock_post.assert_called_once()
 
 
+@pytest.mark.asyncio
 async def test_embeddings_batch():
     config = embeddings_config()
     with mock.patch(
@@ -341,7 +350,7 @@ async def test_param_model_is_not_permitted():
         "max_tokens": 5000,
         "model": "something-else",
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422
@@ -374,7 +383,7 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
 async def test_param_max_tokens_for_chat_is_not_permitted(payload):
     config = chat_config()
     provider = PaLMProvider(RouteConfig(**config))
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.chat(chat.RequestPayload(**payload))
     assert "Max tokens is not supported for PaLM chat." in e.value.detail
     assert e.value.status_code == 422

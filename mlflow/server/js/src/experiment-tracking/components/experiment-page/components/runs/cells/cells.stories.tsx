@@ -4,7 +4,7 @@ import '@ag-grid-community/core/dist/styles/ag-theme-balham.css';
 import { AgGridReact } from '@ag-grid-community/react';
 import React from 'react';
 import { IntlProvider } from 'react-intl';
-import { StaticRouter } from '../../../../../../common/utils/RoutingUtils';
+import { MemoryRouter } from '../../../../../../common/utils/RoutingUtils';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../../fixtures/experiment-runs.fixtures';
 import {
   RunRowDateAndNestInfo,
@@ -28,7 +28,7 @@ const MOCK_MODEL = EXPERIMENT_RUNS_MOCK_STORE.entities.modelVersionsByRunUuid['e
 
 const createAgTable = (component: React.ComponentType<any>, name: string, defs?: any[], rows?: any[]) => (
   <div className="ag-theme-balham" style={{ height: 400 }}>
-    <StaticRouter location="/">
+    <MemoryRouter initialEntries={['/']}>
       <IntlProvider locale="en">
         <AgGridReact
           components={{ [name]: component }}
@@ -60,7 +60,7 @@ const createAgTable = (component: React.ComponentType<any>, name: string, defs?:
           domLayout="normal"
         />
       </IntlProvider>
-    </StaticRouter>
+    </MemoryRouter>
   </div>
 );
 

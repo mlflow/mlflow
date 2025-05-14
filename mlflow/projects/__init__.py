@@ -1,6 +1,7 @@
 """
 The ``mlflow.projects`` module provides an API for running MLflow projects locally or remotely.
 """
+
 import json
 import logging
 import os
@@ -137,7 +138,19 @@ def _run(
         tracking.MlflowClient().set_tag(
             active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "databricks"
         )
-        from mlflow.projects.databricks import run_databricks
+        from mlflow.projects.databricks import run_databricks, run_databricks_spark_job
+
+        if project.databricks_spark_job_spec is not None:
+            return run_databricks_spark_job(
+                remote_run=active_run,
+                uri=uri,
+                work_dir=work_dir,
+                experiment_id=experiment_id,
+                cluster_spec=backend_config,
+                project_spec=project,
+                entry_point=entry_point,
+                parameters=parameters,
+            )
 
         return run_databricks(
             remote_run=active_run,
@@ -184,7 +197,7 @@ def _run(
             image_digest,
             get_entry_point_command(project, entry_point, parameters, storage_dir),
             get_run_env_vars(
-                run_id=active_run.info.run_uuid, experiment_id=active_run.info.experiment_id
+                run_id=active_run.info.run_id, experiment_id=active_run.info.experiment_id
             ),
             kube_config.get("kube-context", None),
             kube_config["kube-job-template"],

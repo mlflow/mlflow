@@ -5,6 +5,7 @@ from mlflow.metrics.base import (
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
     _ari_eval_fn,
+    _bleu_eval_fn,
     _f1_score_eval_fn,
     _flesch_kincaid_eval_fn,
     _mae_eval_fn,
@@ -32,7 +33,6 @@ from mlflow.models import (
 from mlflow.utils.annotations import experimental
 
 
-@experimental
 def latency() -> EvaluationMetric:
     """
     This function will create a metric for calculating latency. Latency is determined by the time
@@ -47,7 +47,6 @@ def latency() -> EvaluationMetric:
 
 
 # general text metrics
-@experimental
 def token_count() -> EvaluationMetric:
     """
     This function will create a metric for calculating token_count. Token count is calculated
@@ -60,7 +59,6 @@ def token_count() -> EvaluationMetric:
     )
 
 
-@experimental
 def toxicity() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `toxicity`_ using the model
@@ -86,7 +84,6 @@ def toxicity() -> EvaluationMetric:
     )
 
 
-@experimental
 def flesch_kincaid_grade_level() -> EvaluationMetric:
     """
     This function will create a metric for calculating `flesch kincaid grade level`_ using
@@ -110,7 +107,6 @@ def flesch_kincaid_grade_level() -> EvaluationMetric:
     )
 
 
-@experimental
 def ari_grade_level() -> EvaluationMetric:
     """
     This function will create a metric for calculating `automated readability index`_ using
@@ -135,7 +131,6 @@ def ari_grade_level() -> EvaluationMetric:
 
 
 # question answering metrics
-@experimental
 def exact_match() -> EvaluationMetric:
     """
     This function will create a metric for calculating `accuracy`_ using sklearn.
@@ -150,7 +145,6 @@ def exact_match() -> EvaluationMetric:
 
 
 # text summarization metrics
-@experimental
 def rouge1() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rouge1`_.
@@ -171,7 +165,6 @@ def rouge1() -> EvaluationMetric:
     )
 
 
-@experimental
 def rouge2() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rouge2`_.
@@ -192,7 +185,6 @@ def rouge2() -> EvaluationMetric:
     )
 
 
-@experimental
 def rougeL() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rougeL`_.
@@ -213,7 +205,6 @@ def rougeL() -> EvaluationMetric:
     )
 
 
-@experimental
 def rougeLsum() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rougeLsum`_.
@@ -234,7 +225,6 @@ def rougeLsum() -> EvaluationMetric:
     )
 
 
-@experimental
 def precision_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for calculating ``precision_at_k`` for retriever models.
@@ -253,7 +243,6 @@ def precision_at_k(k) -> EvaluationMetric:
     )
 
 
-@experimental
 def recall_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for calculating ``recall_at_k`` for retriever models.
@@ -274,7 +263,6 @@ def recall_at_k(k) -> EvaluationMetric:
     )
 
 
-@experimental
 def ndcg_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for evaluating `NDCG@k`_ for retriever models.
@@ -291,7 +279,7 @@ def ndcg_at_k(k) -> EvaluationMetric:
     3. If ground truth doc IDs are provided and no documents are retrieved, the score is 0.
     4. If duplicate doc IDs are retrieved and the duplicate doc IDs are in the ground truth,
        they will be treated as different docs. For example, if the ground truth doc IDs are
-       [1, 2] and the retrieved doc IDs are [1, 1, 1, 3], the score will be equavalent to
+       [1, 2] and the retrieved doc IDs are [1, 1, 1, 3], the score will be equivalent to
        ground truth doc IDs [10, 11, 12, 2] and retrieved doc IDs [10, 11, 12, 3].
 
     .. _NDCG@k: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.ndcg_score.html
@@ -435,13 +423,38 @@ def f1_score() -> EvaluationMetric:
     return make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
 
 
+@experimental
+def bleu() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating `bleu`_.
+
+    The BLEU scores range from 0 to 1, with higher scores indicating greater similarity to
+    reference texts. BLEU considers n-gram precision and brevity penalty. While adding more
+    references can boost the score, perfect scores are rare and not essential for effective
+    evaluation.
+
+    Aggregations calculated for this metric:
+        - mean
+        - variance
+        - p90
+
+    .. _bleu: https://huggingface.co/spaces/evaluate-metric/bleu
+    """
+    return make_metric(
+        eval_fn=_bleu_eval_fn,
+        greater_is_better=True,
+        name="bleu",
+        version="v1",
+    )
+
+
 __all__ = [
     "EvaluationMetric",
     "MetricValue",
     "make_metric",
     "flesch_kincaid_grade_level",
     "ari_grade_level",
-    "accuracy",
+    "exact_match",
     "rouge1",
     "rouge2",
     "rougeL",
@@ -453,10 +466,11 @@ __all__ = [
     "r2_score",
     "max_error",
     "mape",
-    "binary_recall",
-    "binary_precision",
-    "binary_f1_score",
+    "recall_score",
+    "precision_score",
+    "f1_score",
     "token_count",
     "latency",
     "genai",
+    "bleu",
 ]

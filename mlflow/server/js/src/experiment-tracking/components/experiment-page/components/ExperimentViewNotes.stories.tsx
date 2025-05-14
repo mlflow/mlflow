@@ -1,7 +1,7 @@
 import React from 'react';
 import { IntlProvider } from 'react-intl';
 import { Provider } from 'react-redux';
-import { StaticRouter } from '../../../../common/utils/RoutingUtils';
+import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 import { applyMiddleware, compose, createStore } from 'redux';
 import promiseMiddleware from 'redux-promise-middleware';
 import { ExperimentTag } from '../../../sdk/MlflowMessages';
@@ -51,11 +51,11 @@ const createComponentWrapper = (experiment: Partial<ExperimentEntity>) => () =>
   (
     <Provider store={createStore((s) => s as any, mockStore, compose(applyMiddleware(promiseMiddleware())))}>
       <IntlProvider locale="en">
-        <StaticRouter location="/experiments/1234">
+        <MemoryRouter initialEntries={['/experiments/1234']}>
           <GetExperimentsContextProvider actions={mockActions}>
             <ExperimentViewNotes experiment={experiment as ExperimentEntity} />
           </GetExperimentsContextProvider>
-        </StaticRouter>
+        </MemoryRouter>
       </IntlProvider>
     </Provider>
   );
@@ -63,9 +63,9 @@ const createComponentWrapper = (experiment: Partial<ExperimentEntity>) => () =>
 /**
  * Story for the experiment with no note
  */
-export const EmptyNote = createComponentWrapper({ experiment_id: '789' });
+export const EmptyNote = createComponentWrapper({ experimentId: '789' });
 
 /**
  * Story for the experiment with note already set
  */
-export const PrefilledNote = createComponentWrapper({ experiment_id: '1234' });
+export const PrefilledNote = createComponentWrapper({ experimentId: '1234' });

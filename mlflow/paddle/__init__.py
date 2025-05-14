@@ -13,7 +13,7 @@ Paddle (native) format
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -108,10 +108,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
 
     .. code-block:: python
         :caption: Example
@@ -181,10 +178,10 @@ def save_model(
                 opt.step()
                 opt.clear_grad()
         mlflow.log_param("learning_rate", 0.01)
-        mlflow.paddle.log_model(model, "model")
+        mlflow.paddle.log_model(model, name="model")
         sk_path_dir = "./test-out"
         mlflow.paddle.save_model(model, sk_path_dir)
-        print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
+        print("Model saved in run %s" % mlflow.active_run().info.run_id)
     """
     import paddle
 
@@ -193,18 +190,18 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _PaddleWrapper(pd_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -329,7 +326,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pd_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     training=False,
     conda_env=None,
     code_paths=None,
@@ -340,6 +337,12 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a paddle model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -351,7 +354,7 @@ def log_model(
 
     Args:
         pd_model: paddle model to be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         training: Only valid when saving a model trained using the PaddlePaddle high level API.
             If set to True, the saved model supports both re-training and
             inference. If set to False, it only supports inference.
@@ -367,10 +370,13 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -382,12 +388,10 @@ def log_model(
         import mlflow.paddle
 
 
-        def load_data():
-            ...
+        def load_data(): ...
 
 
-        class Regressor:
-            ...
+        class Regressor: ...
 
 
         model = Regressor()
@@ -399,12 +403,13 @@ def log_model(
         for epoch_id in range(EPOCH_NUM):
             ...
         mlflow.log_param("learning_rate", 0.01)
-        mlflow.paddle.log_model(model, "model")
+        mlflow.paddle.log_model(model, name="model")
         sk_path_dir = ...
         mlflow.paddle.save_model(model, sk_path_dir)
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.paddle,
         pd_model=pd_model,
         conda_env=conda_env,
@@ -417,6 +422,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
@@ -439,18 +449,21 @@ class _PaddleWrapper:
     def __init__(self, pd_model):
         self.pd_model = pd_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pd_model
+
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                           release without warning.
 
         Returns:
             Model predictions.

@@ -52,8 +52,8 @@ export const getDefaultHeaders = (cookieStr: any) => {
 };
 
 export const getAjaxUrl = (relativeUrl: any) => {
-  // @ts-expect-error TS(4111): Property 'USE_ABSOLUTE_AJAX_URLS' comes from an in... Remove this comment to see the full error message
-  if (process.env.USE_ABSOLUTE_AJAX_URLS === 'true' && !relativeUrl.startsWith('/')) {
+  // @ts-expect-error TS(4111): Property 'MLFLOW_USE_ABSOLUTE_AJAX_URLS' comes from an in... Remove this comment to see the full error message
+  if (process.env.MLFLOW_USE_ABSOLUTE_AJAX_URLS === 'true' && !relativeUrl.startsWith('/')) {
     return '/' + relativeUrl;
   }
   return relativeUrl;
@@ -87,6 +87,7 @@ export const yamlResponseParser = ({ resolve, response }: any) =>
   parseResponse({ resolve, response, parser: yaml.safeLoad });
 
 export const defaultError = ({ reject, response, err }: any) => {
+  // eslint-disable-next-line no-console -- TODO(FEINF-3587)
   console.error('Fetch failed: ', response || err);
   if (response) {
     response.text().then((text: any) => reject(new ErrorWrapper(text, response.status)));
@@ -343,7 +344,9 @@ export const getBigIntJson = (props: any) => {
   const queryParams = new URLSearchParams(filterUndefinedFields(data));
   return fetchEndpoint({
     ...props,
-    ...(String(queryParams).length > 0 && { relativeUrl: `${relativeUrl}?${queryParams}` }),
+    ...(String(queryParams).length > 0 && {
+      relativeUrl: `${relativeUrl}?${queryParams}`,
+    }),
     method: HTTPMethods.GET,
     success: jsonBigIntResponseParser,
   });

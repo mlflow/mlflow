@@ -1,7 +1,13 @@
+import contextlib
 import json
+import logging
 import os
+import shutil
 import sys
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any
+
+import yaml
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -15,11 +21,15 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import get_parent_module
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import _copy_file_or_tree
+from mlflow.utils.requirements_utils import _capture_imported_modules
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_all_flavor_configurations(model_path):
@@ -33,15 +43,8 @@ def _get_all_flavor_configurations(model_path):
         The dictionary contains all flavor configurations with flavor name as key.
 
     """
-    model_configuration_path = os.path.join(model_path, MLMODEL_FILE_NAME)
-    if not os.path.exists(model_configuration_path):
-        raise MlflowException(
-            f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{model_path}"',
-            RESOURCE_DOES_NOT_EXIST,
-        )
 
-    model_conf = Model.load(model_configuration_path)
-    return model_conf.flavors
+    return Model.load(model_path).flavors
 
 
 def _get_flavor_configuration(model_path, flavor_name):
@@ -58,13 +61,12 @@ def _get_flavor_configuration(model_path, flavor_name):
         The flavor configuration as a dictionary.
 
     """
-    flavors = _get_all_flavor_configurations(model_path)
-    if flavor_name not in flavors:
+    try:
+        return Model.load(model_path).flavors[flavor_name]
+    except KeyError as ex:
         raise MlflowException(
-            f'Model does not have the "{flavor_name}" flavor',
-            RESOURCE_DOES_NOT_EXIST,
-        )
-    return flavors[flavor_name]
+            f'Model does not have the "{flavor_name}" flavor', RESOURCE_DOES_NOT_EXIST
+        ) from ex
 
 
 def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):
@@ -162,6 +164,104 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
     return code_dir_subpath
 
 
+def _infer_and_copy_code_paths(flavor, path, default_subpath="code"):
+    # Capture all imported modules with full module name during loading model.
+    modules = _capture_imported_modules(path, flavor, record_full_module=True)
+
+    all_modules = set(modules)
+
+    for module in modules:
+        parent_module = module
+        while "." in parent_module:
+            parent_module = get_parent_module(parent_module)
+            all_modules.add(parent_module)
+
+    # Generate code_paths set from the imported modules full name list.
+    # It only picks necessary files, because:
+    #  1. Reduce risk of logging files containing user credentials to MLflow
+    #     artifact repository.
+    #  2. In databricks runtime, notebook files might exist under a code_paths directory,
+    #     if logging the whole directory to MLflow artifact repository, these
+    #     notebook files are not accessible and trigger exceptions. On the other
+    #     hand, these notebook files are not used as code_paths modules because
+    #     code in notebook files are loaded into python `__main__` module.
+    code_paths = set()
+    for full_module_name in all_modules:
+        relative_path_str = full_module_name.replace(".", os.sep)
+        relative_path = Path(relative_path_str)
+        if relative_path.is_dir():
+            init_file_path = relative_path / "__init__.py"
+            if init_file_path.exists():
+                code_paths.add(init_file_path)
+
+        py_module_path = Path(relative_path_str + ".py")
+        if py_module_path.is_file():
+            code_paths.add(py_module_path)
+
+    if code_paths:
+        for code_path in code_paths:
+            src_dir_path = code_path.parent
+            src_file_name = code_path.name
+            dest_dir_path = Path(path) / default_subpath / src_dir_path
+            dest_file_path = dest_dir_path / src_file_name
+            dest_dir_path.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(code_path, dest_file_path)
+        return default_subpath
+
+    return None
+
+
+def _validate_infer_and_copy_code_paths(
+    code_paths, path, infer_code_paths, flavor, default_subpath="code"
+):
+    if infer_code_paths:
+        if code_paths:
+            raise MlflowException(
+                "If 'infer_code_path' is set to True, 'code_paths' param cannot be set."
+            )
+        return _infer_and_copy_code_paths(flavor, path, default_subpath)
+    else:
+        return _validate_and_copy_code_paths(code_paths, path, default_subpath)
+
+
+def _validate_path_exists(path, name):
+    if path and not os.path.exists(path):
+        raise MlflowException(
+            message=(
+                f"Failed to copy the specified {name} path '{path}' into the model "
+                f"artifacts. The specified {name}path does not exist. Please specify a valid "
+                f"{name} path and try again."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_and_copy_file_to_directory(file_path: str, dir_path: str, name: str):
+    """Copies the file at file_path to the directory at dir_path.
+
+    Args:
+        file_path: A file that should be logged as an artifact.
+        dir_path: The path of the directory to save the file to.
+        name: The name for the kind of file being copied.
+    """
+    _validate_path_exists(file_path, name)
+    try:
+        _copy_file_or_tree(src=file_path, dst=dir_path)
+    except OSError as e:
+        # A common error is code-paths includes Databricks Notebook. We include it in error
+        # message when running in Databricks, but not in other envs tp avoid confusion.
+        example = ", such as Databricks Notebooks" if is_in_databricks_runtime() else ""
+        raise MlflowException(
+            message=(
+                f"Failed to copy the specified code path '{file_path}' into the model "
+                "artifacts. It appears that your code path includes file(s) that cannot "
+                f"be copied{example}. Please specify a code path that does not include "
+                "such files and try again.",
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
+
+
 def _add_code_to_system_path(code_path):
     sys.path = [code_path] + sys.path
 
@@ -188,6 +288,7 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
             By default this is FLAVOR_CONFIG_CODE.
     """
     assert isinstance(conf, dict), "`conf` argument must be a dict."
+
     if code_key in conf and conf[code_key]:
         code_path = os.path.join(local_path, conf[code_key])
         _add_code_to_system_path(code_path)
@@ -197,7 +298,7 @@ def _validate_onnx_session_options(onnx_session_options):
     """Validates that the specified onnx_session_options dict is valid.
 
     Args:
-        ort_session_options: The onnx_session_options dict to validate.
+        onnx_session_options: The onnx_session_options dict to validate.
     """
     import onnxruntime as ort
 
@@ -217,7 +318,10 @@ def _validate_onnx_session_options(onnx_session_options):
                     f"Value for key {key} in onnx_session_options should be a dict, "
                     "not {type(value)}"
                 )
-            elif key == "execution_mode" and value.upper() not in ["PARALLEL", "SEQUENTIAL"]:
+            elif key == "execution_mode" and value.upper() not in [
+                "PARALLEL",
+                "SEQUENTIAL",
+            ]:
                 raise ValueError(
                     f"Value for key {key} in onnx_session_options should be "
                     f"'parallel' or 'sequential', not {value}"
@@ -234,8 +338,8 @@ def _validate_onnx_session_options(onnx_session_options):
 
 
 def _get_overridden_pyfunc_model_config(
-    pyfunc_config: Dict[str, Any], load_config: Dict[str, Any], logger
-) -> Dict[str, Any]:
+    pyfunc_config: dict[str, Any], load_config: dict[str, Any], logger
+) -> dict[str, Any]:
     """
     Updates the inference configuration according to the model's configuration and the overrides.
     Only arguments already present in the inference configuration can be updated. The environment
@@ -280,6 +384,26 @@ def _get_overridden_pyfunc_model_config(
     return pyfunc_config
 
 
+def _validate_and_get_model_config_from_file(model_config):
+    model_config = os.path.abspath(model_config)
+    if os.path.exists(model_config):
+        with open(model_config) as file:
+            try:
+                return yaml.safe_load(file)
+            except yaml.YAMLError as e:
+                raise MlflowException(
+                    f"The provided `model_config` file '{model_config}' is not a valid YAML "
+                    f"file: {e}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+    else:
+        raise MlflowException(
+            "An invalid `model_config` file was passed. The provided `model_config` "
+            f"file '{model_config}'is not a valid file path.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 def _validate_pyfunc_model_config(model_config):
     """
     Validates the values passes in the model_config section. There are no typing
@@ -289,16 +413,74 @@ def _validate_pyfunc_model_config(model_config):
     if not model_config:
         return
 
-    if not isinstance(model_config, dict) or not all(isinstance(key, str) for key in model_config):
+    if isinstance(model_config, Path):
+        _validate_and_get_model_config_from_file(os.fspath(model_config))
+    elif isinstance(model_config, str):
+        _validate_and_get_model_config_from_file(model_config)
+    elif isinstance(model_config, dict) and all(isinstance(key, str) for key in model_config):
+        try:
+            json.dumps(model_config)
+        except (TypeError, OverflowError):
+            raise MlflowException(
+                "Values in the provided ``model_config`` are of an unsupported type. Only "
+                "JSON-serializable data types can be provided as values.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    else:
         raise MlflowException(
-            "An invalid ``model_config`` structure was passed. ``model_config`` must be of type "
-            "``dict`` with string keys."
+            "An invalid ``model_config`` structure was passed. ``model_config`` must be a "
+            "valid file path or of type ``dict`` with string keys.",
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
-    try:
-        json.dumps(model_config)
-    except (TypeError, OverflowError):
-        raise MlflowException(
-            "Values in the provided ``model_config`` are of an unsupported type. Only "
-            "JSON-serializable data types can be provided as values."
-        )
+
+RECORD_ENV_VAR_ALLOWLIST = {
+    # api key related
+    "API_KEY",
+    "API_TOKEN",
+    # databricks auth related
+    "DATABRICKS_HOST",
+    "DATABRICKS_USERNAME",
+    "DATABRICKS_PASSWORD",
+    "DATABRICKS_TOKEN",
+    "DATABRICKS_INSECURE",
+    "DATABRICKS_CLIENT_ID",
+    "DATABRICKS_CLIENT_SECRET",
+    "_DATABRICKS_WORKSPACE_HOST",
+    "_DATABRICKS_WORKSPACE_ID",
+}
+
+
+@contextlib.contextmanager
+def env_var_tracker():
+    """
+    Context manager for temporarily tracking environment variables accessed.
+    It tracks environment variables accessed during the context manager's lifetime.
+    """
+    from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
+
+    tracked_env_names = set()
+
+    if MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.get():
+        original_getitem = os._Environ.__getitem__
+        original_get = os._Environ.get
+
+        def updated_get_item(self, key):
+            result = original_getitem(self, key)
+            tracked_env_names.add(key)
+            return result
+
+        def updated_get(self, key, *args, **kwargs):
+            if key in self:
+                tracked_env_names.add(key)
+            return original_get(self, key, *args, **kwargs)
+
+        try:
+            os._Environ.__getitem__ = updated_get_item
+            os._Environ.get = updated_get
+            yield tracked_env_names
+        finally:
+            os._Environ.__getitem__ = original_getitem
+            os._Environ.get = original_get
+    else:
+        yield tracked_env_names

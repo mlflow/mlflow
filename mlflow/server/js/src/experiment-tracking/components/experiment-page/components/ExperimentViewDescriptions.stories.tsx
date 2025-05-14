@@ -1,6 +1,6 @@
 import React from 'react';
 import { IntlProvider } from 'react-intl';
-import { StaticRouter } from '../../../../common/utils/RoutingUtils';
+import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 import { ExperimentViewDescriptions } from './ExperimentViewDescriptions';
 
 export default {
@@ -11,17 +11,17 @@ export default {
 
 const mockExperiments = [
   {
-    experiment_id: '123456789',
+    experimentId: '123456789',
     name: '/Users/john.doe@databricks.com/test-experiment',
     tags: [],
-    allowed_actions: ['MODIFIY_PERMISSION', 'DELETE', 'RENAME'],
-    artifact_location: 'dbfs://foo/bar/xyz',
+    allowedActions: ['MODIFIY_PERMISSION', 'DELETE', 'RENAME'],
+    artifactLocation: 'dbfs://foo/bar/xyz',
   },
 ] as any;
 
 const Wrapper = ({ children }: React.PropsWithChildren<any>) => (
   <IntlProvider locale="en">
-    <StaticRouter location="/">{children}</StaticRouter>
+    <MemoryRouter initialEntries={['/']}>{children}</MemoryRouter>
   </IntlProvider>
 );
 

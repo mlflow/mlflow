@@ -11,10 +11,11 @@ Prophet (native) format
 .. _Prophet:
     https://facebook.github.io/prophet/docs/quick_start.html#python-api
 """
+
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -123,10 +124,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata: {{ metadata }}
     """
     import prophet
 
@@ -136,18 +134,18 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _ProphetModelWrapper(pr_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -210,7 +208,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pr_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -220,13 +218,19 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Logs a Prophet model as an MLflow artifact for the current run.
 
     Args:
         pr_model: Prophet model to be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
@@ -260,10 +264,13 @@ def log_model(
             Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -271,6 +278,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.prophet,
         registered_model_name=registered_model_name,
         pr_model=pr_model,
@@ -282,6 +290,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
@@ -347,14 +360,17 @@ class _ProphetModelWrapper:
     def __init__(self, pr_model):
         self.pr_model = pr_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pr_model
+
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.

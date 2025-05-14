@@ -25,9 +25,7 @@ def start_run_and_log_data():
         mlflow.log_param("p", "param")
         mlflow.log_metric("m", 1.0)
         mlflow.set_tag("t", "tag")
-        mlflow.pyfunc.log_model(
-            artifact_path="model", python_model=Model(), registered_model_name="model"
-        )
+        mlflow.pyfunc.log_model(name="model", python_model=Model(), registered_model_name="model")
 
 
 def test_search_runs():
@@ -58,7 +56,7 @@ def test_database_operational_error(exception, monkeypatch):
     # This test patches parts of SQLAlchemy and sqlite3.dbapi to simulate a
     # SQLAlchemy OperationalError. PEP 249 describes OperationalError as:
     #
-    # > Exception raised for errors that are related to the database’s operation
+    # > Exception raised for errors that are related to the database's operation
     # > and not necessarily under the control of the programmer, e.g. an
     # > unexpected disconnect occurs, the data source name is not found, a
     # > transaction could not be processed, a memory allocation error occurred
@@ -120,7 +118,6 @@ def test_database_operational_error(exception, monkeypatch):
 
     def connect(*args, **kwargs):
         """Wraps sqlite3.dbapi.connect(), returning a wrapped connection."""
-        global connect_counter
         conn = old_connect(*args, **kwargs)
         return ConnectionWrapper(conn)
 

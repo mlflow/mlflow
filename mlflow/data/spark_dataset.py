@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from packaging.version import Version
 
@@ -9,10 +9,10 @@ from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.digest_utils import get_normalized_md5_digest
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
@@ -36,6 +36,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         targets: Optional[str] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
+        predictions: Optional[str] = None,
     ):
         if targets is not None and targets not in df.columns:
             raise MlflowException(
@@ -43,9 +44,16 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 f" '{targets}'.",
                 INVALID_PARAMETER_VALUE,
             )
+        if predictions is not None and predictions not in df.columns:
+            raise MlflowException(
+                f"The specified Spark dataset does not contain the specified predictions column"
+                f" '{predictions}'.",
+                INVALID_PARAMETER_VALUE,
+            )
 
         self._df = df
         self._targets = targets
+        self._predictions = predictions
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
@@ -65,7 +73,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             semantic_hash = self._df._jdf.queryExecution().analyzed().semanticHash()
         return get_normalized_md5_digest([np.int64(semantic_hash)])
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """Create config dictionary for the dataset.
 
         Returns a string dictionary containing the following fields: name, digest, source, source
@@ -100,6 +108,14 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             The string name of the Spark DataFrame column containing targets.
         """
         return self._targets
+
+    @property
+    def predictions(self) -> Optional[str]:
+        """
+        The name of the predictions column. May be ``None`` if no predictions column
+        was specified when the dataset was created.
+        """
+        return self._predictions
 
     @property
     def source(self) -> Union[SparkDatasetSource, DeltaDatasetSource]:
@@ -203,6 +219,9 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets,
             path=path,
             feature_names=feature_names,
+            predictions=self._predictions,
+            name=self.name,
+            digest=self.digest,
         )
 
 
@@ -274,6 +293,7 @@ def from_spark(
     targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
+    predictions: Optional[str] = None,
 ) -> SparkDataset:
     """
     Given a Spark DataFrame, constructs a
@@ -314,6 +334,9 @@ def from_spark(
             generated.
         digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest is
             automatically computed.
+        predictions: Optional. The name of the column containing model predictions,
+            if the dataset contains model predictions. If specified, this column
+            must be present in the dataframe (``df``).
 
     Returns:
         An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
@@ -379,4 +402,5 @@ def from_spark(
         targets=targets,
         name=name,
         digest=digest,
+        predictions=predictions,
     )

@@ -33,6 +33,8 @@ Various examples that depict MLflow tracking, project, and serving use cases.
   `mlflow.tensorflow.autolog()` API, which captures TensorBoard data and logs to MLflow with no code change.
 - `docker` demonstrates how to create and run an MLflow project using docker (rather than conda)
   to manage project dependencies
-- `fastai` modifies a [fastai classification example](https://github.com/fastai/fastai/blob/master/nbs/examples/mnist_blocks.py) and highlights MLflow's `mlflow.fastai.autolog()`
-  API to track parameters, metrics, and artifacts while training a simple MNIST model.
 - `johnsnowlabs` gives you access to [20.000+ state-of-the-art enterprise NLP models in 200+ languages](https://nlp.johnsnowlabs.com/models) for medical, finance, legal and many more domains.
+
+## Demos
+
+- `demos` folder contains notebooks used during MLflow presentations.

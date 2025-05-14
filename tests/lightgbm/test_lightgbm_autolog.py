@@ -10,7 +10,6 @@ import matplotlib as mpl
 import numpy as np
 import pandas as pd
 import pytest
-import yaml
 from packaging.version import Version
 from sklearn import datasets
 
@@ -19,7 +18,6 @@ import mlflow.lightgbm
 from mlflow import MlflowClient
 from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
-from mlflow.models.utils import _read_example
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 
@@ -93,8 +91,6 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
 
     expected_params = {
         "num_boost_round": 100,
-        "feature_name": "auto",
-        "categorical_feature": "auto",
         "keep_training_booster": False,
     }
     if Version(lgb.__version__) <= Version("3.3.1"):
@@ -105,6 +101,12 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
             # in this PR: https://github.com/microsoft/LightGBM/pull/4577
             "warn" if Version(lgb.__version__) > Version("3.2.1") else True
         )
+    if Version(lgb.__version__) <= Version("4.5.0"):
+        # these params were removed in this PR:
+        # https://github.com/microsoft/LightGBM/pull/6706
+        expected_params["feature_name"] = "auto"
+        expected_params["categorical_feature"] = "auto"
+
     expected_params.update(bst_params)
 
     for key, val in expected_params.items():
@@ -182,7 +184,6 @@ def test_lgb_autolog_sklearn():
 
     with mlflow.start_run() as run:
         model.fit(X, y)
-        model_uri = mlflow.get_artifact_uri("model")
 
     client = MlflowClient()
     run = client.get_run(run.info.run_id)
@@ -194,7 +195,8 @@ def test_lgb_autolog_sklearn():
         "feature_importance_split.png",
         "feature_importance_split.json",
     }
-    loaded_model = mlflow.lightgbm.load_model(model_uri)
+    logged_model = mlflow.last_logged_model()
+    loaded_model = mlflow.lightgbm.load_model(logged_model.model_uri)
     np.testing.assert_allclose(loaded_model.predict(X), model.predict(X))
 
 
@@ -235,8 +237,9 @@ def test_lgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
         X["TESTCOL"] = 5
         return original_lgb_classifier_predict(self, *args, **kwargs)
 
-    with mock.patch("lightgbm.LGBMClassifier.fit", patched_lgb_classifier_fit), mock.patch(
-        "lightgbm.LGBMClassifier.predict", patched_lgb_classifier_predict
+    with (
+        mock.patch("lightgbm.LGBMClassifier.fit", patched_lgb_classifier_fit),
+        mock.patch("lightgbm.LGBMClassifier.predict", patched_lgb_classifier_predict),
     ):
         mlflow.lightgbm.autolog(log_models=True, log_model_signatures=True, log_input_examples=True)
 
@@ -255,12 +258,10 @@ def test_lgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
         model = lgb.LGBMClassifier(**params)
         model.fit(X, y)
 
-        run_artifact_uri = mlflow.last_active_run().info.artifact_uri
-        model_conf = get_model_conf(run_artifact_uri)
-        input_example = pd.read_json(
-            os.path.join(run_artifact_uri, "model", "input_example.json"), orient="split"
-        )
-        model_signature_input_names = [inp.name for inp in model_conf.signature.inputs.inputs]
+        logged_model = mlflow.last_logged_model()
+        mlflow_model = Model.load(logged_model.model_uri)
+        input_example = mlflow_model.load_input_example()
+        model_signature_input_names = [inp.name for inp in mlflow_model.signature.inputs.inputs]
         assert "XLarge Bags" in model_signature_input_names
         assert "XLarge Bags" in input_example.columns
         assert "TESTCOL" not in model_signature_input_names
@@ -296,6 +297,8 @@ def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
     assert metric_key in data.metrics
     assert len(metric_history) == 10
     assert metric_history == evals_result["train"]["multi_logloss"]
+    logged_model = mlflow.last_logged_model()
+    assert {m.key: m.value for m in logged_model.metrics} == data.metrics
 
 
 def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_set):
@@ -332,6 +335,8 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_s
         assert metric_key in data.metrics
         assert len(metric_history) == 10
         assert metric_history == evals_result[valid_name]["multi_logloss"]
+    logged_model = mlflow.last_logged_model()
+    assert {m.key: m.value for m in logged_model.metrics} == data.metrics
 
 
 def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
@@ -368,6 +373,8 @@ def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
         assert metric_key in data.metrics
         assert len(metric_history) == 10
         assert metric_history == evals_result["train"][metric_name]
+    logged_model = mlflow.last_logged_model()
+    assert {m.key: m.value for m in logged_model.metrics} == data.metrics
 
 
 def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_params, train_set):
@@ -407,6 +414,8 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
             assert metric_key in data.metrics
             assert len(metric_history) == 10
             assert metric_history == evals_result[valid_name][metric_name]
+    logged_model = mlflow.last_logged_model()
+    assert {m.key: m.value for m in logged_model.metrics} == data.metrics
 
 
 def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, train_set):
@@ -504,8 +513,9 @@ def test_lgb_autolog_atsign_metrics(train_set):
     assert set(run.data.metrics) == {"valid-map_at_1"}
 
 
-def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
-    mlflow.lightgbm.autolog()
+@pytest.mark.parametrize("log_models", [True, False])
+def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set, log_models):
+    mlflow.lightgbm.autolog(log_models=log_models)
     evals_result = {}
     params = {"metric": ["multi_error", "multi_logloss"]}
     params.update(bst_params)
@@ -541,6 +551,10 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
     assert "stopped_iteration" in data.metrics
     assert int(data.metrics["stopped_iteration"]) == len(evals_result["train"]["multi_logloss"])
 
+    logged_model = mlflow.last_logged_model()
+    logged_model_metrics = {m.key: m.value for m in logged_model.metrics} if log_models else {}
+    if log_models:
+        assert data.metrics.items() <= logged_model_metrics.items()
     for valid_name in valid_names:
         for metric_name in params["metric"]:
             metric_key = f"{valid_name}-{metric_name}"
@@ -551,6 +565,8 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
 
             best_metrics = evals_result[valid_name][metric_name][model.best_iteration - 1]
             assert metric_history == evals_result[valid_name][metric_name] + [best_metrics]
+            if log_models:
+                assert logged_model_metrics[metric_key] == best_metrics
 
 
 def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
@@ -605,21 +621,17 @@ def test_lgb_autolog_gets_input_example(bst_params):
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
-    dataset = lgb.Dataset(X, y, free_raw_data=True)
-
     mlflow.lightgbm.autolog(log_input_examples=True)
+    dataset = lgb.Dataset(X, y, free_raw_data=True)
     lgb.train(bst_params, dataset)
-    run = get_latest_run()
 
-    model_path = os.path.join(run.info.artifact_uri, "model")
-    model_conf = Model.load(os.path.join(model_path, "MLmodel"))
-
-    input_example = _read_example(model_conf, model_path)
+    logged_model = mlflow.last_logged_model()
+    mlflow_model = Model.load(logged_model.model_uri)
+    input_example = mlflow_model.load_input_example()
 
     pd.testing.assert_frame_equal(input_example, (X[:5]))
 
-    pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
-
+    pyfunc_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     # make sure reloading the input_example and predicting on it does not error
     pyfunc_model.predict(input_example)
 
@@ -628,38 +640,16 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
-    dataset = lgb.Dataset(X, y, free_raw_data=True)
-
     mlflow.lightgbm.autolog(log_model_signatures=True)
+    dataset = lgb.Dataset(X, y, free_raw_data=True)
     lgb.train(bst_params, dataset)
-    run = get_latest_run()
-    run_id = run.info.run_id
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = MlflowClient()
-    artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
-    ml_model_filename = "MLmodel"
-    assert str(os.path.join("model", ml_model_filename)) in artifacts
-    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
-
-    data = None
-    with open(ml_model_path) as f:
-        data = yaml.load(f, Loader=yaml.FullLoader)
-
-    assert data is not None
-    assert "signature" in data
-    signature = data["signature"]
-    assert signature is not None
-
-    assert "inputs" in signature
-    assert json.loads(signature["inputs"]) == [
-        {"name": "sepal length (cm)", "type": "double", "required": True},
-        {"name": "sepal width (cm)", "type": "double", "required": True},
-    ]
-
-    assert "outputs" in signature
-    assert json.loads(signature["outputs"]) == [
-        {"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 3]}},
+    logged_model = mlflow.last_logged_model()
+    model_info = mlflow.models.get_model_info(logged_model.model_uri)
+    signature = model_info.signature
+    assert signature.inputs == _infer_schema(X)
+    assert signature.outputs.to_dict() == [
+        {"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": (-1, 3)}},
     ]
 
 
@@ -683,23 +673,11 @@ def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmp_pat
 
     mlflow.lightgbm.autolog(log_model_signatures=True)
     lgb.train(bst_params, dataset)
-    run = get_latest_run()
-    run_id = run.info.run_id
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = MlflowClient()
-    artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
-
-    ml_model_filename = "MLmodel"
-    assert os.path.join("model", ml_model_filename) in artifacts
-    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
-
-    data = None
-    with open(ml_model_path) as f:
-        data = yaml.load(f, Loader=yaml.FullLoader)
-
-    assert data is not None
-    assert "run_id" in data
-    assert "signature" not in data
+    logged_model = mlflow.last_logged_model()
+    assert logged_model is not None
+    model_info = mlflow.models.get_model_info(logged_model.model_uri)
+    assert model_info.run_id is not None
+    assert model_info.signature is None
 
 
 @pytest.mark.parametrize("log_input_examples", [True, False])
@@ -709,15 +687,16 @@ def test_lgb_autolog_configuration_options(bst_params, log_input_examples, log_m
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         mlflow.lightgbm.autolog(
             log_input_examples=log_input_examples, log_model_signatures=log_model_signatures
         )
         dataset = lgb.Dataset(X, y)
         lgb.train(bst_params, dataset)
-    model_conf = get_model_conf(run.info.artifact_uri)
-    assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_examples
-    assert ("signature" in model_conf.to_dict()) == log_model_signatures
+    logged_model = mlflow.last_logged_model()
+    mlflow_model = Model.load(logged_model.model_uri)
+    assert (mlflow_model.load_input_example() is not None) == log_input_examples
+    assert (mlflow_model.signature is not None) == log_model_signatures
 
 
 @pytest.mark.parametrize("log_models", [True, False])
@@ -726,15 +705,13 @@ def test_lgb_autolog_log_models_configuration(bst_params, log_models):
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         mlflow.lightgbm.autolog(log_models=log_models)
         dataset = lgb.Dataset(X, y)
         lgb.train(bst_params, dataset)
 
-    run_id = run.info.run_id
-    client = MlflowClient()
-    artifacts = [f.path for f in client.list_artifacts(run_id)]
-    assert ("model" in artifacts) == log_models
+    logged_model = mlflow.last_logged_model()
+    assert (logged_model is not None) == log_models
 
 
 def test_lgb_autolog_does_not_break_dataset_instantiation_with_data_none():

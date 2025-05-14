@@ -2,7 +2,7 @@ import json
 import logging
 import pathlib
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -11,18 +11,23 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_pip_requirements
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.transformers.llm_inference_utils import (
+    _LLM_INFERENCE_TASK_EMBEDDING,
+    _LLM_V1_EMBEDDING_INPUT_KEY,
+    postprocess_output_for_llm_v1_embedding_task,
+)
 from mlflow.types.llm import (
     EMBEDDING_MODEL_INPUT_SCHEMA,
     EMBEDDING_MODEL_OUTPUT_SCHEMA,
 )
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import (
     LOG_MODEL_PARAM_DOCS,
     docstring_version_compatibility_warning,
@@ -55,8 +60,6 @@ _TRANSFORMER_MODEL_TYPE_KEY = "pipeline_model_type"
 
 SENTENCE_TRANSFORMERS_DATA_PATH = "model.sentence_transformer"
 _INFERENCE_CONFIG_PATH = "inference_config"
-_LLM_INFERENCE_TASK_EMBEDDING = "llm/v1/embeddings"
-_LLM_V1_EMBEDDING_INPUT_KEY = "input"
 
 # Patterns to extract HuggingFace model repository name from the local snapshot path.
 # The path format would be like /path/to/{username}_{modelname}, where user name can
@@ -66,8 +69,7 @@ _LOCAL_SNAPSHOT_PATH_PATTERN = re.compile(r"/([0-9a-zA-Z-]+)_([^\/]+)/$")
 _logger = logging.getLogger(__name__)
 
 
-@experimental
-def get_default_pip_requirements() -> List[str]:
+def get_default_pip_requirements() -> list[str]:
     """
     Retrieves the set of minimal dependencies for the ``sentence_transformers`` flavor.
 
@@ -81,7 +83,6 @@ def get_default_pip_requirements() -> List[str]:
     return [_get_pinned_requirement(module) for module in base_reqs]
 
 
-@experimental
 def get_default_conda_env():
     """
     Returns:
@@ -91,10 +92,9 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
 def _verify_task_and_update_metadata(
-    task: str, metadata: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
+    task: str, metadata: Optional[dict[str, Any]] = None
+) -> dict[str, Any]:
     if task not in [_LLM_INFERENCE_TASK_EMBEDDING]:
         raise MlflowException.invalid_parameter_value(
             f"Received invalid parameter value for `task` argument {task}. Task type could "
@@ -111,22 +111,21 @@ def _verify_task_and_update_metadata(
     return metadata
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
     path: str,
     task: Optional[str] = None,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
+    inference_config: Optional[dict[str, Any]] = None,
+    code_paths: Optional[list[str]] = None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    pip_requirements: Optional[Union[list[str], str]] = None,
+    extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> None:
     """
     .. note::
@@ -165,11 +164,7 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
-
+        metadata: {{ metadata }}
     """
     import sentence_transformers
 
@@ -182,24 +177,24 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
     if task is not None:
         signature = ModelSignature(
             inputs=EMBEDDING_MODEL_INPUT_SCHEMA, outputs=EMBEDDING_MODEL_OUTPUT_SCHEMA
         )
-    elif signature is None and input_example is not None:
+    elif signature is None and saved_example is not None:
         wrapped_model = _SentenceTransformerModelWrapper(model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is None:
         signature = _get_default_signature()
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, str(path))
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_config = None
@@ -256,7 +251,7 @@ def save_model(
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
 
 
-def _get_transformers_model_metadata(model) -> Dict[str, str]:
+def _get_transformers_model_metadata(model) -> dict[str, str]:
     """
     Extract metadata about the underlying Transformers model, such as the model class name
     and the repository id.
@@ -296,23 +291,29 @@ def _get_transformers_model_name(model_name_or_path):
     return model_name_or_path
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path: str,
+    artifact_path: Optional[str] = None,
     task: Optional[str] = None,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
+    inference_config: Optional[dict[str, Any]] = None,
+    code_paths: Optional[list[str]] = None,
     registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    pip_requirements: Optional[Union[list[str], str]] = None,
+    extra_pip_requirements: Optional[Union[list[str], str]] = None,
     conda_env=None,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
+    prompts: Optional[list[Union[str, Prompt]]] = None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     .. note::
@@ -339,7 +340,7 @@ def log_model(
         with mlflow.start_run():
             mlflow.sentence_transformers.log_model(
                 model=model,
-                artifact_path="sbert_model",
+                name="sbert_model",
                 signature=signature,
                 input_example=data,
             )
@@ -348,7 +349,7 @@ def log_model(
 
     Args:
         model: A trained ``sentence-transformers`` model.
-        artifact_path: Local path destination for the serialized model to be saved.
+        artifact_path: Deprecated. Use `name` instead.
         task: MLflow inference task type for ``sentence-transformers`` model. Candidate task type
             is `llm/v1/embeddings`.
         inference_config:
@@ -373,20 +374,27 @@ def log_model(
             call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
             with valid model inputs and valid model outputs.
         input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
-
+        metadata: {{ metadata }}
+        prompts: {{ prompts }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
     """
     if task is not None:
         metadata = _verify_task_and_update_metadata(task, metadata)
 
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.sentence_transformers,
         registered_model_name=registered_model_name,
         await_registration_for=await_registration_for,
@@ -399,10 +407,30 @@ def log_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        prompts=prompts,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
-def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
+def _get_load_kwargs():
+    import sentence_transformers
+
+    load_kwargs = {}
+    # The trust_remote_code is supported since Sentence Transformers 2.3.0
+    if Version(sentence_transformers.__version__) >= Version("2.3.0"):
+        # Always set trust_remote_code=True because we save the entire repository files in
+        # the model artifacts, so there is no risk of running untrusted code unless the logged
+        # artifact is modified by a malicious actor, which is much more broader security
+        # concern that even cannot be prevented by setting trust_remote_code=False.
+        load_kwargs["trust_remote_code"] = True
+    return load_kwargs
+
+
+def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):  # noqa: D417
     """
     Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
 
@@ -411,13 +439,13 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     import sentence_transformers
 
-    model = sentence_transformers.SentenceTransformer.load(path)
+    load_kwargs = _get_load_kwargs()
+    model = sentence_transformers.SentenceTransformer(path, **load_kwargs)
     model_config = model_config or {}
     task = model_config.get("task", None)
     return _SentenceTransformerModelWrapper(model, task)
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 def load_model(model_uri: str, dst_path: Optional[str] = None):
     """
@@ -455,14 +483,7 @@ def load_model(model_uri: str, dst_path: Optional[str] = None):
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
-    load_kwargs = {}
-    # The trust_remote_code is supported since Sentence Transformers 2.3.0
-    if Version(sentence_transformers.__version__) >= Version("2.3.0"):
-        # Always set trust_remote_code=True because we save the entire repository files in
-        # the model artifacts, so there is no risk of running untrusted code unless the logged
-        # artifact is modified by a malicious actor, which is much more broader security
-        # concern that even cannot be prevented by setting trust_remote_code=False.
-        load_kwargs["trust_remote_code"] = True
+    load_kwargs = _get_load_kwargs()
     return sentence_transformers.SentenceTransformer(str(local_model_dir), **load_kwargs)
 
 
@@ -482,15 +503,17 @@ class _SentenceTransformerModelWrapper:
         self.model = model
         self.task = task
 
-    def predict(self, sentences, params: Optional[Dict[str, Any]] = None):
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.model
+
+    def predict(self, sentences, params: Optional[dict[str, Any]] = None):
         """
         Args:
             sentences: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
-
 
         Returns:
             Model predictions.
@@ -519,56 +542,7 @@ class _SentenceTransformerModelWrapper:
             output_data = self.model.encode(sentences)
 
         if convert_output_to_llm_v1_format:
-            output_data = self.postprocess_output_for_llm_v1_embedding_task(sentences, output_data)
+            output_data = postprocess_output_for_llm_v1_embedding_task(
+                sentences, output_data, self.model.tokenizer
+            )
         return output_data
-
-    def postprocess_output_for_llm_v1_embedding_task(
-        self, input_prompts: Union[str, List[str]], output_tensers: List[List[int]]
-    ):
-        """
-        Wrap output data with usage information.
-
-        Examples:
-            .. code-block:: python
-                input_prompt = ["hello world and hello mlflow"]
-                output_embedding = [0.47137904, 0.4669448, ..., 0.69726706]
-                output_dicts = postprocess_output_for_llm_v1_embedding_task(
-                    input_prompt, output_embedding
-                )
-                assert output_dicts == [
-                    {
-                        "object": "list",
-                        "data": [
-                            {
-                                "object": "embedding",
-                                "index": 0,
-                                "embedding": [0.47137904, 0.4669448, ..., 0.69726706],
-                            }
-                        ],
-                        "usage": {"prompt_tokens": 8, "total_tokens": 8},
-                    }
-                ]
-
-        Args:
-            input_prompts: text input prompts
-            output_tensers: List of output tensors that contain the generated embeddings
-
-        Returns:
-             Dictionaries containing the output embedding and usage information for each
-             input prompt.
-        """
-        prompt_tokens = sum(
-            [len(self.model.tokenizer(prompt)["input_ids"]) for prompt in input_prompts]
-        )
-        return {
-            "object": "list",
-            "data": [
-                {
-                    "object": "embedding",
-                    "index": i,
-                    "embedding": tensor,
-                }
-                for i, tensor in enumerate(output_tensers)
-            ],
-            "usage": {"prompt_tokens": prompt_tokens, "total_tokens": prompt_tokens},
-        }

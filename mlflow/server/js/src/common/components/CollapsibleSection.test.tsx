@@ -1,8 +1,8 @@
 import React from 'react';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 
 import { CollapsibleSection } from './CollapsibleSection';
-import { renderWithIntl } from 'common/utils/TestUtils.react18';
+import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 describe('CollapsibleSection', () => {
   let wrapper;

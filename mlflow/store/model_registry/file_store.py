@@ -5,7 +5,7 @@ import sys
 import time
 import urllib
 from os.path import join
-from typing import List
+from typing import Optional
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -24,10 +24,16 @@ from mlflow.entities.model_registry.model_version_stages import (
 )
 from mlflow.environment_variables import MLFLOW_REGISTRY_DIR
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import (
+    add_prompt_filter_string,
+    handle_resource_already_exist_error,
+    has_prompt_tag,
+)
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities.paged_list import PagedList
@@ -48,11 +54,8 @@ from mlflow.utils.file_utils import (
     local_file_uri_to_path,
     make_containing_dirs,
     mkdir,
-    overwrite_yaml,
     read_file,
-    read_yaml,
     write_to,
-    write_yaml,
 )
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
@@ -67,6 +70,7 @@ from mlflow.utils.validation import (
 from mlflow.utils.validation import (
     _validate_model_name as _original_validate_model_name,
 )
+from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
 
 
 def _default_root_dir():
@@ -177,7 +181,7 @@ class FileStore(AbstractStore):
         registered_model.last_updated_timestamp = updated_time
         self._save_registered_model_as_meta_file(registered_model)
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -186,6 +190,7 @@ class FileStore(AbstractStore):
             tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                 instances associated with this registered model.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -194,8 +199,19 @@ class FileStore(AbstractStore):
         """
 
         self._check_root_dir()
+
         _validate_model_name(name)
-        self._validate_registered_model_does_not_exist(name)
+        try:
+            self._validate_registered_model_does_not_exist(name)
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                existing_model = self.get_registered_model(name)
+                handle_resource_already_exist_error(
+                    name, has_prompt_tag(existing_model._tags), has_prompt_tag(tags)
+                )
+            else:
+                raise
+
         for tag in tags or []:
             _validate_registered_model_tag(tag.key, tag.value)
         meta_dir = self._get_registered_model_path(name)
@@ -231,13 +247,14 @@ class FileStore(AbstractStore):
         registered_model.latest_versions = self.get_latest_versions(os.path.basename(model_path))
         return registered_model
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """
         Update description of the registered model.
 
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -376,6 +393,8 @@ class FileStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
+        filter_string = add_prompt_filter_string(filter_string, is_prompt=False)
+
         registered_models = self._list_all_registered_models()
         filtered_rms = SearchModelUtils.filter(registered_models, filter_string)
         sorted_rms = SearchModelUtils.sort(filtered_rms, order_by)
@@ -407,7 +426,7 @@ class FileStore(AbstractStore):
             )
         return self._get_registered_model_from_path(model_path)
 
-    def get_latest_versions(self, name, stages=None) -> List[ModelVersion]:
+    def get_latest_versions(self, name, stages=None) -> list[ModelVersion]:
         """
         Latest version models for each requested stage. If no ``stages`` argument is provided,
         returns the latest version for each stage.
@@ -548,7 +567,7 @@ class FileStore(AbstractStore):
         tag_data = read_file(parent_path, tag_name)
         return ModelVersionTag(tag_name, tag_data)
 
-    def _get_model_version_tags_from_dir(self, directory) -> List[ModelVersionTag]:
+    def _get_model_version_tags_from_dir(self, directory) -> list[ModelVersionTag]:
         parent_path, tag_files = self._get_resource_files(directory, FileStore.TAGS_FOLDER_NAME)
         tags = []
         for tag_file in tag_files:
@@ -570,9 +589,23 @@ class FileStore(AbstractStore):
         return [alias.alias for alias in aliases if alias.version == version]
 
     def _get_file_model_version_from_dir(self, directory) -> FileModelVersion:
+        from mlflow.tracking.client import MlflowClient
+
         meta = FileStore._read_yaml(directory, FileStore.META_DATA_FILE_NAME)
         meta["tags"] = self._get_model_version_tags_from_dir(directory)
         meta["aliases"] = self._get_model_version_aliases(directory)
+        # Fetch metrics and params from model ID
+        #
+        # TODO: Propagate tracking URI to file store directly, rather than relying on global
+        # URI (individual MlflowClient instances may have different tracking URIs)
+        if "model_id" in meta:
+            try:
+                model = MlflowClient().get_logged_model(meta["model_id"])
+                meta["metrics"] = model.metrics
+                meta["params"] = model.params
+            except Exception:
+                # TODO: Make this exception handling more specific
+                pass
         return FileModelVersion.from_dictionary(meta)
 
     def _save_model_version_as_meta_file(
@@ -605,6 +638,7 @@ class FileStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ) -> ModelVersion:
         """
         Create a new model version from given source and run ID.
@@ -617,6 +651,9 @@ class FileStore(AbstractStore):
                 instances associated with this model version.
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
+            local_model_path: Unused.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -639,9 +676,19 @@ class FileStore(AbstractStore):
         if urllib.parse.urlparse(source).scheme == "models":
             parsed_model_uri = _parse_model_uri(source)
             try:
-                storage_location = self.get_model_version_download_uri(
-                    parsed_model_uri.name, parsed_model_uri.version
-                )
+                from mlflow.tracking.client import MlflowClient
+
+                if parsed_model_uri.model_id is not None:
+                    # TODO: Propagate tracking URI to file store directly, rather than relying on
+                    # global URI (individual MlflowClient instances may have different tracking
+                    # URIs)
+                    model = MlflowClient().get_logged_model(parsed_model_uri.model_id)
+                    storage_location = model.artifact_location
+                    run_id = run_id or model.source_run_id
+                else:
+                    storage_location = self.get_model_version_download_uri(
+                        parsed_model_uri.name, parsed_model_uri.version
+                    )
             except Exception as e:
                 raise MlflowException(
                     f"Unable to fetch model from model URI source artifact location '{source}'."
@@ -667,6 +714,7 @@ class FileStore(AbstractStore):
                     tags=tags,
                     aliases=[],
                     storage_location=storage_location,
+                    model_id=model_id,
                 )
                 model_version_dir = self._get_model_version_dir(name, version)
                 mkdir(model_version_dir)
@@ -677,7 +725,7 @@ class FileStore(AbstractStore):
                 if tags is not None:
                     for tag in tags:
                         self.set_model_version_tag(name, version, tag)
-                return model_version.to_mlflow_entity()
+                return self.get_model_version(name, version)
             except Exception as e:
                 more_retries = self.CREATE_MODEL_VERSION_RETRIES - attempt - 1
                 logging.warning(
@@ -827,7 +875,7 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         return list_subdirs(join(self.root_directory, FileStore.MODELS_FOLDER_NAME), full_path=True)
 
-    def _list_file_model_versions_under_path(self, path) -> List[FileModelVersion]:
+    def _list_file_model_versions_under_path(self, path) -> list[FileModelVersion]:
         model_versions = []
         model_version_dirs = list_all(
             path,
@@ -841,7 +889,7 @@ class FileStore(AbstractStore):
 
     def search_model_versions(
         self, filter_string=None, max_results=None, order_by=None, page_token=None
-    ) -> List[ModelVersion]:
+    ) -> list[ModelVersion]:
         """
         Search for model versions in backend that satisfy the filter criteria.
 
@@ -882,6 +930,7 @@ class FileStore(AbstractStore):
                 file_mv.to_mlflow_entity()
                 for file_mv in self._list_file_model_versions_under_path(path)
             )
+        filter_string = add_prompt_filter_string(filter_string, is_prompt=False)
         filtered_mvs = SearchModelVersionUtils.filter(model_versions, filter_string)
 
         sorted_mvs = SearchModelVersionUtils.sort(

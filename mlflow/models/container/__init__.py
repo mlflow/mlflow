@@ -4,6 +4,7 @@ Initialize the environment and start model serving in a Docker container.
 To be executed only during the model deployment.
 
 """
+
 import logging
 import multiprocessing
 import os
@@ -12,20 +13,19 @@ import signal
 import sys
 from pathlib import Path
 from subprocess import Popen, check_call
-from typing import List
 
 import mlflow
 import mlflow.version
-from mlflow import mleap, pyfunc
-from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME, MLFLOW_DISABLE_ENV_CREATION
+from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_DISABLE_ENV_CREATION
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.pyfunc import _extract_conda_env, mlserver, scoring_server
 from mlflow.store.artifact.models_artifact_repo import REGISTERED_MODEL_META_FILE_NAME
 from mlflow.utils import env_manager as em
 from mlflow.utils.environment import _PythonEnv
-from mlflow.utils.file_utils import read_yaml
 from mlflow.utils.virtualenv import _get_or_create_virtualenv
+from mlflow.utils.yaml_utils import read_yaml
 from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
@@ -36,7 +36,7 @@ DEFAULT_INFERENCE_SERVER_PORT = 8000
 DEFAULT_NGINX_SERVER_PORT = 8080
 DEFAULT_MLSERVER_PORT = 8080
 
-SUPPORTED_FLAVORS = [pyfunc.FLAVOR_NAME, mleap.FLAVOR_NAME]
+SUPPORTED_FLAVORS = [pyfunc.FLAVOR_NAME]
 
 DISABLE_NGINX = "DISABLE_NGINX"
 ENABLE_MLSERVER = "ENABLE_MLSERVER"
@@ -47,7 +47,7 @@ SERVING_ENVIRONMENT = "SERVING_ENVIRONMENT"
 _logger = logging.getLogger(__name__)
 
 
-def _init(cmd, env_manager):
+def _init(cmd, env_manager):  # noqa: D417
     """
     Initialize the container and execute command.
 
@@ -71,15 +71,10 @@ def _serve(env_manager):
     model_config_path = os.path.join(MODEL_PATH, MLMODEL_FILE_NAME)
     m = Model.load(model_config_path)
 
-    # Older versions of mlflow may not specify a deployment configuration
-    serving_flavor = MLFLOW_DEPLOYMENT_FLAVOR_NAME.get() or pyfunc.FLAVOR_NAME
-
-    if serving_flavor == mleap.FLAVOR_NAME:
-        _serve_mleap()
-    elif pyfunc.FLAVOR_NAME in m.flavors:
+    if pyfunc.FLAVOR_NAME in m.flavors:
         _serve_pyfunc(m, env_manager)
     else:
-        raise Exception("This container only supports models with the MLeap or PyFunc flavors.")
+        raise Exception("This container only supports models with the PyFunc flavors.")
 
 
 def _install_pyfunc_deps(
@@ -106,18 +101,24 @@ def _install_pyfunc_deps(
 
     # NB: If we don't use virtualenv or conda env, we don't need to install mlflow here as
     # it's already installed in the container.
-    if len(activate_cmd) and install_mlflow:
-        install_mlflow_cmd = [
-            "pip install /opt/mlflow/."
-            if _container_includes_mlflow_source()
-            else f"pip install mlflow=={MLFLOW_VERSION}"
-        ]
-        if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd)]).wait() != 0:
-            raise Exception("Failed to install mlflow into the model environment.")
+    if len(activate_cmd):
+        if _container_includes_mlflow_source():
+            # If the MLflow source code is copied to the container,
+            # we always need to run `pip install /opt/mlflow` otherwise
+            # the MLflow dependencies are not installed.
+            install_mlflow_cmd = ["pip install /opt/mlflow/."]
+        elif install_mlflow:
+            install_mlflow_cmd = [f"pip install mlflow=={MLFLOW_VERSION}"]
+        else:
+            install_mlflow_cmd = []
+
+        if install_mlflow_cmd:
+            if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd)]).wait() != 0:
+                raise Exception("Failed to install mlflow into the model environment.")
     return activate_cmd
 
 
-def _install_model_dependencies_to_env(model_path, env_manager) -> List[str]:
+def _install_model_dependencies_to_env(model_path, env_manager) -> list[str]:
     """:
     Installs model dependencies to the specified environment, which can be either a local
     environment, a conda environment, or a virtualenv.
@@ -160,7 +161,7 @@ def _install_model_dependencies_to_env(model_path, env_manager) -> List[str]:
         activate_cmd = ["source /miniconda/bin/activate custom_env"]
 
     elif env_manager == em.VIRTUALENV:
-        env_activate_cmd = _get_or_create_virtualenv(model_path)
+        env_activate_cmd = _get_or_create_virtualenv(model_path, env_manager=env_manager)
         path = env_activate_cmd.split(" ")[-1]
         os.symlink(path, "/opt/activate")
         activate_cmd = [env_activate_cmd]
@@ -234,7 +235,6 @@ def _serve_pyfunc(model, env_manager):
         }
     else:
         inference_server = scoring_server
-        # users can use GUNICORN_CMD_ARGS="--workers=3" var env to override the number of workers
         nworkers = cpu_count
         port = DEFAULT_INFERENCE_SERVER_PORT
 
@@ -260,26 +260,8 @@ def _read_registered_model_meta(model_path):
     return model_meta
 
 
-def _serve_mleap():
-    serve_cmd = [
-        "java",
-        "-cp",
-        '"/opt/java/jars/*"',
-        "org.mlflow.sagemaker.ScoringServer",
-        MODEL_PATH,
-        str(DEFAULT_SAGEMAKER_SERVER_PORT),
-    ]
-    # Invoke `Popen` with a single string command in the shell to support wildcard usage
-    # with the mlflow jar version.
-    serve_cmd = " ".join(serve_cmd)
-    mleap = Popen(serve_cmd, shell=True)
-    signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[mleap.pid]))
-    awaited_pids = _await_subprocess_exit_any(procs=[mleap])
-    _sigterm_handler(awaited_pids)
-
-
 def _container_includes_mlflow_source():
-    return os.path.exists("/opt/mlflow/setup.py")
+    return os.path.exists("/opt/mlflow/pyproject.toml")
 
 
 def _train():

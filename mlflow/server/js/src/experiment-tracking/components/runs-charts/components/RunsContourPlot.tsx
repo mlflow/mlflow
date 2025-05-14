@@ -3,7 +3,7 @@ import { Data, Datum, Layout, PlotMouseEvent } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
-import { highlightScatterTraces, useRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
+import { highlightScatterTraces, useRenderRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
 import {
   commonRunsChartStyles,
   RunsChartsRunData,
@@ -15,8 +15,9 @@ import {
   useDynamicPlotSize,
   getLegendDataFromRuns,
 } from './RunsCharts.common';
-import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
+import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
+import { RunsChartCardLoadingPlaceholder } from './cards/ChartCard.common';
 
 export interface RunsContourPlotProps extends RunsPlotsCommonProps {
   /**
@@ -54,6 +55,7 @@ export interface RunsContourPlotProps extends RunsPlotsCommonProps {
 const PLOT_CONFIG = {
   displaylogo: false,
   scrollZoom: false,
+  modeBarButtonsToRemove: ['toImage'],
 };
 
 const DEFAULT_COLOR_SCALE: [number, string][] = [
@@ -65,7 +67,7 @@ const DEFAULT_COLOR_SCALE: [number, string][] = [
   [1, 'rgb(220,220,220)'],
 ];
 
-export const createTooltipTemplate = (zAxisTitle: string) =>
+const createTooltipTemplate = (zAxisTitle: string) =>
   '<b>%{customdata[1]}:</b><br>' +
   '<b>%{xaxis.title.text}:</b> %{x:.2f}<br>' +
   '<b>%{yaxis.title.text}:</b> %{y:.2f}<br>' +
@@ -95,10 +97,9 @@ export const RunsContourPlot = React.memo(
     height,
     useDefaultHoverBox = true,
     selectedRunUuid,
+    onSetDownloadHandler,
   }: RunsContourPlotProps) => {
     const { theme } = useDesignSystemTheme();
-
-    const usingV2ChartImprovements = shouldEnableDeepLearningUI();
 
     const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } = useDynamicPlotSize();
 
@@ -137,11 +138,13 @@ export const RunsContourPlot = React.memo(
           x: xValues,
           y: yValues,
           customdata: tooltipData,
+          text: runsData.map(({ displayName }) => displayName),
           hovertemplate: useDefaultHoverBox ? createTooltipTemplate(zAxis.key) : undefined,
           hoverinfo: useDefaultHoverBox ? undefined : 'none',
           hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
           type: 'scatter',
           mode: 'markers',
+          textposition: 'bottom center',
           marker: {
             size: markerSize,
             color: colors,
@@ -225,7 +228,7 @@ export const RunsContourPlot = React.memo(
       });
     }, [layoutWidth, layoutHeight, margin, xAxis.key, yAxis.key, width, height]);
 
-    const { setHoveredPointIndex } = useRunsChartTraceHighlight(
+    const { setHoveredPointIndex } = useRenderRunsChartTraceHighlight(
       containerDiv,
       selectedRunUuid,
       runsData,
@@ -267,6 +270,14 @@ export const RunsContourPlot = React.memo(
 
     const legendLabelData = useMemo(() => getLegendDataFromRuns(runsData), [runsData]);
 
+    useEffect(() => {
+      const dataToExport: Data[] = plotData.map((trace: Data) => ({
+        ...trace,
+        mode: 'text+markers',
+      }));
+      onSetDownloadHandler?.(createChartImageDownloadHandler(dataToExport, layout));
+    }, [layout, onSetDownloadHandler, plotData]);
+
     const chart = (
       <div
         css={[commonRunsChartStyles.chartWrapper(theme), commonRunsChartStyles.scatterChartHighlightStyles]}
@@ -282,14 +293,11 @@ export const RunsContourPlot = React.memo(
           config={PLOT_CONFIG}
           onHover={mutableHoverCallback}
           onUnhover={unhoverCallback}
+          fallback={<RunsChartCardLoadingPlaceholder />}
         />
       </div>
     );
 
-    return usingV2ChartImprovements ? (
-      <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>
-    ) : (
-      chart
-    );
+    return <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>;
   },
 );

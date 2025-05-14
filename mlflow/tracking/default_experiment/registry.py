@@ -1,12 +1,14 @@
 import logging
 import warnings
+from typing import Optional
 
-import entrypoints
-
+from mlflow.tracking import get_tracking_uri
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider import (
     DatabricksNotebookExperimentProvider,
 )
+from mlflow.utils.plugins import get_entry_points
+from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 # Listed below are the list of providers, which are used to provide MLflow Experiment IDs based on
@@ -33,7 +35,7 @@ class DefaultExperimentProviderRegistry:
 
     def register_entrypoints(self):
         """Register tracking stores provided by other packages"""
-        for entrypoint in entrypoints.get_group_all("mlflow.default_experiment_provider"):
+        for entrypoint in get_entry_points("mlflow.default_experiment_provider"):
             try:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:
@@ -54,7 +56,7 @@ for exp_provider in _EXPERIMENT_PROVIDERS:
 _default_experiment_provider_registry.register_entrypoints()
 
 
-def get_experiment_id():
+def get_experiment_id() -> Optional[str]:
     """Get an experiment ID for the current context.
 
     The experiment ID is fetched by querying providers, in the order that they were registered.
@@ -63,14 +65,11 @@ def get_experiment_id():
     Returns:
         An experiment_id.
     """
-
-    experiment_id = DEFAULT_EXPERIMENT_ID
     for provider in _default_experiment_provider_registry:
         try:
             if provider.in_context():
-                experiment_id = provider.get_experiment_id()
-                break
+                return provider.get_experiment_id()
         except Exception as e:
             _logger.warning("Encountered unexpected error while getting experiment_id: %s", e)
 
-    return experiment_id
+    return DEFAULT_EXPERIMENT_ID if not is_databricks_uri(get_tracking_uri()) else None

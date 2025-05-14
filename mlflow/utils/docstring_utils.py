@@ -1,14 +1,9 @@
 import textwrap
 import warnings
-from functools import wraps
-from typing import Dict
-
-import importlib_metadata
-from packaging.version import Version
 
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.utils.autologging_utils.versioning import (
-    FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
+    get_min_max_version_and_pip_release,
 )
 
 
@@ -16,7 +11,7 @@ def _create_placeholder(key: str):
     return "{{ " + key + " }}"
 
 
-def _replace_keys_with_placeholders(d: Dict) -> Dict:
+def _replace_keys_with_placeholders(d: dict) -> dict:
     return {_create_placeholder(k): v for k, v in d.items()}
 
 
@@ -38,7 +33,7 @@ def _indent(text: str, indent: str) -> str:
         return first_line + "\n" + indented_subsequent_lines
 
 
-def _replace_all(text: str, replacements: Dict[str, str]) -> str:
+def _replace_all(text: str, replacements: dict[str, str]) -> str:
     """
     Replace all instances of replacements.keys() with their corresponding
     values in text. The replacements will be inserted on the same line
@@ -99,8 +94,8 @@ class ParamDocs(dict):
         Formats placeholders in `docstring`.
 
         Args:
-            p1: {{ p1 }}
-            p2: {{ p2 }}
+            docstring: A docstring with placeholders to be replaced.
+                If provided with None, will return None.
 
         .. code-block:: text
             :caption: Example
@@ -168,14 +163,15 @@ def format_docstring(param_docs):
 # `{{ ... }}` represents a placeholder.
 LOG_MODEL_PARAM_DOCS = ParamDocs(
     {
+        "name": "Model name.",
         "conda_env": (
             """Either a dictionary representation of a Conda environment or the path to a conda
 environment yaml file. If provided, this describes the environment this model should be run in.
-At a minimum, it should specify the dependencies contained in :func:`get_default_conda_env()`.
+At a minimum, it should specify the dependencies contained in `get_default_conda_env()`.
 If ``None``, a conda environment with pip requirements inferred by
 :func:`mlflow.models.infer_pip_requirements` is added
 to the model. If the requirement inference fails, it falls back to using
-:func:`get_default_pip_requirements`. pip requirements from ``conda_env`` are written to a pip
+`get_default_pip_requirements`. pip requirements from ``conda_env`` are written to a pip
 ``requirements.txt`` file and the full conda environment is written to ``conda.yaml``.
 The following is an *example* dictionary representation of a conda environment::
 
@@ -198,7 +194,7 @@ The following is an *example* dictionary representation of a conda environment::
 a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this
 describes the environment this model should be run in. If ``None``, a default list of requirements
 is inferred by :func:`mlflow.models.infer_pip_requirements` from the current software environment.
-If the requirement inference fails, it falls back to using :func:`get_default_pip_requirements`.
+If the requirement inference fails, it falls back to using `get_default_pip_requirements`.
 Both requirements and constraints are automatically parsed and written to ``requirements.txt`` and
 ``constraints.txt`` files, respectively, and stored as part of the model. Requirements are also
 written to the ``pip`` section of the model's conda environment (``conda.yaml``) file."""
@@ -245,6 +241,9 @@ dataset, for example:
     signature = infer_signature(train, predictions)
 """
         ),
+        "metadata": (
+            "Custom metadata dictionary passed to the model and stored in the MLmodel file."
+        ),
         "input_example": (
             """one or several instances of valid model input. The input example is used
 as a hint of what data to feed the model. It will be converted to a Pandas
@@ -252,13 +251,6 @@ DataFrame and then serialized to json using the Pandas split-oriented
 format, or a numpy array where the example will be serialized to json
 by converting it to a list. Bytes are base64-encoded. When the ``signature`` parameter is
 ``None``, the input example is used to infer a model signature.
-"""
-        ),
-        "example_no_conversion": (
-            """If ``True``, the input example will not be converted to a Pandas DataFrame
-format when saving. This is useful when the model expects a non-DataFrame input and the
-input example could be passed directly to the model. Defaults to ``False`` for backwards
-compatibility.
 """
         ),
         "prompt_template": (
@@ -287,13 +279,55 @@ limitations, see the
 `code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
 """
         ),
+        # Only pyfunc flavor supports `infer_code_paths`.
+        "code_paths_pyfunc": (
+            """A list of local filesystem paths to Python file dependencies (or directories
+containing file dependencies). These files are *prepended* to the system path when the model
+is loaded. Files declared as dependencies for a given model should have relative
+imports declared from a common root path if multiple files are defined with import dependencies
+between them to avoid import errors when loading the model.
+
+You can leave ``code_paths`` argument unset but set ``infer_code_paths`` to ``True`` to let MLflow
+infer the model code paths. See ``infer_code_paths`` argument doc for details.
+
+For a detailed explanation of ``code_paths`` functionality, recommended usage patterns and
+limitations, see the
+`code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
+"""
+        ),
+        "infer_code_paths": (
+            """If set to ``True``, MLflow automatically infers model code paths. The inferred
+            code path files only include necessary python module files. Only python code files
+            under current working directory are automatically inferable. Default value is
+            ``False``.
+
+.. warning::
+    Please ensure that the custom python module code does not contain sensitive data such as
+    credential token strings, otherwise they might be included in the automatic inferred code
+    path files and be logged to MLflow artifact repository.
+
+    If your custom python module depends on non-python files (e.g. a JSON file) with a relative
+    path to the module code file path, the non-python files can't be automatically inferred as the
+    code path file. To address this issue, you should put all used non-python files outside
+    your custom code directory.
+
+    If a python code file is loaded as the python ``__main__`` module, then this code file can't be
+    inferred as the code path file. If your model depends on classes / functions defined in
+    ``__main__`` module, you should use `cloudpickle` to dump your model instance in order to pickle
+    classes / functions in ``__main__``.
+
+.. Note:: Experimental: This parameter may change or be removed in a future release without warning.
+"""
+        ),
         "save_pretrained": (
             """If set to ``False``, MLflow will not save the Transformer model weight files,
 instead only saving the reference to the HuggingFace Hub model repository and its commit hash.
 This is useful when you load the pretrained model from HuggingFace Hub and want to log or save
 it to MLflow without modifying the model weights. In such case, specifying this flag to
 ``False`` will save the storage space and reduce time to save the model. Please refer to the
-:ref:`Storage-Efficient Model Logging <transformers-save-pretrained-guide>` for more detailed usage.
+`Storage-Efficient Model Logging
+<../../llms/transformers/large-models.html#transformers-save-pretrained-guide>`_ for more detailed
+usage.
 
 
 .. warning::
@@ -302,7 +336,8 @@ it to MLflow without modifying the model weights. In such case, specifying this 
     registered to the MLflow Model Registry. In order to convert the model to the one that
     can be registered, you can use :py:func:`mlflow.transformers.persist_pretrained_model()`
     to download the model weights from the HuggingFace Hub and save it in the existing model
-    artifacts. Please refer to :ref:`Transformers flavor documentation <persist-pretrained-guide>`
+    artifacts. Please refer to `Transformers flavor documentation
+    <../../llms/transformers/large-models.html#persist-pretrained-guide>`_
     for more detailed usage.
 
     .. code-block:: python
@@ -321,11 +356,60 @@ it to MLflow without modifying the model weights. In such case, specifying this 
     its commit hash are logged instead.
 """
         ),
+        "auth_policy": (
+            """Specifies the authentication policy for the model, which includes two key components.
+            Note that only one of `auth_policy` or `resources` should be defined.
+
+                - **System Auth Policy**: A list of resources required to serve this model.
+                - **User Auth Policy**: A minimal list of scopes that the user should have access to
+                    ,in order to invoke this model.
+
+    .. Note::
+        Experimental: This parameter may change or be removed in a future release without warning.
+            """
+        ),
+        "params": "A dictionary of parameters to log with the model.",
+        "tags": "A dictionary of tags to log with the model.",
+        "model_type": "The type of the model.",
+        "step": "The step at which to log the model outputs and metrics",
+        "model_id": "The ID of the model.",
+        "prompts": """\
+A list of prompt URIs registered in the MLflow Prompt Registry, to be associated with the model.
+Each prompt URI should be in the form ``prompt:/<name>/<version>``. The prompts should be
+registered in the MLflow Prompt Registry before being associated with the model.
+
+This will create a mutual link between the model and the prompt. The associated prompts can be
+seen in the model's metadata stored in the MLmodel file. From the Prompt Registry UI, you can
+navigate to the model as well.
+
+.. code-block:: python
+
+    import mlflow
+
+    prompt_template = "Hi, {name}! How are you doing today?"
+
+    # Register a prompt in the MLflow Prompt Registry
+    mlflow.prompts.register_prompt("my_prompt", prompt_template, description="A simple prompt")
+
+    # Log a model with the registered prompt
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name=MyModel(),
+            artifact_path="model",
+            prompts=["prompt:/my_prompt/1"]
+        )
+
+    print(model_info.prompts)
+    # Output: ['prompt:/my_prompt/1']
+
+    # Load the prompt
+    prompt = mlflow.load_prompt(model_info.prompts[0])
+""",
     }
 )
 
 
-def get_module_min_and_max_supported_ranges(module_name):
+def get_module_min_and_max_supported_ranges(flavor_name):
     """
     Extracts the minimum and maximum supported package versions from the provided module name.
     The version information is provided via the yaml-to-python-script generation script in
@@ -333,21 +417,34 @@ def get_module_min_and_max_supported_ranges(module_name):
     mlflow.ml_package_versions
 
     Args:
-        module_name: The string name of the module as it is registered in ml_package_versions.py
+        flavor_name: The flavor name registered in ml_package_versions.py
 
     Returns:
-        tuple of minimum supported version, maximum supported version as strings.
+        tuple of module name, minimum supported version, maximum supported version as strings.
     """
-    versions = _ML_PACKAGE_VERSIONS[module_name]["models"]
+    if flavor_name == "pyspark.ml":
+        # pyspark.ml is a special case of spark flavor
+        flavor_name = "spark"
+
+    module_name = _ML_PACKAGE_VERSIONS[flavor_name]["package_info"].get("module_name", flavor_name)
+    versions = _ML_PACKAGE_VERSIONS[flavor_name]["models"]
     min_version = versions["minimum"]
     max_version = versions["maximum"]
-    return min_version, max_version
+    return module_name, min_version, max_version
+
+
+def _do_version_compatibility_warning(msg: str):
+    """
+    Isolate the warn call to show the warning only once.
+    """
+    warnings.warn(msg, category=UserWarning, stacklevel=2)
 
 
 def docstring_version_compatibility_warning(integration_name):
     """
     Generates a docstring that can be applied as a note stating a version compatibility range for
-    a given flavor.
+    a given flavor and optionally raises a warning if the installed version is outside of the
+    supported range.
 
     Args:
         integration_name: The name of the module as stored within ml-package-versions.yml
@@ -358,30 +455,22 @@ def docstring_version_compatibility_warning(integration_name):
 
     def annotated_func(func):
         # NB: if using this decorator, ensure the package name to module name reference is
-        # updated with the flavor's `save` and `load` functions being used within the dictionary
-        # mlflow.utils.autologging_utils.versioning.FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
-        _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
-        min_ver, max_ver = get_module_min_and_max_supported_ranges(module_key)
-        required_pkg_versions = f"``{min_ver}`` -  ``{max_ver}``"
-
+        # updated with the flavor's `save` and `load` functions being used within
+        # ml-package-version.yml file.
+        min_ver, max_ver, pip_release = get_min_max_version_and_pip_release(
+            integration_name, "models"
+        )
         notice = (
             f"The '{integration_name}' MLflow Models integration is known to be compatible with "
-            f"the following package version ranges: {required_pkg_versions}. "
+            f"``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``. "
             f"MLflow Models integrations with {integration_name} may not succeed when used with "
             "package versions outside of this range."
         )
 
-        @wraps(func)
-        def version_func(*args, **kwargs):
-            installed_version = Version(importlib_metadata.version(module_key))
-            if installed_version < Version(min_ver) or installed_version > Version(max_ver):
-                warnings.warn(notice, category=FutureWarning, stacklevel=2)
-            return func(*args, **kwargs)
-
-        version_func.__doc__ = (
+        func.__doc__ = (
             "    .. Note:: " + notice + "\n" * 2 + func.__doc__ if func.__doc__ else notice
         )
 
-        return version_func
+        return func
 
     return annotated_func

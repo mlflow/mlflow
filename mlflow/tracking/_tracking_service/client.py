@@ -4,24 +4,46 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
+import logging
 import os
+import sys
 from itertools import zip_longest
-from typing import List, Optional
+from typing import Any, Literal, Optional
 
-from mlflow.entities import ExperimentTag, Metric, Param, RunStatus, RunTag, ViewType
+from mlflow.entities import (
+    ExperimentTag,
+    FileInfo,
+    LoggedModel,
+    LoggedModelInput,
+    LoggedModelOutput,
+    LoggedModelParameter,
+    LoggedModelStatus,
+    LoggedModelTag,
+    Metric,
+    Param,
+    RunStatus,
+    RunTag,
+    ViewType,
+)
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import (
+    GET_METRIC_HISTORY_MAX_RESULTS,
+    SEARCH_MAX_RESULTS_DEFAULT,
+)
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
+from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
+from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 from mlflow.utils.validation import (
     MAX_ENTITIES_PER_BATCH,
     MAX_METRICS_PER_BATCH,
@@ -30,6 +52,8 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_run_id,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class TrackingServiceClient:
@@ -247,7 +271,6 @@ class TrackingServiceClient:
 
         """
         _validate_experiment_artifact_location(artifact_location)
-
         return self.store.create_experiment(
             name=name,
             artifact_location=artifact_location,
@@ -277,12 +300,22 @@ class TrackingServiceClient:
 
         Args:
             experiment_id: The experiment ID returned from ``create_experiment``.
+            new_name: New name for the experiment.
 
         """
         self.store.rename_experiment(experiment_id, new_name)
 
     def log_metric(
-        self, run_id, key, value, timestamp=None, step=None, synchronous=True
+        self,
+        run_id,
+        key,
+        value,
+        timestamp=None,
+        step=None,
+        synchronous=True,
+        dataset_name: Optional[str] = None,
+        dataset_digest: Optional[str] = None,
+        model_id: Optional[str] = None,
     ) -> Optional[RunOperations]:
         """Log a metric against the run ID.
 
@@ -300,6 +333,11 @@ class TrackingServiceClient:
             synchronous: *Experimental* If True, blocks until the metric is logged successfully. If
                 False, logs the metric asynchronously and returns a future representing the logging
                 operation.
+            dataset_name: The name of the dataset associated with the metric. If specified,
+                ``dataset_digest`` must also be provided.
+            dataset_digest: The digest of the dataset associated with the metric. If specified,
+                ``dataset_name`` must also be provided.
+            model_id: The ID of the model associated with the metric.
 
         Returns:
             When synchronous=True, returns None. When synchronous=False, returns
@@ -309,7 +347,15 @@ class TrackingServiceClient:
         timestamp = timestamp if timestamp is not None else get_current_time_millis()
         step = step if step is not None else 0
         metric_value = convert_metric_value_to_float_if_possible(value)
-        metric = Metric(key, metric_value, timestamp, step)
+        metric = Metric(
+            key,
+            metric_value,
+            timestamp,
+            step,
+            model_id=model_id,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+        )
         if synchronous:
             self.store.log_metric(run_id, metric)
         else:
@@ -443,8 +489,24 @@ class TrackingServiceClient:
             represents future for logging operation.
 
         """
+        from mlflow.tracking.fluent import get_active_model_id
+
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
+
+        metrics = [
+            Metric(
+                key=metric.key,
+                value=convert_metric_value_to_float_if_possible(metric.value),
+                timestamp=metric.timestamp,
+                step=metric.step,
+                dataset_name=metric.dataset_name,
+                dataset_digest=metric.dataset_digest,
+                model_id=metric.model_id or get_active_model_id(),
+                run_id=metric.run_id,
+            )
+            for metric in metrics
+        ]
 
         param_batches = chunk_list(params, MAX_PARAMS_TAGS_PER_BATCH)
         tag_batches = chunk_list(tags, MAX_PARAMS_TAGS_PER_BATCH)
@@ -492,12 +554,18 @@ class TrackingServiceClient:
             # Merge all the run operations into a single run operations object
             return get_combined_run_operations(run_operations_list)
 
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
+    ):
         """Log one or more dataset inputs to a run.
 
         Args:
-            run_id: String ID of the run
+            run_id: String ID of the run.
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log.
 
         Raises:
             MlflowException: If any errors occur.
@@ -505,10 +573,10 @@ class TrackingServiceClient:
         Returns:
             None
         """
-        if datasets is None or len(datasets) == 0:
-            return
+        self.store.log_inputs(run_id=run_id, datasets=datasets, models=models)
 
-        self.store.log_inputs(run_id=run_id, datasets=datasets)
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
+        self.store.log_outputs(run_id=run_id, models=models)
 
     def _record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model
@@ -520,22 +588,34 @@ class TrackingServiceClient:
             )
         self.store.record_logged_model(run_id, mlflow_model)
 
-    def _get_artifact_repo(self, run_id):
+    def _get_artifact_repo(
+        self,
+        resource_id: str,
+        *,
+        resource: Literal["run", "logged_model"] = "run",
+    ) -> ArtifactRepository:
         # Attempt to fetch the artifact repo from a local cache
-        cached_repo = utils._artifact_repos_cache.get(run_id)
-        if cached_repo is not None:
+        if cached_repo := utils._artifact_repos_cache.get(resource_id):
             return cached_repo
         else:
-            run = self.get_run(run_id)
+            if resource == "run":
+                run = self.get_run(resource_id)
+                artifact_location = run.info.artifact_uri
+            elif resource == "logged_model":
+                logged_model = self.get_logged_model(resource_id)
+                artifact_location = logged_model.artifact_location
+            else:
+                raise ValueError(f"Unexpected resource type {resource!r}.")
+
             artifact_uri = add_databricks_profile_info_to_artifact_uri(
-                run.info.artifact_uri, self.tracking_uri
+                artifact_location, self.tracking_uri
             )
             artifact_repo = get_artifact_repository(artifact_uri)
             # Cache the artifact repo to avoid a future network call, removing the oldest
             # entry in the cache if there are too many elements
             if len(utils._artifact_repos_cache) > 1024:
                 utils._artifact_repos_cache.popitem(last=False)
-            utils._artifact_repos_cache[run_id] = artifact_repo
+            utils._artifact_repos_cache[resource_id] = artifact_repo
             return artifact_repo
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
@@ -543,6 +623,7 @@ class TrackingServiceClient:
         Write a local file or directory to the remote ``artifact_uri``.
 
         Args:
+            run_id: String ID of the run.
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
@@ -561,6 +642,7 @@ class TrackingServiceClient:
         Write an artifact to the remote ``artifact_uri`` asynchronously.
 
         Args:
+            run_id: String ID of the run.
             filename: Filename of the artifact to be logged.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
             artifact: The artifact to be logged.
@@ -572,6 +654,7 @@ class TrackingServiceClient:
         """Write a directory of files to the remote ``artifact_uri``.
 
         Args:
+            run_id: String ID of the run.
             local_dir: Path to the directory of files to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
@@ -592,6 +675,21 @@ class TrackingServiceClient:
         """
         return self._get_artifact_repo(run_id).list_artifacts(path)
 
+    def list_logged_model_artifacts(
+        self, model_id: str, path: Optional[str] = None
+    ) -> list[FileInfo]:
+        """List the artifacts for a logged model.
+
+        Args:
+            model_id: The model to list artifacts from.
+            path: The model's relative artifact path to list from. By default it is set to None
+                or the root artifact path.
+
+        Returns:
+            List of :py:class:`mlflow.entities.FileInfo`
+        """
+        return self._get_artifact_repo(model_id, resource="logged_model").list_artifacts(path)
+
     def download_artifacts(self, run_id, path, dst_path=None):
         """Download an artifact file or directory from a run to a local directory if applicable,
         and return a local path for it.
@@ -611,15 +709,42 @@ class TrackingServiceClient:
         """
         return self._get_artifact_repo(run_id).download_artifacts(path, dst_path)
 
+    def _log_url(self, run_id):
+        if not isinstance(self.store, RestStore):
+            return
+        if is_in_databricks_notebook():
+            # In Databricks notebooks, MLflow experiment and run links are displayed automatically.
+            return
+        host_url = get_workspace_url()
+        if host_url is None:
+            host_url = self.store.get_host_creds().host.rstrip("/")
+        run_info = self.store.get_run(run_id).info
+        experiment_id = run_info.experiment_id
+        run_name = run_info.run_name
+        if is_databricks_uri(self.tracking_uri):
+            experiment_url = f"{host_url}/ml/experiments/{experiment_id}"
+        else:
+            experiment_url = f"{host_url}/#/experiments/{experiment_id}"
+        run_url = f"{experiment_url}/runs/{run_id}"
+
+        sys.stdout.write(f"🏃 View run {run_name} at: {run_url}\n")
+        sys.stdout.write(f"🧪 View experiment at: {experiment_url}\n")
+
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
 
         Args:
+            run_id: String ID of the run.
             status: A string value of :py:class:`mlflow.entities.RunStatus`. Defaults to "FINISHED".
             end_time: If not provided, defaults to the current time.
         """
         end_time = end_time if end_time else get_current_time_millis()
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
+        # Tell the store to stop async logging: stop accepting new data and log already enqueued
+        # data in the background. This call is making sure every async logging data has been
+        # submitted for logging, but not necessarily finished logging.
+        self.store.shut_down_async_logging()
+        self._log_url(run_id)
         self.store.update_run_info(
             run_id,
             run_status=RunStatus.from_string(status),
@@ -678,4 +803,68 @@ class TrackingServiceClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+        )
+
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: Optional[str] = None,
+        source_run_id: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+        params: Optional[dict[str, str]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        return self.store.create_logged_model(
+            experiment_id=experiment_id,
+            name=name,
+            source_run_id=source_run_id,
+            tags=[LoggedModelTag(str(key), str(value)) for key, value in tags.items()]
+            if tags is not None
+            else tags,
+            params=[LoggedModelParameter(str(key), str(value)) for key, value in params.items()]
+            if params is not None
+            else params,
+            model_type=model_type,
+        )
+
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
+        return self.store.finalize_logged_model(model_id, status)
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        return self.store.get_logged_model(model_id)
+
+    def delete_logged_model(self, model_id: str) -> None:
+        return self.store.delete_logged_model(model_id)
+
+    def set_logged_model_tags(self, model_id: str, tags: dict[str, Any]) -> None:
+        self.store.set_logged_model_tags(
+            model_id, [LoggedModelTag(str(key), str(value)) for key, value in tags.items()]
+        )
+
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        return self.store.delete_logged_model_tag(model_id, key)
+
+    def log_model_artifact(self, model_id: str, local_path: str) -> None:
+        self._get_artifact_repo(model_id, resource="logged_model").log_artifact(local_path)
+
+    def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+        self._get_artifact_repo(model_id, resource="logged_model").log_artifacts(local_dir)
+
+    def search_logged_models(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str] = None,
+        datasets: Optional[list[dict[str, Any]]] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
+        page_token: Optional[str] = None,
+    ):
+        if not isinstance(experiment_ids, list) or not all(
+            isinstance(eid, str) for eid in experiment_ids
+        ):
+            raise MlflowException.invalid_parameter_value(
+                f"experiment_ids must be a list of strings, got {type(experiment_ids)}",
+            )
+        return self.store.search_logged_models(
+            experiment_ids, filter_string, datasets, max_results, order_by, page_token
         )

@@ -17,6 +17,8 @@ import Routes from '../../../routes';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import { isSystemMetricKey } from '../../../utils/MetricsUtils';
 import { Table as TableDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
+import { useExperimentTrackingDetailsPageLayoutStyles } from '../../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 
 const { systemMetricsLabel, modelMetricsLabel } = defineMessages({
   systemMetricsLabel: {
@@ -40,7 +42,7 @@ const RunViewMetricsTableSection = ({
   header,
   table,
 }: {
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   metricsList: MetricEntity[];
   header?: React.ReactNode;
   table: TableDef<MetricEntity>;
@@ -58,41 +60,50 @@ const RunViewMetricsTableSection = ({
           </TableCell>
         </TableRow>
       )}
-      {metricsList.map(({ key, value }) => (
-        <TableRow key={key}>
-          <TableCell
-            style={{
-              flexGrow: 0,
-              flexBasis: keyColumn.getSize(),
-            }}
-          >
-            <Link to={Routes.getMetricPageRoute([runInfo.run_uuid], key, [runInfo.experiment_id])}>{key}</Link>
-          </TableCell>
-          <TableCell
-            css={{
-              flexGrow: 1,
-            }}
-          >
-            {value.toString()}
-          </TableCell>
-        </TableRow>
-      ))}
+      {metricsList.map(
+        ({
+          // Get metric key and value to display in table
+          key,
+          value,
+        }) => (
+          <TableRow key={key}>
+            <TableCell
+              style={{
+                flexGrow: 0,
+                flexBasis: keyColumn.getSize(),
+              }}
+            >
+              <Link to={Routes.getMetricPageRoute([runInfo.runUuid ?? ''], key, [runInfo.experimentId ?? ''])}>
+                {key}
+              </Link>
+            </TableCell>
+            <TableCell
+              css={{
+                flexGrow: 1,
+              }}
+            >
+              {value.toString()}
+            </TableCell>
+          </TableRow>
+        ),
+      )}
     </>
   ) : null;
 };
 
 /**
  * Displays table with metrics key/values in run detail overview.
- * TODO: implement min/max/last values after backend discussion is settled.
  */
 export const RunViewMetricsTable = ({
   latestMetrics,
   runInfo,
 }: {
   latestMetrics: MetricEntitiesByName;
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const { detailsPageTableStyles, detailsPageNoEntriesStyles, detailsPageNoResultsWrapperStyles } =
+    useExperimentTrackingDetailsPageLayoutStyles();
   const intl = useIntl();
   const [filter, setFilter] = useState('');
 
@@ -160,7 +171,7 @@ export const RunViewMetricsTable = ({
   const renderTableContent = () => {
     if (!metricValues.length) {
       return (
-        <div css={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div css={detailsPageNoEntriesStyles}>
           <Empty
             description={
               <FormattedMessage
@@ -179,6 +190,7 @@ export const RunViewMetricsTable = ({
       <>
         <div css={{ marginBottom: theme.spacing.sm }}>
           <Input
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewmetricstable.tsx_186"
             prefix={<SearchIcon />}
             placeholder={intl.formatMessage({
               defaultMessage: 'Search metrics',
@@ -194,25 +206,28 @@ export const RunViewMetricsTable = ({
           scrollable
           empty={
             areAllResultsFiltered ? (
-              <div css={{ marginTop: theme.spacing.md * 4 }}>
+              <div css={detailsPageNoResultsWrapperStyles}>
                 <Empty
                   description={
                     <FormattedMessage
                       defaultMessage="No metrics match the search filter"
-                      description="Run page > Overview > Metrics table > No results after filtering"
+                      description="Message displayed when no metrics match the search filter in the run details page details metrics table"
                     />
                   }
                 />
               </div>
             ) : null
           }
+          css={detailsPageTableStyles}
         >
           <TableRow isHeader>
             {table.getLeafHeaders().map((header) => (
               <TableHeader
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewmetricstable.tsx_312"
                 key={header.id}
-                resizable={header.column.getCanResize()}
-                resizeHandler={header.getResizeHandler()}
+                header={header}
+                column={header.column}
+                setColumnSizing={table.setColumnSizing}
                 isResizing={header.column.getIsResizing()}
                 style={{
                   flexGrow: header.column.getCanResize() ? 0 : 1,

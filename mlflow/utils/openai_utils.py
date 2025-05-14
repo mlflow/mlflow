@@ -1,33 +1,9 @@
-import json
 import os
 import time
-from contextlib import contextmanager
 from enum import Enum
 from typing import NamedTuple, Optional
-from unittest import mock
-
-import requests
 
 import mlflow
-
-TEST_CONTENT = "test"
-
-TEST_SOURCE_DOCUMENTS = [
-    {
-        "page_content": "We see the unity among leaders ...",
-        "metadata": {"source": "tests/langchain/state_of_the_union.txt"},
-    },
-]
-TEST_INTERMEDIATE_STEPS = (
-    [
-        {
-            "tool": "Search",
-            "tool_input": "High temperature in SF yesterday",
-            "log": " I need to find the temperature first...",
-            "result": "San Francisco...",
-        },
-    ],
-)
 
 REQUEST_URL_CHAT = "https://api.openai.com/v1/chat/completions"
 REQUEST_URL_COMPLETIONS = "https://api.openai.com/v1/completions"
@@ -76,125 +52,6 @@ REQUEST_FIELDS_EMBEDDINGS = {"input", "model", "encoding_format", "user"}
 REQUEST_FIELDS = REQUEST_FIELDS_CHAT | REQUEST_FIELDS_COMPLETIONS | REQUEST_FIELDS_EMBEDDINGS
 
 
-class _MockResponse:
-    def __init__(self, status_code, json_data):
-        self.status_code = status_code
-        self.content = json.dumps(json_data).encode()
-        self.headers = {"Content-Type": "application/json"}
-        self.text = mlflow.__version__
-        self.json_data = json_data
-
-    def json(self):
-        return self.json_data
-
-
-def _chat_completion_json_sample(content):
-    # https://platform.openai.com/docs/api-reference/chat/create
-    return {
-        "id": "chatcmpl-123",
-        "object": "chat.completion",
-        "created": 1677652288,
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": content},
-                "finish_reason": "stop",
-                "text": content,
-            }
-        ],
-        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
-    }
-
-
-def _completion_json_sample(content):
-    return {
-        "id": "cmpl-123",
-        "object": "text_completion",
-        "created": 1589478378,
-        "model": "text-davinci-003",
-        "choices": [{"text": content, "index": 0, "finish_reason": "length"}],
-        "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
-    }
-
-
-def _models_retrieve_json_sample():
-    # https://platform.openai.com/docs/api-reference/models/retrieve
-    return {
-        "id": "gpt-3.5-turbo",
-        "object": "model",
-        "owned_by": "openai",
-        "permission": [],
-    }
-
-
-def _mock_chat_completion_response(content=TEST_CONTENT):
-    return _MockResponse(200, _chat_completion_json_sample(content))
-
-
-def _mock_completion_response(content=TEST_CONTENT):
-    return _MockResponse(200, _completion_json_sample(content))
-
-
-def _mock_embeddings_response(num_texts):
-    return _MockResponse(
-        200,
-        {
-            "object": "list",
-            "data": [
-                {
-                    "object": "embedding",
-                    "embedding": [
-                        0.0,
-                    ],
-                    "index": i,
-                }
-                for i in range(num_texts)
-            ],
-            "model": "text-embedding-ada-002",
-            "usage": {"prompt_tokens": 8, "total_tokens": 8},
-        },
-    )
-
-
-def _mock_models_retrieve_response():
-    return _MockResponse(200, _models_retrieve_json_sample())
-
-
-@contextmanager
-def _mock_request(**kwargs):
-    with mock.patch("requests.Session.request", **kwargs) as m:
-        yield m
-
-
-@contextmanager
-def _mock_request_post(**kwargs):
-    with mock.patch("requests.post", **kwargs) as m:
-        yield m
-
-
-def _mock_openai_request():
-    original = requests.post
-
-    def request(*args, **kwargs):
-        url = kwargs.get("url")
-        for key in kwargs.get("json"):
-            assert key in REQUEST_FIELDS, f"'{key}' is not a valid request field"
-
-        if "/chat/completions" in url:
-            messages = kwargs.get("json").get("messages")
-            return _mock_chat_completion_response(content=json.dumps(messages))
-        elif "/completions" in url:
-            prompt = kwargs.get("json").get("prompt")
-            return _mock_completion_response(content=json.dumps(prompt))
-        elif "/embeddings" in url:
-            inp = kwargs.get("json").get("input")
-            return _mock_embeddings_response(len(inp) if isinstance(inp, list) else 1)
-        else:
-            return original(*args, **kwargs)
-
-    return _mock_request_post(new=request)
-
-
 def _validate_model_params(task, model, params):
     if not params:
         return
@@ -213,12 +70,13 @@ def _validate_model_params(task, model, params):
 
 class _OAITokenHolder:
     def __init__(self, api_type):
-        self._api_token = None
         self._credential = None
+        self._api_type = api_type
         self._is_azure_ad = api_type in ("azure_ad", "azuread")
-        self._key_configured = "OPENAI_API_KEY" in os.environ
+        self._azure_ad_token = None
+        self._api_token_env = os.environ.get("OPENAI_API_KEY")
 
-        if self._is_azure_ad and not self._key_configured:
+        if self._is_azure_ad and not self._api_token_env:
             try:
                 from azure.identity import DefaultAzureCredential
             except ImportError:
@@ -228,14 +86,18 @@ class _OAITokenHolder:
                 )
             self._credential = DefaultAzureCredential()
 
-    def validate(self, logger=None):
+    @property
+    def token(self):
+        return self._api_token_env or self._azure_ad_token.token
+
+    def refresh(self, logger=None):
         """Validates the token or API key configured for accessing the OpenAI resource."""
 
-        if self._key_configured:
+        if self._api_token_env is not None:
             return
 
         if self._is_azure_ad:
-            if not self._api_token or self._api_token.expires_on < time.time() + 60:
+            if not self._azure_ad_token or self._azure_ad_token.expires_on < time.time() + 60:
                 from azure.core.exceptions import ClientAuthenticationError
 
                 if logger:
@@ -244,7 +106,7 @@ class _OAITokenHolder:
                         "acquire a new token."
                     )
                 try:
-                    self._api_token = self._credential.get_token(
+                    self._azure_ad_token = self._credential.get_token(
                         "https://cognitiveservices.azure.com/.default"
                     )
                 except ClientAuthenticationError as err:
@@ -252,7 +114,7 @@ class _OAITokenHolder:
                         "Unable to acquire a valid Azure AD token for the resource due to "
                         f"the following error: {err.message}"
                     ) from err
-                os.environ["OPENAI_API_KEY"] = self._api_token.token
+
             if logger:
                 logger.debug("Token refreshed successfully")
         else:
@@ -268,14 +130,17 @@ class _OpenAIApiConfig(NamedTuple):
     max_tokens_per_minute: int
     api_version: Optional[str]
     api_base: str
-    engine: Optional[str]
     deployment_id: Optional[str]
+    organization: Optional[str] = None
+    max_retries: int = 5
+    timeout: float = 60.0
 
 
 # See https://github.com/openai/openai-python/blob/cf03fe16a92cd01f2a8867537399c12e183ba58e/openai/__init__.py#L30-L38
 # for the list of environment variables that openai-python uses
 class _OpenAIEnvVar(str, Enum):
     OPENAI_API_TYPE = "OPENAI_API_TYPE"
+    OPENAI_BASE_URL = "OPENAI_BASE_URL"
     OPENAI_API_BASE = "OPENAI_API_BASE"
     OPENAI_API_KEY = "OPENAI_API_KEY"
     OPENAI_API_KEY_PATH = "OPENAI_API_KEY_PATH"

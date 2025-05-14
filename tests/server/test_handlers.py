@@ -12,6 +12,8 @@ from mlflow.entities.model_registry import (
     RegisteredModel,
     RegisteredModelTag,
 )
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.protos.model_registry_pb2 import (
@@ -38,8 +40,14 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
-from mlflow.server import BACKEND_STORE_URI_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR, app
+from mlflow.server import (
+    ARTIFACTS_DESTINATION_ENV_VAR,
+    BACKEND_STORE_URI_ENV_VAR,
+    SERVE_ARTIFACTS_ENV_VAR,
+    app,
+)
 from mlflow.server.handlers import (
+    _convert_path_parameter_to_flask_format,
     _create_experiment,
     _create_model_version,
     _create_registered_model,
@@ -55,6 +63,7 @@ from mlflow.server.handlers import (
     _get_model_version_download_uri,
     _get_registered_model,
     _get_request_message,
+    _get_trace_artifact_repo,
     _log_batch,
     _rename_registered_model,
     _search_model_versions,
@@ -66,15 +75,19 @@ from mlflow.server.handlers import (
     _transition_stage,
     _update_model_version,
     _update_registered_model,
-    _validate_source,
+    _validate_source_run,
     catch_mlflow_exception,
     get_endpoints,
 )
+from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
+from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
@@ -130,6 +143,17 @@ def test_get_endpoints():
     endpoints = get_endpoints()
     create_experiment_endpoint = [e for e in endpoints if e[1] == _create_experiment]
     assert len(create_experiment_endpoint) == 2
+
+
+def test_convert_path_parameter_to_flask_format():
+    converted = _convert_path_parameter_to_flask_format("/mlflow/trace")
+    assert "/mlflow/trace" == converted
+
+    converted = _convert_path_parameter_to_flask_format("/mlflow/trace/{request_id}")
+    assert "/mlflow/trace/<request_id>" == converted
+
+    converted = _convert_path_parameter_to_flask_format("/mlflow/{foo}/{bar}/{baz}")
+    assert "/mlflow/<foo>/<bar>/<baz>" == converted
 
 
 def test_all_model_registry_endpoints_available():
@@ -193,7 +217,7 @@ def test_can_parse_post_json_with_content_type_params():
 def test_can_parse_get_json_with_unknown_fields():
     request = mock.MagicMock()
     request.method = "GET"
-    request.query_string = b"name=hello&superDuperUnknown=field"
+    request.args = {"name": "hello", "superDuperUnknown": "field"}
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello"
 
@@ -844,4 +868,73 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
                 "run specified by the run_id"
             ),
         ):
-            _validate_source("/local/path/xyz", run_id)
+            _validate_source_run("/local/path/xyz", run_id)
+
+
+@pytest.mark.parametrize(
+    ("location", "expected_class", "expected_uri"),
+    [
+        ("file:///0/traces/123", LocalArtifactRepository, "file:///0/traces/123"),
+        ("s3://bucket/0/traces/123", S3ArtifactRepository, "s3://bucket/0/traces/123"),
+        (
+            "wasbs://container@account.blob.core.windows.net/bucket/1/traces/123",
+            AzureBlobArtifactRepository,
+            "wasbs://container@account.blob.core.windows.net/bucket/1/traces/123",
+        ),
+        # Proxy URI must be resolved to the actual storage URI
+        (
+            "https://127.0.0.1/api/2.0/mlflow-artifacts/artifacts/2/traces/123",
+            S3ArtifactRepository,
+            "s3://bucket/2/traces/123",
+        ),
+        ("mlflow-artifacts:/1/traces/123", S3ArtifactRepository, "s3://bucket/1/traces/123"),
+    ],
+)
+def test_get_trace_artifact_repo(location, expected_class, expected_uri, monkeypatch):
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+    trace_info = TraceInfoV2("123", "0", 0, 1, "OK", tags={MLFLOW_ARTIFACT_LOCATION: location})
+    repo = _get_trace_artifact_repo(trace_info)
+    assert isinstance(repo, expected_class)
+    assert repo.artifact_uri == expected_uri
+
+
+### Prompt Registry Tests ###
+def test_create_prompt_as_registered_model(mock_get_request_message, mock_model_registry_store):
+    tags = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    mock_get_request_message.return_value = CreateRegisteredModel(
+        name="model_1", tags=[tag.to_proto() for tag in tags]
+    )
+    rm = RegisteredModel("model_1", tags=tags)
+    mock_model_registry_store.create_registered_model.return_value = rm
+    resp = _create_registered_model()
+    _, args = mock_model_registry_store.create_registered_model.call_args
+    assert args["name"] == "model_1"
+    assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
+    assert json.loads(resp.get_data()) == {"registered_model": jsonify(rm)}
+
+
+def test_create_prompt_as_model_version(mock_get_request_message, mock_model_registry_store):
+    tags = [
+        ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+        ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value="some prompt text"),
+    ]
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        tags=[tag.to_proto() for tag in tags],
+        source=None,
+        run_id=None,
+        run_link=None,
+    )
+    mv = ModelVersion(
+        name="prompt_1", version="12", creation_timestamp=123, tags=tags, run_link=None
+    )
+    mock_model_registry_store.create_model_version.return_value = mv
+    resp = _create_model_version()
+    _, args = mock_model_registry_store.create_model_version.call_args
+    assert args["name"] == "model_1"
+    assert args["source"] == ""
+    assert args["run_id"] == ""
+    assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
+    assert args["run_link"] == ""
+    assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}

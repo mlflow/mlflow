@@ -41,13 +41,16 @@ ${codespacesBadge}
 #### Install mlflow from this PR
 
 \`\`\`
+# mlflow
 pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge
+# mlflow-skinny
+pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge#subdirectory=skinny
 \`\`\`
 
-#### Checkout with GitHub CLI
+For Databricks, use the following command:
 
 \`\`\`
-gh pr checkout ${issue_number}
+%sh curl -LsSf https://raw.githubusercontent.com/mlflow/mlflow/HEAD/dev/install-skinny.sh | sh -s pull/${issue_number}/merge
 \`\`\`
 
 </p>
@@ -62,7 +65,7 @@ gh pr checkout ${issue_number}
   }
 
   const dcoCheck = await getDcoCheck(github, owner, repo, sha);
-  if (dcoCheck.conclusion !== "success") {
+  if (dcoCheck && dcoCheck.conclusion !== "success") {
     messages.push(
       "#### &#x26a0; DCO check\n\n" +
         "The DCO check failed. " +

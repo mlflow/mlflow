@@ -5,9 +5,6 @@ on:
   issue_comment:
     types: [created, edited]
 
-permissions:
-  contents: read
-
 defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
@@ -16,7 +13,7 @@ jobs:
   check-comment:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@mlflow-automation') && contains(github.event.comment.body, 'autoformat') }}
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'autoformat') }}
     permissions:
       statuses: write # autoformat.createStatus
       pull-requests: write # autoformat.createReaction on PRs
@@ -30,26 +27,25 @@ jobs:
       base_repo: ${{ fromJSON(steps.judge.outputs.result).base_repo }}
       pull_number: ${{ fromJSON(steps.judge.outputs.result).pull_number }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: |
+            .github
+      - uses: ./.github/actions/validate-author
       - name: judge
         id: judge
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
             const { comment } = context.payload;
-            const isMaintainer = autoformat.isMlflowMaintainer(comment.author_association);
-            if (!isMaintainer) {
-              core.setFailed("Only MLflow maintainers can trigger this workflow.");
-            }
             const shouldAutoformat = autoformat.shouldAutoformat(comment);
             if (shouldAutoformat) {
               await autoformat.createReaction(context, github);
               await autoformat.createStatus(context, github, core);
             }
-            const pullInfo = await autoformat.getPullInformation(context, github);
+            const pullInfo = await autoformat.getPullInfo(context, github);
             return { ...pullInfo, shouldAutoformat };
 
   format:
@@ -62,7 +58,7 @@ jobs:
     outputs:
       reformatted: ${{ steps.patch.outputs.reformatted }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
@@ -77,14 +73,16 @@ jobs:
           protos=$([[ -z $(echo "$changed_files" | grep '^\(mlflow/protos\|tests/protos\)') ]] && echo "false" || echo "true")
           js=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
           r=$([[ -z $(echo "$changed_files" | grep '^mlflow/R/mlflow') ]] && echo "false" || echo "true")
+          db=$([[ -z $(echo "$changed_files" | grep '^mlflow/store/db_migrations/') ]] && echo "false" || echo "true")
           echo "protos=$protos" >> $GITHUB_OUTPUT
           echo "js=$js" >> $GITHUB_OUTPUT
           echo "r=$r" >> $GITHUB_OUTPUT
+          echo "db=$db" >> $GITHUB_OUTPUT
       # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
       - name: Merge base branch
         run: |
-          git config user.name 'mlflow-automation'
-          git config user.email 'mlflow-automation@users.noreply.github.com'
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
           git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
           git fetch base ${{ needs.check-comment.outputs.base_ref }}
           git merge base/${{ needs.check-comment.outputs.base_ref }}
@@ -93,9 +91,9 @@ jobs:
       # pre-commit
       # ************************************************************************
       - run: |
+          dev/install-taplo.sh
+      - run: |
           pip install -r requirements/lint-requirements.txt
-          # TODO: Use a precompiled binary once it's available: https://github.com/tamasfe/taplo/issues/542
-          cargo install taplo-cli@0.9.0 --locked
           pre-commit install
           pre-commit run --all-files --color=always || true
       # ************************************************************************
@@ -110,17 +108,21 @@ jobs:
           sudo chmod -R 777 /tmp/protoc
           echo "/tmp/protoc/bin" >> $GITHUB_PATH
           pip install --upgrade pip
-          pip install .
+          pip install -e .
       - if: steps.diff.outputs.protos == 'true'
         run: |
-          ./dev/generate-protos.sh
+          python ./dev/generate_protos.py
+      # ************************************************************************
+      # DB
+      # ************************************************************************
+      - if: steps.diff.outputs.db == 'true'
+        run: |
+          tests/db/update_schemas.sh
       # ************************************************************************
       # js
       # ************************************************************************
       - if: steps.diff.outputs.js == 'true'
-        uses: actions/setup-node@v3
-        with:
-          node-version: "16"
+        uses: ./.github/actions/setup-node
       - if: steps.diff.outputs.js == 'true'
         working-directory: mlflow/server/js
         run: |
@@ -152,7 +154,7 @@ jobs:
           echo "reformatted=$reformatted" >> $GITHUB_OUTPUT
 
       - name: Upload patch
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ github.run_id }}.diff
           path: ${{ github.run_id }}.diff
@@ -162,33 +164,55 @@ jobs:
     timeout-minutes: 5
     needs: [check-comment, format]
     if: ${{ needs.format.outputs.reformatted == 'true' }}
+    permissions:
+      contents: read
+    outputs:
+      head_sha: ${{ steps.push.outputs.head_sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          # See https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps
+          # for how to rotate the private key
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
           fetch-depth: 300
-          token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          # As reported in https://github.com/orgs/community/discussions/25702, if an action pushes
+          # code using `GITHUB_TOKEN`, that won't trigger new workflow runs on the PR.
+          # A personal access token is required to trigger new workflow runs.
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Merge base branch
+        env:
+          BASE_REPO: ${{ needs.check-comment.outputs.base_repo }}
+          BASE_REF: ${{ needs.check-comment.outputs.base_ref }}
         run: |
-          git config user.name 'mlflow-automation'
-          git config user.email 'mlflow-automation@users.noreply.github.com'
-          git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
-          git fetch base ${{ needs.check-comment.outputs.base_ref }}
-          git merge base/${{ needs.check-comment.outputs.base_ref }}
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          git remote add base https://github.com/${BASE_REPO}.git
+          git fetch base $BASE_REF
+          git merge base/${BASE_REF}
 
       - name: Download patch
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
           name: ${{ github.run_id }}.diff
           path: /tmp
 
       - name: Apply patch and push
+        id: push
+        env:
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          git apply /tmp/${{ github.run_id }}.diff
-          git commit -sam "Autoformat: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          git apply /tmp/${RUN_ID}.diff
+          git commit -sam "Autoformat: https://github.com/${REPOSITORY}/actions/runs/${RUN_ID}"
+          echo "head_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
           git push
 
   update-status:
@@ -197,15 +221,27 @@ jobs:
     needs: [check-comment, format, push]
     if: always() && needs.check-comment.outputs.should_autoformat == 'true'
     permissions:
-      statuses: write # autoformat.updateStatus
+      statuses: write # To update check statuses
+      actions: write # To approve workflow runs
     steps:
-      - uses: actions/checkout@v4
-      - name: Update status
-        uses: actions/github-script@v7
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          sparse-checkout: |
+            .github
+      - name: Update status
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
           script: |
             const needs = ${{ toJson(needs) }};
             const head_sha = '${{ needs.check-comment.outputs.head_sha }}'
             const autoformat = require('./.github/workflows/autoformat.js');
+            // TODO: Remove try-catch block once we are confident that the code works fine.
+            try {
+              const push_head_sha = '${{ needs.push.outputs.head_sha }}';
+              if (push_head_sha) {
+                await autoformat.approveWorkflowRuns(context, github, push_head_sha);
+              }
+            } catch (error) {
+              core.warning(`Failed to approve workflow runs: ${error}`);
+            }
             await autoformat.updateStatus(context, github, head_sha, needs);

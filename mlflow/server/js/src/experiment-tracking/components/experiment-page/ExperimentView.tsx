@@ -1,15 +1,11 @@
-import { LegacySkeleton } from '@databricks/design-system';
+import { Alert, LegacySkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
 import NotFoundPage from '../NotFoundPage';
 import { PermissionDeniedView } from '../PermissionDeniedView';
-import { ExperimentViewDescriptions } from './components/ExperimentViewDescriptions';
-import { ExperimentViewNotes } from './components/ExperimentViewNotes';
-import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
-import { ExperimentViewRuns, ExperimentViewRunsImpl } from './components/runs/ExperimentViewRuns';
-import { useExperimentIds } from './hooks/useExperimentIds';
+import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
 import { useExperiments } from './hooks/useExperiments';
 import { useFetchExperiments } from './hooks/useFetchExperiments';
 import { useElementHeight } from '../../../common/utils/useElementHeight';
@@ -18,39 +14,46 @@ import Utils from '../../../common/utils/Utils';
 import { ExperimentPageUIStateContextProvider } from './contexts/ExperimentPageUIStateContext';
 import { first } from 'lodash';
 import {
-  shouldEnableExperimentPageCompactHeader,
-  shouldEnableShareExperimentViewByTags,
+  isExperimentEvalResultsMonitoringUIEnabled,
+  isExperimentLoggedModelsUIEnabled,
+  shouldEnableTracingUI,
+  shouldUsePredefinedErrorsInExperimentTracking,
 } from '../../../common/utils/FeatureUtils';
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
-import { SearchExperimentRunsFacetsState } from './models/SearchExperimentRunsFacetsState';
 import { usePersistExperimentPageViewState } from './hooks/usePersistExperimentPageViewState';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { ThunkDispatch } from '../../../redux-types';
 import { useExperimentRuns } from './hooks/useExperimentRuns';
 import { ExperimentRunsSelectorResult } from './utils/experimentRuns.selector';
 import { useSharedExperimentViewState } from './hooks/useSharedExperimentViewState';
 import { useInitializeUIState } from './hooks/useInitializeUIState';
 import { ExperimentViewDescriptionNotes } from './components/ExperimentViewDescriptionNotes';
-import { ExperimentViewHeaderV2 } from './components/header/ExperimentViewHeaderV2';
+import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
+import invariant from 'invariant';
+import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
+import { ExperimentViewTraces } from './components/ExperimentViewTraces';
+import { FormattedMessage } from 'react-intl';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
+import { NotFoundError, PermissionError } from '@databricks/web-shared/errors';
+import { ExperimentViewNotFound } from './components/ExperimentViewNotFound';
+import { ExperimentViewNoPermissionsError } from './components/ExperimentViewNoPermissionsError';
+import { ErrorViewV2 } from '../../../common/components/ErrorViewV2';
 
+// END-EDGE
 export const ExperimentView = () => {
-  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
   const dispatch = useDispatch<ThunkDispatch>();
+  const { theme } = useDesignSystemTheme();
 
-  const experimentIdsV1 = useExperimentIds();
-  const [searchFacets, experimentIdsV2] = useExperimentPageSearchFacets();
-
-  const experimentIds = usingNewViewStateModel ? experimentIdsV2 : experimentIdsV1;
+  const [searchFacets, experimentIds, isPreview] = useExperimentPageSearchFacets();
+  const [viewMode] = useExperimentPageViewMode();
 
   const experiments = useExperiments(experimentIds);
 
   const [firstExperiment] = experiments;
 
-  const { fetchExperiments, isLoadingExperiment, requestError } = useFetchExperiments();
+  const { fetchExperiments, isLoadingExperiment, requestError: experimentRequestError } = useFetchExperiments();
 
   const { elementHeight: hideableElementHeight, observeHeight } = useElementHeight();
-
-  const [isMaximizedV1, setIsMaximizedV1] = useState(false);
 
   const [editing, setEditing] = useState(false);
 
@@ -59,12 +62,10 @@ export const ExperimentView = () => {
   // Create new version of the UI state for the experiment page on this level
   const [uiState, setUIState, seedInitialUIState] = useInitializeUIState(experimentIds);
 
-  const { isViewStateShared } = useSharedExperimentViewState(setUIState, first(experiments), !usingNewViewStateModel);
+  const { isViewStateShared } = useSharedExperimentViewState(setUIState, first(experiments));
 
   // Get the maximized state from the new view state model if flag is set
-  const isMaximized = usingNewViewStateModel ? uiState.viewMaximized : isMaximizedV1;
-  // In the new version, toggle button manipulates the UI state directly so noop function is provided
-  const setIsMaximized = usingNewViewStateModel ? () => {} : setIsMaximizedV1;
+  const isMaximized = uiState.viewMaximized;
 
   const {
     isLoadingRuns,
@@ -73,11 +74,19 @@ export const ExperimentView = () => {
     moreRunsAvailable,
     requestError: runsRequestError,
     refreshRuns,
-  } = useExperimentRuns(uiState, searchFacets, experimentIds, !usingNewViewStateModel);
+  } = useExperimentRuns(uiState, searchFacets, experimentIds);
 
   useEffect(() => {
+    // If the new tabbed UI is enabled, fetch the experiments only if they are not already loaded.
+    // Helps with the smooth page transition.
+    if (
+      (isExperimentLoggedModelsUIEnabled() || isExperimentEvalResultsMonitoringUIEnabled()) &&
+      experimentIds.every((id) => experiments.find((exp) => exp.experimentId === id))
+    ) {
+      return;
+    }
     fetchExperiments(experimentIds);
-  }, [fetchExperiments, experimentIds]);
+  }, [fetchExperiments, experimentIds, experiments]);
 
   useEffect(() => {
     // Seed the initial UI state when the experiments and runs are loaded.
@@ -88,77 +97,97 @@ export const ExperimentView = () => {
   useEffect(() => {
     const requestAction = searchDatasetsApi(experimentIds);
     dispatch(requestAction).catch((e) => {
-      Utils.logErrorAndNotifyUser(e);
+      // In V2 error handling, do not display datasets retrieval error
+      if (!shouldUsePredefinedErrorsInExperimentTracking()) {
+        Utils.logErrorAndNotifyUser(e);
+      }
     });
   }, [dispatch, experimentIds]);
 
   const isComparingExperiments = experimentIds.length > 1;
 
-  usePersistExperimentPageViewState(uiState, searchFacets, experimentIds, isViewStateShared);
+  usePersistExperimentPageViewState(uiState, searchFacets, experimentIds, isViewStateShared || isPreview);
 
   const isViewInitialized = Boolean(!isLoadingExperiment && experiments[0] && runsData && searchFacets);
 
-  if (usingNewViewStateModel && !isViewInitialized) {
+  if (
+    // Scenario for 404: either request error is resolved to NotFoundError or the code of ErrorWrapper is "RESOURCE_DOES_NOT_EXIST"
+    experimentRequestError instanceof NotFoundError ||
+    (experimentRequestError instanceof ErrorWrapper &&
+      experimentRequestError.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST)
+  ) {
+    return <ExperimentViewNotFound />;
+  }
+
+  if (
+    // Scenario for 401: either request error is resolved to PermissionError or the code of ErrorWrapper is "PERMISSION_DENIED"
+    experimentRequestError instanceof PermissionError ||
+    (experimentRequestError instanceof ErrorWrapper &&
+      experimentRequestError.getErrorCode() === ErrorCodes.PERMISSION_DENIED)
+  ) {
+    return <ExperimentViewNoPermissionsError />;
+  }
+
+  if (experimentRequestError instanceof Error) {
+    return <ErrorViewV2 css={{ height: '100%' }} error={experimentRequestError} />;
+  }
+
+  if (!isViewInitialized) {
     // In the new view state model, wait for search facets to initialize
     return <LegacySkeleton />;
   }
 
-  if (requestError && requestError.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
-    return <PermissionDeniedView errorMessage={requestError.getMessageField()} />;
-  }
-
-  if (requestError && requestError.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
-    return <NotFoundPage />;
-  }
+  invariant(searchFacets, 'searchFacets should be initialized at this point');
 
   const isLoading = isLoadingExperiment || !experiments[0];
 
-  const renderExperimentHeader = () =>
-    shouldEnableExperimentPageCompactHeader() ? (
-      <>
-        <ExperimentViewHeaderV2
-          experiment={firstExperiment}
-          searchFacetsState={searchFacets || undefined}
-          uiState={uiState}
-          showAddDescriptionButton={showAddDescriptionButton}
-          setEditing={setEditing}
-        />
-        <div
-          style={{
-            maxHeight: isMaximized ? 0 : hideableElementHeight,
-          }}
-          css={{ overflowY: 'hidden', flexShrink: 0, transition: 'max-height .12s' }}
-        >
-          <div ref={observeHeight}>
-            <ExperimentViewDescriptionNotes
-              experiment={firstExperiment}
-              setShowAddDescriptionButton={setShowAddDescriptionButton}
-              editing={editing}
-              setEditing={setEditing}
-            />
-          </div>
+  const renderExperimentHeader = () => (
+    <>
+      <ExperimentViewHeader
+        experiment={firstExperiment}
+        searchFacetsState={searchFacets || undefined}
+        uiState={uiState}
+        showAddDescriptionButton={showAddDescriptionButton}
+        setEditing={setEditing}
+      />
+      <div
+        style={{
+          maxHeight: isMaximized ? 0 : hideableElementHeight,
+        }}
+        css={{ overflowY: 'hidden', flexShrink: 0, transition: 'max-height .12s' }}
+      >
+        <div ref={observeHeight}>
+          <ExperimentViewDescriptionNotes
+            experiment={firstExperiment}
+            setShowAddDescriptionButton={setShowAddDescriptionButton}
+            editing={editing}
+            setEditing={setEditing}
+          />
         </div>
-      </>
-    ) : (
-      <>
-        <ExperimentViewHeader
-          experiment={firstExperiment}
-          searchFacetsState={searchFacets || undefined}
-          uiState={uiState}
-        />
-        <div
-          style={{
-            maxHeight: isMaximized ? 0 : hideableElementHeight,
-          }}
-          css={{ overflowY: 'hidden', flexShrink: 0, transition: 'max-height .12s' }}
-        >
-          <div ref={observeHeight}>
-            <ExperimentViewDescriptions experiment={firstExperiment} />
-            <ExperimentViewNotes experiment={firstExperiment} />
-          </div>
-        </div>
-      </>
+      </div>
+    </>
+  );
+
+  const getRenderedView = () => {
+    if (shouldEnableTracingUI() && viewMode === 'TRACES') {
+      return <ExperimentViewTraces experimentIds={experimentIds} />;
+    }
+
+    return (
+      <ExperimentViewRuns
+        isLoading={false}
+        experiments={experiments}
+        isLoadingRuns={isLoadingRuns}
+        runsData={runsData as ExperimentRunsSelectorResult}
+        searchFacetsState={searchFacets}
+        loadMoreRuns={loadMoreRuns}
+        moreRunsAvailable={moreRunsAvailable}
+        requestError={runsRequestError}
+        refreshRuns={refreshRuns}
+        uiState={uiState}
+      />
     );
+  };
 
   return (
     <ExperimentPageUIStateContextProvider setUIState={setUIState}>
@@ -174,31 +203,7 @@ export const ExperimentView = () => {
             )}
           </>
         )}
-
-        {!usingNewViewStateModel ? (
-          <ExperimentViewRuns
-            experiments={experiments}
-            isLoading={isLoading}
-            // We don't keep the view state on this level to maximize <ExperimentViewRuns>'s performance
-            onMaximizedChange={setIsMaximized}
-            searchFacetsState={searchFacets as SearchExperimentRunsFacetsState}
-            uiState={uiState}
-          />
-        ) : (
-          <ExperimentViewRunsImpl
-            isLoading={false}
-            experiments={experiments}
-            isLoadingRuns={isLoadingRuns}
-            runsData={runsData as ExperimentRunsSelectorResult}
-            searchFacetsState={searchFacets as SearchExperimentRunsFacetsState}
-            loadMoreRuns={loadMoreRuns}
-            moreRunsAvailable={moreRunsAvailable}
-            isPristine={() => false}
-            requestError={runsRequestError}
-            refreshRuns={refreshRuns}
-            uiState={uiState}
-          />
-        )}
+        {getRenderedView()}
       </div>
     </ExperimentPageUIStateContextProvider>
   );
@@ -207,5 +212,3 @@ export const ExperimentView = () => {
 const styles = {
   experimentViewWrapper: { height: '100%', display: 'flex', flexDirection: 'column' as const },
 };
-
-export default ExperimentView;

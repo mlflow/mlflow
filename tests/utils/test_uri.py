@@ -24,6 +24,7 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
     resolve_uri_if_local,
+    strip_scheme,
     validate_path_is_safe,
 )
 
@@ -724,6 +725,9 @@ def test_resolve_uri_if_local_on_windows(input_uri, expected_uri):
         "//dbfs////my_path",
         "///Volumes/",
         "dbfs://my///path",
+        "/volumes/path/to/file",
+        "/volumes/",
+        "DBFS:/my/path",
     ],
 )
 def test_correctly_detect_fuse_and_uc_uris(uri):
@@ -751,6 +755,7 @@ def test_negative_detection(uri):
         "path",
         "path/",
         "path/to/file",
+        "dog%step%100%timestamp%100",
     ],
 )
 def test_validate_path_is_safe_good(path):
@@ -791,6 +796,11 @@ def test_validate_path_is_safe_windows_good(path):
         # Encoded paths with '..'
         "%2E%2E%2Fpath",
         "%2E%2E%2F%2E%2E%2Fpath",
+        # Some URIs are passed to urllib.parse.urlparse after validation,
+        # which strips out some whitespace characters. If they are further
+        # decoded, this could result in a path that is not safe.
+        # In this example, %2%0952e -> %2\t52e -> %252e -> %2e -> .
+        "%2%0952e%2%0952e/%2%0A52e%2%0A52e/path",
     ],
 )
 def test_validate_path_is_safe_bad(path):
@@ -892,3 +902,15 @@ def test_validate_path_is_safe_bad(path):
 def test_validate_path_is_safe_windows_bad(path):
     with pytest.raises(MlflowException, match="Invalid path"):
         validate_path_is_safe(path)
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("file:///path", "/path"),
+        ("file://host/path", "//host/path"),
+        ("file://host", "//host"),
+    ],
+)
+def test_strip_scheme(uri: str, expected: str):
+    assert strip_scheme(uri) == expected

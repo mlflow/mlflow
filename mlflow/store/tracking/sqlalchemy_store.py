@@ -5,10 +5,12 @@ import random
 import threading
 import time
 import uuid
+from collections import defaultdict
 from functools import reduce
-from typing import List, Optional
+from typing import Any, Optional
 
 import sqlalchemy
+import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, func, sql, text
 from sqlalchemy.future import select
@@ -19,14 +21,23 @@ from mlflow.entities import (
     Experiment,
     Run,
     RunInputs,
+    RunOutputs,
     RunStatus,
     RunTag,
     SourceType,
+    TraceInfoV2,
     ViewType,
     _DatasetSummary,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities.logged_model import LoggedModel
+from mlflow.entities.logged_model_input import LoggedModelInput
+from mlflow.entities.logged_model_output import LoggedModelOutput
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
+from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.metric import Metric, MetricWithRunId
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -37,7 +48,12 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
+from mlflow.store.tracking import (
+    SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_MAX_RESULTS_THRESHOLD,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.dbmodels.models import (
     SqlDataset,
@@ -46,20 +62,35 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInput,
     SqlInputTag,
     SqlLatestMetric,
+    SqlLoggedModel,
+    SqlLoggedModelMetric,
+    SqlLoggedModelParam,
+    SqlLoggedModelTag,
     SqlMetric,
     SqlParam,
     SqlRun,
     SqlTag,
+    SqlTraceInfo,
+    SqlTraceRequestMetadata,
+    SqlTraceTag,
 )
+from mlflow.tracing.utils import generate_request_id_v2
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_LOGGED_MODELS,
     MLFLOW_RUN_NAME,
     _get_run_name_from_tags,
 )
 from mlflow.utils.name_utils import _generate_random_name
-from mlflow.utils.search_utils import SearchExperimentsUtils, SearchUtils
+from mlflow.utils.search_utils import (
+    SearchExperimentsUtils,
+    SearchLoggedModelsPaginationToken,
+    SearchTraceUtils,
+    SearchUtils,
+)
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
@@ -72,13 +103,16 @@ from mlflow.utils.validation import (
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_dataset_inputs,
+    _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_experiment_tag,
+    _validate_logged_model_name,
     _validate_metric,
     _validate_param,
     _validate_param_keys_unique,
     _validate_run_id,
     _validate_tag,
+    _validate_trace_tag,
 )
 
 _logger = logging.getLogger(__name__)
@@ -116,6 +150,8 @@ class SqlAlchemyStore(AbstractStore):
     """
 
     ARTIFACTS_FOLDER_NAME = "artifacts"
+    MODELS_FOLDER_NAME = "models"
+    TRACE_FOLDER_NAME = "traces"
     DEFAULT_EXPERIMENT_ID = "0"
     _db_uri_sql_alchemy_engine_map = {}
     _db_uri_sql_alchemy_engine_map_lock = threading.Lock()
@@ -146,9 +182,9 @@ class SqlAlchemyStore(AbstractStore):
                 # inefficiency from multiple threads waiting for the lock to check for engine
                 # existence if it has already been created.
                 if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
-                    SqlAlchemyStore._db_uri_sql_alchemy_engine_map[
-                        db_uri
-                    ] = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+                    SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri] = (
+                        mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+                    )
         self.engine = SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri]
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
@@ -249,6 +285,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_experiment_name(name)
         if artifact_location:
             artifact_location = resolve_uri_if_local(artifact_location)
+            _validate_experiment_artifact_location_length(artifact_location)
         with self.ManagedSessionMaker() as session:
             try:
                 creation_time = get_current_time_millis()
@@ -292,18 +329,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return next_token
 
-        if not isinstance(max_results, int) or max_results < 1:
-            raise MlflowException(
-                "Invalid value for max_results. It must be a positive integer,"
-                f" but got {max_results}",
-                INVALID_PARAMETER_VALUE,
-            )
-        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
-            raise MlflowException(
-                f"Invalid value for max_results. It must be at most {SEARCH_MAX_RESULTS_THRESHOLD},"
-                f" but got {max_results}",
-                INVALID_PARAMETER_VALUE,
-            )
+        self._validate_max_results_param(max_results)
         with self.ManagedSessionMaker() as session:
             parsed_filters = SearchExperimentsUtils.parse_search_filter(filter_string)
             attribute_filters, non_attribute_filters = _get_search_experiments_filter_clauses(
@@ -317,7 +343,10 @@ class SqlAlchemyStore(AbstractStore):
             stmt = (
                 reduce(lambda s, f: s.join(f), non_attribute_filters, select(SqlExperiment))
                 .options(*self._get_eager_experiment_query_options())
-                .filter(*attribute_filters, SqlExperiment.lifecycle_stage.in_(lifecycle_stags))
+                .filter(
+                    *attribute_filters,
+                    SqlExperiment.lifecycle_stage.in_(lifecycle_stags),
+                )
                 .order_by(*order_by_clauses)
                 .offset(offset)
                 .limit(max_results + 1)
@@ -341,7 +370,7 @@ class SqlAlchemyStore(AbstractStore):
         )
         return PagedList(experiments, next_page_token)
 
-    def _get_experiment(self, session, experiment_id, view_type, eager=False):
+    def _get_experiment(self, session, experiment_id, view_type, eager=False):  # noqa: D417
         """
         Args:
             eager: If ``True``, eagerly loads the experiments's tags. If ``False``, these tags
@@ -399,7 +428,8 @@ class SqlAlchemyStore(AbstractStore):
                 session.query(SqlExperiment)
                 .options(*self._get_eager_experiment_query_options())
                 .filter(
-                    SqlExperiment.name == experiment_name, SqlExperiment.lifecycle_stage.in_(stages)
+                    SqlExperiment.name == experiment_name,
+                    SqlExperiment.lifecycle_stage.in_(stages),
                 )
                 .one_or_none()
             )
@@ -422,7 +452,9 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(
-                experiment_id=experiment_id, session=session, view_type=ViewType.DELETED_ONLY
+                experiment_id=experiment_id,
+                session=session,
+                view_type=ViewType.DELETED_ONLY,
             )
             session.delete(experiment)
 
@@ -470,9 +502,11 @@ class SqlAlchemyStore(AbstractStore):
             # containing upper case letters when parsing "IN" clause inside query filter.
             run_id = uuid.uuid4().hex
             artifact_location = append_to_uri_path(
-                experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
+                experiment.artifact_location,
+                run_id,
+                SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
             )
-            tags = tags or []
+            tags = tags.copy() if tags else []
             run_name_tag = _get_run_name_from_tags(tags)
             if run_name and run_name_tag and (run_name != run_name_tag):
                 raise MlflowException(
@@ -503,9 +537,12 @@ class SqlAlchemyStore(AbstractStore):
             run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
             session.add(run)
 
-            return run.to_mlflow_entity()
+            run = run.to_mlflow_entity()
+            inputs_list = self._get_run_inputs(session, [run_id])
+            dataset_inputs = inputs_list[0] if inputs_list else []
+            return Run(run.info, run.data, RunInputs(dataset_inputs=dataset_inputs))
 
-    def _get_run(self, session, run_uuid, eager=False):
+    def _get_run(self, session, run_uuid, eager=False):  # noqa: D417
         """
         Args:
             eager: If ``True``, eagerly loads the run's summary metrics (``latest_metrics``),
@@ -529,39 +566,32 @@ class SqlAlchemyStore(AbstractStore):
         return runs[0]
 
     def _get_run_inputs(self, session, run_uuids):
-        datasets = (
+        datasets_with_tags = (
             session.query(
-                SqlInput.input_uuid, SqlInput.destination_id.label("run_uuid"), SqlDataset
+                SqlInput.input_uuid,
+                SqlInput.destination_id.label("run_uuid"),
+                SqlDataset,
+                SqlInputTag,
             )
-            .select_from(SqlDataset)
-            .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
+            .select_from(SqlInput)
+            .join(SqlDataset, SqlInput.source_id == SqlDataset.dataset_uuid)
+            .outerjoin(SqlInputTag, SqlInputTag.input_uuid == SqlInput.input_uuid)
             .filter(SqlInput.destination_type == "RUN", SqlInput.destination_id.in_(run_uuids))
             .order_by("run_uuid")
         ).all()
-        input_uuids = [dataset.input_uuid for dataset in datasets]
-        input_tags = (
-            session.query(
-                SqlInput.input_uuid, SqlInput.destination_id.label("run_uuid"), SqlInputTag
-            )
-            .join(SqlInput, (SqlInput.input_uuid == SqlInputTag.input_uuid))
-            .filter(SqlInput.input_uuid.in_(input_uuids))
-            .order_by("run_uuid")
-        ).all()
 
-        all_dataset_inputs = []
-        for run_uuid in run_uuids:
-            dataset_inputs = []
-            for input_uuid, dataset_run_uuid, dataset_sql in datasets:
-                if run_uuid == dataset_run_uuid:
-                    dataset_entity = dataset_sql.to_mlflow_entity()
-                    tags = []
-                    for tag_input_uuid, tag_run_uuid, tag_sql in input_tags:
-                        if input_uuid == tag_input_uuid and run_uuid == tag_run_uuid:
-                            tags.append(tag_sql.to_mlflow_entity())
-                    dataset_input_entity = DatasetInput(dataset=dataset_entity, tags=tags)
-                    dataset_inputs.append(dataset_input_entity)
-            all_dataset_inputs.append(dataset_inputs)
-        return all_dataset_inputs
+        dataset_inputs_per_run = defaultdict(dict)
+        for input_uuid, run_uuid, dataset_sql, tag_sql in datasets_with_tags:
+            dataset_inputs = dataset_inputs_per_run[run_uuid]
+            dataset_uuid = dataset_sql.dataset_uuid
+            dataset_input = dataset_inputs.get(dataset_uuid)
+            if dataset_input is None:
+                dataset_entity = dataset_sql.to_mlflow_entity()
+                dataset_input = DatasetInput(dataset=dataset_entity, tags=[])
+                dataset_inputs[dataset_uuid] = dataset_input
+            if tag_sql is not None:
+                dataset_input.tags.append(tag_sql.to_mlflow_entity())
+        return [list(dataset_inputs_per_run[run_uuid].values()) for run_uuid in run_uuids]
 
     @staticmethod
     def _get_eager_run_query_options():
@@ -639,7 +669,14 @@ class SqlAlchemyStore(AbstractStore):
             mlflow_run = run.to_mlflow_entity()
             # Get the run inputs and add to the run
             inputs = self._get_run_inputs(run_uuids=[run_id], session=session)[0]
-            return Run(mlflow_run.info, mlflow_run.data, RunInputs(dataset_inputs=inputs))
+            model_inputs = self._get_model_inputs(run_id, session)
+            model_outputs = self._get_model_outputs(run_id, session)
+            return Run(
+                mlflow_run.info,
+                mlflow_run.data,
+                RunInputs(dataset_inputs=inputs, model_inputs=model_inputs),
+                RunOutputs(model_outputs),
+            )
 
     def restore_run(self, run_id):
         with self.ManagedSessionMaker() as session:
@@ -684,33 +721,44 @@ class SqlAlchemyStore(AbstractStore):
             )
             return [run.run_uuid for run in runs]
 
-    def _get_metric_value_details(self, metric):
-        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
-        is_nan = math.isnan(metric.value)
-        if is_nan:
-            value = 0
-        elif math.isinf(metric.value):
-            #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float value
-            value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
-        else:
-            value = metric.value
-        return metric, value, is_nan
-
     def log_metric(self, run_id, metric):
         # simply call _log_metrics and let it handle the rest
         self._log_metrics(run_id, [metric])
+        self._log_model_metrics(run_id, [metric])
+
+    def sanitize_metric_value(self, metric_value: float) -> tuple[bool, float]:
+        """
+        Returns a tuple of two values:
+            - A boolean indicating whether the metric is NaN.
+            - The metric value, which is set to 0 if the metric is NaN.
+        """
+        is_nan = math.isnan(metric_value)
+        if is_nan:
+            value = 0
+        elif math.isinf(metric_value):
+            #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float
+            # value
+            value = 1.7976931348623157e308 if metric_value > 0 else -1.7976931348623157e308
+        else:
+            value = metric_value
+        return is_nan, value
 
     def _log_metrics(self, run_id, metrics):
-        if not metrics:
-            return
-
         # Duplicate metric values are eliminated here to maintain
         # the same behavior in log_metric
         metric_instances = []
         seen = set()
-        for metric in metrics:
-            metric, value, is_nan = self._get_metric_value_details(metric)
+        is_single_metric = len(metrics) == 1
+        for idx, metric in enumerate(metrics):
+            _validate_metric(
+                metric.key,
+                metric.value,
+                metric.timestamp,
+                metric.step,
+                path="" if is_single_metric else f"metrics[{idx}]",
+            )
             if metric not in seen:
+                is_nan, value = self.sanitize_metric_value(metric.value)
                 metric_instances.append(
                     SqlMetric(
                         run_uuid=run_id,
@@ -768,6 +816,77 @@ class SqlAlchemyStore(AbstractStore):
                     # if there exist metrics that were tried to be logged & rolled back even
                     # though they were not violating the PK, log them
                     _insert_metrics(non_existing_metrics)
+
+    def _log_model_metrics(
+        self,
+        run_id: str,
+        metrics: list[Metric],
+        dataset_uuid: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+    ) -> None:
+        if not metrics:
+            return
+
+        metric_instances: list[SqlLoggedModelMetric] = []
+        is_single_metric = len(metrics) == 1
+        seen: set[Metric] = set()
+        for idx, metric in enumerate(metrics):
+            if metric.model_id is None:
+                continue
+
+            if metric in seen:
+                continue
+            seen.add(metric)
+
+            _validate_metric(
+                metric.key,
+                metric.value,
+                metric.timestamp,
+                metric.step,
+                path="" if is_single_metric else f"metrics[{idx}]",
+            )
+            is_nan, value = self.sanitize_metric_value(metric.value)
+            metric_instances.append(
+                SqlLoggedModelMetric(
+                    model_id=metric.model_id,
+                    metric_name=metric.key,
+                    metric_timestamp_ms=metric.timestamp,
+                    metric_step=metric.step,
+                    metric_value=value,
+                    experiment_id=experiment_id or _get_experiment_id(),
+                    run_id=run_id,
+                    dataset_uuid=dataset_uuid,
+                    dataset_name=metric.dataset_name,
+                    dataset_digest=metric.dataset_digest,
+                )
+            )
+
+        with self.ManagedSessionMaker() as session:
+            try:
+                session.add_all(metric_instances)
+                session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                # Primary key can be violated if it is tried to log a metric with same value,
+                # timestamp, step, and key within the same run.
+                session.rollback()
+                metric_keys = [m.metric_name for m in metric_instances]
+                metric_key_batches = (
+                    metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
+                )
+                for batch in metric_key_batches:
+                    existing_metrics = (
+                        session.query(SqlLoggedModelMetric)
+                        .filter(
+                            SqlLoggedModelMetric.run_id == run_id,
+                            SqlLoggedModelMetric.metric_name.in_(batch),
+                        )
+                        .all()
+                    )
+                    existing_metrics = {m.to_mlflow_entity() for m in existing_metrics}
+                    non_existing_metrics = [
+                        m for m in metric_instances if m.to_mlflow_entity() not in existing_metrics
+                    ]
+                    session.add_all(non_existing_metrics)
 
     def _update_latest_metrics_if_necessary(self, logged_metrics, session):
         def _compare_metrics(metric_a, metric_b):
@@ -1014,7 +1133,10 @@ class SqlAlchemyStore(AbstractStore):
             # of the final result with the context set to None.
             summaries = (
                 session.query(
-                    SqlDataset.experiment_id, SqlDataset.name, SqlDataset.digest, SqlInputTag.value
+                    SqlDataset.experiment_id,
+                    SqlDataset.name,
+                    SqlDataset.digest,
+                    SqlInputTag.value,
                 )
                 .select_from(SqlDataset)
                 .distinct()
@@ -1135,6 +1257,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_experiment_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
+            tag = _validate_tag(tag.key, tag.value)
             experiment = self._get_experiment(
                 session, experiment_id, ViewType.ALL
             ).to_mlflow_entity()
@@ -1169,11 +1292,12 @@ class SqlAlchemyStore(AbstractStore):
         Args:
             run_id: String ID of the run
             tags: List of RunTag instances to log
+            path: current json path for error messages
         """
         if not tags:
             return
 
-        tags = [_validate_tag(t.key, t.value) for t in tags]
+        tags = [_validate_tag(t.key, t.value, path=f"tags[{idx}]") for (idx, t) in enumerate(tags)]
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
@@ -1183,7 +1307,10 @@ class SqlAlchemyStore(AbstractStore):
                 try:
                     current_tags = (
                         session.query(SqlTag)
-                        .filter(SqlTag.run_uuid == run_id, SqlTag.key.in_([t.key for t in tags]))
+                        .filter(
+                            SqlTag.run_uuid == run_id,
+                            SqlTag.key.in_([t.key for t in tags]),
+                        )
                         .all()
                     )
                     current_tags = {t.key: t for t in current_tags}
@@ -1264,7 +1391,13 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(filtered_tags[0])
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
     ):
         def compute_next_token(current_size):
             next_token = None
@@ -1274,12 +1407,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return next_token
 
-        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
-            raise MlflowException(
-                "Invalid value for request parameter max_results. It must be at "
-                f"most {SEARCH_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
-                INVALID_PARAMETER_VALUE,
-            )
+        self._validate_max_results_param(max_results, allow_null=True)
 
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
 
@@ -1301,9 +1429,10 @@ class SqlAlchemyStore(AbstractStore):
                 stmt = stmt.join(non_attr_filter)
             for idx, dataset_filter in enumerate(dataset_filters):
                 # need to reference the anon table in the join condition
-                anon_table_name = f"anon_{idx+1}"
+                anon_table_name = f"anon_{idx + 1}"
                 stmt = stmt.join(
-                    dataset_filter, text(f"runs.run_uuid = {anon_table_name}.destination_id")
+                    dataset_filter,
+                    text(f"runs.run_uuid = {anon_table_name}.destination_id"),
                 )
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
@@ -1353,6 +1482,7 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 self._log_params(run_id, params)
                 self._log_metrics(run_id, metrics)
+                self._log_model_metrics(run_id, metrics)
                 self._set_tags(run_id, tags)
             except MlflowException as e:
                 raise e
@@ -1366,7 +1496,7 @@ class SqlAlchemyStore(AbstractStore):
             raise TypeError(
                 f"Argument 'mlflow_model' should be mlflow.models.Model, got '{type(mlflow_model)}'"
             )
-        model_dict = mlflow_model.to_dict()
+        model_dict = mlflow_model.get_tags_dict()
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
@@ -1378,13 +1508,20 @@ class SqlAlchemyStore(AbstractStore):
             _validate_tag(MLFLOW_LOGGED_MODELS, value)
             session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
 
-    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
+    ):
         """
         Log inputs, such as datasets, to the specified run.
 
         Args:
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                as inputs to the run.
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log
                 as inputs to the run.
 
         Returns:
@@ -1401,21 +1538,25 @@ class SqlAlchemyStore(AbstractStore):
             experiment_id = run.experiment_id
             self._check_run_is_active(run)
             try:
-                self._log_inputs_impl(experiment_id, run_id, datasets)
+                self._log_inputs_impl(experiment_id, run_id, datasets, models)
             except MlflowException as e:
                 raise e
             except Exception as e:
                 raise MlflowException(e, INTERNAL_ERROR)
 
     def _log_inputs_impl(
-        self, experiment_id, run_id, dataset_inputs: Optional[List[DatasetInput]] = None
+        self,
+        experiment_id,
+        run_id,
+        dataset_inputs: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
     ):
-        if dataset_inputs is None or len(dataset_inputs) == 0:
-            return
+        dataset_inputs = dataset_inputs or []
         for dataset_input in dataset_inputs:
             if dataset_input.dataset is None:
                 raise MlflowException(
-                    "Dataset input must have a dataset associated with it.", INTERNAL_ERROR
+                    "Dataset input must have a dataset associated with it.",
+                    INTERNAL_ERROR,
                 )
 
         # dedup dataset_inputs list if two dataset inputs have the same name and digest
@@ -1444,20 +1585,23 @@ class SqlAlchemyStore(AbstractStore):
             )
             dataset_uuids = {}
             for existing_dataset in existing_datasets:
-                dataset_uuids[
-                    (existing_dataset.name, existing_dataset.digest)
-                ] = existing_dataset.dataset_uuid
+                dataset_uuids[(existing_dataset.name, existing_dataset.digest)] = (
+                    existing_dataset.dataset_uuid
+                )
 
             # collect all objects to write to DB in a single list
             objs_to_write = []
 
             # add datasets to objs_to_write
             for dataset_input in dataset_inputs:
-                if (dataset_input.dataset.name, dataset_input.dataset.digest) not in dataset_uuids:
+                if (
+                    dataset_input.dataset.name,
+                    dataset_input.dataset.digest,
+                ) not in dataset_uuids:
                     new_dataset_uuid = uuid.uuid4().hex
-                    dataset_uuids[
-                        (dataset_input.dataset.name, dataset_input.dataset.digest)
-                    ] = new_dataset_uuid
+                    dataset_uuids[(dataset_input.dataset.name, dataset_input.dataset.digest)] = (
+                        new_dataset_uuid
+                    )
                     objs_to_write.append(
                         SqlDataset(
                             dataset_uuid=new_dataset_uuid,
@@ -1483,9 +1627,9 @@ class SqlAlchemyStore(AbstractStore):
             )
             input_uuids = {}
             for existing_input in existing_inputs:
-                input_uuids[
-                    (existing_input.source_id, existing_input.destination_id)
-                ] = existing_input.input_uuid
+                input_uuids[(existing_input.source_id, existing_input.destination_id)] = (
+                    existing_input.input_uuid
+                )
 
             # add input edges to objs_to_write
             for dataset_input in dataset_inputs:
@@ -1494,9 +1638,9 @@ class SqlAlchemyStore(AbstractStore):
                 ]
                 if (dataset_uuid, run_id) not in input_uuids:
                     new_input_uuid = uuid.uuid4().hex
-                    input_uuids[
-                        (dataset_input.dataset.name, dataset_input.dataset.digest)
-                    ] = new_input_uuid
+                    input_uuids[(dataset_input.dataset.name, dataset_input.dataset.digest)] = (
+                        new_input_uuid
+                    )
                     objs_to_write.append(
                         SqlInput(
                             input_uuid=new_input_uuid,
@@ -1516,26 +1660,685 @@ class SqlAlchemyStore(AbstractStore):
                             )
                         )
 
+            if models:
+                for model in models:
+                    session.merge(
+                        SqlInput(
+                            input_uuid=uuid.uuid4().hex,
+                            source_type="RUN_INPUT",
+                            source_id=run_id,
+                            destination_type="MODEL_INPUT",
+                            destination_id=model.model_id,
+                        )
+                    )
+
             session.add_all(objs_to_write)
 
-
-def _get_attributes_filtering_clauses(parsed, dialect):
-    clauses = []
-    for sql_statement in parsed:
-        key_type = sql_statement.get("type")
-        key_name = sql_statement.get("key")
-        value = sql_statement.get("value")
-        comparator = sql_statement.get("comparator").upper()
-        if SearchUtils.is_string_attribute(
-            key_type, key_name, comparator
-        ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
-            # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
-            # by the call to parse_search_filter
-            attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
-            clauses.append(
-                SearchUtils.get_sql_comparison_func(comparator, dialect)(attribute, value)
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+            session.add_all(
+                SqlInput(
+                    input_uuid=uuid.uuid4().hex,
+                    source_type="RUN_OUTPUT",
+                    source_id=run_id,
+                    destination_type="MODEL_OUTPUT",
+                    destination_id=model.model_id,
+                    step=model.step,
+                )
+                for model in models
             )
-    return clauses
+
+    def _get_model_inputs(
+        self,
+        run_id: str,
+        session: Optional[sqlalchemy.orm.Session] = None,
+    ) -> list[LoggedModelInput]:
+        return [
+            LoggedModelInput(model_id=input.destination_id)
+            for input in (
+                session.query(SqlInput)
+                .filter(
+                    SqlInput.source_type == "RUN_INPUT",
+                    SqlInput.source_id == run_id,
+                    SqlInput.destination_type == "MODEL_INPUT",
+                )
+                .all()
+            )
+        ]
+
+    def _get_model_outputs(
+        self,
+        run_id: str,
+        session: sqlalchemy.orm.Session,
+    ) -> list[LoggedModelOutput]:
+        return [
+            LoggedModelOutput(model_id=output.destination_id, step=output.step)
+            for output in session.query(SqlInput)
+            .filter(
+                SqlInput.source_type == "RUN_OUTPUT",
+                SqlInput.source_id == run_id,
+                SqlInput.destination_type == "MODEL_OUTPUT",
+            )
+            .all()
+        ]
+
+    #######################################################################################
+    # Logged models
+    #######################################################################################
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: Optional[str] = None,
+        source_run_id: Optional[str] = None,
+        tags: Optional[list[LoggedModelTag]] = None,
+        params: Optional[list[LoggedModelParameter]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        _validate_logged_model_name(name)
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+            model_id = f"m-{str(uuid.uuid4()).replace('-', '')}"
+            artifact_location = append_to_uri_path(
+                experiment.artifact_location,
+                SqlAlchemyStore.MODELS_FOLDER_NAME,
+                model_id,
+                SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
+            )
+            name = name or _generate_random_name()
+            creation_timestamp = get_current_time_millis()
+            logged_model = SqlLoggedModel(
+                model_id=model_id,
+                experiment_id=experiment_id,
+                name=name,
+                artifact_location=artifact_location,
+                creation_timestamp_ms=creation_timestamp,
+                last_updated_timestamp_ms=creation_timestamp,
+                model_type=model_type,
+                status=LoggedModelStatus.PENDING.to_int(),
+                lifecycle_stage=LifecycleStage.ACTIVE,
+                source_run_id=source_run_id,
+            )
+            session.add(logged_model)
+
+            if params:
+                session.add_all(
+                    SqlLoggedModelParam(
+                        model_id=logged_model.model_id,
+                        experiment_id=experiment_id,
+                        param_key=param.key,
+                        param_value=param.value,
+                    )
+                    for param in params
+                )
+
+            if tags:
+                session.add_all(
+                    SqlLoggedModelTag(
+                        model_id=logged_model.model_id,
+                        experiment_id=experiment_id,
+                        tag_key=tag.key,
+                        tag_value=tag.value,
+                    )
+                    for tag in tags
+                )
+
+            session.commit()
+            return logged_model.to_mlflow_entity()
+
+    def _raise_model_not_found(self, model_id: str):
+        raise MlflowException(
+            f"Logged model with ID '{model_id}' not found.",
+            RESOURCE_DOES_NOT_EXIST,
+        )
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        with self.ManagedSessionMaker() as session:
+            logged_model = (
+                session.query(SqlLoggedModel)
+                .filter(
+                    SqlLoggedModel.model_id == model_id,
+                    SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
+                )
+                .first()
+            )
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+
+            return logged_model.to_mlflow_entity()
+
+    def delete_logged_model(self, model_id):
+        with self.ManagedSessionMaker() as session:
+            logged_model = session.query(SqlLoggedModel).get(model_id)
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+
+            logged_model.lifecycle_stage = LifecycleStage.DELETED
+            logged_model.last_updated_timestamp_ms = get_current_time_millis()
+            session.commit()
+
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
+        with self.ManagedSessionMaker() as session:
+            logged_model = session.query(SqlLoggedModel).get(model_id)
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+
+            logged_model.status = status.to_int()
+            logged_model.last_updated_timestamp_ms = get_current_time_millis()
+            session.commit()
+            return logged_model.to_mlflow_entity()
+
+    def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
+        with self.ManagedSessionMaker() as session:
+            logged_model = session.query(SqlLoggedModel).get(model_id)
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+
+            # TODO: Consider upserting tags in a single transaction for performance
+            for tag in tags:
+                session.merge(
+                    SqlLoggedModelTag(
+                        model_id=model_id,
+                        experiment_id=logged_model.experiment_id,
+                        tag_key=tag.key,
+                        tag_value=tag.value,
+                    )
+                )
+
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            logged_model = session.query(SqlLoggedModel).get(model_id)
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+
+            count = (
+                session.query(SqlLoggedModelTag)
+                .filter(
+                    SqlLoggedModelTag.model_id == model_id,
+                    SqlLoggedModelTag.tag_key == key,
+                )
+                .delete()
+            )
+            if count == 0:
+                raise MlflowException(
+                    f"No tag with key {key!r} found for model with ID {model_id!r}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+    def _apply_order_by_search_logged_models(
+        self,
+        models: sqlalchemy.orm.Query,
+        session: sqlalchemy.orm.Session,
+        order_by: Optional[list[dict[str, Any]]] = None,
+    ) -> sqlalchemy.orm.Query:
+        order_by_clauses = []
+        has_creation_timestamp = False
+        for ob in order_by or []:
+            field_name = ob.get("field_name")
+            ascending = ob.get("ascending", True)
+            if "." not in field_name:
+                name = SqlLoggedModel.ALIASES.get(field_name, field_name)
+                if name == "creation_timestamp_ms":
+                    has_creation_timestamp = True
+                try:
+                    col = getattr(SqlLoggedModel, name)
+                except AttributeError:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid order by field name: {field_name}"
+                    )
+                # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
+                order_by_clauses.extend(
+                    [
+                        # Sort nulls last
+                        sqlalchemy.case((col.is_(None), 1), else_=0).asc(),
+                        col.asc() if ascending else col.desc(),
+                    ]
+                )
+                continue
+
+            entity, name = field_name.split(".", 1)
+            # TODO: Support filtering by other entities such as params if needed
+            if entity != "metrics":
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid order by field name: {field_name}. Only metrics are supported."
+                )
+
+            # Sub query to get the latest metrics value for each (model_id, metric_name) pair
+            dataset_filter = []
+            if dataset_name := ob.get("dataset_name"):
+                dataset_filter.append(SqlLoggedModelMetric.dataset_name == dataset_name)
+            if dataset_digest := ob.get("dataset_digest"):
+                dataset_filter.append(SqlLoggedModelMetric.dataset_digest == dataset_digest)
+
+            subquery = (
+                session.query(
+                    SqlLoggedModelMetric.model_id,
+                    SqlLoggedModelMetric.metric_value,
+                    func.rank()
+                    .over(
+                        partition_by=[
+                            SqlLoggedModelMetric.model_id,
+                            SqlLoggedModelMetric.metric_name,
+                        ],
+                        order_by=[
+                            SqlLoggedModelMetric.metric_timestamp_ms.desc(),
+                            SqlLoggedModelMetric.metric_step.desc(),
+                        ],
+                    )
+                    .label("rank"),
+                )
+                .filter(
+                    SqlLoggedModelMetric.metric_name == name,
+                    *dataset_filter,
+                )
+                .subquery()
+            )
+            subquery = select(subquery.c).where(subquery.c.rank == 1).subquery()
+
+            models = models.outerjoin(subquery)
+            # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
+            order_by_clauses.extend(
+                [
+                    # Sort nulls last
+                    sqlalchemy.case((subquery.c.metric_value.is_(None), 1), else_=0).asc(),
+                    subquery.c.metric_value.asc() if ascending else subquery.c.metric_value.desc(),
+                ]
+            )
+
+        if not has_creation_timestamp:
+            order_by_clauses.append(SqlLoggedModel.creation_timestamp_ms.desc())
+
+        return models.order_by(*order_by_clauses)
+
+    def _apply_filter_string_search_logged_models(
+        self,
+        models: sqlalchemy.orm.Query,
+        session: sqlalchemy.orm.Session,
+        experiment_ids: list[str],
+        filter_string: Optional[str],
+    ):
+        from mlflow.utils.search_logged_model_utils import EntityType, parse_filter_string
+
+        comparisons = parse_filter_string(filter_string)
+        dialect = self._get_dialect()
+        attr_filters: list[sqlalchemy.BinaryExpression] = []
+        non_attr_filters: list[sqlalchemy.BinaryExpression] = []
+        for comp in comparisons:
+            comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
+            if comp.entity.type == EntityType.ATTRIBUTE:
+                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
+            elif comp.entity.type == EntityType.METRIC:
+                non_attr_filters.append(
+                    session.query(SqlLoggedModelMetric)
+                    .filter(
+                        SqlLoggedModelMetric.metric_name == comp.entity.key,
+                        comp_func(SqlLoggedModelMetric.metric_value, comp.value),
+                    )
+                    .subquery()
+                )
+            elif comp.entity.type == EntityType.PARAM:
+                non_attr_filters.append(
+                    session.query(SqlLoggedModelParam)
+                    .filter(
+                        SqlLoggedModelParam.param_key == comp.entity.key,
+                        comp_func(SqlLoggedModelParam.param_value, comp.value),
+                    )
+                    .subquery()
+                )
+            elif comp.entity.type == EntityType.TAG:
+                non_attr_filters.append(
+                    session.query(SqlLoggedModelTag)
+                    .filter(
+                        SqlLoggedModelTag.tag_key == comp.entity.key,
+                        comp_func(SqlLoggedModelTag.tag_value, comp.value),
+                    )
+                    .subquery()
+                )
+
+        for f in non_attr_filters:
+            models = models.join(f)
+
+        return models.filter(
+            SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
+            SqlLoggedModel.experiment_id.in_(experiment_ids),
+            *attr_filters,
+        )
+
+    def search_logged_models(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str] = None,
+        datasets: Optional[list[DatasetInput]] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[LoggedModel]:
+        if datasets:
+            raise MlflowException(
+                "Filtering by datasets is not currently supported by SqlAlchemyStore",
+                INVALID_PARAMETER_VALUE,
+            )
+        if page_token:
+            token = SearchLoggedModelsPaginationToken.decode(page_token)
+            token.validate(experiment_ids, filter_string, order_by)
+            offset = token.offset
+        else:
+            offset = 0
+
+        max_results = max_results or SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT
+        with self.ManagedSessionMaker() as session:
+            models = session.query(SqlLoggedModel)
+            models = self._apply_filter_string_search_logged_models(
+                models, session, experiment_ids, filter_string
+            )
+            models = self._apply_order_by_search_logged_models(models, session, order_by)
+            models = models.offset(offset).limit(max_results + 1).all()
+
+            if len(models) > max_results:
+                token = SearchLoggedModelsPaginationToken(
+                    offset=offset + max_results,
+                    experiment_ids=experiment_ids,
+                    filter_string=filter_string,
+                    order_by=order_by,
+                ).encode()
+            else:
+                token = None
+
+            return PagedList([lm.to_mlflow_entity() for lm in models[:max_results]], token=token)
+
+    #######################################################################################
+    # Below are Tracing APIs. We may refactor them to be in a separate class in the future.
+    #######################################################################################
+    def start_trace(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        """
+        Create an initial TraceInfo object in the database.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            request_id = generate_request_id_v2()
+            trace_info = SqlTraceInfo(
+                request_id=request_id,
+                experiment_id=experiment_id,
+                timestamp_ms=timestamp_ms,
+                execution_time_ms=None,
+                status=TraceStatus.IN_PROGRESS,
+            )
+
+            trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in tags.items()]
+            trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
+
+            trace_info.request_metadata = [
+                SqlTraceRequestMetadata(key=k, value=v) for k, v in request_metadata.items()
+            ]
+            session.add(trace_info)
+
+            return trace_info.to_mlflow_entity()
+
+    def _get_trace_artifact_location_tag(self, experiment, request_id: str) -> SqlTraceTag:
+        # Trace data is stored as file artifacts regardless of the tracking backend choice.
+        # We use subdirectory "/traces" under the experiment's artifact location to isolate
+        # them from run artifacts.
+        artifact_uri = append_to_uri_path(
+            experiment.artifact_location,
+            SqlAlchemyStore.TRACE_FOLDER_NAME,
+            request_id,
+            SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
+        )
+        return SqlTraceTag(key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
+
+    def end_trace(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        """
+        Update the TraceInfo object in the database with the completed trace info.
+
+        Args:
+            request_id: Unique string identifier of the trace.
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: Status of the trace.
+            request_metadata: Metadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: Tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_trace_info = self._get_sql_trace_info(session, request_id)
+            trace_start_time_ms = sql_trace_info.timestamp_ms
+            execution_time_ms = timestamp_ms - trace_start_time_ms
+            sql_trace_info.execution_time_ms = execution_time_ms
+            sql_trace_info.status = status
+            session.merge(sql_trace_info)
+            for k, v in request_metadata.items():
+                session.merge(SqlTraceRequestMetadata(request_id=request_id, key=k, value=v))
+            for k, v in tags.items():
+                session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
+            return sql_trace_info.to_mlflow_entity()
+
+    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfoV2:
+        """
+        Fetch the trace info for the given request id.
+
+        Args:
+            request_id: Unique string identifier of the trace.
+            should_query_v3: If True, the backend store will query the V3 API for the trace info.
+                TODO: Remove this flag once the V3 API is the default in OSS.
+
+        Returns:
+            The TraceInfo object.
+        """
+        if should_query_v3:
+            raise MlflowException.invalid_parameter_value(
+                "GetTraceInfoV3 API is not supported in the FileStore backend.",
+            )
+
+        with self.ManagedSessionMaker() as session:
+            sql_trace_info = self._get_sql_trace_info(session, request_id)
+            return sql_trace_info.to_mlflow_entity()
+
+    def _get_sql_trace_info(self, session, request_id) -> SqlTraceInfo:
+        sql_trace_info = (
+            session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == request_id).one_or_none()
+        )
+        if sql_trace_info is None:
+            raise MlflowException(
+                f"Trace with request_id '{request_id}' not found.",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        return sql_trace_info
+
+    def search_traces(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+        model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
+    ) -> tuple[list[TraceInfoV2], Optional[str]]:
+        """
+        Return traces that match the given list of search expressions within the experiments.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            max_results: Maximum number of traces desired.
+            order_by: List of order_by clauses.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_traces`` call.
+            model_id: If specified, search traces associated with the given model ID.
+            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
+                searching traces in inference tables.
+
+        Returns:
+            A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
+            satisfy the search expressions and a pagination token for the next page of results.
+        """
+        self._validate_max_results_param(max_results)
+
+        with self.ManagedSessionMaker() as session:
+            cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses_for_search_traces(
+                order_by or [], session
+            )
+            stmt = select(SqlTraceInfo, *cases_orderby)
+
+            attribute_filters, non_attribute_filters = _get_filter_clauses_for_search_traces(
+                filter_string, session, self._get_dialect()
+            )
+            for non_attr_filter in non_attribute_filters:
+                stmt = stmt.join(non_attr_filter)
+
+            # using an outer join is necessary here because we want to be able to sort
+            # on a column (tag, metric or param) without removing the lines that
+            # do not have a value for this column (which is what inner join would do)
+            for j in sorting_joins:
+                stmt = stmt.outerjoin(j)
+
+            offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
+            stmt = (
+                # NB: We don't need to distinct the results of joins because of the fact that
+                #   the right tables of the joins are unique on the join key, request_id.
+                #   This is because the subquery that is joined on the right side is conditioned
+                #   by a key and value pair of tags/metadata, and the combination of key and
+                #   request_id is unique in those tables.
+                #   Be careful when changing the query building logic, as it may break this
+                #   uniqueness property and require deduplication, which can be expensive.
+                stmt.filter(
+                    SqlTraceInfo.experiment_id.in_(experiment_ids),
+                    *attribute_filters,
+                )
+                .order_by(*parsed_orderby)
+                .offset(offset)
+                .limit(max_results)
+            )
+            queried_traces = session.execute(stmt).scalars(SqlTraceInfo).all()
+            trace_infos = [t.to_mlflow_entity() for t in queried_traces]
+
+            # Compute next search token
+            if max_results == len(trace_infos):
+                final_offset = offset + max_results
+                next_token = SearchTraceUtils.create_page_token(final_offset)
+            else:
+                next_token = None
+
+            return trace_infos, next_token
+
+    def _validate_max_results_param(self, max_results: int, allow_null=False):
+        if (not allow_null and max_results is None) or max_results < 1:
+            raise MlflowException(
+                f"Invalid value {max_results} for parameter 'max_results' supplied. It must be "
+                f"a positive integer",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                f"Invalid value {max_results} for parameter 'max_results' supplied. It must be at "
+                f"most {SEARCH_MAX_RESULTS_THRESHOLD}",
+                INVALID_PARAMETER_VALUE,
+            )
+
+    def set_trace_tag(self, request_id: str, key: str, value: str):
+        """
+        Set a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+            value: The string value of the tag.
+        """
+        with self.ManagedSessionMaker() as session:
+            key, value = _validate_trace_tag(key, value)
+            session.merge(SqlTraceTag(request_id=request_id, key=key, value=value))
+
+    def delete_trace_tag(self, request_id: str, key: str):
+        """
+        Delete a tag on the trace with the given request_id.
+
+        Args:
+            request_id: The ID of the trace.
+            key: The string key of the tag.
+        """
+        with self.ManagedSessionMaker() as session:
+            tags = session.query(SqlTraceTag).filter_by(request_id=request_id, key=key)
+            if tags.count() == 0:
+                raise MlflowException(
+                    f"No trace tag with key '{key}' for trace with request_id '{request_id}'",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            tags.delete()
+
+    def _delete_traces(
+        self,
+        experiment_id: str,
+        max_timestamp_millis: Optional[int] = None,
+        max_traces: Optional[int] = None,
+        request_ids: Optional[list[str]] = None,
+    ) -> int:
+        """
+        Delete traces based on the specified criteria.
+
+        Args:
+            experiment_id: ID of the associated experiment.
+            max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
+                deleting traces. Traces older than or equal to this timestamp will be deleted.
+            max_traces: The maximum number of traces to delete.
+            request_ids: A set of request IDs to delete.
+
+        Returns:
+            The number of traces deleted.
+        """
+        with self.ManagedSessionMaker() as session:
+            filters = [SqlTraceInfo.experiment_id == experiment_id]
+            if max_timestamp_millis:
+                filters.append(SqlTraceInfo.timestamp_ms <= max_timestamp_millis)
+            if request_ids:
+                filters.append(SqlTraceInfo.request_id.in_(request_ids))
+            if max_traces:
+                filters.append(
+                    SqlTraceInfo.request_id.in_(
+                        session.query(SqlTraceInfo.request_id)
+                        .filter(*filters)
+                        # Delete the oldest traces first
+                        .order_by(SqlTraceInfo.timestamp_ms)
+                        .limit(max_traces)
+                        .subquery()
+                    )
+                )
+
+            return (
+                session.query(SqlTraceInfo)
+                .filter(and_(*filters))
+                .delete(synchronize_session="fetch")
+            )
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
@@ -1672,7 +2475,7 @@ def _get_orderby_clauses(order_by_list, session):
                 ordering_joins.append(subquery)
                 order_value = subquery.c.value
 
-            # sqlite does not support NULLS LAST expression, so we sort first by
+            # MySQL does not support NULLS LAST expression, so we sort first by
             # presence of the field (and is_nan for metrics), then by actual value
             # As the subqueries are created independently and used later in the
             # same main query, the CASE WHEN columns need to have unique names to
@@ -1704,7 +2507,10 @@ def _get_orderby_clauses(order_by_list, session):
             else:
                 clauses.append(order_value.desc())
 
-    if (SearchUtils._ATTRIBUTE_IDENTIFIER, SqlRun.start_time.key) not in observed_order_by_clauses:
+    if (
+        SearchUtils._ATTRIBUTE_IDENTIFIER,
+        SqlRun.start_time.key,
+    ) not in observed_order_by_clauses:
         clauses.append(SqlRun.start_time.desc())
     clauses.append(SqlRun.run_uuid)
     return select_clauses, clauses, ordering_joins
@@ -1770,3 +2576,102 @@ def _get_search_experiments_order_by_clauses(order_by):
         order_by_clauses.append((SqlExperiment.experiment_id, False))
 
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
+
+
+def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
+    """Sorts a set of traces based on their natural ordering and an overriding set of order_bys.
+    Traces are ordered first by timestamp_ms descending, then by request_id for tie-breaking.
+    """
+    clauses = []
+    ordering_joins = []
+    observed_order_by_clauses = set()
+    select_clauses = []
+
+    for clause_id, order_by_clause in enumerate(order_by_list):
+        (key_type, key, ascending) = SearchTraceUtils.parse_order_by_for_search_traces(
+            order_by_clause
+        )
+
+        if SearchTraceUtils.is_attribute(key_type, key, "="):
+            order_value = getattr(SqlTraceInfo, key)
+        else:
+            if SearchTraceUtils.is_tag(key_type, "="):
+                entity = SqlTraceTag
+            elif SearchTraceUtils.is_request_metadata(key_type, "="):
+                entity = SqlTraceRequestMetadata
+            else:
+                raise MlflowException(
+                    f"Invalid identifier type '{key_type}'",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            # Tags and request metadata requires a join to the main table (trace_info)
+            subquery = session.query(entity).filter(entity.key == key).subquery()
+            ordering_joins.append(subquery)
+            order_value = subquery.c.value
+
+        case = sql.case((order_value.is_(None), 1), else_=0).label(f"clause_{clause_id}")
+        clauses.append(case.name)
+        select_clauses.append(case)
+        select_clauses.append(order_value)
+
+        if (key_type, key) in observed_order_by_clauses:
+            raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
+        observed_order_by_clauses.add((key_type, key))
+        clauses.append(order_value if ascending else order_value.desc())
+
+    # Add descending trace start time as default ordering and a tie-breaker
+    for attr, ascending in [
+        (SqlTraceInfo.timestamp_ms, False),
+        (SqlTraceInfo.request_id, True),
+    ]:
+        if (
+            SearchTraceUtils._ATTRIBUTE_IDENTIFIER,
+            attr.key,
+        ) not in observed_order_by_clauses:
+            clauses.append(attr if ascending else attr.desc())
+    return select_clauses, clauses, ordering_joins
+
+
+def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
+    """
+    Creates trace attribute filters and subqueries that will be inner-joined
+    to SqlTraceInfo to act as multi-clause filters and return them as a tuple.
+    """
+    attribute_filters = []
+    non_attribute_filters = []
+
+    parsed_filters = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+    for sql_statement in parsed_filters:
+        key_type = sql_statement.get("type")
+        key_name = sql_statement.get("key")
+        value = sql_statement.get("value")
+        comparator = sql_statement.get("comparator").upper()
+
+        if SearchTraceUtils.is_attribute(key_type, key_name, comparator):
+            attribute = getattr(SqlTraceInfo, key_name)
+            attr_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                attribute, value
+            )
+            attribute_filters.append(attr_filter)
+        else:
+            if SearchTraceUtils.is_tag(key_type, comparator):
+                entity = SqlTraceTag
+            elif SearchTraceUtils.is_request_metadata(key_type, comparator):
+                entity = SqlTraceRequestMetadata
+            else:
+                raise MlflowException(
+                    f"Invalid search expression type '{key_type}'",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            key_filter = SearchTraceUtils.get_sql_comparison_func("=", dialect)(
+                entity.key, key_name
+            )
+            val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                entity.value, value
+            )
+            non_attribute_filters.append(
+                session.query(entity).filter(key_filter, val_filter).subquery()
+            )
+
+    return attribute_filters, non_attribute_filters

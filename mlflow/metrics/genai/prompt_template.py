@@ -1,5 +1,5 @@
 import string
-from typing import Any, List, Union
+from typing import Any, Union
 
 
 class PromptTemplate:
@@ -26,8 +26,17 @@ class PromptTemplate:
             prompt.format(baz="qux")
     """
 
-    def __init__(self, template_str: Union[str, List[str]]):
+    def __init__(self, template_str: Union[str, list[str]]):
         self.template_strs = [template_str] if isinstance(template_str, str) else template_str
+
+    @property
+    def variables(self):
+        return {
+            fname
+            for template_str in self.template_strs
+            for _, fname, _, _ in string.Formatter().parse(template_str)
+            if fname
+        }
 
     def format(self, **kwargs: Any) -> str:
         safe_kwargs = {k: v for k, v in kwargs.items() if v is not None}

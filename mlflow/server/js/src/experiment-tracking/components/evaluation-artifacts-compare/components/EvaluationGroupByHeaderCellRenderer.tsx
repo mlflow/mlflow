@@ -1,5 +1,5 @@
 import { IHeaderParams } from '@ag-grid-community/core';
-import { Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { LegacyTooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { truncate } from 'lodash';
 import { EvaluationTableHeader } from './EvaluationTableHeader';
 
@@ -17,11 +17,11 @@ export const EvaluationGroupByHeaderCellRenderer = ({ displayName }: EvaluationG
 
   return (
     <EvaluationTableHeader css={{ justifyContent: 'flex-start', padding: theme.spacing.sm }}>
-      <Tooltip title={truncate(displayName, { length: 250 })}>
+      <LegacyTooltip title={truncate(displayName, { length: 250 })}>
         <Typography.Text bold css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {displayName}
         </Typography.Text>
-      </Tooltip>
+      </LegacyTooltip>
     </EvaluationTableHeader>
   );
 };

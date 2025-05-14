@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import Parcoords from 'parcoord-es';
 import 'parcoord-es/dist/parcoords.css';
 import { scaleSequential } from 'd3-scale';
 import { useDynamicPlotSize } from '../RunsCharts.common';
 import './ParallelCoordinatesPlot.css';
 import { truncateChartMetricString } from '../../../../utils/MetricsUtils';
+import { useRunsChartTraceHighlight } from '../../hooks/useRunsChartTraceHighlight';
+import { RunsChartCardLoadingPlaceholder } from '../cards/ChartCard.common';
 
 /**
  * Attaches custom tooltip to the axis label inside SVG
@@ -79,6 +81,31 @@ const ParallelCoordinatesPlotImpl = (props: {
     if (parcoord.current.brushed() !== false) return parcoord.current.brushed();
     return parcoord.current.data();
   }, []);
+
+  const { onHighlightChange } = useRunsChartTraceHighlight();
+
+  // Listener that will be called when the highlight changes
+  const highlightListener = useCallback(
+    (traceUuid: string | null) => {
+      if (!traceUuid) {
+        parcoord.current.unhighlight();
+        return;
+      }
+      // Get immediate displayed runs data
+      const displayedData: { uuid: string; [k: string]: number | string }[] = getActiveData();
+
+      const runsToHighlight = displayedData.filter(({ uuid }) => traceUuid === uuid);
+
+      if (runsToHighlight.length) {
+        parcoord.current.highlight(runsToHighlight);
+      } else {
+        parcoord.current.unhighlight();
+      }
+    },
+    [getActiveData],
+  );
+
+  useEffect(() => onHighlightChange(highlightListener), [onHighlightChange, highlightListener]);
 
   // Basing on the stateful hovered run uuid and selected run uuid, determine
   // which runs should be highlighted
@@ -277,7 +304,7 @@ const ParallelCoordinatesPlotImpl = (props: {
         .data(data)
         .dimensions(getAxesTypes())
         .alpha(0.8)
-        .alphaOnBrushed(0.2)
+        .alphaOnBrushed(0.1)
         .hideAxis(['uuid'])
         .lineWidth(1)
         .color((d: any) => {
@@ -397,7 +424,7 @@ const ParallelCoordinatesPlotImpl = (props: {
   return <div ref={chartRef} id="wrapper" style={{ width: props.width, height: props.height }} className="parcoords" />;
 };
 
-export const ParallelCoordinatesPlot = (props: any) => {
+const ParallelCoordinatesPlot = (props: any) => {
   const wrapper = useRef<HTMLDivElement>(null);
   const { theme } = useDesignSystemTheme();
 
@@ -429,7 +456,7 @@ export const ParallelCoordinatesPlot = (props: any) => {
         paddingTop: '20px',
         fontSize: 0,
         '.parcoords': {
-          backgroundColor: 'transparent',
+          backgroundColor: theme.colors.backgroundPrimary,
         },
         '.parcoords text.label': {
           fill: theme.colors.textPrimary,
@@ -437,7 +464,7 @@ export const ParallelCoordinatesPlot = (props: any) => {
       }}
     >
       {isResizing ? (
-        <LegacySkeleton />
+        <RunsChartCardLoadingPlaceholder />
       ) : (
         <ParallelCoordinatesPlotImpl {...props} width={layoutWidth} height={layoutHeight} />
       )}

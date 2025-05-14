@@ -1,26 +1,39 @@
 import functools
+import getpass
 import json
 import logging
 import os
+import platform
 import subprocess
 import time
-from sys import stderr
-from typing import NamedTuple, Optional, TypeVar
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, NamedTuple, Optional, TypeVar
+
+if TYPE_CHECKING:
+    from pyspark.sql.connect.session import SparkSession as SparkConnectSession
+
 
 import mlflow.utils
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_DB_SDK,
+    MLFLOW_TRACKING_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.legacy_databricks_cli.configure.provider import (
     DatabricksConfig,
     DatabricksConfigProvider,
-    DefaultConfigProvider,
+    DatabricksModelServingConfigProvider,
+    EnvironmentVariableConfigProvider,
     ProfileConfigProvider,
-    get_config,
-    set_config_provider,
+    SparkTaskContextConfigProvider,
 )
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
+from mlflow.utils.uri import (
+    _DATABRICKS_UNITY_CATALOG_SCHEME,
+    get_db_info_from_uri,
+    is_databricks_uri,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -28,12 +41,18 @@ _logger = logging.getLogger(__name__)
 _MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH = "/var/credentials-secret/model-dependencies-oauth-token"
 
 
-def _use_repl_context_if_available(name):
+def _use_repl_context_if_available(
+    name: str,
+    *,
+    ignore_none: bool = False,
+):
     """Creates a decorator to insert a short circuit that returns the specified REPL context
     attribute if it's available.
 
     Args:
         name: Attribute name (e.g. "apiUrl").
+        ignore_none: If True, use the original function if the REPL context attribute exists but
+            is None.
 
     Returns:
         Decorator to insert the short circuit.
@@ -47,7 +66,12 @@ def _use_repl_context_if_available(name):
 
                 context = get_context()
                 if context is not None and hasattr(context, name):
-                    return getattr(context, name)
+                    attr = getattr(context, name)
+                    if attr is None and ignore_none:
+                        # do nothing and continue to the original function
+                        pass
+                    else:
+                        return attr
             except Exception:
                 pass
             return f(*args, **kwargs)
@@ -74,10 +98,10 @@ class MlflowCredentialContext:
         self.db_utils = _get_dbutils()
 
     def __enter__(self):
-        db_creds = get_databricks_host_creds(self.databricks_profile_url)
+        db_creds = _get_databricks_creds_config(self.databricks_profile_url)
         self.db_utils.notebook.entry_point.putMlflowProperties(
             db_creds.host,
-            db_creds.ignore_tls_verification,
+            db_creds.insecure,
             db_creds.token,
             db_creds.username,
             db_creds.password,
@@ -115,15 +139,19 @@ def _get_command_context():
 
 
 def _get_extra_context(context_key):
-    return _get_command_context().extraContext().get(context_key).get()
+    opt = _get_command_context().extraContext().get(context_key)
+    return opt.get() if opt.isDefined() else None
 
 
 def _get_context_tag(context_tag_key):
-    tag_opt = _get_command_context().tags().get(context_tag_key)
-    if tag_opt.isDefined():
-        return tag_opt.get()
-    else:
-        return None
+    try:
+        tag_opt = _get_command_context().tags().get(context_tag_key)
+        if tag_opt.isDefined():
+            return tag_opt.get()
+    except Exception:
+        pass
+
+    return None
 
 
 @_use_repl_context_if_available("aclPathOfAclRoot")
@@ -154,7 +182,7 @@ def is_in_databricks_notebook():
     if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
         return True
     try:
-        return acl_path_of_acl_root().startswith("/workspace")
+        return path.startswith("/workspace") if (path := acl_path_of_acl_root()) else False
     except Exception:
         return False
 
@@ -168,7 +196,27 @@ def is_in_databricks_job():
 
 
 def is_in_databricks_model_serving_environment():
-    return "IS_IN_DATABRICKS_MODEL_SERVING_ENV" in os.environ
+    """
+    Check if the code is running in Databricks Model Serving environment.
+    The environment variable set by Databricks when starting the serving container.
+    """
+    val = (
+        os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
+        # Checking the old env var name for backward compatibility. The env var was renamed once
+        # to fix a model loading issue, but we still need to support it for a while.
+        # TODO: Remove this once the new env var is fully rolled out.
+        or os.environ.get("IS_IN_DATABRICKS_MODEL_SERVING_ENV")
+        or "false"
+    )
+    return val.lower() == "true"
+
+
+def is_mlflow_tracing_enabled_in_model_serving() -> bool:
+    """
+    This environment variable guards tracing behaviors for models in databricks
+    model serving. Tracing in serving is only enabled when this env var is true.
+    """
+    return os.environ.get("ENABLE_MLFLOW_TRACING", "false").lower() == "true"
 
 
 # this should only be the case when we are in model serving environment
@@ -214,22 +262,174 @@ def is_in_databricks_runtime():
     return get_databricks_runtime_version() is not None
 
 
-def is_in_databricks_serverless():
+def is_in_databricks_serverless_runtime():
     dbr_version = get_databricks_runtime_version()
     return dbr_version and dbr_version.startswith("client.")
 
 
+def is_in_databricks_shared_cluster_runtime():
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+
+    return (
+        is_in_databricks_runtime()
+        and is_spark_connect_mode()
+        and not is_in_databricks_serverless_runtime()
+    )
+
+
+def is_databricks_connect(spark=None):
+    """
+    Return True if current Spark-connect client connects to Databricks cluster.
+    """
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+
+    if is_in_databricks_serverless_runtime() or is_in_databricks_shared_cluster_runtime():
+        return True
+
+    spark = spark or _get_active_spark_session()
+    if spark is None:
+        return False
+
+    if not is_spark_connect_mode():
+        return False
+
+    if hasattr(spark.client, "metadata"):
+        metadata = spark.client.metadata()
+    else:
+        metadata = spark.client._builder.metadata()
+
+    return any(k in ["x-databricks-session-id", "x-databricks-cluster-id"] for k, v in metadata)
+
+
+@dataclass
+class DBConnectUDFSandboxInfo:
+    spark: "SparkConnectSession"
+    image_version: str
+    runtime_version: str
+    platform_machine: str
+    mlflow_version: str
+
+
+_dbconnect_udf_sandbox_info_cache: Optional[DBConnectUDFSandboxInfo] = None
+
+
+def get_dbconnect_udf_sandbox_info(spark):
+    """
+    Get Databricks UDF sandbox info which includes the following fields:
+     - image_version like
+      '{major_version}.{minor_version}' or 'client.{major_version}.{minor_version}'
+     - runtime_version like '{major_version}.{minor_version}'
+     - platform_machine like 'x86_64' or 'aarch64'
+     - mlflow_version
+    """
+    global _dbconnect_udf_sandbox_info_cache
+    from pyspark.sql.functions import pandas_udf
+
+    if (
+        _dbconnect_udf_sandbox_info_cache is not None
+        and spark is _dbconnect_udf_sandbox_info_cache.spark
+    ):
+        return _dbconnect_udf_sandbox_info_cache
+
+    # version is like '15.4.x-scala2.12'
+    version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
+    major, minor, *_rest = version.split(".")
+    runtime_version = f"{major}.{minor}"
+
+    # For Databricks Serverless python REPL,
+    # the UDF sandbox runs on client image, which has version like 'client.1.1'
+    # in other cases, UDF sandbox runs on databricks runtime image with version like '15.4'
+    if is_in_databricks_runtime():
+        _dbconnect_udf_sandbox_info_cache = DBConnectUDFSandboxInfo(
+            spark=_get_active_spark_session(),
+            runtime_version=runtime_version,
+            image_version=get_databricks_runtime_version(),
+            platform_machine=platform.machine(),
+            # In databricks runtime, driver and executor should have the
+            # same version.
+            mlflow_version=mlflow.__version__,
+        )
+    else:
+        image_version = runtime_version
+
+        @pandas_udf("string")
+        def f(_):
+            import pandas as pd
+
+            platform_machine = platform.machine()
+
+            try:
+                import mlflow
+
+                mlflow_version = mlflow.__version__
+            except ImportError:
+                mlflow_version = ""
+
+            return pd.Series([f"{platform_machine}\n{mlflow_version}"])
+
+        platform_machine, mlflow_version = (
+            spark.range(1).select(f("id")).collect()[0][0].split("\n")
+        )
+        if mlflow_version == "":
+            mlflow_version = None
+        _dbconnect_udf_sandbox_info_cache = DBConnectUDFSandboxInfo(
+            spark=spark,
+            image_version=image_version,
+            runtime_version=runtime_version,
+            platform_machine=platform_machine,
+            mlflow_version=mlflow_version,
+        )
+
+    return _dbconnect_udf_sandbox_info_cache
+
+
+def is_databricks_serverless(spark):
+    """
+    Return True if running on Databricks Serverless notebook or
+    on Databricks Connect client that connects to Databricks Serverless.
+    """
+    from mlflow.utils.spark_utils import is_spark_connect_mode
+
+    if not is_spark_connect_mode():
+        return False
+
+    if hasattr(spark.client, "metadata"):
+        metadata = spark.client.metadata()
+    else:
+        metadata = spark.client._builder.metadata()
+
+    return any(k == "x-databricks-session-id" for k, v in metadata)
+
+
 def is_dbfs_fuse_available():
-    with open(os.devnull, "w") as devnull_stderr, open(os.devnull, "w") as devnull_stdout:
-        try:
-            return (
-                subprocess.call(
-                    ["mountpoint", "/dbfs"], stderr=devnull_stderr, stdout=devnull_stdout
-                )
-                == 0
+    if not is_in_databricks_runtime():
+        return False
+
+    try:
+        return (
+            subprocess.call(
+                ["mountpoint", "/dbfs"],
+                stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
             )
-        except Exception:
-            return False
+            == 0
+        )
+    except Exception:
+        return False
+
+
+def is_uc_volume_fuse_available():
+    try:
+        return (
+            subprocess.call(
+                ["mountpoint", "/Volumes"],
+                stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+            )
+            == 0
+        )
+    except Exception:
+        return False
 
 
 @_use_repl_context_if_available("isInCluster")
@@ -248,12 +448,10 @@ def is_in_cluster():
 @_use_repl_context_if_available("notebookId")
 def get_notebook_id():
     """Should only be called if is_in_databricks_notebook is true"""
-    notebook_id = _get_property_from_spark_context("spark.databricks.notebook.id")
-    if notebook_id is not None:
+    if notebook_id := _get_property_from_spark_context("spark.databricks.notebook.id"):
         return notebook_id
-    acl_path = acl_path_of_acl_root()
-    if acl_path.startswith("/workspace"):
-        return acl_path.split("/")[-1]
+    if (path := acl_path_of_acl_root()) and path.startswith("/workspace"):
+        return path.split("/")[-1]
     return None
 
 
@@ -359,6 +557,22 @@ def get_command_run_id():
         return None
 
 
+@_use_repl_context_if_available("workloadId")
+def get_workload_id():
+    try:
+        return _get_command_context().workloadId().get()
+    except Exception:
+        return _get_context_tag("workloadId")
+
+
+@_use_repl_context_if_available("workloadClass")
+def get_workload_class():
+    try:
+        return _get_command_context().workloadClass().get()
+    except Exception:
+        return _get_context_tag("workloadClass")
+
+
 @_use_repl_context_if_available("apiUrl")
 def get_webapp_url():
     """Should only be called if is_in_databricks_notebook or is_in_databricks_jobs is true"""
@@ -400,15 +614,20 @@ def get_workspace_info_from_dbutils():
     return None, None
 
 
-@_use_repl_context_if_available("workspaceUrl")
-def get_workspace_url():
+@_use_repl_context_if_available("workspaceUrl", ignore_none=True)
+def _get_workspace_url():
     try:
-        spark_session = _get_active_spark_session()
-        if spark_session is not None:
+        if spark_session := _get_active_spark_session():
             if workspace_url := spark_session.conf.get("spark.databricks.workspaceUrl", None):
-                return f"https://{workspace_url}"
+                return workspace_url
     except Exception:
         return None
+
+
+def get_workspace_url():
+    if url := _get_workspace_url():
+        return f"https://{url}" if not url.startswith("https://") else url
+    return None
 
 
 def warn_on_deprecated_cross_workspace_registry_uri(registry_uri):
@@ -438,11 +657,41 @@ def get_workspace_info_from_databricks_secrets(tracking_uri):
     return None, None
 
 
-def _fail_malformed_databricks_auth(profile):
+def _fail_malformed_databricks_auth(uri):
+    if uri and uri.startswith(_DATABRICKS_UNITY_CATALOG_SCHEME):
+        uri_name = "registry URI"
+        uri_scheme = _DATABRICKS_UNITY_CATALOG_SCHEME
+    else:
+        uri_name = "tracking URI"
+        uri_scheme = "databricks"
+    if is_in_databricks_model_serving_environment():
+        raise MlflowException(
+            f"Reading Databricks credential configuration in model serving failed. "
+            f"Most commonly, this happens because the model currently "
+            f"being served was logged without Databricks resource dependencies "
+            f"properly specified. Re-log your model, specifying resource dependencies as "
+            f"described in "
+            f"https://docs.databricks.com/en/generative-ai/agent-framework/log-agent.html"
+            f"#specify-resources-for-pyfunc-or-langchain-agent "
+            f"and then register and attempt to serve it again. Alternatively, you can explicitly "
+            f"configure authentication by setting environment variables as described in "
+            f"https://docs.databricks.com/en/generative-ai/agent-framework/deploy-agent.html"
+            f"#manual-authentication. "
+            f"Additional debug info: the MLflow {uri_name} was set to '{uri}'"
+        )
     raise MlflowException(
-        "Got malformed Databricks CLI profile '%s'. Please make sure the "
-        "Databricks CLI is properly configured as described at "
-        "https://github.com/databricks/databricks-cli." % profile
+        f"Reading Databricks credential configuration failed with MLflow {uri_name} '{uri}'. "
+        "Please ensure that the 'databricks-sdk' PyPI library is installed, the tracking "
+        "URI is set correctly, and Databricks authentication is properly configured. "
+        f"The {uri_name} can be either '{uri_scheme}' "
+        f"(using profile name specified by 'DATABRICKS_CONFIG_PROFILE' environment variable "
+        f"or using 'DEFAULT' authentication profile if 'DATABRICKS_CONFIG_PROFILE' environment "
+        f"variable does not exist) or '{uri_scheme}://{{profile}}'. "
+        "You can configure Databricks authentication in several ways, for example by "
+        "specifying environment variables (e.g. DATABRICKS_HOST + DATABRICKS_TOKEN) or "
+        "logging in using 'databricks auth login'. \n"
+        "For details on configuring Databricks authentication, please refer to "
+        "'https://docs.databricks.com/en/dev-tools/auth/index.html#unified-auth'."
     )
 
 
@@ -465,11 +714,41 @@ def get_model_dependency_oauth_token(should_retry=True):
             ) from e
 
 
+class TrackingURIConfigProvider(DatabricksConfigProvider):
+    """
+    TrackingURIConfigProvider extracts `scope` and `key_prefix` from tracking URI
+    of format like `databricks://scope:key_prefix`,
+    then read host and token value from dbutils secrets by key
+    "{key_prefix}-host" and "{key_prefix}-token"
+
+    This provider only works in Databricks runtime and it is deprecated,
+    in Databricks runtime you can simply use 'databricks'
+    as the tracking URI and MLflow can automatically read dynamic token in
+    Databricks runtime.
+    """
+
+    def __init__(self, tracking_uri):
+        self.tracking_uri = tracking_uri
+
+    def get_config(self):
+        scope, key_prefix = get_db_info_from_uri(self.tracking_uri)
+
+        if scope and key_prefix:
+            dbutils = _get_dbutils()
+            if dbutils:
+                # Prefix differentiates users and is provided as path information in the URI
+                host = dbutils.secrets.get(scope=scope, key=key_prefix + "-host")
+                token = dbutils.secrets.get(scope=scope, key=key_prefix + "-token")
+                return DatabricksConfig.from_token(host=host, token=token, insecure=False)
+
+        return None
+
+
 def get_databricks_host_creds(server_uri=None):
     """
     Reads in configuration necessary to make HTTP requests to a Databricks server. This
-    uses the Databricks CLI's ConfigProvider interface to load the DatabricksConfig object.
-    If no Databricks CLI profile is found corresponding to the server URI, this function
+    uses Databricks SDK workspace client API,
+    If no available credential configuration is found to the server URI, this function
     will attempt to retrieve these credentials from the Databricks Secret Manager. For that to work,
     the server URI will need to be of the following format: "databricks://scope:prefix". In the
     Databricks Secret Manager, we will query for a secret in the scope "<scope>" for secrets with
@@ -482,37 +761,80 @@ def get_databricks_host_creds(server_uri=None):
             requests.
 
     Returns:
-        MlflowHostCreds which includes the hostname and authentication information necessary to
+        MlflowHostCreds which includes the hostname if databricks sdk authentication is available,
+        otherwise includes the hostname and authentication information necessary to
         talk to the Databricks server.
+
+    .. Warning:: This API is deprecated. In the future it might be removed.
     """
-    profile, path = get_db_info_from_uri(server_uri)
-    config = ProfileConfigProvider(profile).get_config() if profile else get_config()
-    # if a path is specified, that implies a Databricks tracking URI of the form:
-    # databricks://profile-name/path-specifier
-    if (not config or not config.host) and path:
-        dbutils = _get_dbutils()
-        if dbutils:
-            # Prefix differentiates users and is provided as path information in the URI
-            key_prefix = path
-            host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
-            token = dbutils.secrets.get(scope=profile, key=key_prefix + "-token")
-            if host and token:
-                config = DatabricksConfig.from_token(host=host, token=token, insecure=False)
-    if not config or not config.host:
+
+    if MLFLOW_ENABLE_DB_SDK.get():
+        from databricks.sdk import WorkspaceClient
+
+        profile, key_prefix = get_db_info_from_uri(server_uri)
+        profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
+        if key_prefix is not None:
+            try:
+                config = TrackingURIConfigProvider(server_uri).get_config()
+                WorkspaceClient(host=config.host, token=config.token)
+                return MlflowHostCreds(
+                    config.host,
+                    token=config.token,
+                    use_databricks_sdk=True,
+                    use_secret_scope_token=True,
+                )
+            except Exception as e:
+                raise MlflowException(
+                    f"The hostname and credentials configured by {server_uri} is invalid. "
+                    "Please create valid hostname secret by command "
+                    f"'databricks secrets put-secret {profile} {key_prefix}-host' and "
+                    "create valid token secret by command "
+                    f"'databricks secrets put-secret {profile} {key_prefix}-token'."
+                ) from e
+        try:
+            # Using databricks-sdk to create Databricks WorkspaceClient instance,
+            # If authentication is failed, MLflow falls back to legacy authentication methods,
+            # see `SparkTaskContextConfigProvider`, `DatabricksModelServingConfigProvider`,
+            # and `TrackingURIConfigProvider`.
+            # databricks-sdk supports many kinds of authentication ways,
+            # it will try to read authentication information by the following ways:
+            # 1. Read dynamic generated token via databricks `dbutils`.
+            # 2. parse relevant environment variables (such as DATABRICKS_HOST + DATABRICKS_TOKEN
+            #    or DATABRICKS_HOST + DATABRICKS_CLIENT_ID + DATABRICKS_CLIENT_SECRET)
+            #    to get authentication information
+            # 3. parse ~/.databrickscfg file (generated by databricks-CLI command-line tool)
+            #    to get authentication information.
+            # databricks-sdk is designed to hide authentication details and
+            # support various authentication ways, so that it does not provide API
+            # to get credential values. Instead, we can use ``WorkspaceClient``
+            # API to invoke databricks shard restful APIs.
+            WorkspaceClient(profile=profile)
+            use_databricks_sdk = True
+            databricks_auth_profile = profile
+        except Exception as e:
+            _logger.debug(f"Failed to create databricks SDK workspace client, error: {e!r}")
+            use_databricks_sdk = False
+            databricks_auth_profile = None
+    else:
+        use_databricks_sdk = False
+        databricks_auth_profile = None
+
+    config = _get_databricks_creds_config(server_uri)
+
+    if not config:
         _fail_malformed_databricks_auth(profile)
 
-    insecure = hasattr(config, "insecure") and config.insecure
-
-    if config.username is not None and config.password is not None:
-        return MlflowHostCreds(
-            config.host,
-            username=config.username,
-            password=config.password,
-            ignore_tls_verification=insecure,
-        )
-    elif config.token:
-        return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
-    _fail_malformed_databricks_auth(profile)
+    return MlflowHostCreds(
+        config.host,
+        username=config.username,
+        password=config.password,
+        ignore_tls_verification=config.insecure,
+        token=config.token,
+        client_id=config.client_id,
+        client_secret=config.client_secret,
+        use_databricks_sdk=use_databricks_sdk,
+        databricks_auth_profile=databricks_auth_profile,
+    )
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")
@@ -620,7 +942,7 @@ def get_databricks_model_version_url(registry_uri: str, name: str, version: str)
     """Obtains a Databricks URL corresponding to the specified Model Version.
 
     Args:
-        tracking_uri: The URI of the Model Registry server containing the Model Version.
+        registry_uri: The URI of the Model Registry server containing the Model Version.
         name: The name of the registered model containing the Model Version.
         version: Version number of the Model Version.
 
@@ -748,11 +1070,82 @@ def _construct_databricks_model_version_url(
     return model_version_url
 
 
+def _construct_databricks_uc_registered_model_url(
+    workspace_url: str, registered_model_name: str, version: str, workspace_id: Optional[str] = None
+) -> str:
+    """
+    Get a Databricks URL for a given registered model version in Unity Catalog.
+
+    Args:
+        workspace_url: The URL of the workspace the registered model is in.
+        registered_model_name: The full name of the registered model containing the version.
+        version: The version of the registered model to create the URL for.
+        workspace_id: The ID of the workspace to include as a query parameter (if provided).
+
+    Returns:
+        The Databricks URL for a registered model in Unity Catalog.
+    """
+    path = registered_model_name.replace(".", "/")
+    query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
+    return f"{workspace_url}/explore/data/models/{path}/version/{version}{query}"
+
+
+def _get_databricks_creds_config(tracking_uri):
+    # Note:
+    # `_get_databricks_creds_config` reads credential token values or password and
+    # returns a `DatabricksConfig` object
+    # Databricks-SDK API doesn't support reading credential token values,
+    # so that in this function we still have to use
+    # configuration providers defined in legacy Databricks CLI python library to
+    # read token values.
+    profile, key_prefix = get_db_info_from_uri(tracking_uri)
+
+    config = None
+
+    if profile and key_prefix:
+        # legacy way to read credentials by setting `tracking_uri` to 'databricks://scope:prefix'
+        providers = [TrackingURIConfigProvider(tracking_uri)]
+    elif profile:
+        # If `tracking_uri` is 'databricks://<profile>'
+        # MLflow should only read credentials from this profile
+        providers = [ProfileConfigProvider(profile)]
+    else:
+        providers = [
+            # `EnvironmentVariableConfigProvider` should be prioritized at the highest level,
+            # to align with Databricks-SDK behavior.
+            EnvironmentVariableConfigProvider(),
+            _dynamic_token_config_provider,
+            ProfileConfigProvider(None),
+            SparkTaskContextConfigProvider(),
+            DatabricksModelServingConfigProvider(),
+        ]
+
+    for provider in providers:
+        if provider:
+            _config = provider.get_config()
+            if _config is not None and _config.is_valid:
+                config = _config
+                break
+
+    if not config or not config.host:
+        _fail_malformed_databricks_auth(tracking_uri)
+
+    return config
+
+
 def get_databricks_env_vars(tracking_uri):
     if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
         return {}
 
-    config = get_databricks_host_creds(tracking_uri)
+    config = _get_databricks_creds_config(tracking_uri)
+
+    if config.auth_type == "databricks-cli":
+        raise MlflowException(
+            "You configured authentication type to 'databricks-cli', in this case, MLflow cannot "
+            "read credential values, so that MLflow cannot construct the databricks environment "
+            "variables for child process authentication."
+        )
+
     # We set these via environment variables so that only the current profile is exposed, rather
     # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
     # part of ~/.databrickscfg into the container
@@ -765,14 +1158,40 @@ def get_databricks_env_vars(tracking_uri):
         env_vars["DATABRICKS_PASSWORD"] = config.password
     if config.token:
         env_vars["DATABRICKS_TOKEN"] = config.token
-    if config.ignore_tls_verification:
-        env_vars["DATABRICKS_INSECURE"] = str(config.ignore_tls_verification)
+    if config.insecure:
+        env_vars["DATABRICKS_INSECURE"] = str(config.insecure)
+    if config.client_id:
+        env_vars["DATABRICKS_CLIENT_ID"] = config.client_id
+    if config.client_secret:
+        env_vars["DATABRICKS_CLIENT_SECRET"] = config.client_secret
 
     workspace_info = get_databricks_workspace_info_from_uri(tracking_uri)
     if workspace_info is not None:
         env_vars.update(workspace_info.to_environment())
 
     return env_vars
+
+
+def _get_databricks_serverless_env_vars() -> dict[str, str]:
+    """
+    Returns the environment variables required to to initialize WorkspaceClient in a subprocess
+    with serverless compute.
+
+    Note:
+        Databricks authentication related environment variables such as DATABRICKS_HOST are
+        set in the are set in the _capture_imported_modules function.
+    """
+    envs = {}
+    if "SPARK_REMOTE" in os.environ:
+        envs["SPARK_LOCAL_REMOTE"] = os.environ["SPARK_REMOTE"]
+    else:
+        _logger.warning(
+            "Missing required environment variable `SPARK_LOCAL_REMOTE` or `SPARK_REMOTE`. "
+            "These are necessary to initialize the WorkspaceClient with serverless compute in "
+            "a subprocess in Databricks for UC function execution. Setting the value to 'true'."
+        )
+        envs["SPARK_LOCAL_REMOTE"] = "true"
+    return envs
 
 
 class DatabricksRuntimeVersion(NamedTuple):
@@ -802,13 +1221,18 @@ def get_databricks_runtime_major_minor_version():
     return DatabricksRuntimeVersion.parse()
 
 
-def _init_databricks_cli_config_provider(entry_point):
+_dynamic_token_config_provider = None
+
+
+def _init_databricks_dynamic_token_config_provider(entry_point):
     """
     set a custom DatabricksConfigProvider with the hostname and token of the
     user running the current command (achieved by looking at
     PythonAccessibleThreadLocals.commandContext, via the already-exposed
     NotebookUtils.getContext API)
     """
+    global _dynamic_token_config_provider
+
     notebook_utils = entry_point.getDbutils().notebook()
 
     dbr_version = get_databricks_runtime_major_minor_version()
@@ -829,10 +1253,9 @@ def _init_databricks_cli_config_provider(entry_point):
                             host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
                         )
                 except Exception as e:
-                    print(  # noqa
+                    _logger.debug(
                         "Unexpected internal error while constructing `DatabricksConfig` "
                         f"from REPL context: {e}",
-                        file=stderr,
                     )
                 # Invoking getContext() will attempt to find the credentials related to the
                 # current command execution, so it's critical that we execute it on every
@@ -859,9 +1282,8 @@ def _init_databricks_cli_config_provider(entry_point):
 
                 ssl_trust_all = entry_point.getDriverConf().workflowSslTrustAll()
 
-                # Fallback to the default behavior if we were unable to find a token.
                 if api_token is None or api_url is None:
-                    return DefaultConfigProvider().get_config()
+                    return None
 
                 return DatabricksConfig.from_token(
                     host=api_url, token=api_token, insecure=ssl_trust_all
@@ -879,10 +1301,9 @@ def _init_databricks_cli_config_provider(entry_point):
                             host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
                         )
                 except Exception as e:
-                    print(  # noqa
+                    _logger.debug(
                         "Unexpected internal error while constructing `DatabricksConfig` "
                         f"from REPL context: {e}",
-                        file=stderr,
                     )
                 # Invoking getContext() will attempt to find the credentials related to the
                 # current command execution, so it's critical that we execute it on every
@@ -891,9 +1312,8 @@ def _init_databricks_cli_config_provider(entry_point):
                 api_url_option = notebook_utils.getContext().apiUrl()
                 ssl_trust_all = entry_point.getDriverConf().workflowSslTrustAll()
 
-                # Fallback to the default behavior if we were unable to find a token.
                 if not api_token_option.isDefined() or not api_url_option.isDefined():
-                    return DefaultConfigProvider().get_config()
+                    return None
 
                 return DatabricksConfig.from_token(
                     host=api_url_option.get(), token=api_token_option.get(), insecure=ssl_trust_all
@@ -909,23 +1329,52 @@ def _init_databricks_cli_config_provider(entry_point):
                 api_url_option = notebook_utils.getContext().apiUrl()
                 ssl_trust_all = entry_point.getDriverConf().workflowSslTrustAll()
 
-                # Fallback to the default behavior if we were unable to find a token.
                 if not api_token_option.isDefined() or not api_url_option.isDefined():
-                    return DefaultConfigProvider().get_config()
+                    return None
 
                 return DatabricksConfig.from_token(
                     host=api_url_option.get(), token=api_token_option.get(), insecure=ssl_trust_all
                 )
 
-    set_config_provider(DynamicConfigProvider())
+    _dynamic_token_config_provider = DynamicConfigProvider()
 
 
 if is_in_databricks_runtime():
     try:
         dbutils = _get_dbutils()
-        _init_databricks_cli_config_provider(dbutils.entry_point)
+        _init_databricks_dynamic_token_config_provider(dbutils.entry_point)
     except _NoDbutilsError:
         # If there is no dbutils available, it means it is run in databricks driver local suite,
         # in this case, we don't need to initialize databricks token because
         # there is no backend mlflow service available.
         pass
+
+
+def get_databricks_nfs_temp_dir():
+    entry_point = _get_dbutils().entry_point
+    if getpass.getuser().lower() == "root":
+        return entry_point.getReplNFSTempDir()
+    else:
+        try:
+            # If it is not ROOT user, it means the code is running in Safe-spark.
+            # In this case, we should get temporary directory of current user.
+            # and `getReplNFSTempDir` will be deprecated for this case.
+            return entry_point.getUserNFSTempDir()
+        except Exception:
+            # fallback
+            return entry_point.getReplNFSTempDir()
+
+
+def get_databricks_local_temp_dir():
+    entry_point = _get_dbutils().entry_point
+    if getpass.getuser().lower() == "root":
+        return entry_point.getReplLocalTempDir()
+    else:
+        try:
+            # If it is not ROOT user, it means the code is running in Safe-spark.
+            # In this case, we should get temporary directory of current user.
+            # and `getReplLocalTempDir` will be deprecated for this case.
+            return entry_point.getUserLocalTempDir()
+        except Exception:
+            # fallback
+            return entry_point.getReplLocalTempDir()

@@ -2,6 +2,7 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
+
 import time
 
 import pytest
@@ -129,12 +130,6 @@ def test_update_registered_model_flow(client):
     assert str(registered_model_detailed_1.description) == ""
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
-
-    # update with no args is an error
-    with pytest.raises(
-        MlflowException, match="Attempting to update registered model with no new field values"
-    ):
-        client.update_registered_model(name=name, description=None)
 
     # update name
     new_name = "UpdateRMTest 2"
@@ -438,8 +433,10 @@ def test_get_model_version(client):
     assert model_version.name == name
     assert model_version.version == "1"
 
+    error_message = "Parameter 'version' must be an integer, got 'something not correct'."
     with pytest.raises(
-        MlflowException, match="INVALID_PARAMETER_VALUE: Model version must be an integer"
+        MlflowException,
+        match=f"INVALID_PARAMETER_VALUE: {error_message}",
     ):
         client.get_model_version(name=name, version="something not correct")
 

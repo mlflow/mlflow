@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
 
 from mlflow.data.dataset_source import DatasetSource
 
@@ -19,11 +19,12 @@ class HuggingFaceDatasetSource(DatasetSource):
         ] = None,
         split: Optional[Union[str, "datasets.Split"]] = None,
         revision: Optional[Union[str, "datasets.Version"]] = None,
+        trust_remote_code: Optional[bool] = None,
     ):
         """Create a `HuggingFaceDatasetSource` instance.
 
         Arguments in `__init__` match arguments of the same name in
-        [`datasets.load_dataset()`](https://huggingface.co/docs/datasets/v2.14.5/en/package_reference/loading_methods#datasets.load_dataset).
+        `datasets.load_dataset() <https://huggingface.co/docs/datasets/v2.14.5/en/package_reference/loading_methods#datasets.load_dataset>`_.
         The only exception is `config_name` matches `name` in `datasets.load_dataset()`, because
         we need to differentiate from `mlflow.data.Dataset` `name` attribute.
 
@@ -35,6 +36,7 @@ class HuggingFaceDatasetSource(DatasetSource):
             data_files: Paths to source data file(s) for the Hugging Face dataset configuration.
             split: Which split of the data to load.
             revision: Version of the dataset script to load.
+            trust_remote_code: Whether to trust remote code from the dataset repo.
         """
         self.path = path
         self.config_name = config_name
@@ -42,6 +44,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         self.data_files = data_files
         self.split = split
         self.revision = revision
+        self.trust_remote_code = trust_remote_code
 
     @staticmethod
     def _get_source_type() -> str:
@@ -58,6 +61,7 @@ class HuggingFaceDatasetSource(DatasetSource):
             An instance of `datasets.Dataset`.
         """
         import datasets
+        from packaging.version import Version
 
         load_kwargs = {
             "path": self.path,
@@ -67,6 +71,11 @@ class HuggingFaceDatasetSource(DatasetSource):
             "split": self.split,
             "revision": self.revision,
         }
+
+        # this argument only exists in >= 2.16.0
+        if Version(datasets.__version__) >= Version("2.16.0"):
+            load_kwargs["trust_remote_code"] = self.trust_remote_code
+
         intersecting_keys = set(load_kwargs.keys()) & set(kwargs.keys())
         if intersecting_keys:
             raise KeyError(
@@ -87,7 +96,7 @@ class HuggingFaceDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: str) -> "HuggingFaceDatasetSource":
         raise NotImplementedError
 
-    def to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> dict[Any, Any]:
         return {
             "path": self.path,
             "config_name": self.config_name,
@@ -98,7 +107,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         }
 
     @classmethod
-    def from_dict(cls, source_dict: Dict[Any, Any]) -> "HuggingFaceDatasetSource":
+    def from_dict(cls, source_dict: dict[Any, Any]) -> "HuggingFaceDatasetSource":
         return cls(
             path=source_dict.get("path"),
             config_name=source_dict.get("config_name"),

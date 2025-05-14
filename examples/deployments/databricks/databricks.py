@@ -6,6 +6,7 @@ databricks secrets put-secret <scope> openai-api-key --string-value $OPENAI_API_
 python examples/deployments/databricks.py --secret <scope>/openai-api-key
 -----
 """
+
 import argparse
 import uuid
 

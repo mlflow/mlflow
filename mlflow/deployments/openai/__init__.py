@@ -1,19 +1,14 @@
-import logging
 import os
 
+from mlflow.deployments import BaseDeploymentClient
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.openai_utils import (
-    REQUEST_URL_CHAT,
     _OAITokenHolder,
     _OpenAIApiConfig,
     _OpenAIEnvVar,
 )
 from mlflow.utils.rest_utils import augmented_raise_for_status
-
-_logger = logging.getLogger(__name__)
-
-from mlflow.deployments import BaseDeploymentClient
 
 
 class OpenAIDeploymentClient(BaseDeploymentClient):
@@ -41,7 +36,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
 
         client = get_deploy_client("openai")
         client.predict(
-            endpoint="gpt-3.5-turbo",
+            endpoint="gpt-4o-mini",
             inputs={
                 "messages": [
                     {"role": "user", "content": "Hello!"},
@@ -105,56 +100,34 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         """
         _check_openai_key()
 
-        from mlflow.openai.api_request_parallel_processor import process_api_requests
-
         api_config = _get_api_config_without_openai_dep()
         api_token = _OAITokenHolder(api_config.api_type)
+        api_token.refresh()
 
         if api_config.api_type in ("azure", "azure_ad", "azuread"):
-            api_base = api_config.api_base
-            api_version = api_config.api_version
-            engine = api_config.engine
-            deployment_id = api_config.deployment_id
+            from openai import AzureOpenAI
 
-            if engine:
-                # Avoid using both parameters as they serve the same purpose
-                # Invalid inputs:
-                #   - Wrong engine + correct/wrong deployment_id
-                #   - No engine + wrong deployment_id
-                # Valid inputs:
-                #   - Correct engine + correct/wrong deployment_id
-                #   - No engine + correct deployment_id
-                if deployment_id is not None:
-                    _logger.warning(
-                        "Both engine and deployment_id are set. "
-                        "Using engine as it takes precedence."
-                    )
-                inputs = {"engine": engine, **inputs}
-            elif deployment_id is None:
-                raise MlflowException(
-                    "Either engine or deployment_id must be set for Azure OpenAI API",
-                )
-
-            request_url = (
-                f"{api_base}/openai/deployments/{deployment_id}"
-                f"/chat/completions?api-version={api_version}"
+            client = AzureOpenAI(
+                api_key=api_token.token,
+                azure_endpoint=api_config.api_base,
+                api_version=api_config.api_version,
+                azure_deployment=api_config.deployment_id,
+                max_retries=api_config.max_retries,
+                timeout=api_config.timeout,
             )
         else:
-            inputs = {"model": endpoint, **inputs}
-            request_url = REQUEST_URL_CHAT
+            from openai import OpenAI
 
-        try:
-            return process_api_requests(
-                [inputs],
-                request_url,
-                api_token=api_token,
-                throw_original_error=True,
-                max_workers=1,
-            )[0]
-        except MlflowException:
-            raise
-        except Exception as e:
-            raise MlflowException(f"Error response from OpenAI:\n {e}")
+            client = OpenAI(
+                api_key=api_token.token,
+                base_url=api_config.api_base,
+                max_retries=api_config.max_retries,
+                timeout=api_config.timeout,
+            )
+
+        return client.chat.completions.create(
+            messages=inputs["messages"], model=endpoint
+        ).model_dump()
 
     def create_endpoint(self, name, config=None):
         """
@@ -250,7 +223,6 @@ def _get_api_config_without_openai_dep() -> _OpenAIApiConfig:
     api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value)
     api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value)
     api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value, None)
-    engine = os.getenv(_OpenAIEnvVar.OPENAI_ENGINE.value, None)
     deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
         batch_size = 16
@@ -268,7 +240,6 @@ def _get_api_config_without_openai_dep() -> _OpenAIApiConfig:
         max_tokens_per_minute=max_tokens_per_minute,
         api_base=api_base,
         api_version=api_version,
-        engine=engine,
         deployment_id=deployment_id,
     )
 

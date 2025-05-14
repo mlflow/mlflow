@@ -6,13 +6,15 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
+from typing import Literal, Optional
 
 from packaging.version import Version
 
 import mlflow
-from mlflow.environment_variables import MLFLOW_ENV_ROOT
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENV_ROOT
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
+from mlflow.utils import env_manager as em
 from mlflow.utils.conda import _PIP_CACHE_DIR
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.environment import (
@@ -20,7 +22,6 @@ from mlflow.utils.environment import (
     _PYTHON_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _get_mlflow_env_name,
-    _get_pip_install_mlflow,
     _PythonEnv,
 )
 from mlflow.utils.file_utils import remove_on_error
@@ -45,10 +46,7 @@ def _is_pyenv_available():
     """
     Returns True if pyenv is available, otherwise False.
     """
-    if is_in_databricks_runtime():
-        return os.path.exists(_DATABRICKS_PYENV_BIN_PATH)
-    else:
-        return shutil.which("pyenv") is not None
+    return _get_pyenv_bin_path() is not None
 
 
 def _validate_pyenv_is_available():
@@ -90,7 +88,9 @@ _SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 
 
 def _get_pyenv_bin_path():
-    return _DATABRICKS_PYENV_BIN_PATH if is_in_databricks_runtime() else "pyenv"
+    if os.path.exists(_DATABRICKS_PYENV_BIN_PATH):
+        return _DATABRICKS_PYENV_BIN_PATH
+    return shutil.which("pyenv")
 
 
 def _find_latest_installable_python_version(version_prefix):
@@ -233,18 +233,57 @@ def _get_virtualenv_name(python_env, work_dir_path, env_id=None):
     )
 
 
-def _create_virtualenv(
-    local_model_path, python_bin_path, env_dir, python_env, extra_env=None, capture_output=False
-):
+def _get_virtualenv_activate_cmd(env_dir: Path) -> str:
     # Created a command to activate the environment
     paths = ("bin", "activate") if not is_windows() else ("Scripts", "activate.bat")
     activate_cmd = env_dir.joinpath(*paths)
-    activate_cmd = f"source {activate_cmd}" if not is_windows() else str(activate_cmd)
+    return f"source {activate_cmd}" if not is_windows() else str(activate_cmd)
 
+
+def _create_virtualenv(
+    local_model_path: Path,
+    python_env: _PythonEnv,
+    env_dir: Path,
+    pyenv_root_dir: Optional[str] = None,
+    env_manager: Literal["virtualenv", "uv"] = em.UV,
+    extra_env: Optional[dict[str, str]] = None,
+    capture_output: bool = False,
+    pip_requirements_override: Optional[list[str]] = None,
+):
+    if env_manager not in {em.VIRTUALENV, em.UV}:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for `env_manager`: {env_manager}. "
+            f"Must be one of `{em.VIRTUALENV}, {em.UV}`"
+        )
+
+    activate_cmd = _get_virtualenv_activate_cmd(env_dir)
     if env_dir.exists():
-        _logger.info("Environment %s already exists", env_dir)
+        _logger.info(f"Environment {env_dir} already exists")
         return activate_cmd
 
+    if env_manager == em.VIRTUALENV:
+        python_bin_path = _install_python(
+            python_env.python, pyenv_root=pyenv_root_dir, capture_output=capture_output
+        )
+        _logger.info(f"Creating a new environment in {env_dir} with {python_bin_path}")
+        env_creation_cmd = [
+            sys.executable,
+            "-m",
+            "virtualenv",
+            "--python",
+            python_bin_path,
+            env_dir,
+        ]
+        install_deps_cmd_prefix = "python -m pip install"
+    elif env_manager == em.UV:
+        _logger.info(
+            f"Creating a new environment in {env_dir} with python "
+            f"version {python_env.python} using uv"
+        )
+        env_creation_cmd = ["uv", "venv", env_dir, f"--python={python_env.python}"]
+        install_deps_cmd_prefix = "uv pip install --prerelease=allow"
+        if _MLFLOW_TESTING.get():
+            os.environ["RUST_LOG"] = "uv=debug"
     with remove_on_error(
         env_dir,
         onerror=lambda e: _logger.warning(
@@ -254,9 +293,8 @@ def _create_virtualenv(
             env_dir,
         ),
     ):
-        _logger.info("Creating a new environment in %s with %s", env_dir, python_bin_path)
         _exec_cmd(
-            [sys.executable, "-m", "virtualenv", "--python", python_bin_path, env_dir],
+            env_creation_cmd,
             capture_output=capture_output,
         )
 
@@ -283,12 +321,21 @@ def _create_virtualenv(
 
                 tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
                 Path(tmpdir).joinpath(tmp_req_file).write_text("\n".join(deps))
-                cmd = _join_commands(
-                    activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}"
-                )
+                cmd = _join_commands(activate_cmd, f"{install_deps_cmd_prefix} -r {tmp_req_file}")
                 _exec_cmd(cmd, capture_output=capture_output, cwd=tmpdir, extra_env=extra_env)
 
-    return activate_cmd
+        if pip_requirements_override:
+            _logger.info(
+                "Installing additional dependencies specified by "
+                f"pip_requirements_override: {pip_requirements_override}"
+            )
+            cmd = _join_commands(
+                activate_cmd,
+                f"{install_deps_cmd_prefix} --quiet {' '.join(pip_requirements_override)}",
+            )
+            _exec_cmd(cmd, capture_output=capture_output, extra_env=extra_env)
+
+        return activate_cmd
 
 
 def _copy_model_to_writeable_destination(model_src, dst):
@@ -325,14 +372,15 @@ _VIRTUALENV_ENVS_DIR = "virtualenv_envs"
 _PYENV_ROOT_DIR = "pyenv_root"
 
 
-def _get_or_create_virtualenv(
+def _get_or_create_virtualenv(  # noqa: D417
     local_model_path,
     env_id=None,
     env_root_dir=None,
     capture_output=False,
-    pip_requirements_override=None,
+    pip_requirements_override: Optional[list[str]] = None,
+    env_manager: Literal["virtualenv", "uv"] = em.UV,
 ):
-    """Restores an MLflow model's environment with pyenv and virtualenv and returns a command
+    """Restores an MLflow model's environment in a virtual environment and returns a command
     to activate it.
 
     Args:
@@ -344,107 +392,67 @@ def _get_or_create_virtualenv(
             environment after the environment has been activated.
         pip_requirements_override: If specified, install the specified python dependencies to
             the environment (upgrade if already installed).
+        env_manager: Specifies the environment manager to use to create the environment.
+            Defaults to "uv".
+
+            .. tip::
+                It is highly recommended to use "uv" as it has significant performance improvements
+                over "virtualenv".
 
     Returns:
-        Command to activate the created virtualenv environment
+        Command to activate the created virtual environment
         (e.g. "source /path/to/bin/activate").
 
     """
-    _validate_pyenv_is_available()
-    _validate_virtualenv_is_available()
+    if env_manager == em.VIRTUALENV:
+        _validate_pyenv_is_available()
+        _validate_virtualenv_is_available()
 
-    # Read environment information
     local_model_path = Path(local_model_path)
     python_env = _get_python_env(local_model_path)
 
-    extra_env = _get_virtualenv_extra_env_vars(env_root_dir)
-    if env_root_dir is not None:
-        virtual_envs_root_path = Path(env_root_dir) / _VIRTUALENV_ENVS_DIR
-        pyenv_root_path = Path(env_root_dir) / _PYENV_ROOT_DIR
-        pyenv_root_path.mkdir(parents=True, exist_ok=True)
-        pyenv_root_dir = str(pyenv_root_path)
-    else:
+    pyenv_root_dir = None
+    if env_root_dir is None:
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
-        pyenv_root_dir = None
+    else:
+        virtual_envs_root_path = Path(env_root_dir) / _VIRTUALENV_ENVS_DIR
+        if env_manager == em.VIRTUALENV:
+            pyenv_root_path = Path(env_root_dir) / _PYENV_ROOT_DIR
+            pyenv_root_path.mkdir(parents=True, exist_ok=True)
+            pyenv_root_dir = str(pyenv_root_path)
 
     virtual_envs_root_path.mkdir(parents=True, exist_ok=True)
-
-    # Create an environment
-    python_bin_path = _install_python(
-        python_env.python, pyenv_root=pyenv_root_dir, capture_output=capture_output
-    )
     env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
     env_dir = virtual_envs_root_path / env_name
     try:
-        activate_cmd = _create_virtualenv(
-            local_model_path,
-            python_bin_path,
-            env_dir,
-            python_env,
-            extra_env=extra_env,
-            capture_output=capture_output,
-        )
-
-        # Install additional dependencies specified by `requirements_override`
-        if pip_requirements_override:
-            _logger.info(
-                "Installing additional dependencies specified by "
-                f"pip_requirements_override: {pip_requirements_override}"
+        env_dir.exists()
+    except PermissionError:
+        if is_in_databricks_runtime():
+            # Updating env_name only doesn't work because the cluster may not have
+            # permission to access the original virtual_envs_root_path
+            virtual_envs_root_path = (
+                Path(env_root_dir) / f"{_VIRTUALENV_ENVS_DIR}_{uuid.uuid4().hex[:8]}"
             )
-            cmd = _join_commands(
-                activate_cmd,
-                f"python -m pip install --quiet -U {' '.join(pip_requirements_override)}",
+            virtual_envs_root_path.mkdir(parents=True, exist_ok=True)
+            env_dir = virtual_envs_root_path / env_name
+        else:
+            _logger.warning(
+                f"Existing virtual environment directory {env_dir} cannot be accessed "
+                "due to permission error. Check the permissions of the directory and "
+                "try again. If the issue persists, consider cleaning up the directory manually."
             )
-            _exec_cmd(cmd, capture_output=capture_output, extra_env=extra_env)
+            raise
 
-        return activate_cmd
+    extra_env = _get_virtualenv_extra_env_vars(env_root_dir)
 
-    except:
-        _logger.warning("Encountered unexpected error while creating %s", env_dir)
-        if env_dir.exists():
-            _logger.warning("Attempting to remove %s", env_dir)
-            shutil.rmtree(env_dir, ignore_errors=True)
-            msg = "Failed to remove %s" if env_dir.exists() else "Successfully removed %s"
-            _logger.warning(msg, env_dir)
-        raise
-
-
-def _execute_in_virtualenv(
-    activate_cmd,
-    command,
-    install_mlflow,
-    command_env=None,
-    synchronous=True,
-    capture_output=False,
-    env_root_dir=None,
-    **kwargs,
-):
-    """Runs a command in a specified virtualenv environment.
-
-    Args:
-        activate_cmd: Command to activate the virtualenv environment.
-        command: Command to run in the virtualenv environment.
-        install_mlflow: Flag to determine whether to install mlflow in the virtualenv
-            environment.
-        command_env: Environment variables passed to a process running the command.
-        synchronous: Set the `synchronous` argument when calling `_exec_cmd`.
-        capture_output: Set the `capture_output` argument when calling `_exec_cmd`.
-        env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
-        kwargs: Set the `kwargs` argument when calling `_exec_cmd`.
-
-    """
-    if command_env is None:
-        command_env = os.environ.copy()
-
-    if env_root_dir is not None:
-        command_env = {**command_env, **_get_virtualenv_extra_env_vars(env_root_dir)}
-
-    pre_command = [activate_cmd]
-    if install_mlflow:
-        pre_command.append(_get_pip_install_mlflow())
-
-    cmd = _join_commands(*pre_command, command)
-    _logger.info("Running command: %s", " ".join(cmd))
-    return _exec_cmd(
-        cmd, capture_output=capture_output, env=command_env, synchronous=synchronous, **kwargs
+    # Create an environment
+    return _create_virtualenv(
+        local_model_path=local_model_path,
+        python_env=python_env,
+        env_dir=env_dir,
+        pyenv_root_dir=pyenv_root_dir,
+        env_manager=env_manager,
+        extra_env=extra_env,
+        capture_output=capture_output,
+        pip_requirements_override=pip_requirements_override,
     )

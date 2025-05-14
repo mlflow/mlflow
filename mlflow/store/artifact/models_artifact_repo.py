@@ -1,6 +1,8 @@
 import logging
 import os
 import urllib.parse
+from pathlib import Path
+from typing import Union
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -9,15 +11,20 @@ from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksMode
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
+from mlflow.store.artifact.unity_catalog_oss_models_artifact_repo import (
+    UnityCatalogOSSModelsArtifactRepository,
+)
 from mlflow.store.artifact.utils.models import (
+    _parse_model_uri,
     get_model_name_and_version,
     is_using_databricks_registry,
 )
-from mlflow.utils.file_utils import write_yaml
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_unity_catalog_uri,
+    is_models_uri,
+    is_oss_unity_catalog_uri,
 )
 
 REGISTERED_MODEL_META_FILE_NAME = "registered_model_meta"
@@ -40,13 +47,20 @@ class ModelsArtifactRepository(ArtifactRepository):
 
         super().__init__(artifact_uri)
         registry_uri = mlflow.get_registry_uri()
-        if is_databricks_unity_catalog_uri(uri=registry_uri):
+        self.is_logged_model_uri = self._is_logged_model_uri(artifact_uri)
+        if is_databricks_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
             self.repo = UnityCatalogModelsArtifactRepository(
                 artifact_uri=artifact_uri, registry_uri=registry_uri
             )
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
-        elif is_using_databricks_registry(artifact_uri):
+        elif is_oss_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
+            self.repo = UnityCatalogOSSModelsArtifactRepository(
+                artifact_uri=artifact_uri, registry_uri=registry_uri
+            )
+            self.model_name = self.repo.model_name
+            self.model_version = self.repo.model_version
+        elif is_using_databricks_registry(artifact_uri) and not self.is_logged_model_uri:
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
             self.repo = DatabricksModelsArtifactRepository(artifact_uri)
             self.model_name = self.repo.model_name
@@ -70,14 +84,31 @@ class ModelsArtifactRepository(ArtifactRepository):
         """
         Split 'models:/<name>/<version>/path/to/model' into
         ('models:/<name>/<version>', 'path/to/model').
+        Split 'models://<scope>:<prefix>@databricks/<name>/<version>/path/to/model' into
+        ('models://<scope>:<prefix>@databricks/<name>/<version>', 'path/to/model').
+        Split 'models:/<name>@alias/path/to/model' into
+        ('models:/<name>@alias', 'path/to/model').
         """
-        path = urllib.parse.urlparse(uri).path
-        if path.count("/") >= 3 and not path.endswith("/"):
+        uri = uri.rstrip("/")
+        parsed_url = urllib.parse.urlparse(uri)
+        path = parsed_url.path
+        netloc = parsed_url.netloc
+        if path.count("/") >= 2 and not path.endswith("/"):
             splits = path.split("/", 3)
-            model_name_and_version = splits[:3]
-            artifact_path = splits[-1]
-            return "models:" + "/".join(model_name_and_version), artifact_path
+            cut_index = 2 if "@" in splits[1] else 3
+            model_name_and_version = splits[:cut_index]
+            artifact_path = "/".join(splits[cut_index:])
+            base_part = f"models://{netloc}" if netloc else "models:"
+            return base_part + "/".join(model_name_and_version), artifact_path
         return uri, ""
+
+    @staticmethod
+    def _is_logged_model_uri(uri: Union[str, Path]) -> bool:
+        """
+        Returns True if the URI is a logged model URI (e.g. 'models:/<model_id>'), False otherwise.
+        """
+        uri = str(uri)
+        return is_models_uri(uri) and _parse_model_uri(uri).model_id is not None
 
     @staticmethod
     def _get_model_uri_infos(uri):
@@ -90,8 +121,15 @@ class ModelsArtifactRepository(ArtifactRepository):
             get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
         )
         client = MlflowClient(registry_uri=databricks_profile_uri)
-        name, version = get_model_name_and_version(client, uri)
-        download_uri = client.get_model_version_download_uri(name, version)
+        name_and_version_or_id = get_model_name_and_version(client, uri)
+        if len(name_and_version_or_id) == 1:
+            name = None
+            version = None
+            model_id = name_and_version_or_id[0]
+            download_uri = client.get_logged_model(model_id).artifact_location
+        else:
+            name, version = name_and_version_or_id
+            download_uri = client.get_model_version_download_uri(name, version)
 
         return (
             name,
@@ -116,8 +154,11 @@ class ModelsArtifactRepository(ArtifactRepository):
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifact.
         """
+        if self.is_logged_model_uri:
+            return self.repo.log_artifact(local_file, artifact_path)
         raise ValueError(
-            "log_artifact is not supported for models:/ URIs. Use register_model instead."
+            "log_artifact is not supported for models:/<name>/<version> URIs. "
+            "Use register_model instead."
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
@@ -130,8 +171,11 @@ class ModelsArtifactRepository(ArtifactRepository):
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifacts.
         """
+        if self.is_logged_model_uri:
+            return self.repo.log_artifacts(local_dir, artifact_path)
         raise ValueError(
-            "log_artifacts is not supported for models:/ URIs. Use register_model instead."
+            "log_artifacts is not supported for models:/<name>/<version> URIs. "
+            "Use register_model instead."
         )
 
     def list_artifacts(self, path):
@@ -148,6 +192,8 @@ class ModelsArtifactRepository(ArtifactRepository):
         return self.repo.list_artifacts(path)
 
     def _add_registered_model_meta_file(self, model_path):
+        from mlflow.utils.yaml_utils import write_yaml
+
         write_yaml(
             model_path,
             REGISTERED_MODEL_META_FILE_NAME,
@@ -159,7 +205,7 @@ class ModelsArtifactRepository(ArtifactRepository):
             ensure_yaml_extension=False,
         )
 
-    def download_artifacts(self, artifact_path, dst_path=None):
+    def download_artifacts(self, artifact_path, dst_path=None, lineage_header_info=None):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
@@ -174,6 +220,7 @@ class ModelsArtifactRepository(ArtifactRepository):
                 If unspecified, the artifacts will either be downloaded to a new
                 uniquely-named directory on the local filesystem or will be returned
                 directly in the case of the LocalArtifactRepository.
+            lineage_header_info: Linear header information.
 
         Returns:
             Absolute path of the local filesystem location containing the desired artifacts.
@@ -181,7 +228,13 @@ class ModelsArtifactRepository(ArtifactRepository):
 
         from mlflow.models.model import MLMODEL_FILE_NAME
 
-        model_path = self.repo.download_artifacts(artifact_path, dst_path)
+        # Pass lineage header info if model is registered in UC
+        if isinstance(self.repo, UnityCatalogModelsArtifactRepository):
+            model_path = self.repo.download_artifacts(
+                artifact_path, dst_path, lineage_header_info=lineage_header_info
+            )
+        else:
+            model_path = self.repo.download_artifacts(artifact_path, dst_path)
         # NB: only add the registered model metadata iff the artifact path is at the root model
         # directory. For individual files or subdirectories within the model directory, do not
         # create the metadata file.

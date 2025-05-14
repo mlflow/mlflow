@@ -6,11 +6,11 @@ import tensorflow as tf
 
 import mlflow.data
 from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.data.schema import TensorDatasetSchema
 from mlflow.data.tensorflow_dataset import TensorFlowDataset
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.utils import _infer_schema
 
 from tests.resources.data.dataset_source import SampleDatasetSource

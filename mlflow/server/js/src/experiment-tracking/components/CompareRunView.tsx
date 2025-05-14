@@ -7,8 +7,8 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { injectIntl, FormattedMessage } from 'react-intl';
-import { Spacer, Switch, Tabs, Tooltip } from '@databricks/design-system';
+import { injectIntl, FormattedMessage, type IntlShape } from 'react-intl';
+import { Spacer, Switch, LegacyTabs, LegacyTooltip } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -24,28 +24,28 @@ import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { shouldDisableLegacyRunCompareCharts } from '../../common/utils/FeatureUtils';
+import { RunInfoEntity } from '../types';
+import { CompareRunArtifactView } from './CompareRunArtifactView';
 
-const { TabPane } = Tabs;
+const { TabPane } = LegacyTabs;
 
 type CompareRunViewProps = {
   experiments: any[]; // TODO: PropTypes.instanceOf(Experiment)
   experimentIds: string[];
   comparedExperimentIds?: string[];
   hasComparedExperimentsBefore?: boolean;
-  runInfos: any[]; // TODO: PropTypes.instanceOf(RunInfo)
+  runInfos: RunInfoEntity[];
   runUuids: string[];
   metricLists: any[][];
   paramLists: any[][];
   tagLists: any[][];
   runNames: string[];
   runDisplayNames: string[];
-  intl: {
-    formatMessage: (...args: any[]) => any;
-  };
+  intl: IntlShape;
 };
 
 type CompareRunViewState = any;
-export class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState> {
+class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState> {
   compareRunViewRef: any;
   runDetailsTableRef: any;
 
@@ -121,12 +121,12 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
   renderExperimentNameRowItems() {
     const { experiments } = this.props;
     const experimentNameMap = Utils.getExperimentNameMap(Utils.sortExperimentsById(experiments));
-    return this.props.runInfos.map(({ experiment_id, run_uuid }) => {
+    return this.props.runInfos.map(({ experimentId, runUuid }) => {
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-      const { name, basename } = experimentNameMap[experiment_id];
+      const { name, basename } = experimentNameMap[experimentId];
       return (
-        <td className="meta-info" key={run_uuid}>
-          <Link to={Routes.getExperimentPageRoute(experiment_id)} title={name}>
+        <td className="meta-info" key={runUuid}>
+          <Link to={Routes.getExperimentPageRoute(experimentId)} title={name}>
             {basename}
           </Link>
         </td>
@@ -168,6 +168,11 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
   getExperimentLink() {
     const { comparedExperimentIds, hasComparedExperimentsBefore, experimentIds, experiments } = this.props;
 
+    // Do not attempt to construct experiment links if they are not loaded
+    if (!experimentIds[0] || !experiments[0]) {
+      return '';
+    }
+
     if (hasComparedExperimentsBefore) {
       return this.getCompareExperimentsPageLink(comparedExperimentIds);
     }
@@ -208,6 +213,21 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
       // @ts-expect-error TS(4111): Property 'onlyShowParamDiff' comes from an index s... Remove this comment to see the full error message
       this.state.onlyShowParamDiff,
       true,
+      (key: any, data: any) => key,
+      (value) => {
+        try {
+          const jsonValue = parsePythonDictString(value);
+
+          // Pretty print if parsed value is an object or array
+          if (typeof jsonValue === 'object' && jsonValue !== null) {
+            return this.renderPrettyJson(jsonValue);
+          } else {
+            return value;
+          }
+        } catch (e) {
+          return value;
+        }
+      },
     );
     if (dataRows.length === 0) {
       return (
@@ -230,6 +250,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     );
   }
 
+  renderPrettyJson(jsonValue: any) {
+    return <pre>{JSON.stringify(jsonValue, null, 2)}</pre>;
+  }
+
   renderMetricTable(colWidth: any, experimentIds: any) {
     const dataRows = this.renderDataRows(
       this.props.metricLists,
@@ -241,7 +265,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         return (
           <Link
             to={Routes.getMetricPageRoute(
-              this.props.runInfos.map((info) => info.run_uuid).filter((uuid, idx) => data[idx] !== undefined),
+              this.props.runInfos.map((info) => info.runUuid).filter((uuid, idx) => data[idx] !== undefined),
               key,
               experimentIds,
             )}
@@ -273,6 +297,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         <tbody>{dataRows}</tbody>
       </table>
     );
+  }
+
+  renderArtifactTable(colWidth: any) {
+    return <CompareRunArtifactView runUuids={this.props.runUuids} runInfos={this.props.runInfos} colWidth={colWidth} />;
   }
 
   renderTagTable(colWidth: any) {
@@ -311,13 +339,13 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         description="Filler text when run's time information is unavailable"
       />
     );
-    const getTimeAttributes = (runInfo: any) => {
-      const startTime = runInfo.getStartTime();
-      const endTime = runInfo.getEndTime();
+    const getTimeAttributes = (runInfo: RunInfoEntity) => {
+      const startTime = runInfo.startTime;
+      const endTime = runInfo.endTime;
       return {
-        runUuid: runInfo.run_uuid,
-        startTime: startTime ? Utils.formatTimestamp(startTime) : unknown,
-        endTime: endTime ? Utils.formatTimestamp(endTime) : unknown,
+        runUuid: runInfo.runUuid,
+        startTime: startTime ? Utils.formatTimestamp(startTime, this.props.intl) : unknown,
+        endTime: endTime ? Utils.formatTimestamp(endTime, this.props.intl) : unknown,
         duration: startTime && endTime ? Utils.getDuration(startTime, endTime) : unknown,
       };
     };
@@ -360,8 +388,8 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
           {title}
         </th>
         {data.map(([runUuid, value]) => (
-          <td className="data-value" key={runUuid} css={colWidthStyle}>
-            <Tooltip
+          <td className="data-value" key={runUuid as string} css={colWidthStyle}>
+            <LegacyTooltip
               title={value}
               // @ts-expect-error TS(2322): Type '{ children: any; title: any; color: string; ... Remove this comment to see the full error message
               color="gray"
@@ -371,7 +399,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
               dangerouslySetAntdProps={{ mouseEnterDelay: 1 }}
             >
               {value}
-            </Tooltip>
+            </LegacyTooltip>
           </td>
         ))}
       </tr>
@@ -399,6 +427,11 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
       description: 'Row group title for metrics of runs on the experiment compare runs page',
     });
 
+    const artifactsLabel = this.props.intl.formatMessage({
+      defaultMessage: 'Artifacts',
+      description: 'Row group title for artifacts of runs on the experiment compare runs page',
+    });
+
     const tagsLabel = this.props.intl.formatMessage({
       defaultMessage: 'Tags',
       description: 'Row group title for tags of runs on the experiment compare runs page',
@@ -414,7 +447,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
 
     return (
       <div className="CompareRunView" ref={this.compareRunViewRef}>
-        <PageHeader title={title} breadcrumbs={breadcrumbs} />
+        <PageHeader title={title} breadcrumbs={breadcrumbs} spacerSize="xs" />
         {displayChartSection && (
           <CollapsibleSection
             title={this.props.intl.formatMessage({
@@ -422,7 +455,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
               description: 'Tabs title for plots on the compare runs page',
             })}
           >
-            <Tabs>
+            <LegacyTabs>
               <TabPane
                 tab={
                   <FormattedMessage
@@ -473,7 +506,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
               >
                 <CompareRunContour runUuids={this.props.runUuids} runDisplayNames={this.props.runDisplayNames} />
               </TabPane>
-            </Tabs>
+            </LegacyTabs>
           </CollapsibleSection>
         )}
         <CollapsibleSection
@@ -496,17 +529,17 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
                   />
                 </th>
                 {this.props.runInfos.map((r) => (
-                  <th scope="row" className="data-value" key={r.run_uuid} css={colWidthStyle}>
-                    <Tooltip
-                      title={r.getRunUuid()}
+                  <th scope="row" className="data-value" key={r.runUuid} css={colWidthStyle}>
+                    <LegacyTooltip
+                      title={r.runUuid}
                       // @ts-expect-error TS(2322): Type '{ children: Element; title: any; color: stri... Remove this comment to see the full error message
                       color="gray"
                       placement="topLeft"
                       overlayStyle={{ maxWidth: '400px' }}
                       mouseEnterDelay={1.0}
                     >
-                      <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>{r.getRunUuid()}</Link>
-                    </Tooltip>
+                      <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
+                    </LegacyTooltip>
                   </th>
                 ))}
               </tr>
@@ -521,9 +554,9 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
                 </th>
                 {runNames.map((runName, i) => {
                   return (
-                    <td className="data-value" key={runInfos[i].run_uuid} css={colWidthStyle}>
+                    <td className="data-value" key={runInfos[i].runUuid} css={colWidthStyle}>
                       <div className="truncate-text single-line">
-                        <Tooltip
+                        <LegacyTooltip
                           title={runName}
                           // @ts-expect-error TS(2322): Type '{ children: string; title: string; color: st... Remove this comment to see the full error message
                           color="gray"
@@ -532,7 +565,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
                           mouseEnterDelay={1.0}
                         >
                           {runName}
-                        </Tooltip>
+                        </LegacyTooltip>
                       </div>
                     </td>
                   );
@@ -556,6 +589,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         </CollapsibleSection>
         <CollapsibleSection title={paramsLabel}>
           <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_570"
             label={diffOnlyLabel}
             aria-label={[paramsLabel, diffOnlyLabel].join(' - ')}
             // @ts-expect-error TS(4111): Property 'onlyShowParamDiff' comes from an index s... Remove this comment to see the full error message
@@ -567,6 +601,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
         </CollapsibleSection>
         <CollapsibleSection title={metricsLabel}>
           <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_581"
             label={diffOnlyLabel}
             aria-label={[metricsLabel, diffOnlyLabel].join(' - ')}
             // @ts-expect-error TS(4111): Property 'onlyShowMetricDiff' comes from an index ... Remove this comment to see the full error message
@@ -576,8 +611,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
           <Spacer size="lg" />
           {this.renderMetricTable(colWidth, experimentIds)}
         </CollapsibleSection>
+        <CollapsibleSection title={artifactsLabel}>{this.renderArtifactTable(colWidth)}</CollapsibleSection>
         <CollapsibleSection title={tagsLabel}>
           <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_592"
             label={diffOnlyLabel}
             aria-label={[tagsLabel, diffOnlyLabel].join(' - ')}
             // @ts-expect-error TS(4111): Property 'onlyShowTagDiff' comes from an index sig... Remove this comment to see the full error message
@@ -639,8 +676,8 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
               {values.map((value: any, i: any) => {
                 const cellText = value === undefined ? '' : formatter(value);
                 return (
-                  <td className="data-value" key={this.props.runInfos[i].run_uuid} css={colWidthStyle}>
-                    <Tooltip
+                  <td className="data-value" key={this.props.runInfos[i].runUuid} css={colWidthStyle}>
+                    <LegacyTooltip
                       title={cellText}
                       // @ts-expect-error TS(2322): Type '{ children: Element; title: any; color: stri... Remove this comment to see the full error message
                       color="gray"
@@ -649,7 +686,7 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
                       mouseEnterDelay={1.0}
                     >
                       <span className="truncate-text single-line">{cellText}</span>
-                    </Tooltip>
+                    </LegacyTooltip>
                   </td>
                 );
               })}
@@ -672,6 +709,10 @@ const mapStateToProps = (state: any, ownProps: any) => {
   const experiments = experimentIds.map((experimentId: any) => getExperiment(experimentId, state));
   runUuids.forEach((runUuid: any) => {
     const runInfo = getRunInfo(runUuid, state);
+    // Skip processing data if run info is not available yet
+    if (!runInfo) {
+      return;
+    }
     runInfos.push(runInfo);
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
@@ -697,5 +738,18 @@ const mapStateToProps = (state: any, ownProps: any) => {
   };
 };
 
-// @ts-expect-error TS(2769): No overload matches this call.
+/**
+ * Parse a Python dictionary in string format into a JSON object.
+ * @param value The Python dictionary string to parse
+ * @returns The parsed JSON object, or null if parsing fails
+ */
+const parsePythonDictString = (value: string) => {
+  try {
+    const jsonString = value.replace(/'/g, '"');
+    return JSON.parse(jsonString);
+  } catch (e) {
+    return null;
+  }
+};
+
 export default connect(mapStateToProps)(injectIntl(CompareRunView));

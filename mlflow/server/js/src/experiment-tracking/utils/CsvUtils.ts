@@ -1,7 +1,10 @@
+import { compact, uniq } from 'lodash';
 import Utils from '../../common/utils/Utils';
-import { KeyValueEntity, MetricEntity, RunInfoEntity } from '../types';
+import type { RunsChartsRunData } from '../components/runs-charts/components/RunsCharts.common';
+import type { KeyValueEntity, MetricEntity, RunInfoEntity } from '../types';
+import moment from 'moment';
 
-const { formatTimestamp, getDuration, getRunNameFromTags, getSourceType, getSourceName, getUser } = Utils;
+const { getDuration, getRunNameFromTags, getSourceType, getSourceName, getUser } = Utils;
 
 /**
  * Turn a list of params/metrics to a map of metric key to metric.
@@ -10,16 +13,25 @@ const toMap = <T extends MetricEntity | KeyValueEntity>(params: T[]) =>
   params.reduce((result, entity) => ({ ...result, [entity.key]: entity }), {} as Record<string, T>);
 
 /**
- * Format a string for insertion into a CSV file.
+ * Escapes a string for safe inclusion in a CSV file to prevent CSV injection attacks.
+ * See https://owasp.org/www-community/attacks/CSV_Injection for more information.
  */
-const csvEscape = (str: string) => {
-  if (str === undefined) {
+const csvEscape = (x: any) => {
+  if (x === null || x === undefined) {
     return '';
   }
-  if (/[,"\r\n]/.test(str)) {
-    return '"' + str.replace(/"/g, '""') + '"';
+  let sanitized = typeof x === 'string' ? x : x.toString();
+
+  // Escape double quotes by doubling them
+  sanitized = sanitized.replace(/"/g, '""');
+
+  // If the string starts with a character that could be interpreted as a formula, escape it
+  // by prepending a single quote
+  if (/^[=+\-@\r\t]/.test(sanitized)) {
+    sanitized = `'${sanitized}`;
   }
-  return str;
+
+  return `"${sanitized}"`;
 };
 
 /**
@@ -83,11 +95,13 @@ export const runInfosToCsv = (params: {
   ];
 
   const data = runInfos.map((runInfo, index) => {
+    // To avoid including a comma in the timestamp string, use manual formatting instead of one from intl
+    const startTime = moment(new Date(runInfo.startTime)).format('YYYY-MM-DD HH:mm:ss');
     const row = [
-      formatTimestamp(runInfo.start_time),
-      getDuration(runInfo.start_time, runInfo.end_time) || '',
-      runInfo.run_uuid,
-      runInfo.run_name || getRunNameFromTags(tagsList[index]), // add run name to csv export row
+      startTime,
+      getDuration(runInfo.startTime, runInfo.endTime) || '',
+      runInfo.runUuid,
+      runInfo.runName || getRunNameFromTags(tagsList[index]), // add run name to csv export row
       getSourceType(tagsList[index]),
       getSourceName(tagsList[index]),
       getUser(runInfo, tagsList[index]),
@@ -118,6 +132,57 @@ export const runInfosToCsv = (params: {
         row.push('');
       }
     });
+    return row;
+  });
+
+  return tableToCsv(columns, data);
+};
+
+export const chartMetricHistoryToCsv = (traces: RunsChartsRunData[], metricKeys: string[]) => {
+  const isGrouped = traces.some((trace) => trace.groupParentInfo);
+
+  const headerColumn = isGrouped ? 'Group' : 'Run';
+
+  const columns = [headerColumn, 'Run ID', 'metric', 'step', 'timestamp', 'value'];
+
+  const data = metricKeys.flatMap((metricKey) => {
+    const perDataTrace = traces.flatMap((trace) => {
+      const perMetricEntry = trace.metricsHistory?.[metricKey]?.map((value) => [
+        trace.displayName,
+        trace.runInfo?.runUuid || '',
+        value.key,
+        value.step.toString(),
+        value.timestamp.toString(),
+        value.value.toString(),
+      ]);
+      return perMetricEntry || [];
+    });
+    return perDataTrace;
+  });
+
+  return tableToCsv(columns, data);
+};
+
+export const chartDataToCsv = (traces: RunsChartsRunData[], metricKeys: string[], paramKeys: string[]) => {
+  const isGrouped = traces.some((trace) => trace.groupParentInfo);
+
+  const headerColumn = isGrouped ? 'Group' : 'Run';
+
+  const columns = [headerColumn, 'Run ID', ...metricKeys, ...paramKeys];
+
+  const data = traces.map((trace) => {
+    const row = [trace.displayName, trace.runInfo?.runUuid || ''];
+
+    metricKeys.forEach((metricKey) => {
+      const metricValue = trace.metrics?.[metricKey];
+      row.push(metricValue?.value.toString() || '');
+    });
+
+    paramKeys.forEach((paramKey) => {
+      const paramValue = trace.params?.[paramKey];
+      row.push(paramValue?.value.toString() || '');
+    });
+
     return row;
   });
 

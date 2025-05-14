@@ -1,4 +1,4 @@
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 
 import { useEditKeyValueTagsModal } from './useEditKeyValueTagsModal';
 import { KeyValueEntity } from '../../experiment-tracking/types';
@@ -10,7 +10,7 @@ import {
   within,
   selectAntdOption,
   renderWithIntl,
-} from 'common/utils/TestUtils.react18';
+} from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 describe('useEditKeyValueTagsModal', () => {
   function renderTestComponent(

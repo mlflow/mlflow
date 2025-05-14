@@ -9,6 +9,7 @@ from io import StringIO
 import keras
 import numpy as np
 import pandas as pd
+import pydantic
 import pytest
 import sklearn.neighbors as knn
 from packaging.version import Version
@@ -16,12 +17,14 @@ from sklearn import datasets
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.models import ModelSignature, infer_signature
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc import PythonModel
-from mlflow.pyfunc.scoring_server import get_cmd
+from mlflow.pyfunc.scoring_server import _get_jsonable_obj, get_cmd
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.types.schema import Array, Object, Property
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
@@ -608,7 +611,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
     with TempDir(chdr=True):
         with mlflow.start_run():
             model_info = mlflow.pyfunc.log_model(
-                "model", python_model=TestModel(), signature=ModelSignature(schema)
+                name="model", python_model=TestModel(), signature=ModelSignature(schema)
             )
         response = pyfunc_serve_and_score_model(
             model_uri=model_info.model_uri,
@@ -675,9 +678,8 @@ def test_serving_model_with_param_schema(sklearn_model, model_path):
     )
     expect_status_code(response, 400)
     assert (
-        "Failed to convert value invalid_value1 from type str to "
-        "DataType.datetime for param 'param1'"
-        in json.loads(response.content.decode("utf-8"))["message"]
+        " Failed to convert value `invalid_value1` from type `<class 'str'>` "
+        "to `DataType.datetime`" in json.loads(response.content.decode("utf-8"))["message"]
     )
 
     # Ignore parameters specified in payload if it is not defined in ParamSchema
@@ -693,13 +695,28 @@ def test_serving_model_with_param_schema(sklearn_model, model_path):
 
 
 def test_get_jsonnable_obj():
-    from mlflow.pyfunc.scoring_server import _get_jsonable_obj
-
     py_ary = [["a", "b", "c"], ["e", "f", "g"]]
     np_ary = _get_jsonable_obj(np.array(py_ary))
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
     np_ary = _get_jsonable_obj(np.array(py_ary, dtype=type(str)))
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
+
+
+def test_numpy_encoder_for_pydantic():
+    class Message(pydantic.BaseModel):
+        role: str
+        content: str
+
+    class Messages(pydantic.BaseModel):
+        messages: list[Message]
+
+    messages = Messages(
+        messages=[Message(role="user", content="hello!"), Message(role="assistant", content="hi!")]
+    )
+    msg_dict = messages.model_dump() if IS_PYDANTIC_V2_OR_NEWER else messages.dict()
+    assert json.dumps(_get_jsonable_obj(messages), cls=NumpyEncoder) == json.dumps(
+        msg_dict, cls=NumpyEncoder
+    )
 
 
 def test_parse_json_input_including_path():
@@ -708,7 +725,7 @@ def test_parse_json_input_including_path():
             return 1
 
     with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=TestModel())
+        mlflow.pyfunc.log_model(name="model", python_model=TestModel())
 
     pandas_split_content = pd.DataFrame(
         {
@@ -726,24 +743,32 @@ def test_parse_json_input_including_path():
 
 
 @pytest.mark.parametrize(
-    ("args", "expected"),
+    ("args", "expected", "timeout"),
     [
         (
             {"port": 5000, "host": "0.0.0.0", "nworkers": 4, "timeout": 60},
-            "--timeout=60 -b 0.0.0.0:5000 -w 4",
+            "--host 0.0.0.0 --port 5000 --workers 4",
+            "60",
         ),
-        ({"host": "0.0.0.0", "nworkers": 4, "timeout": 60}, "--timeout=60 -b 0.0.0.0 -w 4"),
-        ({"port": 5000, "nworkers": 4, "timeout": 60}, "--timeout=60 -w 4"),
-        ({"nworkers": 4, "timeout": 60}, "--timeout=60 -w 4"),
-        ({"timeout": 60}, "--timeout=60"),
+        (
+            {"host": "0.0.0.0", "nworkers": 4, "timeout": 60},
+            "--host 0.0.0.0 --workers 4",
+            "60",
+        ),
+        (
+            {"port": 5000, "nworkers": 4, "timeout": 60},
+            "--port 5000 --workers 4",
+            "60",
+        ),
+        ({"nworkers": 4, "timeout": 60}, "--workers 4", "60"),
+        ({"timeout": 30}, "", "30"),
     ],
 )
-def test_get_cmd(args: dict, expected: str):
-    cmd, _ = get_cmd(model_uri="foo", **args)
+def test_get_cmd(args: dict, expected: str, timeout: str):
+    cmd, env = get_cmd(model_uri="foo", **args)
 
-    assert cmd == (
-        f"gunicorn {expected} ${{GUNICORN_CMD_ARGS}} -- mlflow.pyfunc.scoring_server.wsgi:app"
-    )
+    assert cmd == (f"uvicorn {expected} mlflow.pyfunc.scoring_server.app:app")
+    assert env[MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.name] == timeout
 
 
 def test_scoring_server_client(sklearn_model, model_path):
@@ -836,7 +861,7 @@ _LLM_CHAT_INPUT_SCHEMA = Schema(
                 "top_p": 0.9,  # filled with the default value
             },
         ),
-        # Test case: if some params are not defeind in either input and params schema,
+        # Test case: if some params are not defined in either input and params schema,
         # they will be dropped
         (
             ModelSignature(

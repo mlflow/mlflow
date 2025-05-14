@@ -79,6 +79,50 @@ service DatabricksMlflowArtifactsService {
       visibility: PUBLIC_UNDOCUMENTED,
     };
   }
+
+  rpc getCredentialsForTraceDataDownload (GetCredentialsForTraceDataDownload) returns (GetCredentialsForTraceDataDownload.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{request_id}/credentials-for-data-download"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc getCredentialsForTraceDataUpload (GetCredentialsForTraceDataUpload) returns (GetCredentialsForTraceDataUpload.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{request_id}/credentials-for-data-upload"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc getCredentialsForLoggedModelUpload (GetCredentialsForLoggedModelUpload) returns (GetCredentialsForLoggedModelUpload.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/logged-models/{model_id}/artifacts/credentials-for-upload"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  rpc getCredentialsForLoggedModelDownload (GetCredentialsForLoggedModelDownload) returns (GetCredentialsForLoggedModelDownload.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/logged-models/{model_id}/artifacts/credentials-for-download"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
 }
 
 // The type of a given artifact access credential
@@ -137,9 +181,19 @@ message ArtifactCredentialInfo {
 
 }
 
+// Credentials returned by GetCredentialsForLoggedModelUpload and GetCredentialsForLoggedModelDownload for
+// writing and reading respectively to the artifact locations of a logged model.
+// Contains an ArtifactCredentialInfo object for the logged model artifacts.
+message LoggedModelArtifactCredential {
+  // The ID of the MLflow logged model containing the artifact that can be accessed with the credential
+  optional string model_id = 1;
+
+  // The ArtifactCredentialInfo object for the logged model artifacts
+  optional ArtifactCredentialInfo credential_info = 2;
+}
+
 message GetCredentialsForRead {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // The ID of the MLflow Run for which to fetch artifact read credentials
   optional string run_id = 1 [(validate_required) = true];
@@ -167,7 +221,6 @@ message GetCredentialsForRead {
 
 message GetCredentialsForWrite {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // The ID of the MLflow Run for which to fetch artifact write credentials
   optional string run_id = 1 [(validate_required) = true];
@@ -195,7 +248,6 @@ message GetCredentialsForWrite {
 
 message CreateMultipartUpload {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // Run ID
   optional string run_id = 1 [(validate_required) = true];
@@ -230,7 +282,6 @@ message PartEtag {
 
 message CompleteMultipartUpload {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // Run ID
   optional string run_id = 1 [(validate_required) = true];
@@ -249,7 +300,6 @@ message CompleteMultipartUpload {
 
 message GetPresignedUploadPartUrl {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // Run ID
   optional string run_id = 1 [(validate_required) = true];
@@ -266,5 +316,69 @@ message GetPresignedUploadPartUrl {
   message Response {
     // Credential for uploading the part
     optional ArtifactCredentialInfo upload_credential_info = 1;
+  }
+}
+
+message GetCredentialsForTraceDataDownload {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string request_id = 1 [(validate_required) = true];
+
+  message Response {
+    optional ArtifactCredentialInfo credential_info = 1;
+  }
+}
+
+message GetCredentialsForTraceDataUpload {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string request_id = 1 [(validate_required) = true];
+
+  message Response {
+    optional ArtifactCredentialInfo credential_info = 1;
+  }
+}
+
+message GetCredentialsForLoggedModelUpload {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the LoggedModel for which to fetch artifact write credentials
+  optional string model_id = 1 [(validate_required) = true];
+
+  // The artifact paths, relative to the LoggedModel's artifact root location,
+  // for which to fetch artifact write credentials
+  repeated string paths = 2;
+
+  // Token specifying the page of credentials to fetch for large requests that require pagination
+  optional string page_token = 3;
+
+  message Response {
+    // Credentials for writing to the specified artifact locations
+    repeated LoggedModelArtifactCredential credentials = 1;
+
+    // Token used to fetch the next page of credentials for large requests that require pagination
+    optional string next_page_token = 2;
+  }
+}
+
+message GetCredentialsForLoggedModelDownload {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the LoggedModel for which to fetch artifact read credentials
+  optional string model_id = 1 [(validate_required) = true];
+
+  // The artifact paths, relative to the LoggedModel's artifact root location,
+  // for which to fetch artifact read credentials
+  repeated string paths = 2;
+
+  // Token specifying the page of credentials to fetch for large requests that require pagination
+  optional string page_token = 3;
+
+  message Response {
+    // Credentials for reading the specified artifact locations
+    repeated LoggedModelArtifactCredential credentials = 1;
+
+    // Token used to fetch the next page of credentials for large requests that require pagination
+    optional string next_page_token = 2;
   }
 }

@@ -33,7 +33,7 @@ class RunInfo(_MlflowObject):
 
     def __init__(
         self,
-        run_uuid,
+        run_id,
         experiment_id,
         user_id,
         status,
@@ -41,7 +41,6 @@ class RunInfo(_MlflowObject):
         end_time,
         lifecycle_stage,
         artifact_uri=None,
-        run_id=None,
         run_name=None,
     ):
         if experiment_id is None:
@@ -52,11 +51,7 @@ class RunInfo(_MlflowObject):
             raise Exception("status cannot be None")
         if start_time is None:
             raise Exception("start_time cannot be None")
-        actual_run_id = run_id or run_uuid
-        if actual_run_id is None:
-            raise Exception("run_id and run_uuid cannot both be None")
-        self._run_uuid = actual_run_id
-        self._run_id = actual_run_id
+        self._run_id = run_id
         self._experiment_id = experiment_id
         self._user_id = user_id
         self._status = status
@@ -84,11 +79,6 @@ class RunInfo(_MlflowObject):
         if run_name:
             proto.run_name = run_name
         return RunInfo.from_proto(proto)
-
-    @property
-    def run_uuid(self):
-        """[Deprecated, use run_id instead] String containing run UUID."""
-        return self._run_uuid
 
     @searchable_attribute
     def run_id(self):
@@ -146,7 +136,7 @@ class RunInfo(_MlflowObject):
 
     def to_proto(self):
         proto = ProtoRunInfo()
-        proto.run_uuid = self.run_uuid
+        proto.run_uuid = self.run_id
         proto.run_id = self.run_id
         if self.run_name is not None:
             proto.run_name = self.run_name
@@ -169,7 +159,6 @@ class RunInfo(_MlflowObject):
         if end_time == 0:
             end_time = None
         return cls(
-            run_uuid=proto.run_uuid,
             run_id=proto.run_id,
             run_name=proto.run_name,
             experiment_id=proto.experiment_id,

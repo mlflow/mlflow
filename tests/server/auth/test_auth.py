@@ -2,6 +2,8 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures authentication is working.
 """
+
+import re
 import subprocess
 import sys
 import time
@@ -14,7 +16,12 @@ import requests
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
+from mlflow.entities.logged_model_status import LoggedModelStatus
+from mlflow.environment_variables import (
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_USERNAME,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
@@ -25,7 +32,7 @@ from mlflow.server.auth.routes import GET_REGISTERED_MODEL_PERMISSION
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import random_str
-from tests.server.auth.auth_test_utils import ADMIN_USERNAME, User, create_user
+from tests.server.auth.auth_test_utils import ADMIN_PASSWORD, ADMIN_USERNAME, User, create_user
 from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
@@ -37,11 +44,13 @@ from tests.tracking.integration_test_utils import (
 def client(request, tmp_path):
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+    extra_env = getattr(request, "param", {})
+    extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "my-secret-key"
 
     with _init_server(
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
-        extra_env=getattr(request, "param", {}),
+        extra_env=extra_env,
         app="mlflow.server.auth:create_app",
     ) as url:
         yield MlflowClient(url)
@@ -60,6 +69,19 @@ def test_authenticate(client, monkeypatch):
     username, password = create_user(client.tracking_uri)
     with User(username, password, monkeypatch):
         client.search_experiments()
+
+
+@pytest.mark.parametrize(
+    ("username", "password"),
+    [
+        ("", "password"),
+        ("username", ""),
+        ("", ""),
+    ],
+)
+def test_validate_username_and_password(client, username, password):
+    with pytest.raises(requests.exceptions.HTTPError, match=r"BAD REQUEST"):
+        create_user(client.tracking_uri, username=username, password=password)
 
 
 def _mlflow_search_experiments_rest(base_uri, headers):
@@ -113,7 +135,7 @@ def test_authenticate_jwt(client):
 
     # authenticate with the newly created user
     headers = {
-        "Authorization": f'Bearer {jwt.encode({"username": username}, "secret", algorithm="HS256")}'
+        "Authorization": f"Bearer {jwt.encode({'username': username}, 'secret', algorithm='HS256')}"
     }
     _mlflow_search_experiments_rest(client.tracking_uri, headers)
 
@@ -324,7 +346,8 @@ def test_create_and_delete_registered_model(client, monkeypatch):
         response = requests.get(
             url=client.tracking_uri + GET_REGISTERED_MODEL_PERMISSION,
             params={"name": rm.name, "username": username1},
-            auth=("admin", "password"),  # Check with admin because the user permission is deleted
+            # Check with admin because the user permission is deleted
+            auth=("admin", "password1234"),
         )
 
     assert response.status_code == 404
@@ -381,7 +404,8 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
             "--workers",
             "1",
             "--dev",
-        ]
+        ],
+        env={MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key"},
     ) as prc:
         try:
             url = f"http://{host}:{port}"
@@ -414,3 +438,131 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
             # Kill the server process to prevent `prc.wait()` (called when exiting the context
             # manager) from waiting forever.
             _kill_all(prc.pid)
+
+
+def test_create_user_from_ui_fails_without_csrf_token(client):
+    response = requests.post(
+        client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
+        json={"username": "test", "password": "test"},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+    assert "The CSRF token is missing" in response.text
+
+
+def test_create_user_ui(client):
+    # needs to be a session as the CSRF protection will set some
+    # cookies that need to be present for server side validation
+    with requests.Session() as session:
+        page = session.get(client.tracking_uri + "/signup", auth=(ADMIN_USERNAME, ADMIN_PASSWORD))
+
+        csrf_regex = re.compile(r"name=\"csrf_token\" value=\"([\S]+)\"")
+        match = csrf_regex.search(page.text)
+
+        # assert that the CSRF token is sent in the form
+        assert match is not None
+
+        csrf_token = match.group(1)
+
+        response = session.post(
+            client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
+            data={"username": random_str(), "password": random_str(), "csrf_token": csrf_token},
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        assert "Successfully signed up user" in response.text
+
+
+def test_logged_model(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("exp")
+        model = client.create_logged_model(experiment_id=exp_id)
+        client.finalize_logged_model(model_id=model.model_id, status=LoggedModelStatus.READY)
+        client.set_logged_model_tags(model_id=model.model_id, tags={"key": "value"})
+        client.delete_logged_model_tag(model_id=model.model_id, key="key")
+        models = client.search_logged_models(experiment_ids=[exp_id])
+        assert len(models) == 1
+
+    with User(username2, password2, monkeypatch):
+        loaded_model = client.get_logged_model(model.model_id)
+        assert loaded_model.model_id == model.model_id
+
+        models = client.search_logged_models(experiment_ids=[exp_id])
+        assert len(models) == 1
+
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.finalize_logged_model(model_id=model.model_id, status=LoggedModelStatus.READY)
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.set_logged_model_tags(model_id=model.model_id, tags={"key": "value"})
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.delete_logged_model_tag(model_id=model.model_id, key="key")
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.delete_logged_model(model_id=model.model_id)
+
+
+def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+    readable = [0, 3, 4, 5, 6, 8]
+    with User(username1, password1, monkeypatch):
+        experiment_ids: list[str] = []
+        for i in range(10):
+            experiment_id = client.create_experiment(f"exp-{i}")
+            experiment_ids.append(experiment_id)
+            _send_rest_tracking_post_request(
+                client.tracking_uri,
+                "/api/2.0/mlflow/experiments/permissions/create",
+                json_payload={
+                    "experiment_id": experiment_id,
+                    "username": username2,
+                    "permission": "READ" if (i in readable) else "NO_PERMISSIONS",
+                },
+                auth=(username1, password1),
+            )
+            client.create_logged_model(experiment_id=experiment_id)
+
+        models = client.search_logged_models(experiment_ids=experiment_ids)
+        assert len(models) == 10
+
+        # Pagination
+        models = client.search_logged_models(experiment_ids=experiment_ids, max_results=2)
+        assert len(models) == 2
+        assert models.token is not None
+
+        models = client.search_logged_models(
+            experiment_ids=experiment_ids, max_results=2, page_token=models.token
+        )
+        assert len(models) == 2
+        assert models.token is not None
+
+        models = client.search_logged_models(experiment_ids=experiment_ids, page_token=models.token)
+        assert len(models) == 6
+        assert models.token is None
+
+    with User(username2, password2, monkeypatch):
+        models = client.search_logged_models(experiment_ids=experiment_ids)
+        assert len(models) == len(readable)
+
+        # Pagination
+        models = client.search_logged_models(experiment_ids=experiment_ids, max_results=2)
+        assert len(models) == 2
+        assert models.token is not None
+
+        models = client.search_logged_models(
+            experiment_ids=experiment_ids, max_results=2, page_token=models.token
+        )
+        assert len(models) == 2
+        assert models.token is not None
+
+        models = client.search_logged_models(experiment_ids=experiment_ids, page_token=models.token)
+        assert len(models) == 2
+        assert models.token is None

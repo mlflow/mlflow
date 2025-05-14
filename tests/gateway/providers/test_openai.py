@@ -2,26 +2,30 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
-from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIConfig, RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
+from tests.gateway.tools import (
+    MockAsyncResponse,
+    MockAsyncStreamingResponse,
+    mock_http_client,
+)
 
 
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "openai",
-            "name": "gpt-3.5-turbo",
+            "name": "gpt-4o-mini",
             "config": {
                 "openai_api_base": "https://api.openai.com/v1",
                 "openai_api_key": "key",
@@ -35,7 +39,7 @@ def chat_response():
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "usage": {
             "prompt_tokens": 13,
             "completion_tokens": 7,
@@ -69,12 +73,14 @@ async def test_chat():
             "id": "chatcmpl-abc123",
             "object": "chat.completion",
             "created": 1677858242,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "choices": [
                 {
                     "message": {
                         "role": "assistant",
                         "content": "\n\nThis is a test!",
+                        "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": "stop",
                     "index": 0,
@@ -94,7 +100,7 @@ async def test_chat():
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/chat/completions",
             json={
-                "model": "gpt-3.5-turbo",
+                "model": "gpt-4o-mini",
                 "temperature": 0.5,
                 "n": 1,
                 **payload,
@@ -189,7 +195,7 @@ async def test_chat_stream(resp):
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/chat/completions",
             json={
-                "model": "gpt-3.5-turbo",
+                "model": "gpt-4o-mini",
                 "temperature": 0,
                 "n": 1,
                 **payload,
@@ -201,7 +207,7 @@ async def test_chat_stream(resp):
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "openai",
             "name": "gpt-4-32k",
@@ -229,7 +235,7 @@ async def test_completions():
             "id": "chatcmpl-abc123",
             "object": "text_completion",
             "created": 1677858242,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
@@ -240,12 +246,12 @@ async def test_completions():
             }
         )
         mock_client.post.assert_called_once_with(
-            "https://api.openai.com/v1/chat/completions",
+            "https://api.openai.com/v1/completions",
             json={
                 "model": "gpt-4-32k",
                 "temperature": 0,
                 "n": 1,
-                "messages": [{"role": "user", "content": "This is a test"}],
+                "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
@@ -314,7 +320,7 @@ async def test_completions_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": ""},
+                        "text": "",
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -326,7 +332,11 @@ async def test_completions_stream(resp):
             },
             {
                 "choices": [
-                    {"delta": {"role": None, "content": "test"}, "finish_reason": None, "index": 0}
+                    {
+                        "text": "test",
+                        "finish_reason": None,
+                        "index": 0,
+                    }
                 ],
                 "created": 1,
                 "id": "test-id",
@@ -336,7 +346,7 @@ async def test_completions_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": None},
+                        "text": None,
                         "finish_reason": "length",
                         "index": 0,
                     }
@@ -355,12 +365,12 @@ async def test_completions_stream(resp):
             }
         )
         mock_client.post.assert_called_once_with(
-            "https://api.openai.com/v1/chat/completions",
+            "https://api.openai.com/v1/completions",
             json={
                 "model": "gpt-4-32k",
                 "temperature": 0,
                 "n": 1,
-                "messages": [{"role": "user", "content": "This is a test"}],
+                "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
@@ -369,7 +379,7 @@ async def test_completions_stream(resp):
 def embedding_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "openai",
             "name": "text-embedding-ada-002",
@@ -513,10 +523,10 @@ async def test_embeddings_batch_input():
 def azure_config(api_type: str):
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "openai",
-            "name": "gpt-35-turbo",
+            "name": "gpt-4o-mini",
             "config": {
                 "openai_api_type": api_type,
                 "openai_api_key": "key",
@@ -544,7 +554,7 @@ async def test_azure_openai():
             "id": "chatcmpl-abc123",
             "object": "text_completion",
             "created": 1677858242,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
@@ -556,12 +566,12 @@ async def test_azure_openai():
         mock_client.post.assert_called_once_with(
             (
                 "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
-                "/chat/completions?api-version=2023-05-15"
+                "/completions?api-version=2023-05-15"
             ),
             json={
                 "temperature": 0,
                 "n": 1,
-                "messages": [{"role": "user", "content": "This is a test"}],
+                "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
@@ -583,7 +593,7 @@ async def test_azuread_openai():
             "id": "chatcmpl-abc123",
             "object": "text_completion",
             "created": 1677858242,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
@@ -595,12 +605,12 @@ async def test_azuread_openai():
         mock_client.post.assert_called_once_with(
             (
                 "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
-                "/chat/completions?api-version=2023-05-15"
+                "/completions?api-version=2023-05-15"
             ),
             json={
                 "temperature": 0,
                 "n": 1,
-                "messages": [{"role": "user", "content": "This is a test"}],
+                "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
@@ -640,7 +650,7 @@ def test_openai_provider_can_be_constructed_with_valid_configs(
     )
     route_config = RouteConfig(
         name="completions",
-        route_type="llm/v1/completions",
+        endpoint_type="llm/v1/completions",
         model={
             "provider": "openai",
             "name": "text-davinci-003",
@@ -697,7 +707,7 @@ async def test_param_model_is_not_permitted():
         "max_tokens": 5000,
         "model": "something-else",
     }
-    with pytest.raises(HTTPException, match=r".*") as e:
+    with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422

@@ -3,7 +3,6 @@ import os
 import tempfile
 import time
 from datetime import datetime
-from typing import List
 
 from mlflow.entities.param import Param
 from mlflow.entities.run_status import RunStatus
@@ -29,13 +28,13 @@ def _create_promptlab_run_impl(
     store,
     experiment_id: str,
     run_name: str,
-    tags: List[RunTag],
+    tags: list[RunTag],
     prompt_template: str,
-    prompt_parameters: List[Param],
+    prompt_parameters: list[Param],
     model_route: str,
-    model_parameters: List[Param],
+    model_parameters: list[Param],
     model_input: str,
-    model_output_parameters: List[Param],
+    model_output_parameters: list[Param],
     model_output: str,
     mlflow_version: str,
     user_id: str,
@@ -98,7 +97,7 @@ def _create_promptlab_run_impl(
                 outputs=Schema(outputs_colspecs),
             )
 
-        from mlflow.promptlab import save_model
+        from mlflow.prompt.promptlab_model import save_model
         from mlflow.server.handlers import (
             _get_artifact_repo_mlflow_artifacts,
             _get_proxied_run_artifact_destination_path,

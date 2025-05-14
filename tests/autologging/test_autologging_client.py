@@ -142,9 +142,7 @@ def test_client_asynchronous_flush_operates_correctly():
         time.sleep(3)
         return original_log_batch(run_id, metrics, params, tags)
 
-    with mock.patch(
-        "mlflow.utils.autologging_utils.client.MlflowClient.log_batch"
-    ) as log_batch_mock:
+    with mock.patch("mlflow.tracking.client.MlflowClient.log_batch") as log_batch_mock:
         log_batch_mock.side_effect = mock_log_batch
 
         with mlflow.start_run() as run:
@@ -173,9 +171,7 @@ def test_client_synchronous_flush_operates_correctly():
         time.sleep(3)
         return original_log_batch(run_id, metrics, params, tags)
 
-    with mock.patch(
-        "mlflow.utils.autologging_utils.client.MlflowClient.log_batch"
-    ) as log_batch_mock:
+    with mock.patch("mlflow.tracking.client.MlflowClient.log_batch") as log_batch_mock:
         log_batch_mock.side_effect = mock_log_batch
 
         with mlflow.start_run() as run:
@@ -189,9 +185,7 @@ def test_client_synchronous_flush_operates_correctly():
 
 
 def test_flush_clears_pending_operations():
-    with mock.patch(
-        "mlflow.utils.autologging_utils.client.MlflowClient", autospec=True
-    ) as mlflow_client_mock:
+    with mock.patch("mlflow.tracking.client.MlflowClient", autospec=True) as mlflow_client_mock:
         client = MlflowAutologgingQueueingClient()
 
         pending_run_id = client.create_run(experiment_id=5)
@@ -230,7 +224,7 @@ def test_client_correctly_operates_as_context_manager_for_synchronous_flush():
     assert run_tags_1 == tags_to_log
 
     exc_to_raise = Exception("test exception")
-    with pytest.raises(Exception, match=str(exc_to_raise)) as raised_exc_info:  # noqa: PT012
+    with pytest.raises(Exception, match=str(exc_to_raise)) as raised_exc_info:  # noqa PT012
         with mlflow.start_run(), MlflowAutologgingQueueingClient() as client:
             run_id_2 = mlflow.active_run().info.run_id
             client.log_params(run_id_2, params_to_log)
@@ -251,9 +245,7 @@ def test_logging_failures_are_handled_as_expected():
     MlflowClient().create_experiment(experiment_name)
     experiment_id = MlflowClient().get_experiment_by_name(experiment_name).experiment_id
 
-    with mock.patch(
-        "mlflow.utils.autologging_utils.client.MlflowClient.log_batch"
-    ) as log_batch_mock:
+    with mock.patch("mlflow.tracking.client.MlflowClient.log_batch") as log_batch_mock:
         log_batch_mock.side_effect = Exception("Batch logging failed!")
 
         client = MlflowAutologgingQueueingClient()

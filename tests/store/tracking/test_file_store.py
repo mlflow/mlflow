@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import posixpath
@@ -6,12 +7,14 @@ import re
 import shutil
 import time
 import uuid
+from copy import deepcopy
 from pathlib import Path
-from typing import List
+from typing import NamedTuple
 from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.entities import (
     Dataset,
     DatasetInput,
@@ -26,6 +29,8 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
@@ -37,15 +42,26 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.utils import insecure_hash
-from mlflow.utils.file_utils import TempDir, path_to_local_file_uri, read_yaml, write_yaml
-from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TraceMetadataKey,
+    TraceTagKey,
+)
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
+    MLFLOW_LOGGED_MODELS,
+    MLFLOW_RUN_NAME,
+)
 from mlflow.utils.name_utils import _EXPERIMENT_ID_FIXED_WIDTH, _GENERATOR_PREDICATES
 from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.validation import MAX_EXPERIMENT_NAME_LENGTH
+from mlflow.utils.yaml_utils import read_yaml, safe_edit_yaml, write_yaml
 
-from tests.helper_functions import random_int, random_str, safe_edit_yaml
+from tests.helper_functions import random_int, random_str
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
 
@@ -53,6 +69,39 @@ FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
 @pytest.fixture
 def store(tmp_path):
     return FileStore(str(tmp_path.joinpath("mlruns")))
+
+
+@pytest.fixture
+def store_and_trace_info(store):
+    exp_id = store.create_experiment("test")
+    timestamp_ms = get_current_time_millis()
+    return store, store.start_trace(exp_id, timestamp_ms, {}, {})
+
+
+class TraceInfos(NamedTuple):
+    trace_infos: list[TraceInfoV2]
+    store: FileStore
+    exp_id: str
+    request_ids: list[str]
+    timestamps: list[int]
+
+
+@pytest.fixture
+def generate_trace_infos(store):
+    exp_id = store.create_experiment("test")
+    timestamps = list(range(0, 100, 10))
+    trace_infos = []
+    request_ids = []
+    for i, timestamp in enumerate(timestamps):
+        trace_info = store.start_trace(
+            exp_id,
+            timestamp,
+            {},
+            {TraceTagKey.TRACE_NAME: f"trace_{i}", "test_tag": f"tag_{i}"},
+        )
+        trace_infos.append(trace_info)
+        request_ids.append(trace_info.request_id)
+    return TraceInfos(trace_infos, store, exp_id, request_ids, timestamps)
 
 
 def create_experiments(store, experiment_names):
@@ -137,13 +186,19 @@ def test_search_experiments_filter_by_time_attribute(store):
     assert [e.experiment_id for e in experiments] == [exp_id1]
 
     experiments = store.search_experiments(filter_string=f"creation_time != {exp1.creation_time}")
-    assert [e.experiment_id for e in experiments] == [exp_id2, store.DEFAULT_EXPERIMENT_ID]
+    assert [e.experiment_id for e in experiments] == [
+        exp_id2,
+        store.DEFAULT_EXPERIMENT_ID,
+    ]
 
     experiments = store.search_experiments(filter_string=f"creation_time >= {time_before_create1}")
     assert [e.experiment_id for e in experiments] == [exp_id2, exp_id1]
 
     experiments = store.search_experiments(filter_string=f"creation_time < {time_before_create2}")
-    assert [e.experiment_id for e in experiments] == [exp_id1, store.DEFAULT_EXPERIMENT_ID]
+    assert [e.experiment_id for e in experiments] == [
+        exp_id1,
+        store.DEFAULT_EXPERIMENT_ID,
+    ]
 
     now = get_current_time_millis()
     experiments = store.search_experiments(filter_string=f"creation_time > {now}")
@@ -294,11 +349,23 @@ def test_search_experiments_max_results(store):
 
 
 def test_search_experiments_max_results_validation(store):
-    with pytest.raises(MlflowException, match=r"It must be a positive integer, but got None"):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value None for parameter 'max_results' supplied. "
+        r"It must be a positive integer",
+    ):
         store.search_experiments(max_results=None)
-    with pytest.raises(MlflowException, match=r"It must be a positive integer, but got 0"):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value 0 for parameter 'max_results' supplied. "
+        r"It must be a positive integer",
+    ):
         store.search_experiments(max_results=0)
-    with pytest.raises(MlflowException, match=r"It must be at most \d+, but got 1000000"):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value 1000000 for parameter 'max_results' supplied. "
+        r"It must be at most 50000",
+    ):
         store.search_experiments(max_results=1_000_000)
 
 
@@ -444,19 +511,30 @@ def test_record_logged_model(store):
         run_id=run_id,
         params=[],
         metrics=[],
-        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict()]))],
+        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.get_tags_dict()]))],
     )
-    m2 = Model(artifact_path="some/other/path", run_id=run_id, flavors={"R": {"property": "value"}})
+    m2 = Model(
+        artifact_path="some/other/path",
+        run_id=run_id,
+        flavors={"R": {"property": "value"}},
+    )
     store.record_logged_model(run_id, m2)
     _verify_logged(
         store,
         run_id,
         params=[],
         metrics=[],
-        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict(), m2.to_dict()]))],
+        tags=[
+            RunTag(
+                MLFLOW_LOGGED_MODELS,
+                json.dumps([m.get_tags_dict(), m2.get_tags_dict()]),
+            )
+        ],
     )
     m3 = Model(
-        artifact_path="some/other/path2", run_id=run_id, flavors={"R2": {"property": "value"}}
+        artifact_path="some/other/path2",
+        run_id=run_id,
+        flavors={"R2": {"property": "value"}},
     )
     store.record_logged_model(run_id, m3)
     _verify_logged(
@@ -464,13 +542,44 @@ def test_record_logged_model(store):
         run_id,
         params=[],
         metrics=[],
-        tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict(), m2.to_dict(), m3.to_dict()]))],
+        tags=[
+            RunTag(
+                MLFLOW_LOGGED_MODELS,
+                json.dumps([m.get_tags_dict(), m2.get_tags_dict(), m3.get_tags_dict()]),
+            )
+        ],
+    )
+    m4 = Model(
+        artifact_path="some/other/path3",
+        run_id=run_id,
+        flavors={"python_function": {"config": {"a": 1}, "code": "code"}},
+    )
+    store.record_logged_model(run_id, m4)
+    assert all("config" not in v for v in m4.get_tags_dict().get("flavors", {}).values())
+    _verify_logged(
+        store,
+        run_id,
+        params=[],
+        metrics=[],
+        tags=[
+            RunTag(
+                MLFLOW_LOGGED_MODELS,
+                json.dumps(
+                    [
+                        m.get_tags_dict(),
+                        m2.get_tags_dict(),
+                        m3.get_tags_dict(),
+                        m4.get_tags_dict(),
+                    ]
+                ),
+            )
+        ],
     )
     with pytest.raises(
         TypeError,
         match="Argument 'mlflow_model' should be mlflow.models.Model, got '<class 'dict'>'",
     ):
-        store.record_logged_model(run_id, m.to_dict())
+        store.record_logged_model(run_id, m.get_tags_dict())
 
 
 def test_get_experiment(store):
@@ -531,6 +640,10 @@ def test_get_experiment_by_name(store):
         exp = store.get_experiment_by_name(exp_names)
         assert exp is None
 
+    exp_id = experiments[0]
+    store.delete_experiment(exp_id)
+    assert store.get_experiment_by_name(exp_data[exp_id]["name"]).experiment_id == exp_id
+
 
 def test_create_additional_experiment_generates_random_fixed_length_id(store):
     store._get_active_experiments = mock.Mock(return_value=[])
@@ -550,6 +663,8 @@ def test_create_experiment(store):
         store.create_experiment(None)
     with pytest.raises(Exception, match="Invalid experiment name: ''"):
         store.create_experiment("")
+    with pytest.raises(MlflowException, match=r"'name' exceeds the maximum length"):
+        store.create_experiment(name="x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
     name = random_str(25)  # since existing experiments are 10 chars long
     time_before_create = get_current_time_millis()
     created_id = store.create_experiment(name)
@@ -855,6 +970,7 @@ def _verify_run(store, run_id, run_data):
     # key without actually deleting it from self.run_data
     _run_info = run_info.copy()
     _run_info.pop("deleted_time", None)
+    _run_info.pop("run_uuid", None)
     assert _run_info == dict(run.info)
 
 
@@ -942,7 +1058,9 @@ def test_update_run_does_not_rename_run_with_none_name(store):
     assert get_run.info.run_name == "first name"
 
 
-def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(store):
+def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(
+    store,
+):
     run_id = store.create_run(
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         user_id="user",
@@ -989,7 +1107,10 @@ def test_log_metric_with_non_numeric_value_raises_exception(store):
         tags=[],
         run_name="first name",
     ).info.run_id
-    with pytest.raises(MlflowException, match=r"Got invalid value string for metric"):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value \"string\" for parameter \'value\' supplied",
+    ):
         store.log_metric(run_id, Metric("test", "string", 0, 0))
 
 
@@ -1027,8 +1148,7 @@ def test_get_metric_history(store):
 def test_get_metric_history_paginated_request_raises(store):
     with pytest.raises(
         MlflowException,
-        match="The FileStore backend does not support pagination for the `get_metric_history` "
-        "API.",
+        match="The FileStore backend does not support pagination for the `get_metric_history` API.",
     ):
         store.get_metric_history("fake_run", "fake_metric", max_results=50, page_token="42")
 
@@ -1531,7 +1651,7 @@ def test_log_param_max_length_value(store, monkeypatch):
     run = store.get_run(run_id)
     assert run.data.params[param_name] == param_value
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
-    with pytest.raises(MlflowException, match="exceeded length"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
         store.log_param(run_id, Param(param_name, "x" * 6001))
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
@@ -1738,6 +1858,28 @@ def test_malformed_run(store):
             store.get_run(rid)
 
 
+def test_malformed_metric(store):
+    exp_id = FileStore.DEFAULT_EXPERIMENT_ID
+    run_id = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name="first name",
+    ).info.run_id
+    store.log_metric(run_id, Metric("test", 1, 0, 0))
+    with (
+        mock.patch("mlflow.store.tracking.file_store.read_file_lines", return_value=["0 1 0 2\n"]),
+        pytest.raises(
+            MlflowException,
+            match=f"Metric 'test' is malformed; persisted metric data contained "
+            f"4 fields. Expected 2, 3, or 5 fields. "
+            f"Experiment id: {exp_id}",
+        ),
+    ):
+        store.get_metric_history(run_id, "test")
+
+
 def test_mismatching_experiment_id(store):
     exp_0 = store.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
     assert exp_0.experiment_id == FileStore.DEFAULT_EXPERIMENT_ID
@@ -1820,7 +1962,7 @@ def test_log_batch_max_length_value(store, monkeypatch):
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     param_entities = [Param("long param", "x" * 6001), Param("short param", "xyz")]
-    with pytest.raises(MlflowException, match="exceeded length"):
+    with pytest.raises(MlflowException, match="exceeds the maximum length"):
         store.log_batch(run.info.run_id, (), param_entities, ())
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
@@ -1840,11 +1982,11 @@ def test_log_batch_internal_error(store):
     def _raise_exception_fn(*args, **kwargs):
         raise Exception("Some internal error")
 
-    with mock.patch(
-        FILESTORE_PACKAGE + ".FileStore._log_run_metric"
-    ) as log_metric_mock, mock.patch(
-        FILESTORE_PACKAGE + ".FileStore._log_run_param"
-    ) as log_param_mock, mock.patch(FILESTORE_PACKAGE + ".FileStore._set_run_tag") as set_tag_mock:
+    with (
+        mock.patch(FILESTORE_PACKAGE + ".FileStore._log_run_metric") as log_metric_mock,
+        mock.patch(FILESTORE_PACKAGE + ".FileStore._log_run_param") as log_param_mock,
+        mock.patch(FILESTORE_PACKAGE + ".FileStore._set_run_tag") as set_tag_mock,
+    ):
         log_metric_mock.side_effect = _raise_exception_fn
         log_param_mock.side_effect = _raise_exception_fn
         set_tag_mock.side_effect = _raise_exception_fn
@@ -1972,7 +2114,10 @@ def test_log_batch_with_duplicate_params_errors_no_partial_write(store):
     )
     with pytest.raises(MlflowException, match="Duplicate parameter keys have been submitted") as e:
         store.log_batch(
-            run.info.run_id, metrics=[], params=[Param("a", "1"), Param("a", "2")], tags=[]
+            run.info.run_id,
+            metrics=[],
+            params=[Param("a", "1"), Param("a", "2")],
+            tags=[],
         )
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     _verify_logged(store, run.info.run_id, metrics=[], params=[], tags=[])
@@ -2086,8 +2231,14 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
             "file:///{drive}my_server/my_path/my_sub_path/{e}/{r}/artifacts",
         ),
         ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
-        ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}/{r}/artifacts"),
-        ("#path/to/local/folder?", "file://{cwd}/{e}/{r}/artifacts#path/to/local/folder?"),
+        (
+            "/path/to/local/folder",
+            "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
+        ),
+        (
+            "#path/to/local/folder?",
+            "file://{cwd}/{e}/{r}/artifacts#path/to/local/folder?",
+        ),
         (
             "file:///path/to/local/folder",
             "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
@@ -2096,7 +2247,10 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
             "file:///path/to/local/folder?param=value#fragment",
             "file:///{drive}path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
         ),
-        ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+        (
+            "file:path/to/local/folder",
+            "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts",
+        ),
         (
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
@@ -2124,7 +2278,10 @@ def test_create_run_appends_to_artifact_local_path_file_uri_correctly_on_windows
             "file:///path/to/local/folder?param=value#fragment",
             "file:///path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
         ),
-        ("file:path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
+        (
+            "file:path/to/local/folder",
+            "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts",
+        ),
         (
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
@@ -2185,7 +2342,10 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
-        ("\\my_server/my_path/my_sub_path", "file:///{drive}my_server/my_path/my_sub_path/{e}"),
+        (
+            "\\my_server/my_path/my_sub_path",
+            "file:///{drive}my_server/my_path/my_sub_path/{e}",
+        ),
         ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
         ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
         ("#path/to/local/folder?", "file://{cwd}/{e}#path/to/local/folder?"),
@@ -2258,7 +2418,7 @@ def test_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, exp
     _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-def assert_dataset_inputs_equal(inputs1: List[DatasetInput], inputs2: List[DatasetInput]):
+def assert_dataset_inputs_equal(inputs1: list[DatasetInput], inputs2: list[DatasetInput]):
     inputs1 = sorted(inputs1, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
     inputs2 = sorted(inputs2, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
     assert len(inputs1) == len(inputs2)
@@ -2269,7 +2429,7 @@ def assert_dataset_inputs_equal(inputs1: List[DatasetInput], inputs2: List[Datas
         tags2 = sorted(inp2.tags, key=lambda tag: tag.key)
         for idx, tag1 in enumerate(tags1):
             tag2 = tags2[idx]
-            assert tag1.key == tag1.key
+            assert tag1.key == tag2.key
             assert tag1.value == tag2.value
 
 
@@ -2399,7 +2559,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
         # made to the input tags
         overwrite_tags = [
             InputTag(key=f"key{i}", value=f"value{i}"),
-            InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(run.info.run_id, [DatasetInput(overwrite_dataset, overwrite_tags)])
 
@@ -2452,7 +2612,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
         )
         new_tags = [
             InputTag(key=f"key{i}", value=f"value{i}"),
-            InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            InputTag(key=f"key{i + 1}", value=f"value{i + 1}"),
         ]
         store.log_inputs(new_run.info.run_id, [DatasetInput(dataset, new_tags)])
         new_run = store.get_run(new_run.info.run_id)
@@ -2499,7 +2659,7 @@ def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
         inputs_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
         expected_input_storage_ids = []
         for dataset_storage_id in dataset_storage_ids:
-            md5 = insecure_hash.md5(dataset_storage_id.encode("utf-8"))
+            md5 = hashlib.md5(dataset_storage_id.encode("utf-8"), usedforsecurity=False)
             md5.update(run.info.run_id.encode("utf-8"))
             expected_input_storage_ids.append(md5.hexdigest())
         assert set(os.listdir(inputs_dir)) == set(expected_input_storage_ids)
@@ -2548,11 +2708,19 @@ def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
         [DatasetInput(dataset1), DatasetInput(dataset2), DatasetInput(dataset3, tags)],
     )
     assert_expected_dataset_storage_ids_present(
-        [expected_dataset1_storage_id, expected_dataset2_storage_id, expected_dataset3_storage_id]
+        [
+            expected_dataset1_storage_id,
+            expected_dataset2_storage_id,
+            expected_dataset3_storage_id,
+        ]
     )
     assert_expected_input_storage_ids_present(
         run2,
-        [expected_dataset1_storage_id, expected_dataset2_storage_id, expected_dataset3_storage_id],
+        [
+            expected_dataset1_storage_id,
+            expected_dataset2_storage_id,
+            expected_dataset3_storage_id,
+        ],
     )
 
 
@@ -2705,3 +2873,504 @@ def test_search_datasets_returns_no_more_than_max_results(store):
 
     results = store._search_datasets([exp_id])
     assert len(results) == 1000
+
+
+def test_start_trace(store):
+    exp_id = store.create_experiment("test")
+    timestamp_ms = get_current_time_millis()
+    tags = {"some_key": "test"}
+    trace_info = store.start_trace(exp_id, timestamp_ms, {}, tags)
+    assert trace_info.request_id is not None
+    assert trace_info.experiment_id == exp_id
+    assert trace_info.timestamp_ms == timestamp_ms
+    assert trace_info.execution_time_ms is None
+    assert trace_info.status == TraceStatus.IN_PROGRESS
+    assert trace_info.request_metadata == {}
+    assert trace_info.tags == tags
+
+    with pytest.raises(MlflowException, match=r"Experiment fake_exp_id does not exist."):
+        store.start_trace("fake_exp_id", timestamp_ms, {}, {})
+
+
+def test_end_trace(store_and_trace_info):
+    store, trace = store_and_trace_info
+    timestamp_ms = get_current_time_millis()
+    request_metadata = {
+        TraceMetadataKey.INPUTS: {"query": "test"},
+        TraceMetadataKey.OUTPUTS: "test",
+    }
+    tags = {TraceTagKey.TRACE_NAME: "mlflow_trace"}
+    trace_info = store.end_trace(
+        trace.request_id, timestamp_ms, TraceStatus.OK, request_metadata, tags
+    )
+    assert trace_info.request_id == trace.request_id
+    assert trace_info.timestamp_ms == trace.timestamp_ms
+    assert trace_info.execution_time_ms == timestamp_ms - trace.timestamp_ms
+    assert trace_info.status == TraceStatus.OK
+    assert trace_info.request_metadata == {**trace.request_metadata, **request_metadata}
+    assert trace_info.tags == {**trace.tags, **tags}
+
+    with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_request_id' not found"):
+        store.end_trace("fake_request_id", timestamp_ms, TraceStatus.OK, request_metadata, tags)
+
+
+def test_get_trace_info(store_and_trace_info):
+    store, trace = store_and_trace_info
+    trace_info = store.get_trace_info(trace.request_id)
+    assert trace_info == trace
+
+    with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_request_id' not found"):
+        store.get_trace_info("fake_request_id")
+
+    mock_trace_info = deepcopy(trace_info)
+    mock_trace_info.request_id = "invalid_request_id"
+    with (
+        mock.patch(
+            "mlflow.store.tracking.file_store.FileStore._get_trace_info_from_dir",
+            return_value=mock_trace_info,
+        ),
+        pytest.raises(
+            MlflowException,
+            match=rf"Trace with request ID '{trace.request_id}' metadata is in invalid state.",
+        ),
+    ):
+        store.get_trace_info(trace.request_id)
+
+
+def test_set_trace_tag(store_and_trace_info):
+    store, trace = store_and_trace_info
+    store.set_trace_tag(trace.request_id, "some_key", "a")
+    trace_info = store.get_trace_info(trace.request_id)
+    assert trace_info.tags["some_key"] == "a"
+
+    # test overwrite
+    store.set_trace_tag(trace.request_id, "some_key", "test")
+    trace_info = store.get_trace_info(trace.request_id)
+    assert trace_info.tags["some_key"] == "test"
+
+    # test value written as string
+    store.set_trace_tag(trace.request_id, "int_key", 1234)
+    trace_info = store.get_trace_info(trace.request_id)
+    assert trace_info.tags["int_key"] == "1234"
+
+    # test value length
+    store.set_trace_tag(trace.request_id, "key", "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE)
+    trace_info = store.get_trace_info(trace.request_id)
+    assert trace_info.tags["key"] == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
+
+    with pytest.raises(MlflowException, match=r"Missing value for required parameter \'key\'"):
+        store.set_trace_tag(trace.request_id, None, "test")
+
+
+def test_delete_trace_tag(store_and_trace_info):
+    store, trace = store_and_trace_info
+    store.set_trace_tag(trace.request_id, "some_key", "a")
+    store.delete_trace_tag(trace.request_id, "some_key")
+    trace_info = store.get_trace_info(trace.request_id)
+    assert "some_key" not in trace_info.tags
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"No tag with name: invalid_key in trace with request_id {trace.request_id}.",
+    ):
+        store.delete_trace_tag(trace.request_id, "invalid_key")
+
+
+def test_delete_traces(store):
+    exp_id = store.create_experiment("test")
+    request_ids = []
+    timestamps = list(range(90, -1, -10))
+    for i in range(10):
+        trace_info = store.start_trace(exp_id, timestamps[i], {}, {})
+        request_ids.append(trace_info.request_id)
+
+    # delete with max_timestamp_millis
+    # if max_traces < number of traces with timestamp < max_timestamp_millis,
+    # delete older traces first
+    assert store.delete_traces(exp_id, max_timestamp_millis=50, max_traces=2) == 2
+    assert len(store.search_traces([exp_id])[0]) == 8
+    assert store.delete_traces(exp_id, max_timestamp_millis=50) == 4
+    assert len(store.search_traces([exp_id])[0]) == 4
+
+    # delete with request_ids
+    assert store.delete_traces(exp_id, request_ids=[request_ids[3]]) == 1
+    assert len(store.search_traces([exp_id])[0]) == 3
+    assert store.delete_traces(exp_id, request_ids=["non_existing_request_id"]) == 0
+    assert len(store.search_traces([exp_id])[0]) == 3
+    assert store.delete_traces(exp_id, request_ids=request_ids) == 3
+    assert len(store.search_traces([exp_id])[0]) == 0
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Either `max_timestamp_millis` or `request_ids` must be specified.",
+    ):
+        store.delete_traces(exp_id)
+    with pytest.raises(
+        MlflowException,
+        match=r"Only one of `max_timestamp_millis` and `request_ids` can be specified.",
+    ):
+        store.delete_traces(exp_id, max_timestamp_millis=100, request_ids=request_ids)
+    with pytest.raises(
+        MlflowException,
+        match=r"`max_traces` can't be specified if `request_ids` is specified.",
+    ):
+        store.delete_traces(exp_id, max_traces=2, request_ids=request_ids)
+    with pytest.raises(
+        MlflowException, match=r"`max_traces` must be a positive integer, received 0"
+    ):
+        store.delete_traces(exp_id, 100, max_traces=0)
+    with pytest.raises(MlflowException, match=r"Experiment non_existing_exp does not exist."):
+        store.delete_traces("non_existing_exp", 100, 2)
+
+
+def _validate_search_traces(store, exp_ids, filter_string, expected_traces, order_by=None):
+    traces, _ = store.search_traces(exp_ids, filter_string, order_by=order_by)
+    assert traces == expected_traces
+
+
+def test_search_traces(store):
+    traces, _token = store.search_traces(["0"])
+    assert traces == []
+
+
+def test_search_traces_filter(generate_trace_infos):
+    trace_infos = generate_trace_infos.trace_infos
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
+    request_ids = generate_trace_infos.request_ids
+    timestamps = generate_trace_infos.timestamps
+
+    # by default sort by timestamp_ms DESC, request_id ASC
+    _validate_search_traces(store, [exp_id], None, trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "", trace_infos[::-1])
+
+    # filter by name
+    _validate_search_traces(store, [exp_id], "name = 'trace_0'", trace_infos[:1])
+    _validate_search_traces(store, [exp_id], "name != 'trace_0'", trace_infos[1:][::-1])
+
+    # filter by status
+    _validate_search_traces(store, [exp_id], "status = 'IN_PROGRESS'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "status != 'IN_PROGRESS'", [])
+    for i in range(2):
+        trace_infos[i] = store.end_trace(request_ids[i], timestamps[i] + 10, TraceStatus.OK, {}, {})
+    for i in range(2, 5):
+        trace_infos[i] = store.end_trace(
+            request_ids[i], timestamps[i] + 20, TraceStatus.ERROR, {}, {}
+        )
+    _validate_search_traces(
+        store,
+        [exp_id],
+        "status IN ('IN_PROGRESS', 'OK')",
+        (trace_infos[:2] + trace_infos[5:])[::-1],
+    )
+    _validate_search_traces(
+        store, [exp_id], "status NOT IN ('IN_PROGRESS', 'OK')", trace_infos[2:5][::-1]
+    )
+
+    # filter by status w/ attributes. or trace. prefix
+    _validate_search_traces(
+        store,
+        [exp_id],
+        "trace.status = 'ERROR'",
+        trace_infos[2:5][::-1],
+    )
+    _validate_search_traces(
+        store,
+        [exp_id],
+        "attributes.status IN ('IN_PROGRESS', 'OK')",
+        (trace_infos[:2] + trace_infos[5:])[::-1],
+    )
+
+    # filter by timestamp
+    for timestamp_key in ["timestamp", "timestamp_ms"]:
+        _validate_search_traces(store, [exp_id], f"{timestamp_key} < 10", trace_infos[:1])
+        _validate_search_traces(store, [exp_id], f"{timestamp_key} <= 0", trace_infos[:1])
+        _validate_search_traces(store, [exp_id], f"{timestamp_key} > 0", trace_infos[1:][::-1])
+        _validate_search_traces(store, [exp_id], f"{timestamp_key} >= 10", trace_infos[1:][::-1])
+        _validate_search_traces(store, [exp_id], f"{timestamp_key} = 100", [])
+        _validate_search_traces(store, [exp_id], f"{timestamp_key} != 100", trace_infos[::-1])
+
+    # filter by request_id
+    _validate_search_traces(store, [exp_id], f"request_id = '{request_ids[0]}'", [trace_infos[0]])
+    _validate_search_traces(
+        store, [exp_id], f"request_id != '{request_ids[0]}'", trace_infos[1:][::-1]
+    )
+    _validate_search_traces(
+        store, [exp_id], f"request_id IN ('{request_ids[0]}')", [trace_infos[0]]
+    )
+    _validate_search_traces(
+        store,
+        [exp_id],
+        f"request_id NOT IN ('{request_ids[0]}')",
+        trace_infos[1:][::-1],
+    )
+
+    # filter by execution_time
+    for execution_time_key in ["execution_time", "execution_time_ms"]:
+        _validate_search_traces(
+            store, [exp_id], f"{execution_time_key} = 10", trace_infos[:2][::-1]
+        )
+        # value None is always seen as not-match
+        _validate_search_traces(
+            store, [exp_id], f"{execution_time_key} != 10", trace_infos[2:5][::-1]
+        )
+        _validate_search_traces(
+            store, [exp_id], f"{execution_time_key} > 10", trace_infos[2:5][::-1]
+        )
+        _validate_search_traces(store, [exp_id], f"{execution_time_key} < 10", [])
+        _validate_search_traces(
+            store, [exp_id], f"{execution_time_key} >= 10", trace_infos[:5][::-1]
+        )
+        _validate_search_traces(
+            store, [exp_id], f"{execution_time_key} <= 10", trace_infos[:2][::-1]
+        )
+
+    # filter by run_id
+    for i in range(5, 10):
+        trace_infos[i] = store.end_trace(
+            request_ids[i],
+            timestamps[i] + 30,
+            TraceStatus.ERROR,
+            {TraceMetadataKey.SOURCE_RUN: f"run_{i}"},
+            {},
+        )
+    _validate_search_traces(store, [exp_id], "run_id = 'run_5'", [trace_infos[5]])
+    _validate_search_traces(store, [exp_id], "run_id != 'run_5'", trace_infos[6:][::-1])
+
+    # filter by tag
+    for tag_identifier in ["tag", "tags"]:
+        _validate_search_traces(
+            store, [exp_id], f"{tag_identifier}.test_tag = 'tag_0'", [trace_infos[0]]
+        )
+        _validate_search_traces(
+            store,
+            [exp_id],
+            f"{tag_identifier}.test_tag != 'tag_0'",
+            trace_infos[1:][::-1],
+        )
+        _validate_search_traces(store, [exp_id], f"{tag_identifier}.test_tag = '123'", [])
+
+    # multiple filter conditions
+    _validate_search_traces(
+        store, [exp_id], "status = 'OK' AND timestamp <= 10", trace_infos[:2][::-1]
+    )
+
+
+def test_search_traces_filter_request_metadata(store):
+    exp_id = store.create_experiment("test")
+    timestamp_ms_1 = get_current_time_millis()
+    trace_info_1 = store.start_trace(
+        exp_id,
+        timestamp_ms_1,
+        {
+            TraceMetadataKey.INPUTS: "inputs1",
+            TraceMetadataKey.OUTPUTS: "outputs1",
+        },
+        {},
+    )
+    time.sleep(0.001)  # ensure unique timestamps
+    timestamp_ms_2 = get_current_time_millis()
+    trace_info_2 = store.start_trace(
+        exp_id,
+        timestamp_ms_2,
+        {
+            TraceMetadataKey.INPUTS: "inputs2",
+            TraceMetadataKey.OUTPUTS: "outputs2",
+        },
+        {},
+    )
+
+    _validate_search_traces(
+        store,
+        [exp_id],
+        f"request_metadata.{TraceMetadataKey.INPUTS} = 'inputs1'",
+        [trace_info_1],
+    )
+    _validate_search_traces(
+        store,
+        [exp_id],
+        f"request_metadata.{TraceMetadataKey.OUTPUTS} = 'outputs1'",
+        [trace_info_1],
+    )
+    # not equal
+    _validate_search_traces(
+        store,
+        [exp_id],
+        f"request_metadata.{TraceMetadataKey.INPUTS} != 'inputs1'",
+        [trace_info_2],
+    )
+    _validate_search_traces(
+        store,
+        [exp_id],
+        f"request_metadata.{TraceMetadataKey.INPUTS} != 'test'",
+        [trace_info_2, trace_info_1],
+    )
+
+    # backtick
+    _validate_search_traces(
+        store,
+        [exp_id],
+        f"request_metadata.`{TraceMetadataKey.INPUTS}` = 'inputs1'",
+        [trace_info_1],
+    )
+
+    # alias
+    _validate_search_traces(
+        store,
+        [exp_id],
+        f"metadata.{TraceMetadataKey.INPUTS} = 'inputs1'",
+        [trace_info_1],
+    )
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "error"),
+    [
+        ("invalid", r"Invalid clause\(s\) in filter string"),
+        ("name = 'foo' AND invalid", r"Invalid clause\(s\) in filter string"),
+        ("foo.bar = 'baz'", r"Invalid entity type 'foo'"),
+        ("invalid = 'foo'", r"Invalid attribute key 'invalid'"),
+        ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
+        ("trace.status < 'OK'", r"Invalid comparator '<'"),
+        ("name IN ('foo', 'bar')", r"Invalid comparator 'IN'"),
+        # We don't support LIKE/ILIKE operators for trace search because it may
+        # cause performance issues with large attributes and tags.
+        ("name LIKE 'trace_%'", r"Invalid comparator 'LIKE'"),
+        ("run_id ILIKE 'run_%'", r"Invalid comparator 'ILIKE'"),
+        ("tag.test_tag LIKE 'tag_%'", r"Invalid comparator 'LIKE'"),
+        ("tags.test_tag ILIKE 'tag_%'", r"Invalid comparator 'ILIKE'"),
+    ],
+)
+def test_search_traces_invalid_filter(generate_trace_infos, filter_string, error):
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
+
+    # Invalid filter key
+    with pytest.raises(MlflowException, match=error):
+        store.search_traces([exp_id], filter_string)
+
+
+def test_search_traces_order(generate_trace_infos):
+    trace_infos = generate_trace_infos.trace_infos
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
+    request_ids = generate_trace_infos.request_ids
+    timestamps = generate_trace_infos.timestamps
+    # order by timestamp
+    for timestamp_key in ["timestamp", "timestamp_ms"]:
+        _validate_search_traces(store, [exp_id], "", trace_infos, order_by=[f"{timestamp_key} ASC"])
+        _validate_search_traces(
+            store, [exp_id], "", trace_infos[::-1], order_by=[f"{timestamp_key} DESC"]
+        )
+
+    # order by execution time
+    for i in range(5):
+        trace_infos[i] = store.end_trace(request_ids[i], timestamps[i] + 10, TraceStatus.OK, {}, {})
+    for i in range(5, 10):
+        trace_infos[i] = store.end_trace(
+            request_ids[i], timestamps[i] + 20, TraceStatus.ERROR, {}, {}
+        )
+    for execution_time_key in ["execution_time", "execution_time_ms"]:
+        _validate_search_traces(
+            store,
+            [exp_id],
+            "",
+            trace_infos[::-1],
+            order_by=[f"{execution_time_key} DESC"],
+        )
+        _validate_search_traces(
+            store,
+            [exp_id],
+            "",
+            trace_infos[:5][::-1] + trace_infos[5:][::-1],
+            order_by=[f"{execution_time_key} ASC"],
+        )
+
+    # order by status
+    _validate_search_traces(
+        store,
+        [exp_id],
+        "",
+        trace_infos[:5][::-1] + trace_infos[5:][::-1],
+        order_by=["status DESC"],
+    )
+    _validate_search_traces(store, [exp_id], "", trace_infos[::-1], order_by=["status ASC"])
+
+    # order by request_id
+    expected_trace_infos = sorted(trace_infos, key=lambda x: x.request_id)
+    _validate_search_traces(store, [exp_id], "", expected_trace_infos, order_by=["request_id ASC"])
+    expected_trace_infos = sorted(trace_infos, key=lambda x: x.request_id, reverse=True)
+    _validate_search_traces(store, [exp_id], "", expected_trace_infos, order_by=["request_id DESC"])
+
+    # order by experiment_id
+    exp_id2 = store.create_experiment("test2")
+    trace_infos.append(store.start_trace(exp_id2, timestamps[-1], {}, {}))
+    order = exp_id2 > exp_id
+    _validate_search_traces(
+        store,
+        [exp_id, exp_id2],
+        "",
+        trace_infos[::-1] if order else trace_infos[:10][::-1] + [trace_infos[-1]],
+        order_by=["experiment_id DESC"],
+    )
+    _validate_search_traces(
+        store,
+        [exp_id, exp_id2],
+        "",
+        trace_infos[:10][::-1] + [trace_infos[-1]] if order else trace_infos[::-1],
+        order_by=["experiment_id ASC"],
+    )
+
+    for i in range(10):
+        trace_infos.append(store.start_trace(exp_id2, timestamps[i], {}, {}))
+    # by default sort by timestamp DESC, request_id ASC
+    expected_trace_infos = sorted(trace_infos, key=lambda x: (-x.timestamp_ms, x.request_id))
+    _validate_search_traces(
+        store,
+        [exp_id, exp_id2],
+        "",
+        expected_trace_infos,
+    )
+
+
+def test_search_traces_raise_errors(generate_trace_infos):
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
+
+    # unsupported order_by keys
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid order_by entity `tag` with key `mlflow.traceName`",
+    ):
+        store.search_traces([exp_id], "", order_by=["name DESC"])
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid order_by entity `request_metadata` "
+        rf"with key `{TraceMetadataKey.SOURCE_RUN}`",
+    ):
+        store.search_traces([exp_id], "", order_by=["run_id ASC"])
+
+
+def test_search_traces_pagination(generate_trace_infos):
+    trace_infos = generate_trace_infos.trace_infos
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
+
+    # test returned token behavior
+    traces, token = store.search_traces([exp_id], None, max_results=5)
+    assert traces == trace_infos[::-1][:5]
+    assert token is not None
+    traces, token = store.search_traces([exp_id], None, max_results=5, page_token=token)
+    assert traces == trace_infos[::-1][5:]
+    assert token is None
+
+
+def test_traces_not_listed_as_runs(tmp_path):
+    with _use_tracking_uri(tmp_path.joinpath("mlruns").as_uri()):
+        client = mlflow.MlflowClient()
+        with mlflow.start_run() as run:
+            client.start_trace("test")
+
+        with mock.patch("mlflow.store.tracking.file_store.logging.debug") as mock_debug:
+            client.search_runs([run.info.experiment_id], "", ViewType.ALL, max_results=1)
+            mock_debug.assert_not_called()

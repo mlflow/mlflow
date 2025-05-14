@@ -36,9 +36,9 @@ describe('MetricView', () => {
     experimentIds = ['2'];
     experiments = experimentIds.map((experimentId) =>
       Fixtures.createExperiment({
-        experiment_id: experimentId.toString(),
+        experimentId: experimentId.toString(),
         name: experimentId.toString(),
-        lifecycle_stage: 'active',
+        lifecycleStage: 'active',
       }),
     );
 

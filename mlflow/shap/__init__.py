@@ -3,7 +3,7 @@ import tempfile
 import types
 import warnings
 from contextlib import contextmanager
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import yaml
@@ -166,8 +166,7 @@ def log_explanation(predict_function, features, artifact_path=None):
 
             .. code-block:: python
 
-                def predict_function(X) -> pred:
-                    ...
+                def predict_function(X) -> pred: ...
 
             - ``X``: An array-like object whose shape should be (# samples, # features).
             - ``pred``: An array-like object whose shape should be (# samples) for a regressor or
@@ -292,7 +291,7 @@ def log_explanation(predict_function, features, artifact_path=None):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_explainer(
     explainer,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     serialize_model_using_mlflow=True,
     conda_env=None,
     code_paths=None,
@@ -302,14 +301,20 @@ def log_explainer(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
+    name: Optional[str] = None,
     metadata=None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log an SHAP explainer as an MLflow artifact for the current run.
 
     Args:
         explainer: SHAP explainer to be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         serialize_model_using_mlflow: When set to True, MLflow will extract the underlying
             model and serialize it as an MLmodel, otherwise it uses SHAP's internal serialization.
             Defaults to True. Currently MLflow serialization is only supported for models of
@@ -337,14 +342,18 @@ def log_explainer(
             minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        name: {{ name }}
+        metadata: {{ metadata }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
     """
 
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.shap,
         explainer=explainer,
         conda_env=conda_env,
@@ -357,6 +366,11 @@ def log_explainer(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
@@ -407,10 +421,7 @@ def save_explainer(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata: {{ metadata }}
     """
     import shap
 
@@ -658,18 +669,21 @@ class _SHAPWrapper:
 
         self.explainer = _load_explainer(explainer_file=shap_explainer_artifacts_path, model=model)
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.explainer
+
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """
         Args:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.

@@ -4,8 +4,6 @@ from collections import namedtuple
 from pathlib import Path
 
 import pytest
-import sqlalchemy
-from packaging.version import Version
 from sqlalchemy import create_engine
 from sqlalchemy.schema import CreateTable, MetaData
 
@@ -125,9 +123,6 @@ def get_schema_update_command(dialect):
     return f"docker compose -f {docker_compose_yml} run --rm mlflow-{dialect} python {this_script}"
 
 
-@pytest.mark.skipif(
-    Version(sqlalchemy.__version__) > Version("1.4"), reason="Use 1.4 for schema check"
-)
 def test_schema_is_up_to_date():
     initialize_database()
     tracking_uri = get_tracking_uri()

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
@@ -55,7 +55,7 @@ class SparkDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: str) -> "SparkDatasetSource":
         raise NotImplementedError
 
-    def to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> dict[Any, Any]:
         info = {}
         if self._path is not None:
             info["path"] = self._path
@@ -66,7 +66,7 @@ class SparkDatasetSource(DatasetSource):
         return info
 
     @classmethod
-    def from_dict(cls, source_dict: Dict[Any, Any]) -> "SparkDatasetSource":
+    def from_dict(cls, source_dict: dict[Any, Any]) -> "SparkDatasetSource":
         return cls(
             path=source_dict.get("path"),
             table_name=source_dict.get("table_name"),

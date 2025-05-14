@@ -7,10 +7,8 @@ import posixpath
 import re
 import textwrap
 import warnings
-from typing import Any, AsyncGenerator, List, Optional
+from typing import Any, AsyncGenerator, Optional
 from urllib.parse import urlparse
-
-from starlette.responses import StreamingResponse
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
@@ -32,7 +30,12 @@ def is_valid_endpoint_name(name: str) -> bool:
 
 
 def check_configuration_route_name_collisions(config):
-    routes = config.get("routes") or config.get("endpoints") or []
+    if "routes" in config:
+        raise MlflowException.invalid_parameter_value(
+            "The 'routes' field is not supported in the configuration file, "
+            "use 'endpoints' instead."
+        )
+    routes = config.get("endpoints") or []
     if len(routes) < 2:
         return
     names = [route["name"] for route in routes]
@@ -44,24 +47,13 @@ def check_configuration_route_name_collisions(config):
 
 
 def check_configuration_deprecated_fields(config):
-    if "routes" in config:
-        warnings.warn(
-            "The 'routes' configuration key has been deprecated and will be removed in an"
-            " upcoming release. Use 'endpoints' instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-
-    routes = config.get("routes", []) or config.get("endpoints", [])
+    routes = config.get("endpoints", [])
     for route in routes:
         if "route_type" in route:
-            warnings.warn(
-                "The 'route_type' configuration key has been deprecated and will be removed in an"
-                " upcoming release. Use 'endpoint_type' instead.",
-                FutureWarning,
-                stacklevel=2,
+            raise MlflowException.invalid_parameter_value(
+                "The 'route_type' configuration key is not supported in the configuration file. "
+                "Use 'endpoint_type' instead."
             )
-            break
 
 
 def kill_child_processes(parent_pid):
@@ -175,7 +167,6 @@ def get_gateway_uri() -> str:
     If the Gateway uri has not been set by using ``set_gateway_uri``, an ``MlflowException``
     is raised.
     """
-    global _gateway_uri
     if _gateway_uri is not None:
         return _gateway_uri
     elif uri := MLFLOW_GATEWAY_URI.get():
@@ -188,7 +179,7 @@ def get_gateway_uri() -> str:
         )
 
 
-def assemble_uri_path(paths: List[str]) -> str:
+def assemble_uri_path(paths: list[str]) -> str:
     """Assemble a correct URI path from a list of path parts.
 
     Args:
@@ -303,6 +294,8 @@ async def handle_incomplete_chunks(
 
 
 async def make_streaming_response(resp):
+    from starlette.responses import StreamingResponse
+
     if isinstance(resp, AsyncGenerator):
         return StreamingResponse(
             (to_sse_chunk(d.json()) async for d in resp),

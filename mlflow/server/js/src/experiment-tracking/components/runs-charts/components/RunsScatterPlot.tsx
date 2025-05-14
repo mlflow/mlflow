@@ -1,9 +1,10 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
+import { isNil } from 'lodash';
 import { Data, Datum, Layout, PlotMouseEvent } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
-import { highlightScatterTraces, useRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
+import { highlightScatterTraces, useRenderRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
 import {
   commonRunsChartStyles,
   RunsChartsRunData,
@@ -15,8 +16,9 @@ import {
   useDynamicPlotSize,
   getLegendDataFromRuns,
 } from './RunsCharts.common';
-import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
+import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
+import { RunsChartCardLoadingPlaceholder } from './cards/ChartCard.common';
 
 export interface RunsScatterPlotProps extends RunsPlotsCommonProps {
   /**
@@ -38,9 +40,10 @@ export interface RunsScatterPlotProps extends RunsPlotsCommonProps {
 const PLOT_CONFIG = {
   displaylogo: false,
   scrollZoom: false,
+  modeBarButtonsToRemove: ['toImage'],
 };
 
-export const createTooltipTemplate = () =>
+const createTooltipTemplate = () =>
   '<b>%{customdata[1]}:</b><br>' +
   '<b>%{xaxis.title.text}:</b> %{x:.2f}<br>' +
   '<b>%{yaxis.title.text}:</b> %{y:.2f}<br>' +
@@ -66,10 +69,9 @@ export const RunsScatterPlot = React.memo(
     height,
     useDefaultHoverBox = true,
     selectedRunUuid,
+    onSetDownloadHandler,
   }: RunsScatterPlotProps) => {
     const { theme } = useDesignSystemTheme();
-
-    const usingV2ChartImprovements = shouldEnableDeepLearningUI();
 
     const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } = useDynamicPlotSize();
 
@@ -83,19 +85,19 @@ export const RunsScatterPlot = React.memo(
       // Iterate through all the runs and aggregate selected metrics/params
       for (const runData of runsData) {
         const { runInfo, metrics, params, color, uuid, displayName } = runData;
-        const { run_uuid, run_name } = runInfo || {};
+        const { runUuid, runName } = runInfo || {};
         const xAxisData = xAxis.type === 'METRIC' ? metrics : params;
         const yAxisData = yAxis.type === 'METRIC' ? metrics : params;
 
-        const x = xAxisData?.[xAxis.key]?.value || undefined;
-        const y = yAxisData?.[yAxis.key]?.value || undefined;
+        const x = xAxisData?.[xAxis.dataAccessKey ?? xAxis.key]?.value;
+        const y = yAxisData?.[yAxis.dataAccessKey ?? yAxis.key]?.value;
 
-        if (x && y) {
+        if (!isNil(x) && !isNil(y)) {
           xValues.push(x);
           yValues.push(y);
           colors.push(color || theme.colors.primary);
-          if (run_uuid) {
-            tooltipData.push([run_uuid, run_name || run_uuid] as any);
+          if (runUuid) {
+            tooltipData.push([runUuid, runName || runUuid] as any);
           } else {
             tooltipData.push([uuid, displayName] as any);
           }
@@ -107,11 +109,13 @@ export const RunsScatterPlot = React.memo(
           x: xValues,
           y: yValues,
           customdata: tooltipData,
+          text: runsData.map(({ displayName }) => displayName),
           hovertemplate: useDefaultHoverBox ? createTooltipTemplate() : undefined,
           hoverinfo: useDefaultHoverBox ? undefined : 'none',
           hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
           type: 'scatter',
           mode: 'markers',
+          textposition: 'bottom center',
           marker: {
             size: markerSize,
             color: colors,
@@ -152,7 +156,7 @@ export const RunsScatterPlot = React.memo(
       });
     }, [layoutWidth, layoutHeight, margin, xAxis.key, yAxis.key, width, height]);
 
-    const { setHoveredPointIndex } = useRunsChartTraceHighlight(
+    const { setHoveredPointIndex } = useRenderRunsChartTraceHighlight(
       containerDiv,
       selectedRunUuid,
       runsData,
@@ -167,7 +171,7 @@ export const RunsScatterPlot = React.memo(
         setHoveredPointIndex(points[0]?.pointIndex ?? -1);
 
         if (pointCustomDataRunUuid) {
-          onHover?.(pointCustomDataRunUuid);
+          onHover?.(pointCustomDataRunUuid, undefined, {});
         }
       },
       [onHover, setHoveredPointIndex],
@@ -187,6 +191,14 @@ export const RunsScatterPlot = React.memo(
 
     const legendLabelData = useMemo(() => getLegendDataFromRuns(runsData), [runsData]);
 
+    useEffect(() => {
+      const dataToExport: Data[] = plotData.map((trace: Data) => ({
+        ...trace,
+        mode: 'text+markers',
+      }));
+      onSetDownloadHandler?.(createChartImageDownloadHandler(dataToExport, layout));
+    }, [layout, onSetDownloadHandler, plotData]);
+
     const chart = (
       <div
         css={[commonRunsChartStyles.chartWrapper(theme), commonRunsChartStyles.scatterChartHighlightStyles]}
@@ -202,14 +214,11 @@ export const RunsScatterPlot = React.memo(
           onUpdate={onUpdate}
           onHover={mutableHoverCallback}
           onUnhover={unhoverCallback}
+          fallback={<RunsChartCardLoadingPlaceholder />}
         />
       </div>
     );
 
-    return usingV2ChartImprovements ? (
-      <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>
-    ) : (
-      chart
-    );
+    return <RunsMetricsLegendWrapper labelData={legendLabelData}>{chart}</RunsMetricsLegendWrapper>;
   },
 );

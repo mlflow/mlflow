@@ -9,12 +9,11 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { Link } from '../../common/utils/RoutingUtils';
 import _ from 'lodash';
-import { FormattedMessage } from 'react-intl';
-import { Switch, Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage, injectIntl, IntlShape } from 'react-intl';
+import { Switch, LegacyTabs, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getParams, getRunInfo } from '../../experiment-tracking/reducers/Reducers';
 import '../../experiment-tracking/components/CompareRunView.css';
-import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
 import { CompareRunScatter } from '../../experiment-tracking/components/CompareRunScatter';
 import { CompareRunBox } from '../../experiment-tracking/components/CompareRunBox';
 import CompareRunContour from '../../experiment-tracking/components/CompareRunContour';
@@ -26,8 +25,9 @@ import ParallelCoordinatesPlotPanel from '../../experiment-tracking/components/P
 import { ModelRegistryRoutes } from '../routes';
 import { getModelVersionSchemas } from '../reducers';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
+import type { RunInfoEntity } from '../../experiment-tracking/types';
 
-const { TabPane } = Tabs;
+const { TabPane } = LegacyTabs;
 
 function CenteredText(props: any) {
   const { theme } = useDesignSystemTheme();
@@ -80,7 +80,7 @@ function CollapseButton(props: any) {
 }
 
 type CompareModelVersionsViewImplProps = {
-  runInfos: any[]; // TODO: PropTypes.instanceOf(RunInfo)
+  runInfos: RunInfoEntity[];
   runInfosValid: boolean[];
   runUuids: string[];
   metricLists: any[][];
@@ -97,6 +97,7 @@ type CompareModelVersionsViewImplProps = {
   outputsListByName: Array[];
   // @ts-expect-error TS(2314): Generic type 'Array<T>' requires 1 type argument(s... Remove this comment to see the full error message
   outputsListByIndex: Array[];
+  intl: IntlShape;
 };
 
 type CompareModelVersionsViewImplState = any;
@@ -252,7 +253,7 @@ export class CompareModelVersionsViewImpl extends Component<
             {this.renderMetrics()}
           </CompareTable>
         </div>
-        <Tabs>
+        <LegacyTabs>
           <TabPane
             tab={
               <FormattedMessage
@@ -297,7 +298,7 @@ export class CompareModelVersionsViewImpl extends Component<
           >
             <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
           </TabPane>
-        </Tabs>
+        </LegacyTabs>
       </div>
     );
   }
@@ -314,12 +315,12 @@ export class CompareModelVersionsViewImpl extends Component<
             />
           </th>
           {runInfos.map((r, idx) => (
-            <th scope="column" className="data-value block-content" key={r.getRunUuid()}>
+            <th scope="column" className="data-value block-content" key={r.runUuid}>
               {/* Do not show links for invalid run IDs */}
               {runInfosValid[idx] ? (
-                <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>{r.getRunUuid()}</Link>
+                <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
               ) : (
-                r.getRunUuid()
+                r.runUuid
               )}
             </th>
           ))}
@@ -359,7 +360,7 @@ export class CompareModelVersionsViewImpl extends Component<
           </th>
           {runNames.map((runName, i) => {
             return (
-              <td className="meta-info block-content" key={runInfos[i].getRunUuid()}>
+              <td className="meta-info block-content" key={runInfos[i].runUuid}>
                 <div className="truncate-text single-line cell-content">{runName}</div>
               </td>
             );
@@ -376,9 +377,9 @@ export class CompareModelVersionsViewImpl extends Component<
           {runInfos.map((run, idx) => {
             /* Do not attempt to get timestamps for invalid run IDs */
             const startTime =
-              run.getStartTime() && runInfosValid[idx] ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
+              run.startTime && runInfosValid[idx] ? Utils.formatTimestamp(run.startTime, this.props.intl) : '(unknown)';
             return (
-              <td className="meta-info block-content" key={run.getRunUuid()}>
+              <td className="meta-info block-content" key={run.runUuid}>
                 {startTime}
               </td>
             );
@@ -524,11 +525,11 @@ export class CompareModelVersionsViewImpl extends Component<
       return (
         <Link
           to={Routes.getMetricPageRoute(
-            runInfos.map((info) => info.run_uuid).filter((uuid, idx) => data[idx] !== undefined),
+            runInfos.map((info) => info.runUuid).filter((uuid, idx) => data[idx] !== undefined),
             key,
             // TODO: Refactor so that the breadcrumb
             // on the linked page is for model registry
-            [runInfos[0].experiment_id],
+            [runInfos[0].experimentId],
           )}
           target="_blank"
           title="Plot chart"
@@ -613,7 +614,7 @@ export class CompareModelVersionsViewImpl extends Component<
           {data[k].map((value: any, i: any) => (
             <td
               className={`data-value block-content ${isDifferent ? 'highlight-data' : ''}`}
-              key={this.props.runInfos[i].getRunUuid()}
+              key={this.props.runInfos[i].runUuid}
             >
               <span className="truncate-text single-line cell-content">
                 {value === undefined ? '-' : formatter(value)}
@@ -699,9 +700,9 @@ const mapStateToProps = (state: any, ownProps: any) => {
         runUuids.push(runUuid);
       } else {
         if (runUuid) {
-          runInfos.push((RunInfo as any).fromJs({ run_uuid: runUuid }));
+          runInfos.push({ runUuid });
         } else {
-          runInfos.push((RunInfo as any).fromJs({ run_uuid: 'None' }));
+          runInfos.push({ runUuid: 'None' });
         }
         runInfosValid.push(false);
         metricLists.push([]);
@@ -814,4 +815,4 @@ const styles = {
   },
 };
 
-export const CompareModelVersionsView = connect(mapStateToProps)(CompareModelVersionsViewImpl);
+export const CompareModelVersionsView = connect(mapStateToProps)(injectIntl(CompareModelVersionsViewImpl));

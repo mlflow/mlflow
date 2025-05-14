@@ -1,6 +1,7 @@
 """
 Converts the raw CSV form to a Parquet form with just the columns we want
 """
+
 import os
 import tempfile
 

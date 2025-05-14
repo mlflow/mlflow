@@ -2,33 +2,54 @@ import logging
 import math
 import os
 import posixpath
+import time
 from abc import abstractmethod
 from collections import namedtuple
 from concurrent.futures import as_completed
 
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
+    _MLFLOW_MPD_NUM_RETRIES,
+    _MLFLOW_MPD_RETRY_INTERVAL_SECONDS,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
-    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import (
     ArtifactProgressBar,
-    download_chunk_retries,
     parallelized_download_file_using_http_uri,
     relative_path_to_artifact_path,
     remove_on_error,
 )
+from mlflow.utils.request_utils import download_chunk
 from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
 _logger = logging.getLogger(__name__)
 _ARTIFACT_UPLOAD_BATCH_SIZE = (
     50  # Max number of artifacts for which to fetch write credentials at once.
 )
+_AWS_MIN_CHUNK_SIZE = 5 * 1024**2  # 5 MB is the minimum chunk size for S3 multipart uploads
+_AWS_MAX_CHUNK_SIZE = 5 * 1024**3  # 5 GB is the maximum chunk size for S3 multipart uploads
+
+
+def _readable_size(size: int) -> str:
+    return f"{size / 1024**2:.2f} MB"
+
+
+def _validate_chunk_size_aws(chunk_size: int) -> None:
+    """
+    Validates the specified chunk size in bytes is in valid range for AWS multipart uploads.
+    """
+    if chunk_size < _AWS_MIN_CHUNK_SIZE or chunk_size > _AWS_MAX_CHUNK_SIZE:
+        raise MlflowException(
+            message=(
+                f"Multipart chunk size {_readable_size(chunk_size)} must be in range: "
+                f"{_readable_size(_AWS_MIN_CHUNK_SIZE)} to {_readable_size(_AWS_MAX_CHUNK_SIZE)}."
+            )
+        )
 
 
 def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
@@ -140,11 +161,6 @@ class CloudArtifactRepository(ArtifactRepository):
         with ArtifactProgressBar.files(
             desc="Uploading artifacts", total=len(staged_uploads)
         ) as pbar:
-            if len(staged_uploads) >= 10 and pbar.pbar:
-                _logger.info(
-                    "The progress bar can be disabled by setting the environment "
-                    f"variable {MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR} to false"
-                )
             for src_file_path, upload_future in upload_artifacts_iter():
                 try:
                     upload_future.result()
@@ -213,16 +229,47 @@ class CloudArtifactRepository(ArtifactRepository):
                 env=parallel_download_subproc_env,
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
-
-            if failed_downloads:
+            num_retries = _MLFLOW_MPD_NUM_RETRIES.get()
+            interval = _MLFLOW_MPD_RETRY_INTERVAL_SECONDS.get()
+            failed_downloads = list(failed_downloads)
+            while failed_downloads and num_retries > 0:
+                self._refresh_credentials()
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-                download_chunk_retries(
-                    chunks=list(failed_downloads),
-                    headers=new_headers,
-                    http_uri=new_signed_uri,
-                    download_path=local_path,
+
+                futures = {
+                    self.chunk_thread_pool.submit(
+                        download_chunk,
+                        range_start=chunk.start,
+                        range_end=chunk.end,
+                        headers=new_headers,
+                        download_path=local_path,
+                        http_uri=new_signed_uri,
+                    ): chunk
+                    for chunk in failed_downloads
+                }
+
+                new_failed_downloads = []
+
+                for future in as_completed(futures):
+                    chunk = futures[future]
+                    try:
+                        future.result()
+                    except Exception as e:
+                        _logger.info(
+                            f"Failed to download chunk {chunk.index} for {chunk.path}: {e}. "
+                            f"The download of this chunk will be retried later."
+                        )
+                        new_failed_downloads.append(chunk)
+
+                failed_downloads = new_failed_downloads
+                num_retries -= 1
+                time.sleep(interval)
+
+            if failed_downloads:
+                raise MlflowException(
+                    message=("All retries have been exhausted. Download has failed.")
                 )
 
     def _download_file(self, remote_file_path, local_path):
@@ -235,14 +282,18 @@ class CloudArtifactRepository(ArtifactRepository):
         file_infos = self.list_artifacts(parent_dir)
         file_info = [info for info in file_infos if info.path == remote_file_path]
         file_size = file_info[0].file_size if len(file_info) == 1 else None
+
         # NB: FUSE mounts do not support file write from a non-0th index seek position.
         # Due to this limitation (writes must start at the beginning of a file),
         # offset writes are disabled if FUSE is the local_path destination.
         if (
             not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
             or not file_size
-            or file_size < MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+            or file_size < MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE.get()
             or is_fuse_or_uc_volumes_uri(local_path)
+            # DatabricksSDKModelsArtifactRepository can only download file via databricks sdk
+            # rather than presigned uri used in _parallelized_download_from_cloud.
+            or type(self).__name__ == "DatabricksSDKModelsArtifactRepository"
         ):
             self._download_from_cloud(remote_file_path, local_path)
         else:
@@ -269,4 +320,12 @@ class CloudArtifactRepository(ArtifactRepository):
             remote_file_path: Path to file in the remote artifact repository.
             local_path: Local path to download file to.
 
+        """
+
+    def _refresh_credentials(self):
+        """
+        Refresh credentials for user in the case of credential expiration
+
+        Args:
+            None
         """

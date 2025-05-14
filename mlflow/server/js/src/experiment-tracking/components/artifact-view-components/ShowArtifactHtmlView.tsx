@@ -6,9 +6,16 @@
  */
 
 import React, { Component } from 'react';
-import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import {
+  getArtifactContent,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactHtmlView.css';
 import Iframe from 'react-iframe';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified, type FetchArtifactUnifiedFn } from './utils/fetchArtifactUnified';
 
 type ShowArtifactHtmlViewState = {
   loading: boolean;
@@ -20,8 +27,8 @@ type ShowArtifactHtmlViewState = {
 type ShowArtifactHtmlViewProps = {
   runUuid: string;
   path: string;
-  getArtifact: (artifactLocation: string) => Promise<string>;
-};
+  getArtifact: FetchArtifactUnifiedFn;
+} & LoggedModelArtifactViewerProps;
 
 class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArtifactHtmlViewState> {
   constructor(props: ShowArtifactHtmlViewProps) {
@@ -30,7 +37,7 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
   }
 
   static defaultProps = {
-    getArtifact: getArtifactContent,
+    getArtifact: fetchArtifactUnified,
   };
 
   state = {
@@ -52,9 +59,10 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
 
   render() {
     if (this.state.loading || this.state.path !== this.props.path) {
-      return <div className="artifact-html-view-loading">Loading...</div>;
+      return <ArtifactViewSkeleton className="artifact-html-view-loading" />;
     }
     if (this.state.error) {
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       console.error('Unable to load HTML artifact, got error ' + this.state.error);
       return <div className="artifact-html-view-error">Oops we couldn't load your file because of an error.</div>;
     } else {
@@ -83,9 +91,10 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
+    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId } = this.props;
+
     this.props
-      .getArtifact(artifactLocation)
+      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId }, getArtifactContent)
       .then((html: string) => {
         this.setState({ html: html, loading: false, path: this.props.path });
       })

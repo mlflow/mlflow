@@ -48,4 +48,3 @@ class AbstractBackend:
             the project asynchronously, i.e. it should trigger project execution and then
             immediately return a `SubmittedRun` to track execution status.
         """
-        raise NotImplementedError()

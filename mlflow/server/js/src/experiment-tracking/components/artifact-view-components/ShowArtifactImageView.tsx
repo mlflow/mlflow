@@ -5,65 +5,79 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import React, { useState, useEffect, useContext } from 'react';
-import { Image } from 'antd';
-import { DesignSystemContext, LegacySkeleton } from '@databricks/design-system';
-import { getArtifactBytesContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import React, { useState, useEffect } from 'react';
+import { LegacySkeleton } from '@databricks/design-system';
+import {
+  getArtifactBytesContent,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../../common/utils/ArtifactUtils';
+import { ImagePreviewGroup, Image } from '../../../shared/building_blocks/Image';
+import { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
 type Props = {
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
-};
+} & LoggedModelArtifactViewerProps;
 
-const ShowArtifactImageView = ({ runUuid, path, getArtifact = getArtifactBytesContent }: Props) => {
+const ShowArtifactImageView = ({
+  experimentId,
+  runUuid,
+  path,
+  getArtifact = getArtifactBytesContent,
+  isLoggedModelsMode,
+  loggedModelId,
+}: Props) => {
   const [isLoading, setIsLoading] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [imageUrl, setImageUrl] = useState(null);
-
-  const { getPopupContainer } = useContext(DesignSystemContext);
 
   useEffect(() => {
     setIsLoading(true);
 
     // Download image contents using XHR so all necessary
     // HTTP headers will be automatically added
-    getArtifact(getArtifactLocationUrl(path, runUuid)).then((result: any) => {
+    fetchArtifactUnified(
+      {
+        runUuid,
+        path,
+        isLoggedModelsMode,
+        loggedModelId,
+        experimentId,
+      },
+      getArtifact,
+    ).then((result: any) => {
       const options = path.toLowerCase().endsWith('.svg') ? { type: 'image/svg+xml' } : undefined;
       // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
       setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)], options)));
       setIsLoading(false);
     });
-  }, [runUuid, path, getArtifact]);
+  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId]);
 
   return (
-    <div css={{ flex: 1 }}>
-      <div css={classNames.imageOuterContainer}>
-        {isLoading && <LegacySkeleton active />}
-        <div css={isLoading ? classNames.hidden : classNames.imageWrapper}>
-          <img
-            alt={path}
-            css={classNames.image}
-            // @ts-expect-error TS(2322): Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
-            src={imageUrl}
-            onLoad={() => setIsLoading(false)}
-            onClick={() => setPreviewVisible(true)}
-          />
-        </div>
-        <div css={classNames.hidden}>
-          <Image.PreviewGroup
-            preview={{
-              visible: previewVisible,
-              getContainer: getPopupContainer,
-              onVisibleChange: (visible) => setPreviewVisible(visible),
-            }}
-          >
-            {/* @ts-expect-error TS(2322): Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message */}
-            <Image src={imageUrl} />
-          </Image.PreviewGroup>
+    imageUrl && (
+      <div css={{ flex: 1 }}>
+        <div css={classNames.imageOuterContainer}>
+          {isLoading && <LegacySkeleton active />}
+          <div css={isLoading ? classNames.hidden : classNames.imageWrapper}>
+            <img
+              alt={path}
+              css={classNames.image}
+              src={imageUrl}
+              onLoad={() => setIsLoading(false)}
+              onClick={() => setPreviewVisible(true)}
+            />
+          </div>
+          <div css={[classNames.hidden]}>
+            <ImagePreviewGroup visible={previewVisible} onVisibleChange={setPreviewVisible}>
+              <Image src={imageUrl} />
+            </ImagePreviewGroup>
+          </div>
         </div>
       </div>
-    </div>
+    )
   );
 };
 

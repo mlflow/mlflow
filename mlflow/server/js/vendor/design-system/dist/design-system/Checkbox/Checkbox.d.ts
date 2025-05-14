@@ -1,14 +1,17 @@
-/// <reference types="react" />
 import type { CheckboxProps as AntDCheckboxProps, CheckboxGroupProps as AntDCheckboxGroupProps, CheckboxChangeEvent } from 'antd/lib/checkbox';
+import type { CheckboxValueType as AntDCheckboxValueType } from 'antd/lib/checkbox/Group';
 import type { Theme } from '../../theme';
-import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
-export declare const getWrapperStyle: ({ clsPrefix, theme, wrapperStyle, }: {
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
+import type { AnalyticsEventProps, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
+export type CheckboxValueType = AntDCheckboxValueType;
+export declare const getWrapperStyle: ({ clsPrefix, theme, wrapperStyle, useNewFormUISpacing, }: {
     clsPrefix: string;
     theme: Theme;
-    wrapperStyle?: import("react").CSSProperties | undefined;
-    useNewStyles?: boolean | undefined;
+    wrapperStyle?: React.CSSProperties;
+    useNewStyles?: boolean;
+    useNewFormUISpacing?: boolean;
 }) => import("@emotion/utils").SerializedStyles;
-export interface CheckboxProps extends DangerouslySetAntdProps<AntDCheckboxProps>, Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'checked'>, HTMLDataAttributes {
+export interface CheckboxProps extends DangerouslySetAntdProps<AntDCheckboxProps>, Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'checked'>, HTMLDataAttributes, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     isChecked?: boolean | null;
     onChange?: (isChecked: boolean, event: CheckboxChangeEvent) => void;
     children?: React.ReactNode;

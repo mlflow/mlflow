@@ -1,8 +1,10 @@
-from typing import Any, List
+import hashlib
+from typing import Any
+
+from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils import insecure_hash
 
 MAX_ROWS = 10000
 
@@ -23,7 +25,10 @@ def compute_pandas_digest(df) -> str:
     trimmed_df = df.head(MAX_ROWS)
 
     # keep string and number columns, drop other column types
-    string_columns = trimmed_df.columns[(df.applymap(type) == str).all(0)]
+    if Version(pd.__version__) >= Version("2.1.0"):
+        string_columns = trimmed_df.columns[(df.map(type) == str).all(0)]
+    else:
+        string_columns = trimmed_df.columns[(df.applymap(type) == str).all(0)]
     numeric_columns = trimmed_df.select_dtypes(include=[np.number]).columns
 
     desired_columns = string_columns.union(numeric_columns)
@@ -80,7 +85,7 @@ def compute_numpy_digest(features, targets=None) -> str:
     return get_normalized_md5_digest(hashable_elements)
 
 
-def get_normalized_md5_digest(elements: List[Any]) -> str:
+def get_normalized_md5_digest(elements: list[Any]) -> str:
     """Computes a normalized digest for a list of hashable elements.
 
     Args:
@@ -96,7 +101,7 @@ def get_normalized_md5_digest(elements: List[Any]) -> str:
             INVALID_PARAMETER_VALUE,
         )
 
-    md5 = insecure_hash.md5()
+    md5 = hashlib.md5(usedforsecurity=False)
     for element in elements:
         md5.update(element)
 

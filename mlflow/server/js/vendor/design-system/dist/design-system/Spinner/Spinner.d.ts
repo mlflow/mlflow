@@ -1,4 +1,3 @@
-/// <reference types="react" />
 import type { WithLoadingState } from '../LoadingState/LoadingState';
 import type { HTMLDataAttributes } from '../types';
 export interface SpinnerProps extends HTMLDataAttributes, WithLoadingState {

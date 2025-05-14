@@ -29,12 +29,18 @@ def _validate_port_mapped_to_hostname(uri_parse):
         )
 
 
-def _validate_uri_scheme(scheme):
+def _validate_uri_scheme(parsed_uri):
     allowable_schemes = {"http", "https"}
-    if scheme not in allowable_schemes:
+    if parsed_uri.scheme not in allowable_schemes:
         raise MlflowException(
-            f"The configured tracking uri scheme: '{scheme}' is invalid for use with the proxy "
-            f"mlflow-artifact scheme. The allowed tracking schemes are: {allowable_schemes}"
+            "When an mlflow-artifacts URI was supplied, the tracking URI must be a valid "
+            f"http or https URI, but it was currently set to {parsed_uri.geturl()}. "
+            "Perhaps you forgot to set the tracking URI to the running MLflow server. "
+            "To set the tracking URI, use either of the following methods:\n"
+            "1. Set the MLFLOW_TRACKING_URI environment variable to the desired tracking URI. "
+            "`export MLFLOW_TRACKING_URI=http://localhost:5000`\n"
+            "2. Set the tracking URI programmatically by calling `mlflow.set_tracking_uri`. "
+            "`mlflow.set_tracking_uri('http://localhost:5000')`"
         )
 
 
@@ -56,7 +62,7 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
         _validate_port_mapped_to_hostname(uri_parse)
 
         # Check that tracking uri is http or https
-        _validate_uri_scheme(track_parse.scheme)
+        _validate_uri_scheme(track_parse)
 
         if uri_parse.path == "/":  # root directory; build simple path
             resolved = f"{base_url}{uri_parse.path}"

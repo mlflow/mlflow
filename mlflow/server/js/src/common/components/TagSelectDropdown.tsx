@@ -3,7 +3,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Control, useController } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
-import { PlusIcon, LegacySelect, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { PlusIcon, LegacySelect, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { KeyValueEntity } from '../../experiment-tracking/types';
 
 /**
@@ -38,7 +38,7 @@ function DropdownMenu(menu: React.ReactElement, allAvailableTags: string[]) {
               color: isValidTagKey ? theme.colors.actionTertiaryTextDefault : theme.colors.actionDisabledText,
             },
             children: (
-              <Tooltip
+              <LegacyTooltip
                 title={
                   isValidTagKey
                     ? undefined
@@ -62,7 +62,7 @@ function DropdownMenu(menu: React.ReactElement, allAvailableTags: string[]) {
                     },
                   )}
                 </span>
-              </Tooltip>
+              </LegacyTooltip>
             ),
           },
           key: searchValue,

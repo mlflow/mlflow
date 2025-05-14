@@ -1,17 +1,18 @@
-import { Tag, Tooltip, Typography } from '@databricks/design-system';
+import { Tag, LegacyTooltip, Typography } from '@databricks/design-system';
 import { KeyValueEntity } from '../../experiment-tracking/types';
 import React, { useState } from 'react';
 import { useIntl } from 'react-intl';
 import { KeyValueTagFullViewModal } from './KeyValueTagFullViewModal';
+import { Interpolation, Theme } from '@emotion/react';
 
 /**
  * An arbitrary number that is used to determine if a tag is too
  * long and should be truncated. We want to avoid short keys or values
  * in a long tag to be truncated
  * */
-export const TRUNCATE_ON_CHARS_LENGTH = 30;
+const TRUNCATE_ON_CHARS_LENGTH = 30;
 
-function getTruncatedStyles(shouldTruncate = true) {
+function getTruncatedStyles(shouldTruncate = true): Interpolation<Theme> {
   return shouldTruncate
     ? {
         overflow: 'hidden',
@@ -30,17 +31,23 @@ export const KeyValueTag = ({
   onClose,
   tag,
   enableFullViewModal = false,
+  charLimit = TRUNCATE_ON_CHARS_LENGTH,
+  maxWidth = 300,
+  className,
 }: {
   isClosable?: boolean;
   onClose?: () => void;
   tag: KeyValueEntity;
   enableFullViewModal?: boolean;
+  charLimit?: number;
+  maxWidth?: number;
+  className?: string;
 }) => {
   const intl = useIntl();
 
   const [isKeyValueTagFullViewModalVisible, setIsKeyValueTagFullViewModalVisible] = useState(false);
 
-  const { shouldTruncateKey, shouldTruncateValue } = getKeyAndValueComplexTruncation(tag);
+  const { shouldTruncateKey, shouldTruncateValue } = getKeyAndValueComplexTruncation(tag, charLimit);
   const allowFullViewModal = enableFullViewModal && (shouldTruncateKey || shouldTruncateValue);
 
   const fullViewModalLabel = intl.formatMessage({
@@ -50,10 +57,16 @@ export const KeyValueTag = ({
 
   return (
     <div>
-      <Tag closable={isClosable} onClose={onClose} title={tag.key}>
-        <Tooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
+      <Tag
+        componentId="codegen_mlflow_app_src_common_components_keyvaluetag.tsx_60"
+        closable={isClosable}
+        onClose={onClose}
+        title={tag.key}
+        className={className}
+      >
+        <LegacyTooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
           <span
-            css={{ maxWidth: 300, display: 'inline-flex' }}
+            css={{ maxWidth, display: 'inline-flex' }}
             onClick={() => (allowFullViewModal ? setIsKeyValueTagFullViewModalVisible(true) : undefined)}
           >
             <Typography.Text bold title={tag.key} css={getTruncatedStyles(shouldTruncateKey)}>
@@ -65,7 +78,7 @@ export const KeyValueTag = ({
               </Typography.Text>
             )}
           </span>
-        </Tooltip>
+        </LegacyTooltip>
       </Tag>
       <div>
         {isKeyValueTagFullViewModalVisible && (

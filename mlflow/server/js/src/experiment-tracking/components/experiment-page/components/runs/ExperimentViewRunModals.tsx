@@ -2,8 +2,6 @@ import { useCallback } from 'react';
 import DeleteRunModal from '../../../modals/DeleteRunModal';
 import { RenameRunModal } from '../../../modals/RenameRunModal';
 import RestoreRunModal from '../../../modals/RestoreRunModal';
-import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
-import { shouldEnableShareExperimentViewByTags } from '../../../../../common/utils/FeatureUtils';
 
 export interface ExperimentViewModalsProps {
   showDeleteRunModal: boolean;
@@ -30,29 +28,11 @@ export const ExperimentViewRunModals = ({
   onCloseRestoreRunModal,
   onCloseRenameRunModal,
   renamedRunName,
-  refreshRuns: refreshRunsFromProps,
+  refreshRuns,
 }: ExperimentViewModalsProps) => {
-  // TODO(ML-35962): Use refreshRuns() from props, remove updateSearchFacets after migration to new view state model
-  const { updateSearchFacets } = useFetchExperimentRuns();
-
   const selectedRunIds = Object.entries(runsSelected)
     .filter(([, selected]) => selected)
     .map(([key]) => key);
-
-  /**
-   * Function used to refresh the list after renaming the run
-   */
-  const refreshRuns = useCallback(
-    () =>
-      updateSearchFacets(
-        {},
-        {
-          forceRefresh: true,
-          preservePristine: true,
-        },
-      ),
-    [updateSearchFacets],
-  );
 
   return (
     <>
@@ -61,9 +41,7 @@ export const ExperimentViewRunModals = ({
         onClose={onCloseDeleteRunModal}
         selectedRunIds={selectedRunIds}
         onSuccess={() => {
-          if (shouldEnableShareExperimentViewByTags()) {
-            refreshRunsFromProps();
-          }
+          refreshRuns();
         }}
       />
       <RestoreRunModal
@@ -71,9 +49,7 @@ export const ExperimentViewRunModals = ({
         onClose={onCloseRestoreRunModal}
         selectedRunIds={selectedRunIds}
         onSuccess={() => {
-          if (shouldEnableShareExperimentViewByTags()) {
-            refreshRunsFromProps();
-          }
+          refreshRuns();
         }}
       />
       <RenameRunModal
@@ -82,11 +58,7 @@ export const ExperimentViewRunModals = ({
         runName={renamedRunName}
         isOpen={showRenameRunModal}
         onSuccess={() => {
-          if (shouldEnableShareExperimentViewByTags()) {
-            refreshRunsFromProps();
-          } else {
-            refreshRuns();
-          }
+          refreshRuns();
         }}
       />
     </>

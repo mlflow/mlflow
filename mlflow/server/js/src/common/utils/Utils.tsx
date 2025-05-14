@@ -5,24 +5,16 @@
  * annotations are already looking good, please remove this comment.
  */
 
-// @ts-expect-error TS(7016): Could not find a declaration file for module 'date... Remove this comment to see the full error message
-import dateFormat from 'dateformat';
 import React from 'react';
-import notebookSvg from '../static/notebook.svg';
-import revisionSvg from '../static/revision.svg';
-import emptySvg from '../static/empty.svg';
-import laptopSvg from '../static/laptop.svg';
-import projectSvg from '../static/project.svg';
-import workflowsIconSvg from '../static/WorkflowsIcon.svg';
+import moment from 'moment';
 import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import _ from 'lodash';
 import { ErrorCodes, SupportPageUrl } from '../constants';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, IntlShape } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
-import { shouldUsePathRouting } from './FeatureUtils';
-import { KeyValueEntity } from '../../experiment-tracking/types';
-import { FileCodeIcon, FolderBranchIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
+import { KeyValueEntity, RunInfoEntity } from '../../experiment-tracking/types';
+import { NOTE_CONTENT_TAG } from '../../experiment-tracking/utils/NoteUtils';
 
 class Utils {
   /**
@@ -64,11 +56,21 @@ class Utils {
   /**
    * Displays the error notification in the UI.
    */
-  static displayGlobalErrorNotification(content: any, duration: any) {
+  static displayGlobalErrorNotification(content: any, duration?: any) {
     if (!Utils.#notificationsApi) {
       return;
     }
     (Utils.#notificationsApi as any).error({ message: content, duration: duration });
+  }
+
+  /**
+   * Displays the info notification in the UI.
+   */
+  static displayGlobalInfoNotification(content: any, duration?: any) {
+    if (!Utils.#notificationsApi) {
+      return;
+    }
+    (Utils.#notificationsApi as any).info({ message: content, duration: duration });
   }
 
   static runNameTag = 'mlflow.runName';
@@ -126,13 +128,22 @@ class Utils {
   /**
    * Format timestamps from millisecond epoch time.
    */
-  static formatTimestamp(timestamp: any, format = 'yyyy-mm-dd HH:MM:ss') {
-    if (timestamp === undefined) {
-      return '(unknown)';
-    }
+  static formatTimestamp(timestamp: any, intl?: IntlShape) {
     const d = new Date(0);
     d.setUTCMilliseconds(timestamp);
-    return dateFormat(d, format);
+
+    // Need to update here when the original shared code is updated: https://github.com/databricks-eng/universe/blob/master/js/packages/web-shared/src/date-time/DateTimeFormats.ts#L37
+    if (intl) {
+      return intl.formatDate(d, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    }
+    return moment(d).format('YYYY-MM-DD HH:mm:ss');
   }
 
   static timeSinceStr(date: any, referenceDate = new Date()) {
@@ -223,8 +234,11 @@ class Utils {
    * @param startTime in milliseconds
    * @param endTime in milliseconds
    */
-  static getDuration(startTime: any, endTime: any) {
-    return startTime && endTime ? Utils.formatDuration(endTime - startTime) : null;
+  static getDuration(startTime?: number | string | null, endTime?: number | string | null) {
+    if (!Number(startTime) || !Number(endTime)) {
+      return null;
+    }
+    return Utils.formatDuration(Number(endTime) - Number(startTime));
   }
 
   static baseName(path: any) {
@@ -478,7 +492,7 @@ class Utils {
     runUuid: any,
     sourceName: any,
     workspaceUrl = null,
-    nameOverride = null,
+    nameOverride: string | null = null,
   ) {
     // sourceName may not be present when rendering feature table notebook consumers from remote
     // workspaces or when notebook fetcher failed to fetch the sourceName. Always provide a default
@@ -524,7 +538,7 @@ class Utils {
     jobRunId: any,
     jobName: any,
     workspaceUrl = null,
-    nameOverride = null,
+    nameOverride: string | null = null,
   ) {
     // jobName may not be present when rendering feature table job consumers from remote
     // workspaces or when getJob API failed to fetch the jobName. Always provide a default
@@ -554,58 +568,6 @@ class Utils {
       url += `/run/${jobRunId}`;
     }
     return url;
-  }
-
-  /**
-   * Returns an svg with some styling applied.
-   */
-  static renderSourceTypeIcon(tags: any) {
-    const imageStyle = {
-      height: '20px',
-      marginRight: '4px',
-    };
-
-    const sourceType = Utils.getSourceType(tags);
-    if (sourceType === 'NOTEBOOK') {
-      if (Utils.getNotebookRevisionId(tags)) {
-        return <img alt="Notebook Revision Icon" title="Notebook Revision" style={imageStyle} src={revisionSvg} />;
-      } else {
-        return <img alt="Notebook Icon" title="Notebook" style={imageStyle} src={notebookSvg} />;
-      }
-    } else if (sourceType === 'LOCAL') {
-      return <img alt="Local Source Icon" title="Local Source" style={imageStyle} src={laptopSvg} />;
-    } else if (sourceType === 'PROJECT') {
-      return <img alt="Project Icon" title="Project" style={imageStyle} src={projectSvg} />;
-    } else if (sourceType === 'JOB') {
-      return <img alt="Job Icon" title="Job" style={imageStyle} src={workflowsIconSvg} />;
-    }
-    return <img alt="No icon" style={imageStyle} src={emptySvg} />;
-  }
-
-  // New version of renderSourceTypeIcon that uses icons from design system
-  static renderSourceTypeIconV2(tags: any) {
-    const sourceType = Utils.getSourceType(tags);
-
-    if (sourceType === 'NOTEBOOK') {
-      return <NotebookIcon />;
-    } else if (sourceType === 'LOCAL') {
-      // TODO: missing icon for local source
-      return (
-        <img
-          alt="Local Source Icon"
-          title="Local Source"
-          css={{
-            width: 16,
-          }}
-          src={laptopSvg}
-        />
-      );
-    } else if (sourceType === 'PROJECT') {
-      return <FolderBranchIcon />;
-    } else if (sourceType === 'JOB') {
-      return <WorkflowsIcon />;
-    }
-    return null;
   }
 
   /**
@@ -653,14 +615,22 @@ class Utils {
     return Utils.getRunName(runInfo) || 'Run ' + runUuid;
   }
 
-  static getRunName(runInfo: any) {
-    return runInfo.run_name || '';
+  static getRunName(runInfo?: RunInfoEntity) {
+    return runInfo?.runName || '';
   }
 
   static getRunNameFromTags(runTags: any) {
     const runNameTag = runTags[Utils.runNameTag];
     if (runNameTag) {
       return runNameTag.value;
+    }
+    return '';
+  }
+
+  static getRunDescriptionFromTags(runTags: any) {
+    const runDescriptionTag = runTags?.[NOTE_CONTENT_TAG];
+    if (runDescriptionTag) {
+      return runDescriptionTag.value;
     }
     return '';
   }
@@ -898,10 +868,10 @@ class Utils {
     return stepResult === 0 ? history1.timestamp - history2.timestamp : stepResult;
   }
 
-  static getVisibleTagValues(tags: any) {
+  static getVisibleTagValues(tags: Record<string, KeyValueEntity>) {
     // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
     return Object.values(tags)
-      .map((t) => [(t as any).key || (t as any).getKey(), (t as any).value || (t as any).getValue()])
+      .map((t) => [t.key, t.value])
       .filter((t) => !t[0].startsWith(MLFLOW_INTERNAL_PREFIX));
   }
 
@@ -942,7 +912,16 @@ class Utils {
   }[] {
     const modelsTag = tags[Utils.loggedModelsTag];
     if (modelsTag) {
-      const models = JSON.parse(modelsTag.value);
+      let models = null;
+      try {
+        models = JSON.parse(modelsTag.value);
+      } catch (e) {
+        // TODO: for now, we ignore parsing errors to prevent
+        // crashing the page. However, we should come up with
+        // a better solution (e.g. keep only the last X entries
+        // to prevent exceeding tag value limits).
+        // See https://github.com/mlflow/mlflow/issues/12032
+      }
       if (models) {
         // extract artifact path, flavors and creation time from tag.
         // 'python_function' should be interpreted as pyfunc flavor
@@ -1026,6 +1005,7 @@ class Utils {
     duration = 3,
     passErrorToParentFrame = false,
   ) {
+    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
     console.error(e);
     if (typeof e === 'string') {
       Utils.displayGlobalErrorNotification(e, duration);
@@ -1062,15 +1042,15 @@ class Utils {
   }
 
   static sortExperimentsById = (experiments: any) => {
-    return _.sortBy(experiments, [({ experiment_id }) => experiment_id]);
+    return _.sortBy(experiments, [({ experimentId }) => experimentId]);
   };
 
   static getExperimentNameMap = (experiments: any) => {
     // Input:
     // [
-    //  { experiment_id: 1, name: '/1/bar' },
-    //  { experiment_id: 2, name: '/2/foo' },
-    //  { experiment_id: 3, name: '/3/bar' },
+    //  { experimentId: 1, name: '/1/bar' },
+    //  { experimentId: 2, name: '/2/foo' },
+    //  { experimentId: 3, name: '/3/bar' },
     // ]
     //
     // Output:
@@ -1090,9 +1070,9 @@ class Utils {
     const idToNames = {};
     Object.entries(experimentsByBasename).forEach(([basename, exps]) => {
       const isUnique = (exps as any).length === 1;
-      (exps as any).forEach(({ experiment_id, name }: any, index: any) => {
+      (exps as any).forEach(({ experimentId, name }: any, index: any) => {
         // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-        idToNames[experiment_id] = {
+        idToNames[experimentId] = {
           name,
           basename: isUnique ? basename : `${basename} (${index + 1})`,
         };
@@ -1140,8 +1120,8 @@ class Utils {
   }
 
   static compareExperiments(a: any, b: any) {
-    const aId = typeof a.getExperimentId === 'function' ? a.getExperimentId() : a.experiment_id;
-    const bId = typeof b.getExperimentId === 'function' ? b.getExperimentId() : b.experiment_id;
+    const aId = a.experimentId;
+    const bId = b.experimentId;
 
     const aIntId = parseInt(aId, 10);
     const bIntId = parseInt(bId, 10);
@@ -1170,20 +1150,6 @@ class Utils {
     }
 
     return false;
-  }
-
-  static getIframeCorrectedRoute(route: any) {
-    if (shouldUsePathRouting()) {
-      // After enabling path routing, we don't need any hash splitting etc.
-      return route;
-    }
-    if (Utils.isUsingExternalRouter()) {
-      // If using external routing, include the parent params and assume mlflow served at #
-      const parentHref = window.parent.location.href;
-      const parentHrefBeforeMlflowHash = parentHref.split('#')[0];
-      return `${parentHrefBeforeMlflowHash}#mlflow${route}`;
-    }
-    return `./#${route}`; // issue-2213 use relative path in case there is a url prefix
   }
 
   static isValidHttpUrl(str: any) {

@@ -46,7 +46,7 @@ Pmdarima format
     with mlflow.start_run():
         wrapper = PmdarimaWrapper()
         mlflow.pyfunc.log_model(
-            artifact_path="model",
+            name="model",
             python_model=wrapper,
             artifacts={"model": mlflow.pyfunc.model_to_dict(model)},
         )
@@ -60,7 +60,7 @@ import logging
 import os
 import pickle
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pandas as pd
 import yaml
@@ -177,10 +177,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata: {{ metadata }}
 
     .. code-block:: python
         :caption: Example
@@ -217,18 +214,18 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _PmdarimaModelWrapper(pmdarima_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -284,7 +281,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pmdarima_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -294,6 +291,12 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -302,7 +305,7 @@ def log_model(
     Args:
         pmdarima_model: pmdarima ``ARIMA`` or ``Pipeline`` model that has been ``fit`` on a
             temporal series.
-        artifact_path: Run-relative artifact path to save the model instance to.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
@@ -341,10 +344,13 @@ def log_model(
             Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+        metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
 
     Returns:
@@ -386,11 +392,11 @@ def log_model(
             signature = infer_signature(input_sample, output_sample)
 
             # Log model
-            mlflow.pmdarima.log_model(model, ARTIFACT_PATH, signature=signature)
+            mlflow.pmdarima.log_model(model, name=ARTIFACT_PATH, signature=signature)
     """
-
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.pmdarima,
         registered_model_name=registered_model_name,
         pmdarima_model=pmdarima_model,
@@ -402,6 +408,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
@@ -466,7 +477,7 @@ def load_model(model_uri, dst_path=None):
             # Log model
             input_example = input_sample.head()
             mlflow.pmdarima.log_model(
-                model, ARTIFACT_PATH, signature=signature, input_example=input_example
+                model, name=ARTIFACT_PATH, signature=signature, input_example=input_example
             )
 
             # Get the model URI for loading
@@ -519,14 +530,17 @@ class _PmdarimaModelWrapper:
         self.pmdarima_model = pmdarima_model
         self._pmdarima_version = pmdarima.__version__
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.pmdarima_model
+
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None) -> pd.DataFrame:
         """
         Args:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Model predictions.

@@ -4,7 +4,7 @@ FROM ubuntu:20.04
 RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake git-core
 
 # Setup miniconda
-RUN curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
+RUN curl --fail -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > miniconda.sh
 RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
 ENV PATH="/miniconda/bin:$PATH"
 
@@ -19,16 +19,11 @@ WORKDIR /opt/mlflow
 COPY mlflow-project /opt/mlflow
 RUN pip install /opt/mlflow
 
-# Install Java mlflow-scoring from local source
-RUN cd /opt/mlflow/mlflow/java/scoring && mvn --batch-mode package -DskipTests  && mkdir -p /opt/java/jars && mv /opt/mlflow/mlflow/java/scoring/target/mlflow-scoring-*-with-dependencies.jar /opt/java/jars
-
-
 # Install minimal serving dependencies
 RUN python -c "from mlflow.models.container import _install_pyfunc_deps;_install_pyfunc_deps(None, False)"
 
 ENV MLFLOW_DISABLE_ENV_CREATION=False
 ENV ENABLE_MLSERVER=False
-ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
 
 # granting read/write access and conditional execution authority to all child directories
 # and files to allow for deployment to AWS Sagemaker Serverless Endpoints

@@ -1,14 +1,14 @@
 import json
 import logging
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.digest_utils import compute_pandas_digest
+from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
@@ -26,7 +26,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
     Represents a HuggingFace dataset for use with MLflow Tracking.
     """
 
-    def __init__(
+    def __init__(  # noqa: D417
         self,
         ds: "datasets.Dataset",
         source: HuggingFaceDatasetSource,
@@ -67,7 +67,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
         return compute_pandas_digest(df)
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """Create config dictionary for the dataset.
 
         Returns a string dictionary containing the following fields: name, digest, source, source
@@ -169,6 +169,8 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets,
             path=path,
             feature_names=feature_names,
+            name=self.name,
+            digest=self.digest,
         )
 
 
@@ -181,6 +183,7 @@ def from_huggingface(
     revision=None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
+    trust_remote_code: Optional[bool] = None,
 ) -> HuggingFaceDataset:
     """
     Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
@@ -212,6 +215,7 @@ def from_huggingface(
             generated.
         digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest is
             automatically computed.
+        trust_remote_code: Whether to trust remote code from the dataset repo.
     """
     import datasets
 
@@ -235,6 +239,7 @@ def from_huggingface(
             data_files=data_files,
             split=ds.split,
             revision=revision,
+            trust_remote_code=trust_remote_code,
         )
     else:
         context_tags = registry.resolve_tags()

@@ -12,23 +12,18 @@ import tempfile
 import time
 import uuid
 from contextlib import ExitStack, contextmanager
+from functools import wraps
+from pathlib import Path
+from typing import Iterator, Optional
 from unittest import mock
 
 import pytest
 import requests
-import yaml
 
 import mlflow
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import (
-    _CONDA_ENV_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
-    _generate_mlflow_version_pinning,
-    _get_pip_deps,
-)
-from mlflow.utils.file_utils import read_yaml, write_yaml
 from mlflow.utils.os import is_windows
 
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
@@ -51,7 +46,7 @@ def random_int(lo=1, hi=1e10):
     return random.randint(lo, hi)
 
 
-def random_str(size=10):
+def random_str(size=12):
     msg = (
         "UUID4 generated strings have a high potential for collision at small sizes. "
         "10 is set as the lower bounds for random string generation to prevent non-deterministic "
@@ -101,9 +96,10 @@ def score_model_in_sagemaker_docker_container(
         cmd=scoring_cmd.split(" "),
         env=env,
     )
-    return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds, False
-    )
+    with RestEndpoint(
+        proc, port, activity_polling_timeout_seconds, validate_version=False
+    ) as endpoint:
+        return endpoint.invoke(data, content_type)
 
 
 def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):
@@ -111,9 +107,10 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
     Builds a dockerfile for the specified model.
 
     Args:
+        output_directory: Output directory to generate Dockerfile and model artifacts
         model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
         extra_args: List of extra args to pass to `mlflow models build-docker` command
-        output_directory: Output directory to generate Dockerfile and model artifacts
+        env: Environment variables to use.
     """
     cmd = [
         "mlflow",
@@ -138,9 +135,12 @@ def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
     Args:
         model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
         extra_args: List of extra args to pass to `mlflow models build-docker` command
+        env: Environment variables to pass to the subprocess building the image.
     """
     name = uuid.uuid4().hex
     cmd = [
+        sys.executable,
+        "-m",
         "mlflow",
         "models",
         "build-docker",
@@ -148,14 +148,20 @@ def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
         "-n",
         name,
     ]
-    mlflow_home = os.environ.get("MLFLOW_HOME")
-    if mlflow_home:
+    if mlflow_home := os.environ.get("MLFLOW_HOME"):
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
-    p = subprocess.Popen(cmd, env=env)
-    assert p.wait() == 0, f"Failed to build docker image to serve model from {model_uri}"
-    return name
+
+    # Docker image build occasionally fails on GitHub Actions while running `apt-get` due to
+    # transient network issues. Retry the build a few times as a workaround.
+    for _ in range(3):
+        p = subprocess.Popen(cmd, env=env)
+        if p.wait() == 0:
+            return name
+        time.sleep(5)
+
+    raise RuntimeError(f"Failed to build docker image to serve model from {model_uri}")
 
 
 def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
@@ -172,7 +178,7 @@ def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
 
 
 def pyfunc_serve_from_docker_image_with_env_override(
-    image_name, host_port, gunicorn_opts, extra_args=None, extra_docker_run_options=None
+    image_name, host_port, extra_args=None, extra_docker_run_options=None
 ):
     """
     Serves a model from a docker container, exposing it as an endpoint at the specified port
@@ -183,8 +189,6 @@ def pyfunc_serve_from_docker_image_with_env_override(
     scoring_cmd = [
         "docker",
         "run",
-        "-e",
-        f"GUNICORN_CMD_ARGS={gunicorn_opts}",
         "-p",
         f"{host_port}:8080",
         *(extra_docker_run_options or []),
@@ -203,19 +207,29 @@ def pyfunc_serve_and_score_model(
     extra_args=None,
     stdout=sys.stdout,
 ):
+    with pyfunc_scoring_endpoint(
+        model_uri,
+        extra_args=extra_args,
+        activity_polling_timeout_seconds=activity_polling_timeout_seconds,
+        stdout=stdout,
+    ) as endpoint:
+        return endpoint.invoke(data, content_type)
+
+
+@contextmanager
+def pyfunc_scoring_endpoint(
+    model_uri, activity_polling_timeout_seconds=500, extra_args=None, stdout=sys.stdout
+):
     """
     Args:
         model_uri: URI to the model to be served.
-        data: The data to send to the pyfunc server for testing. This is either a
-            Pandas dataframe or string of the format specified by `content_type`.
-        content_type: The type of the data to send to the pyfunc server for testing. This is
-            one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
         activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
             declaring the scoring process to have failed.
         extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
             example, passing ``extra_args=["--env-manager", "local"]`` will pass the
             ``--env-manager local`` flag to the scoring server to ensure that conda
             environment activation is skipped.
+        stdout: The output stream to which standard output is redirected. Defaults to `sys.stdout`.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -223,6 +237,8 @@ def pyfunc_serve_and_score_model(
     env.update(MLFLOW_HOME=_get_mlflow_home())
     port = get_safe_port()
     scoring_cmd = [
+        sys.executable,
+        "-m",
         "mlflow",
         "models",
         "serve",
@@ -231,15 +247,17 @@ def pyfunc_serve_and_score_model(
         "-p",
         str(port),
         "--install-mlflow",
-    ]
-    validate_version = True
-    if extra_args is not None:
-        scoring_cmd += extra_args
-        validate_version = "--enable-mlserver" not in extra_args
-    proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
-    )
+    ] + (extra_args or [])
+
+    with _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout) as proc:
+        validate_version = "--enable-mlserver" not in (extra_args or [])
+        try:
+            with RestEndpoint(
+                proc, port, activity_polling_timeout_seconds, validate_version=validate_version
+            ) as endpoint:
+                yield endpoint
+        finally:
+            proc.terminate()
 
 
 def _get_mlflow_home():
@@ -342,40 +360,11 @@ class RestEndpoint:
         )
 
 
-def _evaluate_scoring_proc(
-    proc, port, data, content_type, activity_polling_timeout_seconds=250, validate_version=True
-):
-    """
-    Args:
-        activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-            declaring the scoring process to have failed.
-    """
-    with RestEndpoint(
-        proc, port, activity_polling_timeout_seconds, validate_version=validate_version
-    ) as endpoint:
-        return endpoint.invoke(data, content_type)
-
-
 @pytest.fixture(autouse=True)
 def set_boto_credentials(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "NotARealAccessKey")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "NotARealSecretAccessKey")
     monkeypatch.setenv("AWS_SESSION_TOKEN", "NotARealSessionToken")
-
-
-class safe_edit_yaml:
-    def __init__(self, root, file_name, edit_func):
-        self._root = root
-        self._file_name = file_name
-        self._edit_func = edit_func
-        self._original = read_yaml(root, file_name)
-
-    def __enter__(self):
-        new_dict = self._edit_func(self._original.copy())
-        write_yaml(self._root, self._file_name, new_dict, overwrite=True)
-
-    def __exit__(self, *args):
-        write_yaml(self._root, self._file_name, self._original, overwrite=True)
 
 
 def create_mock_response(status_code, text):
@@ -395,20 +384,15 @@ def create_mock_response(status_code, text):
     return response
 
 
-def _read_yaml(path):
-    with open(path) as f:
-        return yaml.safe_load(f)
-
-
 def _read_lines(path):
     with open(path) as f:
         return f.read().splitlines()
 
 
-def _compare_logged_code_paths(code_path, model_path, flavor_name):
-    import mlflow.pyfunc
+def _compare_logged_code_paths(code_path: str, model_uri: str, flavor_name: str) -> None:
     from mlflow.utils.model_utils import FLAVOR_CONFIG_CODE, _get_flavor_configuration
 
+    model_path = _download_artifact_from_uri(model_uri)
     pyfunc_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
@@ -423,8 +407,12 @@ def _compare_logged_code_paths(code_path, model_path, flavor_name):
 
 
 def _compare_conda_env_requirements(env_path, req_path):
+    from mlflow.utils.environment import _get_pip_deps
+    from mlflow.utils.yaml_utils import read_yaml
+
     assert os.path.exists(req_path)
-    custom_env_parsed = _read_yaml(env_path)
+    env_root, env_path = os.path.split(env_path)
+    custom_env_parsed = read_yaml(env_root, env_path)
     requirements = _read_lines(req_path)
     assert _get_pip_deps(custom_env_parsed) == requirements
 
@@ -433,6 +421,8 @@ def _get_deps_from_requirement_file(model_uri):
     """
     Returns a list of pip dependencies for the model at `model_uri` and truncate the version number.
     """
+    from mlflow.utils.environment import _REQUIREMENTS_FILE_NAME
+
     local_path = _download_artifact_from_uri(model_uri)
     pip_packages = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
     return [req.split("==")[0] if "==" in req else req for req in pip_packages]
@@ -458,9 +448,17 @@ def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=F
     If `strict` is True, evaluate `set(requirements) == set(loaded_requirements)`.
     Otherwise, evaluate `set(requirements) <= set(loaded_requirements)`.
     """
+    from mlflow.utils.environment import (
+        _CONDA_ENV_FILE_NAME,
+        _CONSTRAINTS_FILE_NAME,
+        _REQUIREMENTS_FILE_NAME,
+        _get_pip_deps,
+    )
+    from mlflow.utils.yaml_utils import read_yaml
+
     local_path = _download_artifact_from_uri(model_uri)
     txt_reqs = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
-    conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, _CONDA_ENV_FILE_NAME)))
+    conda_reqs = _get_pip_deps(read_yaml(local_path, _CONDA_ENV_FILE_NAME))
     compare_func = set.__eq__ if strict else set.__le__
     requirements = set(requirements)
     assert compare_func(requirements, set(txt_reqs))
@@ -588,6 +586,8 @@ def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
 
 
 def _mlflow_major_version_string():
+    from mlflow.utils.environment import _generate_mlflow_version_pinning
+
     return _generate_mlflow_version_pinning()
 
 
@@ -648,3 +648,163 @@ def clear_hub_cache():
     except ImportError:
         # Local import check for mlflow-skinny not including huggingface_hub
         pass
+    except Exception as e:
+        _logger.warning(f"Failed to clear cache: {e}", exc_info=True)
+
+
+def flaky(max_tries=3):
+    """
+    Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
+    if it fails after max_tries attempts.
+
+    Args:
+        max_tries: Maximum number of times to retry the function.
+
+    Returns:
+        Decorated function.
+    """
+
+    def flaky_test_func(test_func):
+        @wraps(test_func)
+        def decorated_func(*args, **kwargs):
+            for i in range(max_tries):
+                try:
+                    return test_func(*args, **kwargs)
+                except Exception as e:
+                    _logger.warning(f"Attempt {i + 1} failed with error: {e}")
+                    if i == max_tries - 1:
+                        raise
+                    time.sleep(3)
+
+        return decorated_func
+
+    return flaky_test_func
+
+
+@contextmanager
+def start_mock_openai_server():
+    """
+    Start a fake service that mimics the OpenAI endpoints such as /chat/completions.
+
+    Yields:
+        The base URL of the mock OpenAI server.
+    """
+    port = get_safe_port()
+    script_path = Path(__file__).parent / "openai" / "mock_openai.py"
+    with subprocess.Popen(
+        [sys.executable, script_path, "--host", "localhost", "--port", str(port)]
+    ) as proc:
+        try:
+            base_url = f"http://localhost:{port}"
+            for _ in range(10):
+                try:
+                    resp = requests.get(f"{base_url}/health")
+                except requests.ConnectionError:
+                    time.sleep(2)
+                    continue
+                if resp.ok:
+                    break
+            else:
+                proc.kill()
+                proc.wait()
+                raise RuntimeError("Failed to start mock OpenAI server")
+
+            yield base_url
+        finally:
+            proc.kill()
+
+
+def _is_hf_hub_healthy() -> bool:
+    """
+    Check if the Hugging Face Hub is healthy by attempting to load a small dataset.
+    """
+    try:
+        import datasets
+        from huggingface_hub import HfApi
+    except ImportError:
+        # Cannot import datasets or huggingface_hub, so we assume the hub is healthy.
+        return True
+
+    try:
+        dataset = next(HfApi().list_datasets(filter="size_categories:n<1K", limit=1))
+        datasets.load_dataset(dataset.id)
+        return True
+    except requests.exceptions.RequestException:
+        return False
+
+
+def _iter_pr_files() -> Iterator[str]:
+    if "GITHUB_ACTIONS" not in os.environ:
+        return
+
+    if os.environ.get("GITHUB_EVENT_NAME") != "pull_request":
+        return
+
+    with open(os.environ["GITHUB_EVENT_PATH"]) as f:
+        pr_data = json.load(f)
+
+    pull_number = pr_data["pull_request"]["number"]
+    repo = pr_data["repository"]["full_name"]
+    page = 1
+    per_page = 100
+    headers = {"Authorization": token} if (token := os.environ.get("GITHUB_TOKEN")) else None
+    while True:
+        resp = requests.get(
+            f"https://api.github.com/repos/{repo}/pulls/{pull_number}/files",
+            params={"per_page": per_page, "page": page},
+            headers=headers,
+        )
+        try:
+            resp.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            _logger.warning(
+                f"Failed to fetch PR files: {e}. Skipping the check for Hugging Face Hub health."
+            )
+            return
+
+        files = [f["filename"] for f in resp.json()]
+        yield from files
+        if len(files) < per_page:
+            break
+        page += 1
+
+
+@functools.lru_cache(maxsize=1)
+def _should_skip_hf_test() -> bool:
+    if "CI" not in os.environ:
+        # This is not a CI run. Do not skip tests.
+        return False
+
+    if any(("huggingface" in f or "transformers" in f) for f in _iter_pr_files()):
+        # This PR modifies huggingface-related files. Do not skip tests.
+        return False
+
+    # Skip tests if the Hugging Face Hub is unhealthy.
+    return not _is_hf_hub_healthy()
+
+
+def skip_if_hf_hub_unhealthy():
+    return pytest.mark.skipif(
+        _should_skip_hf_test(),
+        reason=(
+            "Skipping test because Hugging Face Hub is unhealthy. "
+            "See https://status.huggingface.co/ for more information."
+        ),
+    )
+
+
+def get_logged_model_by_name(name: str) -> Optional[LoggedModel]:
+    """
+    Get a logged model by name. If multiple logged models with
+    the same name exist, get the latest one.
+
+    Args:
+        name: The name of the logged model.
+
+    Returns:
+        The logged model.
+    """
+    logged_models = mlflow.search_logged_models(
+        filter_string=f"name='{name}'", output_format="list", max_results=1
+    )
+    return logged_models[0] if len(logged_models) >= 1 else None

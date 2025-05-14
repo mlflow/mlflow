@@ -1,35 +1,52 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { RunsChartType } from '../../runs-charts.types';
 import type {
   RunsChartsBarCardConfig,
   RunsChartsCardConfig,
   RunsChartsContourCardConfig,
+  RunsChartsDifferenceCardConfig,
+  RunsChartsImageCardConfig,
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
   RunsChartsScatterCardConfig,
 } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
+import { shouldEnableDifferenceViewCharts } from '../../../../../common/utils/FeatureUtils';
 import { RunsChartsBarChartCard } from './RunsChartsBarChartCard';
 import { RunsChartsLineChartCard } from './RunsChartsLineChartCard';
 import { RunsChartsScatterChartCard } from './RunsChartsScatterChartCard';
 import { RunsChartsContourChartCard } from './RunsChartsContourChartCard';
 import { RunsChartsParallelChartCard } from './RunsChartsParallelChartCard';
-import { RunsChartCardFullScreenProps, RunsChartCardReorderProps } from './ChartCard.common';
+import type {
+  RunsChartCardFullScreenProps,
+  RunsChartCardReorderProps,
+  RunsChartCardSizeProps,
+  RunsChartCardVisibilityProps,
+} from './ChartCard.common';
+import { RunsChartsDifferenceChartCard } from './RunsChartsDifferenceChartCard';
+import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
+import { RunsChartsImageChartCard } from './RunsChartsImageChartCard';
+import { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 
-export interface RunsChartsCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
+export interface RunsChartsCardProps
+  extends RunsChartCardReorderProps,
+    RunsChartCardFullScreenProps,
+    RunsChartCardVisibilityProps,
+    RunsChartCardSizeProps {
   cardConfig: RunsChartsCardConfig;
   chartRunData: RunsChartsRunData[];
   onStartEditChart: (chart: RunsChartsCardConfig) => void;
   onRemoveChart: (chart: RunsChartsCardConfig) => void;
-  onReorderCharts: (sourceChartUuid: string, targetChartUuid: string) => void;
+  onDownloadFullMetricHistoryCsv?: (runUuids: string[], metricKeys: string[]) => void;
   index: number;
-  sectionIndex: number;
-  isMetricHistoryLoading?: boolean;
-  groupBy: string;
+  sectionIndex?: number;
+  autoRefreshEnabled?: boolean;
+  hideEmptyCharts?: boolean;
+  groupBy: RunsGroupByConfig | null;
+  globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
 }
 
-export const RunsChartsCard = ({
+const RunsChartsCardRaw = ({
   cardConfig,
   chartRunData,
   index,
@@ -37,51 +54,93 @@ export const RunsChartsCard = ({
   onStartEditChart,
   onRemoveChart,
   setFullScreenChart,
-  isMetricHistoryLoading,
   groupBy,
   fullScreen,
   canMoveDown,
   canMoveUp,
-  onMoveDown,
-  onMoveUp,
+  previousChartUuid,
+  nextChartUuid,
   onReorderWith,
+  autoRefreshEnabled,
+  onDownloadFullMetricHistoryCsv,
+  hideEmptyCharts,
+  globalLineChartConfig,
+  height,
+  isInViewport,
+  isInViewportDeferred,
 }: RunsChartsCardProps) => {
-  const chartElementKey = `${cardConfig.uuid}-${index}-${sectionIndex}`;
+  const reorderProps = useMemo(
+    () => ({
+      onReorderWith,
+      canMoveDown,
+      canMoveUp,
+      previousChartUuid,
+      nextChartUuid,
+    }),
+    [onReorderWith, canMoveDown, canMoveUp, previousChartUuid, nextChartUuid],
+  );
 
-  const reorderProps = {
-    onReorderWith,
-    canMoveDown,
-    canMoveUp,
-    onMoveDown,
-    onMoveUp,
-  };
+  const editProps = useMemo(
+    () => ({
+      onEdit: () => onStartEditChart(cardConfig),
+      onDelete: () => onRemoveChart(cardConfig),
+      setFullScreenChart,
+    }),
+    [onStartEditChart, onRemoveChart, setFullScreenChart, cardConfig],
+  );
 
-  const editProps = {
-    onEdit: () => onStartEditChart(cardConfig),
-    onDelete: () => onRemoveChart(cardConfig),
-    setFullScreenChart,
-  };
+  const commonChartProps = useMemo(
+    () => ({
+      fullScreen,
+      autoRefreshEnabled,
+      groupBy,
+      hideEmptyCharts,
+      height,
+      isInViewport,
+      isInViewportDeferred,
+      ...editProps,
+      ...reorderProps,
+    }),
+    [
+      fullScreen,
+      autoRefreshEnabled,
+      groupBy,
+      editProps,
+      reorderProps,
+      hideEmptyCharts,
+      height,
+      isInViewport,
+      isInViewportDeferred,
+    ],
+  );
 
-  const commonChartProps = {
-    fullScreen,
-    key: chartElementKey,
-    ...editProps,
-    ...reorderProps,
-  };
-
-  const slicedRuns = useMemo(() => {
-    if (shouldUseNewRunRowsVisibilityModel()) {
-      return chartRunData.filter(({ hidden }) => !hidden).reverse();
-    }
-    return chartRunData.slice(0, cardConfig.runsCountToCompare || 10).reverse();
-  }, [chartRunData, cardConfig]);
+  const slicedRuns = useMemo(() => chartRunData.filter(({ hidden }) => !hidden).reverse(), [chartRunData]);
 
   if (cardConfig.type === RunsChartType.PARALLEL) {
     return (
       <RunsChartsParallelChartCard
         config={cardConfig as RunsChartsParallelCardConfig}
         chartRunData={chartRunData}
-        groupBy={groupBy}
+        {...commonChartProps}
+      />
+    );
+  }
+
+  if (shouldEnableDifferenceViewCharts() && cardConfig.type === RunsChartType.DIFFERENCE) {
+    return (
+      <RunsChartsDifferenceChartCard
+        config={cardConfig as RunsChartsDifferenceCardConfig}
+        chartRunData={chartRunData}
+        {...commonChartProps}
+      />
+    );
+  }
+
+  if (cardConfig.type === RunsChartType.IMAGE) {
+    return (
+      <RunsChartsImageChartCard
+        config={cardConfig as RunsChartsImageCardConfig}
+        chartRunData={chartRunData}
         {...commonChartProps}
       />
     );
@@ -100,8 +159,9 @@ export const RunsChartsCard = ({
       <RunsChartsLineChartCard
         config={cardConfig as RunsChartsLineCardConfig}
         chartRunData={slicedRuns}
-        isMetricHistoryLoading={isMetricHistoryLoading}
-        groupBy={groupBy}
+        onDownloadFullMetricHistoryCsv={onDownloadFullMetricHistoryCsv}
+        globalLineChartConfig={globalLineChartConfig}
+        positionInSection={index}
         {...commonChartProps}
       />
     );
@@ -124,3 +184,5 @@ export const RunsChartsCard = ({
   }
   return null;
 };
+
+export const RunsChartsCard = memo(RunsChartsCardRaw);

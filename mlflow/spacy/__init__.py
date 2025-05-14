@@ -9,9 +9,10 @@ spaCy (native) format
     flavor is created only if spaCy's model pipeline has at least one
     `TextCategorizer <https://spacy.io/api/textcategorizer>`_.
 """
+
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pandas as pd
 import yaml
@@ -21,6 +22,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -109,10 +111,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+        metadata: {{ metadata }}
     """
     import spacy
 
@@ -128,10 +127,13 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+    if signature is None and saved_example is not None:
+        wrapped_model = _SpacyModelWrapper(spacy_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
+
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -203,7 +205,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     spacy_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -212,13 +214,19 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """Log a spaCy model as an MLflow artifact for the current run.
 
     Args:
         spacy_model: spaCy model to be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
@@ -242,10 +250,13 @@ def log_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+        metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: kwargs to pass to ``spacy.save_model`` method.
 
     Returns:
@@ -254,6 +265,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.spacy,
         registered_model_name=registered_model_name,
         spacy_model=spacy_model,
@@ -264,6 +276,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
@@ -279,10 +296,16 @@ class _SpacyModelWrapper:
     def __init__(self, spacy_model):
         self.spacy_model = spacy_model
 
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.spacy_model
+
     def predict(
         self,
         dataframe,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """Only works for predicting using text categorizer.
         Not suitable for other pipeline components (e.g: parser)
@@ -291,9 +314,6 @@ class _SpacyModelWrapper:
             dataframe: pandas dataframe containing texts to be categorized
                        expected shape is (n_rows,1 column)
             params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
 
         Returns:
             dataframe with predictions

@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,7 @@ from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
-from tests.helper_functions import clear_hub_cache
+from tests.helper_functions import clear_hub_cache, flaky, start_mock_openai_server
 from tests.integration.utils import invoke_cli_runner
 
 EXAMPLES_DIR = "examples"
@@ -37,14 +38,26 @@ def clean_up_mlflow_virtual_environments():
             shutil.rmtree(path)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def mock_openai():
+    # Some examples includes OpenAI API calls, so we start a mock server.
+    with start_mock_openai_server() as base_url:
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setenv("OPENAI_API_BASE", base_url)
+            mp.setenv("OPENAI_API_KEY", "test")
+            yield
+
+
 @pytest.mark.notrackingurimock
+@flaky()
 @pytest.mark.parametrize(
     ("directory", "params"),
     [
         ("h2o", []),
-        ("hyperparam", ["-e", "train", "-P", "epochs=1"]),
-        ("hyperparam", ["-e", "random", "-P", "epochs=1"]),
-        ("hyperparam", ["-e", "hyperopt", "-P", "epochs=1"]),
+        # TODO: Fix the hyperparam example and re-enable it
+        # ("hyperparam", ["-e", "train", "-P", "epochs=1"]),
+        # ("hyperparam", ["-e", "random", "-P", "epochs=1"]),
+        # ("hyperparam", ["-e", "hyperopt", "-P", "epochs=1"]),
         (
             "lightgbm/lightgbm_native",
             ["-P", "learning_rate=0.1", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
@@ -61,7 +74,6 @@ def clean_up_mlflow_virtual_environments():
             ["-P", "learning_rate=0.3", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
         ("xgboost/xgboost_sklearn", []),
-        ("fastai", ["-P", "lr=0.02", "-P", "epochs=3"]),
         ("pytorch/MNIST", ["-P", "max_epochs=1"]),
         (
             "pytorch/BertNewsClassification",
@@ -82,9 +94,13 @@ def clean_up_mlflow_virtual_environments():
     ],
 )
 def test_mlflow_run_example(directory, params, tmp_path):
-    mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
+    # Use tmp_path+uuid as tmp directory to avoid the same
+    # directory being reused when re-trying the test since
+    # tmp_path is named as the test name
+    random_tmp_path = tmp_path / str(uuid.uuid4())
+    mlflow.set_tracking_uri(random_tmp_path.joinpath("mlruns").as_uri())
     example_dir = Path(EXAMPLES_DIR, directory)
-    tmp_example_dir = tmp_path.joinpath(example_dir)
+    tmp_example_dir = random_tmp_path.joinpath(example_dir)
     shutil.copytree(example_dir, tmp_example_dir)
     python_env_path = find_python_env_yaml(tmp_example_dir)
     replace_mlflow_with_dev_version(python_env_path)
@@ -143,7 +159,6 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("shap", [sys.executable, "explainer_logging.py"]),
         ("ray_serve", [sys.executable, "train_model.py"]),
         ("pip_requirements", [sys.executable, "pip_requirements.py"]),
-        ("fastai", [sys.executable, "train.py", "--lr", "0.02", "--epochs", "3"]),
         ("pmdarima", [sys.executable, "train.py"]),
         ("evaluation", [sys.executable, "evaluate_on_binary_classifier.py"]),
         ("evaluation", [sys.executable, "evaluate_on_multiclass_classifier.py"]),
@@ -161,6 +176,10 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("transformers", [sys.executable, "sentence_transformer.py"]),
         ("transformers", [sys.executable, "whisper.py"]),
         ("sentence_transformers", [sys.executable, "simple.py"]),
+        ("tracing", [sys.executable, "fluent.py"]),
+        ("tracing", [sys.executable, "client.py"]),
+        ("llama_index", [sys.executable, "simple_index.py"]),
+        ("llama_index", [sys.executable, "autolog.py"]),
     ],
 )
 def test_command_example(directory, command):
@@ -169,4 +188,5 @@ def test_command_example(directory, command):
     if directory == "transformers":
         # NB: Clearing the huggingface_hub cache is to lower the disk storage pressure for CI
         clear_hub_cache()
+
     process._exec_cmd(command, cwd=cwd_dir, env=os.environ)

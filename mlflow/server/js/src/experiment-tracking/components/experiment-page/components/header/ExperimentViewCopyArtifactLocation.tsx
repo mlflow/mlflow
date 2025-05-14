@@ -14,7 +14,7 @@ export const ExperimentViewCopyArtifactLocation = ({ experiment }: { experiment:
       size="md"
       dangerouslySetAntdProps={{
         copyable: {
-          text: experiment.artifact_location,
+          text: experiment.artifactLocation,
           icon: <CopyIcon />,
           tooltips: [
             intl.formatMessage({

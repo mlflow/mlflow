@@ -131,18 +131,7 @@ test('renderNotebookSource', () => {
       {Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
     </a>,
   );
-  expect(
-    Utils.renderNotebookSource(
-      null,
-      notebookId,
-      revisionId,
-      runUuid,
-      sourceName,
-      null,
-      // @ts-expect-error TS(2345): Argument of type '"some feature"' is not assignabl... Remove this comment to see the full error message
-      nameOverride,
-    ),
-  ).toEqual(
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, null, nameOverride)).toEqual(
     <a
       title={sourceName}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
@@ -214,7 +203,6 @@ test('renderJobSource', () => {
       {Utils.getDefaultJobRunName(jobId, jobRunId)}
     </a>,
   );
-  // @ts-expect-error TS(2345): Argument of type '"random text"' is not assignable... Remove this comment to see the full error message
   expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, null, nameOverride)).toEqual(
     <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target="_top">
       {nameOverride}
@@ -490,6 +478,8 @@ test('getMetricPlotStateFromUrl', () => {
   const url1 =
     '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1"]&plot_layout={}&x_axis=wall&y_axis_scale=log&show_point=false';
   const url2 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1","metric_2"]';
+  const url3 =
+    '?runs=["runUuid1","runUuid2"]&plot_metric_keys=%5B%22some%20%23%40!%20unusual%20metric%20name%22%2C%22metric_key_2%22%5D';
   // Test extracting plot keys, point info, y axis log scale, line smoothness, layout info
   expect(Utils.getMetricPlotStateFromUrl(url0)).toEqual({
     selectedXAxis: X_AXIS_STEP,
@@ -516,6 +506,16 @@ test('getMetricPlotStateFromUrl', () => {
   expect(Utils.getMetricPlotStateFromUrl(url2)).toEqual({
     selectedXAxis: X_AXIS_RELATIVE,
     selectedMetricKeys: ['metric_1', 'metric_2'],
+    showPoint: false,
+    yAxisLogScale: false,
+    lineSmoothness: 0,
+    layout: { autosize: true },
+    deselectedCurves: [],
+    lastLinearYAxisRange: [],
+  });
+  expect(Utils.getMetricPlotStateFromUrl(url3)).toEqual({
+    selectedXAxis: X_AXIS_RELATIVE,
+    selectedMetricKeys: ['some #@! unusual metric name', 'metric_key_2'],
     showPoint: false,
     yAxisLogScale: false,
     lineSmoothness: 0,
@@ -584,10 +584,10 @@ test('getSearchUrlFromState', () => {
 });
 
 test('compareExperiments', () => {
-  const exp0 = { experiment_id: '0' };
-  const exp1 = { experiment_id: '1' };
-  const expA = { experiment_id: 'A' };
-  const expB = { experiment_id: 'B' };
+  const exp0 = { experimentId: '0' };
+  const exp1 = { experimentId: '1' };
+  const expA = { experimentId: 'A' };
+  const expB = { experimentId: 'B' };
 
   expect(Utils.compareExperiments(exp0, exp1)).toEqual(-1);
   expect(Utils.compareExperiments(exp1, exp0)).toEqual(1);
@@ -669,6 +669,40 @@ test('getLoggedModelsFromTags should correctly dedup and sort logged models', ()
       utcTimeCreated: 1604016000,
     },
   ]);
+});
+
+test('getLoggedModelsFromTags should not crash on invalid JSON', () => {
+  const tagValue = JSON.stringify([
+    {
+      run_id: 'run-uuid',
+      artifact_path: 'somePath',
+      utc_time_created: '2020-10-29',
+      flavors: { keras: {}, python_function: {} },
+    },
+    {
+      run_id: 'run-uuid',
+      artifact_path: 'somePath',
+      utc_time_created: '2020-10-30',
+      flavors: { sklearn: {}, python_function: {} },
+    },
+    {
+      run_id: 'run-uuid',
+      artifact_path: 'someOtherPath',
+      utc_time_created: '2020-10-31',
+      flavors: { python_function: {} },
+    },
+  ]);
+
+  const tags = {
+    'mlflow.log-model.history': {
+      key: 'mlflow.log-model.history',
+      value: tagValue.slice(10), // truncate the JSON string to make it invalid
+    },
+  };
+
+  // it should just return an empty array
+  const models = Utils.getLoggedModelsFromTags(tags);
+  expect(models.length).toEqual(0);
 });
 
 test('mergeLoggedAndRegisteredModels should merge logged and registered model', () => {

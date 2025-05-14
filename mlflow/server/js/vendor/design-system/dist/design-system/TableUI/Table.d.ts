@@ -2,9 +2,9 @@ import type { CSSProperties } from 'react';
 import React from 'react';
 import type { HTMLDataAttributes } from '../types';
 export declare const TableContext: React.Context<{
-    size: 'default' | 'small';
-    someRowsSelected?: boolean | undefined;
-    grid?: boolean | undefined;
+    size: "default" | "small";
+    someRowsSelected?: boolean;
+    grid?: boolean;
 }>;
 export interface TableProps extends HTMLDataAttributes {
     size?: 'default' | 'small';
@@ -24,6 +24,8 @@ export interface TableProps extends HTMLDataAttributes {
     scrollable?: boolean;
     /** Adds grid styling to the table (e.g. border around cells and no hover styles) */
     grid?: boolean;
+    /** If true, the table will not have a minimum height. Use this if the table is inside a container (like ContentSection) that manages its own height. */
+    noMinHeight?: boolean;
 }
 export declare const Table: React.ForwardRefExoticComponent<TableProps & React.RefAttributes<HTMLDivElement>>;
 //# sourceMappingURL=Table.d.ts.map

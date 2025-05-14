@@ -12,7 +12,7 @@ export interface DatasetLinkProps {
 
 export const ExperimentViewDatasetLink = ({ datasetWithTags, runTags }: DatasetLinkProps) => {
   const { dataset } = datasetWithTags;
-  if (dataset.source_type === DatasetSourceTypes.HTTP || dataset.source_type === DatasetSourceTypes.HUGGING_FACE) {
+  if (dataset.sourceType === DatasetSourceTypes.HTTP || dataset.sourceType === DatasetSourceTypes.HUGGING_FACE) {
     const url = getDatasetSourceUrl(datasetWithTags);
     if (url) {
       return (
@@ -31,7 +31,7 @@ export const ExperimentViewDatasetLink = ({ datasetWithTags, runTags }: DatasetL
       );
     }
   }
-  if (dataset.source_type === DatasetSourceTypes.S3) {
+  if (dataset.sourceType === DatasetSourceTypes.S3) {
     const url = getDatasetSourceUrl(datasetWithTags);
     if (url) {
       return (
@@ -48,7 +48,7 @@ export const ExperimentViewDatasetLink = ({ datasetWithTags, runTags }: DatasetL
       );
     }
   }
-  if (dataset.source_type === DatasetSourceTypes.EXTERNAL) {
+  if (dataset.sourceType === DatasetSourceTypes.EXTERNAL) {
     return (
       <Button
         componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetlink.tsx_19_3"

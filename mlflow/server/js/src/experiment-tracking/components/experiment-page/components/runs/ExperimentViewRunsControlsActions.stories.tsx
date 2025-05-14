@@ -7,10 +7,9 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import { ExperimentViewRunsControlsActions } from './ExperimentViewRunsControlsActions';
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
-import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
-import { GetExperimentRunsContextProvider } from '../../contexts/GetExperimentRunsContext';
+import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { useRunSortOptions } from '../../hooks/useRunSortOptions';
+import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 
 const MOCK_EXPERIMENT = EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'];
 
@@ -24,8 +23,8 @@ export default {
   argTypes: {},
 };
 
-const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () => {
-  const [searchFacetsState] = useState<SearchExperimentRunsFacetsState>(new SearchExperimentRunsFacetsState());
+const createComponentWrapper = (viewState: ExperimentPageViewState) => () => {
+  const [searchFacetsState] = useState(() => createExperimentPageSearchFacetsState());
 
   const sortOptions = useRunSortOptions(['metric1'], ['param1']);
 
@@ -34,33 +33,31 @@ const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () 
       store={createStore((s) => s as any, EXPERIMENT_RUNS_MOCK_STORE, compose(applyMiddleware(promiseMiddleware())))}
     >
       <MemoryRouter>
-        <GetExperimentRunsContextProvider actions={{} as any}>
-          <IntlProvider locale="en">
-            <div
-              css={{
-                marginBottom: 20,
-                paddingBottom: 10,
-                borderBottom: '1px solid #ccc',
-              }}
-            >
-              <h2>Component:</h2>
-            </div>
-            <ExperimentViewRunsControlsActions
-              runsData={MOCK_RUNS_DATA}
-              searchFacetsState={searchFacetsState}
-              viewState={viewState}
-              refreshRuns={() => {}}
-            />
-          </IntlProvider>
-        </GetExperimentRunsContextProvider>
+        <IntlProvider locale="en">
+          <div
+            css={{
+              marginBottom: 20,
+              paddingBottom: 10,
+              borderBottom: '1px solid #ccc',
+            }}
+          >
+            <h2>Component:</h2>
+          </div>
+          <ExperimentViewRunsControlsActions
+            runsData={MOCK_RUNS_DATA}
+            searchFacetsState={searchFacetsState}
+            viewState={viewState}
+            refreshRuns={() => {}}
+          />
+        </IntlProvider>
       </MemoryRouter>
     </Provider>
   );
 };
 
-export const Default = createComponentWrapper(new SearchExperimentRunsViewState());
+export const Default = createComponentWrapper(new ExperimentPageViewState());
 export const WithOneRunSelected = createComponentWrapper(
-  Object.assign(new SearchExperimentRunsViewState(), {
+  Object.assign(new ExperimentPageViewState(), {
     runsSelected: {
       experiment123456789_run1: true,
     },
@@ -68,7 +65,7 @@ export const WithOneRunSelected = createComponentWrapper(
 );
 
 export const WithTwoRunsSelected = createComponentWrapper(
-  Object.assign(new SearchExperimentRunsViewState(), {
+  Object.assign(new ExperimentPageViewState(), {
     runsSelected: {
       experiment123456789_run1: true,
       experiment123456789_run2: true,

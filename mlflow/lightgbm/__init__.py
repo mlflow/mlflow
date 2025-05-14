@@ -17,13 +17,14 @@ LightGBM (native) format
 .. _scikit-learn API:
     https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api
 """
+
 import functools
 import json
 import logging
 import os
 import tempfile
 from copy import deepcopy
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 from packaging.version import Version
@@ -136,10 +137,7 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
+        metadata: {{ metadata }}
 
     .. code-block:: python
         :caption: Example
@@ -181,18 +179,18 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    if signature is None and input_example is not None:
+    if mlflow_model is None:
+        mlflow_model = Model()
+    saved_example = _save_example(mlflow_model, input_example, path)
+
+    if signature is None and saved_example is not None:
         wrapped_model = _LGBModelWrapper(lgb_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        signature = _infer_signature_from_input_example(saved_example, wrapped_model)
     elif signature is False:
         signature = None
 
-    if mlflow_model is None:
-        mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -274,7 +272,7 @@ def _save_model(lgb_model, model_path):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     lgb_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -284,6 +282,12 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -292,7 +296,7 @@ def log_model(
     Args:
         lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or
             models that implement the `scikit-learn API`_  to be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         registered_model_name: If given, create a model version under
@@ -306,11 +310,13 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-            .. Note:: Experimental: This parameter may change or be removed in a future
-                                    release without warning.
-
+        metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
 
     Returns:
@@ -341,7 +347,9 @@ def log_model(
         # Log the model
         artifact_path = "model"
         with mlflow.start_run():
-            model_info = mlflow.lightgbm.log_model(model, artifact_path, signature=signature)
+            model_info = mlflow.lightgbm.log_model(
+                model, name=artifact_path, signature=signature
+            )
 
         # Fetch the logged model artifacts
         print(f"run_id: {run.info.run_id}")
@@ -360,6 +368,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.lightgbm,
         registered_model_name=registered_model_name,
         lgb_model=lgb_model,
@@ -371,6 +380,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
@@ -478,14 +492,17 @@ class _LGBModelWrapper:
     def __init__(self, lgb_model):
         self.lgb_model = lgb_model
 
-    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
+    def get_raw_model(self):
+        """
+        Returns the underlying model.
+        """
+        return self.lgb_model
+
+    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
         """
         Args:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                                        release without warning.
 
         Returns:
             Model predictions.
@@ -784,7 +801,10 @@ def autolog(
                     "Failed to log dataset information to MLflow Tracking. Reason: %s", e
                 )
 
-        with batch_metrics_logger(run_id) as metrics_logger:
+        model_id = None
+        if _log_models:
+            model_id = mlflow.initialize_logged_model("model").model_id
+        with batch_metrics_logger(run_id, model_id=model_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:
                 tmp_list = list(args)
@@ -798,27 +818,29 @@ def autolog(
             # training model
             model = original(*args, **kwargs)
 
-            # If early stopping is activated, logging metrics at the best iteration
-            # as extra metrics with the max step + 1.
-            early_stopping = model.best_iteration > 0
-            if early_stopping:
-                extra_step = len(eval_results)
-                autologging_client.log_metrics(
-                    run_id=mlflow.active_run().info.run_id,
-                    metrics={
-                        "stopped_iteration": extra_step,
-                        # best_iteration is set even if training does not stop early.
-                        "best_iteration": model.best_iteration,
-                    },
-                )
-                # iteration starts from 1 in LightGBM.
-                last_iter_results = eval_results[model.best_iteration - 1]
-                autologging_client.log_metrics(
-                    run_id=mlflow.active_run().info.run_id,
-                    metrics=last_iter_results,
-                    step=extra_step,
-                )
-                early_stopping_logging_operations = autologging_client.flush(synchronous=False)
+        # If early stopping is activated, logging metrics at the best iteration
+        # as extra metrics with the max step + 1.
+        early_stopping = model.best_iteration > 0
+        if early_stopping:
+            extra_step = len(eval_results)
+            autologging_client.log_metrics(
+                run_id=mlflow.active_run().info.run_id,
+                metrics={
+                    "stopped_iteration": extra_step,
+                    # best_iteration is set even if training does not stop early.
+                    "best_iteration": model.best_iteration,
+                },
+                model_id=model_id,
+            )
+            # iteration starts from 1 in LightGBM.
+            last_iter_results = eval_results[model.best_iteration - 1]
+            autologging_client.log_metrics(
+                run_id=mlflow.active_run().info.run_id,
+                metrics=last_iter_results,
+                step=extra_step,
+                model_id=model_id,
+            )
+            early_stopping_logging_operations = autologging_client.flush(synchronous=False)
 
         # logging feature importance as artifacts.
         for imp_type in ["split", "gain"]:
@@ -868,10 +890,11 @@ def autolog(
 
             log_model(
                 model,
-                artifact_path="model",
+                "model",
                 signature=signature,
                 input_example=input_example,
                 registered_model_name=registered_model_name,
+                model_id=model_id,
             )
 
         param_logging_operations.await_completion()

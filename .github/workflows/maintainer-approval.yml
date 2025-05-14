@@ -1,0 +1,22 @@
+name: Maintainer approval
+
+on:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: |
+            .github
+      - name: Fail without core maintainer approval
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/require-core-maintainer-approval.js`);
+            await script({ context, github, core });

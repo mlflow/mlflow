@@ -4,7 +4,7 @@ import os
 
 import yaml
 
-from mlflow.exceptions import ExecutionException
+from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import env_type
 from mlflow.tracking import artifact_utils
 from mlflow.utils import data_utils
@@ -49,6 +49,55 @@ def load_project(directory):
         command = entry_point_yaml.get("command")
         entry_points[name] = EntryPoint(name, parameters, command)
 
+    databricks_spark_job_yaml = yaml_obj.get("databricks_spark_job")
+    if databricks_spark_job_yaml is not None:
+        python_file = databricks_spark_job_yaml.get("python_file")
+
+        if python_file is None and not entry_points:
+            raise MlflowException(
+                "Databricks Spark job requires either 'databricks_spark_job.python_file' "
+                "setting or 'entry_points' setting."
+            )
+        if python_file is not None and entry_points:
+            raise MlflowException(
+                "Databricks Spark job does not allow setting both "
+                "'databricks_spark_job.python_file' and 'entry_points'."
+            )
+
+        for entry_point in entry_points.values():
+            for param in entry_point.parameters.values():
+                if param.type == "path":
+                    raise MlflowException(
+                        "Databricks Spark job does not support entry point parameter of 'path' "
+                        f"type. '{param.name}' value type is invalid."
+                    )
+
+        if env_type.DOCKER in yaml_obj:
+            raise MlflowException(
+                "Databricks Spark job does not support setting docker environment."
+            )
+
+        if env_type.PYTHON in yaml_obj:
+            raise MlflowException(
+                "Databricks Spark job does not support setting python environment."
+            )
+
+        if env_type.CONDA in yaml_obj:
+            raise MlflowException(
+                "Databricks Spark job does not support setting conda environment."
+            )
+
+        databricks_spark_job_spec = DatabricksSparkJobSpec(
+            python_file=databricks_spark_job_yaml.get("python_file"),
+            parameters=databricks_spark_job_yaml.get("parameters", []),
+            python_libraries=databricks_spark_job_yaml.get("python_libraries", []),
+        )
+        return Project(
+            databricks_spark_job_spec=databricks_spark_job_spec,
+            name=project_name,
+            entry_points=entry_points,
+        )
+
     # Validate config if docker_env parameter is present
     docker_env = yaml_obj.get(env_type.DOCKER)
     if docker_env:
@@ -92,8 +141,7 @@ def load_project(directory):
         python_env_path = os.path.join(directory, python_env)
         if not os.path.exists(python_env_path):
             raise ExecutionException(
-                "Project specified python_env file %s, but no such "
-                "file was found." % python_env_path
+                f"Project specified python_env file {python_env_path}, but no such file was found."
             )
         return Project(
             env_type=env_type.PYTHON,
@@ -108,8 +156,8 @@ def load_project(directory):
         conda_env_path = os.path.join(directory, conda_path)
         if not os.path.exists(conda_env_path):
             raise ExecutionException(
-                "Project specified conda environment file %s, but no such "
-                "file was found." % conda_env_path
+                f"Project specified conda environment file {conda_env_path}, but no such "
+                "file was found."
             )
         return Project(
             env_type=env_type.CONDA,
@@ -151,14 +199,36 @@ def load_project(directory):
 class Project:
     """A project specification loaded from an MLproject file in the passed-in directory."""
 
-    def __init__(self, env_type, env_config_path, entry_points, docker_env, name):
+    def __init__(
+        self,
+        name,
+        env_type=None,
+        env_config_path=None,
+        entry_points=None,
+        docker_env=None,
+        databricks_spark_job_spec=None,
+    ):
         self.env_type = env_type
         self.env_config_path = env_config_path
         self._entry_points = entry_points
         self.docker_env = docker_env
         self.name = name
+        self.databricks_spark_job_spec = databricks_spark_job_spec
 
     def get_entry_point(self, entry_point):
+        if self.databricks_spark_job_spec:
+            if self.databricks_spark_job_spec.python_file is not None:
+                # If Databricks Spark job is configured with python_file field,
+                # it does not need to configure entry_point section
+                # and the 'entry_point' param in 'mlflow run' command is ignored
+                return None
+
+            if self._entry_points is None or entry_point not in self._entry_points:
+                raise MlflowException(
+                    f"The entry point '{entry_point}' is not defined in the Databricks spark job "
+                    f"MLproject file."
+                )
+
         if entry_point in self._entry_points:
             return self._entry_points[entry_point]
         _, file_extension = os.path.splitext(entry_point)
@@ -193,8 +263,9 @@ class EntryPoint:
                 missing_params.append(name)
         if missing_params:
             raise ExecutionException(
-                "No value given for missing parameters: %s"
-                % ", ".join([f"'{name}'" for name in missing_params])
+                "No value given for missing parameters: {}".format(
+                    ", ".join([f"'{name}'" for name in missing_params])
+                )
             )
 
     def compute_parameters(self, user_parameters, storage_dir):
@@ -283,3 +354,10 @@ class Parameter:
             return self._compute_uri_value(param_value)
         else:
             return param_value
+
+
+class DatabricksSparkJobSpec:
+    def __init__(self, python_file, parameters, python_libraries):
+        self.python_file = python_file
+        self.parameters = parameters
+        self.python_libraries = python_libraries

@@ -8,6 +8,8 @@ services:
     working_dir: /mlflow/home
     entrypoint: /mlflow/home/tests/db/entrypoint.sh
     command: pytest tests/db
+    environment:
+      DISABLE_RESET_MLFLOW_URI_FIXTURE: "true"
 
   postgresql:
     image: postgres
@@ -43,7 +45,6 @@ services:
       MYSQL_DATABASE: mlflowdb
       MYSQL_USER: mlflowuser
       MYSQL_PASSWORD: mlflowpassword
-    command: mysqld --default-authentication-plugin=mysql_native_password
 
   mlflow-mysql:
     extends:
@@ -75,6 +76,7 @@ services:
       - mssql
     extends:
       service: base
+    platform: linux/amd64
     image: mlflow-mssql
     build:
       context: .
@@ -88,6 +90,7 @@ services:
       - mssql
     extends:
       service: base
+    platform: linux/amd64
     image: mlflow-mssql
     build:
       context: .

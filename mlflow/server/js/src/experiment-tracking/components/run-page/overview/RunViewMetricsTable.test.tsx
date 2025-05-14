@@ -1,5 +1,5 @@
 import { keyBy } from 'lodash';
-import { renderWithIntl, fastFillInput, act, screen } from 'common/utils/TestUtils.react17';
+import { renderWithIntl, fastFillInput, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { MetricEntitiesByName, RunInfoEntity } from '../../../types';
 import { RunViewMetricsTable } from './RunViewMetricsTable';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
@@ -12,10 +12,10 @@ const testRunName = 'Test run name';
 const testExperimentId = '12345';
 
 const testRunInfo = {
-  experiment_id: testExperimentId,
-  lifecycle_stage: 'active',
-  run_name: testRunName,
-  run_uuid: testRunUuid,
+  experimentId: testExperimentId,
+  lifecycleStage: 'active',
+  runName: testRunName,
+  runUuid: testRunUuid,
 } as RunInfoEntity;
 
 // Generates array of metric_a1, metric_a2, ..., metric_b2, ..., metric_c3 metric keys with values from 1.0 to 9.0
@@ -51,18 +51,14 @@ describe('RunViewMetricsTable', () => {
     // Expect 10 rows for 9 metrics and 1 table header
     expect(screen.getAllByRole('row')).toHaveLength(9 + 1);
 
-    await act(async () => {
-      // Change the filter query
-      fastFillInput(screen.getByRole('textbox'), 'metric_a');
-    });
+    // Change the filter query
+    await fastFillInput(screen.getByRole('textbox'), 'metric_a');
 
     // Expect 4 rows for 3 filtered metrics and 1 table header
     expect(screen.getAllByRole('row')).toHaveLength(3 + 1);
 
-    await act(async () => {
-      // Change the filter query
-      fastFillInput(screen.getByRole('textbox'), 'metric_xyz');
-    });
+    // Change the filter query
+    await fastFillInput(screen.getByRole('textbox'), 'metric_xyz');
 
     // Expect no result rows, a header row and a message
     expect(screen.queryAllByRole('row')).toHaveLength(0 + 1);
@@ -82,20 +78,16 @@ describe('RunViewMetricsTable', () => {
     expect(screen.getByRole('cell', { name: /^System metrics/ })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: /^Model metrics/ })).toBeInTheDocument();
 
-    await act(async () => {
-      // Change the filter query
-      fastFillInput(screen.getByRole('textbox'), 'system_');
-    });
+    // Change the filter query
+    await fastFillInput(screen.getByRole('textbox'), 'system_');
 
     // Expect 4 rows: 2 rows for metrics, 1 header row for sections (system) and 1 header row for table
     expect(screen.getAllByRole('row')).toHaveLength(2 + 1 + 1);
     expect(screen.queryByRole('cell', { name: /^System metrics/ })).toBeInTheDocument();
     expect(screen.queryByRole('cell', { name: /^Model metrics/ })).not.toBeInTheDocument();
 
-    await act(async () => {
-      // Change the filter query
-      fastFillInput(screen.getByRole('textbox'), 'foo-bar-abc-xyz');
-    });
+    // Change the filter query
+    await fastFillInput(screen.getByRole('textbox'), 'foo-bar-abc-xyz');
 
     // Expect no result rows, a header row and a message
     expect(screen.queryAllByRole('row')).toHaveLength(0 + 1);

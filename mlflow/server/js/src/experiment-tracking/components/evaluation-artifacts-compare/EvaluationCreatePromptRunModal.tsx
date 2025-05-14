@@ -13,7 +13,7 @@ import {
   Modal,
   PlusIcon,
   Spinner,
-  Tooltip,
+  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -29,7 +29,6 @@ import { ModelGatewayResponseType, ModelGatewayService } from '../../sdk/ModelGa
 import { ModelGatewayRouteTask } from '../../sdk/MlflowEnums';
 import { generateRandomRunName, getDuplicatedRunName } from '../../utils/RunNameUtils';
 import { useExperimentIds } from '../experiment-page/hooks/useExperimentIds';
-import { useFetchExperimentRuns } from '../experiment-page/hooks/useFetchExperimentRuns';
 import {
   compilePromptInputText,
   extractEvaluationPrerequisitesForRun,
@@ -44,7 +43,6 @@ import type { RunRowType } from '../experiment-page/utils/experimentPage.row-typ
 import { EvaluationCreatePromptRunModalExamples } from './EvaluationCreatePromptRunModalExamples';
 import { EvaluationCreatePromptRunOutput } from './components/EvaluationCreatePromptRunOutput';
 import { useExperimentPageViewMode } from '../experiment-page/hooks/useExperimentPageViewMode';
-import { shouldEnableShareExperimentViewByTags } from '../../../common/utils/FeatureUtils';
 import { searchAllPromptLabAvailableEndpoints } from '../../actions/PromptEngineeringActions';
 import { getPromptEngineeringErrorMessage } from './utils/PromptEngineeringErrorUtils';
 
@@ -62,9 +60,8 @@ export const EvaluationCreatePromptRunModal = ({
   closeModal,
   runBeingDuplicated,
   visibleRuns = [],
-  refreshRuns: refreshRunsFromProps,
+  refreshRuns,
 }: Props): JSX.Element => {
-  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
   const [experimentId] = useExperimentIds();
   const { theme } = useDesignSystemTheme();
   const { parameters, updateParameter } = usePromptEvaluationParameters();
@@ -172,14 +169,6 @@ export const EvaluationCreatePromptRunModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputVariableValues, promptTemplate, parameters, selectedModel]);
 
-  const { refreshRuns: refreshRunsFromContext, updateSearchFacets } = useFetchExperimentRuns();
-
-  /**
-   * If the view is using the new view state model, let's use the function for refreshing runs from props.
-   * TODO: Remove this once we migrate to the new view state model
-   */
-  const refreshRuns = usingNewViewStateModel ? refreshRunsFromProps : refreshRunsFromContext;
-
   const onHandleSubmit = () => {
     setIsCreatingRun(true);
     const modelRouteName = modelRoutesUnified[selectedModel]?.name;
@@ -203,19 +192,7 @@ export const EvaluationCreatePromptRunModal = ({
         refreshRuns();
         closeModal();
         setIsCreatingRun(false);
-
-        // Use modernized function for changing view mode if flag is set
-        if (usingNewViewStateModel) {
-          setViewMode('ARTIFACT');
-        } else {
-          // If the view if not in the "evaluation" mode already, open it
-          updateSearchFacets((currentState) => {
-            if (currentState.compareRunsMode !== 'ARTIFACT') {
-              return { ...currentState, compareRunsMode: 'ARTIFACT' };
-            }
-            return currentState;
-          });
-        }
+        setViewMode('ARTIFACT');
       })
       .catch((e) => {
         Utils.logErrorAndNotifyUser(e?.message || e);
@@ -279,7 +256,8 @@ export const EvaluationCreatePromptRunModal = ({
             errorMessage,
           },
         );
-        Utils.logErrorAndNotifyUser(wrappedMessage);
+        // We treat is as a user error and we're not logging the error upstream
+        Utils.displayGlobalErrorNotification(wrappedMessage);
         setIsEvaluating(false);
         setLastEvaluationError(wrappedMessage);
         // NB: Not using .finally() due to issues with promise implementation in the Jest
@@ -288,10 +266,6 @@ export const EvaluationCreatePromptRunModal = ({
         }
       });
   }, [inputVariableValues, modelRoutesUnified, parameters, promptTemplate, selectedModel, intl]);
-
-  const getEvaluateButtonHandler = () => {
-    return handleEvaluate;
-  };
 
   // create a handleCancel function to terminate the evaluation if it is in progress
   const handleCancel = useCallback(() => {
@@ -454,6 +428,7 @@ export const EvaluationCreatePromptRunModal = ({
 
   return (
     <Modal
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_541"
       verticalSizing="maxed_out"
       visible={isOpen}
       onCancel={closeModal}
@@ -469,7 +444,7 @@ export const EvaluationCreatePromptRunModal = ({
               description="Experiment page > new run modal > cancel button label"
             />
           </Button>
-          <Tooltip title={createRunButtonTooltip}>
+          <LegacyTooltip title={createRunButtonTooltip}>
             <Button
               componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_596"
               onClick={onHandleSubmit}
@@ -482,7 +457,7 @@ export const EvaluationCreatePromptRunModal = ({
                 description='Experiment page > new run modal > "Create run" confirm button label'
               />
             </Button>
-          </Tooltip>
+          </LegacyTooltip>
         </div>
       }
       title={
@@ -510,6 +485,7 @@ export const EvaluationCreatePromptRunModal = ({
           </FormUI.Label>
           <div css={{ marginBottom: theme.spacing.lg, display: 'flex', alignItems: 'center' }}>
             <DialogCombobox
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_597"
               label={selectModelLabel}
               modal={false}
               value={selectedModel ? [formatVisibleRouteName(selectedModel)] : undefined}
@@ -551,6 +527,7 @@ export const EvaluationCreatePromptRunModal = ({
                 )}
               </FormUI.Label>
               <Input
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_638"
                 id="new_run_name"
                 data-testid="run-name-input"
                 required
@@ -591,6 +568,7 @@ export const EvaluationCreatePromptRunModal = ({
             </>
 
             <TextArea
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_678"
               id="prompt_template"
               autoSize={{ minRows: 3 }}
               data-testid="prompt-template-input"
@@ -607,6 +585,7 @@ export const EvaluationCreatePromptRunModal = ({
                   <span>{inputVariable}</span>
                 </FormUI.Label>
                 <TextArea
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationcreatepromptrunmodal.tsx_694"
                   id={inputVariable}
                   autoSize
                   value={inputVariableValues[inputVariable] ? inputVariableValues[inputVariable] : ''}
@@ -635,7 +614,7 @@ export const EvaluationCreatePromptRunModal = ({
             isEvaluating={isEvaluating}
             isOutputDirty={outputDirty}
             onCancelClick={handleCancel}
-            onEvaluateClick={getEvaluateButtonHandler()}
+            onEvaluateClick={handleEvaluate}
             evaluationError={lastEvaluationError}
           />
         </div>

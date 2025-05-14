@@ -5,15 +5,13 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 
-import click
 import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
 from mlflow.utils.os import is_windows
-from mlflow.version import VERSION
-
-from tests.helper_functions import get_safe_port
+from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
 
 def pytest_addoption(parser):
@@ -68,7 +66,10 @@ def pytest_configure(config):
 
 
 @pytest.hookimpl(tryfirst=True)
-def pytest_cmdline_main(config):
+def pytest_cmdline_main(config: pytest.Config):
+    if not_exists := [p for p in config.getoption("ignore") or [] if not os.path.exists(p)]:
+        raise pytest.UsageError(f"The following paths are ignored but do not exist: {not_exists}")
+
     group = config.getoption("group")
     splits = config.getoption("splits")
 
@@ -91,6 +92,11 @@ def pytest_cmdline_main(config):
 
 
 def pytest_sessionstart(session):
+    if IS_TRACING_SDK_ONLY:
+        return
+
+    import click
+
     if uri := MLFLOW_TRACKING_URI.get():
         click.echo(
             click.style(
@@ -162,18 +168,26 @@ def pytest_ignore_collect(collection_path, config):
         # Ignored files and directories must be included in dev/run-python-flavor-tests.sh
         model_flavors = [
             # Tests of flavor modules.
+            "tests/anthropic",
+            "tests/autogen",
             "tests/azureml",
+            "tests/bedrock",
             "tests/catboost",
+            "tests/crewai",
             "tests/diviner",
-            "tests/fastai",
-            "tests/gluon",
+            "tests/dspy",
+            "tests/gemini",
+            "tests/groq",
             "tests/h2o",
             "tests/johnsnowlabs",
             "tests/keras",
             "tests/keras_core",
+            "tests/llama_index",
             "tests/langchain",
+            "tests/langgraph",
             "tests/lightgbm",
-            "tests/mleap",
+            "tests/litellm",
+            "tests/mistral",
             "tests/models",
             "tests/onnx",
             "tests/openai",
@@ -181,12 +195,14 @@ def pytest_ignore_collect(collection_path, config):
             "tests/pmdarima",
             "tests/promptflow",
             "tests/prophet",
+            "tests/pydantic_ai",
             "tests/pyfunc",
             "tests/pytorch",
             "tests/sagemaker",
             "tests/sentence_transformers",
             "tests/shap",
             "tests/sklearn",
+            "tests/smolagents",
             "tests/spacy",
             "tests/spark",
             "tests/statsmodels",
@@ -263,8 +279,35 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 )
                 break
 
+    main_thread = threading.main_thread()
+    if threads := [t for t in threading.enumerate() if t is not main_thread]:
+        terminalreporter.section("Remaining threads", yellow=True)
+        for idx, thread in enumerate(threads, start=1):
+            terminalreporter.write(f"{idx}: {thread}\n")
 
-@pytest.fixture(scope="module", autouse=True)
+        # Uncomment this block to print tracebacks of non-daemon threads
+        # if non_daemon_threads := [t for t in threads if not t.daemon]:
+        #     frames = sys._current_frames()
+        #     terminalreporter.section("Tracebacks of non-daemon threads", yellow=True)
+        #     for thread in non_daemon_threads:
+        #         thread.join(timeout=1)
+        #         if thread.is_alive() and (frame := frames.get(thread.ident)):
+        #             terminalreporter.section(repr(thread), sep="~")
+        #             terminalreporter.write("".join(traceback.format_stack(frame)))
+
+    try:
+        import psutil
+    except ImportError:
+        pass
+    else:
+        current_process = psutil.Process()
+        if children := current_process.children(recursive=True):
+            terminalreporter.section("Remaining child processes", yellow=True)
+            for idx, child in enumerate(children, start=1):
+                terminalreporter.write(f"{idx}: {child}\n")
+
+
+@pytest.fixture(scope="module", autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_envs():
     """
     Clean up virtualenvs and conda environments created during tests to save disk space.
@@ -293,7 +336,7 @@ def enable_mlflow_testing():
         yield
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session", autouse=not IS_TRACING_SDK_ONLY)
 def serve_wheel(request, tmp_path_factory):
     """
     Models logged during tests have a dependency on the dev version of MLflow built from
@@ -302,6 +345,8 @@ def serve_wheel(request, tmp_path_factory):
     PyPI repository running on localhost and appends the repository URL to the
     `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
     """
+    from tests.helper_functions import get_safe_port
+
     if not request.config.getoption("--serve-wheel"):
         yield  # pytest expects a generator fixture to yield
         return
@@ -346,10 +391,14 @@ def serve_wheel(request, tmp_path_factory):
         ],
         cwd=root,
     ) as prc:
-        url = f"http://localhost:{port}"
-        if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
-            url = f"{existing_url} {url}"
-        os.environ["PIP_EXTRA_INDEX_URL"] = url
-
-        yield
-        prc.terminate()
+        try:
+            url = f"http://localhost:{port}"
+            if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
+                url = f"{existing_url} {url}"
+            os.environ["PIP_EXTRA_INDEX_URL"] = url
+            # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
+            # url when using `uv` as environment manager
+            os.environ["UV_INDEX"] = f"mlflow={url}"
+            yield
+        finally:
+            prc.terminate()

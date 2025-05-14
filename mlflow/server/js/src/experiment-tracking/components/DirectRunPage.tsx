@@ -12,7 +12,7 @@ import { WithRouterNextProps, withRouterNext } from '../../common/utils/withRout
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 
-export const DirectRunPageImpl = (props: any) => {
+const DirectRunPageImpl = (props: any) => {
   const { runUuid } = useParams<{ runUuid: string }>();
   const [error, setError] = useState<ErrorWrapper>();
   const navigate = useNavigate();
@@ -37,8 +37,8 @@ export const DirectRunPageImpl = (props: any) => {
   }, [dispatch, runUuid, props.runInfo]);
 
   useEffect(() => {
-    if (props.runInfo?.experiment_id) {
-      navigate(Routes.getRunPageRoute(props.runInfo.experiment_id, props.runInfo.run_uuid), {
+    if (props.runInfo?.experimentId) {
+      navigate(Routes.getRunPageRoute(props.runInfo.experimentId, props.runInfo.runUuid), {
         replace: true,
       });
     }

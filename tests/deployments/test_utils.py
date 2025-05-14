@@ -20,7 +20,7 @@ def test_set_deployments_target(monkeypatch):
 
     invalid_uri = "localhost"
     with pytest.raises(
-        MlflowException, match="The target provided is not a valid uri or " "'databricks'"
+        MlflowException, match="The target provided is not a valid uri or 'databricks'"
     ):
         set_deployments_target(invalid_uri)
 

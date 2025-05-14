@@ -5,11 +5,12 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import requests
 
 from mlflow.deployments import PredictionsResponse
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc import scoring_server
 from mlflow.utils.proto_json_utils import dump_input_data
@@ -25,7 +26,7 @@ class BaseScoringServerClient(ABC):
         """
 
     @abstractmethod
-    def invoke(self, data, params: Optional[Dict[str, Any]] = None):
+    def invoke(self, data, params: Optional[dict[str, Any]] = None):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
@@ -33,9 +34,6 @@ class BaseScoringServerClient(ABC):
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             Prediction result.
@@ -75,14 +73,11 @@ class ScoringServerClient(BaseScoringServerClient):
                     raise RuntimeError(f"Server process already exit with returncode {return_code}")
         raise RuntimeError("Wait scoring server ready timeout.")
 
-    def invoke(self, data, params: Optional[Dict[str, Any]] = None):
+    def invoke(self, data, params: Optional[dict[str, Any]] = None):
         """
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                    release without warning.
 
         Returns:
             :py:class:`PredictionsResponse <mlflow.deployments.PredictionsResponse>` result.
@@ -111,7 +106,7 @@ class StdinScoringServerClient(BaseScoringServerClient):
         if return_code is not None:
             raise RuntimeError(f"Server process already exit with returncode {return_code}")
 
-    def invoke(self, data, params: Optional[Dict[str, Any]] = None):
+    def invoke(self, data, params: Optional[dict[str, Any]] = None):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
@@ -119,9 +114,6 @@ class StdinScoringServerClient(BaseScoringServerClient):
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-
-                .. Note:: Experimental: This parameter may change or be removed in a future
-                           release without warning.
 
         Returns:
             :py:class:`PredictionsResponse <mlflow.deployments.PredictionsResponse>` result.
@@ -149,6 +141,6 @@ class StdinScoringServerClient(BaseScoringServerClient):
                         return resp
             except Exception as e:
                 _logger.debug("Exception while waiting for scoring to complete: %s", e)
-            if time.time() - begin_time > 60:
+            if time.time() - begin_time > MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get():
                 raise MlflowException("Scoring timeout")
             time.sleep(1)

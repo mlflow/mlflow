@@ -15,10 +15,10 @@ from tests.gateway.tools import MockAsyncResponse
 def client() -> TestClient:
     config = GatewayConfig(
         **{
-            "routes": [
+            "endpoints": [
                 {
                     "name": "completions-gpt4",
-                    "route_type": "llm/v1/completions",
+                    "endpoint_type": "llm/v1/completions",
                     "model": {
                         "name": "gpt-4",
                         "provider": "openai",
@@ -32,7 +32,7 @@ def client() -> TestClient:
                 },
                 {
                     "name": "chat-gpt4",
-                    "route_type": "llm/v1/chat",
+                    "endpoint_type": "llm/v1/chat",
                     "model": {
                         "name": "gpt-4",
                         "provider": "openai",
@@ -115,10 +115,10 @@ def test_get_route(client: TestClient):
 def test_dynamic_route():
     config = GatewayConfig(
         **{
-            "routes": [
+            "endpoints": [
                 {
                     "name": "chat",
-                    "route_type": "llm/v1/chat",
+                    "endpoint_type": "llm/v1/chat",
                     "model": {
                         "name": "gpt-4",
                         "provider": "openai",
@@ -139,7 +139,7 @@ def test_dynamic_route():
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
+        "model": "gpt-4o-mini",
         "usage": {
             "prompt_tokens": 13,
             "completion_tokens": 7,
@@ -150,6 +150,7 @@ def test_dynamic_route():
                 "message": {
                     "role": "assistant",
                     "content": "\n\nThis is a test!",
+                    "refusal": None,
                 },
                 "finish_reason": "stop",
                 "index": 0,
@@ -170,7 +171,7 @@ def test_dynamic_route():
             "id": "chatcmpl-abc123",
             "object": "chat.completion",
             "created": 1677858242,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4o-mini",
             "usage": {
                 "prompt_tokens": 13,
                 "completion_tokens": 7,
@@ -181,6 +182,8 @@ def test_dynamic_route():
                     "message": {
                         "role": "assistant",
                         "content": "\n\nThis is a test!",
+                        "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": "stop",
                     "index": 0,

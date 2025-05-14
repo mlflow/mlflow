@@ -11,7 +11,7 @@ import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
 import { Stages } from '../constants';
 import { Dropdown } from '@databricks/design-system';
 import { mockGetFieldValue } from '../test-utils';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('ModelStageTransitionDropdown', () => {
   let wrapper: any;
@@ -66,7 +66,9 @@ describe('ModelStageTransitionDropdown', () => {
         },
       };
       instance.handleMenuItemClick(activity);
-      instance.state.handleConfirm();
+      instance.state.handleConfirm({
+        archiveExistingVersions: fieldValue,
+      });
       // eslint-disable-next-line jest/no-standalone-expect
       expect(mockOnSelect).toHaveBeenCalledWith(activity, expectArchiveFieldValue);
     });

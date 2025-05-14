@@ -443,8 +443,7 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                f"Attempted to update an endpoint with name: `{endpoint_name}`"
-                " that does not exist."
+                f"Attempted to update an endpoint with name: `{endpoint_name}` that does not exist."
             )
 
         if new_config_name not in self.endpoint_configs:
@@ -469,8 +468,7 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                f"Attempted to delete an endpoint with name: `{endpoint_name}`"
-                " that does not exist."
+                f"Attempted to delete an endpoint with name: `{endpoint_name}` that does not exist."
             )
 
         del self.endpoints[endpoint_name]
@@ -714,7 +712,6 @@ class Endpoint(TimestampedResource):
 
 
 class TransformJob(TimestampedResource):
-
     """
     Object representing a SageMaker transform job. The SageMakerBackend will create
     and manage transform jobs.
@@ -779,8 +776,8 @@ class EndpointOperation:
     def __init__(self, latency_seconds, pending_status, completed_status):
         """
         Args:
-            latency: The latency of the operation, in seconds. Before the time window specified
-                by this latency elapses, the operation will have the status specified by
+            latency_seconds: The latency of the operation, in seconds. Before the time window
+                specified by this latency elapses, the operation will have the status specified by
                 ``pending_status``. After the time window elapses, the operation will
                 have the status  specified by ``completed_status``.
             pending_status: The status that the operation should reflect *before* the latency

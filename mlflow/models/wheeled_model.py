@@ -14,7 +14,6 @@ from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.pyfunc.model import MLMODEL_FILE_NAME, Model
 from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _get_pip_deps,
@@ -29,7 +28,6 @@ _ORIGINAL_REQ_FILE_NAME = "original_requirements.txt"
 _PLATFORM = "platform"
 
 
-@experimental
 class WheeledModel:
     """
     Helper class to create a model with added dependency wheels from an existing registered model.
@@ -183,7 +181,7 @@ class WheeledModel:
         this is a `wheeled` model.
 
         Args:
-            original_model_file_path: The model metadata stored in the original MLmodel file.
+            original_model_metadata: The model metadata stored in the original MLmodel file.
             mlflow_model: :py:mod:`mlflow.models.Model` configuration of the newly created
                           wheeled model
         """
@@ -234,13 +232,15 @@ class WheeledModel:
                     "-r",
                     pip_requirements_path,
                     "--no-cache-dir",
+                    "--progress-bar=off",
                 ],
                 check=True,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
         except subprocess.CalledProcessError as e:
             raise MlflowException(
-                f"An error occurred while downloading the dependency wheels: {e.stderr}"
+                f"An error occurred while downloading the dependency wheels: {e.stdout}"
             )
 
     def _overwrite_pip_requirements_with_wheels(self, pip_requirements_path, wheels_dir):

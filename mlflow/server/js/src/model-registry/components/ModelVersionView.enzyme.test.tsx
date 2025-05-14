@@ -18,15 +18,15 @@ import { ModelVersionTag } from '../sdk/ModelRegistryMessages';
 import { Provider } from 'react-redux';
 import { mockRunInfo } from '../../experiment-tracking/utils/test-utils/ReduxStoreFixtures';
 import TrackingRouters from '../../experiment-tracking/routes';
-import { ModelRegistryRoutes } from '../../model-registry/routes';
-import { mountWithIntl } from 'common/utils/TestUtils.enzyme';
+import { ModelRegistryRoutes } from '../routes';
+import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { DesignSystemContainer } from '../../common/components/DesignSystemContainer';
 import { Services } from '../services';
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 
 jest.spyOn(Services, 'searchRegisteredModels').mockResolvedValue({});
 jest.mock('../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/FeatureUtils')>('../../common/utils/FeatureUtils'),
   shouldShowModelsNextUI: jest.fn(),
 }));
 describe('ModelVersionView', () => {

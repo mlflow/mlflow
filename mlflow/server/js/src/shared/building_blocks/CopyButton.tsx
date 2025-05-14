@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { Button, type ButtonProps, Tooltip } from '@databricks/design-system';
+import { Button, type ButtonProps, LegacyTooltip } from '@databricks/design-system';
 
 interface CopyButtonProps extends Partial<ButtonProps> {
   copyText: string;
   showLabel?: React.ReactNode;
+  componentId?: string;
 }
 
-export const CopyButton = ({ copyText, showLabel = true, ...buttonProps }: CopyButtonProps) => {
+export const CopyButton = ({ copyText, showLabel = true, componentId, ...buttonProps }: CopyButtonProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   const handleClick = () => {
@@ -23,7 +24,7 @@ export const CopyButton = ({ copyText, showLabel = true, ...buttonProps }: CopyB
   };
 
   return (
-    <Tooltip
+    <LegacyTooltip
       title={
         <FormattedMessage defaultMessage="Copied" description="Tooltip text shown when copy operation completes" />
       }
@@ -32,7 +33,7 @@ export const CopyButton = ({ copyText, showLabel = true, ...buttonProps }: CopyB
       }}
     >
       <Button
-        componentId="codegen_mlflow_app_src_shared_building_blocks_copybutton.tsx_35"
+        componentId={componentId ?? 'mlflow.shared.copy_button'}
         type="primary"
         onClick={handleClick}
         onMouseLeave={handleMouseLeave}
@@ -43,6 +44,6 @@ export const CopyButton = ({ copyText, showLabel = true, ...buttonProps }: CopyB
         }
         {...buttonProps}
       />
-    </Tooltip>
+    </LegacyTooltip>
   );
 };

@@ -68,6 +68,7 @@ export const ExperimentViewDatasetSchema = ({ datasetWithTags }: DatasetsCellRen
             }}
           >
             <TableFilterInput
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetschema.tsx_92"
               value={filter}
               placeholder="Search fields"
               onChange={(e) => setFilter(e.target.value)}
@@ -103,6 +104,7 @@ export const ExperimentViewDatasetSchema = ({ datasetWithTags }: DatasetsCellRen
           >
             <TableIcon css={{ fontSize: '56px', color: theme.colors.grey600 }} />
             <Header title={<div css={{ color: theme.colors.grey600 }}>Array Datasource</div>} />
+            {/* @ts-expect-error Type 'string' is not assignable to type '"primary" | "secondary" | "info" | "error" | "success" | "warning" | undefined' */}
             <Typography.Text color={theme.colors.grey600} css={{ textAlign: 'center' }}>
               <FormattedMessage
                 defaultMessage="The dataset is an array. To see a preview of the dataset, view the dataset in the training notebook."
@@ -118,6 +120,7 @@ export const ExperimentViewDatasetSchema = ({ datasetWithTags }: DatasetsCellRen
         <div css={{ marginLeft: theme.spacing.lg, marginTop: theme.spacing.md, width: '100%' }}>
           <div css={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
             <Header title={<div css={{ color: theme.colors.grey600 }}>Unrecognized Schema Format</div>} />
+            {/* @ts-expect-error Type 'string' is not assignable to type '"primary" | "secondary" | "info" | "error" | "success" | "warning" | undefined' */}
             <Typography.Text color={theme.colors.grey600}>
               <FormattedMessage
                 defaultMessage="Raw Schema JSON: "

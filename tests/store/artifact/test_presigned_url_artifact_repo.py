@@ -1,5 +1,7 @@
 import json
 import os
+import random
+import string
 from unittest import mock
 from unittest.mock import ANY
 
@@ -17,6 +19,7 @@ from mlflow.protos.databricks_filesystem_service_pb2 import (
     HttpHeader,
     ListDirectoryResponse,
 )
+from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
 from mlflow.store.artifact.presigned_url_artifact_repo import (
     DIRECTORIES_ENDPOINT,
     FILESYSTEM_METHOD_TO_INFO,
@@ -34,7 +37,7 @@ _DATABRICKS_UC_SCHEME = "databricks-uc"
 @pytest.fixture(autouse=True)
 def run_around_tests():
     # mock this call to credentials for all tests in suite
-    with mock.patch("mlflow.utils.databricks_utils.get_config"):
+    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"):
         yield
 
 
@@ -97,16 +100,12 @@ def test_list_artifacts_failure():
     exc_code = "NOT_FOUND"
     exc_message = "The directory being accessed is not found."
     exc = RestException({"error_code": exc_code, "message": exc_message})
-    with mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc
-    ), pytest.raises(RestException) as exc_info:  # noqa: PT011
-        artifact_repo._download_from_cloud(remote_file_path, "local_file")
-
-    assert exc_info.value.error_code == exc_code
-    assert str(exc_info.value) == f"{exc_code}: {exc_message}"
+    with mock.patch(f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc):
+        empty_infos = artifact_repo.list_artifacts(remote_file_path)
+        assert len(empty_infos) == 0
 
 
-def _make_pesigned_url(remote_path):
+def _make_presigned_url(remote_path):
     return f"presigned_url/{remote_path}"
 
 
@@ -117,7 +116,7 @@ def _make_headers(remote_path):
 def mock_create_download_url(*args, **kwargs):
     remote_path = json.loads(kwargs["json_body"])["path"]
     return CreateDownloadUrlResponse(
-        url=_make_pesigned_url(remote_path),
+        url=_make_presigned_url(remote_path),
         headers=[
             HttpHeader(name=header, value=val) for header, val in _make_headers(remote_path).items()
         ],
@@ -147,7 +146,7 @@ def test_get_read_credentials():
                 response_proto=ANY,
             )
 
-        assert {_make_pesigned_url(f"{MODEL_URI}/{path}") for path in remote_file_paths} == {
+        assert {_make_presigned_url(f"{MODEL_URI}/{path}") for path in remote_file_paths} == {
             cred.signed_uri for cred in creds
         }
         expected_headers = {}
@@ -162,7 +161,7 @@ def test_get_read_credentials():
 def mock_create_upload_url(*args, **kwargs):
     remote_path = json.loads(kwargs["json_body"])["path"]
     return CreateUploadUrlResponse(
-        url=_make_pesigned_url(remote_path),
+        url=_make_presigned_url(remote_path),
         headers=[
             HttpHeader(name=header, value=val) for header, val in _make_headers(remote_path).items()
         ],
@@ -203,23 +202,26 @@ def test_get_write_credentials():
 def test_download_from_cloud():
     artifact_repo = PresignedUrlArtifactRepository(_DATABRICKS_UC_SCHEME, MODEL_NAME, MODEL_VERSION)
     remote_file_path = "some/remote/file/path"
-    with mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._get_download_presigned_url_and_headers",
-        return_value=CreateDownloadUrlResponse(
-            url=_make_pesigned_url(remote_file_path),
-            headers=[
-                HttpHeader(name=k, value=v) for k, v in _make_headers(remote_file_path).items()
-            ],
-        ),
-    ) as mock_request, mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.download_file_using_http_uri"
-    ) as mock_download:
+    with (
+        mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._get_download_presigned_url_and_headers",
+            return_value=CreateDownloadUrlResponse(
+                url=_make_presigned_url(remote_file_path),
+                headers=[
+                    HttpHeader(name=k, value=v) for k, v in _make_headers(remote_file_path).items()
+                ],
+            ),
+        ) as mock_request,
+        mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.download_file_using_http_uri"
+        ) as mock_download,
+    ):
         local_file = "local_file"
         artifact_repo._download_from_cloud(remote_file_path, local_file)
 
         mock_request.assert_called_once_with(remote_file_path)
         mock_download.assert_called_once_with(
-            http_uri=_make_pesigned_url(remote_file_path),
+            http_uri=_make_presigned_url(remote_file_path),
             download_path=local_file,
             headers=_make_headers(remote_file_path),
         )
@@ -232,9 +234,10 @@ def test_download_from_cloud_fail():
     exc_code = "ENDPOINT_NOT_FOUND"
     exc_message = f"Endpoint not found for {endpoint.lstrip('api')}."
     exc = RestException({"error_code": exc_code, "message": exc_message})
-    with mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc
-    ), pytest.raises(RestException) as exc_info:  # noqa: PT011
+    with (
+        mock.patch(f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc),
+        pytest.raises(RestException) as exc_info,  # noqa: PT011
+    ):
         artifact_repo._download_from_cloud(remote_file_path, "local_file")
 
     assert exc_info.value.error_code == exc_code
@@ -247,23 +250,28 @@ def test_log_artifact():
     artifact_path = "remote/file/location"
     total_remote_path = f"{artifact_path}/{os.path.basename(local_file)}"
     creds = ArtifactCredentialInfo(
-        signed_uri=_make_pesigned_url(total_remote_path),
+        signed_uri=_make_presigned_url(total_remote_path),
         headers=[
             ArtifactCredentialInfo.HttpHeader(name=k, value=v)
             for k, v in _make_headers(total_remote_path).items()
         ],
     )
-    with mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._get_write_credential_infos",
-        return_value=[creds],
-    ) as mock_request, mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._upload_to_cloud",
-        return_value=None,
-    ) as mock_upload:
+    with (
+        mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._get_write_credential_infos",
+            return_value=[creds],
+        ) as mock_request,
+        mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.PresignedUrlArtifactRepository._upload_to_cloud",
+            return_value=None,
+        ) as mock_upload,
+    ):
         artifact_repo.log_artifact(local_file, artifact_path)
         mock_request.assert_called_once_with(remote_file_paths=[total_remote_path])
         mock_upload.assert_called_once_with(
-            cloud_credential_info=creds, src_file_path=local_file, artifact_file_path=None
+            cloud_credential_info=creds,
+            src_file_path=local_file,
+            artifact_file_path=total_remote_path,
         )
 
 
@@ -275,13 +283,16 @@ def test_upload_to_cloud(tmp_path):
         f.write(content)
     remote_file_path = "some/remote/file/path"
     resp = mock.create_autospec(requests.Response, return_value=None)
-    with mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.cloud_storage_http_request", return_value=resp
-    ) as mock_cloud, mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.augmented_raise_for_status"
-    ) as mock_status:
+    with (
+        mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.cloud_storage_http_request", return_value=resp
+        ) as mock_cloud,
+        mock.patch(
+            f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.augmented_raise_for_status"
+        ) as mock_status,
+    ):
         cred_info = ArtifactCredentialInfo(
-            signed_uri=_make_pesigned_url(remote_file_path),
+            signed_uri=_make_presigned_url(remote_file_path),
             headers=[
                 ArtifactCredentialInfo.HttpHeader(name=k, value=v)
                 for k, v in _make_headers(remote_file_path).items()
@@ -290,7 +301,7 @@ def test_upload_to_cloud(tmp_path):
         artifact_repo._upload_to_cloud(cred_info, local_file, "some/irrelevant/path")
         mock_cloud.assert_called_once_with(
             "put",
-            _make_pesigned_url(remote_file_path),
+            _make_presigned_url(remote_file_path),
             data=bytearray(content, "utf-8"),
             headers=_make_headers(remote_file_path),
         )
@@ -304,10 +315,47 @@ def test_upload_to_cloud_fail():
     exc_code = "ENDPOINT_NOT_FOUND"
     exc_message = f"Endpoint not found for {endpoint.lstrip('api')}."
     exc = RestException({"error_code": exc_code, "message": exc_message})
-    with mock.patch(
-        f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc
-    ), pytest.raises(RestException) as exc_info:  # noqa: PT011
+    with (
+        mock.patch(f"{PRESIGNED_URL_ARTIFACT_REPOSITORY}.call_endpoint", side_effect=exc),
+        pytest.raises(RestException) as exc_info,  # noqa: PT011
+    ):
         artifact_repo._download_from_cloud(remote_file_path, "local_file")
 
     assert exc_info.value.error_code == exc_code
     assert str(exc_info.value) == f"{exc_code}: {exc_message}"
+
+
+@pytest.mark.parametrize("throw", [True, False])
+@pytest.mark.parametrize("use_og_creds", [True, False])
+@pytest.mark.parametrize("status_code", [401, 403])
+def test_retry_refresh_creds_no_creds(throw, use_og_creds, status_code):
+    credentials = "og_creds"
+    called = False
+
+    def creds_func():
+        nonlocal credentials
+        credentials = "".join(random.choices(string.ascii_lowercase, k=10))
+        return credentials
+
+    def try_func(creds):
+        nonlocal called, credentials
+        assert creds == credentials
+        resp = requests.Response()
+        resp.status_code = status_code
+        if throw and not called:
+            called = True
+            raise requests.HTTPError(response=resp)
+
+    mock_creds = mock.Mock(side_effect=creds_func)
+    mock_func = mock.Mock(side_effect=try_func)
+    if use_og_creds:
+        _retry_with_new_creds(try_func=mock_func, creds_func=mock_creds, orig_creds=credentials)
+    else:
+        _retry_with_new_creds(try_func=mock_func, creds_func=mock_creds)
+
+    if throw:
+        assert mock_func.call_count == 2
+        assert mock_creds.call_count == 1 if use_og_creds else 2
+    else:
+        assert mock_func.call_count == 1
+        assert mock_creds.call_count == 0 if use_og_creds else 1

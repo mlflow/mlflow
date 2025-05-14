@@ -1,16 +1,60 @@
 import { primitiveColors } from './_generated/PrimitiveColors';
 import { lightColorList } from './_generated/SemanticColors-Light';
 declare const branded: {
-    /** For AI components, the top-oriented start color of gradient treatments. */
-    aiGradientStart: string;
-    /** For AI components, the bottom-oriented end color of gradient treatments. */
-    aiGradientEnd: string;
+    ai: {
+        /** For AI components, the top-left-oriented start color of gradient treatments. */
+        gradientStart: string;
+        /** For AI components, the mid color of gradient treatments. */
+        gradientMid: string;
+        /** For AI components, the bottom-right-oriented end color of gradient treatments. */
+        gradientEnd: string;
+    };
 };
 type DesignSystemColors = typeof lightColorList & typeof primitiveColors & {
     /** These colors represent specific brand interactions and experiences,
      * and should be only be used in specific contexts.
      */
     branded: typeof branded;
+};
+export declare function getProtectedSemanticColors(isDarkMode: boolean): {
+    tagBackgroundBrown: string;
+    tagBackgroundCharcoal: string;
+    tagBackgroundCoral: string;
+    tagBackgroundDefault: string;
+    tagBackgroundIndigo: string;
+    tagBackgroundLemon: string;
+    tagBackgroundLime: string;
+    tagBackgroundPink: string;
+    tagBackgroundPurple: string;
+    tagBackgroundTeal: string;
+    tagBackgroundTurquoise: string;
+    tagHover: string;
+    tagIconBrown: string;
+    tagIconCharcoal: string;
+    tagIconCoral: string;
+    tagIconDefault: string;
+    tagIconHover: string;
+    tagIconIndigo: string;
+    tagIconLemon: string;
+    tagIconLime: string;
+    tagIconPink: string;
+    tagIconPress: string;
+    tagIconPurple: string;
+    tagIconTeal: string;
+    tagIconTurquoise: string;
+    tagInverse: string;
+    tagPress: string;
+    tagTextBrown: string;
+    tagTextCharcoal: string;
+    tagTextCoral: string;
+    tagTextDefault: string;
+    tagTextIndigo: string;
+    tagTextLemon: string;
+    tagTextLime: string;
+    tagTextPink: string;
+    tagTextPurple: string;
+    tagTextTeal: string;
+    tagTextTurquoise: string;
 };
 export declare function getAntdColors(isDarkMode: boolean): {
     alertTextColor: string;
@@ -81,6 +125,40 @@ export declare const deprecatedSemanticColorsLight: {
     textValidationInfo: string;
     /** @deprecated Use `codeBackground` (FEINF-xxxx) */
     typographyCodeBg: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagBrown: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagCharcoal: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagCoral: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagDefault: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagHover: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagIconHover: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagIconPress: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagIndigo: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagInverse: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagLemon: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagLime: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagPink: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagPress: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagPurple: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagTeal: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagText: string;
+    /** @deprecated Do not use Tag colors (go/updating-tag-colors). Ask in #dubois if you have any questions. */
+    tagTurquoise: string;
 };
 export declare const deprecatedSemanticColorsDark: typeof deprecatedSemanticColorsLight;
 export type SecondaryColorToken = 'brown' | 'coral' | 'indigo' | 'lemon' | 'lime' | 'pink' | 'purple' | 'teal' | 'turquoise';

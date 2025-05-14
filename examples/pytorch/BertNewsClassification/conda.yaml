@@ -10,6 +10,7 @@ dependencies:
       - boto3
       - transformers>=4.0.0
       - pandas
+      - numpy<2.0
       - torch>=2.0.0
       - torchdata>=0.6.0
       - torchtext==0.15.1

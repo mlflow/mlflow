@@ -16,22 +16,12 @@ from dev.update_mlflow_versions import (
 )
 
 # { filename: expected lines changed }
-_JAVA_FILES = {
-    "mlflow/java/scoring/src/main/java/org/mlflow/sagemaker/ScoringServer.java": {
-        175: '      response.getWriter().print("{new_version}");',
-    },
-    "mlflow/java/scoring/src/test/java/org/mlflow/ScoringServerTest.java": {
-        81: '    Assert.assertEquals("{new_version}", responseBody);',
-    },
-}
+_JAVA_FILES = {}
 
 _JAVA_XML_FILES = {
     "mlflow/java/pom.xml": {
         6: "  <version>{new_version}</version>",
         62: "    <mlflow-version>{new_version}</mlflow-version>",
-    },
-    "mlflow/java/scoring/pom.xml": {
-        8: "    <version>{new_version}</version>",
     },
     "mlflow/java/client/pom.xml": {
         8: "    <version>{new_version}</version>",
@@ -50,16 +40,20 @@ _JS_FILES = {
 
 _PYTHON_FILES = {
     "mlflow/version.py": {
-        4: 'VERSION = "{new_version}"',
+        5: 'VERSION = "{new_version}"',
     }
 }
 
 _PYPROJECT_TOML_FILES = {
-    "pyproject.skinny.toml": {
-        7: 'version = "{new_version}"',
+    "skinny/pyproject.toml": {
+        10: 'version = "{new_version}"',
     },
     "pyproject.toml": {
-        7: 'version = "{new_version}"',
+        12: 'version = "{new_version}"',
+    },
+    "pyproject.release.toml": {
+        12: 'version = "{new_version}"',
+        30: '  "mlflow-skinny=={new_version}",',
     },
 }
 

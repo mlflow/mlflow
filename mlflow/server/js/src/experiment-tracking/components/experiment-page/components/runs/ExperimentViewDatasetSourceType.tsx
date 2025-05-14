@@ -10,7 +10,7 @@ export interface ExperimentViewDatasetSourceTypeProps {
 export const ExperimentViewDatasetSourceType = ({ datasetWithTags }: ExperimentViewDatasetSourceTypeProps) => {
   const { dataset } = datasetWithTags;
 
-  const sourceType = dataset.source_type;
+  const sourceType = dataset.sourceType;
 
   const getSourceTypeLabel = () => {
     if (sourceType === DatasetSourceTypes.HTTP || sourceType === DatasetSourceTypes.EXTERNAL) {

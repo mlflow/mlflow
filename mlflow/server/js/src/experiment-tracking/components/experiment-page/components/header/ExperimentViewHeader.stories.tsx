@@ -1,6 +1,6 @@
 import React from 'react';
 import { IntlProvider } from 'react-intl';
-import { StaticRouter } from '../../../../../common/utils/RoutingUtils';
+import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { ExperimentViewHeader } from './ExperimentViewHeader';
 import { ExperimentViewHeaderCompare } from './ExperimentViewHeaderCompare';
 
@@ -12,34 +12,34 @@ export default {
 
 const mockExperiments = [
   {
-    experiment_id: '123456789',
+    experimentId: '123456789',
     name: '/Users/john.doe@databricks.com/test-experiment',
     tags: [],
-    allowed_actions: ['MODIFIY_PERMISSION', 'DELETE', 'RENAME'],
+    allowedActions: ['MODIFIY_PERMISSION', 'DELETE', 'RENAME'],
   },
   {
-    experiment_id: '654321',
+    experimentId: '654321',
     name: '/Users/john.doe@databricks.com/another-experiment',
     tags: [],
-    allowed_actions: [],
+    allowedActions: [],
   },
 ] as any;
 
 const Wrapper = ({ children }: React.PropsWithChildren<any>) => (
   <IntlProvider locale="en">
-    <StaticRouter location="/">{children}</StaticRouter>
+    <MemoryRouter initialEntries={['/']}>{children}</MemoryRouter>
   </IntlProvider>
 );
 
 export const SingleExperiment = () => (
   <Wrapper>
-    <ExperimentViewHeader experiment={mockExperiments[0]} />
+    <ExperimentViewHeader experiment={mockExperiments[0]} showAddDescriptionButton setEditing={(b) => null} />
   </Wrapper>
 );
 
 export const SingleExperimentWithoutPermissions = () => (
   <Wrapper>
-    <ExperimentViewHeader experiment={mockExperiments[1]} />
+    <ExperimentViewHeader experiment={mockExperiments[1]} showAddDescriptionButton setEditing={(b) => null} />
   </Wrapper>
 );
 

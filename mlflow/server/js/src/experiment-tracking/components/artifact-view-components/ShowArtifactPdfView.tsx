@@ -9,24 +9,30 @@ import React, { Component } from 'react';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'reac... Remove this comment to see the full error message
 import { Document, Page, pdfjs } from 'react-pdf';
 import { Pagination, Spinner } from '@databricks/design-system';
-import { getArtifactBytesContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import {
+  getArtifactBytesContent,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactPdfView.css';
 import Utils from '../../../common/utils/Utils';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified, type FetchArtifactUnifiedFn } from './utils/fetchArtifactUnified';
 
 // See: https://github.com/wojtekmaj/react-pdf/blob/master/README.md#enable-pdfjs-worker for how
 // workerSrc is supposed to be specified.
 pdfjs.GlobalWorkerOptions.workerSrc = `./static-files/pdf.worker.js`;
 
-type OwnProps = {
+type Props = {
   runUuid: string;
   path: string;
-  getArtifact?: (...args: any[]) => any;
-};
+  getArtifact: FetchArtifactUnifiedFn;
+} & LoggedModelArtifactViewerProps;
 
 type State = any;
-
-type Props = OwnProps & typeof ShowArtifactPdfView.defaultProps;
 
 class ShowArtifactPdfView extends Component<Props, State> {
   state = {
@@ -38,14 +44,15 @@ class ShowArtifactPdfView extends Component<Props, State> {
   };
 
   static defaultProps = {
-    getArtifact: getArtifactBytesContent,
+    getArtifact: fetchArtifactUnified,
   };
 
   /** Fetches artifacts and updates component state with the result */
   fetchPdf() {
-    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
+    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId } = this.props;
+
     this.props
-      .getArtifact(artifactLocation)
+      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId }, getArtifactBytesContent)
       .then((artifactPdfData: any) => {
         this.setState({ pdfData: { data: artifactPdfData }, loading: false });
       })
@@ -112,14 +119,10 @@ class ShowArtifactPdfView extends Component<Props, State> {
 
   render() {
     if (this.state.loading) {
-      return <div className="artifact-pdf-view-loading">Loading...</div>;
+      return <ArtifactViewSkeleton className="artifact-pdf-view-loading" />;
     }
     if (this.state.error) {
-      return (
-        <div className="artifact-pdf-view-error">
-          Oops we couldn't load your file because of an error. Please reload the page to try again.
-        </div>
-      );
+      return <ArtifactViewErrorState className="artifact-pdf-view-error" />;
     } else {
       return <div className="pdf-outer-container">{this.renderPdf()}</div>;
     }

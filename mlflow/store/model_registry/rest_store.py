@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.protos.model_registry_pb2 import (
@@ -61,7 +62,7 @@ class RestStore(BaseRestStore):
 
     # CRUD API for RegisteredModel objects
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -70,6 +71,7 @@ class RestStore(BaseRestStore):
             tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                 instances associated with this registered model.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -82,13 +84,14 @@ class RestStore(BaseRestStore):
         response_proto = self._call_endpoint(CreateRegisteredModel, req_body)
         return RegisteredModel.from_proto(response_proto.registered_model)
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """
         Update description of the registered model.
 
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -235,6 +238,7 @@ class RestStore(BaseRestStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -247,6 +251,9 @@ class RestStore(BaseRestStore):
                 instances associated with this model version.
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
+            local_model_path: Unused.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -262,6 +269,7 @@ class RestStore(BaseRestStore):
                 run_link=run_link,
                 tags=proto_tags,
                 description=description,
+                model_id=model_id,
             )
         )
         response_proto = self._call_endpoint(CreateModelVersion, req_body)
@@ -438,7 +446,9 @@ class RestStore(BaseRestStore):
         Returns:
             None
         """
-        req_body = message_to_json(SetRegisteredModelAlias(name=name, alias=alias, version=version))
+        req_body = message_to_json(
+            SetRegisteredModelAlias(name=name, alias=alias, version=str(version))
+        )
         self._call_endpoint(SetRegisteredModelAlias, req_body)
 
     def delete_registered_model_alias(self, name, alias):

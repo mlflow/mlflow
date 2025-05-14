@@ -90,7 +90,7 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
       return <Link to={Routes.getCompareExperimentsPageRoute(experimentIds)}>{text}</Link>;
     }
 
-    return <Link to={Routes.getExperimentPageRoute(experimentIds[0])}>{experiments[0].getName()}</Link>;
+    return <Link to={Routes.getExperimentPageRoute(experimentIds[0])}>{experiments[0].name}</Link>;
   }
 
   render() {
@@ -105,7 +105,7 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     const breadcrumbs = [this.getExperimentPageLink(), this.getRunPageLink()];
     return (
       <div>
-        <PageHeader title={title} breadcrumbs={breadcrumbs} />
+        <PageHeader title={title} breadcrumbs={breadcrumbs} hideSpacer />
         <MetricsPlotPanel {...{ experimentIds, runUuids, metricKey }} />
       </div>
     );

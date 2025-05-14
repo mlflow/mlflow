@@ -9,6 +9,7 @@ import React from 'react';
 import { shallow, mount } from 'enzyme';
 import ShowArtifactTextView, { prettifyArtifactText } from './ShowArtifactTextView';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { mountWithIntl } from '../../../common/utils/TestUtils.enzyme';
 
 describe('ShowArtifactTextView', () => {
   let wrapper: any;
@@ -61,7 +62,7 @@ describe('ShowArtifactTextView', () => {
       return Promise.resolve('my text');
     });
     const props = { ...minimalProps, getArtifact };
-    wrapper = mount(<ShowArtifactTextView {...props} />);
+    wrapper = mountWithIntl(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
@@ -75,7 +76,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('print("foo")');
     });
-    const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact };
+    const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -88,7 +89,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
     });
-    const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact };
+    const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -101,7 +102,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
     });
-    const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact };
+    const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -122,8 +123,8 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('{"key1": "val1", "key2": "val2"}');
     });
-    const props = { path: 'fake.json', runUuid: 'fakeUuid', getArtifact };
-    wrapper = mount(<ShowArtifactTextView {...props} />);
+    const props = { path: 'fake.json', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    wrapper = mountWithIntl(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find('.ShowArtifactPage').length).toBe(1);

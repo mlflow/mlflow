@@ -43,16 +43,20 @@ export const useRunsMultipleTracesTooltipData = ({
   containsMultipleMetricKeys,
   xAxisKeyLabel,
   xAxisKey,
-  disabled,
+  disabled = false,
   setHoveredPointIndex,
+  xAxisScaleType = 'linear',
+  positionInSection = 0,
 }: Pick<RunsMetricsLinePlotProps, 'runsData' | 'onHover' | 'onUnhover'> & {
   plotData: LineChartTraceData[];
   legendLabelData: LegendLabelData[];
   containsMultipleMetricKeys?: boolean;
   xAxisKeyLabel: string;
-  disabled: boolean;
+  disabled?: boolean;
   xAxisKey: RunsChartsLineChartXAxisType;
   setHoveredPointIndex: (value: number) => void;
+  xAxisScaleType?: 'linear' | 'log';
+  positionInSection?: number;
 }) => {
   // Save current boundaries/dimensions of the plot in the mutable ref object
   const chartBoundaries = useRef<{
@@ -97,12 +101,14 @@ export const useRunsMultipleTracesTooltipData = ({
   const immediateRunsData = useRef(runsData);
   const immediatePlotData = useRef(plotData);
   const immediateXValuesData = useRef(visibleXValues);
+  const immediateFigure = useRef(initializedFigure);
 
   // Update the mutable ref objects when the input data changes
   immediateLegendLabelData.current = legendLabelData;
   immediateRunsData.current = runsData;
   immediatePlotData.current = plotData;
   immediateXValuesData.current = visibleXValues;
+  immediateFigure.current = initializedFigure;
 
   // Setup the boundaries of the plot
   const setupBoundaries = useCallback((figure: Readonly<Figure>) => {
@@ -161,6 +167,16 @@ export const useRunsMultipleTracesTooltipData = ({
     [onUpdatePlotHandler],
   );
 
+  useEffect(() => {
+    // Recalculate positions after chart has been moved
+    requestAnimationFrame(() => {
+      if (!immediateFigure.current) {
+        return;
+      }
+      onUpdatePlotHandler(immediateFigure.current.figure, immediateFigure.current.graphDiv);
+    });
+  }, [positionInSection, onUpdatePlotHandler]);
+
   // Hides the scanline when the mouse leaves the plot
   const pointerLeavePlotCallback = useCallback(
     (e: PointerEvent) => {
@@ -218,26 +234,29 @@ export const useRunsMultipleTracesTooltipData = ({
     setHoveredPointIndex(-1);
   }, [setHoveredPointIndex]);
 
-  const getClosestXValue = useCallback((pointerClientX: number) => {
-    const boundaries = chartBoundaries.current;
+  const getClosestXValue = useCallback(
+    (pointerClientX: number) => {
+      const boundaries = chartBoundaries.current;
+      // Calculate the X value of the hovered point
+      const resultX =
+        (pointerClientX - boundaries.plotOffsetPixels - boundaries.containerLeftPixels) / boundaries.plotWidthPixels;
 
-    // Calculate the X value of the hovered point
-    const resultX =
-      (pointerClientX - boundaries.plotOffsetPixels - boundaries.containerLeftPixels) / boundaries.plotWidthPixels;
-
-    // Calculate the current step based on the X value and precalculated boundaries
-    const currentStep = boundaries.lowerBoundValue + boundaries.valueRange * resultX;
-
-    // Find the closest existing X value to the currently hovered value
-    const closestXValue = immediateXValuesData.current.reduce((acc, x) => {
-      if (Math.abs(x - currentStep) < Math.abs(acc - currentStep)) {
-        return x;
+      // Calculate the current step based on the X value and precalculated boundaries
+      let currentStep = boundaries.lowerBoundValue + boundaries.valueRange * resultX;
+      if (xAxisScaleType === 'log') {
+        currentStep = 10 ** currentStep;
       }
-      return acc;
-    }, immediateXValuesData.current[0]);
-
-    return closestXValue;
-  }, []);
+      // Find the closest existing X value to the currently hovered value
+      const closestXValue = immediateXValuesData.current.reduce((acc, x) => {
+        if (Math.abs(x - currentStep) < Math.abs(acc - currentStep)) {
+          return x;
+        }
+        return acc;
+      }, immediateXValuesData.current[0]);
+      return closestXValue;
+    },
+    [xAxisScaleType],
+  );
 
   useEffect(() => {
     // Return early if this tooltip is disabled
@@ -320,10 +339,10 @@ export const useRunsMultipleTracesTooltipData = ({
       }
 
       const boundaries = chartBoundaries.current;
-
       const closestXValue = getClosestXValue(e.clientX);
-
-      const closestXValueLeftX = (closestXValue - boundaries.lowerBoundValue) / boundaries.valueRange;
+      const closestXValueLeftX =
+        ((xAxisScaleType === 'log' ? Math.log10(closestXValue) : closestXValue) - boundaries.lowerBoundValue) /
+        boundaries.valueRange;
       const closestXValueLeftInPixels = closestXValueLeftX * boundaries.plotWidthPixels;
 
       // Enable and reposition the scanline
@@ -370,6 +389,7 @@ export const useRunsMultipleTracesTooltipData = ({
     disabled,
     xAxisKey,
     xAxisKeyLabel,
+    xAxisScaleType,
     getClosestXValue,
     updateContainerPosition,
   ]);

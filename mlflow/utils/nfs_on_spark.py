@@ -4,9 +4,10 @@ import uuid
 
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.databricks_utils import (
-    _get_dbutils,
+    get_databricks_nfs_temp_dir,
+    is_databricks_connect,
     is_in_databricks_runtime,
-    is_in_databricks_serverless,
+    is_in_databricks_serverless_runtime,
 )
 
 # Set spark config "spark.mlflow.nfs.rootDir" to specify a NFS (network file system) directory
@@ -27,16 +28,16 @@ _NFS_CACHE_ROOT_DIR = None
 def get_nfs_cache_root_dir():
     if is_in_databricks_runtime():
         spark_sess = _get_active_spark_session()
-        if is_in_databricks_serverless():
-            nfs_enabled = True
+        if is_in_databricks_serverless_runtime():
+            # Databricks Serverless runtime VM can't access NFS.
+            nfs_enabled = False
         else:
             nfs_enabled = spark_sess and (
                 spark_sess.conf.get("spark.databricks.mlflow.nfs.enabled", "true").lower() == "true"
             )
         if nfs_enabled:
             try:
-                # The directory `getReplNFSTempDir` returns has read/write permissions.
-                return _get_dbutils().entry_point.getReplNFSTempDir()
+                return get_databricks_nfs_temp_dir()
             except Exception:
                 nfs_root_dir = "/local_disk0/.ephemeral_nfs"
                 # Test whether the NFS directory is writable.
@@ -54,5 +55,8 @@ def get_nfs_cache_root_dir():
             return None
     else:
         spark_session = _get_active_spark_session()
+        if is_databricks_connect(spark_session):
+            # Remote spark connect client can't access Databricks Serverless cluster NFS.
+            return None
         if spark_session is not None:
             return spark_session.conf.get("spark.mlflow.nfs.rootDir", None)

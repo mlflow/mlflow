@@ -1,19 +1,23 @@
 import { ModelsIcon, Overflow, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import { RunInfoEntity } from '../../../types';
+import { type LoggedModelProto } from '../../../types';
 import Routes from '../../../routes';
 import { first } from 'lodash';
 import { FormattedMessage } from 'react-intl';
 import { useMemo } from 'react';
+import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 
 /**
  * Displays list of registered models in run detail overview.
  */
 export const RunViewLoggedModelsBox = ({
   loggedModels,
+  loggedModelsV3,
   runInfo,
 }: {
-  runInfo: RunInfoEntity;
+  runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
+  loggedModelsV3: LoggedModelProto[];
   loggedModels: {
     artifactPath: string;
     flavors: string[];
@@ -21,7 +25,7 @@ export const RunViewLoggedModelsBox = ({
   }[];
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { experiment_id, run_uuid } = runInfo;
+  const { experimentId, runUuid } = runInfo;
 
   const getModelFlavorName = (flavors: string[]) => {
     return (
@@ -47,7 +51,7 @@ export const RunViewLoggedModelsBox = ({
       {loggedModels.map((model, index) => {
         return (
           <Link
-            to={Routes.getRunPageRoute(experiment_id, run_uuid, model.artifactPath)}
+            to={Routes.getRunPageRoute(experimentId ?? '', runUuid ?? '', model.artifactPath)}
             key={model.artifactPath}
             css={{
               display: 'flex',
@@ -62,6 +66,24 @@ export const RunViewLoggedModelsBox = ({
               {getModelFlavorName(model.flavors)}
               {shouldDisplayArtifactPaths && index > 0 && <Typography.Hint>{model.artifactPath}</Typography.Hint>}
             </div>
+          </Link>
+        );
+      })}
+      {loggedModelsV3.map((model, index) => {
+        return (
+          <Link
+            to={Routes.getExperimentLoggedModelDetailsPageRoute(experimentId ?? '', model.info?.model_id ?? '')}
+            key={model.info?.model_id ?? index}
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.sm,
+              cursor: 'pointer',
+              height: shouldDisplayArtifactPaths && index > 0 ? theme.general.heightBase : theme.general.heightSm,
+            }}
+          >
+            <ModelsIcon />
+            <div>{model.info?.name}</div>
           </Link>
         );
       })}
