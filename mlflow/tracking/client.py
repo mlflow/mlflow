@@ -5275,7 +5275,7 @@ class MlflowClient:
         )
 
     @experimental
-    def log_logged_model_params(self, model_id: str, params: dict[str, str]) -> None:
+    def log_model_params(self, model_id: str, params: dict[str, str]) -> None:
         """
         Log parameters for a logged model.
 

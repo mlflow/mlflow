@@ -2516,7 +2516,7 @@ def test_create_logged_model(mlflow_client: MlflowClient):
 def test_log_logged_model_params(mlflow_client: MlflowClient):
     exp_id = mlflow_client.create_experiment("create_logged_model")
     model = mlflow_client.create_logged_model(exp_id)
-    mlflow_client.log_logged_model_params(model.model_id, {"param": "value"})
+    mlflow_client.log_model_params(model.model_id, {"param": "value"})
     loaded_model = mlflow_client.get_logged_model(model.model_id)
     assert loaded_model.params == {"param": "value"}
 

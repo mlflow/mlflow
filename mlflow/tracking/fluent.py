@@ -2266,14 +2266,14 @@ def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> 
     Log params to the specified logged model.
 
     Args:
-        model_id: ID of the model.
         params: Params to log on the model.
+        model_id: ID of the model. If not specified, use the current active model ID.
 
     Returns:
         None
     """
     model_id = model_id or get_active_model_id()
-    MlflowClient().log_logged_model_params(model_id, params)
+    MlflowClient().log_model_params(model_id, params)
 
 
 @experimental
