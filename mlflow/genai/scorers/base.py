@@ -75,6 +75,7 @@ class Scorer(BaseModel):
             * - ``expectations``
               - Ground truth or any expectation for each prediction, e.g. expected retrieved docs.
               - Derived from either dataset or trace.
+
                 * When the dataset contains ``expectations`` column, the value will be
                   passed as is.
                 * When traces are provided as evaluation dataset, this will be a dictionary
