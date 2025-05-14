@@ -1,7 +1,6 @@
 import atexit
 import logging
 import threading
-import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from queue import Empty, Queue
@@ -110,7 +109,7 @@ class AsyncTraceExportQueue:
         try:
             future = self._worker_threadpool.submit(_handle, task)
             self._active_tasks.add(future)
-        except RuntimeError as e:
+        except Exception as e:
             # In case it fails to submit the task to the worker thread pool
             # such as interpreter shutdown, handle the task in this thread
             _logger.debug(
