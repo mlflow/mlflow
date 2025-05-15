@@ -237,7 +237,7 @@ if not IS_TRACING_SDK_ONLY:
         set_system_metrics_samples_before_logging,
         set_system_metrics_sampling_interval,
     )
-    from mlflow.models import evaluate
+    from mlflow.models.evaluation.deprecated import evaluate
     from mlflow.models.evaluation.validation import validate_evaluation_results
     from mlflow.projects import run
     from mlflow.tracking._model_registry.fluent import (

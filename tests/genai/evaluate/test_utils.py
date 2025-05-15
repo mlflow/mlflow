@@ -269,7 +269,7 @@ def test_scorer_receives_correct_data(data_fixture, request):
 
 
 def test_input_is_required_if_trace_is_not_provided():
-    with patch("mlflow.evaluate") as mock_evaluate:
+    with patch("mlflow.models.evaluate") as mock_evaluate:
         with pytest.raises(MlflowException, match="inputs.*required"):
             mlflow.genai.evaluate(
                 data=pd.DataFrame({"outputs": ["Paris"]}),
@@ -294,7 +294,7 @@ def test_input_is_optional_if_trace_is_provided():
 
     trace = mlflow.get_trace(span.trace_id)
 
-    with patch("mlflow.evaluate") as mock_evaluate:
+    with patch("mlflow.models.evaluate") as mock_evaluate:
         mlflow.genai.evaluate(
             data=pd.DataFrame({"trace": [trace]}),
             scorers=[safety()],

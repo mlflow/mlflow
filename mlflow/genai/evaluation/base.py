@@ -285,7 +285,7 @@ def evaluate(
             logger.info("Annotating predict_fn with tracing since it is not already traced.")
             predict_fn = mlflow.trace(predict_fn)
 
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         # Wrap the prediction function to unwrap the inputs dictionary into keyword arguments.
         model=(lambda request: predict_fn(**request)) if predict_fn else None,
         data=data,
@@ -293,6 +293,7 @@ def evaluate(
         extra_metrics=extra_metrics,
         model_type=GENAI_CONFIG_NAME,
         model_id=model_id,
+        _called_from_genai_evaluate=True,
     )
 
     return EvaluationResult(
