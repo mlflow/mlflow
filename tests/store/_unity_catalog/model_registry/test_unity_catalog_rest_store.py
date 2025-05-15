@@ -70,6 +70,7 @@ from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
     UcModelRegistryStore,
+    _construct_databricks_job_url,
 )
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
@@ -2074,17 +2075,33 @@ def test_create_and_update_registered_model_print_job_url(mock_http, store, caps
     name = "model_for_job_url_test"
     description = "test model with job id"
     deployment_job_id = "job-123"
-    expected_job_url = "https://databrickshost/jobs/job-123"
+    host = "https://databricks.com"
+    workspace_id = "789"
+    expected_job_url = f"{host}/jobs/{deployment_job_id}?o={workspace_id}"
 
-    with mock.patch(
-        "mlflow.store._unity_catalog.registry.rest_store._construct_databricks_job_url",
+    mock_construct_url = mock.create_autospec(
+        _construct_databricks_job_url,
         return_value=expected_job_url,
-    ) as mock_construct_url:
+    )
+    with (
+        mock.patch(
+            "mlflow.store._unity_catalog.registry.rest_store._construct_databricks_job_url",
+            mock_construct_url,
+        ),
+        mock.patch(
+            "mlflow.store._unity_catalog.registry.rest_store.get_workspace_url",
+            return_value=host,
+        ),
+        mock.patch(
+            "mlflow.store._unity_catalog.registry.rest_store.get_workspace_id",
+            return_value=workspace_id,
+        ),
+    ):
         store.update_registered_model(
             name=name, description=description, deployment_job_id=deployment_job_id
         )
 
-        mock_construct_url.assert_called_once_with(deployment_job_id)
+        mock_construct_url.assert_called_once_with(host, deployment_job_id, workspace_id)
         captured = capsys.readouterr()
         assert f"🔗 Linked deployment job to '{name}': {expected_job_url}" in captured.err
         _verify_requests(
@@ -2100,7 +2117,7 @@ def test_create_and_update_registered_model_print_job_url(mock_http, store, caps
         store.create_registered_model(
             name=name, description=description, deployment_job_id=deployment_job_id
         )
-        mock_construct_url.assert_called_once_with(deployment_job_id)
+        mock_construct_url.assert_called_once_with(host, deployment_job_id, workspace_id)
         captured = capsys.readouterr()
         assert f"🔗 Linked deployment job to '{name}': {expected_job_url}" in captured.err
         _verify_requests(
