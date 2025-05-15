@@ -5,41 +5,45 @@ import pytest
 
 import mlflow
 
-
-@pytest.fixture(params=["databricks", "local"])
-def tracking_uri(request):
-    if request.param == "databricks":
-        uri = "databricks"
-        with patch("mlflow.get_tracking_uri", return_value=uri):
-            yield uri
-    else:
-        uri = "sqlite://"
-        with patch("mlflow.get_tracking_uri", return_value=uri):
-            yield uri
+_TEST_DATA = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
 
 
-@patch("mlflow.models.evaluation.deprecated.warnings")
-def test_global_evaluate_deprecation(mock_warnings, tracking_uri):
-    data = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
-    # Issue a warning when mlflow.evaluate is used in Databricks
-    mlflow.evaluate(
-        data=data,
-        model=lambda x: x["x"] * 2,
-        extra_metrics=[mlflow.metrics.latency()],
-    )
-    if tracking_uri.startswith("databricks"):
-        mock_warnings.warn.assert_called_once()
-        assert mock_warnings.warn.call_args[0][0].startswith(
-            "The `mlflow.evaluate` API has been deprecated"
+@pytest.fixture
+def mock_warnings():
+    with patch("mlflow.models.evaluation.deprecated.warnings") as mock_warnings:
+        yield mock_warnings
+
+
+def test_global_evaluate_warn_in_databricks(mock_warnings):
+    with patch("mlflow.get_tracking_uri", return_value="databricks"):
+        mlflow.evaluate(
+            data=_TEST_DATA,
+            model=lambda x: x["x"] * 2,
+            extra_metrics=[mlflow.metrics.latency()],
         )
-    else:
-        mock_warnings.warn.assert_not_called()
-    mock_warnings.reset_mock()
 
-    # No warning when mlflow.models.evaluate is used
-    mlflow.models.evaluate(
-        data=data,
+    mock_warnings.warn.assert_called_once()
+    assert mock_warnings.warn.call_args[0][0].startswith(
+        "The `mlflow.evaluate` API has been deprecated"
+    )
+
+
+def test_global_evaluate_does_not_warn_outside_databricks(mock_warnings):
+    mlflow.evaluate(
+        data=_TEST_DATA,
         model=lambda x: x["x"] * 2,
         extra_metrics=[mlflow.metrics.latency()],
     )
-    mock_warnings.warning.assert_not_called()
+    mock_warnings.warn.assert_not_called()
+
+
+@pytest.mark.parametrize("tracking_uri", ["databricks", "sqlite://"])
+def test_models_evaluate_does_not_warn(tracking_uri, mock_warnings):
+    with patch("mlflow.get_tracking_uri", return_value=tracking_uri):
+        mlflow.models.evaluate(
+            data=_TEST_DATA,
+            model=lambda x: x["x"] * 2,
+            extra_metrics=[mlflow.metrics.latency()],
+        )
+
+    mock_warnings.warn.assert_not_called()
