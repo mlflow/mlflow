@@ -1,9 +1,9 @@
 import logging
+import os
 import re
 import subprocess
 import sys
 import uuid
-import os
 from io import StringIO
 
 import pytest
