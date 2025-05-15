@@ -191,9 +191,7 @@ def evaluate(
                 - outputs (optional): Column containing model or app outputs.
                   If this column is present, `predict_fn` must not be provided.
 
-                - expectations (optional): Column containing ground truth or
-                  dictionary of ground truths. If this column contains a single string,
-                  it is assumed to be the expected response for the row.
+                - expectations (optional): Column containing a dictionary of ground truths.
 
             The input dataframe can contain extra columns that will be directly passed to
             the scorers. For example, you can pass a dataframe with `retrieved_context`
