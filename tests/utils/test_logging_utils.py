@@ -10,6 +10,7 @@ import pytest
     [
         ("DEBUG", True),
         ("INFO", False),
+        ("NOTSET", False),
     ],
 )
 def test_logging_level(log_level: str, expected: bool) -> None:
