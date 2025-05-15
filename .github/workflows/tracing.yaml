@@ -52,6 +52,7 @@ jobs:
         # NB: OTLP exporter includes large dependencies, so we want to test it in a separate job
         #     to avoid overlooking unnecessary dependencies in the core tracing package.
         run: |
+          export PYTHONPATH=$(pwd)
           pytest tests/tracing --ignore tests/tracing/utils/test_otlp.py --import-mode=importlib
 
   # TODO: Add a job to run autologging tests against integrated libraries (latest versions)

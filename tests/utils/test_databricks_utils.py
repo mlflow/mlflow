@@ -631,3 +631,33 @@ def test_construct_databricks_uc_registered_model_url():
     )
 
     assert result_no_workspace == expected_url_no_workspace
+
+
+def test_construct_databricks_logged_model_url():
+    # Test case with workspace ID
+    workspace_url = "https://databricks.com"
+    experiment_id = "123456"
+    model_id = "model_789"
+    workspace_id = "123"
+
+    expected_url = "https://databricks.com/ml/experiments/123456/models/model_789?o=123"
+
+    result = databricks_utils._construct_databricks_logged_model_url(
+        workspace_url=workspace_url,
+        experiment_id=experiment_id,
+        model_id=model_id,
+        workspace_id=workspace_id,
+    )
+
+    assert result == expected_url
+
+    # Test case without workspace ID
+    expected_url_no_workspace = "https://databricks.com/ml/experiments/123456/models/model_789"
+
+    result_no_workspace = databricks_utils._construct_databricks_logged_model_url(
+        workspace_url=workspace_url,
+        experiment_id=experiment_id,
+        model_id=model_id,
+    )
+
+    assert result_no_workspace == expected_url_no_workspace
