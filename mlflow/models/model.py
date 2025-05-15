@@ -952,10 +952,14 @@ class Model:
                     else None,
                 )
                 if MLFLOW_PRINT_MODEL_URLS_ON_CREATION.get() and is_databricks_uri(tracking_uri):
-                    logged_model_url = _construct_databricks_logged_model_url(
-                        get_workspace_url(), model.experiment_id, model.model_id, get_workspace_id()
-                    )
-                    eprint(f"🔗 View Logged Model at: {logged_model_url}")
+                    if workspace_url := get_workspace_url():
+                        logged_model_url = _construct_databricks_logged_model_url(
+                            workspace_url,
+                            model.experiment_id,
+                            model.model_id,
+                            get_workspace_id(),
+                        )
+                        eprint(f"🔗 View Logged Model at: {logged_model_url}")
 
             with _use_logged_model(model=model):
                 if run_id is not None:
