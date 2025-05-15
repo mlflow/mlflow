@@ -11,19 +11,20 @@ interface DropdownRootProps extends DropdownMenu.DropdownMenuProps {
 export declare const Root: ({ children, itemHtmlType, ...props }: DropdownRootProps) => ReactElement;
 export interface DropdownMenuProps extends DropdownMenu.MenuContentProps {
     minWidth?: number;
+    matchTriggerWidth?: boolean;
     forceCloseOnEscape?: boolean;
 }
-export interface DropdownMenuItemProps extends DropdownMenu.DropdownMenuItemProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
+export interface DropdownMenuItemProps extends DropdownMenu.DropdownMenuItemProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     danger?: boolean;
     disabledReason?: React.ReactNode;
 }
 export interface DropdownMenuSubTriggerProps extends DropdownMenu.DropdownMenuSubTriggerProps {
     disabledReason?: React.ReactNode;
 }
-export interface DropdownMenuCheckboxItemProps extends DropdownMenu.DropdownMenuCheckboxItemProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface DropdownMenuCheckboxItemProps extends DropdownMenu.DropdownMenuCheckboxItemProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     disabledReason?: React.ReactNode;
 }
-export interface DropdownMenuRadioGroupProps extends DropdownMenu.DropdownMenuRadioGroupProps, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface DropdownMenuRadioGroupProps extends DropdownMenu.DropdownMenuRadioGroupProps, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
 }
 export interface DropdownMenuRadioItemProps extends DropdownMenu.DropdownMenuRadioItemProps {
     disabledReason?: React.ReactNode;
@@ -56,7 +57,7 @@ export declare const HintRow: React.ForwardRefExoticComponent<Pick<Pick<React.De
 export declare const IconWrapper: React.ForwardRefExoticComponent<Pick<Pick<React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>, "key" | keyof React.HTMLAttributes<HTMLDivElement>> & {
     ref?: ((instance: HTMLDivElement | null) => void) | React.RefObject<HTMLDivElement> | null | undefined;
 }, "key" | keyof React.HTMLAttributes<HTMLDivElement>> & React.RefAttributes<HTMLDivElement>>;
-export declare const dropdownContentStyles: (theme: Theme, useNewShadows: boolean) => CSSObject;
+export declare const dropdownContentStyles: (theme: Theme, useNewShadows: boolean, useNewBorderColors: boolean) => CSSObject;
 export declare const dropdownItemStyles: (theme: Theme) => Interpolation<Theme>;
 export declare const dropdownSeparatorStyles: (theme: Theme) => {
     height: number;

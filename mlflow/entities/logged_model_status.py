@@ -43,7 +43,7 @@ class LoggedModelStatus(str, Enum):
             return LoggedModelStatus.PENDING
         elif proto == pb2.LoggedModelStatus.LOGGED_MODEL_READY:
             return LoggedModelStatus.READY
-        elif proto == pb2.LoggedModelStatus.LOGGED_MODEL_FAILED:
+        elif proto == pb2.LoggedModelStatus.LOGGED_MODEL_UPLOAD_FAILED:
             return LoggedModelStatus.FAILED
 
         raise MlflowException.invalid_parameter_value(f"Unknown model status: {proto}")

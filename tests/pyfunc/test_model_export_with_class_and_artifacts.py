@@ -27,7 +27,10 @@ import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.entities import Trace
-from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
+from mlflow.environment_variables import (
+    MLFLOW_LOG_MODEL_COMPRESSION,
+    MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.auth_policy import AuthPolicy, SystemAuthPolicy, UserAuthPolicy
@@ -2468,6 +2471,34 @@ def test_both_resources_and_auth_policy():
             )
 
 
+@pytest.mark.parametrize("compression", ["lzma", "bzip2", "gzip"])
+def test_model_save_load_compression(
+    monkeypatch, sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path, compression
+):
+    monkeypatch.setenv(MLFLOW_LOG_MODEL_COMPRESSION.name, compression)
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+    def test_predict(sk_model, model_input):
+        return sk_model.predict(model_input) * 2
+
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        artifacts={"sk_model": sklearn_model_path},
+        conda_env=_conda_env(),
+        python_model=main_scoped_model_class(test_predict),
+    )
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+    np.testing.assert_array_equal(
+        loaded_pyfunc_model.predict(iris_data[0]),
+        test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]),
+    )
+
+
+@pytest.mark.skip(reason="Enable once we re-enable the warning")
 def test_load_model_warning():
     class Model(mlflow.pyfunc.PythonModel):
         def predict(self, model_input: list[str]):

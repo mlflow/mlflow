@@ -8,7 +8,6 @@ from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
 )
-from mlflow.utils.warnings_utils import color_warning
 
 _logger = logging.getLogger(__name__)
 
@@ -152,24 +151,26 @@ class RunsArtifactRepository(ArtifactRepository):
             while True:
                 page = client.search_logged_models(
                     experiment_ids=[run.info.experiment_id],
-                    # TODO: Use filter_string once the backend supports it
-                    # filter_string="...",
+                    # TODO: Filter by 'source_run_id' once Databricks backend supports it
+                    filter_string=f"name = '{model_name}'",
                     page_token=page_token,
                 )
                 for model in page:
                     # Return the first model that matches the run_id and artifact_path
-                    if model.source_run_id == run_id and model.name == model_name:
+                    if model.source_run_id == run_id:
                         repo = get_artifact_repository(model.artifact_location)
-                        color_warning(
-                            "`runs:/<run_id>/artifact_path` is deprecated for loading models, "
-                            "use `models:/<model_id>` instead. Alternatively, retrieve "
-                            "`model_info.model_uri` from the model_info returned by "
-                            "mlflow.<flavor>.log_model. For example: "
-                            "model_info = mlflow.<flavor>.log_model(...); "
-                            "model = mlflow.<flavor>.load_model(model_info.model_uri)",
-                            stacklevel=1,
-                            color="yellow",
-                        )
+                        # TODO: Disabled for now. Consider re-enabling this once we migrate docs
+                        # and examples to use the new model URI format.
+                        # color_warning(
+                        #     "`runs:/<run_id>/artifact_path` is deprecated for loading models, "
+                        #     "use `models:/<model_id>` instead. Alternatively, retrieve "
+                        #     "`model_info.model_uri` from the model_info returned by "
+                        #     "mlflow.<flavor>.log_model. For example: "
+                        #     "model_info = mlflow.<flavor>.log_model(...); "
+                        #     "model = mlflow.<flavor>.load_model(model_info.model_uri)",
+                        #     stacklevel=1,
+                        #     color="yellow",
+                        # )
                         return repo.download_artifacts(
                             artifact_path=artifact_path,  # root directory
                             dst_path=dst_path,

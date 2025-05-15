@@ -1,11 +1,19 @@
 from unittest import mock
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
 
-import mlflow.genai.evaluation
+import mlflow
+from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, groundedness
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
+
+
+def mock_init_auth(config_instance):
+    config_instance.host = "https://databricks.com/"
+    config_instance._header_factory = lambda: {}
 
 
 @pytest.mark.parametrize(
@@ -67,12 +75,12 @@ def test_model_from_deployment_endpoint(mock_deploy_client, model_input):
 def test_evaluate_passes_model_id_to_mlflow_evaluate():
     # Tracking URI = databricks is required to use mlflow.genai.evaluate()
     mlflow.set_tracking_uri("databricks")
-    data = []
-    with (
-        mock.patch("mlflow.genai.evaluation.base.is_model_traced", return_value=True),
-        mock.patch("mlflow.genai.evaluation.base._convert_to_legacy_eval_set", return_value=data),
-        mock.patch("mlflow.evaluate") as mock_evaluate,
-    ):
+    data = [
+        {"inputs": {"foo": "bar"}, "outputs": "response from model"},
+        {"inputs": {"baz": "qux"}, "outputs": "response from model"},
+    ]
+
+    with mock.patch("mlflow.evaluate") as mock_evaluate:
 
         @mlflow.trace
         def model(x):
@@ -82,14 +90,24 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
             data=data,
             predict_fn=model,
             model_id="test_model_id",
+            scorers=[groundedness()],
         )
 
         # Verify the call was made with the right parameters
         mock_evaluate.assert_called_once_with(
             model=model,
-            data=data,
-            evaluator_config={},
+            data=mock.ANY,
+            evaluator_config={GENAI_CONFIG_NAME: {"metrics": ["groundedness"]}},
             model_type="databricks-agent",
             extra_metrics=[],
             model_id="test_model_id",
         )
+
+
+@patch("mlflow.get_tracking_uri", return_value="databricks")
+def test_no_scorers(mock_get_tracking_uri):
+    with pytest.raises(TypeError, match=r"evaluate\(\) missing 1 required positional"):
+        mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}])
+
+    with pytest.raises(MlflowException, match=r"At least one scorer is required"):
+        mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])

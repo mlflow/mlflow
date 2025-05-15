@@ -1781,6 +1781,17 @@ def test_initialize_logged_model_tags_from_context():
         m_get_source_version.assert_called_once()
 
 
+def test_finalized_logged_model():
+    model = mlflow.initialize_logged_model()
+    finalized_model = mlflow.finalize_logged_model(
+        model_id=model.model_id, status=LoggedModelStatus.READY
+    )
+    assert finalized_model.status == LoggedModelStatus.READY
+
+    finalized_model = mlflow.finalize_logged_model(model_id=model.model_id, status="READY")
+    assert finalized_model.status == LoggedModelStatus.READY
+
+
 def test_create_external_model(tmp_path):
     model = mlflow.create_external_model()
     assert model.status == LoggedModelStatus.READY
@@ -1903,25 +1914,27 @@ def test_search_logged_models():
         )
 
 
-def test_search_logged_models_pagination():
-    def make_search_logged_model_page(models, token):
-        page = mock.Mock()
-        page.to_list.return_value = models
-        page.token = token
-        return page
+def make_mock_search_logged_model_page(models, token):
+    page = mock.Mock()
+    page.to_list.return_value = models
+    page.token = token
+    return page
 
+
+def test_search_logged_models_pagination():
     with mock.patch("mlflow.tracking.fluent.MlflowClient") as MockClient:
         mock_client = MockClient.return_value
-        page_1 = make_search_logged_model_page(["model_1", "model_2"], "token_1")
-        page_2 = make_search_logged_model_page(["model_3"], None)
+        page_1 = make_mock_search_logged_model_page(["model_1", "model_2"], "token_1")
+        page_2 = make_mock_search_logged_model_page(["model_3"], None)
         mock_client.search_logged_models.side_effect = [page_1, page_2]
 
-        result = mlflow.search_logged_models(experiment_ids=["123"], output_format="list")
+        experiment_ids = ["123"]
+        result = mlflow.search_logged_models(experiment_ids=experiment_ids, output_format="list")
         assert result == [f"model_{i + 1}" for i in range(3)]
 
         expected_calls = [
             mock.call(
-                experiment_ids=["123"],
+                experiment_ids=experiment_ids,
                 filter_string=None,
                 datasets=None,
                 max_results=None,
@@ -1929,7 +1942,7 @@ def test_search_logged_models_pagination():
                 page_token=None,
             ),
             mock.call(
-                experiment_ids=["123"],
+                experiment_ids=experiment_ids,
                 filter_string=None,
                 datasets=None,
                 max_results=None,
@@ -1938,6 +1951,29 @@ def test_search_logged_models_pagination():
             ),
         ]
         mock_client.search_logged_models.assert_has_calls(expected_calls)
+
+
+def test_search_logged_models_max_results():
+    with mock.patch("mlflow.tracking.fluent.MlflowClient") as MockClient:
+        mock_client = MockClient.return_value
+        page = make_mock_search_logged_model_page(["model_1", "model_2"], "token_1")
+        mock_client.search_logged_models.side_effect = [page]
+
+        experiment_ids = ["123"]
+        max_results = 1
+        result = mlflow.search_logged_models(
+            experiment_ids=experiment_ids, max_results=max_results, output_format="list"
+        )
+        assert result == ["model_1"]
+
+        mock_client.search_logged_models.assert_called_once_with(
+            experiment_ids=experiment_ids,
+            filter_string=None,
+            datasets=None,
+            max_results=max_results,
+            order_by=None,
+            page_token=None,
+        )
 
 
 def test_set_active_model():
@@ -2045,3 +2081,27 @@ def test_set_active_model_link_traces():
     assert len(traces) == 6
     assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == new_model.model_id
     assert new_model.model_id != model_id
+
+
+def test_log_metric_link_to_active_model():
+    model = mlflow.create_external_model(name="test_model")
+    set_active_model(name=model.name)
+    with mlflow.start_run():
+        mlflow.log_metric("metric", 1)
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.name == model.name
+    assert logged_model.model_id == model.model_id
+    assert logged_model.metrics[0].key == "metric"
+    assert logged_model.metrics[0].value == 1
+
+
+def test_log_metrics_link_to_active_model():
+    model = mlflow.create_external_model(name="test_model")
+    set_active_model(name=model.name)
+    with mlflow.start_run():
+        mlflow.log_metrics({"metric1": 1, "metric2": 2})
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.name == model.name
+    assert logged_model.model_id == model.model_id
+    assert len(logged_model.metrics) == 2
+    assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}

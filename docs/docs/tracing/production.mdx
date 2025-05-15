@@ -69,8 +69,8 @@ When using Lakehouse Monitoring for GenAI, MLflow logs traces asynchronously by 
 |----------------------|-------------|---------------|
 | `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING` | Whether to log traces asynchronously. When set to `False`, traces will be logged in a blocking manner. | `True` |
 | `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS` | The maximum number of worker threads to use for async trace logging per process. Increasing this allows higher throughput of trace logging, but also increases the CPU usage and memory consumption. | `10` |
-| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | The maximum number of traces that can be queued before being logged to backend by the worker threads. When the queue is full, new traces will be discarded. Increasing this allows higher durability of trace logging, but also increases the memory consumption. | `50` |
-| `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT` | The timeout in seconds for retrying failed trace logging. When a trace logging fails, it will be retried up to this timeout with backoff, after which it will be discarded. | `5` |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | The maximum number of traces that can be queued before being logged to backend by the worker threads. When the queue is full, new traces will be discarded. Increasing this allows higher durability of trace logging, but also increases the memory consumption. | `1000` |
+| `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT` | The timeout in seconds for retrying failed trace logging. When a trace logging fails, it will be retried up to this timeout with backoff, after which it will be discarded. | `500` |
 
 
 ## OpenTelemetry Integration

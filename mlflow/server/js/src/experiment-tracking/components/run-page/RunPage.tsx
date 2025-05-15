@@ -30,6 +30,7 @@ import {
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { RunViewTracesTab } from './RunViewTracesTab';
 import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
+import { useLoggedModelsForExperimentRun } from '../experiment-page/hooks/useLoggedModelsForExperimentRun';
 
 const RunPageLoadingState = () => (
   <PageContainer>
@@ -94,7 +95,10 @@ export const RunPage = () => {
 
   const activeTab = useRunViewActiveTab();
 
-  const isLoadingLoggedModels = false;
+  const { models: loggedModelsV3, isLoading: isLoadingLoggedModels } = useLoggedModelsForExperimentRun(
+    experimentId,
+    runUuid,
+  );
 
   const renderActiveTab = () => {
     if (!runInfo) {
@@ -154,6 +158,7 @@ export const RunPage = () => {
         runOutputs={runOutputs}
         datasets={datasets}
         registeredModelVersionSummaries={registeredModelVersionSummaries}
+        loggedModelsV3={loggedModelsV3}
         isLoadingLoggedModels={isLoadingLoggedModels}
       />
     );

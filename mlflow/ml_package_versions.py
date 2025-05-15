@@ -7,11 +7,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "scikit-learn"
         },
         "models": {
-            "minimum": "0.24.1",
+            "minimum": "1.3.0",
             "maximum": "1.6.1"
         },
         "autologging": {
-            "minimum": "0.24.1",
+            "minimum": "1.3.0",
             "maximum": "1.6.1"
         }
     },
@@ -21,11 +21,11 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "torch"
         },
         "models": {
-            "minimum": "1.9.0",
+            "minimum": "2.1.0",
             "maximum": "2.6.0"
         },
         "autologging": {
-            "minimum": "1.9.0",
+            "minimum": "2.1.0",
             "maximum": "2.6.0"
         }
     },
@@ -35,7 +35,7 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "lightning"
         },
         "autologging": {
-            "minimum": "1.9.0",
+            "minimum": "2.0.3",
             "maximum": "2.5.1"
         }
     },
@@ -57,11 +57,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "tensorflow"
         },
         "models": {
-            "minimum": "2.7.4",
+            "minimum": "2.12.1",
             "maximum": "2.19.0"
         },
         "autologging": {
-            "minimum": "2.7.4",
+            "minimum": "2.12.1",
             "maximum": "2.19.0"
         }
     },
@@ -70,11 +70,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "xgboost"
         },
         "models": {
-            "minimum": "1.4.2",
+            "minimum": "1.7.6",
             "maximum": "3.0.0"
         },
         "autologging": {
-            "minimum": "1.4.2",
+            "minimum": "1.7.6",
             "maximum": "3.0.0"
         }
     },
@@ -83,11 +83,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "lightgbm"
         },
         "models": {
-            "minimum": "3.3.5",
+            "minimum": "4.0.0",
             "maximum": "4.6.0"
         },
         "autologging": {
-            "minimum": "3.3.5",
+            "minimum": "4.0.0",
             "maximum": "4.6.0"
         }
     },
@@ -96,7 +96,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "catboost"
         },
         "models": {
-            "minimum": "1.0.0",
+            "minimum": "1.2.1",
             "maximum": "1.2.8"
         }
     },
@@ -105,7 +105,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "onnx"
         },
         "models": {
-            "minimum": "1.13.1",
+            "minimum": "1.14.1",
             "maximum": "1.17.0"
         }
     },
@@ -114,7 +114,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "spacy"
         },
         "models": {
-            "minimum": "3.4.4",
+            "minimum": "3.5.3",
             "maximum": "3.8.5"
         }
     },
@@ -123,11 +123,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "statsmodels"
         },
         "models": {
-            "minimum": "0.12.2",
+            "minimum": "0.14.1",
             "maximum": "0.14.4"
         },
         "autologging": {
-            "minimum": "0.12.2",
+            "minimum": "0.14.1",
             "maximum": "0.14.4"
         }
     },
@@ -137,11 +137,11 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "pyspark"
         },
         "models": {
-            "minimum": "3.1.2",
+            "minimum": "3.4.1",
             "maximum": "3.5.5"
         },
         "autologging": {
-            "minimum": "3.1.2",
+            "minimum": "3.4.1",
             "maximum": "3.5.5"
         }
     },
@@ -150,7 +150,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "prophet"
         },
         "models": {
-            "minimum": "1.1.1",
+            "minimum": "1.1.6",
             "maximum": "1.1.6"
         }
     },
@@ -159,7 +159,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "pmdarima"
         },
         "models": {
-            "minimum": "1.8.1",
+            "minimum": "2.0.4",
             "maximum": "2.0.4"
         }
     },
@@ -177,7 +177,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "h2o"
         },
         "models": {
-            "minimum": "3.40.0.1",
+            "minimum": "3.42.0.1",
             "maximum": "3.46.0.6"
         }
     },
@@ -355,7 +355,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "sentence-transformers"
         },
         "models": {
-            "minimum": "2.2.2",
+            "minimum": "2.3.1",
             "maximum": "4.1.0"
         }
     },

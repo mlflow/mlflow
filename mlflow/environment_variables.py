@@ -684,6 +684,12 @@ MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
     "MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING", True
 )
 
+#: Specifies the artifact compression method used when logging a model
+#: allowed values are "lzma", "bzip2" and "gzip"
+#: (default: ``None``, indicating no compression)
+MLFLOW_LOG_MODEL_COMPRESSION = _EnvironmentVariable("MLFLOW_LOG_MODEL_COMPRESSION", str, None)
+
+
 # Specifies whether to convert a {"messages": [{"role": "...", "content": "..."}]} input
 # to a List[BaseMessage] object when invoking a PyFunc model saved with langchain flavor.
 # This takes precedence over the default behavior of trying such conversion if the model
@@ -743,16 +749,16 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS = _EnvironmentVariable(
 
 #: Maximum number of export tasks to queue for async trace logging.
 #: When the queue is full, new export tasks will be dropped.
-#: (default: ``50``)
+#: (default: ``1000``)
 MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
-    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", int, 50
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", int, 1000
 )
 
 
 #: Timeout seconds for retrying trace logging.
-#: (default: ``5``)
+#: (default: ``500``)
 MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
-    "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 5
+    "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 500
 )
 
 
@@ -761,3 +767,25 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
 #: as Databricks serving.
 #: (default: ``None``)
 MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("MLFLOW_ACTIVE_MODEL_ID", str, None)
+
+#: Maximum number of parameters to include in the initial CreateLoggedModel request.
+#: Additional parameters will be logged in separate requests.
+#: (default: ``100``)
+_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
+    "_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
+)
+
+
+#: Maximum number of parameters to include in each batch when logging parameters
+#: for a logged model.
+#: (default: ``100``)
+_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
+    "_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
+)
+
+#: A boolean flag that enables printing URLs for logged and registered models when
+#: they are created.
+#: (default: ``True``)
+MLFLOW_PRINT_MODEL_URLS_ON_CREATION = _BooleanEnvironmentVariable(
+    "MLFLOW_PRINT_MODEL_URLS_ON_CREATION", True
+)

@@ -226,7 +226,18 @@ def test_get_logged_model(store):
 
 
 def test_delete_logged_model(store: FileStore):
-    logged_model = store.create_logged_model()
+    exp_id = store.create_experiment("test")
+    run = store.create_run(exp_id, "user", 0, [], "test_run")
+    logged_model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+    metric = Metric(
+        key="metric",
+        value=0,
+        timestamp=0,
+        step=0,
+        model_id=logged_model.model_id,
+        run_id=run.info.run_id,
+    )
+    store.log_metric(run.info.run_id, metric)
     assert store.get_logged_model(logged_model.model_id) is not None
     store.delete_logged_model(logged_model.model_id)
     with pytest.raises(MlflowException, match=r"not found"):
@@ -272,14 +283,13 @@ def test_finalize_logged_model(store):
     assert logged_model.params == updated_model.params
     assert logged_model.metrics == updated_model.metrics
 
+    updated_model = store.finalize_logged_model(logged_model.model_id, LoggedModelStatus.FAILED)
+    assert updated_model.status == str(LoggedModelStatus.FAILED)
+
 
 def test_finalize_logged_model_errors(store):
     with pytest.raises(MlflowException, match=r"Model '1234' not found"):
         store.finalize_logged_model("1234", LoggedModelStatus.READY)
-
-    logged_model = store.create_logged_model()
-    with pytest.raises(MlflowException, match=r"Invalid model status"):
-        store.finalize_logged_model(logged_model.model_id, LoggedModelStatus.UNSPECIFIED)
 
 
 def test_search_logged_models_experiment_ids(store):
@@ -521,6 +531,29 @@ def test_search_logged_models_filter_string(store):
         experiment_ids=[exp_id], filter_string=f"name='test_model1' AND source_run_id='{run_id}'"
     )
     assert_models_match(models, [logged_models[0]])
+
+    model = logged_models[0]
+    for val in (
+        # A single item without a comma
+        f"('{model.name}')",
+        # A single item with a comma
+        f"('{model.name}',)",
+        # Multiple items
+        f"('{model.name}', 'foo')",
+    ):
+        # IN
+        models = store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string=f"name IN {val}",
+        )
+        assert [m.name for m in models] == [model.name]
+        assert models.token is None
+        # NOT IN
+        models = store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string=f"name NOT IN {val}",
+        )
+        assert model.name not in [m.name for m in models]
 
 
 def test_search_logged_models_order_by(store):

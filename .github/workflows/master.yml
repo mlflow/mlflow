@@ -90,14 +90,15 @@ jobs:
       - name: Import check
         run: |
           source .venv/bin/activate
-          python tests/check_mlflow_lazily_imports_ml_packages.py
+          # `-I` is used to avoid importing modules from user-specific site-packages
+          # that might conflict with the built-in modules (e.g. `types`).
+          python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
-            --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
-            --ignore=tests/deployments/server --ignore=tests/pyspark/optuna \
+            --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
 
   py310:
@@ -332,10 +333,11 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
+          # GenAI evaluation tests require databricks-agents that only work with Python >= 3.10
+          pip install 'databricks-agents<0.22.0' openai
+      - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests
         run: |
-          # GenAI evaluation tests require databricks-agents that only work with Python 3.10~
-          pip install databricks-agents openai
           pytest tests/genai
 
   optuna:
@@ -481,5 +483,5 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server --ignore=tests/optuna \
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/genai tests
