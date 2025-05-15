@@ -2271,6 +2271,22 @@ def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> 
 
     Returns:
         None
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.log_model_params(params={"param": "value"}, model_id=model_info.model_id)
     """
     model_id = model_id or get_active_model_id()
     MlflowClient().log_model_params(model_id, params)
