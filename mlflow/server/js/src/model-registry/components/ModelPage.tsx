@@ -367,6 +367,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
                   />
                 );
               }
+              this.resetHistoryState();
               // TODO(Zangr) Have a more generic boundary to handle all errors, not just 404.
               triggerError(requests);
             } else if (loading) {

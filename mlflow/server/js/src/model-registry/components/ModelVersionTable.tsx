@@ -335,7 +335,7 @@ export const ModelVersionTable = ({
   return (
     <>
       <Table
-        data-testid="model-list-table"
+        data-testid="model-version-table"
         pagination={pagination}
         scrollable
         empty={isEmpty() ? emptyComponent : undefined}
