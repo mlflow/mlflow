@@ -543,6 +543,29 @@ def test_search_logged_models_filter_string(store):
     )
     assert_models_match(models, [logged_models[0]])
 
+    model = logged_models[0]
+    for val in (
+        # A single item without a comma
+        f"('{model.name}')",
+        # A single item with a comma
+        f"('{model.name}',)",
+        # Multiple items
+        f"('{model.name}', 'foo')",
+    ):
+        # IN
+        models = store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string=f"name IN {val}",
+        )
+        assert [m.name for m in models] == [model.name]
+        assert models.token is None
+        # NOT IN
+        models = store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string=f"name NOT IN {val}",
+        )
+        assert model.name not in [m.name for m in models]
+
 
 def test_search_logged_models_order_by(store):
     exp_id = store.create_experiment("test")
