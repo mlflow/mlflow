@@ -3,6 +3,7 @@ import re
 import subprocess
 import sys
 import uuid
+import os
 from io import StringIO
 
 import pytest
@@ -147,7 +148,7 @@ def test_logging_level(log_level: str, expected: bool) -> None:
             "-c",
             f"from mlflow.utils.logging_utils import _debug; _debug({random_str!r})",
         ],
-        env={"MLFLOW_LOGGING_LEVEL": log_level},
+        env=os.environ.copy() | {"MLFLOW_LOGGING_LEVEL": log_level},
         stderr=subprocess.STDOUT,
         text=True,
     )
