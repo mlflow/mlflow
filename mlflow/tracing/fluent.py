@@ -332,7 +332,6 @@ def _wrap_generator(
                 else:
                     outputs.append(value)
                     _record_chunk_event(span, value, i)
-                    print(value)
                     yield value
                     i += 1
             _end_stream_span(span, inputs, outputs, output_reducer)

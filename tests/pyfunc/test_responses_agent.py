@@ -236,16 +236,6 @@ def test_responses_agent_throws_with_invalid_output(tmp_path):
         mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
 
 
-def reduce_stream(outputs: list[ResponsesAgentStreamEvent]) -> ResponsesAgentResponse:
-    print("outputs from reduce_stream", outputs)
-    print([o.item for o in outputs if o.type == "response.output_item.done"])
-    temp = ResponsesAgentResponse(
-        output=[o.item for o in outputs if o.type == "response.output_item.done"],
-    )
-    print("temp from reduce_stream", temp)
-    return temp
-
-
 @pytest.mark.parametrize(
     ("input", "outputs", "expected_chat_messages", "expected_chat_tools"),
     [
@@ -399,7 +389,7 @@ def test_responses_agent_trace(
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return ResponsesAgentResponse(**outputs)
 
-        @mlflow.trace(span_type=SpanType.AGENT, output_reducer=reduce_stream)
+        @mlflow.trace(span_type=SpanType.AGENT)
         def predict_stream(self, request: ResponsesAgentRequest):
             for item in outputs["output"]:
                 yield ResponsesAgentStreamEvent(
@@ -413,7 +403,6 @@ def test_responses_agent_trace(
     traces = get_traces()
     assert len(traces) == 1
     spans = traces[0].data.spans
-    # print("asdfasdf", spans[0].attributes)
     assert len(spans) == 1
     assert spans[0].name == "predict"
     assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
@@ -423,18 +412,15 @@ def test_responses_agent_trace(
     else:
         assert SpanAttributeKey.CHAT_TOOLS not in spans[0].attributes
 
-    print(list(model.predict_stream(ResponsesAgentRequest(**input))))
+    list(model.predict_stream(ResponsesAgentRequest(**input)))
 
     traces = get_traces()
     assert len(traces) == 2
-    print("traces", traces)
     spans = traces[0].data.spans
     assert len(spans) == 1
-    print(spans[0].to_dict())
-    print("asdfasdf", spans[0].attributes)
+    # print("\n\ntrace span", spans[0].to_dict(), spans[0].attributes)
     assert spans[0].name == "predict_stream"
     assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
-    assert False
 
 
 def test_responses_agent_trace_dict_output(tmp_path):
