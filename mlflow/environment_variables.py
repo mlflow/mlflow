@@ -794,4 +794,6 @@ MLFLOW_PRINT_MODEL_URLS_ON_CREATION = _BooleanEnvironmentVariable(
 #: If unspecified the number of threads (at least 32) is determined by the available
 #: number of CPU cores.
 #: (default: ``None``)
-MLFLOW_TRACE_SEARCH_MAX_THREADS = _EnvironmentVariable("MLFLOW_TRACE_SEARCH_MAX_THREADS", int, None)
+MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
+    "MLFLOW_SEARCH_TRACES_MAX_THREADS", int, None
+)
