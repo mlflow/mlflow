@@ -276,119 +276,119 @@ def reduce_stream(outputs: list[ResponsesAgentStreamEvent]) -> ResponsesAgentRes
             None,
         ),
         # 2. Image input
-        # (
-        #     {
-        #         "input": [
-        #             {
-        #                 "role": "user",
-        #                 "content": [
-        #                     {"type": "input_text", "text": "what is in this image?"},
-        #                     {"type": "input_image", "image_url": "test.jpg"},
-        #                 ],
-        #             }
-        #         ],
-        #     },
-        #     {
-        #         "output": [
-        #             {
-        #                 "type": "message",
-        #                 "id": "test",
-        #                 "status": "completed",
-        #                 "role": "assistant",
-        #                 "content": [{"type": "output_text", "text": "Dummy output"}],
-        #             }
-        #         ],
-        #     },
-        #     [
-        #         {
-        #             "content": [
-        #                 {
-        #                     "text": "what is in this image?",
-        #                     "type": "text",
-        #                 },
-        #                 {
-        #                     "image_url": {
-        #                         "detail": None,
-        #                         "url": "test.jpg",
-        #                     },
-        #                     "type": "image_url",
-        #                 },
-        #             ],
-        #             "role": "user",
-        #         },
-        #         {
-        #             "content": [{"text": "Dummy output", "type": "text"}],
-        #             "role": "assistant",
-        #         },
-        #     ],
-        #     None,
-        # ),
-        # # 3. Tool calling
-        # (
-        #     {
-        #         "input": [
-        #             {
-        #                 "role": "user",
-        #                 "content": "What is the weather like in Boston today?",
-        #             }
-        #         ],
-        #         "tools": [
-        #             {
-        #                 "type": "function",
-        #                 "name": "get_current_weather",
-        #                 "parameters": {
-        #                     "type": "object",
-        #                     "properties": {"location": {"type": "string"}},
-        #                     "required": ["location", "unit"],
-        #                 },
-        #             }
-        #         ],
-        #     },
-        #     {
-        #         "output": [
-        #             {
-        #                 "arguments": '{"location":"Boston, MA","unit":"celsius"}',
-        #                 "call_id": "function_call_1",
-        #                 "name": "get_current_weather",
-        #                 "type": "function_call",
-        #                 "id": "fc_6805c835567481918c27724bbe931dc40b1b7951a48825bb",
-        #                 "status": "completed",
-        #             }
-        #         ]
-        #     },
-        #     [
-        #         {
-        #             "role": "user",
-        #             "content": "What is the weather like in Boston today?",
-        #         },
-        #         {
-        #             "role": "assistant",
-        #             "tool_calls": [
-        #                 {
-        #                     "id": "function_call_1",
-        #                     "type": "function",
-        #                     "function": {
-        #                         "name": "get_current_weather",
-        #                         "arguments": '{"location":"Boston, MA","unit":"celsius"}',
-        #                     },
-        #                 }
-        #             ],
-        #         },
-        #     ],
-        #     [
-        #         {
-        #             "type": "function",
-        #             "function": {
-        #                 "name": "get_current_weather",
-        #                 "parameters": {
-        #                     "type": "object",
-        #                     "properties": {"location": {"type": "string"}},
-        #                     "required": ["location", "unit"],
-        #                 },
-        #             },
-        #         }
-        #     ],
-        # ),
+        (
+            {
+                "input": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "input_text", "text": "what is in this image?"},
+                            {"type": "input_image", "image_url": "test.jpg"},
+                        ],
+                    }
+                ],
+            },
+            {
+                "output": [
+                    {
+                        "type": "message",
+                        "id": "test",
+                        "status": "completed",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Dummy output"}],
+                    }
+                ],
+            },
+            [
+                {
+                    "content": [
+                        {
+                            "text": "what is in this image?",
+                            "type": "text",
+                        },
+                        {
+                            "image_url": {
+                                "detail": None,
+                                "url": "test.jpg",
+                            },
+                            "type": "image_url",
+                        },
+                    ],
+                    "role": "user",
+                },
+                {
+                    "content": [{"text": "Dummy output", "type": "text"}],
+                    "role": "assistant",
+                },
+            ],
+            None,
+        ),
+        # 3. Tool calling
+        (
+            {
+                "input": [
+                    {
+                        "role": "user",
+                        "content": "What is the weather like in Boston today?",
+                    }
+                ],
+                "tools": [
+                    {
+                        "type": "function",
+                        "name": "get_current_weather",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"location": {"type": "string"}},
+                            "required": ["location", "unit"],
+                        },
+                    }
+                ],
+            },
+            {
+                "output": [
+                    {
+                        "arguments": '{"location":"Boston, MA","unit":"celsius"}',
+                        "call_id": "function_call_1",
+                        "name": "get_current_weather",
+                        "type": "function_call",
+                        "id": "fc_6805c835567481918c27724bbe931dc40b1b7951a48825bb",
+                        "status": "completed",
+                    }
+                ]
+            },
+            [
+                {
+                    "role": "user",
+                    "content": "What is the weather like in Boston today?",
+                },
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": "function_call_1",
+                            "type": "function",
+                            "function": {
+                                "name": "get_current_weather",
+                                "arguments": '{"location":"Boston, MA","unit":"celsius"}',
+                            },
+                        }
+                    ],
+                },
+            ],
+            [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_current_weather",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"location": {"type": "string"}},
+                            "required": ["location", "unit"],
+                        },
+                    },
+                }
+            ],
+        ),
     ],
 )
 def test_responses_agent_trace(
@@ -408,25 +408,25 @@ def test_responses_agent_trace(
                 )
 
     model = TracedResponsesAgent()
-    # model.predict(ResponsesAgentRequest(**input))
+    model.predict(ResponsesAgentRequest(**input))
 
-    # traces = get_traces()
-    # assert len(traces) == 1
-    # spans = traces[0].data.spans
-    # # print("asdfasdf", spans[0].attributes)
-    # assert len(spans) == 1
-    # assert spans[0].name == "predict"
-    # assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    # print("asdfasdf", spans[0].attributes)
+    assert len(spans) == 1
+    assert spans[0].name == "predict"
+    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
 
-    # if expected_chat_tools is not None:
-    #     assert spans[0].attributes[SpanAttributeKey.CHAT_TOOLS] == expected_chat_tools
-    # else:
-    #     assert SpanAttributeKey.CHAT_TOOLS not in spans[0].attributes
+    if expected_chat_tools is not None:
+        assert spans[0].attributes[SpanAttributeKey.CHAT_TOOLS] == expected_chat_tools
+    else:
+        assert SpanAttributeKey.CHAT_TOOLS not in spans[0].attributes
 
     print(list(model.predict_stream(ResponsesAgentRequest(**input))))
 
     traces = get_traces()
-    assert len(traces) == 1
+    assert len(traces) == 2
     print("traces", traces)
     spans = traces[0].data.spans
     assert len(spans) == 1

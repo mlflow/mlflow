@@ -319,6 +319,7 @@ def _wrap_generator(
 
             i = 0
             outputs = []
+            print("i am inside the generator")
             while True:
                 try:
                     # NB: Set the span to active only when the generator is running
@@ -332,6 +333,8 @@ def _wrap_generator(
                 else:
                     outputs.append(value)
                     _record_chunk_event(span, value, i)
+                    print(value)
+                    set_chat_attributes_special_case(span, inputs=inputs, outputs=value)
                     yield value
                     i += 1
             _end_stream_span(span, inputs, outputs, output_reducer)

@@ -17,6 +17,7 @@ from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.types.responses import ResponsesAgentStreamEvent
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -439,12 +440,15 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
     """
     try:
         from mlflow.openai.utils.chat_schema import set_span_chat_attributes
-        from mlflow.types.responses import ResponsesAgentResponse
+        from mlflow.types.responses import ResponsesAgentResponse, ResponsesAgentStreamEvent
 
+        print("inside set_chat_attributes_special_case", inputs, outputs, span.to_dict())
         if ResponsesAgentResponse.validate_compat(outputs):
             inputs = inputs["request"].model_dump_compat()
             set_span_chat_attributes(span, inputs, outputs)
-        # add an else case here for streamed output items?
+        elif ResponsesAgentStreamEvent.validate_compat(outputs):
+            inputs = inputs["request"].model_dump_compat()
+            set_span_chat_attributes(span, inputs, outputs)
 
     except Exception:
         pass

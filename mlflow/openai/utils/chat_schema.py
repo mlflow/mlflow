@@ -19,7 +19,6 @@ from mlflow.types.chat import (
     TextContentPart,
     ToolCall,
 )
-from mlflow.types.responses import ResponsesAgentStreamEvent
 
 _logger = logging.getLogger(__name__)
 
@@ -35,6 +34,7 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
     # NB: This function is also used for setting chat attributes for ResponsesAgent tracing spans
     # (TODO: Add doc link). Therefore, the core logic should still run without openai package.
     messages = _parse_inputs_output(inputs, output)
+    print("messages", messages)
     try:
         set_span_chat_messages(span, messages)
     except MlflowException:
@@ -87,7 +87,7 @@ def _is_responses_output(output: Any) -> bool:
         pass
 
     try:
-        from mlflow.types.responses import ResponsesAgentResponse
+        from mlflow.types.responses import ResponsesAgentResponse, ResponsesAgentStreamEvent
 
         if ResponsesAgentResponse.validate_compat(
             output
@@ -111,11 +111,16 @@ def _parse_responses_inputs_outputs(
                 messages.extend(_parse_response_item(item, messages))
 
     output = output if isinstance(output, dict) else output.model_dump()
-    if (
-        ResponsesAgentStreamEvent.validate_compat(output)
-        and output.get("type") == "response.output_item.done"
-    ):
-        messages.extend(_parse_response_item(output.get("item"), messages))
+    try:
+        from mlflow.types.responses import ResponsesAgentStreamEvent
+
+        if (
+            ResponsesAgentStreamEvent.validate_compat(output)
+            and output.get("type") == "response.output_item.done"
+        ):
+            messages.extend(_parse_response_item(output.get("item"), messages))
+    except Exception:
+        pass
     for output_item in output["output"]:
         messages.extend(_parse_response_item(output_item, messages))
 

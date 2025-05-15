@@ -117,6 +117,7 @@ class ResponsesAgentStreamEvent(BaseModel):
 
     @model_validator(mode="after")
     def check_type(self) -> "ResponsesAgentStreamEvent":
+        print("ResponsesAgentStreamEvent", self.model_dump_compat())
         type = self.type
         if type == "response.output_item.done":
             ResponseOutputItemDoneEvent(**self.model_dump_compat())
