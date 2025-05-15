@@ -2261,6 +2261,38 @@ def _create_logged_model(
 
 
 @experimental
+def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> None:
+    """
+    Log params to the specified logged model.
+
+    Args:
+        params: Params to log on the model.
+        model_id: ID of the model. If not specified, use the current active model ID.
+
+    Returns:
+        None
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.log_model_params(params={"param": "value"}, model_id=model_info.model_id)
+    """
+    model_id = model_id or get_active_model_id()
+    MlflowClient().log_model_params(model_id, params)
+
+
+@experimental
 def finalize_logged_model(
     model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
 ) -> LoggedModel:

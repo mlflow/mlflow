@@ -5275,6 +5275,21 @@ class MlflowClient:
         )
 
     @experimental
+    def log_model_params(self, model_id: str, params: dict[str, str]) -> None:
+        """
+        Log parameters for a logged model.
+
+        Args:
+            model_id: ID of the model to log parameters for.
+            params: Dictionary of parameters to log.
+
+        Returns:
+            None
+        """
+        _validate_model_id_specified(model_id)
+        return self._tracking_client.log_model_params(model_id, params)
+
+    @experimental
     def finalize_logged_model(
         self, model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
     ) -> LoggedModel:
