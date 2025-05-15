@@ -783,7 +783,6 @@ _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
     "_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
 )
 
-
 #: A boolean flag that enables printing URLs for logged and registered models when
 #: they are created.
 #: (default: ``True``)
