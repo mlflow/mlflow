@@ -15,7 +15,6 @@ from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
 from mlflow.environment_variables import (
-    _MLFLOW_ACTIVE_MODEL_ID,
     _MLFLOW_TESTING,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
@@ -24,7 +23,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking import get_tracking_uri
-from mlflow.tracking.fluent import _get_experiment_id, get_active_model_id
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
@@ -870,8 +869,6 @@ class Environment:
             command_env.update(_get_databricks_serverless_env_vars())
         if exp_id := _get_experiment_id():
             command_env[MLFLOW_EXPERIMENT_ID.name] = exp_id
-        if active_model_id := get_active_model_id():
-            command_env[_MLFLOW_ACTIVE_MODEL_ID.name] = active_model_id
         command_env.update(self._extra_env)
         if not isinstance(command, list):
             command = [command]
