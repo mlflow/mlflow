@@ -5,6 +5,10 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.evaluation.constant import (
+    AGENT_EVAL_CUSTOM_EXPECTATION_KEY,
+    AgentEvaluationReserverKey,
+)
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
 
@@ -23,15 +27,6 @@ if TYPE_CHECKING:
         ]
     except ImportError:
         EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
-
-
-AGENT_EVAL_RESERVED_EXPECTATION_KEYS = {
-    "expected_response",
-    "expected_retrieved_context",
-    "expected_facts",
-    "guidelines",
-}
-AGENT_EVAL_CUSTOM_EXPECTATION_KEY = "custom_expected"
 
 
 def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
@@ -85,7 +80,6 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
             "key to wrap the value into a dictionary."
         )
 
-
     if not any(col in df.columns for col in ("trace", "inputs")):
         raise MlflowException.invalid_parameter_value(
             "Either `inputs` or `trace` column is required in the dataset. Please provide inputs "
@@ -98,7 +92,6 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
         .pipe(_extract_expectations_from_trace)
         .pipe(_convert_expectations_to_legacy_columns)
     )
-
 
 
 def _extract_request_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
@@ -140,21 +133,25 @@ def _extract_expectations_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
 def _convert_expectations_to_legacy_columns(df: "pd.DataFrame") -> "pd.DataFrame":
     # expand out expectations into separate columns
     if "expectations" in df.columns:
-        for field in [*AGENT_EVAL_RESERVED_EXPECTATION_KEYS, AGENT_EVAL_CUSTOM_EXPECTATION_KEY]:
+        for field in [*AgentEvaluationReserverKey.get_all(), AGENT_EVAL_CUSTOM_EXPECTATION_KEY]:
             df[field] = None
 
         # Process each row individually to handle mixed types
         for idx, value in df["expectations"].items():
             if isinstance(value, dict):
                 # Reserved expectation keys is propagated as a new column
-                for field in AGENT_EVAL_RESERVED_EXPECTATION_KEYS:
+                for field in AgentEvaluationReserverKey.get_all():
                     if field in value:
                         df.at[idx, field] = value.pop(field, None)
                 # Other columns go to custom_expected
                 if value:
                     df.at[idx, AGENT_EVAL_CUSTOM_EXPECTATION_KEY] = value
 
-            # String values go to expected_response
+            elif pd.isna(value):
+                # Only some rows in the dataset might have expectations.
+                # For those rows, we don't have any expectations, so we skip them.
+                continue
+
             else:
                 raise MlflowException.invalid_parameter_value(
                     "Expectations must be a dictionary in the form of [name of expectation]: "
@@ -200,11 +197,15 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         # Condense all expectations into a single dict
         expectations = {}
         if expected_response is not None:
-            expectations["expected_response"] = expected_response
+            expectations[AgentEvaluationReserverKey.EXPECTED_RESPONSE] = expected_response
         if expected_facts is not None:
-            expectations["expected_facts"] = expected_facts
+            expectations[AgentEvaluationReserverKey.EXPECTED_FACTS] = expected_facts
         if expected_retrieved_context is not None:
-            expectations["expected_retrieved_context"] = expected_retrieved_context
+            expectations[AgentEvaluationReserverKey.EXPECTED_RETRIEVED_CONTEXT] = (
+                expected_retrieved_context
+            )
+        if guidelines is not None:
+            expectations[AgentEvaluationReserverKey.GUIDELINES] = guidelines
         if custom_expected is not None:
             expectations.update(custom_expected)
 

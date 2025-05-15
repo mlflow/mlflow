@@ -16,8 +16,6 @@ from mlflow.genai import scorer
 from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
 from mlflow.genai.scorers.builtin_scorers import safety
 
-from tests.genai.conftest import mock_init_auth
-
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
 
@@ -58,6 +56,11 @@ def sample_dict_data_multiple():
             "expectations": {"expected_response": "expected response for second question"},
             "retrieved_context": [],
         },
+        # Some records might not have expectations
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "actual response for third question",
+        },
     ]
 
 
@@ -78,6 +81,14 @@ def sample_dict_data_multiple_with_custom_expectations():
             "expectations": {
                 "expected_response": "expected response for second question",
                 "my_custom_expectation": "custom expectation for the second question",
+            },
+        },
+        # Some records might not have all expectations
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "actual response for third question",
+            "expectations": {
+                "my_custom_expectation": "custom expectation for the third question",
             },
         },
     ]
@@ -212,50 +223,49 @@ def test_scorer_receives_correct_data(data_fixture, request):
 
     @scorer
     def dummy_scorer(inputs, outputs, expectations):
-        received_args.append((inputs["question"], outputs, expectations))
+        received_args.append(
+            (
+                inputs["question"],
+                outputs,
+                expectations.get("expected_response"),
+                expectations.get("my_custom_expectation"),
+            )
+        )
         return 0
 
-    with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
-        mlflow.genai.evaluate(
-            data=sample_data,
-            scorers=[dummy_scorer],
-        )
+    mlflow.genai.evaluate(
+        data=sample_data,
+        scorers=[dummy_scorer],
+    )
 
-        all_inputs, all_outputs, all_expectations = zip(*received_args)
-        expected_inputs = [
-            "What is Spark?",
-            "How can you minimize data shuffling in Spark?",
-        ][: len(sample_data)]
-        expected_outputs = [
-            "actual response for first question",
-            "actual response for second question",
-        ][: len(sample_data)]
-        expected_expectations = [
-            "expected response for first question",
-            "expected response for second question",
-        ][: len(sample_data)]
-
-        assert set(all_inputs) == set(expected_inputs)
-        assert set(all_outputs) == set(expected_outputs)
-        assert set(all_expectations) == set(expected_expectations)
-    all_inputs, all_outputs, all_expectations = zip(*received_args)
-
+    all_inputs, all_outputs, all_expectations, all_custom_expectations = zip(*received_args)
     expected_inputs = [
         "What is Spark?",
         "How can you minimize data shuffling in Spark?",
+        "What is MLflow?",
     ][: len(sample_data)]
     expected_outputs = [
         "actual response for first question",
         "actual response for second question",
+        "actual response for third question",
     ][: len(sample_data)]
     expected_expectations = [
         "expected response for first question",
         "expected response for second question",
+        None,
     ][: len(sample_data)]
 
     assert set(all_inputs) == set(expected_inputs)
     assert set(all_outputs) == set(expected_outputs)
     assert set(all_expectations) == set(expected_expectations)
+
+    if data_fixture == "sample_dict_data_multiple_with_custom_expectations":
+        expected_custom_expectations = [
+            "custom expectation for the first question",
+            "custom expectation for the second question",
+            "custom expectation for the third question",
+        ]
+        assert set(all_custom_expectations) == set(expected_custom_expectations)
 
 
 def test_input_is_required_if_trace_is_not_provided():
@@ -308,11 +318,10 @@ def test_scorer_receives_correct_data_with_trace_data(input_type):
         received_args.append((inputs, outputs, expectations, trace))
         return 0
 
-    with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
-        mlflow.genai.evaluate(
-            data=sample_data,
-            scorers=[dummy_scorer],
-        )
+    mlflow.genai.evaluate(
+        data=sample_data,
+        scorers=[dummy_scorer],
+    )
 
     inputs, outputs, expectations, trace = received_args[0]
     assert inputs == {"question": "What is MLflow?"}
@@ -336,21 +345,18 @@ def test_predict_fn_receives_correct_data(data_fixture, request):
         received_args.append(question)
         return question
 
-    with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
-        mlflow.genai.evaluate(
-            predict_fn=predict_fn,
-            data=sample_data,
-            scorers=[safety()],
-        )
-        received_args.pop(0)  # Remove the one-time prediction to check if a model is traced
-        assert len(received_args) == len(sample_data)
-        expected_contents = ["What is Spark?", "How can you minimize data shuffling in Spark?"]
-        # Using set because eval harness runs predict_fn in parallel
-        assert set(received_args) == set(expected_contents[: len(sample_data)])
+    mlflow.genai.evaluate(
+        predict_fn=predict_fn,
+        data=sample_data,
+        scorers=[safety()],
+    )
 
     received_args.pop(0)  # Remove the one-time prediction to check if a model is traced
     assert len(received_args) == len(sample_data)
-    received_contents = [arg["messages"][0]["content"] for arg in received_args]
-    expected_contents = ["What is Spark?", "How can you minimize data shuffling in Spark?"][: len(sample_data)]
+    expected_contents = [
+        "What is Spark?",
+        "How can you minimize data shuffling in Spark?",
+        "What is MLflow?",
+    ][: len(sample_data)]
     # Using set because eval harness runs predict_fn in parallel
-    assert set(received_contents) == set(expected_contents)
+    assert set(received_args) == set(expected_contents)
