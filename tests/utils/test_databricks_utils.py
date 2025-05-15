@@ -663,28 +663,40 @@ def test_construct_databricks_logged_model_url():
     assert result_no_workspace == expected_url_no_workspace
 
 
-def test_construct_databricks_job_url():
-    # Test case with workspace ID
+def test_print_databricks_deployment_job_url():
     workspace_url = "https://databricks.com"
     job_id = "123"
     workspace_id = "456"
 
     expected_url = "https://databricks.com/jobs/123?o=456"
+    model_name = "main.models.name"
 
-    result = databricks_utils._construct_databricks_job_url(
-        workspace_url=workspace_url,
-        job_id=job_id,
-        workspace_id=workspace_id,
-    )
+    with (
+        mock.patch("mlflow.utils.databricks_utils.eprint") as mock_eprint,
+        mock.patch("mlflow.utils.databricks_utils.get_workspace_url", return_value=workspace_url),
+        mock.patch("mlflow.utils.databricks_utils.get_workspace_id", return_value=workspace_id),
+    ):
+        result = databricks_utils._print_databricks_deployment_job_url(
+            model_name=model_name,
+            job_id=job_id,
+        )
 
-    assert result == expected_url
+        assert result == expected_url
+        mock_eprint.assert_called_once_with(
+            f"🔗 Linked deployment job to '{model_name}': {expected_url}"
+        )
+        mock_eprint.reset_mock()
 
-    # Test case without workspace ID
-    expected_url_no_workspace = "https://databricks.com/jobs/123"
+        # Test case without workspace ID
+        expected_url_no_workspace = "https://databricks.com/jobs/123"
+        with mock.patch("mlflow.utils.databricks_utils.get_workspace_id", return_value=None):
+            result_no_workspace = databricks_utils._print_databricks_deployment_job_url(
+                model_name=model_name,
+                job_id=job_id,
+            )
 
-    result_no_workspace = databricks_utils._construct_databricks_job_url(
-        workspace_url=workspace_url,
-        job_id=job_id,
-    )
-
-    assert result_no_workspace == expected_url_no_workspace
+            assert result_no_workspace == expected_url_no_workspace
+            mock_eprint.assert_called_once_with(
+                f"🔗 Linked deployment job to '{model_name}': {expected_url_no_workspace}"
+            )
+            mock_eprint.reset_mock()

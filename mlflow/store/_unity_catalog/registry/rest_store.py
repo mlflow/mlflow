@@ -88,13 +88,10 @@ from mlflow.utils._unity_catalog_utils import (
     uc_registered_model_tag_from_mlflow_tags,
 )
 from mlflow.utils.databricks_utils import (
-    _construct_databricks_job_url,
+    _print_databricks_deployment_job_url,
     get_databricks_host_creds,
-    get_workspace_id,
-    get_workspace_url,
     is_databricks_uri,
 )
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
@@ -362,10 +359,10 @@ class UcModelRegistryStore(BaseRestStore):
         )
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
         if deployment_job_id:
-            job_url = _construct_databricks_job_url(
-                get_workspace_url(), str(deployment_job_id), get_workspace_id()
+            _print_databricks_deployment_job_url(
+                model_name=full_name,
+                job_id=str(deployment_job_id),
             )
-            eprint(f"🔗 Linked deployment job to '{full_name}': {job_url}")
         return registered_model_from_uc_proto(response_proto.registered_model)
 
     def update_registered_model(self, name, description, deployment_job_id=None):
@@ -388,10 +385,10 @@ class UcModelRegistryStore(BaseRestStore):
         )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
         if deployment_job_id:
-            job_url = _construct_databricks_job_url(
-                get_workspace_url(), str(deployment_job_id), get_workspace_id()
+            _print_databricks_deployment_job_url(
+                model_name=full_name,
+                job_id=str(deployment_job_id),
             )
-            eprint(f"🔗 Linked deployment job to '{full_name}': {job_url}")
         return registered_model_from_uc_proto(response_proto.registered_model)
 
     def rename_registered_model(self, name, new_name):

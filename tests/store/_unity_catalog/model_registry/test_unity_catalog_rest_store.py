@@ -70,7 +70,6 @@ from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
     UcModelRegistryStore,
-    _construct_databricks_job_url,
 )
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
@@ -2071,60 +2070,31 @@ def test_store_use_presigned_url_store_when_enabled(monkeypatch):
 
 
 @mock_http_200
-def test_create_and_update_registered_model_print_job_url(mock_http, store, capsys):
+def test_create_and_update_registered_model_print_job_url(store):
     name = "model_for_job_url_test"
     description = "test model with job id"
     deployment_job_id = "job-123"
-    host = "https://databricks.com"
-    workspace_id = "789"
-    expected_job_url = f"{host}/jobs/{deployment_job_id}?o={workspace_id}"
 
-    mock_construct_url = mock.create_autospec(
-        _construct_databricks_job_url,
-        return_value=expected_job_url,
-    )
     with (
         mock.patch(
-            "mlflow.store._unity_catalog.registry.rest_store._construct_databricks_job_url",
-            mock_construct_url,
-        ),
-        mock.patch(
-            "mlflow.store._unity_catalog.registry.rest_store.get_workspace_url",
-            return_value=host,
-        ),
-        mock.patch(
-            "mlflow.store._unity_catalog.registry.rest_store.get_workspace_id",
-            return_value=workspace_id,
-        ),
+            "mlflow.store._unity_catalog.registry.rest_store._print_databricks_deployment_job_url",
+        ) as mock_print_url,
     ):
+        # Should not print the job url when the deployment job id is None
+        store.update_registered_model(name=name, description=description, deployment_job_id=None)
+        mock_print_url.assert_not_called()
+        # Should print the job url when the deployment job id is not None
         store.update_registered_model(
             name=name, description=description, deployment_job_id=deployment_job_id
         )
+        mock_print_url.assert_called_once_with(model_name=name, job_id=deployment_job_id)
+        mock_print_url.reset_mock()
 
-        mock_construct_url.assert_called_once_with(host, deployment_job_id, workspace_id)
-        captured = capsys.readouterr()
-        assert f"🔗 Linked deployment job to '{name}': {expected_job_url}" in captured.err
-        _verify_requests(
-            mock_http,
-            "registered-models/update",
-            "PATCH",
-            UpdateRegisteredModelRequest(
-                name=name, description=description, deployment_job_id=deployment_job_id
-            ),
-        )
-
-        mock_construct_url.reset_mock()
+        # Should not print the job url when the deployment job id is None
+        store.create_registered_model(name=name, description=description, deployment_job_id=None)
+        mock_print_url.assert_not_called()
+        # Should print the job url when the deployment job id is not None
         store.create_registered_model(
             name=name, description=description, deployment_job_id=deployment_job_id
         )
-        mock_construct_url.assert_called_once_with(host, deployment_job_id, workspace_id)
-        captured = capsys.readouterr()
-        assert f"🔗 Linked deployment job to '{name}': {expected_job_url}" in captured.err
-        _verify_requests(
-            mock_http,
-            "registered-models/create",
-            "POST",
-            CreateRegisteredModelRequest(
-                name=name, description=description, deployment_job_id=deployment_job_id
-            ),
-        )
+        mock_print_url.assert_called_once_with(model_name=name, job_id=deployment_job_id)
