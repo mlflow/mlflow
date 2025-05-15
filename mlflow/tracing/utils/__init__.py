@@ -17,7 +17,6 @@ from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
-from mlflow.types.responses import ResponsesAgentStreamEvent
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
 
