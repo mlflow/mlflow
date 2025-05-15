@@ -159,3 +159,10 @@ def suppress_logs(module: str, filter_regex: re.Pattern):
         yield
     finally:
         logger.removeFilter(filter)
+
+
+def _debug(s: str) -> None:
+    """
+    Debug function to test logging level.
+    """
+    logging.getLogger(__name__).debug(s)
