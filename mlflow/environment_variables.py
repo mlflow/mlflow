@@ -802,6 +802,7 @@ MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
 
 
 #: Specifies the logging level for MLflow. This can be set to any valid logging level
-#: (e.g., "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL").
+#: (e.g., "DEBUG", "INFO"). This environment must be set before importing mlflow to take
+#: effect. To modify the logging level after importing mlflow, use `importlib.reload(mlflow)`.
 #: (default: ``None``).
 MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, None)
