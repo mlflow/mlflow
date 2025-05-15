@@ -7,9 +7,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 2rem 1rem 4rem;
+  padding: 8rem 1rem 4rem;
 }
 
 /* --------------------------------
@@ -18,7 +18,7 @@
 .contentGrid {
   display: flex;
   flex-direction: row;
-  gap: 3rem;
+  gap: 12rem;
   width: 100%;
   margin-top: 2rem;
   align-items: flex-start;
@@ -27,12 +27,12 @@
 
 .textColumn {
   flex: 1;
-  max-width: 550px;
+  max-width: 650px;
 }
 
 .cardsColumn {
   flex: 1;
-  max-width: 550px;
+  max-width: 650px;
   display: flex;
   flex-direction: column;
   gap: 2rem;

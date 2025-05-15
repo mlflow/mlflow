@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Redirect } from '@docusaurus/router';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
-import Link from '@docusaurus/Link';
 import clsx from 'clsx';
 import styles from './index.module.css';
 
@@ -73,7 +72,6 @@ export default function Home(): JSX.Element {
             </p>
           </div>
 
-          {/* Right Column - Cards */}
           <div className={styles.cardsColumn}>
             <PathSelector
               title="Model Training"
