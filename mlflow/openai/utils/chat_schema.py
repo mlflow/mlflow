@@ -19,6 +19,7 @@ from mlflow.types.chat import (
     TextContentPart,
     ToolCall,
 )
+from mlflow.types.responses import ResponsesAgentStreamEvent
 
 _logger = logging.getLogger(__name__)
 
@@ -88,7 +89,9 @@ def _is_responses_output(output: Any) -> bool:
     try:
         from mlflow.types.responses import ResponsesAgentResponse
 
-        if ResponsesAgentResponse.validate_compat(output):
+        if ResponsesAgentResponse.validate_compat(
+            output
+        ) or ResponsesAgentStreamEvent.validate_compat(output):
             return True
     except Exception:
         pass
@@ -108,6 +111,11 @@ def _parse_responses_inputs_outputs(
                 messages.extend(_parse_response_item(item, messages))
 
     output = output if isinstance(output, dict) else output.model_dump()
+    if (
+        ResponsesAgentStreamEvent.validate_compat(output)
+        and output.get("type") == "response.output_item.done"
+    ):
+        messages.extend(_parse_response_item(output.get("item"), messages))
     for output_item in output["output"]:
         messages.extend(_parse_response_item(output_item, messages))
 

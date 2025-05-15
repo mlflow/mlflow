@@ -389,9 +389,13 @@ def test_responses_agent_trace(
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return ResponsesAgentResponse(**outputs)
 
+        @mlflow.trace(span_type=SpanType.AGENT)
         def predict_stream(self, request: ResponsesAgentRequest):
-            # Dummy
-            pass
+            for item in outputs["output"]:
+                yield ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    item=item,
+                )
 
     model = TracedResponsesAgent()
     model.predict(ResponsesAgentRequest(**input))
@@ -399,6 +403,7 @@ def test_responses_agent_trace(
     traces = get_traces()
     assert len(traces) == 1
     spans = traces[0].data.spans
+    print("asdfasdf", spans[0].attributes)
     assert len(spans) == 1
     assert spans[0].name == "predict"
     assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
@@ -407,6 +412,15 @@ def test_responses_agent_trace(
         assert spans[0].attributes[SpanAttributeKey.CHAT_TOOLS] == expected_chat_tools
     else:
         assert SpanAttributeKey.CHAT_TOOLS not in spans[0].attributes
+
+    model.predict_stream(ResponsesAgentRequest(**input))
+    print(get_traces())
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    assert len(spans) == 1
+    assert spans[0].name == "predict_stream"
+    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
 
 
 def test_responses_agent_trace_dict_output(tmp_path):
