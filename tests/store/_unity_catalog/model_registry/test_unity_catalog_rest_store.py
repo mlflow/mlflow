@@ -2070,10 +2070,10 @@ def test_store_use_presigned_url_store_when_enabled(monkeypatch):
 
 
 @mock_http_200
-def test_create_and_update_registered_model_print_job_url(store):
+def test_create_and_update_registered_model_print_job_url(mock_http, store):
     name = "model_for_job_url_test"
     description = "test model with job id"
-    deployment_job_id = "job-123"
+    deployment_job_id = "123"
 
     with (
         mock.patch(
@@ -2081,20 +2081,22 @@ def test_create_and_update_registered_model_print_job_url(store):
         ) as mock_print_url,
     ):
         # Should not print the job url when the deployment job id is None
-        store.update_registered_model(name=name, description=description, deployment_job_id=None)
+        store.create_registered_model(name=name, description=description, deployment_job_id=None)
+        store.create_registered_model(name=name, description=description, deployment_job_id="")
         mock_print_url.assert_not_called()
         # Should print the job url when the deployment job id is not None
-        store.update_registered_model(
+        store.create_registered_model(
             name=name, description=description, deployment_job_id=deployment_job_id
         )
         mock_print_url.assert_called_once_with(model_name=name, job_id=deployment_job_id)
         mock_print_url.reset_mock()
 
-        # Should not print the job url when the deployment job id is None
-        store.create_registered_model(name=name, description=description, deployment_job_id=None)
+        # Should not print the job url when the deployment job id is false-y
+        store.update_registered_model(name=name, description=description, deployment_job_id=None)
+        store.update_registered_model(name=name, description=description, deployment_job_id="")
         mock_print_url.assert_not_called()
         # Should print the job url when the deployment job id is not None
-        store.create_registered_model(
+        store.update_registered_model(
             name=name, description=description, deployment_job_id=deployment_job_id
         )
         mock_print_url.assert_called_once_with(model_name=name, job_id=deployment_job_id)
