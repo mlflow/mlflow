@@ -87,7 +87,7 @@ def evaluate(
         def faster_than_one_second(inputs, outputs, trace):
             return trace.info.execution_duration < 1000
 
-    **2. Use DataFrame or dictionary with "inputs", "outputs", "expectations" columns.
+    **2. Use DataFrame or dictionary with "inputs", "outputs", "expectations" columns.**
 
     Alternatively, you can pass inputs, outputs, and expectations (ground truth) as
     a column in the dataframe (or equivalent list of dictionaries).
