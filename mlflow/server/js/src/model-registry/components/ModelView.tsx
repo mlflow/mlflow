@@ -28,7 +28,7 @@ import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
-const CREATION_TIMESTAMP_COLUMN_INDEX = 'creation_timestamp';
+const CREATION_TIMESTAMP_COLUMN_INDEX = 'CREATION_TIMESTAMP';
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -110,7 +110,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     this.props.onSetMaxResult(key);
   };
 
-  static getSortFieldName = (column: any) => {
+  getSortFieldName = (column: any) => {
     switch (column) {
       case CREATION_TIMESTAMP_COLUMN_INDEX:
         return MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD;
@@ -125,7 +125,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const fieldMappedToSortKey =
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       {
-        'creation_timestamp': 'creation_timestamp',
+        'CREATION_TIMESTAMP': 'CREATION_TIMESTAMP',
       }[orderByKey] || orderByKey;
 
     this.handleTableChange(undefined, undefined, {
@@ -135,7 +135,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   };
 
   handleTableChange = (pagination: any, filters: any, sorter: any) => {
-    this.props.onClickSortableColumn(ModelViewImpl.getSortFieldName(sorter.field), sorter.order);
+    this.props.onClickSortableColumn(this.getSortFieldName(sorter.field), sorter.order);
   };
 
   handleStageFilterChange = (e: any) => {
@@ -479,6 +479,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             orderByKey={this.props.orderByKey}
             orderByAsc={this.props.orderByAsc}
             onSortChange={this.unifiedTableSortChange}
+            getSortFieldName={this.getSortFieldName}
             pagination={
               <div
                 data-testid="model-view-pagination-section"

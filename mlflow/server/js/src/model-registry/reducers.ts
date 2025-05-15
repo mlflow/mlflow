@@ -93,14 +93,24 @@ const modelVersionsByModel = (state = {}, action: any) => {
     }
     case fulfilled(SEARCH_MODEL_VERSIONS): {
       const modelVersions = action.payload[getProtoField('model_versions')];
-      const nameToModelVersionMap = {};
-      if (modelVersions) {
-        // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-        modelVersions.forEach((modelVersion: any) => (nameToModelVersionMap[modelVersion.name] = modelVersion));
+      if (!modelVersions) {
+        return {};
       }
-      return {
-        ...nameToModelVersionMap,
-      };
+      
+      // Merge all modelVersions into the store
+      const newModelVersions = modelVersions.reduce(
+        (newState: any, modelVersion: any) => {
+          const { name, version } = modelVersion;
+          return {
+            ...newState,
+            [name]: {
+              ...newState[name],
+              [version]: modelVersion,
+            },
+          };
+        }
+      );
+      return newModelVersions;
     }
     case fulfilled(DELETE_MODEL_VERSION): {
       const { modelName, version } = action.meta;

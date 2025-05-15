@@ -134,7 +134,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
       `${ModelRegistryRoutes.getModelPageRoute(this.props.modelName)}?${Utils.getSearchUrlFromState(urlParams)}`
     );
     if (newUrl !== this.props.location.pathname + this.props.location.search) {
-      console.log("Navigating to new URL:", newUrl);
       this.props.navigate(newUrl);
     }
   };
@@ -221,6 +220,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
       orderByAsc,
       // eslint-disable-nextline
     } = this.state;
+    console.log('loadPage', this.state);
     this.setState({ loading: true, error: undefined });
     this.updateUrlWithState(orderByAsc, page);
     const filters_obj = { name: modelName };

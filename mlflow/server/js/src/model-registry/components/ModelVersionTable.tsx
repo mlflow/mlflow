@@ -52,6 +52,7 @@ type ModelVersionTableProps = {
   modelVersions?: ModelVersionInfoEntity[];
   activeStageOnly?: boolean;
   onChange: (selectedRowKeys: string[], selectedRows: ModelVersionInfoEntity[]) => void;
+  getSortFieldName: (columnId: string) => string | null;
   onSortChange: (params: { orderByKey: string; orderByAsc: boolean }) => void;
   modelEntity?: ModelEntity;
   onMetadataUpdated: () => void;
@@ -82,6 +83,7 @@ export const ModelVersionTable = ({
   orderByKey,
   onSortChange,
   onChange,
+  getSortFieldName,
   modelEntity,
   onMetadataUpdated,
   usingNextModelsUI,
@@ -355,7 +357,15 @@ export const ModelVersionTable = ({
               key={header.id}
               sortable={header.column.getCanSort()}
               sortDirection={header.column.getIsSorted() || 'none'}
-              onToggleSort={header.column.getToggleSortingHandler()}
+              onToggleSort={() => {
+                const [currentSortColumn] = sorting;
+                const fieldMappingToSortKey ={
+                  'CREATION_TIMESTAMP': 'CREATION_TIMESTAMP',
+                };
+                const changingDirection = getSortFieldName(header.column.id) === currentSortColumn.id;
+                const sortDesc = changingDirection ? !currentSortColumn.desc : false;
+                header.column.toggleSorting(sortDesc);
+              }}
               css={(header.column.columnDef as ModelVersionColumnDef).meta?.styles}
             >
               {flexRender(header.column.columnDef.header, header.getContext())}
