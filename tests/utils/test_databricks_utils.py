@@ -661,3 +661,30 @@ def test_construct_databricks_logged_model_url():
     )
 
     assert result_no_workspace == expected_url_no_workspace
+
+
+def test_construct_databricks_job_url():
+    # Test case with workspace ID
+    workspace_url = "https://databricks.com"
+    job_id = "123"
+    workspace_id = "456"
+
+    expected_url = "https://databricks.com/jobs/123?o=456"
+
+    result = databricks_utils._construct_databricks_job_url(
+        workspace_url=workspace_url,
+        job_id=job_id,
+        workspace_id=workspace_id,
+    )
+
+    assert result == expected_url
+
+    # Test case without workspace ID
+    expected_url_no_workspace = "https://databricks.com/jobs/123"
+
+    result_no_workspace = databricks_utils._construct_databricks_job_url(
+        workspace_url=workspace_url,
+        job_id=job_id,
+    )
+
+    assert result_no_workspace == expected_url_no_workspace

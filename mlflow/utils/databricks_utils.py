@@ -1109,6 +1109,13 @@ def _construct_databricks_uc_registered_model_url(
     return f"{workspace_url}/explore/data/models/{path}/version/{version}{query}"
 
 
+def _construct_databricks_job_url(
+    workspace_url: str, job_id: str, workspace_id: Optional[str] = None
+) -> str:
+    query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
+    return f"{workspace_url}/jobs/{job_id}{query}"
+
+
 def _get_databricks_creds_config(tracking_uri):
     # Note:
     # `_get_databricks_creds_config` reads credential token values or password and
