@@ -1,9 +1,14 @@
 import inspect
+import json
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.evaluation.constant import (
+    AGENT_EVAL_CUSTOM_EXPECTATION_KEY,
+    AgentEvaluationReserverKey,
+)
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
 
@@ -44,11 +49,6 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
                 raise MlflowException.invalid_parameter_value(
                     "Every item in the list must be a dictionary."
                 )
-            if "inputs" not in item:
-                raise MlflowException.invalid_parameter_value(
-                    "Every item in the list must have an 'inputs' key."
-                )
-
         df = pd.DataFrame(data)
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
@@ -70,32 +70,97 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
                 "Please install it with `pip install pyspark`."
             )
 
-    renamed_df = df.rename(columns=column_mapping)
+    # Verify format of the input using the first row
+    sample_row = df.iloc[0]
+    if "inputs" in sample_row and not isinstance(sample_row["inputs"], dict):
+        raise MlflowException.invalid_parameter_value(
+            "The 'inputs' column must be a dictionary. If you want to pass a single "
+            "argument to the `predict_fn`, use the argument name as the key in the "
+            "dictionary. If you don't pass a `predict_fn`, you can use any string "
+            "key to wrap the value into a dictionary."
+        )
 
-    if "trace" not in renamed_df.columns and column_mapping["inputs"] not in renamed_df.columns:
+    if not any(col in df.columns for col in ("trace", "inputs")):
         raise MlflowException.invalid_parameter_value(
             "Either `inputs` or `trace` column is required in the dataset. Please provide inputs "
             "for every datapoint or provide a trace."
         )
 
+    return (
+        df.rename(columns=column_mapping)
+        .pipe(_extract_request_from_trace)
+        .pipe(_extract_expectations_from_trace)
+        .pipe(_convert_expectations_to_legacy_columns)
+    )
+
+
+def _extract_request_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
+    """
+    Add `request` columns to the dataframe if it is not already present.
+    This is for compatibility with mlflow.evaluate() that requires `request` column.
+    """
+    if "trace" not in df.columns:
+        return df
+
+    if "request" not in df.columns:
+        df["request"] = df["trace"].apply(lambda trace: json.loads(trace.data.request))
+    return df
+
+
+def _extract_expectations_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
+    """
+    Add `expectations` columns to the dataframe from assessments
+    stored in the traces, if the "expectations" column is not already present.
+    """
+    if "trace" not in df.columns:
+        return df
+
+    expectations_column = []
+    for trace in df["trace"]:
+        expectations = {}
+        for assessment in trace.info.assessments or []:
+            if assessment.expectation is not None:
+                expectations[assessment.name] = assessment.expectation.value
+        expectations_column.append(expectations)
+    # If no trace has assessments, not add the column
+    if all(len(expectations) == 0 for expectations in expectations_column):
+        return df
+
+    df["expectations"] = expectations_column
+    return df
+
+
+def _convert_expectations_to_legacy_columns(df: "pd.DataFrame") -> "pd.DataFrame":
     # expand out expectations into separate columns
     if "expectations" in df.columns:
-        for field in ["expected_response", "expected_retrieved_context", "expected_facts"]:
-            renamed_df[field] = None
+        for field in [*AgentEvaluationReserverKey.get_all(), AGENT_EVAL_CUSTOM_EXPECTATION_KEY]:
+            df[field] = None
 
         # Process each row individually to handle mixed types
         for idx, value in df["expectations"].items():
             if isinstance(value, dict):
-                for field in ["expected_response", "expected_retrieved_context", "expected_facts"]:
+                # Reserved expectation keys is propagated as a new column
+                for field in AgentEvaluationReserverKey.get_all():
                     if field in value:
-                        renamed_df.at[idx, field] = value[field]
-            # Non-dictionary values go to expected_response
-            elif value is not None:
-                renamed_df.at[idx, "expected_response"] = value
+                        df.at[idx, field] = value.pop(field, None)
+                # Other columns go to custom_expected
+                if value:
+                    df.at[idx, AGENT_EVAL_CUSTOM_EXPECTATION_KEY] = value
 
-        renamed_df.drop(columns=["expectations"], inplace=True)
+            elif pd.isna(value):
+                # Only some rows in the dataset might have expectations.
+                # For those rows, we don't have any expectations, so we skip them.
+                continue
 
-    return renamed_df
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    "Expectations must be a dictionary in the form of [name of expectation]: "
+                    '[value], e.g., `{"expectations": {"expected_response": "..."}`'
+                )
+
+        df.drop(columns=["expectations"], inplace=True)
+
+    return df
 
 
 def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
@@ -129,11 +194,26 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         tool_calls: Optional[list[Any]],
         **kwargs,
     ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
+        # Condense all expectations into a single dict
+        expectations = {}
+        if expected_response is not None:
+            expectations[AgentEvaluationReserverKey.EXPECTED_RESPONSE] = expected_response
+        if expected_facts is not None:
+            expectations[AgentEvaluationReserverKey.EXPECTED_FACTS] = expected_facts
+        if expected_retrieved_context is not None:
+            expectations[AgentEvaluationReserverKey.EXPECTED_RETRIEVED_CONTEXT] = (
+                expected_retrieved_context
+            )
+        if guidelines is not None:
+            expectations[AgentEvaluationReserverKey.GUIDELINES] = guidelines
+        if custom_expected is not None:
+            expectations.update(custom_expected)
+
         # TODO: scorer.aggregations require a refactor on the agents side
         merged = {
             "inputs": request,
             "outputs": response,
-            "expectations": expected_response,
+            "expectations": expectations,
             "trace": trace,
             "guidelines": guidelines,
             "retrieved_context": retrieved_context,

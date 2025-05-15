@@ -2019,6 +2019,31 @@ class FileStore(AbstractStore):
 
         return self.get_logged_model(model_id=model_id)
 
+    def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]):
+        """
+        Set parameters on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            params: Parameters to set on the model.
+
+        Returns:
+            None
+        """
+        for param in params or []:
+            _validate_param(param.key, param.value)
+
+        model = self.get_logged_model(model_id)
+        for param in params:
+            param_path = os.path.join(
+                self._get_model_dir(model.experiment_id, model.model_id),
+                FileStore.PARAMS_FOLDER_NAME,
+                param.key,
+            )
+            make_containing_dirs(param_path)
+            # Don't add trailing newline
+            write_to(param_path, self._writeable_value(param.value))
+
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         """
         Finalize a model by updating its status.
@@ -2173,6 +2198,8 @@ class FileStore(AbstractStore):
     def _get_model_info_from_dir(self, model_dir: str) -> dict[str, Any]:
         model_dict = FileStore._read_yaml(model_dir, FileStore.META_DATA_FILE_NAME)
         model_dict["tags"] = self._get_all_model_tags(model_dir)
+        for param in self._get_all_model_params(model_dir):
+            model_dict["params"][param.key] = param.value
         model_dict["metrics"] = self._get_all_model_metrics(
             model_id=model_dict["model_id"], model_dir=model_dir
         )
@@ -2184,6 +2211,10 @@ class FileStore(AbstractStore):
         for tag_file in tag_files:
             tags.append(self._get_tag_from_file(parent_path, tag_file))
         return tags
+
+    def _get_all_model_params(self, model_dir: str) -> list[LoggedModelParameter]:
+        parent_path, param_files = self._get_resource_files(model_dir, FileStore.PARAMS_FOLDER_NAME)
+        return [self._get_param_from_file(parent_path, param_file) for param_file in param_files]
 
     def _get_all_model_metrics(self, model_id: str, model_dir: str) -> list[Metric]:
         parent_path, metric_files = self._get_resource_files(

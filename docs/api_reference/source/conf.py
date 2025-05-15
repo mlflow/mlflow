@@ -444,6 +444,9 @@ nitpick_ignore = [
     # Literal values for search_logged_models status
     ("py:class", "READY"),
     ("py:class", "FAILED"),
+    # Types in `mlflow.genai`
+    ("py:class", "mlflow.genai.evaluation.base.EvaluationResult"),
+    ("py:class", "EvaluationDatasetTypes"),
 ]
 
 
@@ -486,6 +489,8 @@ def _get_reference_map():
         invalid_ref = entity_cls.__module__ + "." + entity_name
         valid_ref = f"mlflow.entities.model_registry.{entity_name}"
         ref_map[invalid_ref] = valid_ref
+
+    ref_map["mlflow.genai.scorers.base.Scorer"] = "mlflow.genai.Scorer"
 
     return ref_map
 

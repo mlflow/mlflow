@@ -4779,6 +4779,17 @@ def test_create_logged_model(store: SqlAlchemyStore):
         store.create_logged_model(experiment_id=exp_id)
 
 
+def test_log_logged_model_params(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    assert not model.params
+    store.log_logged_model_params(
+        model_id=model.model_id, params=[LoggedModelParameter("param1", "apple")]
+    )
+    loaded_model = store.get_logged_model(model_id=model.model_id)
+    assert loaded_model.params == {"param1": "apple"}
+
+
 @pytest.mark.parametrize(
     "name",
     [
