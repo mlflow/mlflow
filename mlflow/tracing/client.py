@@ -346,7 +346,12 @@ class TracingClient:
                     trace_data = TraceData.from_dict(json.loads(trace_data))
                 else:
                     # For offline traces, download data from artifact storage
+                    import time
+
+                    start = time.time()
                     trace_data = self._download_trace_data(trace_info)
+                    end = time.time()
+                    print("DOWNLOAD TIME", end - start)
             except MlflowTraceDataException as e:
                 _logger.warning(
                     (
@@ -363,10 +368,11 @@ class TracingClient:
         next_max_results = max_results
         next_token = page_token
 
-        # Use minimum of 16 threads or 4x CPU count (whichever is larger)
+        # Use minimum of 32 threads or 4x CPU count (whichever is larger)
         # This is important because these threads are network IO-bound (waiting for downloads)
         # rather than CPU-bound, so we want more threads than CPU cores to maximize throughput
-        max_workers = max(16, os.cpu_count() * 4)
+        max_workers = max(32, os.cpu_count() * 4)
+        print(f"Using {max_workers} threads for downloading traces")
         executor = ThreadPoolExecutor(max_workers=max_workers) if include_spans else nullcontext()
         with executor:
             while len(traces) < max_results:
