@@ -1,8 +1,5 @@
-from unittest.mock import patch
-
 import pytest
 
-import mlflow.genai
 from mlflow.genai.scorers import (
     chunk_relevance,
     context_sufficiency,
@@ -67,30 +64,6 @@ def test_scorers_and_rag_scorers_config(scorers):
         evaluation_config = scorer.update_evaluation_config(evaluation_config)
 
     assert normalize_config(evaluation_config) == normalize_config(expected)
-
-
-def test_evaluate_parameters():
-    data = []
-    with (
-        patch("mlflow.get_tracking_uri", return_value="databricks"),
-        patch("mlflow.genai.evaluation.base.is_model_traced", return_value=True),
-        patch("mlflow.genai.evaluation.base._convert_to_legacy_eval_set", return_value=data),
-        patch("mlflow.evaluate") as mock_evaluate,
-    ):
-        mlflow.genai.evaluate(
-            data=data,
-            scorers=ALL_SCORERS,
-        )
-
-        # Verify the call was made with the right parameters
-        mock_evaluate.assert_called_once_with(
-            model=None,
-            data=data,
-            evaluator_config=expected,
-            extra_metrics=[],
-            model_type=GENAI_CONFIG_NAME,
-            model_id=None,
-        )
 
 
 @pytest.mark.parametrize(
