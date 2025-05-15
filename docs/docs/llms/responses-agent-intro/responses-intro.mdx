@@ -1,0 +1,113 @@
+import { APILink } from "@site/src/components/APILink";
+
+## Responses API intro
+
+### Standard Text Response
+
+#### Responses API
+
+```json
+{
+  "type": "message",
+  "id": "",
+  "content": [{ "annotations": [], "text": "", "type": "output_text" }],
+  "role": "assistant",
+  "status": "completed"
+}
+```
+
+#### ChatCompletions API
+
+```json
+{
+  "role": "assistant",
+  "content": ""
+}
+```
+
+---
+
+### Tool Calls
+
+#### Responses API
+
+```json
+{
+  "type": "function_call",
+  "id": "fc_1",
+  "arguments": "",
+  "call_id": "call_1",
+  "name": "",
+  "status": "completed"
+}
+```
+
+#### ChatCompletions API
+
+```json
+{
+  "role": "assistant",
+  "content": "",
+  "tool_calls": [
+    {
+      "id": "call_1",
+      "type": "function",
+      "function": { "name": "", "arguments": "" }
+    }
+  ]
+}
+```
+
+---
+
+### Tool Call Results
+
+#### Responses API
+
+```json
+{
+  "type": "function_call_output",
+  "call_id": "call_1",
+  "output": ""
+}
+```
+
+#### ChatCompletions API
+
+```json
+{
+  "role": "tool",
+  "content": "12",
+  "tool_call_id": "call_1"
+}
+```
+
+---
+
+### Tool Definitions
+
+#### Responses API
+
+```json
+{
+  "name": "",
+  "parameters": {},
+  "strict": true,
+  "type": "function",
+  "description": ""
+}
+```
+
+#### ChatCompletions API
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "",
+    "description": "",
+    "parameters": {},
+    "strict": true
+  }
+}
+```
