@@ -789,3 +789,9 @@ _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
 MLFLOW_PRINT_MODEL_URLS_ON_CREATION = _BooleanEnvironmentVariable(
     "MLFLOW_PRINT_MODEL_URLS_ON_CREATION", True
 )
+
+#: Maximum number of threads to use when downloading traces during search operations.
+#: If unspecified the number of threads (at least 32) is determined by the available
+#: number of CPU cores.
+#: (default: ``None``)
+MLFLOW_TRACE_SEARCH_MAX_THREADS = _EnvironmentVariable("MLFLOW_TRACE_SEARCH_MAX_THREADS", int, None)
