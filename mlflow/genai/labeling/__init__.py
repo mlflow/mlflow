@@ -1,5 +1,5 @@
 """
-Databricks Agent Review App Python SDK. For more details see Databricks Agent Evaluation:
+Databricks Agent Labeling Python SDK. For more details see Databricks Agent Evaluation:
 <https://docs.databricks.com/en/generative-ai/agent-evaluation/index.html>
 """
 
@@ -13,7 +13,7 @@ try:
     )
 except ImportError:
     raise ImportError(
-        "The `databricks-agents` package is required to use mlflow.genai.review_app. "
+        "The `databricks-agents` package is required to use mlflow.genai.labeling. "
         "Please install it with `pip install databricks-agents`."
     )
 
