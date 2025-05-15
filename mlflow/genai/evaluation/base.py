@@ -180,22 +180,20 @@ def evaluate(
                 truth) as a column in the dataframe (or equivalent list of dictionaries).
 
                 - inputs (required): Column containing inputs for evaluation. The value
-                    must be a dictionary. When `predict_fn` is provided, MLflow will pass
-                    the inputs to the `predict_fn` as keyword arguments. For example,
+                  must be a dictionary. When `predict_fn` is provided, MLflow will pass
+                  the inputs to the `predict_fn` as keyword arguments. For example,
 
-                      * predict_fn: `def predict_fn(question: str, context: str) -> str`
-                      * inputs column: `{"question": "What is MLflow?",
-                          "context": "MLflow is an ML platform"}`
-                      * `predict_fn` will receive "What is MLflow?" as the first argument
-                          (`question`) and "MLflow is an ML platform" as the second
-                          argument (`context`)
+                  * predict_fn: `def predict_fn(question: str, context: str) -> str`
+                  * inputs: `{"question": "What is MLflow?", "context": "MLflow is an ML platform"}`
+                  * `predict_fn` will receive "What is MLflow?" as the first argument
+                    (`question`) and "MLflow is an ML platform" as the second argument (`context`)
 
-                - outputs (optional): Column containing model/app outputs.
+                - outputs (optional): Column containing model or app outputs.
                   If this column is present, `predict_fn` must not be provided.
 
                 - expectations (optional): Column containing ground truth or
-                    dictionary of ground truths. If this column contains a single string,
-                    it is assumed to be the expected response for the row.
+                  dictionary of ground truths. If this column contains a single string,
+                  it is assumed to be the expected response for the row.
 
             The input dataframe can contain extra columns that will be directly passed to
             the scorers. For example, you can pass a dataframe with `retrieved_context`
