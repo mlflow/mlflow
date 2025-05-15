@@ -160,7 +160,9 @@ def test_input_is_required_if_trace_is_not_provided():
         mock_evaluate.assert_not_called()
 
         mlflow.genai.evaluate(
-            data=pd.DataFrame({"inputs": ["What is the capital of France?"], "outputs": ["Paris"]}),
+            data=pd.DataFrame(
+                {"inputs": [{"question": "What is the capital of France?"}], "outputs": ["Paris"]}
+            ),
             scorers=[safety()],
         )
         mock_evaluate.assert_called_once()

@@ -185,9 +185,10 @@ def evaluate(
 
                       * predict_fn: `def predict_fn(question: str, context: str) -> str`
                       * inputs column: `{"question": "What is MLflow?",
-                        "context": "MLflow is an ML platform"}`
-                      * predict_fn will receive "What is MLflow?" as the first argument (`question`)
-                          and "MLflow is an ML platform" as the second argument (`context`)
+                          "context": "MLflow is an ML platform"}`
+                      * `predict_fn` will receive "What is MLflow?" as the first argument
+                          (`question`) and "MLflow is an ML platform" as the second
+                          argument (`context`)
 
                 - outputs (optional): Column containing model/app outputs.
                   If this column is present, `predict_fn` must not be provided.
@@ -202,56 +203,6 @@ def evaluate(
 
             For list of dictionaries, each dict should follow the above schema.
 
-        predict_fn: Target function to evaluate. Will be executed for each input row to
-            generate outputs and traces for scoring.
-
-        scorers: List of Scorer objects that produce evaluation scores from inputs, outputs
-            and other context. Can use MLflow's built-in scorers or custom scorers.
-
-        model_id: Optional model identifier (e.g. "models:/my-model/1") to associate with
-            the evaluation results. Can also set globally via mlflow.set_active_model().
-
-    Returns:
-        EvaluationResult containing:
-            - run_id: ID of the MLflow run containing evaluation results
-            - metrics: Dictionary of aggregate metrics from all scorers
-            - result_df: Pandas DataFrame with per-row inputs, outputs, and scores
-
-    Note:
-        This function is only supported on Databricks. The tracking URI must be
-        set to Databricks.
-
-    .. warning::
-
-        This function is not thread-safe. Please do not use it in multi-threaded
-        environments.
-<<<<<<< HEAD
-
-    Args:
-        data: Dataset for the evaluation. It must be one of the following format:
-
-            * A EvaluationDataset entity
-            * Pandas DataFrame
-            * Spark DataFrame
-            * List of dictionary
-
-            If a dataframe is specified, it must contain the following schema:
-
-            - inputs (optional): A column that contains a single input. This is required
-              unless trace is provided.
-            - outputs (optional): A column that contains a single output from the
-              target model/app. If the predict_fn is provided, this is generated
-              by MLflow so not required.
-            - expectations (optional): A column that contains a ground truth, or a
-              dictionary of ground truths for individual output fields.
-            - trace (optional): A column that contains a single trace object
-              corresponding to the prediction for the row. Only required when
-              any of scorers requires a trace in order to compute
-              assessments/metrics.
-
-            If a list of dictionary is passed, each dictionary should contain keys
-            following the above schema.
-
         scorers: A list of Scorer objects that produces evaluation scores from
             inputs, outputs, and other additional contexts. MLflow provides pre-defined
             scorers, but you can also define custom ones.
@@ -263,21 +214,18 @@ def evaluate(
             The function must emit a single trace per call. If it doesn't, decorate
             the function with @mlflow.trace decorator to ensure a trace to be emitted.
 
-        model_id: Optional. Specify an ID of the model e.g. models:/my-model/1 to
-            associate the evaluation result with. There are several ways to associate
-            model with association.
+        model_id: Optional model identifier (e.g. "models:/my-model/1") to associate with
+            the evaluation results. Can be also set globally via the
+            :py:func:`mlflow.set_active_model` function.
 
-            1. Use the ``model_id`` parameters.
-            2. Use the ``mlflow.set_active_model()`` function to set model ID to global context.
+    Note:
+        This function is only supported on Databricks. The tracking URI must be
+        set to Databricks.
 
-               .. code-block:: python
+    .. warning::
 
-                    mlflow.set_active_model(model_id="xyz")
-
-                    mlflow.evaluate(data, ...)
-
-=======
->>>>>>> ff4233e7b (Pass `inputs` as keyword arguments to the predict_fn)
+        This function is not thread-safe. Please do not use it in multi-threaded
+        environments.
     """
     try:
         from databricks.rag_eval.evaluation.metrics import Metric as DBAgentsMetric
