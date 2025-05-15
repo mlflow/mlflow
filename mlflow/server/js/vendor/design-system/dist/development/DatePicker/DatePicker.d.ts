@@ -10,6 +10,14 @@ export interface DatePickerChangeEventType {
     type: string;
     updateLocation: 'input' | 'calendar';
 }
+export interface RangePickerChangeEventType {
+    target: {
+        name?: string;
+        value: DateRange | undefined;
+    };
+    type: string;
+    updateLocation: 'input' | 'calendar' | 'preset';
+}
 export interface DatePickerWrapperProps {
     wrapperProps?: HTMLAttributes<HTMLDivElement> & HTMLDataAttributes;
 }
@@ -21,8 +29,9 @@ export interface DatePickerProps extends Omit<InputProps, 'type' | 'suffix' | 'o
     value?: Date;
     validationState?: ValidationState;
     includeTime?: boolean;
+    includeSeconds?: boolean;
     /**
-     * Expected format HH:mm
+     * Expected format HH:mm or HH:mm:ss
      */
     defaultTime?: string;
     datePickerProps?: Omit<DayPickerSingleProps, 'mode' | 'selected'> | Omit<DayPickerRangeProps, 'mode' | 'selected'>;
@@ -59,7 +68,8 @@ export declare const getDatePickerQuickActionBasic: ({ today, yesterday, sevenDa
 }) => DatePickerQuickActionProps[];
 export declare const DatePicker: import("react").ForwardRefExoticComponent<DatePickerProps & import("react").RefAttributes<HTMLInputElement>>;
 export interface RangePickerProps extends Omit<DayPickerRangeProps, 'mode'>, DatePickerWrapperProps {
-    onChange?: (date: DayPickerDateRange | undefined) => void;
+    name?: string;
+    onChange?: (e: RangePickerChangeEventType) => void;
     startDatePickerProps?: DatePickerProps & {
         ref?: ForwardedRef<HTMLInputElement>;
     };
@@ -67,6 +77,7 @@ export interface RangePickerProps extends Omit<DayPickerRangeProps, 'mode'>, Dat
         ref?: ForwardedRef<HTMLInputElement>;
     };
     includeTime?: boolean;
+    includeSeconds?: boolean;
     allowClear?: boolean;
     /**
      * Minimum recommended width 300px without `includeTime` and 350px with `includeTime`. 400px if both `includeTime` and `allowClear` are true

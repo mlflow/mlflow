@@ -4779,6 +4779,17 @@ def test_create_logged_model(store: SqlAlchemyStore):
         store.create_logged_model(experiment_id=exp_id)
 
 
+def test_log_logged_model_params(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    assert not model.params
+    store.log_logged_model_params(
+        model_id=model.model_id, params=[LoggedModelParameter("param1", "apple")]
+    )
+    loaded_model = store.get_logged_model(model_id=model.model_id)
+    assert loaded_model.params == {"param1": "apple"}
+
+
 @pytest.mark.parametrize(
     "name",
     [
@@ -4810,7 +4821,17 @@ def test_get_logged_model(store: SqlAlchemyStore):
 
 def test_delete_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
-    model = store.create_logged_model(experiment_id=exp_id)
+    run = store.create_run(exp_id, "user", 0, [], "test_run")
+    model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+    metric = Metric(
+        key="metric",
+        value=0,
+        timestamp=0,
+        step=0,
+        model_id=model.model_id,
+        run_id=run.info.run_id,
+    )
+    store.log_metric(run.info.run_id, metric)
     store.delete_logged_model(model.model_id)
     with pytest.raises(MlflowException, match="not found"):
         store.get_logged_model(model.model_id)
@@ -4876,7 +4897,6 @@ def test_delete_logged_model_tag(store: SqlAlchemyStore):
 
 
 def test_search_logged_models(store: SqlAlchemyStore):
-    # TODO: Support filtering, ordering, and pagination
     exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
 
     model_1 = store.create_logged_model(experiment_id=exp_id_1)
@@ -4925,6 +4945,28 @@ def test_search_logged_models_filter_string(store: SqlAlchemyStore):
     )
     assert [m.name for m in models] == [model_1.name]
     assert models.token is None
+
+    for val in (
+        # A single item without a comma
+        f"('{model_1.name}')",
+        # A single item with a comma
+        f"('{model_1.name}',)",
+        # Multiple items
+        f"('{model_1.name}', 'foo')",
+    ):
+        # IN
+        models = store.search_logged_models(
+            experiment_ids=[exp_id_1],
+            filter_string=f"name IN {val}",
+        )
+        assert [m.name for m in models] == [model_1.name]
+        assert models.token is None
+        # NOT IN
+        models = store.search_logged_models(
+            experiment_ids=[exp_id_1],
+            filter_string=f"name NOT IN {val}",
+        )
+        assert [m.name for m in models] == []
 
     # Search by numeric attribute
     models = store.search_logged_models(

@@ -25,6 +25,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
@@ -2131,3 +2132,55 @@ def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
     ]
     artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="dir")
     assert artifacts == [FileInfo(path="dir/another_file", is_dir=False, file_size=2)]
+
+
+def test_logged_model_model_id_required(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.finalize_logged_model("", LoggedModelStatus.READY)
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.get_logged_model("")
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.delete_logged_model("")
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.set_logged_model_tags("", {})
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.delete_logged_model_tag("", "")
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+def test_log_metric_link_to_active_model(tracking_uri):
+    model = mlflow.create_external_model(name="test_model")
+    mlflow.set_active_model(name=model.name)
+    client = MlflowClient(tracking_uri=tracking_uri)
+    with mlflow.start_run() as run:
+        client.log_metric(run.info.run_id, "metric", 1)
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.name == model.name
+    assert logged_model.model_id == model.model_id
+    assert logged_model.metrics[0].key == "metric"
+    assert logged_model.metrics[0].value == 1
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+def test_log_batch_link_to_active_model(tracking_uri):
+    model = mlflow.create_external_model(name="test_model")
+    mlflow.set_active_model(name=model.name)
+    client = MlflowClient(tracking_uri=tracking_uri)
+    with mlflow.start_run() as run:
+        client.log_batch(run.info.run_id, [Metric("metric1", 1, 0, 0), Metric("metric2", 2, 0, 0)])
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.name == model.name
+    assert logged_model.model_id == model.model_id
+    assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}

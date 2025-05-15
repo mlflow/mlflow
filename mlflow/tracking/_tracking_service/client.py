@@ -489,6 +489,8 @@ class TrackingServiceClient:
             represents future for logging operation.
 
         """
+        from mlflow.tracking.fluent import get_active_model_id
+
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
 
@@ -500,7 +502,7 @@ class TrackingServiceClient:
                 step=metric.step,
                 dataset_name=metric.dataset_name,
                 dataset_digest=metric.dataset_digest,
-                model_id=metric.model_id,
+                model_id=metric.model_id or get_active_model_id(),
                 run_id=metric.run_id,
             )
             for metric in metrics
@@ -823,6 +825,12 @@ class TrackingServiceClient:
             if params is not None
             else params,
             model_type=model_type,
+        )
+
+    def log_model_params(self, model_id: str, params: dict[str, str]) -> None:
+        return self.store.log_logged_model_params(
+            model_id=model_id,
+            params=[LoggedModelParameter(str(key), str(value)) for key, value in params.items()],
         )
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:

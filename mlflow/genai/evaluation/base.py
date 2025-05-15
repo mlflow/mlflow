@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
@@ -38,39 +39,169 @@ class EvaluationResult:
 
 def evaluate(
     data: "EvaluationDatasetTypes",
+    scorers: list[Scorer],
     predict_fn: Optional[Callable[..., Any]] = None,
-    scorers: Optional[list[Scorer]] = None,
     model_id: Optional[str] = None,
 ) -> EvaluationResult:
     """
-    TODO: updating docstring with real examples and API links
+    Evaluate the performance of a generative AI model/application using specified
+    data and scorers.
 
-    .. warning::
+    This function allows you to evaluate a model's performance on a given dataset
+    using various scoring criteria. It supports both built-in scorers provided by
+    MLflow and custom scorers. The evaluation results include metrics and detailed
+    per-row assessments.
 
-        This function is not thread-safe. Please do not use it in multi-threaded
-        environments.
+    There are three different ways to use this function:
+
+    **1. Use Traces to evaluate the model/application.**
+
+    The `data` parameter takes a DataFrame with `trace` column, which contains a
+    single trace object corresponding to the prediction for the row. This dataframe
+    is easily obtained from the existing traces stored in MLflow, by using the
+    :py:func:`mlflow.search_traces` function.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import correctness, safety
+        import pandas as pd
+
+        trace_df = mlflow.search_traces(model_id="<my-model-id>")
+
+        mlflow.genai.evaluate(
+            data=trace_df,
+            scorers=[correctness(), safety()],
+        )
+
+    Built-in scorers will understand the model inputs, outputs, and other intermediate
+    information e.g. retrieved context, from the trace object. You can also access to
+    the trace object from the custom scorer function by using the `trace` parameter.
+
+    .. code-block:: python
+
+        from mlflow.genai.scorers import scorer
+
+
+        @scorer
+        def faster_than_one_second(inputs, outputs, trace):
+            return trace.info.execution_duration < 1000
+
+    **2. Use DataFrame or dictionary with "inputs", "outputs", "expectations" columns.**
+
+    Alternatively, you can pass inputs, outputs, and expectations (ground truth) as
+    a column in the dataframe (or equivalent list of dictionaries).
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import correctness
+        import pandas as pd
+
+        data = pd.DataFrame(
+            [
+                {
+                    "inputs": {"question": "What is MLflow?"},
+                    "outputs": "MLflow is an ML platform",
+                    "expectations": "MLflow is an ML platform",
+                },
+                {
+                    "inputs": {"question": "What is Spark?"},
+                    "outputs": "I don't know",
+                    "expectations": "Spark is a data engine",
+                },
+            ]
+        )
+
+        mlflow.genai.evaluate(
+            data=data,
+            scorers=[correctness()],
+        )
+
+    **3. Pass `predict_fn` and input samples (and optionally expectations).**
+
+    If you want to generate the outputs and traces on-the-fly from your input samples,
+    you can pass a callable to the `predict_fn` parameter. In this case, MLflow will
+    pass the inputs to the `predict_fn` as keyword arguments. Therefore, the "inputs"
+    column must be a dictionary with the parameter names as keys.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import correctness, safety
+        import openai
+
+        # Create a dataframe with input samples
+        data = pd.DataFrame(
+            [
+                {"inputs": {"question": "What is MLflow?"}},
+                {"inputs": {"question": "What is Spark?"}},
+            ]
+        )
+
+
+        # Define a predict function to evaluate. The "inputs" column will be
+        # passed to the prediction function as keyword arguments.
+        def predict_fn(question: str) -> str:
+            response = openai.OpenAI().chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": question}],
+            )
+            return response.choices[0].message.content
+
+
+        mlflow.genai.evaluate(
+            data=data,
+            predict_fn=predict_fn,
+            scorers=[correctness(), safety()],
+        )
 
     Args:
-        data: Dataset for the evaluation. It must be one of the following format:
-            * A EvaluationDataset entity
+        data: Dataset for the evaluation. Must be one of the following formats:
+
+            * An EvaluationDataset entity
             * Pandas DataFrame
             * Spark DataFrame
-            * List of dictionary
+            * List of dictionaries
 
-            If a dataframe is specified, it must contain the following schema:
-              - inputs (required): A column that contains a single input.
-              - outputs (optional): A column that contains a single output from the
-                   target model/app. If the predict_fn is provided, this is generated
-                   by MLflow so not required.
-              - expectations (optional): A column that contains a ground truth, or a
-                   dictionary of ground truths for individual output fields.
-              - trace (optional): A column that contains a single trace object
-                   corresponding to the prediction for the row. Only required when
-                   any of scorers requires a trace in order to compute
-                   assessments/metrics.
+            The dataset must include either of the following columns:
 
-            If a list of dictionary is passed, each dictionary should contain keys
-            following the above schema.
+            1. `trace` column that contains a single trace object corresponding
+                to the prediction for the row.
+
+                If this column is present, MLflow extracts inputs, outputs, assessments,
+                and other intermediate information e.g. retrieved context, from the trace
+                object and uses them for scoring. When this column is present, the
+                `predict_fn` parameter must not be provided.
+
+            2. `inputs`, `outputs`, `expectations` columns.
+
+                Alternatively, you can pass inputs, outputs, and expectations(ground
+                truth) as a column in the dataframe (or equivalent list of dictionaries).
+
+                - inputs (required): Column containing inputs for evaluation. The value
+                  must be a dictionary. When `predict_fn` is provided, MLflow will pass
+                  the inputs to the `predict_fn` as keyword arguments. For example,
+
+                  * predict_fn: `def predict_fn(question: str, context: str) -> str`
+                  * inputs: `{"question": "What is MLflow?", "context": "MLflow is an ML platform"}`
+                  * `predict_fn` will receive "What is MLflow?" as the first argument
+                    (`question`) and "MLflow is an ML platform" as the second argument (`context`)
+
+                - outputs (optional): Column containing model or app outputs.
+                  If this column is present, `predict_fn` must not be provided.
+
+                - expectations (optional): Column containing a dictionary of ground truths.
+
+            The input dataframe can contain extra columns that will be directly passed to
+            the scorers. For example, you can pass a dataframe with `retrieved_context`
+            column to use a scorer that takes `retrieved_context` as a parameter.
+
+            For list of dictionaries, each dict should follow the above schema.
+
+        scorers: A list of Scorer objects that produces evaluation scores from
+            inputs, outputs, and other additional contexts. MLflow provides pre-defined
+            scorers, but you can also define custom ones.
 
         predict_fn: The target function to be evaluated. The specified function will be
             executed for each row in the input dataset, and outputs will be used for
@@ -79,21 +210,18 @@ def evaluate(
             The function must emit a single trace per call. If it doesn't, decorate
             the function with @mlflow.trace decorator to ensure a trace to be emitted.
 
-        scorers: A list of Scorer objects that produces evaluation scores from
-            inputs, outputs, and other additional contexts. MLflow provides pre-defined
-            scorers, but you can also define custom ones.
+        model_id: Optional model identifier (e.g. "models:/my-model/1") to associate with
+            the evaluation results. Can be also set globally via the
+            :py:func:`mlflow.set_active_model` function.
 
-        model_id: Optional. Specify an ID of the model e.g. models:/my-model/1 to
-            associate the evaluation result with. There are several ways to associate
-            model with association.
+    Note:
+        This function is only supported on Databricks. The tracking URI must be
+        set to Databricks.
 
-            1. Use the `model_id` parameters.
-            2. Use the mlflow.set_active_model() function to set model ID to global context.
-               ```python
-               mlflow.set_active_model(model_id="xyz")
+    .. warning::
 
-               mlflow.evaluate(data, ...)
-               ```
+        This function is not thread-safe. Please do not use it in multi-threaded
+        environments.
     """
     try:
         from databricks.rag_eval.evaluation.metrics import Metric as DBAgentsMetric
@@ -109,10 +237,15 @@ def evaluate(
             "Please set the tracking URI to Databricks."
         )
 
+    if not scorers:
+        raise MlflowException.invalid_parameter_value(
+            "At least one scorer is required to evaluate a model."
+        )
+
     builtin_scorers = []
     custom_scorers = []
 
-    for scorer in scorers or []:
+    for scorer in scorers:
         if isinstance(scorer, BuiltInScorer):
             builtin_scorers.append(scorer)
         elif isinstance(scorer, Scorer):
@@ -131,7 +264,11 @@ def evaluate(
                 )
             )
 
-    evaluation_config = {}
+    evaluation_config = {
+        GENAI_CONFIG_NAME: {
+            "metrics": [],
+        }
+    }
     for _scorer in builtin_scorers:
         evaluation_config = _scorer.update_evaluation_config(evaluation_config)
 
@@ -148,13 +285,15 @@ def evaluate(
             logger.info("Annotating predict_fn with tracing since it is not already traced.")
             predict_fn = mlflow.trace(predict_fn)
 
-    result = mlflow.evaluate(
-        model=predict_fn,
+    result = mlflow.models.evaluate(
+        # Wrap the prediction function to unwrap the inputs dictionary into keyword arguments.
+        model=(lambda request: predict_fn(**request)) if predict_fn else None,
         data=data,
         evaluator_config=evaluation_config,
         extra_metrics=extra_metrics,
         model_type=GENAI_CONFIG_NAME,
         model_id=model_id,
+        _called_from_genai_evaluate=True,
     )
 
     return EvaluationResult(
@@ -177,12 +316,11 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
     Example:
         .. code-block:: python
 
-            data = (
-                pd.DataFrame(
-                    {
-                        "inputs": ["What is MLflow?", "What is Spark?"],
-                    }
-                ),
+            data = pd.DataFrame(
+                [
+                    {"inputs": {"messages": [{"role": "user", "content": "What is MLflow?"}]}},
+                    {"inputs": {"question": [{"role": "user", "content": "What is Spark?"}]}},
+                ]
             )
             predict_fn = mlflow.genai.to_predict_fn("endpoints:/chat")
             mlflow.genai.evaluate(

@@ -43,6 +43,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, TEMPORARILY_UNAVAILABLE
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -1254,6 +1255,17 @@ def test_set_experiment_tags():
         assert str(exact_expected_tags[tag_key]) == tag_value
 
 
+@pytest.mark.parametrize("error_code", [RESOURCE_DOES_NOT_EXIST, TEMPORARILY_UNAVAILABLE])
+def test_set_experiment_throws_for_unexpected_error(error_code: int):
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient.create_experiment",
+        side_effect=MlflowException("Unexpected error", error_code=error_code),
+    ) as mock_create_experiment:
+        with pytest.raises(MlflowException, match="Unexpected error"):
+            mlflow.set_experiment("test-experiment")
+        mock_create_experiment.assert_called_once()
+
+
 def test_log_input(tmp_path):
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
     path = tmp_path / "temp.csv"
@@ -1781,6 +1793,26 @@ def test_initialize_logged_model_tags_from_context():
         m_get_source_version.assert_called_once()
 
 
+def test_log_model_params():
+    model = mlflow.initialize_logged_model()
+
+    large_params = {f"param_{i}": f"value_{i}" for i in range(150)}
+    mlflow.log_model_params(large_params, model_id=model.model_id)
+
+    logged_model = mlflow.get_logged_model(model.model_id)
+    for key, value in large_params.items():
+        assert logged_model.params.get(key) == value
+
+
+def test_log_model_params_active_model():
+    model = mlflow.create_external_model()
+    with mlflow.set_active_model(model_id=model.model_id):
+        large_params = {f"param_{i}": f"value_{i}" for i in range(150)}
+        mlflow.log_model_params(large_params)
+        logged_model = mlflow.get_logged_model(model.model_id)
+        assert logged_model.params == large_params
+
+
 def test_finalized_logged_model():
     model = mlflow.initialize_logged_model()
     finalized_model = mlflow.finalize_logged_model(
@@ -2081,3 +2113,27 @@ def test_set_active_model_link_traces():
     assert len(traces) == 6
     assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == new_model.model_id
     assert new_model.model_id != model_id
+
+
+def test_log_metric_link_to_active_model():
+    model = mlflow.create_external_model(name="test_model")
+    set_active_model(name=model.name)
+    with mlflow.start_run():
+        mlflow.log_metric("metric", 1)
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.name == model.name
+    assert logged_model.model_id == model.model_id
+    assert logged_model.metrics[0].key == "metric"
+    assert logged_model.metrics[0].value == 1
+
+
+def test_log_metrics_link_to_active_model():
+    model = mlflow.create_external_model(name="test_model")
+    set_active_model(name=model.name)
+    with mlflow.start_run():
+        mlflow.log_metrics({"metric1": 1, "metric2": 2})
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.name == model.name
+    assert logged_model.model_id == model.model_id
+    assert len(logged_model.metrics) == 2
+    assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}

@@ -179,18 +179,19 @@ def set_experiment(
         if experiment_id is None:
             experiment = client.get_experiment_by_name(experiment_name)
             if not experiment:
+                _logger.info(
+                    "Experiment with name '%s' does not exist. Creating a new experiment.",
+                    experiment_name,
+                )
                 try:
                     experiment_id = client.create_experiment(experiment_name)
-                    _logger.info(
-                        "Experiment with name '%s' does not exist. Creating a new experiment.",
-                        experiment_name,
-                    )
                 except MlflowException as e:
                     if e.error_code == "RESOURCE_ALREADY_EXISTS":
                         # NB: If two simultaneous processes attempt to set the same experiment
                         # simultaneously, a race condition may be encountered here wherein
                         # experiment creation fails
                         return client.get_experiment_by_name(experiment_name)
+                    raise
 
                 experiment = client.get_experiment(experiment_id)
         else:
@@ -924,8 +925,9 @@ def log_metric(
         timestamp: Time when this metric was calculated. Defaults to the current system time.
         run_id: If specified, log the metric to the specified run. If not specified, log the metric
             to the currently active run.
-        model_id: The ID of the model associated with the metric. If not specified, the models IDs
-            associated with the specified or active run will be used.
+        model_id: The ID of the model associated with the metric. If not specified, use the current
+            active model ID set by :py:func:`mlflow.set_active_model`. If no active model exists,
+            the models IDs associated with the specified or active run will be used.
         dataset: The dataset associated with the metric.
 
     Returns:
@@ -949,6 +951,7 @@ def log_metric(
     """
     run_id = run_id or _get_or_start_run().info.run_id
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+    model_id = model_id or get_active_model_id()
     _log_inputs_for_metrics_if_necessary(
         run_id,
         [
@@ -1053,8 +1056,9 @@ def log_metrics(
         run_id: Run ID. If specified, log metrics to the specified run. If not specified, log
             metrics to the currently active run.
         timestamp: Time when these metrics were calculated. Defaults to the current system time.
-        model_id: The ID of the model associated with the metrics. If not specified, the models IDs
-            associated with the specified or active run will be used.
+        model_id: The ID of the model associated with the metric. If not specified, use the current
+            active model ID set by :py:func:`mlflow.set_active_model`. If no active model
+            exists, the models IDs associated with the specified or active run will be used.
         dataset: The dataset associated with the metrics.
 
     Returns:
@@ -1083,6 +1087,7 @@ def log_metrics(
     step = step or 0
     dataset_name = dataset.name if dataset is not None else None
     dataset_digest = dataset.digest if dataset is not None else None
+    model_id = model_id or get_active_model_id()
     model_ids = (
         [model_id]
         if model_id is not None
@@ -2257,6 +2262,38 @@ def _create_logged_model(
 
 
 @experimental
+def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> None:
+    """
+    Log params to the specified logged model.
+
+    Args:
+        params: Params to log on the model.
+        model_id: ID of the model. If not specified, use the current active model ID.
+
+    Returns:
+        None
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.log_model_params(params={"param": "value"}, model_id=model_info.model_id)
+    """
+    model_id = model_id or get_active_model_id()
+    MlflowClient().log_model_params(model_id, params)
+
+
+@experimental
 def finalize_logged_model(
     model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
 ) -> LoggedModel:
@@ -2397,14 +2434,14 @@ def search_logged_models(
                 - tags: `tags.tag_name`
             - Comparison operators:
                 - For numeric entities (metrics and numeric attributes): <, <=, >, >=, =, !=
-                - For string entities (params, tags, string attributes): =, !=, LIKE, ILIKE
+                - For string entities (params, tags, string attributes): =, !=, IN, NOT IN
             - Multiple conditions can be joined with 'AND'
             - String values must be enclosed in single quotes
 
             Example filter strings:
                 - `creation_time > 100`
                 - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
-                - `tags.release LIKE 'v1.%'`
+                - `tags.release IN ('v1.0', 'v1.1')`
                 - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
 
         datasets: List of dictionaries to specify datasets on which to apply metrics filters

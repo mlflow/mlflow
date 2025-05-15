@@ -27,11 +27,13 @@ import { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 import { RUNS_AUTO_REFRESH_INTERVAL } from '../utils/experimentPage.fetch-utils';
 import {
   shouldEnableExperimentPageAutoRefresh,
+  shouldUsePredefinedErrorsInExperimentTracking,
   shouldUseRegexpBasedAutoRunsSearchFilter,
 } from '../../../../common/utils/FeatureUtils';
 import type { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
 import { useMemo } from 'react';
 import { searchModelVersionsApi } from '../../../../model-registry/actions';
+import { NotFoundError, BadRequestError } from '@databricks/web-shared/errors';
 import { ErrorBoundary } from 'react-error-boundary';
 
 jest.mock('../../../actions', () => ({
@@ -50,6 +52,7 @@ jest.mock('../../../../common/utils/FeatureUtils', () => ({
     '../../../../common/utils/FeatureUtils',
   ),
   shouldEnableExperimentPageAutoRefresh: jest.fn(),
+  shouldUsePredefinedErrorsInExperimentTracking: jest.fn(),
   shouldUseRegexpBasedAutoRunsSearchFilter: jest.fn(() => false),
 }));
 
@@ -406,6 +409,31 @@ describe('useExperimentRuns - integration test', () => {
     expect(result.current.requestError).toBeInstanceOf(ErrorWrapper);
     expect((result.current.requestError as ErrorWrapper).getMessageField()).toEqual('request failure');
     expect(Utils.logErrorAndNotifyUser).toHaveBeenCalled();
+  });
+
+  test('should pass error object through if known error occurred', async () => {
+    jest.mocked(shouldUsePredefinedErrorsInExperimentTracking).mockImplementation(() => true);
+    // Mock the response to be a failure
+    jest.mocked(searchRunsApi).mockReturnValue({
+      type: 'mocked-action',
+      payload: Promise.reject(new BadRequestError({})),
+      meta: { id: 0 },
+    });
+    const { result } = await renderTestHook();
+    expect(result.current.requestError).toBeInstanceOf(BadRequestError);
+  });
+
+  test('should translate ErrorWrapper into a known error', async () => {
+    jest.mocked(shouldUsePredefinedErrorsInExperimentTracking).mockImplementation(() => true);
+    // Mock the response to be a failure
+    jest.mocked(searchRunsApi).mockReturnValue({
+      type: 'mocked-action',
+      payload: Promise.reject(new ErrorWrapper({ error_code: 'RESOURCE_DOES_NOT_EXIST', message: 'not found' })),
+      meta: { id: 0 },
+    });
+    const { result } = await renderTestHook();
+    expect(result.current.requestError).toBeInstanceOf(NotFoundError);
+    expect((result.current.requestError as NotFoundError)?.message).toEqual('not found');
   });
 
   test('should refresh list using last valid request parameters', async () => {
