@@ -22,7 +22,7 @@ from mlflow.entities import (
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
-    LoggedModelStatus,1
+    LoggedModelStatus,
     Metric,
     Param,
     Run,
