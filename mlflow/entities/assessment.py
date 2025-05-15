@@ -7,7 +7,6 @@ from typing import Any, Optional, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
-from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
@@ -17,6 +16,7 @@ from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
 from mlflow.utils.annotations import experimental
+from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 
 # Feedback value should be one of the following types:
 # - float
@@ -63,8 +63,8 @@ class Assessment(_MlflowObject):
     # Deprecated, use `error` in Feedback instead. Just kept for backward compatibility
     # and will be removed in the 3.0.0 release.
     error: Optional[AssessmentError] = None
-    # Deprecated, to create an assessment with an expectation or feedback, use the
-    # `Expectation` or `Feedback` classes instead.
+    # Should only be used internally. To create an assessment with an expectation or feedback,
+    # use the`Expectation` or `Feedback` classes instead.
     expectation: Optional[ExpectationValue] = None
     feedback: Optional[FeedbackValue] = None
 
@@ -99,18 +99,10 @@ class Assessment(_MlflowObject):
                 f"Got {type(self.source)} instead."
             )
 
-    @property
-    def value(self):
-        if self.expectation:
-            return self.expectation.value
-        elif self.feedback:
-            return self.feedback.value
-        return None
-
     def to_proto(self):
         assessment = ProtoAssessment()
         assessment.assessment_name = self.name
-        assessment.trace_id = self.trace_id
+        assessment.trace_id = self.trace_id or ""
 
         assessment.source.CopyFrom(self.source.to_proto())
 
@@ -138,31 +130,13 @@ class Assessment(_MlflowObject):
     @classmethod
     def from_proto(cls, proto):
         if proto.WhichOneof("value") == "expectation":
-            expectation = ExpectationValue.from_proto(proto.expectation)
-            feedback = None
+            return Expectation.from_proto(proto)
         elif proto.WhichOneof("value") == "feedback":
-            expectation = None
-            feedback = FeedbackValue.from_proto(proto.feedback)
+            return Feedback.from_proto(proto)
         else:
-            expectation = None
-            feedback = None
-
-        # Convert ScalarMapContainer to a normal Python dict
-        metadata = dict(proto.metadata) if proto.metadata else None
-
-        return cls(
-            assessment_id=proto.assessment_id or None,
-            trace_id=proto.trace_id,
-            name=proto.assessment_name,
-            source=AssessmentSource.from_proto(proto.source),
-            create_time_ms=proto.create_time.ToMilliseconds(),
-            last_update_time_ms=proto.last_update_time.ToMilliseconds(),
-            expectation=expectation,
-            feedback=feedback,
-            rationale=proto.rationale or None,
-            metadata=metadata,
-            span_id=proto.span_id or None,
-        )
+            raise MlflowException.invalid_parameter_value(
+                f"Unknown assessment type: {proto.WhichOneof('value')}"
+            )
 
     def to_dictionary(self):
         # Note that MessageToDict excludes None fields. For example, if assessment_id is None,
@@ -171,26 +145,14 @@ class Assessment(_MlflowObject):
 
     @classmethod
     def from_dictionary(cls, d: dict[str, Any]) -> "Assessment":
-        t = Timestamp()
-        t.FromJsonString(d["create_time"])
-        create_time_ms = t.ToMilliseconds()
-        t.FromJsonString(d["last_update_time"])
-        last_update_time_ms = t.ToMilliseconds()
-        return cls(
-            assessment_id=d.get("assessment_id"),
-            trace_id=d.get("trace_id"),
-            name=d["assessment_name"],
-            source=AssessmentSource.from_dictionary(d["source"]),
-            create_time_ms=create_time_ms,
-            last_update_time_ms=last_update_time_ms,
-            expectation=ExpectationValue.from_dictionary(e)
-            if (e := d.get("expectation"))
-            else None,
-            feedback=FeedbackValue.from_dictionary(f) if (f := d.get("feedback")) else None,
-            rationale=d.get("rationale"),
-            metadata=d.get("metadata"),
-            span_id=d.get("span_id"),
-        )
+        if d.get("expectation"):
+            return Expectation.from_dictionary(d)
+        elif d.get("feedback"):
+            return Feedback.from_dictionary(d)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Unknown assessment type: {d.get('assessment_name')}"
+            )
 
 
 @experimental
@@ -246,21 +208,88 @@ class Feedback(Assessment):
     value: Optional[FeedbackValueType] = None
     error: Optional[AssessmentError] = None
 
-    def __post_init__(self):
-        if self.value is None and self.error is None:
+    def __init__(
+        self,
+        name: str,
+        value: Optional[FeedbackValueType] = None,
+        error: Optional[AssessmentError] = None,
+        source: Optional[AssessmentSource] = None,
+        trace_id: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
+        span_id: Optional[str] = None,
+        create_time_ms: Optional[int] = None,
+        last_update_time_ms: Optional[int] = None,
+        rationale: Optional[str] = None,
+    ):
+        if value is None and error is None:
             raise MlflowException.invalid_parameter_value(
                 "Either `value` or `error` must be provided.",
             )
 
-        self.feedback = FeedbackValue(value=self.value, error=self.error)
-
         # Default to CODE source if not provided
-        if self.source is None:
-            self.source = AssessmentSource(
-                source_type=AssessmentSourceType.CODE, source_id="default"
+        if source is None:
+            source = AssessmentSource(source_type=AssessmentSourceType.CODE, source_id="default")
+
+        super().__init__(
+            name=name,
+            source=source,
+            trace_id=trace_id,
+            metadata=metadata,
+            span_id=span_id,
+            create_time_ms=create_time_ms,
+            last_update_time_ms=last_update_time_ms,
+            feedback=FeedbackValue(value=value, error=error),
+            rationale=rationale,
+        )
+
+        self.value = value
+        self.error = error
+
+    @classmethod
+    def from_proto(cls, proto):
+        # Convert ScalarMapContainer to a normal Python dict
+        metadata = dict(proto.metadata) if proto.metadata else None
+        feedback_value = FeedbackValue.from_proto(proto.feedback)
+        feedback = cls(
+            trace_id=proto.trace_id,
+            name=proto.assessment_name,
+            source=AssessmentSource.from_proto(proto.source),
+            create_time_ms=proto.create_time.ToMilliseconds(),
+            last_update_time_ms=proto.last_update_time.ToMilliseconds(),
+            value=feedback_value.value,
+            error=feedback_value.error,
+            rationale=proto.rationale or None,
+            metadata=metadata,
+            span_id=proto.span_id or None,
+        )
+        feedback.assessment_id = proto.assessment_id or None
+        return feedback
+
+    @classmethod
+    def from_dictionary(cls, d: dict[str, Any]) -> "Expectation":
+        feedback_value = d.get("feedback")
+
+        if not feedback_value:
+            raise MlflowException.invalid_parameter_value(
+                "`feedback` must exist in the dictionary."
             )
 
-        super().__post_init__()
+        feedback_value = FeedbackValue.from_dictionary(feedback_value)
+
+        feedback = cls(
+            trace_id=d.get("trace_id"),
+            name=d["assessment_name"],
+            source=AssessmentSource.from_dictionary(d["source"]),
+            create_time_ms=proto_timestamp_to_milliseconds(d["create_time"]),
+            last_update_time_ms=proto_timestamp_to_milliseconds(d["last_update_time"]),
+            value=feedback_value.value,
+            error=feedback_value.error,
+            rationale=d.get("rationale"),
+            metadata=d.get("metadata"),
+            span_id=d.get("span_id"),
+        )
+        feedback.assessment_id = d.get("assessment_id") or None
+        return feedback
 
 
 @experimental
@@ -302,23 +331,80 @@ class Expectation(Assessment):
             )
     """
 
-    value: Any
+    # Needs to be optional because other earlier args in the Assessment is optional
+    value: Optional[Any] = None
 
-    def __post_init__(self):
-        if self.value is None:
+    def __init__(
+        self,
+        name: str,
+        value: Any,
+        source: Optional[AssessmentSource] = None,
+        trace_id: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
+        span_id: Optional[str] = None,
+        create_time_ms: Optional[int] = None,
+        last_update_time_ms: Optional[int] = None,
+    ):
+        if source is None:
+            source = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="default")
+
+        if value is None:
+            raise MlflowException.invalid_parameter_value("The `value` field must be specified.")
+
+        super().__init__(
+            name=name,
+            source=source,
+            trace_id=trace_id,
+            metadata=metadata,
+            span_id=span_id,
+            create_time_ms=create_time_ms,
+            last_update_time_ms=last_update_time_ms,
+            expectation=ExpectationValue(value=value),
+        )
+
+        self.value = value
+
+    @classmethod
+    def from_proto(cls, proto) -> "Expectation":
+        # Convert ScalarMapContainer to a normal Python dict
+        metadata = dict(proto.metadata) if proto.metadata else None
+        expectation_value = ExpectationValue.from_proto(proto.expectation)
+        expectation = cls(
+            trace_id=proto.trace_id,
+            name=proto.assessment_name,
+            source=AssessmentSource.from_proto(proto.source),
+            create_time_ms=proto.create_time.ToMilliseconds(),
+            last_update_time_ms=proto.last_update_time.ToMilliseconds(),
+            value=expectation_value.value,
+            metadata=metadata,
+            span_id=proto.span_id or None,
+        )
+        expectation.assessment_id = proto.assessment_id or None
+        return expectation
+
+    @classmethod
+    def from_dictionary(cls, d: dict[str, Any]) -> "Expectation":
+        expectation_value = d.get("expectation")
+
+        if not expectation_value:
             raise MlflowException.invalid_parameter_value(
-                "The `value` field must be specified.",
+                "`expectation` must exist in the dictionary."
             )
 
-        self.expectation = ExpectationValue(value=self.value)
+        expectation_value = ExpectationValue.from_dictionary(expectation_value)
 
-        # Default to CODE source if not provided
-        if self.source is None:
-            self.source = AssessmentSource(
-                source_type=AssessmentSourceType.HUMAN, source_id="default"
-            )
-
-        super().__post_init__()
+        expectation = cls(
+            trace_id=d.get("trace_id"),
+            name=d["assessment_name"],
+            source=AssessmentSource.from_dictionary(d["source"]),
+            create_time_ms=proto_timestamp_to_milliseconds(d["create_time"]),
+            last_update_time_ms=proto_timestamp_to_milliseconds(d["last_update_time"]),
+            value=expectation_value.value,
+            metadata=d.get("metadata"),
+            span_id=d.get("span_id"),
+        )
+        expectation.assessment_id = d.get("assessment_id") or None
+        return expectation
 
 
 _JSON_SERIALIZATION_FORMAT = "JSON_FORMAT"

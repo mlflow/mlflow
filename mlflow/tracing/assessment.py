@@ -32,16 +32,10 @@ def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
     .. code-block:: python
 
         import mlflow
-        from mlflow.entities import AssessmentSource, AssessmentSourceType, Feedback
-
-        source = AssessmentSource(
-            source_type=AssessmentSourceType.LLM_JUDGE,
-            source_id="faithfulness-judge",
-        )
+        from mlflow.entities import Feedback
 
         feedback = Feedback(
             name="faithfulness",
-            source=source,
             value=0.9,
             rationale="The model is faithful to the input.",
             metadata={"model": "gpt-4o-mini"},
@@ -49,7 +43,8 @@ def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
 
         mlflow.log_assessment(trace_id="1234", assessment=feedback)
 
-    The following code annotates a trace with human-provided ground truth.
+    The following code annotates a trace with human-provided ground truth with source information.
+    When the source is not provided, the default source is set to "default" with type "HUMAN"
 
     .. code-block:: python
 
@@ -76,11 +71,7 @@ def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
     .. code-block:: python
 
         import mlflow
-        from mlflow.entities.assessment import (
-            AssessmentSource,
-            AssessmentSourceType,
-            Expectation,
-        )
+        from mlflow.entities.assessment import Expectation
 
         expectation = Expectation(
             name="expected_message",
@@ -96,12 +87,7 @@ def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
                     }
                 ],
             },
-            source=AssessmentSource(
-                source_type=AssessmentSourceType.HUMAN,
-                source_id="john@example.com",
-            ),
         )
-
         mlflow.log_assessment(trace_id="1234", assessment=expectation)
 
     You can also log an error information during the feedback generation process. To do so,

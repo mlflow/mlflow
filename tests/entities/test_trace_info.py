@@ -1,7 +1,6 @@
 import pytest
 
-from mlflow.entities.assessment import (
-    Assessment,
+from mlflow.entities import (
     AssessmentError,
     AssessmentSource,
     Expectation,
@@ -14,31 +13,28 @@ from mlflow.entities.trace_state import TraceState
 
 def test_trace_info():
     assessments = [
-        Assessment(
+        Feedback(
             trace_id="trace_id",
-            name="relevance",
+            name="feedback_test",
+            value=0.9,
             source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
             create_time_ms=123456789,
             last_update_time_ms=123456789,
-            expectation=expectation,
-            feedback=feedback,
+            error=AssessmentError(error_code="error_code", error_message="Error message"),
             rationale="Rationale text",
             metadata={"key1": "value1"},
             span_id="span_id",
-        )
-        for expectation, feedback in [
-            (
-                None,
-                Feedback(
-                    0.9,
-                    error=AssessmentError(error_code="error_code", error_message="Error message"),
-                ),
-            ),
-            (
-                Expectation(0.8),
-                None,
-            ),
-        ]
+        ),
+        Expectation(
+            trace_id="trace_id",
+            name="expectation_test",
+            value=0.8,
+            source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
+            create_time_ms=123456789,
+            last_update_time_ms=123456789,
+            metadata={"key1": "value1"},
+            span_id="span_id",
+        ),
     ]
     trace_info = TraceInfo(
         trace_id="trace_id",
@@ -74,7 +70,7 @@ def test_trace_info():
         "trace_metadata": {"foo": "bar"},
         "assessments": [
             {
-                "assessment_name": "relevance",
+                "assessment_name": "feedback_test",
                 "trace_id": "trace_id",
                 "span_id": "span_id",
                 "source": {"source_type": "HUMAN", "source_id": "user_1"},
@@ -88,14 +84,13 @@ def test_trace_info():
                 "metadata": {"key1": "value1"},
             },
             {
-                "assessment_name": "relevance",
+                "assessment_name": "expectation_test",
                 "trace_id": "trace_id",
                 "span_id": "span_id",
                 "source": {"source_type": "HUMAN", "source_id": "user_1"},
                 "create_time": "1970-01-02T10:17:36.789Z",
                 "last_update_time": "1970-01-02T10:17:36.789Z",
                 "expectation": {"value": 0.8},
-                "rationale": "Rationale text",
                 "metadata": {"key1": "value1"},
             },
         ],
@@ -131,44 +126,32 @@ def test_backwards_compatibility_with_v2():
         [],
         # Simple feedback
         [
-            Assessment(
+            Feedback(
                 trace_id="trace_id",
                 name="relevance",
-                source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
-                feedback=Feedback("The answer is correct"),
+                value="The answer is correct",
                 rationale="Rationale text",
+                source=AssessmentSource(source_type="LLM_JUDGE", source_id="gpt"),
                 metadata={"key1": "value1"},
                 span_id="span_id",
             )
         ],
         # Feedback with error
         [
-            Assessment(
+            Feedback(
                 trace_id="trace_id",
                 name="relevance",
-                source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
-                feedback=Feedback(
-                    None,
-                    error=AssessmentError(error_code="error_code", error_message="Error message"),
-                ),
+                error=AssessmentError(error_code="error_code", error_message="Error message"),
             )
         ],
         # Simple expectation
-        [
-            Assessment(
-                trace_id="trace_id",
-                name="relevance",
-                source=AssessmentSource(source_type="LLM_JUDGE", source_id="gpt"),
-                expectation=Expectation(0.8),
-            )
-        ],
+        [Expectation(trace_id="trace_id", name="relevance", value=0.8)],
         # Complex expectation
         [
-            Assessment(
+            Expectation(
                 trace_id="trace_id",
                 name="relevance",
-                source=AssessmentSource(source_type="LLM_JUDGE", source_id="gpt"),
-                expectation=Expectation({"complex": {"expectation": ["structure"]}}),
+                value={"complex": {"expectation": ["structure"]}},
             )
         ],
     ],

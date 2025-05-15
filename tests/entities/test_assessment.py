@@ -7,12 +7,15 @@ from mlflow.entities.assessment import (
     Assessment,
     AssessmentError,
     AssessmentSource,
+    Expectation,
     ExpectationValue,
+    Feedback,
     FeedbackValue,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
+from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
 from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 
 
@@ -205,18 +208,32 @@ def test_assessment_value_validation():
 )
 def test_assessment_conversion(expectation, feedback, source, metadata):
     timestamp_ms = int(time.time() * 1000)
-    assessment = Assessment(
-        trace_id="trace_id",
-        name="relevance",
-        source=source,
-        create_time_ms=timestamp_ms,
-        last_update_time_ms=timestamp_ms,
-        expectation=expectation,
-        feedback=feedback,
-        rationale="Rationale text",
-        metadata=metadata,
-        span_id="span_id",
-    )
+    if expectation:
+        assessment = Expectation(
+            trace_id="trace_id",
+            name="relevance",
+            source=source,
+            create_time_ms=timestamp_ms,
+            last_update_time_ms=timestamp_ms,
+            value=expectation.value,
+            metadata=metadata,
+            span_id="span_id",
+        )
+    elif feedback:
+        assessment = Feedback(
+            trace_id="trace_id",
+            name="relevance",
+            source=source,
+            create_time_ms=timestamp_ms,
+            last_update_time_ms=timestamp_ms,
+            value=feedback.value,
+            error=feedback.error,
+            rationale="Rationale text",
+            metadata=metadata,
+            span_id="span_id",
+        )
+    else:
+        raise ValueError("Either expectation or feedback must be provided")
 
     proto = assessment.to_proto()
 
@@ -263,13 +280,17 @@ def test_assessment_conversion(expectation, feedback, source, metadata):
     ],
     ids=["string", "integer", "float", "boolean"],
 )
-def test_expectation_proto_conversion(value):
+def test_expectation_proto_dict_conversion(value):
     expectation = ExpectationValue(value)
     proto = expectation.to_proto()
     assert isinstance(proto, ProtoExpectation)
 
     result = ExpectationValue.from_proto(proto)
     assert result.value == expectation.value
+
+    expectation_dict = expectation.to_dictionary()
+    result = ExpectationValue.from_dictionary(expectation_dict)
+    assert result.value == result.value
 
 
 @pytest.mark.parametrize(
@@ -282,7 +303,7 @@ def test_expectation_proto_conversion(value):
         [{"complex": "structure"}, [1, 2, 3], {"with": ["nested", "arrays"]}],
     ],
 )
-def test_expectation_serialization(value):
+def test_expectation_value_serialization(value):
     expectation = ExpectationValue(value)
     proto = expectation.to_proto()
 
@@ -291,6 +312,10 @@ def test_expectation_serialization(value):
 
     result = ExpectationValue.from_proto(proto)
     assert result.value == expectation.value
+
+    expectation_dict = expectation.to_dictionary()
+    result = ExpectationValue.from_dictionary(expectation_dict)
+    assert result.value == result.value
 
 
 def test_expectation_invalid_values():
@@ -307,3 +332,29 @@ def test_expectation_invalid_values():
 
     with pytest.raises(MlflowException, match="Unknown serialization format"):
         ExpectationValue.from_proto(proto)
+
+
+@pytest.mark.parametrize(
+    ("value", "error"),
+    [
+        (0.9, None),
+        (None, AssessmentError(error_code="E001", error_message="An error occurred.")),
+        (
+            "Error message",
+            AssessmentError(error_code="E002", error_message="Another error occurred."),
+        ),
+    ],
+)
+def test_feedback_value_proto_dict_conversion(value, error):
+    feedback = FeedbackValue(value, error)
+    proto = feedback.to_proto()
+    assert isinstance(proto, ProtoFeedback)
+
+    result = FeedbackValue.from_proto(proto)
+    assert result.value == result.value
+    assert result.error == result.error
+
+    feedback_dict = feedback.to_dictionary()
+    result = FeedbackValue.from_dictionary(feedback_dict)
+    assert result.value == result.value
+    assert result.error == result.error

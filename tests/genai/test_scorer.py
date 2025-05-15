@@ -7,9 +7,9 @@ import pytest
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities import Assessment
-from mlflow.entities.assessment import Feedback
-from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
+from mlflow.entities.assessment import FeedbackValue
+from mlflow.entities.assessment_error import AssessmentError
 from mlflow.genai import Scorer, scorer
 from mlflow.genai.evaluation.utils import _convert_scorer_to_legacy_metric
 from mlflow.models import Model
@@ -213,30 +213,22 @@ def test_trace_passed_correctly():
         "yes",
         42,
         42.0,
+        # Feedback object.
+        Feedback(name="big_question", value=42, rationale="It's the answer to everything"),
+        # List of Feedback objects.
+        [
+            Feedback(name="big_question", value=42, rationale="It's the answer to everything"),
+            Feedback(name="small_question", value=1, rationale="Not sure, just a guess"),
+        ],
+        # Raw Assessment object. This construction should only be done internally.
         Assessment(
             name="big_question",
             source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="123"),
-            feedback=Feedback(value=42),
+            feedback=FeedbackValue(value=42),
             rationale="It's the answer to everything",
         ),
-        [
-            Assessment(
-                name="big_question",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.LLM_JUDGE, source_id="judge_1"
-                ),
-                feedback=Feedback(value=42),
-                rationale="It's the answer to everything",
-            ),
-            Assessment(
-                name="small_question",
-                feedback=Feedback(value=1),
-                rationale="Not sure, just a guess",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.LLM_JUDGE, source_id="judge_2"
-                ),
-            ),
-        ],
+        # Legacy mlflow.evaluation.Assessment object. Still used by managed judges.
+        mlflow.evaluation.Assessment(name="big_question", value=True),
     ],
 )
 def test_scorer_on_genai_evaluate(sample_new_data, scorer_return):
@@ -252,32 +244,54 @@ def test_scorer_on_genai_evaluate(sample_new_data, scorer_return):
     def dummy_scorer(inputs, outputs):
         return scorer_return
 
-    with patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
+    with patch("mlflow.get_tracking_uri", return_value="databricks"):
         results = mlflow.genai.evaluate(
             data=sample_new_data,
             scorers=[dummy_scorer],
         )
 
-        assert any("metric/dummy_scorer" in metric for metric in results.metrics.keys())
+    assert any("metric/dummy_scorer" in metric for metric in results.metrics.keys())
 
-        dummy_scorer_cols = [
-            col for col in results.result_df.keys() if "dummy_scorer" in col and "value" in col
-        ]
-        dummy_scorer_values = set()
-        for col in dummy_scorer_cols:
-            for _val in results.result_df[col]:
-                dummy_scorer_values.add(_val)
+    dummy_scorer_cols = [
+        col for col in results.result_df.keys() if "dummy_scorer" in col and "value" in col
+    ]
+    dummy_scorer_values = set()
+    for col in dummy_scorer_cols:
+        for _val in results.result_df[col]:
+            dummy_scorer_values.add(_val)
 
-        scorer_return_values = set()
-        if isinstance(scorer_return, list):
-            for _assessment in scorer_return:
-                scorer_return_values.add(_assessment.feedback.value)
-        elif isinstance(scorer_return, Assessment):
-            scorer_return_values.add(scorer_return.feedback.value)
-        else:
-            scorer_return_values.add(scorer_return)
+    scorer_return_values = set()
+    if isinstance(scorer_return, list):
+        for _assessment in scorer_return:
+            scorer_return_values.add(_assessment.feedback.value)
+    elif isinstance(scorer_return, Assessment):
+        scorer_return_values.add(scorer_return.feedback.value)
+    elif isinstance(scorer_return, mlflow.evaluation.Assessment):
+        scorer_return_values.add(scorer_return.value)
+    else:
+        scorer_return_values.add(scorer_return)
 
-        assert dummy_scorer_values == scorer_return_values
+    assert dummy_scorer_values == scorer_return_values
+
+
+def test_scorer_returns_feedback_with_error(sample_new_data):
+    @scorer
+    def dummy_scorer(inputs):
+        return Feedback(
+            name="feedback_with_error",
+            error=AssessmentError(error_code="500", error_message="This is an error"),
+            source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt"),
+            metadata={"index": 0},
+        )
+
+    with patch("mlflow.get_tracking_uri", return_value="databricks"):
+        results = mlflow.genai.evaluate(
+            data=sample_new_data,
+            scorers=[dummy_scorer],
+        )
+
+    # Scorer should not be in result when it returns an error
+    assert all("metric/dummy_scorer" not in metric for metric in results.metrics.keys())
 
 
 def test_builtin_scorers_are_callable():

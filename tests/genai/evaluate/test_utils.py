@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
@@ -139,39 +139,39 @@ def get_test_traces(type=Literal["pandas", "list"]):
     trace.info.assessments.extend(
         [
             # 1. Expectation with reserved name "expected_response"
-            Assessment(
+            Expectation(
                 name="expected_response",
                 source=source,
                 trace_id=trace.info.trace_id,
-                expectation=Expectation(value="expected response for first question"),
+                value="expected response for first question",
             ),
             # 2. Expectation with reserved name "expected_facts"
-            Assessment(
+            Expectation(
                 name="expected_facts",
                 source=source,
                 trace_id=trace.info.trace_id,
-                expectation=Expectation(value=["fact1", "fact2"]),
+                value=["fact1", "fact2"],
             ),
             # 3. Expectation with reserved name "guidelines"
-            Assessment(
+            Expectation(
                 name="guidelines",
                 source=source,
                 trace_id=trace.info.trace_id,
-                expectation=Expectation(value=["Be polite", "Be kind"]),
+                value=["Be polite", "Be kind"],
             ),
             # 4. Expectation with custom name "ground_truth"
-            Assessment(
+            Expectation(
                 name="my_custom_expectation",
                 source=source,
                 trace_id=trace.info.trace_id,
-                expectation=Expectation(value="custom expectation for the first question"),
+                value="custom expectation for the first question",
             ),
             # 5. Non-expectation assessment
-            Assessment(
+            Feedback(
                 name="feedback",
                 source=source,
                 trace_id=trace.info.trace_id,
-                feedback=Feedback(value="some feedback"),
+                value="some feedback",
             ),
         ]
     )
