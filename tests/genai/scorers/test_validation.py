@@ -127,7 +127,7 @@ def test_validate_data_with_correctness(expectations):
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
             "outputs": ["output1", "output2"],
-            **expectations,
+            "expectations": [expectations, expectations],
         }
     )
 
@@ -161,8 +161,10 @@ def test_validate_data_missing_columns():
             ],
         )
 
-    assert " - `outputs` is required by [groundedness, guideline_adherence]." in str(e.value)
-    assert " - `retrieved_context` is required by [chunk_relevance, groundedness]." in str(e.value)
+    assert " - `outputs` column is required by [groundedness, guideline_adherence]." in str(e.value)
+    assert " - `retrieved_context` column is required by [chunk_relevance, groundedness]." in str(
+        e.value
+    )
 
 
 def test_validate_data_with_trace():
