@@ -365,7 +365,7 @@ class TracingClient:
         next_token = page_token
 
         # Get configured max workers from environment variable or use default
-        # Use minimum of 16 threads or 4x CPU count (whichever is larger)
+        # Use minimum of 32 threads or 4x CPU count (whichever is larger)
         # This is important because these threads are network IO-bound (waiting for downloads)
         # rather than CPU-bound, so we want more threads than CPU cores to maximize throughput
         configured_max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()
