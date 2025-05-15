@@ -71,8 +71,6 @@ def test_export(dual_write_enabled, monkeypatch):
     assert trace_info["request_time"] == "1970-01-01T00:00:00Z"
     assert trace_info["execution_duration_ms"] == 1
 
-    # SIZE_BYTES validation is now handled in test_size_bytes_in_trace_sent_to_mlflow_backend
-
     spans = trace_dict["data"]["spans"]
     assert len(spans) == 2
     assert spans[0]["name"] == "root"
