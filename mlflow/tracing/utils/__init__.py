@@ -444,6 +444,7 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
         if ResponsesAgentResponse.validate_compat(outputs):
             inputs = inputs["request"].model_dump_compat()
             set_span_chat_attributes(span, inputs, outputs)
+        # add an else case here for streamed output items?
 
     except Exception:
         pass
