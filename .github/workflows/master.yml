@@ -333,7 +333,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          # GenAI evaluation tests require databricks-agents that only work with Python 3.10~
+          # GenAI evaluation tests require databricks-agents that only work with Python >= 3.10
           pip install 'databricks-agents<=0.22.0' openai
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests
