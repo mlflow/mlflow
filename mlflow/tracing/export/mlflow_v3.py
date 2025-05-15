@@ -85,7 +85,10 @@ class MlflowV3SpanExporter(SpanExporter):
         """
         try:
             if trace:
-                add_size_bytes_to_trace_metadata(trace)
+                try:
+                    add_size_bytes_to_trace_metadata(trace)
+                except Exception:
+                    _logger.warning("Failed to add size bytes to trace metadata.", exc_info=True)
                 returned_trace_info = self._client.start_trace_v3(trace)
                 self._client._upload_trace_data(returned_trace_info, trace.data)
             else:

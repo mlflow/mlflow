@@ -113,6 +113,9 @@ class InferenceTableSpanExporter(SpanExporter):
                     _logger.warning("Failed to export trace to MLflow backend. Error: %s", e)
 
     def _log_trace_to_mlflow_backend(self, trace: Trace):
-        add_size_bytes_to_trace_metadata(trace)
+        try:
+            add_size_bytes_to_trace_metadata(trace)
+        except Exception:
+            _logger.warning("Failed to add size bytes to trace metadata.", exc_info=True)
         returned_trace_info = self._client.start_trace_v3(trace)
         self._client._upload_trace_data(returned_trace_info, trace.data)
