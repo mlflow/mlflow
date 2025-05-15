@@ -11,6 +11,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.openai.utils.chat_schema import _parse_tools
 from mlflow.tracing.constant import STREAM_CHUNK_EVENT_VALUE_KEY, SpanAttributeKey, TraceMetadataKey
 
 from tests.openai.mock_openai import EMPTY_CHOICES
@@ -635,3 +636,11 @@ async def test_response_format(client):
     span = trace.data.spans[0]
     assert span.outputs["choices"][0]["message"]["content"] == '{"name":"Angelo","age":42}'
     assert span.span_type == SpanType.CHAT_MODEL
+
+
+@pytest.mark.parametrize(
+    "sentinel",
+    [None, 42, object()],
+)
+def test_parse_tools_handles_openai_not_given_sentinel(sentinel):
+    assert _parse_tools({"tools": sentinel}) == []
