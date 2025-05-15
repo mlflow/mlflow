@@ -12,12 +12,12 @@ import { APILink } from "@site/src/components/APILink";
 
 ## Using MLServer as the Inference Server
 
-By default, MLflow deployment uses [Flask](https://flask.palletsprojects.com/en/1.1.x), a widely used WSGI web application framework for Python,
-to serve the inference endpoint. However, Flask is mainly designed for a lightweight application and might not be suitable for production use cases
+By default, MLflow deployment uses [FastAPI](https://fastapi.tiangolo.com/), a widely used ASGI web application framework for Python,
+to serve the inference endpoint. However, FastAPI does not support holizontal scalabiling natively and might not be suitable for production use cases
 at scale. To address this gap, MLflow integrates with [MLServer](https://mlserver.readthedocs.io/en/latest) as an alternative deployment option, which is used
 as a core Python inference server in Kubernetes-native frameworks like [Seldon Core](https://docs.seldon.ai/seldon-core-2) and
 [KServe](https://kserve.github.io/website) (formerly known as KFServing). Using MLServer, you can take advantage of the scalability and reliability
-of Kubernetes to serve your model at scale. See [Serving Framework](/deployment/deploy-model-locally#serving-frameworks) for the detailed comparison between Flask and MLServer,
+of Kubernetes to serve your model at scale. See [Serving Framework](/deployment/deploy-model-locally#serving-frameworks) for the detailed comparison between FastAPI and MLServer,
 and why MLServer is a better choice for ML production use cases.
 
 ## Building a Docker Image for MLflow Model \{#build-docker-for-deployment}
@@ -30,7 +30,7 @@ The essential step to deploy an MLflow model to Kubernetes is to build a Docker 
     ```bash
     mlflow models build-docker -m runs:/<run_id>/model -n <image_name> --enable-mlserver
     ```
-    If you want to use the bare-bones Flask server instead of MLServer, remove the ``--enable-mlserver`` flag. For other options, see
+    If you want to use the bare-bones FastAPI server instead of MLServer, remove the ``--enable-mlserver`` flag. For other options, see
     the <Link to="/api_reference/cli.html#mlflow-models-build-docker" target="_blank">build-docker</Link> command documentation.
   </TabItem>
   <TabItem label="Python" value="python">
@@ -44,7 +44,7 @@ The essential step to deploy an MLflow model to Kubernetes is to build a Docker 
     )
     ```
 
-    If you want to use the bare-bones Flask server instead of MLServer, remove ``enable_mlserver=True``. For other options, see
+    If you want to use the bare-bones FastAPI server instead of MLServer, remove ``enable_mlserver=True``. For other options, see
     the <APILink fn="mlflow.models.build_docker">mlflow.models.build_docker</APILink> function documentation.
 
   </TabItem>
