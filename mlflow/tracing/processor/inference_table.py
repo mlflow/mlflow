@@ -138,6 +138,10 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
         context = _try_get_prediction_context()
         if context:
             metadata[MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME] = context.endpoint_name or ""
+
+        # The model ID fetch order is
+        # 1. from the context, this could be set by databricks serving
+        # 2. from the active model, this could be set by model loading or with environment variable
         if context and context.model_id:
             metadata[TraceMetadataKey.MODEL_ID] = context.model_id
             if _MLFLOW_DEBUG.get():
@@ -150,7 +154,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                     metadata[SpanAttributeKey.MODEL_ID] = active_model_id
                     if _MLFLOW_DEBUG.get():
                         _logger.info(
-                            f"Active model ID {active_model_id} set to the trace metadata."
+                            f"Adding active model ID {active_model_id} to the trace metadata."
                         )
             except ImportError:
                 pass

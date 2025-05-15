@@ -144,8 +144,8 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
 
         # The order is:
-        # - model_id of the current active model set by `set_active_model`
-        # - model_id from the current prediction context
+        # 1. model_id of the current active model set by `set_active_model`
+        # 2. model_id from the current prediction context
         #   (set by mlflow pyfunc predict, or explicitly using set_prediction_context)
         if active_model_id := _get_active_model_id_global():
             metadata[TraceMetadataKey.MODEL_ID] = active_model_id
