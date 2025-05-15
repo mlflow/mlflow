@@ -599,9 +599,6 @@ def rag_scorers() -> list[BuiltInScorer]:
 
 
 class MissingColumnsException(MlflowException):
-    scorer: str
-    missing_columns: list[str]
-
     def __init__(self, scorer: str, missing_columns: set[str]):
         self.scorer = scorer
         self.missing_columns = list(missing_columns)
