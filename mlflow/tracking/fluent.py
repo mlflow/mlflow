@@ -32,7 +32,6 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
-    _MLFLOW_DEBUG,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
@@ -3422,7 +3421,7 @@ def _get_active_model_id_global() -> Optional[str]:
     """
     # if the active model ID is set in the current thread, always use it
     if model_id_in_current_thread := get_active_model_id():
-        _logger.info(f"Active model ID found in the current thread: {model_id_in_current_thread}")
+        _logger.debug(f"Active model ID found in the current thread: {model_id_in_current_thread}")
         return model_id_in_current_thread
     model_ids = [
         ctx.model_id
@@ -3431,14 +3430,13 @@ def _get_active_model_id_global() -> Optional[str]:
     ]
     if model_ids:
         if len(set(model_ids)) > 1:
-            _logger.warning(
+            _logger.debug(
                 "Failed to get one active model id from all threads, multiple active model IDs "
                 f"found: {set(model_ids)}."
             )
             return
         return model_ids[0]
-    elif _MLFLOW_DEBUG.get():
-        _logger.warning("No active model ID found in any thread.")
+    _logger.debug("No active model ID found in any thread.")
 
 
 def _reset_active_model_context() -> None:

@@ -9,7 +9,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import _MLFLOW_DEBUG, MLFLOW_EXPERIMENT_ID
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
@@ -144,22 +144,20 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
         # 2. from the active model, this could be set by model loading or with environment variable
         if context and context.model_id:
             metadata[TraceMetadataKey.MODEL_ID] = context.model_id
-            if _MLFLOW_DEBUG.get():
-                _logger.info(f"Model id fetched from the context: {context.model_id}")
+            _logger.debug(f"Model id fetched from the context: {context.model_id}")
         else:
             try:
                 from mlflow.tracking.fluent import _get_active_model_id_global
 
                 if active_model_id := _get_active_model_id_global():
                     metadata[SpanAttributeKey.MODEL_ID] = active_model_id
-                    if _MLFLOW_DEBUG.get():
-                        _logger.info(
-                            f"Adding active model ID {active_model_id} to the trace metadata."
-                        )
+                    _logger.debug(
+                        f"Adding active model ID {active_model_id} to the trace metadata."
+                    )
             except ImportError:
                 pass
             except Exception as e:
-                _logger.warning(
+                _logger.debug(
                     f"Failed to get model ID from the active model: {e}. "
                     "Skipping adding model ID to trace metadata."
                 )

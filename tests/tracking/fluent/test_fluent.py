@@ -2106,9 +2106,12 @@ def test_get_active_model_id_global():
         for f in futures:
             f.result()
 
-    with mock.patch("mlflow.tracking.fluent._logger.warning") as mock_warning:
+    with mock.patch("mlflow.tracking.fluent._logger.debug") as mock_debug:
         assert _get_active_model_id_global() is None
-        assert "Failed to get one active model id from all threads" in mock_warning.call_args[0][0]
+        assert any(
+            "Failed to get one active model id from all threads" in call_args[0][0]
+            for call_args in mock_debug.call_args_list
+        )
 
 
 def test_active_model_set_in_threads_can_be_fetched_from_main_process(monkeypatch):

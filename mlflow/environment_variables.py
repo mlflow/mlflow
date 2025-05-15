@@ -790,6 +790,3 @@ _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
 MLFLOW_PRINT_MODEL_URLS_ON_CREATION = _BooleanEnvironmentVariable(
     "MLFLOW_PRINT_MODEL_URLS_ON_CREATION", True
 )
-
-#: Private environment variable used for debugging purposes.
-_MLFLOW_DEBUG = _BooleanEnvironmentVariable("_MLFLOW_DEBUG", False)
