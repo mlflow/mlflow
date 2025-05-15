@@ -242,11 +242,19 @@ class Expectation(_MlflowObject):
             return cls(value=MessageToDict(proto.value))
 
     def to_dictionary(self):
-        return {"value": self.value}
+        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
 
     @classmethod
     def from_dictionary(cls, d):
-        return cls(d["value"])
+        if "value" in d:
+            return cls(d["value"])
+        elif "serialized_value" in d:
+            return cls(value=json.loads(d["serialized_value"]["value"]))
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "Either 'value' or 'serialized_value' must be present in the dictionary "
+                "representation of an Expectation."
+            )
 
     def _need_serialization(self):
         # Values like None, lists, dicts, should be serialized as a JSON string
