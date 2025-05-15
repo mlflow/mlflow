@@ -31,14 +31,14 @@
   --ifm-color-primary-lighter: #4accf0;
   --ifm-color-primary-lightest: #54cef0;
 
-  /* GenAI - Databricks theme colors */
-  --genai-color-primary: #FF3621; /* Databricks orange */
-  --genai-color-primary-dark: #E62E1D;
-  --genai-color-primary-darker: #D12819;
-  --genai-color-primary-darkest: #B32214;
-  --genai-color-primary-light: #FF5A47;
-  --genai-color-primary-lighter: #FF7A6A;
-  --genai-color-primary-lightest: #FF9A8D;
+/* GenAI - Red theme */
+--genai-color-primary: #EB1700;
+--genai-color-primary-dark: #D21400;
+--genai-color-primary-darker: #B91100;
+--genai-color-primary-darkest: #9F0F00;
+--genai-color-primary-light: #FF3A23;
+--genai-color-primary-lighter: #FF6C59;
+--genai-color-primary-lightest: #FF9D8F;
   
   /* Secondary colors */
   --ifm-color-secondary: #85552e;
@@ -117,14 +117,6 @@
   --ifm-color-info-lighter: #32a9d8;
   --ifm-color-info-lightest: #4fb4dd;
   
-  /* GenAI - Databricks dark theme colors */
-  --genai-color-primary: #FF5A47; /* Brighter orange for dark theme */
-  --genai-color-primary-dark: #FF3621;
-  --genai-color-primary-darker: #E62E1D;
-  --genai-color-primary-darkest: #D12819;
-  --genai-color-primary-light: #FF7A6A;
-  --genai-color-primary-lighter: #FF9A8D;
-  --genai-color-primary-lightest: #FFBCB3;
 }
 
 /* --------------------------------
@@ -195,15 +187,15 @@ html[data-genai-theme="true"] .navbar__link--active::after {
   padding-bottom: 6px; /* Space for the underline */
 }
 
-/* ML section link - always blue */
+/* ML section link */
 .navbar__link[href="/ml"] {
-  color: #0194e2;
+  color: var( --ifm-color-primary);
   font-weight: 600;
 }
 
-/* GenAI section link - always orange */
+/* GenAI section link */
 .navbar__link[href="/genai"] {
-  color: #FF3621;
+  color: var(--genai-color-primary);
   font-weight: 600;
 }
 
@@ -215,7 +207,7 @@ html:not([data-genai-theme="true"]) .navbar__link[href="/ml"]::after {
   left: 0;
   right: 0;
   height: 3px;
-  background-color: #0194e2;
+  background-color: var( --ifm-color-primary);
 }
 
 /* GenAI section active indicator - only show in GenAI section */
@@ -226,7 +218,7 @@ html[data-genai-theme="true"] .navbar__link[href="/genai"]::after {
   left: 0;
   right: 0;
   height: 3px;
-  background-color: #FF3621;
+  background-color: var(--genai-color-primary);
 }
 
 /* --------------------------------

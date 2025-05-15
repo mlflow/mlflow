@@ -1,3 +1,8 @@
+/**
+ * MLflow Documentation Landing Page Styles
+ */
+
+/* Main layout container */
 .homeContainer {
   display: flex;
   flex-direction: column;
@@ -7,235 +12,203 @@
   padding: 2rem 1rem 4rem;
 }
 
-.headerSection {
-  text-align: center;
-  margin-bottom: 3rem;
-}
-
-.mainHeading {
-  font-size: 3rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  background: linear-gradient(90deg, #0194e2, #FF3621);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.subtitle {
-  font-size: 1.5rem;
-  color: var(--ifm-color-emphasis-700);
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.selectionGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
+/* --------------------------------
+ * 1. Two Column Layout
+ * -------------------------------- */
+.contentGrid {
+  display: flex;
+  flex-direction: row;
+  gap: 3rem;
   width: 100%;
-  max-width: 1600px;
+  margin-top: 2rem;
+  align-items: flex-start;
+  min-height: calc(100vh - 300px);
 }
 
-/* Responsive layout for mobile */
-@media (max-width: 996px) {
-  .selectionGrid {
-    grid-template-columns: 1fr;
-  }
-  
-  .mainHeading {
-    font-size: 2.5rem;
-  }
+.textColumn {
+  flex: 1;
+  max-width: 550px;
 }
 
-/* Path Selector Cards */
-.pathCard {
-  position: relative;
+.cardsColumn {
+  flex: 1;
+  max-width: 550px;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* --------------------------------
+ * 2. Typography
+ * -------------------------------- */
+.megaHeading {
+  font-size: 4rem;
+  line-height: 1.1;
+  font-weight: 200;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.02em;
+  color: var(--ifm-heading-color);
+}
+
+.introText {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--ifm-color-emphasis-800);
+  margin-bottom: 2rem;
+}
+
+/* --------------------------------
+ * 3. Glossy Card Component
+ * -------------------------------- */
+.glossyCard {
   border-radius: 12px;
   overflow: hidden;
   background: var(--ifm-card-background-color);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
-  cursor: pointer;
-  height: 100%;
   border: 1px solid var(--ifm-color-emphasis-200);
-  display: flex;
-  flex-direction: column;
+  cursor: pointer; /* Make sure cursor indicates clickable */
+  margin-bottom: 2rem;
 }
 
-.pathCardblue:hover {
+.glossyCardblue:hover {
   transform: translateY(-5px);
   box-shadow: 0 12px 40px rgba(1, 148, 226, 0.2);
   border-color: rgba(1, 148, 226, 0.3);
   background-color: rgba(1, 148, 226, 0.03);
 }
 
-.pathCardorange:hover {
+.glossyCardred:hover {
   transform: translateY(-5px);
-  box-shadow: 0 12px 40px rgba(255, 54, 33, 0.2);
-  border-color: rgba(255, 54, 33, 0.3);
-  background-color: rgba(255, 54, 33, 0.03);
-}
-
-.pathCardInner {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 1.5rem;
-}
-
-.cardTitle {
-  font-size: 2rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  line-height: 1.2;
-}
-
-.pathCardblue .cardTitle {
-  color: #0194e2;
-}
-
-.pathCardorange .cardTitle {
-  color: #FF3621;
-}
-
-.cardDescription {
-  font-size: 1.1rem;
-  margin-bottom: 1.5rem;
-  color: var(--ifm-color-emphasis-700);
-}
-
-.cardImageContainer {
-  position: relative;
-  height: auto;
-  max-height: 300px;
-  overflow: hidden;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
-  border: 1px solid var(--ifm-color-emphasis-200);
-}
-
-.cardImage {
-  width: 100%;
-  height: auto;
-  max-height: 300px;
-  object-fit: contain;
-  transition: transform 0.5s ease;
-}
-
-.pathCard:hover .cardImage {
-  transform: scale(1.03);
-}
-
-.imageOverlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.pathCard:hover .imageOverlay {
-  opacity: 1;
-}
-
-.imageOverlayblue {
-  background: radial-gradient(circle, rgba(1, 148, 226, 0.1) 0%, rgba(1, 148, 226, 0) 70%);
-}
-
-.imageOverlayorange {
-  background: radial-gradient(circle, rgba(255, 54, 33, 0.1) 0%, rgba(255, 54, 33, 0) 70%);
+  box-shadow: 0 12px 40px rgba(235, 23, 0, 0.2);
+  border-color: rgba(235, 23, 0, 0.3);
+  background-color: rgba(235, 23, 0, 0.03);
 }
 
 .cardContent {
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
+  padding: 1.5rem;
 }
 
-.featureList {
-  margin-bottom: 1.5rem;
-  flex-grow: 1;
-}
-
-.featureItem {
+.cardHeader {
   display: flex;
   align-items: center;
-  margin-bottom: 0.75rem;
-  font-size: 1rem;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
-.featureDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 0.75rem;
+.colorBlock {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
   flex-shrink: 0;
 }
 
-.featureDotblue {
-  background-color: #0194e2;
+.colorBlockblue {
+  background-color: var(--ifm-color-primary);
 }
 
-.featureDotorange {
-  background-color: #FF3621;
+.colorBlockred {
+  background-color: var(--genai-color-primary);
 }
 
+.cardTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Section headers using appropriate contrast values */
+[data-theme='light'] .cardTitle {
+  color: var(--ifm-color-emphasis-900);
+}
+
+[data-theme='dark'] .cardTitle {
+  color: rgba(255, 255, 255, 0.9); /* 90% white for dark mode */
+}
+
+.cardDescription {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--ifm-color-emphasis-700);
+  margin: 0.75rem 0 1.5rem;
+}
+
+/* --------------------------------
+ * 4. Visual Button (Non-clickable)
+ * -------------------------------- */
 .cardAction {
-  margin-top: auto;
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: flex-start;
 }
 
 .cardButton {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 1.25rem;
   border-radius: 8px;
-  font-size: 1rem;
   font-weight: 600;
-  transition: all 0.2s ease;
-  text-decoration: none;
-  width: 100%;
+  background-color: #FFFFFF;
+  pointer-events: none; /* Ensures it's not clickable */
 }
 
-.cardButtonblue {
-  background-color: #0194e2;
-  color: white;
+/* Light mode border color */
+[data-theme='light'] .cardButton {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--ifm-color-emphasis-900);
 }
 
-.cardButtonblue:hover {
-  background-color: #0072b0;
-  color: white;
-  text-decoration: none;
+/* Dark mode styling */
+[data-theme='dark'] .cardButton {
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  color: rgba(0, 0, 0, 0.95);
 }
 
-.cardButtonorange {
-  background-color: #FF3621;
-  color: white;
+.arrowIcon {
+  margin-left: 0.5rem;
 }
 
-.cardButtonorange:hover {
-  background-color: #D12819;
-  color: white;
-  text-decoration: none;
+/* When card is hovered, animate the arrow slightly */
+.glossyCard:hover .arrowIcon {
+  transform: translateX(3px);
+  transition: transform 0.2s ease;
 }
 
-/* Dark mode adjustments */
-[data-theme='dark'] .pathCardblue:hover {
+/* --------------------------------
+ * 5. Dark Mode Adjustments
+ * -------------------------------- */
+[data-theme='dark'] .glossyCardblue:hover {
   background-color: rgba(1, 148, 226, 0.1);
 }
 
-[data-theme='dark'] .pathCardorange:hover {
-  background-color: rgba(255, 54, 33, 0.1);
+[data-theme='dark'] .glossyCardred:hover {
+  background-color: rgba(235, 23, 0, 0.1);
 }
 
-[data-theme='dark'] .cardImage {
-  filter: brightness(0.85);
+/* --------------------------------
+ * 6. Responsive Adjustments
+ * -------------------------------- */
+@media (max-width: 996px) {
+  .contentGrid {
+    flex-direction: column;
+  }
+  
+  .textColumn,
+  .cardsColumn {
+    max-width: 100%;
+  }
+  
+  .megaHeading {
+    font-size: 3rem;
+  }
 }
 
-[data-theme='dark'] .pathCard {
-  background: var(--ifm-card-background-color);
-  border-color: var(--ifm-color-emphasis-300);
+@media (max-width: 768px) {
+  .megaHeading {
+    font-size: 2.5rem;
+  }
+  
+  .introText {
+    font-size: 1rem;
+  }
 }
