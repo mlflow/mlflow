@@ -43,6 +43,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, TEMPORARILY_UNAVAILABLE
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -1252,6 +1253,17 @@ def test_set_experiment_tags():
     assert len(finished_experiment.tags) == len(exact_expected_tags)
     for tag_key, tag_value in finished_experiment.tags.items():
         assert str(exact_expected_tags[tag_key]) == tag_value
+
+
+@pytest.mark.parametrize("error_code", [RESOURCE_DOES_NOT_EXIST, TEMPORARILY_UNAVAILABLE])
+def test_set_experiment_throws_for_unexpected_error(error_code: int):
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient.create_experiment",
+        side_effect=MlflowException("Unexpected error", error_code=error_code),
+    ) as mock_create_experiment:
+        with pytest.raises(MlflowException, match="Unexpected error"):
+            mlflow.set_experiment("test-experiment")
+        mock_create_experiment.assert_called_once()
 
 
 def test_log_input(tmp_path):
