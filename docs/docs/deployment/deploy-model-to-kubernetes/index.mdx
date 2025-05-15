@@ -13,7 +13,7 @@ import { APILink } from "@site/src/components/APILink";
 ## Using MLServer as the Inference Server
 
 By default, MLflow deployment uses [FastAPI](https://fastapi.tiangolo.com/), a widely used ASGI web application framework for Python,
-to serve the inference endpoint. However, FastAPI does not support holizontal scalabiling natively and might not be suitable for production use cases
+to serve the inference endpoint. However, FastAPI does not support horizontal scaling natively and might not be suitable for production use cases
 at scale. To address this gap, MLflow integrates with [MLServer](https://mlserver.readthedocs.io/en/latest) as an alternative deployment option, which is used
 as a core Python inference server in Kubernetes-native frameworks like [Seldon Core](https://docs.seldon.ai/seldon-core-2) and
 [KServe](https://kserve.github.io/website) (formerly known as KFServing). Using MLServer, you can take advantage of the scalability and reliability
