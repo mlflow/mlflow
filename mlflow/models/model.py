@@ -1100,15 +1100,15 @@ class Model:
                                 "Failed to load model config from %s: %s", model_config, e
                             )
 
-                try:
-                    from mlflow.models.utils import _flatten_nested_params
+                    try:
+                        from mlflow.models.utils import _flatten_nested_params
 
-                    # We are using the `/` separator to flatten the nested params
-                    # since we are using the same separator to log nested metrics.
-                    params_to_log = _flatten_nested_params(model_config, sep="/")
-                except Exception as e:
-                    _logger.warning("Failed to flatten nested params: %s", str(e))
-                    params_to_log = model_config
+                        # We are using the `/` separator to flatten the nested params
+                        # since we are using the same separator to log nested metrics.
+                        params_to_log = _flatten_nested_params(model_config, sep="/")
+                    except Exception as e:
+                        _logger.warning("Failed to flatten nested params: %s", str(e))
+                        params_to_log = model_config
 
                 try:
                     # do not log params to run if run_id is None, since that could trigger
