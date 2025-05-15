@@ -6,7 +6,6 @@ from pydantic import BaseModel
 
 from mlflow.entities import Assessment
 from mlflow.entities.trace import Trace
-from mlflow.evaluation import Assessment as LegacyAssessment
 
 
 class Scorer(BaseModel):
@@ -14,6 +13,8 @@ class Scorer(BaseModel):
     aggregations: Optional[list] = None
 
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None, **kwargs):
+        from mlflow.evaluation import Assessment as LegacyAssessment
+
         merged = {
             "inputs": inputs,
             "outputs": outputs,
