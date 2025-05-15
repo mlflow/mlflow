@@ -2067,3 +2067,47 @@ def test_store_use_presigned_url_store_when_enabled(monkeypatch):
         presigned_store = uc_store._get_artifact_repo(model_version)
 
     assert type(presigned_store) is PresignedUrlArtifactRepository
+
+
+@mock_http_200
+def test_create_and_update_registered_model_print_job_url(mock_http, store, capsys):
+    name = "model_for_job_url_test"
+    description = "test model with job id"
+    deployment_job_id = "job-123"
+    expected_job_url = "https://databrickshost/jobs/job-123"
+
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store._construct_databricks_job_url",
+        return_value=expected_job_url,
+    ) as mock_construct_url:
+        store.update_registered_model(
+            name=name, description=description, deployment_job_id=deployment_job_id
+        )
+
+        mock_construct_url.assert_called_once_with(deployment_job_id)
+        captured = capsys.readouterr()
+        assert f"🔗 Linked deployment job to '{name}': {expected_job_url}" in captured.err
+        _verify_requests(
+            mock_http,
+            "registered-models/update",
+            "PATCH",
+            UpdateRegisteredModelRequest(
+                name=name, description=description, deployment_job_id=deployment_job_id
+            ),
+        )
+
+        mock_construct_url.reset_mock()
+        store.create_registered_model(
+            name=name, description=description, deployment_job_id=deployment_job_id
+        )
+        mock_construct_url.assert_called_once_with(deployment_job_id)
+        captured = capsys.readouterr()
+        assert f"🔗 Linked deployment job to '{name}': {expected_job_url}" in captured.err
+        _verify_requests(
+            mock_http,
+            "registered-models/create",
+            "POST",
+            CreateRegisteredModelRequest(
+                name=name, description=description, deployment_job_id=deployment_job_id
+            ),
+        )
