@@ -41,7 +41,7 @@ def sample_data():
     return pd.DataFrame(
         {
             "request": [
-                "What is the difference between reduceByKey and groupByKey in Spark?",
+                {"message": [{"role": "user", "content": "What is Spark??"}]},
                 {
                     "messages": [
                         {"role": "user", "content": "How can you minimize data shuffling in Spark?"}
@@ -66,7 +66,7 @@ def sample_new_data():
     return pd.DataFrame(
         {
             "inputs": [
-                "What is the difference between reduceByKey and groupByKey in Spark?",
+                {"message": [{"role": "user", "content": "What is Spark??"}]},
                 {
                     "messages": [
                         {"role": "user", "content": "How can you minimize data shuffling in Spark?"}

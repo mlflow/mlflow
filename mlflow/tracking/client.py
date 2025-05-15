@@ -5275,6 +5275,21 @@ class MlflowClient:
         )
 
     @experimental
+    def log_model_params(self, model_id: str, params: dict[str, str]) -> None:
+        """
+        Log parameters for a logged model.
+
+        Args:
+            model_id: ID of the model to log parameters for.
+            params: Dictionary of parameters to log.
+
+        Returns:
+            None
+        """
+        _validate_model_id_specified(model_id)
+        return self._tracking_client.log_model_params(model_id, params)
+
+    @experimental
     def finalize_logged_model(
         self, model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
     ) -> LoggedModel:
@@ -5396,14 +5411,14 @@ class MlflowClient:
                     - tags: `tags.tag_name`
                 - Comparison operators:
                     - For numeric entities (metrics and numeric attributes): <, <=, >, >=, =, !=
-                    - For string entities (params, tags, string attributes): =, !=, LIKE, ILIKE
+                    - For string entities (params, tags, string attributes): =, !=, IN, NOT IN
                 - Multiple conditions can be joined with 'AND'
                 - String values must be enclosed in single quotes
 
                 Example filter strings:
                     - `creation_time > 100`
                     - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
-                    - `tags.release LIKE 'v1.%'`
+                    - `tags.release IN ('v1.0', 'v1.1')`
                     - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
             datasets: List of dictionaries to specify datasets on which to apply metrics filters
                 For example, a filter string with `metrics.accuracy > 0.9` and dataset with name

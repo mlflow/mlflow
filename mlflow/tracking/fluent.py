@@ -32,7 +32,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
-    _MLFLOW_ACTIVE_MODEL_ID,
+    MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
@@ -2261,6 +2261,38 @@ def _create_logged_model(
 
 
 @experimental
+def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> None:
+    """
+    Log params to the specified logged model.
+
+    Args:
+        params: Params to log on the model.
+        model_id: ID of the model. If not specified, use the current active model ID.
+
+    Returns:
+        None
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.log_model_params(params={"param": "value"}, model_id=model_info.model_id)
+    """
+    model_id = model_id or get_active_model_id()
+    MlflowClient().log_model_params(model_id, params)
+
+
+@experimental
 def finalize_logged_model(
     model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
 ) -> LoggedModel:
@@ -2401,14 +2433,14 @@ def search_logged_models(
                 - tags: `tags.tag_name`
             - Comparison operators:
                 - For numeric entities (metrics and numeric attributes): <, <=, >, >=, =, !=
-                - For string entities (params, tags, string attributes): =, !=, LIKE, ILIKE
+                - For string entities (params, tags, string attributes): =, !=, IN, NOT IN
             - Multiple conditions can be joined with 'AND'
             - String values must be enclosed in single quotes
 
             Example filter strings:
                 - `creation_time > 100`
                 - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
-                - `tags.release LIKE 'v1.%'`
+                - `tags.release IN ('v1.0', 'v1.1')`
                 - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
 
         datasets: List of dictionaries to specify datasets on which to apply metrics filters
@@ -3235,10 +3267,7 @@ class ActiveModelContext:
     """
 
     def __init__(self, model_id: Optional[str] = None, set_by_user: bool = False):
-        # use _MLFLOW_ACTIVE_MODEL_ID as the default value for model_id
-        # so that for subprocesses the default _ACTIVE_MODEL_CONTEXT.model_id
-        # is still valid, and we don't need to read from env var.
-        self._model_id = model_id or _MLFLOW_ACTIVE_MODEL_ID.get()
+        self._model_id = model_id
         self._set_by_user = set_by_user
 
     def __repr__(self):
@@ -3246,7 +3275,7 @@ class ActiveModelContext:
 
     @property
     def model_id(self) -> Optional[str]:
-        return self._model_id
+        return self._model_id or MLFLOW_ACTIVE_MODEL_ID.get()
 
     @property
     def set_by_user(self) -> bool:
@@ -3267,6 +3296,7 @@ class ActiveModel(LoggedModel):
     def __init__(self, logged_model: LoggedModel, set_by_user: bool):
         super().__init__(**logged_model.to_dictionary())
         self.last_active_model_context = _ACTIVE_MODEL_CONTEXT.get()
+        self.last_active_model_id_env_var = MLFLOW_ACTIVE_MODEL_ID.get()
         _set_active_model_id(self.model_id, set_by_user)
 
     def __enter__(self):
@@ -3274,6 +3304,7 @@ class ActiveModel(LoggedModel):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         _ACTIVE_MODEL_CONTEXT.set(self.last_active_model_context)
+        _update_active_model_id_env_var(self.last_active_model_id_env_var)
 
 
 # NB: This function is only intended to be used publicly by users to set the
@@ -3285,7 +3316,8 @@ def set_active_model(*, name: Optional[str] = None, model_id: Optional[str] = No
     Set the active model with the specified name or model ID, and it will be used for linking
     traces that are generated during the lifecycle of the model. The return value can be used as
     a context manager within a ``with`` block; otherwise, you must call ``set_active_model()``
-    to update active model.
+    to update active model. Note that this function also sets the environment variable
+    ``MLFLOW_ACTIVE_MODEL_ID`` to the model ID of the active model.
 
     Args:
         name: The name of the :py:class:`mlflow.entities.LoggedModel` to set as active.
@@ -3374,6 +3406,7 @@ def _set_active_model_id(model_id: str, set_by_user: bool = False) -> None:
     """
     try:
         _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(model_id, set_by_user))
+        _update_active_model_id_env_var(model_id)
     except Exception as e:
         _logger.warning(f"Failed to set active model ID to {model_id}, error: {e}")
     else:
@@ -3395,9 +3428,9 @@ def _get_active_model_context() -> ActiveModelContext:
 
 def get_active_model_id() -> Optional[str]:
     """
-    Get the active model ID. If no active model is set with ``set_active_model()``, the
-    default active model is set using model ID from the environment variable
-    ``_MLFLOW_ACTIVE_MODEL_ID``. If neither is set, return None.
+    Get the active model ID. If no active model is set with ``set_active_model()``, this will
+    try to get the model ID from the environment variable ``MLFLOW_ACTIVE_MODEL_ID``.
+    If neither is set, return None.
 
     Returns:
         The active model ID if set, otherwise None.
@@ -3409,5 +3442,12 @@ def _reset_active_model_context() -> None:
     """
     Should be called only for testing purposes.
     """
-    _MLFLOW_ACTIVE_MODEL_ID.unset()
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
+    _update_active_model_id_env_var(None)
+
+
+def _update_active_model_id_env_var(value):
+    if value is None:
+        MLFLOW_ACTIVE_MODEL_ID.unset()
+    else:
+        MLFLOW_ACTIVE_MODEL_ID.set(value)
