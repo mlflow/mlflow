@@ -363,9 +363,6 @@ class TracingClient:
         next_max_results = max_results
         next_token = page_token
 
-        # Get max workers from environment variable
-        # These threads are network IO-bound (waiting for downloads)
-        # rather than CPU-bound, so we want more threads than CPU cores
         max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()
         executor = ThreadPoolExecutor(max_workers=max_workers) if include_spans else nullcontext()
         with executor:
