@@ -1,6 +1,8 @@
 import json
-from typing import TYPE_CHECKING, Any, Optional, Union
+import logging
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
+import mlflow
 from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
@@ -9,6 +11,7 @@ from mlflow.genai.evaluation.constant import (
     AgentEvaluationReserverKey,
 )
 from mlflow.genai.scorers import Scorer
+from mlflow.genai.utils.trace_utils import is_model_traced
 from mlflow.models import EvaluationMetric
 
 try:
@@ -26,6 +29,9 @@ if TYPE_CHECKING:
         ]
     except ImportError:
         EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
@@ -73,20 +79,15 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
                 "Please install it with `pip install pyspark`."
             )
 
-    # Verify format of the input using the first row
-    sample_row = df.iloc[0]
-    if "inputs" in sample_row and not isinstance(sample_row["inputs"], dict):
-        raise MlflowException.invalid_parameter_value(
-            "The 'inputs' column must be a dictionary. If you want to pass a single "
-            "argument to the `predict_fn`, use the argument name as the key in the "
-            "dictionary. If you don't pass a `predict_fn`, you can use any string "
-            "key to wrap the value into a dictionary."
-        )
-
     if not any(col in df.columns for col in ("trace", "inputs")):
         raise MlflowException.invalid_parameter_value(
             "Either `inputs` or `trace` column is required in the dataset. Please provide inputs "
             "for every datapoint or provide a trace."
+        )
+
+    if len(df) == 0:
+        raise MlflowException.invalid_parameter_value(
+            "The dataset is empty. Please provide a non-empty dataset."
         )
 
     return (
@@ -234,3 +235,13 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         eval_fn=eval_fn,
         name=scorer.name,
     )
+
+
+def _convert_predict_fn(predict_fn: Callable, sample_input: Any) -> Callable:
+    if predict_fn:
+        if not is_model_traced(predict_fn, sample_input):
+            _logger.info("Annotating predict_fn with tracing since it is not already traced.")
+            predict_fn = mlflow.trace(predict_fn)
+
+    # Wrap the prediction function to unwrap the inputs dictionary into keyword arguments.
+    return lambda request: predict_fn(**request)

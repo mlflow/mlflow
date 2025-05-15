@@ -3,12 +3,13 @@ from typing import Any, Callable
 
 from opentelemetry.trace import NoOpTracer
 
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.provider import trace_disabled
 
 _logger = logging.getLogger(__name__)
 
 
-def is_model_traced(predict_fn: Callable, sample_input: Any):
+def is_model_traced(predict_fn: Callable, sample_input: Any) -> bool:
     """
     Check if the predict function is being traced without logging to the database.
 
@@ -38,15 +39,18 @@ def is_model_traced(predict_fn: Callable, sample_input: Any):
         def _patched_start_span(self, *args, **kwargs):
             nonlocal counter
             counter += 1
-            return original(*args, **kwargs)
+            return original(self, *args, **kwargs)
 
         NoOpTracer.start_span = _patched_start_span
         try:
             predict_fn(**sample_input)
         except Exception as e:
-            _logger.debug(
-                "Tried to make a single prediction to check if the model is traced, "
-                f"but got an error: {e}. Assuming the model is not traced."
+            raise MlflowException.invalid_parameter_value(
+                "Failed to run the prediction function specified in the `predict_fn` "
+                "parameter. Please make sure that the input dictionary contains the "
+                "keys that match with the `predict_fn` parameters. Set log level to "
+                f"DEBUG to see the error details. Error: {e}",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
 
         NoOpTracer.start_span = original

@@ -253,8 +253,8 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
     # Tracking URI = databricks is required to use mlflow.genai.evaluate()
     mlflow.set_tracking_uri("databricks")
     data = [
-        {"inputs": {"foo": "bar"}, "outputs": "response from model"},
-        {"inputs": {"baz": "qux"}, "outputs": "response from model"},
+        {"inputs": {"x": "bar"}, "outputs": "response from model"},
+        {"inputs": {"x": "qux"}, "outputs": "response from model"},
     ]
 
     with mock.patch("mlflow.models.evaluate") as mock_evaluate:
