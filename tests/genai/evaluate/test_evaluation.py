@@ -1,3 +1,4 @@
+import warnings
 from importlib import import_module
 from unittest import mock
 from unittest.mock import patch
@@ -285,15 +286,15 @@ def test_genai_evaluate_does_not_warn_about_deprecated_model_type():
     with (
         patch("mlflow.genai.evaluation.base.is_databricks_uri", return_value=True),
         patch("mlflow.models.evaluation.base._evaluate") as mock_evaluate_impl,
-        patch("mlflow.models.evaluation.base.warnings") as mock_warnings,
+        warnings.catch_warnings(),
     ):
+        warnings.simplefilter("error", FutureWarning)
         mlflow.genai.evaluate(
-            data=[{"inputs": "Hello", "outputs": "Hi"}],
-            scorers=[groundedness()],
+            data=[{"inputs": {"question": "Hello"}, "outputs": "Hi"}],
+            scorers=[safety()],
         )
 
     mock_evaluate_impl.assert_called_once()
-    mock_warnings.warn.assert_not_called()
 
     # Warning should be shown when "databricks-agent" model type is used with direct call
     data = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
