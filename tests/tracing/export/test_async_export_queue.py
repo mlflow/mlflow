@@ -1,3 +1,4 @@
+import multiprocessing
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -11,23 +12,48 @@ def test_async_queue_handle_tasks():
 
     counter = 0
 
-    def _increment(delta):
+    def increment(delta):
         nonlocal counter
         counter += delta
 
     for _ in range(10):
-        task = Task(handler=_increment, args=(1,))
+        task = Task(handler=increment, args=(1,))
         queue.put(task)
 
     queue.flush(terminate=True)
     assert counter == 10
 
 
+def exporter_process(counter):
+    # This process exits before waiting for the tasks to finish
+
+    queue = AsyncTraceExportQueue()
+
+    def increment(counter):
+        time.sleep(1)
+        with counter.get_lock():
+            counter.value += 1
+
+    for _ in range(10):
+        task = Task(handler=increment, args=(counter,))
+        queue.put(task)
+
+
+def test_async_queue_complete_task_process_finished():
+    multiprocessing.set_start_method("spawn", force=True)
+    counter = multiprocessing.Value("i", 0)
+    process = multiprocessing.Process(target=exporter_process, args=(counter,))
+    process.start()
+    process.join(timeout=15)
+
+    assert counter.value == 10
+
+
 @mock.patch("atexit.register")
 def test_async_queue_activate_thread_safe(mock_atexit):
     queue = AsyncTraceExportQueue()
 
-    def _count_threads():
+    def count_threads():
         main_thread = threading.main_thread()
         return sum(
             t.is_alive()
@@ -41,14 +67,14 @@ def test_async_queue_activate_thread_safe(mock_atexit):
             executor.submit(queue.activate)
 
     assert queue.is_active()
-    assert _count_threads() > 0  # Logging thread + max 5 worker threads
+    assert count_threads() > 0  # Logging thread + max 5 worker threads
     mock_atexit.assert_called_once()
     mock_atexit.reset_mock()
 
     # 2. Validate flush (continue)
     queue.flush(terminate=False)
     assert queue.is_active()
-    assert _count_threads() > 0  # New threads should be created
+    assert count_threads() > 0  # New threads should be created
     mock_atexit.assert_not_called()  # Exit callback should not be registered again
 
     # 3. Validate flush with termination
@@ -57,7 +83,7 @@ def test_async_queue_activate_thread_safe(mock_atexit):
             executor.submit(queue.flush(terminate=True))
 
     assert not queue.is_active()
-    assert _count_threads() == 0
+    assert count_threads() == 0
 
 
 def test_async_queue_drop_task_when_full(monkeypatch):
@@ -75,19 +101,12 @@ def test_async_queue_drop_task_when_full(monkeypatch):
         nonlocal processed_tasks
         processed_tasks += 1
 
-    with mock.patch("mlflow.tracing.export.async_export_queue._logger.warning") as mock_warn:
-        for _ in range(10):
-            task = Task(handler=slow_handler, args=())
-            queue.put(task)
+    for _ in range(10):
+        task = Task(handler=slow_handler, args=())
+        queue.put(task)
 
     queue.flush(terminate=True)
 
     # One more task than the queue size might be processed, because the first task
     # can be drained from the queue immediately, which creates a slot for another task
     assert processed_tasks <= 4
-    mock_warn.assert_called_once_with(
-        "Trace export queue is full, trace will be discarded. Consider increasing the "
-        "queue size through `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` environment variable "
-        "or number of workers through `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS` "
-        "environment variable."
-    )

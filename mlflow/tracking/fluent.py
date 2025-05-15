@@ -181,18 +181,19 @@ def set_experiment(
         if experiment_id is None:
             experiment = client.get_experiment_by_name(experiment_name)
             if not experiment:
+                _logger.info(
+                    "Experiment with name '%s' does not exist. Creating a new experiment.",
+                    experiment_name,
+                )
                 try:
                     experiment_id = client.create_experiment(experiment_name)
-                    _logger.info(
-                        "Experiment with name '%s' does not exist. Creating a new experiment.",
-                        experiment_name,
-                    )
                 except MlflowException as e:
                     if e.error_code == "RESOURCE_ALREADY_EXISTS":
                         # NB: If two simultaneous processes attempt to set the same experiment
                         # simultaneously, a race condition may be encountered here wherein
                         # experiment creation fails
                         return client.get_experiment_by_name(experiment_name)
+                    raise
 
                 experiment = client.get_experiment(experiment_id)
         else:
@@ -2263,6 +2264,38 @@ def _create_logged_model(
 
 
 @experimental
+def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> None:
+    """
+    Log params to the specified logged model.
+
+    Args:
+        params: Params to log on the model.
+        model_id: ID of the model. If not specified, use the current active model ID.
+
+    Returns:
+        None
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.log_model_params(params={"param": "value"}, model_id=model_info.model_id)
+    """
+    model_id = model_id or get_active_model_id()
+    MlflowClient().log_model_params(model_id, params)
+
+
+@experimental
 def finalize_logged_model(
     model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
 ) -> LoggedModel:
@@ -2403,14 +2436,14 @@ def search_logged_models(
                 - tags: `tags.tag_name`
             - Comparison operators:
                 - For numeric entities (metrics and numeric attributes): <, <=, >, >=, =, !=
-                - For string entities (params, tags, string attributes): =, !=, LIKE, ILIKE
+                - For string entities (params, tags, string attributes): =, !=, IN, NOT IN
             - Multiple conditions can be joined with 'AND'
             - String values must be enclosed in single quotes
 
             Example filter strings:
                 - `creation_time > 100`
                 - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
-                - `tags.release LIKE 'v1.%'`
+                - `tags.release IN ('v1.0', 'v1.1')`
                 - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
 
         datasets: List of dictionaries to specify datasets on which to apply metrics filters

@@ -7,6 +7,7 @@ import pathlib
 import signal
 import urllib
 import urllib.parse
+import warnings
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
@@ -1108,6 +1109,7 @@ def evaluate(  # noqa: D417
     model_config=None,
     inference_params=None,
     model_id=None,
+    _called_from_genai_evaluate=False,
 ):
     '''
     Evaluate the model performance on given data and selected metrics.
@@ -1577,6 +1579,8 @@ def evaluate(  # noqa: D417
                   evaluation results (e.g. metrics and traces) will be linked. If `model_id` is not
                   specified but `model` is specified, the ID from `model` will be used.
 
+        _called_from_genai_evaluate: (Optional) Only used internally.
+
     Returns:
         An :py:class:`mlflow.models.EvaluationResult` instance containing
         metrics of evaluating the model with the given dataset.
@@ -1584,6 +1588,14 @@ def evaluate(  # noqa: D417
     from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
+
+    if not _called_from_genai_evaluate and model_type == "databricks-agent":
+        warnings.warn(
+            "The 'databricks-agent' model type is deprecated in MLflow 3.0.0. For "
+            "evaluating LLMs and GenAI applications, please migrate to the new "
+            "`mlflow.genai.evaluate` API.",
+            FutureWarning,
+        )
 
     # Inference params are currently only supported for passing a deployment endpoint as the model.
     # TODO: We should support inference_params for other model types

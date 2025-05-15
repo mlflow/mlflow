@@ -42,7 +42,7 @@ def is_model_traced(predict_fn: Callable, sample_input: Any):
 
         NoOpTracer.start_span = _patched_start_span
         try:
-            predict_fn(sample_input)
+            predict_fn(**sample_input)
         except Exception as e:
             _logger.debug(
                 "Tried to make a single prediction to check if the model is traced, "

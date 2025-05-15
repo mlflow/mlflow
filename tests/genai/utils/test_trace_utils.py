@@ -83,7 +83,7 @@ def mock_openai_env(monkeypatch):
 )
 def test_is_traced(predict_fn_generator, with_tracing, expected_traced):
     predict_fn = predict_fn_generator(with_tracing=with_tracing)
-    sample_input = {"messages": [{"role": "user", "content": "test"}]}
+    sample_input = {"request": {"messages": [{"role": "user", "content": "test"}]}}
     is_actually_traced = is_model_traced(predict_fn, sample_input)
     assert is_actually_traced == expected_traced
 
@@ -91,5 +91,5 @@ def test_is_traced(predict_fn_generator, with_tracing, expected_traced):
     assert len(get_traces()) == 0
 
     # Make a prediction normally
-    predict_fn(sample_input)
+    predict_fn(**sample_input)
     assert len(get_traces()) == (1 if expected_traced else 0)
