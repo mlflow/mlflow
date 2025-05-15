@@ -14,9 +14,14 @@ def mock_trace_info():
         yield
 
 
-def mock_init_auth(config_instance):
-    config_instance.host = "https://databricks.com/"
-    config_instance._header_factory = lambda: {}
+@pytest.fixture(autouse=True)
+def mock_init_auth():
+    def mocked_init_auth(config_instance):
+        config_instance.host = "https://databricks.com/"
+        config_instance._header_factory = lambda: {}
+
+    with mock.patch("databricks.sdk.config.Config.init_auth", new=mocked_init_auth):
+        yield
 
 
 @pytest.fixture(scope="module")
