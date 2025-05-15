@@ -179,18 +179,19 @@ def set_experiment(
         if experiment_id is None:
             experiment = client.get_experiment_by_name(experiment_name)
             if not experiment:
+                _logger.info(
+                    "Experiment with name '%s' does not exist. Creating a new experiment.",
+                    experiment_name,
+                )
                 try:
                     experiment_id = client.create_experiment(experiment_name)
-                    _logger.info(
-                        "Experiment with name '%s' does not exist. Creating a new experiment.",
-                        experiment_name,
-                    )
                 except MlflowException as e:
                     if e.error_code == "RESOURCE_ALREADY_EXISTS":
                         # NB: If two simultaneous processes attempt to set the same experiment
                         # simultaneously, a race condition may be encountered here wherein
                         # experiment creation fails
                         return client.get_experiment_by_name(experiment_name)
+                    raise
 
                 experiment = client.get_experiment(experiment_id)
         else:
