@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from typing import Any, Optional, Union
@@ -362,7 +363,11 @@ class TracingClient:
         next_max_results = max_results
         next_token = page_token
 
-        executor = ThreadPoolExecutor() if include_spans else nullcontext()
+        # Use minimum of 16 threads or 4x CPU count (whichever is larger)
+        # This is important because these threads are network IO-bound (waiting for downloads)
+        # rather than CPU-bound, so we want more threads than CPU cores to maximize throughput
+        max_workers = max(16, os.cpu_count() * 4)
+        executor = ThreadPoolExecutor(max_workers=max_workers) if include_spans else nullcontext()
         with executor:
             while len(traces) < max_results:
                 trace_infos, next_token = self._search_traces(
