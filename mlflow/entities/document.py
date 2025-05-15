@@ -11,12 +11,14 @@ class Document:
     Args:
         page_content: The content of the document.
         metadata: A dictionary of metadata associated with the document.
-            There are two important metadata keys that are used by the MLflow UI and evaluation metrics. You should
-            include these in `metadata` to enable downstream UI display and evaluation:
-
-            * "doc_uri" (str): The URI for the document. This is used for rendering a link in the UI and in evaluation.
-            * "chunk_id" (str): If your document is broken up into chunks in your data store, this key can be used to
-               identify the chunk that the document is a part of. This is used by some evaluation metrics.
+            There are two important metadata keys that are used by the MLflow UI and evaluation
+            metrics. You should include these in `metadata` to enable downstream UI display and
+            evaluation:
+            * "doc_uri" (str): The URI for the document. This is used for rendering a
+               link in the UI and in evaluation.
+            * "chunk_id" (str): If your document is broken up into chunks in your data store,
+              this key can be used to identify the chunk that the document is a part of.
+              This is used by some evaluation metrics.
         id: The ID of the document.
     """
 
