@@ -10,6 +10,7 @@ from pydantic import BaseModel
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.openai.utils.chat_schema import _parse_tools
 from mlflow.tracing.constant import STREAM_CHUNK_EVENT_VALUE_KEY, SpanAttributeKey, TraceMetadataKey
 
 from tests.openai.mock_openai import EMPTY_CHOICES
@@ -754,6 +755,14 @@ def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai):
         assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
         logged_model_id = span.inputs["input"][0]
         assert logged_model_id != model.model_id
+
+
+@pytest.mark.parametrize(
+    "sentinel",
+    [None, 42, object()],
+)
+def test_parse_tools_handles_openai_not_given_sentinel(sentinel):
+    assert _parse_tools({"tools": sentinel}) == []
 
 
 @skip_when_testing_trace_sdk
