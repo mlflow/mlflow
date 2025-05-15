@@ -799,3 +799,9 @@ MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
     int,
     max(32, (os.cpu_count() or 1) * 4),
 )
+
+
+#: Specifies the logging level for MLflow. This can be set to any valid logging level
+#: (e.g., "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL").
+#: (default: ``None``).
+MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, None)
