@@ -22,7 +22,7 @@ from mlflow.entities import (
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
-    LoggedModelStatus,
+    LoggedModelStatus,1
     Metric,
     Param,
     Run,
@@ -1473,7 +1473,7 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
-def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: Optional[str] = None) -> None:
+def log_dict(dictionary: dict[Union[str, int], Any], artifact_file: str, run_id: Optional[str] = None) -> None:
     """
     Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
     format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
