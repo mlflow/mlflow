@@ -803,5 +803,5 @@ MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
 #: Avoid printing experiment and run url to stdout at run termination
 #: (default: ``False``)
 MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable(
-  "_MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", False
+  "MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", False
 )
