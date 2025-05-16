@@ -12,6 +12,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceDataCorrupted,
@@ -363,7 +364,8 @@ class TracingClient:
         next_max_results = max_results
         next_token = page_token
 
-        executor = ThreadPoolExecutor() if include_spans else nullcontext()
+        max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()
+        executor = ThreadPoolExecutor(max_workers=max_workers) if include_spans else nullcontext()
         with executor:
             while len(traces) < max_results:
                 trace_infos, next_token = self._search_traces(

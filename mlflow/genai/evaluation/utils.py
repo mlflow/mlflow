@@ -1,4 +1,3 @@
-import inspect
 import json
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -139,6 +138,7 @@ def _convert_expectations_to_legacy_columns(df: "pd.DataFrame") -> "pd.DataFrame
         # Process each row individually to handle mixed types
         for idx, value in df["expectations"].items():
             if isinstance(value, dict):
+                value = value.copy()
                 # Reserved expectation keys is propagated as a new column
                 for field in AgentEvaluationReserverKey.get_all():
                     if field in value:
@@ -225,10 +225,7 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
             "tool_calls": tool_calls,
             **kwargs,
         }
-        # Filter to only the parameters the scorer actually expects
-        sig = inspect.signature(scorer)
-        filtered = {k: v for k, v in merged.items() if k in sig.parameters}
-        return scorer(**filtered)
+        return scorer.run(**merged)
 
     return metric(
         eval_fn=eval_fn,

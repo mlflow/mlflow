@@ -15,6 +15,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import add_size_bytes_to_trace_metadata
 
 _logger = logging.getLogger(__name__)
 
@@ -112,5 +113,10 @@ class InferenceTableSpanExporter(SpanExporter):
                     _logger.warning("Failed to export trace to MLflow backend. Error: %s", e)
 
     def _log_trace_to_mlflow_backend(self, trace: Trace):
+        try:
+            add_size_bytes_to_trace_metadata(trace)
+        except Exception:
+            _logger.warning("Failed to add size bytes to trace metadata.", exc_info=True)
+
         returned_trace_info = self._client.start_trace_v3(trace)
         self._client._upload_trace_data(returned_trace_info, trace.data)
