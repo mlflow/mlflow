@@ -204,3 +204,13 @@ def test_langgraph_chat_agent_trace():
     assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_info.model_id
     assert traces[0].data.spans[0].name == "LangGraph"
     assert traces[0].data.spans[0].inputs == input_example
+
+
+def test_langgraph_autolog_with_update_current_span():
+    model_info = mlflow.langchain.log_model(
+        lc_model="tests/langgraph/sample_code/langgraph_with_autolog.py",
+        input_example={"status": "done"},
+    )
+    assert model_info.signature is not None
+    assert model_info.signature.inputs is not None
+    assert model_info.signature.outputs is not None
