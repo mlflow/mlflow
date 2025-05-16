@@ -20,6 +20,17 @@ if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
 
 
+@pytest.fixture(scope="module")
+def spark():
+    try:
+        from pyspark.sql import SparkSession
+
+        with SparkSession.builder.getOrCreate() as spark:
+            yield spark
+    except Exception as e:
+        pytest.skip(f"Failed to create a spark session: {e}")
+
+
 @pytest.fixture
 def sample_dict_data_single():
     return [

@@ -12,6 +12,37 @@ class Scorer(BaseModel):
     name: str
     aggregations: Optional[list] = None
 
+    def run(self, *, inputs=None, outputs=None, expectations=None, trace=None, **kwargs):
+        from mlflow.evaluation import Assessment as LegacyAssessment
+
+        merged = {
+            "inputs": inputs,
+            "outputs": outputs,
+            "expectations": expectations,
+            "trace": trace,
+            **kwargs,
+        }
+        # Filter to only the parameters the function actually expects
+        sig = inspect.signature(self.__call__)
+        filtered = {k: v for k, v in merged.items() if k in sig.parameters}
+        result = self(**filtered)
+        if not (
+            isinstance(result, (int, float, bool, str, Assessment, LegacyAssessment))
+            or (
+                isinstance(result, list)
+                and all(isinstance(item, (Assessment, LegacyAssessment)) for item in result)
+            )
+        ):
+            if isinstance(result, list) and len(result) > 0:
+                result_type = "list[" + type(result[0]).__name__ + "]"
+            else:
+                result_type = type(result).__name__
+            raise ValueError(
+                f"{self.name} must return one of int, float, bool, str, "
+                f"Assessment, or list[Assessment]. Got {result_type}"
+            )
+        return result
+
     def __call__(
         self,
         *,
@@ -228,30 +259,17 @@ def scorer(
         return functools.partial(scorer, name=name, aggregations=aggregations)
 
     class CustomScorer(Scorer):
-        def __call__(self, *, inputs=None, outputs=None, expectations=None, trace=None, **kwargs):
-            merged = {
-                "inputs": inputs,
-                "outputs": outputs,
-                "expectations": expectations,
-                "trace": trace,
-                **kwargs,
-            }
-            # Filter to only the parameters the function actually expects
-            sig = inspect.signature(func)
-            filtered = {k: v for k, v in merged.items() if k in sig.parameters}
-            result = func(**filtered)
-            if not (
-                isinstance(result, (int, float, bool, str, Assessment))
-                or (
-                    isinstance(result, list)
-                    and all(isinstance(item, Assessment) for item in result)
-                )
-            ):
-                raise ValueError(
-                    f"{func.__name__} must return one of int, float, bool, str, "
-                    f"Assessment, or list[Assessment]. Got {type(result).__name__}"
-                )
-            return result
+        def __call__(self, *args, **kwargs):
+            return func(*args, **kwargs)
+
+    # Update the __call__ method's signature to match the original function
+    # but add 'self' as the first parameter. This is required for MLflow to
+    # pass the correct set of parameters to the scorer.
+    signature = inspect.signature(func)
+    params = list(signature.parameters.values())
+    new_params = [inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD)] + params
+    new_signature = signature.replace(parameters=new_params)
+    CustomScorer.__call__.__signature__ = new_signature
 
     return CustomScorer(
         name=name or func.__name__,

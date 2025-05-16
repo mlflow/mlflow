@@ -24,17 +24,6 @@ def mock_init_auth():
         yield
 
 
-@pytest.fixture(scope="module")
-def spark():
-    try:
-        from pyspark.sql import SparkSession
-
-        with SparkSession.builder.getOrCreate() as spark:
-            yield spark
-    except RuntimeError:
-        pytest.skip("Can't create a Spark session")
-
-
 @pytest.fixture(autouse=True)
 def spoof_tracking_uri_check():
     # NB: The mlflow.genai.evaluate() API is only runnable when the tracking URI is set
