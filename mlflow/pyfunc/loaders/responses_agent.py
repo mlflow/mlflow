@@ -24,8 +24,8 @@ from mlflow.types.responses import (
 
 
 def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
-    context, responses_agent, _ = _load_context_model_and_signature(model_path, model_config)
-    return _ResponsesAgentPyfuncWrapper(responses_agent, context)
+    _, responses_agent, _ = _load_context_model_and_signature(model_path, model_config)
+    return _ResponsesAgentPyfuncWrapper(responses_agent)
 
 
 @experimental
@@ -35,9 +35,8 @@ class _ResponsesAgentPyfuncWrapper:
     :class:`~ResponsesAgent`.
     """
 
-    def __init__(self, responses_agent, context):
+    def __init__(self, responses_agent):
         self.responses_agent = responses_agent
-        self.context = context
 
     def get_raw_model(self):
         """
@@ -76,7 +75,7 @@ class _ResponsesAgentPyfuncWrapper:
             ) from e
         return response
 
-    def predict(self, model_input: dict[str, Any], params=None, context=None) -> dict[str, Any]:
+    def predict(self, model_input: dict[str, Any], params=None) -> dict[str, Any]:
         """
         Args:
             model_input: A dict with the
@@ -90,7 +89,7 @@ class _ResponsesAgentPyfuncWrapper:
             schema.
         """
         request = self._convert_input(model_input)
-        response = self.responses_agent.predict(request, context)
+        response = self.responses_agent.predict(request)
         return self._response_to_dict(response, ResponsesAgentResponse)
 
     def predict_stream(
