@@ -41,7 +41,7 @@ def reset_mlflow_autolog_and_traces():
 
 def _make_dummy_response_without_tool():
     part = TextPart(content=_FINAL_ANSWER_WITHOUT_TOOL)
-    resp = ModelResponse(parts=())
+    resp = ModelResponse(parts=[part])
     usage = Usage(requests=1, request_tokens=1, response_tokens=1, total_tokens=2)
     if pydantic_ai_version >= Version("0.2.0"):
         return ModelResponse(parts=[part], usage=usage)
