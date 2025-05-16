@@ -418,30 +418,32 @@ def test_responses_agent_trace(
     assert len(traces) == 2
     spans = traces[0].data.spans
     assert len(spans) == 1
-    # print("\n\ntrace span", spans[0].to_dict(), spans[0].attributes)
     assert spans[0].name == "predict_stream"
     assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
 
 
 def test_responses_agent_trace_dict_output(tmp_path):
+    output_item = {
+        "type": "message",
+        "id": "test",
+        "status": "completed",
+        "role": "assistant",
+        "content": [{"type": "output_text", "text": "Dummy output"}],
+    }
+
     class TracedResponsesAgent(ResponsesAgent):
         @mlflow.trace(span_type=SpanType.AGENT)
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return {
-                "output": [
-                    {
-                        "type": "message",
-                        "id": "test",
-                        "status": "completed",
-                        "role": "assistant",
-                        "content": [{"type": "output_text", "text": "Dummy output"}],
-                    }
-                ],
+                "output": [output_item],
             }
 
+        @mlflow.trace(span_type=SpanType.AGENT)
         def predict_stream(self, request: ResponsesAgentRequest):
-            # Dummy
-            pass
+            yield ResponsesAgentStreamEvent(
+                type="response.output_item.done",
+                item=output_item,
+            ).model_dump_compat()
 
     model = TracedResponsesAgent()
     model.predict(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
@@ -451,6 +453,24 @@ def test_responses_agent_trace_dict_output(tmp_path):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "predict"
+    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
+        {
+            "content": "Hello!",
+            "role": "user",
+        },
+        {
+            "content": [{"text": "Dummy output", "type": "text"}],
+            "role": "assistant",
+        },
+    ]
+
+    list(model.predict_stream(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE)))
+
+    traces = get_traces()
+    assert len(traces) == 2
+    spans = traces[0].data.spans
+    assert len(spans) == 1
+    assert spans[0].name == "predict_stream"
     assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
         {
             "content": "Hello!",
