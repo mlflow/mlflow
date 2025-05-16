@@ -430,6 +430,16 @@ def test_responses_agent_trace_dict_output(tmp_path):
         "role": "assistant",
         "content": [{"type": "output_text", "text": "Dummy output"}],
     }
+    expected_chat_messages = [
+        {
+            "content": "Hello!",
+            "role": "user",
+        },
+        {
+            "content": [{"text": "Dummy output", "type": "text"}],
+            "role": "assistant",
+        },
+    ]
 
     class TracedResponsesAgent(ResponsesAgent):
         @mlflow.trace(span_type=SpanType.AGENT)
@@ -453,16 +463,7 @@ def test_responses_agent_trace_dict_output(tmp_path):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "predict"
-    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "content": "Hello!",
-            "role": "user",
-        },
-        {
-            "content": [{"text": "Dummy output", "type": "text"}],
-            "role": "assistant",
-        },
-    ]
+    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
 
     list(model.predict_stream(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE)))
 
@@ -471,13 +472,4 @@ def test_responses_agent_trace_dict_output(tmp_path):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "predict_stream"
-    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "content": "Hello!",
-            "role": "user",
-        },
-        {
-            "content": [{"text": "Dummy output", "type": "text"}],
-            "role": "assistant",
-        },
-    ]
+    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
