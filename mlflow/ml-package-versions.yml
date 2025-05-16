@@ -391,7 +391,6 @@ diviner:
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
-      "<= 0.1.0": ["pmdarima<2.0.0"]
       # Diviner <= 0.1.1 isn't compatible with pandas>=2
       "<= 0.1.1": ["pandas<2"]
       # As of Jun 7, 2023, Diviner dev isn't compatible with pandas>=2
@@ -687,7 +686,7 @@ langgraph:
 
   models:
     minimum: "0.2.0"
-    maximum: "0.4.4"
+    maximum: "0.4.5"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -702,7 +701,7 @@ langgraph:
 
   autologging:
     minimum: "0.2.0"
-    maximum: "0.4.4"
+    maximum: "0.4.5"
     requirements:
       ">= 0.0.0": [
           "langchain",
