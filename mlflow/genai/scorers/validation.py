@@ -28,14 +28,12 @@ def validate_scorers(scorers: list[Any]) -> tuple[list[BuiltInScorer], list[Scor
     """
     from databricks.rag_eval.evaluation.metrics import Metric
 
-    if not isinstance(scorers, list):
+    if not isinstance(scorers, list) or len(scorers) == 0:
         raise MlflowException.invalid_parameter_value(
-            "The scorers argument must be a list of scorers."
-        )
-
-    if not scorers:
-        raise MlflowException.invalid_parameter_value(
-            "At least one scorer is required to evaluate a model."
+            "The `scorers` argument must be a list of scorers with at least one scorer. "
+            "If you are unsure about which scorer to use, you can specify "
+            "`scorers=mlflow.genai.scorers.all_scorers()` to jump start with all "
+            "available built-in scorers."
         )
 
     builtin_scorers = []
@@ -142,9 +140,8 @@ def valid_data_for_builtin_scorers(
 
     if missing_col_to_scorers:
         msg = (
-            "The input data is missing following columns or fields that are required "
-            "by the specified scorers. Please make sure the data contains all the "
-            "required columns or fields for computing scores."
+            "The input data is missing following columns that are required by the specified "
+            "scorers. The results will be null for those scorers."
         )
         for col, scorers in missing_col_to_scorers.items():
             if col.startswith("expectations/"):
@@ -155,4 +152,4 @@ def valid_data_for_builtin_scorers(
                 )
             else:
                 msg += f"\n - `{col}` column is required by [{', '.join(scorers)}]."
-        raise MlflowException.invalid_parameter_value(msg)
+        _logger.info(msg)
