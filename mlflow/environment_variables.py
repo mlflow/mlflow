@@ -762,11 +762,12 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
 )
 
 
-#: Specified the ID of the LoggedModel to link traces to.
-#: This should only by used by MLflow internally or in standalone environments such
-#: as Databricks serving.
+#: Default active LoggedModel ID.
+#: This should only by used by MLflow internally, users should always use
+#: `set_active_model` to set the active LoggedModel, and should not set
+#: this environment variable directly.
 #: (default: ``None``)
-MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("MLFLOW_ACTIVE_MODEL_ID", str, None)
+_MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("_MLFLOW_ACTIVE_MODEL_ID", str, None)
 
 #: Maximum number of parameters to include in the initial CreateLoggedModel request.
 #: Additional parameters will be logged in separate requests.
