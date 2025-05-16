@@ -17,7 +17,7 @@ from tests.tracing.helper import get_traces
 _FINAL_ANSWER_WITHOUT_TOOL = "Paris"
 _FINAL_ANSWER_WITH_TOOL = "winner"
 
-pydantic_ai_version = Version(importlib.metadata.version("pydantic_ai"))
+PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
 
 
 @pytest.fixture(autouse=True)
@@ -43,7 +43,7 @@ def _make_dummy_response_without_tool():
     parts = [TextPart(content=_FINAL_ANSWER_WITHOUT_TOOL)]
     resp = ModelResponse(parts=parts)
     usage = Usage(requests=1, request_tokens=1, response_tokens=1, total_tokens=2)
-    if pydantic_ai_version >= Version("0.2.0"):
+    if PYDANTIC_AI_VERSION >= Version("0.2.0"):
         return ModelResponse(parts=parts, usage=usage)
     else:
         return resp, usage
@@ -55,7 +55,7 @@ def _make_dummy_response_with_tool():
     usage_call = Usage(requests=0, request_tokens=10, response_tokens=20, total_tokens=30)
     usage_final = Usage(requests=1, request_tokens=100, response_tokens=200, total_tokens=300)
 
-    if pydantic_ai_version >= Version("0.2.0"):
+    if PYDANTIC_AI_VERSION >= Version("0.2.0"):
         call_resp = ModelResponse(parts=call_parts, usage=usage_call)
         final_resp = ModelResponse(parts=final_parts, usage=usage_final)
         sequence = [
