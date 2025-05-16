@@ -336,3 +336,76 @@ def test_client_delete_registered_model_permission(client, monkeypatch):
 
     with User(username, password, monkeypatch), assert_unauthorized():
         client.delete_registered_model_permission(name, username)
+
+
+def test_client_create_prompt_permission(client, monkeypatch):
+    name = random_str()
+    username, password = create_user(client.tracking_uri)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        rmp = client.create_prompt_permission(name, username, PERMISSION)
+    assert rmp.name == name
+    assert rmp.permission == PERMISSION
+
+    with assert_unauthenticated():
+        client.create_prompt_permission(name, username, PERMISSION)
+
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.create_prompt_permission(name, username, PERMISSION)
+
+
+def test_client_get_prompt_permission(client, monkeypatch):
+    name = random_str()
+    username, password = create_user(client.tracking_uri)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_prompt_permission(name, username, PERMISSION)
+        rmp = client.get_prompt_permission(name, username)
+    assert rmp.name == name
+    assert rmp.permission == PERMISSION
+
+    with assert_unauthenticated():
+        client.get_prompt_permission(name, username)
+
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.get_prompt_permission(name, username)
+
+
+def test_client_update_prompt_permission(client, monkeypatch):
+    name = random_str()
+    username, password = create_user(client.tracking_uri)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_prompt_permission(name, username, PERMISSION)
+        client.update_prompt_permission(name, username, NEW_PERMISSION)
+        rmp = client.get_prompt_permission(name, username)
+    assert rmp.name == name
+    assert rmp.permission == NEW_PERMISSION
+
+    with assert_unauthenticated():
+        client.update_prompt_permission(name, username, PERMISSION)
+
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.update_prompt_permission(name, username, PERMISSION)
+
+
+def test_client_delete_prompt_permission(client, monkeypatch):
+    name = random_str()
+    username, password = create_user(client.tracking_uri)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_prompt_permission(name, username, PERMISSION)
+        client.delete_prompt_permission(name, username)
+        with pytest.raises(
+            MlflowException,
+            match=rf"Registered model permission with name={name} "
+            rf"and username={username} not found",
+        ) as exception_context:
+            client.get_prompt_permission(name, username)
+        assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    with assert_unauthenticated():
+        client.delete_prompt_permission(name, username)
+
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.delete_prompt_permission(name, username)
