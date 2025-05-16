@@ -34,7 +34,6 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
     # NB: This function is also used for setting chat attributes for ResponsesAgent tracing spans
     # (TODO: Add doc link). Therefore, the core logic should still run without openai package.
     messages = _parse_inputs_output(inputs, output)
-    print("messages", messages)
     try:
         set_span_chat_messages(span, messages)
     except MlflowException:

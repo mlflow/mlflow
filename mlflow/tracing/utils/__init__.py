@@ -16,7 +16,6 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
-from mlflow.gateway.providers.mosaicml import custom_token_allowance_exceeded_handling
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -442,14 +441,6 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
         from mlflow.openai.utils.chat_schema import set_span_chat_attributes
         from mlflow.types.responses import ResponsesAgentResponse, ResponsesAgentStreamEvent
 
-        print(
-            "inside set_chat_attributes_special_case", inputs, "\n", outputs, "\n", span.to_dict()
-        )
-        print(isinstance(outputs, list))
-        if isinstance(outputs, list):
-            for o in outputs:
-                print("candidate", o)
-                print(ResponsesAgentStreamEvent.validate_compat(o))
         try:
             if ResponsesAgentResponse.validate_compat(outputs):
                 inputs = inputs["request"].model_dump_compat()
