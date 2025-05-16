@@ -44,7 +44,7 @@ class Assessment(_MlflowObject):
     """
 
     name: str
-    source: Optional[AssessmentSource] = None
+    source: AssessmentSource
     # NB: The trace ID is optional because the assessment object itself may be created
     #   standalone. For example, a custom metric function returns an assessment object
     #   without a trace ID. That said, the trace ID is required when logging the
@@ -205,9 +205,6 @@ class Feedback(Assessment):
             )
     """
 
-    value: Optional[FeedbackValueType] = None
-    error: Optional[AssessmentError] = None
-
     def __init__(
         self,
         name: str,
@@ -228,7 +225,7 @@ class Feedback(Assessment):
 
         # Default to CODE source if not provided
         if source is None:
-            source = AssessmentSource(source_type=AssessmentSourceType.CODE, source_id="default")
+            source = AssessmentSource(source_type=AssessmentSourceType.CODE)
 
         super().__init__(
             name=name,
@@ -346,7 +343,7 @@ class Expectation(Assessment):
         last_update_time_ms: Optional[int] = None,
     ):
         if source is None:
-            source = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="default")
+            source = AssessmentSource(source_type=AssessmentSourceType.HUMAN)
 
         if value is None:
             raise MlflowException.invalid_parameter_value("The `value` field must be specified.")
