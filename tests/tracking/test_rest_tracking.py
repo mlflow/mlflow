@@ -2656,8 +2656,8 @@ def test_get_logged_model_artifact(mlflow_client: MlflowClient):
     assert model_info.model_id in resp.text
 
 
-def test_suppress_url_printing(mlflow_client: MlflowClient):
-    os.environ["MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT"] = "true"
+def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
+    monkeypatch.setenv[MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT.name] = "true"
     exp_id = mlflow_client.create_experiment("test_suppress_url_printing")
     run = mlflow_client.create_run(experiment_id=exp_id)
     captured_output = StringIO()
