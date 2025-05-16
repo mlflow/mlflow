@@ -442,19 +442,17 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
         from mlflow.types.responses import ResponsesAgentResponse, ResponsesAgentStreamEvent
 
         try:
-            if ResponsesAgentResponse.validate_compat(outputs):
+            if isinstance(outputs, ResponsesAgentResponse):
                 inputs = inputs["request"].model_dump_compat()
                 set_span_chat_attributes(span, inputs, outputs)
         except ValueError:
             if isinstance(outputs, list) and all(
-                ResponsesAgentStreamEvent.validate_compat(o) for o in outputs
+                isinstance(o, ResponsesAgentStreamEvent) for o in outputs
             ):
                 inputs = inputs["request"].model_dump_compat()
                 output_items = []
                 custom_outputs = None
                 for o in outputs:
-                    if isinstance(o, dict):
-                        o = ResponsesAgentStreamEvent(**o)
                     if o.type == "response.output_item.done":
                         output_items.append(o.item)
                     if o.custom_outputs:
