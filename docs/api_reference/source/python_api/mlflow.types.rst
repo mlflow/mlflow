@@ -8,6 +8,9 @@ mlflow.types
 .. automodule:: mlflow.types.responses
     :members:
 
+.. automodule:: mlflow.types.responses_helpers
+    :undoc-members:
+
 .. automodule:: mlflow.types.agent
     :members:
 
