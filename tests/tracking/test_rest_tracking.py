@@ -40,8 +40,8 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.exceptions import MlflowException, RestException
 from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server.handlers import _get_sampled_steps_from_steps
