@@ -3,13 +3,13 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
 )
-from mlflow.genai.scorers import BuiltInScorer, Scorer
+from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
+from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.utils.trace_utils import is_model_traced
 from mlflow.models.evaluation.base import (
     _get_model_from_deployment_endpoint_uri,
@@ -191,9 +191,7 @@ def evaluate(
                 - outputs (optional): Column containing model or app outputs.
                   If this column is present, `predict_fn` must not be provided.
 
-                - expectations (optional): Column containing ground truth or
-                  dictionary of ground truths. If this column contains a single string,
-                  it is assumed to be the expected response for the row.
+                - expectations (optional): Column containing a dictionary of ground truths.
 
             The input dataframe can contain extra columns that will be directly passed to
             the scorers. For example, you can pass a dataframe with `retrieved_context`
@@ -226,7 +224,7 @@ def evaluate(
         environments.
     """
     try:
-        from databricks.rag_eval.evaluation.metrics import Metric as DBAgentsMetric
+        import databricks.agents  # noqa: F401
     except ImportError:
         raise ImportError(
             "The `databricks-agents` package is required to use mlflow.genai.evaluate() "
@@ -239,32 +237,7 @@ def evaluate(
             "Please set the tracking URI to Databricks."
         )
 
-    if not scorers:
-        raise MlflowException.invalid_parameter_value(
-            "At least one scorer is required to evaluate a model."
-        )
-
-    builtin_scorers = []
-    custom_scorers = []
-
-    for scorer in scorers:
-        if isinstance(scorer, BuiltInScorer):
-            builtin_scorers.append(scorer)
-        elif isinstance(scorer, Scorer):
-            custom_scorers.append(scorer)
-        elif isinstance(scorer, DBAgentsMetric):
-            logger.warning(
-                f"{scorer} is a legacy metric and will soon be deprecated in future releases. "
-                "Please use the @scorer decorator or use builtin scorers instead."
-            )
-            custom_scorers.append(scorer)
-        else:
-            raise TypeError(
-                (
-                    f"Scorer {scorer} is not a valid scorer. Please use the @scorer decorator ",
-                    "to convert a function into a scorer or inherit from the Scorer class",
-                )
-            )
+    builtin_scorers, custom_scorers = validate_scorers(scorers)
 
     evaluation_config = {
         GENAI_CONFIG_NAME: {
@@ -281,13 +254,15 @@ def evaluate(
     # convert into a pandas dataframe with current evaluation set schema
     data = _convert_to_legacy_eval_set(data)
 
+    valid_data_for_builtin_scorers(data, builtin_scorers, predict_fn)
+
     if predict_fn:
         sample_input = data.iloc[0]["request"]
         if not is_model_traced(predict_fn, sample_input):
             logger.info("Annotating predict_fn with tracing since it is not already traced.")
             predict_fn = mlflow.trace(predict_fn)
 
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         # Wrap the prediction function to unwrap the inputs dictionary into keyword arguments.
         model=(lambda request: predict_fn(**request)) if predict_fn else None,
         data=data,
@@ -295,6 +270,7 @@ def evaluate(
         extra_metrics=extra_metrics,
         model_type=GENAI_CONFIG_NAME,
         model_id=model_id,
+        _called_from_genai_evaluate=True,
     )
 
     return EvaluationResult(

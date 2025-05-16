@@ -235,7 +235,7 @@ def _serve_pyfunc(model, env_manager):
         }
     else:
         inference_server = scoring_server
-        nworkers = cpu_count
+        nworkers = int(os.getenv("MLFLOW_MODELS_WORKERS", cpu_count))
         port = DEFAULT_INFERENCE_SERVER_PORT
 
     cmd, cmd_env = inference_server.get_cmd(

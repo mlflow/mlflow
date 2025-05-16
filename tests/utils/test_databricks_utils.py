@@ -661,3 +661,44 @@ def test_construct_databricks_logged_model_url():
     )
 
     assert result_no_workspace == expected_url_no_workspace
+
+
+def test_print_databricks_deployment_job_url():
+    workspace_url = "https://databricks.com"
+    job_id = "123"
+    workspace_id = "456"
+
+    expected_url_no_workspace = "https://databricks.com/jobs/123"
+    expected_url = f"{expected_url_no_workspace}?o=456"
+    model_name = "main.models.name"
+
+    with (
+        mock.patch("mlflow.utils.databricks_utils.eprint") as mock_eprint,
+        mock.patch("mlflow.utils.databricks_utils.get_workspace_url", return_value=workspace_url),
+    ):
+        # Test case with a workspace ID
+        with mock.patch(
+            "mlflow.utils.databricks_utils.get_workspace_id", return_value=workspace_id
+        ):
+            result = databricks_utils._print_databricks_deployment_job_url(
+                model_name=model_name,
+                job_id=job_id,
+            )
+
+            assert result == expected_url
+            mock_eprint.assert_called_once_with(
+                f"🔗 Linked deployment job to '{model_name}': {expected_url}"
+            )
+            mock_eprint.reset_mock()
+
+        # Test case without a workspace ID
+        with mock.patch("mlflow.utils.databricks_utils.get_workspace_id", return_value=None):
+            result_no_workspace = databricks_utils._print_databricks_deployment_job_url(
+                model_name=model_name,
+                job_id=job_id,
+            )
+
+            assert result_no_workspace == expected_url_no_workspace
+            mock_eprint.assert_called_once_with(
+                f"🔗 Linked deployment job to '{model_name}': {expected_url_no_workspace}"
+            )

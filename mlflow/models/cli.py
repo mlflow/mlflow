@@ -298,6 +298,13 @@ def build_docker(**kwargs):
 
         docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
 
+    By default, the number of uvicorn workers is set to CPU count. If you want to set a custom
+    number of workers, you can set the MLFLOW_MODELS_WORKERS environment variable:
+
+    .. code:: bash
+
+        docker run -p 5001:8080 -e MLFLOW_MODELS_WORKERS=4 "my-image-name"
+
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
     """

@@ -1,14 +1,178 @@
+import warnings
+from importlib import import_module
 from unittest import mock
 from unittest.mock import patch
 
 import pandas as pd
 import pytest
+from packaging.version import Version
 
 import mlflow
+from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, safety
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
+from tests.genai.conftest import mock_init_auth
+
+_IS_AGENT_SDK_V1 = Version(import_module("databricks.agents").__version__).major >= 1
+
+
+class TestModel:
+    def predict(self, question: str) -> str:
+        return "I don't know"
+
+
+@scorer
+def exact_match(outputs, expectations):
+    return outputs == expectations["expected_response"]
+
+
+@scorer
+def max_length(outputs, expectations):
+    return len(outputs) <= expectations["max_length"]
+
+
+@scorer
+def relevance(inputs, outputs):
+    return Assessment(
+        name="relevance",
+        feedback=Feedback(value="yes"),
+        rationale="The response is relevant to the question",
+        source=AssessmentSource(source_id="gpt", source_type="LLM_JUDGE"),
+    )
+
+
+@scorer
+def has_trace(trace):
+    return trace is not None
+
+
+@pytest.mark.skipif(not _IS_AGENT_SDK_V1, reason="Databricks Agent SDK v1 is required")
+def test_evaluate_with_static_dataset():
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a tool for ML",
+            "expectations": {
+                "expected_response": "MLflow is a tool for ML",
+                "max_length": 100,
+            },
+        },
+        {
+            "inputs": {"question": "What is Spark?"},
+            "outputs": "Spark is a fast data processing engine",
+            "expectations": {
+                "expected_response": "Spark is a fast data processing engine",
+                "max_length": 1,
+            },
+        },
+    ]
+
+    with mock.patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[exact_match, max_length, relevance, has_trace],
+        )
+
+    metrics = result.metrics
+    assert metrics["metric/exact_match/average"] == 1.0
+    assert metrics["metric/max_length/average"] == 0.5
+    assert metrics["metric/relevance/relevance/average"] == 1.0
+    assert metrics["metric/has_trace/average"] == 1.0
+
+
+@pytest.mark.skipif(not _IS_AGENT_SDK_V1, reason="Databricks Agent SDK v1 is required")
+def test_evaluate_with_predict_fn():
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {
+                "expected_response": "MLflow is a tool for ML",
+                "max_length": 100,
+            },
+        },
+        {
+            "inputs": {"question": "What is Spark?"},
+            "expectations": {
+                "expected_response": "Spark is a fast data processing engine",
+                "max_length": 1,
+            },
+        },
+    ]
+    model = TestModel()
+
+    with mock.patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
+        result = mlflow.genai.evaluate(
+            predict_fn=model.predict,
+            data=data,
+            scorers=[exact_match, max_length, relevance, has_trace],
+        )
+
+    metrics = result.metrics
+    assert metrics["metric/exact_match/average"] == 0.0
+    assert metrics["metric/max_length/average"] == 0.5
+    assert metrics["metric/relevance/relevance/average"] == 1.0
+    assert metrics["metric/has_trace/average"] == 1.0
+
+
+@pytest.mark.skipif(not _IS_AGENT_SDK_V1, reason="Databricks Agent SDK v1 is required")
+def test_evaluate_with_traces():
+    questions = ["What is MLflow?", "What is Spark?"]
+
+    @mlflow.trace(span_type=SpanType.AGENT)
+    def predict(question: str) -> str:
+        return TestModel().predict(question)
+
+    for question in questions:
+        predict(question)
+
+    data = mlflow.search_traces()
+
+    # OSS MLflow backend doesn't support assessment APIs now, so we need to manually add them
+    data.iloc[0]["trace"].info.assessments = [
+        Assessment(
+            name="expected_response",
+            trace_id="tr-123",
+            expectation=Expectation(value="MLflow is a tool for ML"),
+            source=AssessmentSource(source_id="me", source_type="HUMAN"),
+        ),
+        Assessment(
+            name="max_length",
+            trace_id="tr-123",
+            expectation=Expectation(value=100),
+            source=AssessmentSource(source_id="me", source_type="HUMAN"),
+        ),
+    ]
+    data.iloc[1]["trace"].info.assessments = [
+        Assessment(
+            name="expected_response",
+            trace_id="tr-123",
+            expectation=Expectation(value="Spark is a fast data processing engine"),
+            source=AssessmentSource(source_id="me", source_type="HUMAN"),
+        ),
+        Assessment(
+            name="max_length",
+            trace_id="tr-123",
+            expectation=Expectation(value=1),
+            source=AssessmentSource(source_id="me", source_type="HUMAN"),
+        ),
+    ]
+
+    with mock.patch("databricks.sdk.config.Config.init_auth", new=mock_init_auth):
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[exact_match, max_length, relevance, has_trace],
+        )
+
+    metrics = result.metrics
+    assert metrics["metric/exact_match/average"] == 0.0
+    assert metrics["metric/max_length/average"] == 0.5
+    assert metrics["metric/relevance/relevance/average"] == 1.0
+    assert metrics["metric/has_trace/average"] == 1.0
 
 
 def mock_init_auth(config_instance):
@@ -80,7 +244,7 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
         {"inputs": {"baz": "qux"}, "outputs": "response from model"},
     ]
 
-    with mock.patch("mlflow.evaluate") as mock_evaluate:
+    with mock.patch("mlflow.models.evaluate") as mock_evaluate:
 
         @mlflow.trace
         def model(x):
@@ -101,6 +265,7 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
             model_type="databricks-agent",
             extra_metrics=[],
             model_id="test_model_id",
+            _called_from_genai_evaluate=True,
         )
 
 
@@ -111,3 +276,40 @@ def test_no_scorers(mock_get_tracking_uri):
 
     with pytest.raises(MlflowException, match=r"At least one scorer is required"):
         mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
+
+
+def test_genai_evaluate_does_not_warn_about_deprecated_model_type():
+    """
+    MLflow shows a warning when model_type="databricks-agent" is used for mlflow.evaluate()
+    API. This test verifies that the warning is not shown when mlflow.genai.evaluate() is used.
+    """
+    with (
+        patch("mlflow.genai.evaluation.base.is_databricks_uri", return_value=True),
+        patch("mlflow.models.evaluation.base._evaluate") as mock_evaluate_impl,
+        warnings.catch_warnings(),
+    ):
+        warnings.simplefilter("error", FutureWarning)
+        mlflow.genai.evaluate(
+            data=[{"inputs": {"question": "Hello"}, "outputs": "Hi"}],
+            scorers=[safety()],
+        )
+
+    mock_evaluate_impl.assert_called_once()
+
+    # Warning should be shown when "databricks-agent" model type is used with direct call
+    data = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
+    with (
+        patch("mlflow.models.evaluation.base.warnings") as mock_warnings,
+        patch("mlflow.models.evaluation.base._evaluate") as mock_evaluate_impl,
+    ):
+        mlflow.models.evaluate(
+            data=data,
+            model=lambda x: x["x"] * 2,
+            model_type="databricks-agent",
+            extra_metrics=[mlflow.metrics.latency()],
+        )
+    mock_warnings.warn.assert_called_once()
+    assert mock_warnings.warn.call_args[0][0].startswith(
+        "The 'databricks-agent' model type is deprecated"
+    )
+    mock_evaluate_impl.assert_called_once()
