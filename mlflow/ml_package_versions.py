@@ -288,7 +288,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.2.36",
-            "maximum": "0.5.7"
+            "maximum": "0.2.40"
         }
     },
     "gemini": {
@@ -383,7 +383,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.52.9",
-            "maximum": "1.69.3"
+            "maximum": "1.58.4"
         }
     },
     "groq": {

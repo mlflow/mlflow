@@ -758,7 +758,7 @@ autogen:
     #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
   autologging:
     minimum: "0.2.36"
-    maximum: "0.5.7"
+    maximum: "0.2.40"
     unsupported: [">=0.4"]
     python:
       "== dev": "3.10"
@@ -941,7 +941,7 @@ litellm:
       pip install git+https://github.com/BerriAI/litellm.git
   autologging:
     minimum: "1.52.9"
-    maximum: "1.69.3"
+    maximum: "1.58.4"
     # TODO: Remove this once https://github.com/BerriAI/litellm/issues/9656 is fixed
     unsupported: [">=1.59"]
     requirements:
