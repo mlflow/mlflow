@@ -5,6 +5,9 @@ mlflow.types
     :members:
     :show-inheritance:
 
+.. automodule:: mlflow.types.responses
+    :members:
+
 .. automodule:: mlflow.types.agent
     :members:
 

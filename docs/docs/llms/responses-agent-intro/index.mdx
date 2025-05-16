@@ -1,3 +1,310 @@
 import { APILink } from "@site/src/components/APILink";
 
-# Tutorial: What is ResponsesAgent
+# Tutorial: ResponsesAgent Introduction
+
+## What is a ResponsesAgent?
+`ResponsesAgent` is a subclass of `PythonModel` that provides a framework-agnostic way to create an agent model. Authoring a `ResponsesAgent` provides the following benefits:
+- Ensure your model is compatible with OpenAI Responses API (Read more about it in the [Responses API Introduction](./responses-api-intro))
+- Support for multiple messages and intermediate steps
+- Support for multi-agent scenarios
+- Ensure compatibility with MLflow logging, tracing, and model serving
+
+We recommend `ResponsesAgent` instead of <APILink fn="mlflow.pyfunc.ChatModel">`ChatModel`</APILink> and <APILink fn="mlflow.pyfunc.ChatAgent">`ChatAgent`</APILink>, as it has all the benefits of `ChatAgent` and is compatible with OpenAIs Responses API.
+
+
+## Author a ResponsesAgent
+
+To author a ResponsesAgent, create a subclass of the ResponsesAgent and implement a predict method using any agent authoring framework. You must be using `pydantic>=2` to use ResponsesAgent.
+
+When creating output objects, you should only create `ResponsesAgentResponse` and `ResponsesAgentStreamEvent` pydantic objects. The other classes in `mlflow.types.responses_helpers` are for validation only. Below is an example of a tool calling sequence:
+```python
+from mlflow.types.responses import ResponsesAgentResponse
+
+ResponsesAgentResponse(
+    output=[
+        {
+            "arguments": '{"code":"result = 4 * 3\\nprint(result)"}',
+            "call_id": "call_1",
+            "name": "python_exec",
+            "type": "function_call",
+            "id": "fc_1",
+            "status": "completed",
+        },
+        {
+            "type": "function_call_output",
+            "call_id": "call_1",
+            "output": "12\n",
+        },
+        {
+            "id": "msg_1",
+            "content": [
+                {
+                    "annotations": [],
+                    "text": "The result of 4 * 3 in Python is 12.",
+                    "type": "output_text",
+                }
+            ],
+            "role": "assistant",
+            "status": "completed",
+            "type": "message",
+        },
+    ]
+)
+```
+An equivalent stream would look like:
+```python
+from mlflow.types.responses import ResponsesAgentStreamEvent
+
+ResponsesAgentStreamEvent(
+    type="response.output_item.done",
+    item={
+        "arguments": '{"code":"result = 4 * 3\\nprint(result)"}',
+        "call_id": "call_1",
+        "name": "python_exec",
+        "type": "function_call",
+        "id": "fc_1",
+        "status": "completed",
+    },
+)
+ResponsesAgentStreamEvent(
+    type="response.output_item.done",
+    item={
+        "type": "function_call_output",
+        "call_id": "call_1",
+        "output": "12\n",
+    },
+)
+ResponsesAgentStreamEvent(
+    type="response.output_item.done",
+    item={
+        "id": "msg_1",
+        "content": [
+            {
+                "annotations": [],
+                "text": "The result of 4 * 3 in Python is 12.",
+                "type": "output_text",
+            }
+        ],
+        "role": "assistant",
+        "status": "completed",
+        "type": "message",
+    },
+)
+```
+
+
+### Streaming a ResponsesAgent
+
+
+See the [example below](#example-responsesagent) for a full implementation!
+
+
+
+## Log a ResponsesAgent
+
+Log your ResponsesAgent using the [Models-from-code](/model/models-from-code) approach. This approach is framework-agnostic and supports all authoring frameworks:
+```python
+with mlflow.start_run():
+    logged_agent_info = mlflow.pyfunc.log_model(
+        artifact_path="agent",
+        python_model="agent.py", # replace with your relative path to agent code
+    )
+```
+
+For ease of use, MLflow has built in the following features:
+- Automatic model signature inference
+    - An input and output signature that adheres to the ResponsesAgentRequest and ResponsesAgentReponse schemas will be set
+- Metadata
+    - `{"task": "agent/v1/responses"}` will be automatically appended to any metadata that you may pass in when logging the model
+- Input Example
+    - Providing an input example is optional, `mlflow.types.responses.RESPONSES_AGENT_INPUT_EXAMPLE` will be used by default
+    - If you do provide an input example, ensure it's a dictionary of the ResponsesAgentRequest schema
+
+
+## Testing out a ResponsesAgent
+To test out a ResponsesAgent, you can pass a single input dictionary that follows the ResponsesAgentRequest schema both before and after logging it:
+```python
+from mlflow.pyfunc import ResponsesAgent
+class MyResponsesAgent(ResponsesAgent):
+    ...
+responses_agent = MyResponsesAgent()
+responses_agent.predict(
+    {
+        "input": [{"role": "user", "content": "what is 4*3 in python"}],
+        "context": {"conversation_id": "123", "user_id": "456"},
+    }
+)
+# log responses_agent
+loaded_model = mlflow.pyfunc.load_model(path)
+loaded_model.predict(
+    {
+        "input": [{"role": "user", "content": "what is 4*3 in python"}],
+        "context": {"conversation_id": "123", "user_id": "456"},
+    }
+)
+```
+
+
+## Example ResponsesAgent
+Here's an example of a ResponsesAgent that calls OpenAI's gpt-4o model with a simple tool.
+
+```python
+import json
+from typing import Any, Callable, Generator
+from uuid import uuid4
+
+import backoff
+import mlflow
+import openai
+from mlflow.entities import SpanType
+from mlflow.pyfunc import ResponsesAgent
+from mlflow.types.responses import (
+    ResponsesRequest,
+    ResponsesResponse,
+    ResponsesStreamEvent,
+)
+from openai import OpenAI
+from pydantic import BaseModel
+
+
+class ToolInfo(BaseModel):
+    """
+    Class representing a tool for the agent.
+    - "name" (str): The name of the tool.
+    - "spec" (dict): JSON description of the tool (matches OpenAI Responses format)
+    - "exec_fn" (Callable): Function that implements the tool logic
+    """
+
+    name: str
+    spec: dict
+    exec_fn: Callable
+
+
+class ToolCallingAgent(ResponsesAgent):
+    """
+    Class representing a tool-calling Agent
+    """
+
+    def __init__(self, llm_endpoint: str, tools: list[ToolInfo]):
+        """Initializes the ToolCallingAgent with tools."""
+        self.llm_endpoint = llm_endpoint
+        self.client: OpenAI = OpenAI()
+        self._tools_dict = {tool.name: tool for tool in tools}
+
+    def get_tool_specs(self) -> list[dict]:
+        """Returns tool specifications in the format OpenAI expects."""
+        return [tool_info.spec for tool_info in self._tools_dict.values()]
+
+    @mlflow.trace(span_type=SpanType.TOOL)
+    def execute_tool(self, tool_name: str, args: dict) -> Any:
+        """Executes the specified tool with the given arguments."""
+        return self._tools_dict[tool_name].exec_fn(**args)
+
+    @backoff.on_exception(backoff.expo, openai.RateLimitError)
+    @mlflow.trace(span_type=SpanType.LLM)
+    def call_llm(self, input_messages) -> ResponsesStreamEvent:
+        return (
+            self.client.responses.create(
+                model=self.llm_endpoint,
+                input=input_messages,
+                tools=self.get_tool_specs(),
+            )
+            .output[0]
+            .model_dump(exclude_none=True)
+        )
+
+    def handle_tool_call(self, tool_call: dict[str, Any]) -> ResponsesStreamEvent:
+        """
+        Execute tool calls and return a ResponsesStreamEvent w/ tool output
+        """
+        args = json.loads(tool_call["arguments"])
+        result = str(self.execute_tool(tool_name=tool_call["name"], args=args))
+
+        tool_call_output = {
+            "type": "function_call_output",
+            "call_id": tool_call["call_id"],
+            "output": result,
+        }
+        return ResponsesStreamEvent(type="response.output_item.done", item=tool_call_output)
+
+    def call_and_run_tools(
+        self,
+        input_messages,
+        max_iter: int = 10,
+    ) -> Generator[ResponsesStreamEvent, None, None]:
+        for _ in range(max_iter):
+            last_msg = input_messages[-1]
+            if (
+                last_msg.get("type", None) == "message"
+                and last_msg.get("role", None) == "assistant"
+            ):
+                return
+            if last_msg.get("type", None) == "function_call":
+                tool_call_res = self.handle_tool_call(last_msg)
+                input_messages.append(tool_call_res.item)
+                yield tool_call_res
+            else:
+                llm_output = self.call_llm(input_messages=input_messages)
+                input_messages.append(llm_output)
+                yield ResponsesStreamEvent(
+                    type="response.output_item.done",
+                    item=llm_output,
+                )
+
+        yield ResponsesStreamEvent(
+            type="response.output_item.done",
+            item={
+                "id": str(uuid4()),
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": "Max iterations reached. Stopping.",
+                    }
+                ],
+                "role": "assistant",
+                "type": "message",
+            },
+        )
+
+    @mlflow.trace(span_type=SpanType.AGENT)
+    def predict(self, request: ResponsesRequest) -> ResponsesResponse:
+        outputs = [
+            event.item
+            for event in self.predict_stream(request)
+            if event.type == "response.output_item.done"
+        ]
+        return ResponsesResponse(output=outputs, custom_outputs=request.custom_inputs)
+
+    @mlflow.trace(span_type=SpanType.AGENT)
+    def predict_stream(
+        self, request: ResponsesRequest
+    ) -> Generator[ResponsesStreamEvent, None, None]:
+        input_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [
+            i.model_dump() for i in request.input
+        ]
+        yield from self.call_and_run_tools(input_messages=input_messages)
+
+
+tools = [
+    ToolInfo(
+        name="get_weather",
+        spec={
+            "type": "function",
+            "name": "get_weather",
+            "description": "Get current temperature for provided coordinates in celsius.",
+            "parameters": {
+                "type": "object",
+                "properties": {"latitude": {"type": "number"}, "longitude": {"type": "number"}},
+                "required": ["latitude", "longitude"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+        exec_fn=lambda x: x,  # dummy tool implementation
+    )
+]
+SYSTEM_PROMPT = "You are a helpful assistant that can call tools to get information."
+mlflow.openai.autolog()
+AGENT = ToolCallingAgent(llm_endpoint="gpt-4o", tools=tools)
+mlflow.models.set_model(AGENT)
+```

@@ -230,13 +230,13 @@ const sidebars: SidebarsConfig = {
               items: [
                 {
                   type: "doc",
-                  id: "llms/responses-agent-intro/responses-intro",
-                  label: "Responses API intro",
+                  id: "llms/responses-agent-intro/responses-api-intro",
+                  label: "Responses API Introduction",
                 },
                 {
                   type: "doc",
                   id: "llms/responses-agent-intro/index",
-                  label: "What is ResponsesAgent?",
+                  label: "ResponsesAgent Introduction",
                 },
               ],
             },
