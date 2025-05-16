@@ -216,6 +216,7 @@ def test_generate_content_image_autolog():
     assert span1.inputs["contents"][0]["inline_data"] == {
         "data": "b'image'",
         "mime_type": "image/jpeg",
+        **extra,
     }
     assert span1.inputs["contents"][1] == "Caption this image"
     assert span1.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
