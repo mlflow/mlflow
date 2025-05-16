@@ -338,6 +338,11 @@ jobs:
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests
         run: |
+          # GenAI evaluation tests require databricks-agents that only work with Python 3.10~
+          pip install openai
+          # Install databricks-agents from a pre-release wheel because the latest released version
+          # is not compatible with MLflow master. Using --no-deps because it pings mlflow to 3.0.0rc2.
+          pip install https://ml-team-public-read.s3.us-west-2.amazonaws.com/wheels/rag-studio/dev/samraj.moorjani/databricks_agents-1.0.0rc1.dev0-py3-none-any.whl --no-deps
           pytest tests/genai
 
   optuna:

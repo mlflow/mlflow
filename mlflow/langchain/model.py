@@ -61,6 +61,7 @@ from mlflow.models.utils import (
     _save_example,
 )
 from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
+from mlflow.pyfunc.context import Context
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -693,7 +694,9 @@ class _LangChainModelWrapper:
 
         return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
 
-    def _update_dependencies_schemas_in_prediction_context(self, callback_handlers):
+    def _update_dependencies_schemas_in_prediction_context(
+        self, callback_handlers
+    ) -> Optional[Context]:
         from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
         if (
@@ -707,8 +710,9 @@ class _LangChainModelWrapper:
         ):
             model = Model.load(self.model_path)
             context = tracer._prediction_context
-            if schema := _get_dependencies_schema_from_model(model):
+            if context and (schema := _get_dependencies_schema_from_model(model)):
                 context.update(**schema)
+            return context
 
     @experimental
     def _predict_with_callbacks(
@@ -731,7 +735,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        self._update_dependencies_schemas_in_prediction_context(callback_handlers)
+        context = self._update_dependencies_schemas_in_prediction_context(callback_handlers)
         messages, return_first_element = self._prepare_predict_messages(data)
         results = process_api_requests(
             lc_model=self.lc_model,
@@ -739,6 +743,7 @@ class _LangChainModelWrapper:
             callback_handlers=callback_handlers,
             convert_chat_responses=convert_chat_responses,
             params=params or {},
+            context=context,
         )
         return results[0] if return_first_element else results
 

@@ -158,12 +158,11 @@ if MLFLOW_CONFIGURE_LOGGING.get() is True:
 
 # Core modules required for mlflow-tracing
 from mlflow.tracing.assessment import (
-    delete_expectation,
-    delete_feedback,
+    delete_assessment,
+    log_assessment,
     log_expectation,
     log_feedback,
-    update_expectation,
-    update_feedback,
+    update_assessment,
 )
 from mlflow.tracing.fluent import (
     add_trace,
@@ -213,12 +212,11 @@ __all__ = [
     "trace",
     "update_current_trace",
     # Assessment APIs
-    "delete_expectation",
-    "delete_feedback",
+    "delete_assessment",
+    "log_assessment",
+    "update_assessment",
     "log_expectation",
     "log_feedback",
-    "update_expectation",
-    "update_feedback",
 ]
 
 # Only import these modules when mlflow or mlflow-skinny is installed i.e. not importing them

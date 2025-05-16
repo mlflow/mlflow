@@ -1,4 +1,3 @@
-import datetime
 import json
 import time
 from unittest import mock
@@ -20,7 +19,14 @@ from mlflow.entities import (
     SourceType,
     ViewType,
 )
-from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.assessment import (
+    Assessment,
+    Expectation,
+    ExpectationValue,
+    Feedback,
+    FeedbackValue,
+)
+from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -1048,7 +1054,7 @@ def test_set_trace_tag():
             assert res is None
 
 
-def test_log_assessment():
+def test_log_assessment_feedback():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1074,24 +1080,24 @@ def test_log_assessment():
         }
     )
 
-    assessment = Assessment(
+    feedback = Feedback(
         trace_id="tr-1234",
         name="assessment_name",
+        value=True,
         source=AssessmentSource(
             source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4o-mini"
         ),
         create_time_ms=int(time.time() * 1000),
         last_update_time_ms=int(time.time() * 1000),
-        feedback=Feedback(value=True),
         rationale="rationale",
         metadata={"model": "gpt-4o-mini"},
         span_id=None,
     )
 
-    request = CreateAssessment(assessment=assessment.to_proto())
+    request = CreateAssessment(assessment=feedback.to_proto())
     with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
         with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-            res = store.create_assessment(assessment)
+            res = store.create_assessment(feedback)
 
             _verify_requests(
                 mock_http,
@@ -1101,7 +1107,66 @@ def test_log_assessment():
                 message_to_json(request),
                 use_v3=True,
             )
-            assert isinstance(res, Assessment)
+            assert isinstance(res, Feedback)
+            assert res.assessment_id is not None
+            assert res.value == feedback.value
+
+
+def test_log_assessment_expectation():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps(
+        {
+            "assessment": {
+                "assessment_id": "1234",
+                "assessment_name": "assessment_name",
+                "trace_id": "tr-1234",
+                "source": {
+                    "source_type": "HUMAN",
+                    "source_id": "me",
+                },
+                "create_time": "2025-02-20T05:47:23Z",
+                "last_update_time": "2025-02-20T05:47:23Z",
+                "expectation": {
+                    "serialized_value": {
+                        "value": '{"key1": "value1", "key2": "value2"}',
+                        "serialization_format": "JSON_FORMAT",
+                    }
+                },
+                "error": None,
+                "span_id": None,
+            }
+        }
+    )
+
+    expectation = Expectation(
+        trace_id="tr-1234",
+        name="assessment_name",
+        value={"key1": "value1", "key2": "value2"},
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="me"),
+        create_time_ms=int(time.time() * 1000),
+        last_update_time_ms=int(time.time() * 1000),
+        span_id=None,
+    )
+
+    request = CreateAssessment(assessment=expectation.to_proto())
+    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+        with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+            res = store.create_assessment(expectation)
+
+            _verify_requests(
+                mock_http,
+                creds,
+                "traces/tr-1234/assessments",
+                "POST",
+                message_to_json(request),
+                use_v3=True,
+            )
+            assert isinstance(res, Expectation)
+            assert res.assessment_id is not None
+            assert res.value == expectation.value
 
 
 @pytest.mark.parametrize(
@@ -1119,7 +1184,7 @@ def test_log_assessment():
             },
         ),
         (
-            {"expectation": Expectation(value="updated_value")},
+            {"expectation": ExpectationValue(value="updated_value")},
             {
                 "assessment": {
                     "assessment_id": "1234",
@@ -1131,7 +1196,7 @@ def test_log_assessment():
         ),
         (
             {
-                "feedback": Feedback(value=0.5),
+                "feedback": FeedbackValue(value=0.5),
                 "rationale": "update",
                 "metadata": {"model": "gpt-4o-mini"},
             },
@@ -1223,8 +1288,8 @@ def test_update_assessment_invalid_update():
         store.update_assessment(
             trace_id="tr-1234",
             assessment_id="1234",
-            expectation=Expectation(value="updated_value"),
-            feedback=Feedback(value=0.5),
+            expectation=ExpectationValue(value="updated_value"),
+            feedback=FeedbackValue(value=0.5),
         )
 
 
@@ -1233,42 +1298,52 @@ def test_get_trace_info_v3_api():
     Test that get_trace_info with should_query_v3=True correctly extracts the trace_info
     from the nested structure in the V3 API response.
     """
-    trace_id = "tr-123"
-    trace_location = TraceLocation.from_experiment_id("exp-123")
-    trace_info_v3 = TraceInfo(
-        trace_id=trace_id,
-        trace_location=trace_location,
-        request_time=int(datetime.datetime(2023, 5, 1, 12, 0, 0).timestamp() * 1000),
-        state=TraceState.OK,
-        trace_metadata={"key1": "value1"},
-        tags={"tag1": "value1"},
-    )
+    # Generate a sample trace in v3 format
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"input": "value"})
+        span.set_outputs({"output": "value"})
 
-    with mock.patch(
-        "mlflow.entities.trace_info.TraceInfo.from_proto", return_value=trace_info_v3
-    ) as mock_from_proto:
-        store = RestStore(lambda: MlflowHostCreds("https://hello"))
+    trace = mlflow.get_trace(span.trace_id)
+    trace.info.trace_metadata = {"key1": "value1"}
+    trace.info.tags = {"tag1": "value1"}
+    trace.info.assessments = [
+        Feedback(name="feedback", value=0.9, trace_id=span.trace_id),
+        Feedback(
+            name="feedback_error",
+            value=None,
+            error=AssessmentError(error_code="500", error_message="error message"),
+            trace_id=span.trace_id,
+        ),
+        Expectation(name="expectation", value=True, trace_id=span.trace_id, span_id=span.span_id),
+        Expectation(
+            name="complex_expectation",
+            value={"complex": [{"key": "value"}]},
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4o-mini"
+            ),
+            trace_id=span.trace_id,
+        ),
+    ]
+    trace_proto = trace.to_proto()
+    mock_response = GetTraceInfoV3.Response(trace=trace_proto)
 
-        with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
-            # Set up the mock to return a dummy response with a trace field
-            mock_response = mock.MagicMock()
-            mock_response.trace.trace_info = mock.MagicMock()
-            mock_call_endpoint.return_value = mock_response
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
 
-            # Call the method we're testing
-            result = store.get_trace_info(trace_id, should_query_v3=True)
+    with mock.patch.object(store, "_call_endpoint", return_value=mock_response):
+        result = store.get_trace_info(span.trace_id, should_query_v3=True)
 
-            # Verify mock_from_proto was called with the trace_info from the response
-            mock_from_proto.assert_called_once_with(mock_response.trace.trace_info)
-
-            # Verify we get the expected object back
-            assert result is trace_info_v3
-            assert isinstance(result, TraceInfo)
-            assert result.trace_id == trace_id
-            assert result.experiment_id == "exp-123"
-            assert result.trace_metadata == {"key1": "value1"}
-            assert result.tags == {"tag1": "value1"}
-            assert result.state == TraceState.OK
+        # Verify we get the expected object back
+        assert isinstance(result, TraceInfo)
+        assert result.trace_id == span.trace_id
+        assert result.experiment_id == "0"
+        assert result.trace_metadata == {"key1": "value1"}
+        assert result.tags == {"tag1": "value1"}
+        assert result.state == TraceState.OK
+        assert len(result.assessments) == 4
+        assert result.assessments[0].name == "feedback"
+        assert result.assessments[1].name == "feedback_error"
+        assert result.assessments[2].name == "expectation"
+        assert result.assessments[3].name == "complex_expectation"
 
 
 def test_log_logged_model_params():

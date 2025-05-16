@@ -1,7 +1,6 @@
 import pytest
 
-from mlflow.entities.assessment import (
-    Assessment,
+from mlflow.entities import (
     AssessmentError,
     AssessmentSource,
     Expectation,
@@ -14,31 +13,28 @@ from mlflow.entities.trace_state import TraceState
 
 def test_trace_info():
     assessments = [
-        Assessment(
+        Feedback(
             trace_id="trace_id",
-            name="relevance",
+            name="feedback_test",
+            value=0.9,
             source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
             create_time_ms=123456789,
             last_update_time_ms=123456789,
-            expectation=expectation,
-            feedback=feedback,
+            error=AssessmentError(error_code="error_code", error_message="Error message"),
             rationale="Rationale text",
             metadata={"key1": "value1"},
             span_id="span_id",
-        )
-        for expectation, feedback in [
-            (
-                None,
-                Feedback(
-                    0.9,
-                    error=AssessmentError(error_code="error_code", error_message="Error message"),
-                ),
-            ),
-            (
-                Expectation(0.8),
-                None,
-            ),
-        ]
+        ),
+        Expectation(
+            trace_id="trace_id",
+            name="expectation_test",
+            value=0.8,
+            source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
+            create_time_ms=123456789,
+            last_update_time_ms=123456789,
+            metadata={"key1": "value1"},
+            span_id="span_id",
+        ),
     ]
     trace_info = TraceInfo(
         trace_id="trace_id",
@@ -74,7 +70,7 @@ def test_trace_info():
         "trace_metadata": {"foo": "bar"},
         "assessments": [
             {
-                "assessment_name": "relevance",
+                "assessment_name": "feedback_test",
                 "trace_id": "trace_id",
                 "span_id": "span_id",
                 "source": {"source_type": "HUMAN", "source_id": "user_1"},
@@ -88,14 +84,13 @@ def test_trace_info():
                 "metadata": {"key1": "value1"},
             },
             {
-                "assessment_name": "relevance",
+                "assessment_name": "expectation_test",
                 "trace_id": "trace_id",
                 "span_id": "span_id",
                 "source": {"source_type": "HUMAN", "source_id": "user_1"},
                 "create_time": "1970-01-02T10:17:36.789Z",
                 "last_update_time": "1970-01-02T10:17:36.789Z",
                 "expectation": {"value": 0.8},
-                "rationale": "Rationale text",
                 "metadata": {"key1": "value1"},
             },
         ],
@@ -131,44 +126,32 @@ def test_backwards_compatibility_with_v2():
         [],
         # Simple feedback
         [
-            Assessment(
+            Feedback(
                 trace_id="trace_id",
                 name="relevance",
-                source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
-                feedback=Feedback("The answer is correct"),
+                value="The answer is correct",
                 rationale="Rationale text",
+                source=AssessmentSource(source_type="LLM_JUDGE", source_id="gpt"),
                 metadata={"key1": "value1"},
                 span_id="span_id",
             )
         ],
         # Feedback with error
         [
-            Assessment(
+            Feedback(
                 trace_id="trace_id",
                 name="relevance",
-                source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
-                feedback=Feedback(
-                    None,
-                    error=AssessmentError(error_code="error_code", error_message="Error message"),
-                ),
+                error=AssessmentError(error_code="error_code", error_message="Error message"),
             )
         ],
         # Simple expectation
-        [
-            Assessment(
-                trace_id="trace_id",
-                name="relevance",
-                source=AssessmentSource(source_type="LLM_JUDGE", source_id="gpt"),
-                expectation=Expectation(0.8),
-            )
-        ],
+        [Expectation(trace_id="trace_id", name="relevance", value=0.8)],
         # Complex expectation
         [
-            Assessment(
+            Expectation(
                 trace_id="trace_id",
                 name="relevance",
-                source=AssessmentSource(source_type="LLM_JUDGE", source_id="gpt"),
-                expectation=Expectation({"complex": {"expectation": ["structure"]}}),
+                value={"complex": {"expectation": ["structure"]}},
             )
         ],
     ],
@@ -195,3 +178,47 @@ def test_trace_info_proto(client_request_id, assessments):
     # TraceInfo -> dict
     dict_trace_info = trace_info.to_dict()
     assert TraceInfo.from_dict(dict_trace_info) == trace_info
+
+
+def test_from_proto_excludes_undefined_fields():
+    """
+    Test that undefined fields (client_request_id, execution_duration) are excluded when
+    constructing a TraceInfo from a protobuf message instance that does not define these fields.
+    """
+    from google.protobuf.timestamp_pb2 import Timestamp
+
+    from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
+
+    # Manually create a protobuf without setting client_request_id or execution_duration fields
+    request_time = Timestamp()
+    request_time.FromMilliseconds(1234567890)
+
+    proto = ProtoTraceInfoV3(
+        trace_id="trace_id",
+        # Intentionally NOT setting client_request_id
+        # Intentionally NOT setting execution_duration
+        trace_location=TraceLocation.from_experiment_id("123").to_proto(),
+        request_preview="request",
+        response_preview="response",
+        request_time=request_time,
+        state=TraceState.OK.to_proto(),
+    )
+
+    # Verify HasField returns false for undefined fields
+    assert not proto.HasField("client_request_id")
+    assert not proto.HasField("execution_duration")
+
+    # Convert to TraceInfo
+    trace_info = TraceInfo.from_proto(proto)
+
+    # Verify undefined fields are None
+    assert trace_info.client_request_id is None
+    assert trace_info.execution_duration is None
+
+    # Verify other fields are correctly populated
+    assert trace_info.trace_id == "trace_id"
+    assert trace_info.experiment_id == "123"
+    assert trace_info.request_preview == "request"
+    assert trace_info.response_preview == "response"
+    assert trace_info.request_time == 1234567890
+    assert trace_info.state == TraceState.OK

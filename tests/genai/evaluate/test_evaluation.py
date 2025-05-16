@@ -8,7 +8,7 @@ import pytest
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
@@ -38,9 +38,9 @@ def max_length(outputs, expectations):
 
 @scorer
 def relevance(inputs, outputs):
-    return Assessment(
+    return Feedback(
         name="relevance",
-        feedback=Feedback(value="yes"),
+        value="yes",
         rationale="The response is relevant to the question",
         source=AssessmentSource(source_id="gpt", source_type="LLM_JUDGE"),
     )
@@ -134,30 +134,30 @@ def test_evaluate_with_traces():
 
     # OSS MLflow backend doesn't support assessment APIs now, so we need to manually add them
     data.iloc[0]["trace"].info.assessments = [
-        Assessment(
+        Expectation(
             name="expected_response",
             trace_id="tr-123",
-            expectation=Expectation(value="MLflow is a tool for ML"),
+            value="MLflow is a tool for ML",
             source=AssessmentSource(source_id="me", source_type="HUMAN"),
         ),
-        Assessment(
+        Expectation(
             name="max_length",
             trace_id="tr-123",
-            expectation=Expectation(value=100),
+            value=100,
             source=AssessmentSource(source_id="me", source_type="HUMAN"),
         ),
     ]
     data.iloc[1]["trace"].info.assessments = [
-        Assessment(
+        Expectation(
             name="expected_response",
             trace_id="tr-123",
-            expectation=Expectation(value="Spark is a fast data processing engine"),
+            value="Spark is a fast data processing engine",
             source=AssessmentSource(source_id="me", source_type="HUMAN"),
         ),
-        Assessment(
+        Expectation(
             name="max_length",
             trace_id="tr-123",
-            expectation=Expectation(value=1),
+            value=1,
             source=AssessmentSource(source_id="me", source_type="HUMAN"),
         ),
     ]
@@ -180,60 +180,73 @@ def mock_init_auth(config_instance):
     config_instance._header_factory = lambda: {}
 
 
-@pytest.mark.parametrize(
-    "model_input",
-    [
-        # Case 1: Single chat dictionary.
-        # This is an expected input format from the Databricks RAG Evaluator.
+@mock.patch("mlflow.deployments.get_deploy_client")
+def test_model_from_deployment_endpoint(mock_get_deploy_client):
+    mock_client = mock_get_deploy_client.return_value
+    mock_client.predict.return_value = _DUMMY_CHAT_RESPONSE
+    mock_client.get_endpoint.return_value = {"task": "llm/v1/chat"}
+
+    data = [
         {
-            "messages": [{"content": "What is MLflow?", "role": "user"}],
-            "max_tokens": 10,
+            "inputs": {
+                "messages": [
+                    {"content": "You are a helpful assistant.", "role": "system"},
+                    {"content": "What is Spark?", "role": "user"},
+                ],
+                "max_tokens": 10,
+            }
         },
-        # Case 2: List of chat dictionaries.
-        # This is not a typical input format from either default or Databricks RAG evaluators,
-        # but we support it for compatibility with the normal Pyfunc models.
-        [
-            {"messages": [{"content": "What is MLflow?", "role": "user"}]},
-            {"messages": [{"content": "What is Spark?", "role": "user"}]},
-        ],
-        # Case 3: DataFrame with a column of dictionaries
-        pd.DataFrame(
-            {
-                "inputs": [
-                    {
-                        "messages": [{"content": "What is MLflow?", "role": "user"}],
-                        "max_tokens": 10,
-                    },
-                    {
-                        "messages": [{"content": "What is Spark?", "role": "user"}],
-                    },
+        {
+            "inputs": {
+                "messages": [
+                    {"content": "What is MLflow?", "role": "user"},
                 ]
             }
-        ),
-        # Case 4: DataFrame with a column of strings
-        pd.DataFrame(
-            {
-                "inputs": ["What is MLflow?", "What is Spark?"],
-            }
-        ),
-    ],
-)
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_model_from_deployment_endpoint(mock_deploy_client, model_input):
-    mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
-    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
+        },
+    ]
 
     predict_fn = mlflow.genai.to_predict_fn("endpoints:/chat")
 
-    response = predict_fn(model_input)
+    # predict_fn should be callable with a single input
+    response = predict_fn(**data[0]["inputs"])
 
-    if isinstance(model_input, dict):
-        assert mock_deploy_client.return_value.predict.call_count == 1
-        # Chat response should be unwrapped
-        assert response == "This is a response"
-    else:
-        assert mock_deploy_client.return_value.predict.call_count == 2
-        assert pd.Series(response).equals(pd.Series(["This is a response"] * 2))
+    mock_client.predict.assert_called_once_with(
+        endpoint="chat",
+        inputs=data[0]["inputs"],
+    )
+    assert response == _DUMMY_CHAT_RESPONSE  # Chat response should not be parsed
+    mock_client.reset_mock()
+
+    # Running evaluation
+    result = mlflow.genai.evaluate(
+        data=data,
+        predict_fn=predict_fn,
+        scorers=[has_trace],
+    )
+
+    mock_client.predict.assert_has_calls(
+        [
+            # Test call to check if the function is traced or not
+            mock.call(endpoint="chat", inputs=data[0]["inputs"]),
+            # First evaluation call
+            mock.call(endpoint="chat", inputs=data[0]["inputs"]),
+            # Second evaluation call
+            mock.call(endpoint="chat", inputs=data[1]["inputs"]),
+        ],
+        any_order=True,
+    )
+
+    # Validate traces
+    traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
+
+    assert len(traces) == 2
+    spans = traces[0].data.spans
+    assert len(spans) == 1
+    assert spans[0].name == "predict"
+    assert spans[0].attributes["endpoint"] == "endpoints:/chat"
+    # Eval harness runs prediction in parallel, so the order is not deterministic
+    assert spans[0].inputs in (data[0]["inputs"], data[1]["inputs"])
+    assert spans[0].outputs == _DUMMY_CHAT_RESPONSE
 
 
 def test_evaluate_passes_model_id_to_mlflow_evaluate():
@@ -274,7 +287,7 @@ def test_no_scorers(mock_get_tracking_uri):
     with pytest.raises(TypeError, match=r"evaluate\(\) missing 1 required positional"):
         mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}])
 
-    with pytest.raises(MlflowException, match=r"At least one scorer is required"):
+    with pytest.raises(MlflowException, match=r"The `scorers` argument must be a list of"):
         mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
 
 

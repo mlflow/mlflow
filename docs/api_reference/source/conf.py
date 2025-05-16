@@ -440,6 +440,8 @@ nitpick_ignore = [
     # sphinx can't resolve alias import e.g. from xyz import abc as xyz_abc in type annotations
     ("py:class", "mlflow.entities.assessment.Expectation"),
     ("py:class", "mlflow.entities.assessment.Feedback"),
+    ("py:class", "mlflow.entities.assessment.ExpectationValue"),
+    ("py:class", "mlflow.entities.assessment.FeedbackValue"),
     ("py:class", "Prompt"),
     # Literal values for search_logged_models status
     ("py:class", "READY"),

@@ -11,10 +11,16 @@ from mlflow.genai.scorers.builtin_scorers import (
     chunk_relevance,
     context_sufficiency,
     correctness,
-    global_guideline_adherence,
     groundedness,
+    guideline_adherence,
 )
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
+
+
+@pytest.fixture
+def mock_logger():
+    with mock.patch("mlflow.genai.scorers.validation._logger") as mock_logger:
+        yield mock_logger
 
 
 def test_validate_scorers_valid():
@@ -26,7 +32,7 @@ def test_validate_scorers_valid():
         [
             chunk_relevance(),
             correctness(),
-            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(["Be polite", "Be kind"]),
             custom_scorer,
         ]
     )
@@ -62,7 +68,7 @@ def test_validate_scorers_builtin_scorer_passed_as_function():
         validate_scorers([chunk_relevance])
 
 
-def test_validate_data():
+def test_validate_data(mock_logger):
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
@@ -77,9 +83,10 @@ def test_validate_data():
         builtin_scorers=[
             chunk_relevance(),
             groundedness(),
-            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(["Be polite", "Be kind"]),
         ],
     )
+    mock_logger.info.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -93,7 +100,7 @@ def test_validate_data():
         },
     ],
 )
-def test_validate_data_with_expectations(expectations):
+def test_validate_data_with_expectations(expectations, mock_logger):
     """Test that expectations are unwrapped and validated properly"""
     data = pd.DataFrame(
         {
@@ -112,6 +119,7 @@ def test_validate_data_with_expectations(expectations):
             context_sufficiency(),  # requires expected_response
         ],
     )
+    mock_logger.info.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -121,13 +129,13 @@ def test_validate_data_with_expectations(expectations):
         {"expected_response": ["expectation1", "expectation2"]},
     ],
 )
-def test_validate_data_with_correctness(expectations):
+def test_validate_data_with_correctness(expectations, mock_logger):
     """Correctness scorer requires one of expected_facts or expected_response"""
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
             "outputs": ["output1", "output2"],
-            **expectations,
+            "expectations": [expectations, expectations],
         }
     )
 
@@ -137,35 +145,37 @@ def test_validate_data_with_correctness(expectations):
         builtin_scorers=[correctness()],
     )
 
-    with pytest.raises(MlflowException, match=r"The input data is missing following") as e:
-        valid_data_for_builtin_scorers(
-            data=pd.DataFrame({"inputs": ["input1"], "outputs": ["output1"]}),
-            builtin_scorers=[correctness()],
-        )
+    valid_data_for_builtin_scorers(
+        data=pd.DataFrame({"inputs": ["input1"], "outputs": ["output1"]}),
+        builtin_scorers=[correctness()],
+    )
 
-    assert "expected_response or expected_facts" in str(e.value)
+    mock_logger.info.assert_called_once()
+    message = mock_logger.info.call_args[0][0]
+    assert "expected_response or expected_facts" in message
 
 
-def test_validate_data_missing_columns():
+def test_validate_data_missing_columns(mock_logger):
     data = pd.DataFrame({"inputs": [{"question": "input1"}, {"question": "input2"}]})
 
     converted_date = _convert_to_legacy_eval_set(data)
 
-    with pytest.raises(MlflowException, match=r"The input data is missing") as e:
-        valid_data_for_builtin_scorers(
-            data=converted_date,
-            builtin_scorers=[
-                chunk_relevance(),
-                groundedness(),
-                global_guideline_adherence(["Be polite", "Be kind"]),
-            ],
-        )
+    valid_data_for_builtin_scorers(
+        data=converted_date,
+        builtin_scorers=[
+            chunk_relevance(),
+            groundedness(),
+            guideline_adherence(["Be polite", "Be kind"]),
+        ],
+    )
 
-    assert " - `outputs` is required by [groundedness, guideline_adherence]." in str(e.value)
-    assert " - `retrieved_context` is required by [chunk_relevance, groundedness]." in str(e.value)
+    mock_logger.info.assert_called_once()
+    msg = mock_logger.info.call_args[0][0]
+    assert " - `outputs` column is required by [groundedness, guideline_adherence]." in msg
+    assert " - `retrieved_context` column is required by [chunk_relevance, groundedness]." in msg
 
 
-def test_validate_data_with_trace():
+def test_validate_data_with_trace(mock_logger):
     # When a trace is provided, the inputs, outputs, and retrieved_context are
     # inferred from the trace.
     with mlflow.start_span() as span:
@@ -181,12 +191,13 @@ def test_validate_data_with_trace():
         builtin_scorers=[
             chunk_relevance(),
             groundedness(),
-            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(["Be polite", "Be kind"]),
         ],
     )
+    mock_logger.info.assert_not_called()
 
 
-def test_validate_data_with_predict_fn():
+def test_validate_data_with_predict_fn(mock_logger):
     data = pd.DataFrame({"inputs": [{"question": "input1"}, {"question": "input2"}]})
 
     converted_date = _convert_to_legacy_eval_set(data)
@@ -196,8 +207,10 @@ def test_validate_data_with_predict_fn():
         predict_fn=lambda x: x,
         builtin_scorers=[
             # Requires "outputs" but predict_fn will provide it
-            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(["Be polite", "Be kind"]),
             # Requires "retrieved_context" but predict_fn will provide it
             chunk_relevance(),
         ],
     )
+
+    mock_logger.info.assert_not_called()
