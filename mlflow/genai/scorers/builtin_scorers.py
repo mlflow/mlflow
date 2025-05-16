@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Any
+from typing import Any, Optional
 
 from mlflow.entities import Assessment
 from mlflow.exceptions import MlflowException
@@ -215,7 +215,33 @@ def groundedness():
 
 class _GuidelineAdherence(_BaseBuiltInScorer):
     name: str = "guideline_adherence"
-    required_columns: set[str] = {"inputs", "outputs", "expectations/guidelines"}
+    global_guidelines: Optional[list[str]] = None
+    required_columns: set[str] = {"inputs", "outputs"}
+
+    def update_evaluation_config(self, evaluation_config) -> dict:
+        # Metric name should always be "guideline_adherence" regardless of the custom name
+        config = deepcopy(evaluation_config)
+        metrics = config.setdefault(GENAI_CONFIG_NAME, {}).setdefault("metrics", [])
+        if "guideline_adherence" not in metrics:
+            metrics.append("guideline_adherence")
+
+        # If global guidelines are specified, add it to the config
+        if self.global_guidelines:
+            # NB: The agent eval harness will take multiple global guidelines in a dictionary format
+            #   where the key is the name of the global guideline judge. Therefore, when multiple
+            #   judges are specified, we merge them into a single dictionary.
+            #   https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/llm-judge-reference#examples
+            global_guidelines = config[GENAI_CONFIG_NAME].get("global_guidelines", {})
+            global_guidelines[self.name] = self.global_guidelines
+            config[GENAI_CONFIG_NAME]["global_guidelines"] = global_guidelines
+
+        return config
+
+    def validate_columns(self, columns: set[str]) -> None:
+        super().validate_columns(columns)
+        # If no global guidelines are specified, the guidelines must exist in the input dataset
+        if not self.global_guidelines and "guidelines" not in columns:
+            raise MissingColumnsException(self.name, ["guidelines"])
 
     def __call__(
         self,
@@ -235,7 +261,10 @@ class _GuidelineAdherence(_BaseBuiltInScorer):
 
 
 @_builtin_scorer
-def guideline_adherence():
+def guideline_adherence(
+    global_guidelines: Optional[list[str]] = None,
+    name: str = "guideline_adherence",
+):
     """
     Guideline adherence evaluates whether the agent's response follows specific constraints
     or instructions provided in the guidelines.
@@ -243,11 +272,12 @@ def guideline_adherence():
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    This judge should be used when each example has a different set of guidelines. The guidelines
-    must be specified in the `guidelines` column of the input dataset.
+    There are two different ways to specify judges, depending on the use case:
 
-    You can also specify contextual information for guidelines using the `guidelines_context`
-    column in your dataset (requires `databricks-agents>=0.20.0`).
+    **1. Global Guidelines**
+
+    If you want to evaluate all the response with a single set of guidelines, you can specify
+    the guidelines in the `guidelines` parameter of this scorer.
 
     Example (direct usage):
 
@@ -256,94 +286,10 @@ def guideline_adherence():
         import mlflow
         from mlflow.genai.scorers import guideline_adherence
 
-        assessment = guideline_adherence()(
-            inputs={"question": "What is the capital of France?"},
-            outputs="The capital of France is Paris.",
-            guidelines={
-                "english": ["The response must be in English"],
-            },
-            guidelines_context={
-                "tool_call_result": "{'country': 'France', 'capital': 'Paris'}",
-            },
-        )
-        print(assessment)
-
-    Example (with evaluate):
-
-    .. code-block:: python
-
-        import mlflow
-
-        data = [
-            {
-                "inputs": {"question": "What is the capital of France?"},
-                "outputs": "The capital of France is Paris.",
-                "guidelines": {
-                    "english": ["The response must be in English"],
-                    "clarity": ["The response must be clear, coherent, and concise"],
-                    "grounded": ["The response must be grounded in the tool call result"],
-                },
-                "guidelines_context": {
-                    "tool_call_result": "{'country': 'France', 'capital': 'Paris'}",
-                },
-            }
-        ]
-        result = mlflow.genai.evaluate(data=data, scorers=[guideline_adherence()])
-    """
-    return _GuidelineAdherence()
-
-
-class _GlobalGuidelineAdherence(_GuidelineAdherence):
-    guidelines: list[str]
-    required_columns: set[str] = {"inputs", "outputs"}
-
-    def update_evaluation_config(self, evaluation_config) -> dict:
-        config = deepcopy(evaluation_config)
-        metrics = config.setdefault(GENAI_CONFIG_NAME, {}).setdefault("metrics", [])
-        if "guideline_adherence" not in metrics:
-            metrics.append("guideline_adherence")
-
-        # NB: The agent eval harness will take multiple global guidelines in a dictionary format
-        #   where the key is the name of the global guideline judge. Therefore, when multiple
-        #   judges are specified, we merge them into a single dictionary.
-        #   https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/llm-judge-reference#examples
-        global_guidelines = config[GENAI_CONFIG_NAME].get("global_guidelines", {})
-        global_guidelines[self.name] = self.guidelines
-        config[GENAI_CONFIG_NAME]["global_guidelines"] = global_guidelines
-        return config
-
-    def __call__(self, *, inputs: Any, outputs: Any) -> Assessment:
-        """Evaluate adherence to global guidelines."""
-        return super().__call__(inputs=inputs, outputs=outputs)
-
-
-@_builtin_scorer
-def global_guideline_adherence(
-    guidelines: list[str],
-    name: str = "guideline_adherence",
-):
-    """
-    Guideline adherence evaluates whether the agent's response follows specific global
-    constraints or instructions provided in the guidelines.
-
-    You can invoke the scorer directly with a single input for testing, or pass it to
-    `mlflow.genai.evaluate` for running full evaluation on a dataset.
-
-    Args:
-        guidelines: A list of global guidelines to evaluate the agent's response against.
-        name: The name of the judge. Defaults to "guideline_adherence".
-
-    Example (direct usage):
-
-    .. code-block:: python
-
-        import mlflow
-        from mlflow.genai.scorers import global_guideline_adherence
-
         # Create a global judge
-        english = global_guideline_adherence(
-            guidelines=["The response must be in English"],
+        english = guideline_adherence(
             name="english_guidelines",
+            global_guidelines=["The response must be in English"],
         )
         assessment = english()(
             inputs={"question": "What is the capital of France?"},
@@ -353,19 +299,22 @@ def global_guideline_adherence(
 
     Example (with evaluate):
 
+    In the following example, the guidelines specified in the `english` and `clarify` scorers
+    will be uniformly applied to all the examples in the dataset. The evaluation result will
+    contains two scores "english" and "clarify".
+
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import global_guideline_adherence
+        from mlflow.genai.scorers import guideline_adherence
 
-        guideline = global_guideline_adherence(["Be polite", "Be kind"])
-        english = global_guideline_adherence(
-            guidelines=["The response must be in English"],
-            name="english_guidelines",
+        english = guideline_adherence(
+            name="english",
+            global_guidelines=["The response must be in English"],
         )
-        clarify = global_guideline_adherence(
-            guidelines=["The response must be clear, coherent, and concise"],
-            name="clarify_guidelines",
+        clarify = guideline_adherence(
+            name="clarify",
+            global_guidelines=["The response must be clear, coherent, and concise"],
         )
 
         data = [
@@ -378,12 +327,43 @@ def global_guideline_adherence(
                 "outputs": "The capital of Germany is Berlin.",
             },
         ]
-        result = mlflow.genai.evaluate(
-            data=data,
-            scorers=[guideline, english, clarify],
-        )
+        mlflow.genai.evaluate(data=data, scorers=[english, clarify])
+
+    **2. Per-Example Guidelines**
+
+    When you have a different set of guidelines for each example, you can specify the guidelines
+    in the `guidelines` field of the `expectations` column of the input dataset. Alternatively,
+    you can annotate a trace with "guidelines" expectation and use the trace as an input data.
+
+    Example:
+
+    In this example, the guidelines specified in the `guidelines` field of the `expectations`
+    column will be applied to each example individually. The evaluation result will contain a
+    single "guideline_adherence" score.
+
+    .. code-block:: python
+
+        import mlflow
+
+        data = [
+            {
+                "inputs": {"question": "What is the capital of France?"},
+                "outputs": "The capital of France is Paris.",
+                "expectations": {
+                    "guidelines": ["The response must be factual and concise"],
+                },
+            },
+            {
+                "inputs": {"question": "How to learn Python?"},
+                "outputs": "You can read a book or take a course.",
+                "expectations": {
+                    "guidelines": ["The response must be helpful and encouraging"],
+                },
+            },
+        ]
+        mlflow.genai.evaluate(data=data, scorers=[guideline_adherence()])
     """
-    return _GlobalGuidelineAdherence(guidelines=guidelines, name=name)
+    return _GuidelineAdherence(name=name, global_guidelines=global_guidelines)
 
 
 class _RelevanceToQuery(_BaseBuiltInScorer):
@@ -526,8 +506,8 @@ def correctness():
                 "shuffles all data, making reduceByKey more efficient."
             ),
             expectations=[
-                "reduceByKey aggregates data before shuffling",
-                "groupByKey shuffles all data",
+                {"expected_response": "reduceByKey aggregates data before shuffling"},
+                {"expected_response": "groupByKey shuffles all data"},
             ],
         )
         print(assessment)
@@ -551,8 +531,8 @@ def correctness():
                     "shuffles all data, making reduceByKey more efficient."
                 ),
                 "expectations": [
-                    "reduceByKey aggregates data before shuffling",
-                    "groupByKey shuffles all data",
+                    {"expected_response": "reduceByKey aggregates data before shuffling"},
+                    {"expected_response": "groupByKey shuffles all data"},
                 ],
             }
         ]

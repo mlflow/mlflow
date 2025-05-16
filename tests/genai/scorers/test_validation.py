@@ -11,8 +11,8 @@ from mlflow.genai.scorers.builtin_scorers import (
     chunk_relevance,
     context_sufficiency,
     correctness,
-    global_guideline_adherence,
     groundedness,
+    guideline_adherence,
 )
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 
@@ -32,7 +32,7 @@ def test_validate_scorers_valid():
         [
             chunk_relevance(),
             correctness(),
-            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(["Be polite", "Be kind"]),
             custom_scorer,
         ]
     )
@@ -83,7 +83,7 @@ def test_validate_data(mock_logger):
         builtin_scorers=[
             chunk_relevance(),
             groundedness(),
-            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(["Be polite", "Be kind"]),
         ],
     )
     mock_logger.info.assert_not_called()
@@ -165,7 +165,7 @@ def test_validate_data_missing_columns(mock_logger):
         builtin_scorers=[
             chunk_relevance(),
             groundedness(),
-            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(["Be polite", "Be kind"]),
         ],
     )
 
@@ -191,7 +191,7 @@ def test_validate_data_with_trace(mock_logger):
         builtin_scorers=[
             chunk_relevance(),
             groundedness(),
-            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(["Be polite", "Be kind"]),
         ],
     )
     mock_logger.info.assert_not_called()
@@ -207,7 +207,7 @@ def test_validate_data_with_predict_fn(mock_logger):
         predict_fn=lambda x: x,
         builtin_scorers=[
             # Requires "outputs" but predict_fn will provide it
-            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(["Be polite", "Be kind"]),
             # Requires "retrieved_context" but predict_fn will provide it
             chunk_relevance(),
         ],
