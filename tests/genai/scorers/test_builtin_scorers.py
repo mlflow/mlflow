@@ -3,7 +3,6 @@ import pytest
 from mlflow.genai.scorers import (
     chunk_relevance,
     context_sufficiency,
-    global_guideline_adherence,
     groundedness,
     guideline_adherence,
     rag_scorers,
@@ -21,7 +20,7 @@ def normalize_config(config):
 
 
 ALL_SCORERS = [
-    global_guideline_adherence(["Be polite", "Be kind"]),
+    guideline_adherence(name="politeness", global_guidelines=["Be polite", "Be kind"]),
     *all_scorers(),
 ]
 
@@ -37,7 +36,7 @@ expected = {
             "safety",
         ],
         "global_guidelines": {
-            "guideline_adherence": ["Be polite", "Be kind"],
+            "politeness": ["Be polite", "Be kind"],
         },
     }
 }
@@ -50,14 +49,14 @@ expected = {
         ALL_SCORERS + ALL_SCORERS,  # duplicate scorers
         rag_scorers()
         + [
-            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(name="politeness", global_guidelines=["Be polite", "Be kind"]),
             guideline_adherence(),
             correctness(),
             safety(),
         ],
         [*rag_scorers()]
         + [
-            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(name="politeness", global_guidelines=["Be polite", "Be kind"]),
             guideline_adherence(),
             correctness(),
             safety(),
@@ -101,7 +100,7 @@ def test_individual_scorers(scorer, expected_metric):
 def test_global_guideline_adherence():
     """Test that the global guideline adherence scorer correctly updates the evaluation config."""
     evaluation_config = {}
-    scorer = global_guideline_adherence(["Be polite", "Be kind"])
+    scorer = guideline_adherence(["Be polite", "Be kind"])
     evaluation_config = scorer.update_evaluation_config(evaluation_config)
 
     expected_conf = {
@@ -120,14 +119,14 @@ def test_multiple_global_guideline_adherence():
     """Test passing multiple global guideline adherence scorers with different names."""
     evaluation_config = {}
 
-    guideline = global_guideline_adherence(["Be polite", "Be kind"])  # w/ default name
-    english = global_guideline_adherence(
+    guideline = guideline_adherence(["Be polite", "Be kind"])  # w/ default name
+    english = guideline_adherence(
         name="english",
-        guidelines=["The response must be in English"],
+        global_guidelines=["The response must be in English"],
     )
-    clarify = global_guideline_adherence(
+    clarify = guideline_adherence(
         name="clarify",
-        guidelines=["The response must be clear, coherent, and concise"],
+        global_guidelines=["The response must be clear, coherent, and concise"],
     )
 
     scorers = [guideline, english, clarify]
@@ -150,8 +149,8 @@ def test_multiple_global_guideline_adherence():
 @pytest.mark.parametrize(
     "scorers",
     [
-        [global_guideline_adherence(["Be polite", "Be kind"]), guideline_adherence()],
-        [guideline_adherence(), global_guideline_adherence(["Be polite", "Be kind"])],
+        [guideline_adherence(["Be polite", "Be kind"]), guideline_adherence()],
+        [guideline_adherence(), guideline_adherence(["Be polite", "Be kind"])],
     ],
 )
 def test_guideline_adherence_scorers(scorers):
