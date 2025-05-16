@@ -94,7 +94,7 @@ class InferenceTableSpanExporter(SpanExporter):
                     #   populated in the scoring server by Agent Framework. If the model is not
                     #   deployed via agents.deploy(), the env var will not be set and the
                     #   experiment will be empty, even if the dual write itself is enabled.
-                    _logger.debug(
+                    _logger.warning(
                         "Dual write to MLflow backend is enabled, but experiment ID is not set "
                         "for the trace. Skipping trace export to MLflow backend."
                     )
@@ -110,7 +110,10 @@ class InferenceTableSpanExporter(SpanExporter):
                         )
                     )
                 except Exception as e:
-                    _logger.warning("Failed to export trace to MLflow backend. Error: %s", e)
+                    _logger.warning(
+                        f"Failed to export trace to MLflow backend. Error: {e}",
+                        stack_info=_logger.isEnabledFor(logging.DEBUG),
+                    )
 
     def _log_trace_to_mlflow_backend(self, trace: Trace):
         try:
@@ -120,3 +123,6 @@ class InferenceTableSpanExporter(SpanExporter):
 
         returned_trace_info = self._client.start_trace_v3(trace)
         self._client._upload_trace_data(returned_trace_info, trace.data)
+        _logger.debug(
+            f"Finished logging trace to MLflow backend. TraceInfo: {returned_trace_info.to_dict()} "
+        )
