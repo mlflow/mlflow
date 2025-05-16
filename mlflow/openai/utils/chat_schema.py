@@ -86,11 +86,9 @@ def _is_responses_output(output: Any) -> bool:
         pass
 
     try:
-        from mlflow.types.responses import ResponsesAgentResponse, ResponsesAgentStreamEvent
+        from mlflow.types.responses import ResponsesAgentResponse
 
-        if ResponsesAgentResponse.validate_compat(
-            output
-        ) or ResponsesAgentStreamEvent.validate_compat(output):
+        if ResponsesAgentResponse.validate_compat(output):
             return True
     except Exception:
         pass
@@ -110,16 +108,6 @@ def _parse_responses_inputs_outputs(
                 messages.extend(_parse_response_item(item, messages))
 
     output = output if isinstance(output, dict) else output.model_dump()
-    try:
-        from mlflow.types.responses import ResponsesAgentStreamEvent
-
-        if (
-            ResponsesAgentStreamEvent.validate_compat(output)
-            and output.get("type") == "response.output_item.done"
-        ):
-            messages.extend(_parse_response_item(output.get("item"), messages))
-    except Exception:
-        pass
     for output_item in output["output"]:
         messages.extend(_parse_response_item(output_item, messages))
 
