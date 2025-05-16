@@ -199,12 +199,11 @@ def test_convert_to_legacy_eval_traces(input_type):
     # "request" column should be derived from the trace
     assert "request" in data.columns
     assert list(data["request"]) == [{"question": "What is MLflow?"}]
-
-    assert data["expected_response"][0] == "expected response for first question"
-    assert data["expected_facts"][0] == ["fact1", "fact2"]
-    assert data["guidelines"][0] == ["Be polite", "Be kind"]
-    assert data["custom_expected"][0] == {
-        "my_custom_expectation": "custom expectation for the first question"
+    assert data["expectations"][0] == {
+        "expected_response": "expected response for first question",
+        "expected_facts": ["fact1", "fact2"],
+        "guidelines": ["Be polite", "Be kind"],
+        "my_custom_expectation": "custom expectation for the first question",
     }
     # Assessment with type "Feedback" should not be present in the transformed data
     assert "feedback" not in data.columns
@@ -218,7 +217,7 @@ def test_convert_to_legacy_eval_set_has_no_errors(data_fixture, request):
 
     assert "request" in transformed_data.columns
     assert "response" in transformed_data.columns
-    assert "expected_response" in transformed_data.columns
+    assert "expectations" in transformed_data.columns
 
 
 def test_convert_to_legacy_eval_set_invalid_inputs():
