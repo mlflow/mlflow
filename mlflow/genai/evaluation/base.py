@@ -12,7 +12,6 @@ from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.utils.trace_utils import is_model_traced
 from mlflow.models.evaluation.base import (
-    _get_model_from_deployment_endpoint_uri,
     _is_model_deployment_endpoint_uri,
 )
 from mlflow.utils.uri import is_databricks_uri
@@ -291,19 +290,46 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
         A predict function that can be used to make predictions.
 
     Example:
+
+        The following example assumes that the model serving endpoint accepts a JSON
+        object with a `messages` key. Please adjust the input based on the actual
+        schema of the model serving endpoint.
+
         .. code-block:: python
 
-            data = pd.DataFrame(
-                [
-                    {"inputs": {"messages": [{"role": "user", "content": "What is MLflow?"}]}},
-                    {"inputs": {"question": [{"role": "user", "content": "What is Spark?"}]}},
-                ]
-            )
+            from mlflow.genai.scorers import all_scorers
+
+            data = [
+                {
+                    "inputs": {
+                        "messages": [
+                            {"role": "system", "content": "You are a helpful assistant."},
+                            {"role": "user", "content": "What is MLflow?"},
+                        ]
+                    }
+                },
+                {
+                    "inputs": {
+                        "messages": [
+                            {"role": "system", "content": "You are a helpful assistant."},
+                            {"role": "user", "content": "What is Spark?"},
+                        ]
+                    }
+                },
+            ]
             predict_fn = mlflow.genai.to_predict_fn("endpoints:/chat")
             mlflow.genai.evaluate(
                 data=data,
                 predict_fn=predict_fn,
+                scorers=all_scorers,
             )
+
+        You can also directly invoke the function to validate if the endpoint works
+        properly with your input schema.
+
+        .. code-block:: python
+
+            predict_fn(**data[0]["inputs"])
     """
     if not _is_model_deployment_endpoint_uri(endpoint_uri):
         raise ValueError(
@@ -311,8 +337,31 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
             f"deployment endpoint URI."
         )
 
-    model = _get_model_from_deployment_endpoint_uri(endpoint_uri)
-    if model is None:
-        raise ValueError(f"Model not found for endpoint URI: {endpoint_uri}")
+    from mlflow.deployments import get_deploy_client
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-    return model.predict
+    client = get_deploy_client("databricks")
+    _, endpoint = _parse_model_uri(endpoint_uri)
+
+    # NB: Wrap the function to show better docstring and change signature to `model_inputs`
+    #   to unnamed keyword arguments. This is necessary because we pass input samples as
+    #   keyword arguments to the predict function.
+    def predict_fn(**kwargs):
+        # NB: Manually set inputs and outputs rather than using @mlflow.trace decorator,
+        #   because we want to record keyword arguments with names rather than **kwargs.
+        with mlflow.start_span(name="predict") as span:
+            span.set_inputs(kwargs)
+            span.set_attribute("endpoint", endpoint_uri)
+            result = client.predict(endpoint=endpoint, inputs=kwargs)
+            span.set_outputs(result)
+            return result
+
+    predict_fn.__doc__ = f"""
+A wrapper function for invoking the model serving endpoint `{endpoint_uri}`.
+
+Args:
+    **kwargs: The input samples to be passed to the model serving endpoint.
+        For example, if the endpoint accepts a JSON object with a `messages` key,
+        the input sample should be a dictionary with a `messages` key.
+    """
+    return predict_fn
