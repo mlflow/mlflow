@@ -10,7 +10,7 @@ from mlflow.genai.scorers import (
     relevance_to_query,
     safety,
 )
-from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, all_scorers, correctness
 
 
 def normalize_config(config):
@@ -21,18 +21,14 @@ def normalize_config(config):
 
 
 ALL_SCORERS = [
-    chunk_relevance(),
-    context_sufficiency(),
-    groundedness(),
-    guideline_adherence(),
     global_guideline_adherence(["Be polite", "Be kind"]),
-    relevance_to_query(),
-    safety(),
+    *all_scorers(),
 ]
 
 expected = {
     GENAI_CONFIG_NAME: {
         "metrics": [
+            "correctness",
             "chunk_relevance",
             "context_sufficiency",
             "groundedness",
@@ -51,11 +47,21 @@ expected = {
     "scorers",
     [
         ALL_SCORERS,
-        [*ALL_SCORERS] + [*ALL_SCORERS],  # duplicate scorers
+        ALL_SCORERS + ALL_SCORERS,  # duplicate scorers
         rag_scorers()
-        + [global_guideline_adherence(["Be polite", "Be kind"]), guideline_adherence(), safety()],
+        + [
+            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(),
+            correctness(),
+            safety(),
+        ],
         [*rag_scorers()]
-        + [global_guideline_adherence(["Be polite", "Be kind"]), guideline_adherence(), safety()],
+        + [
+            global_guideline_adherence(["Be polite", "Be kind"]),
+            guideline_adherence(),
+            correctness(),
+            safety(),
+        ],
     ],
 )
 def test_scorers_and_rag_scorers_config(scorers):
@@ -71,6 +77,7 @@ def test_scorers_and_rag_scorers_config(scorers):
     [
         (chunk_relevance(), "chunk_relevance"),
         (context_sufficiency(), "context_sufficiency"),
+        (correctness(), "correctness"),
         (groundedness(), "groundedness"),
         (guideline_adherence(), "guideline_adherence"),
         (relevance_to_query(), "relevance_to_query"),
