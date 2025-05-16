@@ -535,3 +535,15 @@ class AuthServiceClient:
             "DELETE",
             json={"name": name, "username": username},
         )
+
+    def create_prompt_permission(self, prompt_name: str, username: str, permission: str):
+        return self.create_registered_model_permission(prompt_name, username, permission)
+
+    def get_prompt_permission(self, prompt_name: str, username: str):
+        return self.get_registered_model_permission(prompt_name, username)
+
+    def update_prompt_permission(self, prompt_name: str, username: str, permission: str):
+        self.update_registered_model_permission(prompt_name, username, permission)
+
+    def delete_prompt_permission(self, prompt_name: str, username: str):
+        self.delete_registered_model_permission(prompt_name, username)
