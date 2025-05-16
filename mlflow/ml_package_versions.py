@@ -115,7 +115,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.5.3",
-            "maximum": "3.8.5"
+            "maximum": "3.8.4"
         }
     },
     "statsmodels": {
