@@ -38,7 +38,7 @@ mlflow.pyfunc
 
 .. Include ``ResponsesAgent``, which is imported from `mlflow.pyfunc.model`, in the
    `mlflow.pyfunc` namespace
-.. autoclass:: mlflow.pyfunc.ResponsesAgent
+.. autoclass:: mlflow.pyfunc.model.ResponsesAgent
     :members:
     :undoc-members:
 

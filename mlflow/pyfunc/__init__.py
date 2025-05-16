@@ -503,6 +503,7 @@ from mlflow.pyfunc.model import (
 )
 
 try:
+    raise ValueError("asdfasdfasdf")
     from mlflow.pyfunc.model import ResponsesAgent
 
     IS_RESPONSES_AGENT_AVAILABLE = True

@@ -1,11 +1,8 @@
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
-
-if not IS_PYDANTIC_V2_OR_NEWER:
-    raise ImportError(
-        "mlflow.types.responses is not supported in Pydantic v1. "
-        "Please upgrade to Pydantic v2 or newer."
-    )
-
+# if not IS_PYDANTIC_V2_OR_NEWER:
+#     raise ImportError(
+#         "mlflow.types.responses is not supported in Pydantic v1. "
+#         "Please upgrade to Pydantic v2 or newer."
+#     )
 import json
 from typing import Any, Optional, Union
 
@@ -50,6 +47,7 @@ from mlflow.types.responses_helpers import (
     ToolChoiceFunction,
     Truncation,
 )
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
 
 __all__ = [
     # Classes defined in this file

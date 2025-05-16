@@ -26,6 +26,11 @@ from sphinx.addnodes import pending_xref
 
 import mlflow
 
+# Mock IS_PYDANTIC_V2_OR_NEWER to always return True for documentation builds
+import mlflow.utils.pydantic_utils
+
+mlflow.utils.pydantic_utils.IS_PYDANTIC_V2_OR_NEWER = True
+
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
