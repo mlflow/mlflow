@@ -11,7 +11,6 @@ from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.utils.trace_utils import is_model_traced
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.models.evaluation.base import (
     _is_model_deployment_endpoint_uri,
 )
@@ -339,6 +338,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
         )
 
     from mlflow.deployments import get_deploy_client
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     client = get_deploy_client("databricks")
     _, endpoint = _parse_model_uri(endpoint_uri)
