@@ -16,7 +16,7 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey, TraceMetadataKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -25,7 +25,7 @@ _logger = logging.getLogger(__name__)
 SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
-    from mlflow.entities import LiveSpan
+    from mlflow.entities import LiveSpan, Trace
     from mlflow.pyfunc.context import Context
     from mlflow.types.chat import ChatMessage, ChatTool
 
@@ -447,3 +447,16 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
 
     except Exception:
         pass
+
+
+def add_size_bytes_to_trace_metadata(trace: Trace):
+    """
+    Calculate the size of the trace in bytes and add it as a tag to the trace.
+
+    This method modifies the trace object in place by adding a new tag.
+
+    Note: For simplicity, we calculate the size without considering the size metadata itself.
+    This provides a close approximation without requiring complex calculations.
+    """
+    trace_size_bytes = len(trace.to_json().encode("utf-8"))
+    trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)
