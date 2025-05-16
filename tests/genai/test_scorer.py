@@ -7,9 +7,10 @@ import pytest
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities import Assessment
-from mlflow.entities.assessment import Feedback
-from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
+from mlflow.entities.assessment import FeedbackValue
+from mlflow.entities.assessment_error import AssessmentError
+from mlflow.evaluation import Assessment as LegacyAssessment
 from mlflow.genai import Scorer, scorer
 
 if importlib.util.find_spec("databricks.agents") is None:
@@ -176,30 +177,22 @@ def test_trace_passed_correctly():
         "yes",
         42,
         42.0,
+        # Feedback object.
+        Feedback(name="big_question", value=42, rationale="It's the answer to everything"),
+        # List of Feedback objects.
+        [
+            Feedback(name="big_question", value=42, rationale="It's the answer to everything"),
+            Feedback(name="small_question", value=1, rationale="Not sure, just a guess"),
+        ],
+        # Raw Assessment object. This construction should only be done internally.
         Assessment(
             name="big_question",
             source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="123"),
-            feedback=Feedback(value=42),
+            feedback=FeedbackValue(value=42),
             rationale="It's the answer to everything",
         ),
-        [
-            Assessment(
-                name="big_question",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.LLM_JUDGE, source_id="judge_1"
-                ),
-                feedback=Feedback(value=42),
-                rationale="It's the answer to everything",
-            ),
-            Assessment(
-                name="small_question",
-                feedback=Feedback(value=1),
-                rationale="Not sure, just a guess",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.LLM_JUDGE, source_id="judge_2"
-                ),
-            ),
-        ],
+        # Legacy mlflow.evaluation.Assessment object. Still used by managed judges.
+        LegacyAssessment(name="big_question", value=True),
     ],
 )
 def test_scorer_on_genai_evaluate(sample_data, scorer_return):
@@ -236,10 +229,32 @@ def test_scorer_on_genai_evaluate(sample_data, scorer_return):
             scorer_return_values.add(_assessment.feedback.value)
     elif isinstance(scorer_return, Assessment):
         scorer_return_values.add(scorer_return.feedback.value)
+    elif isinstance(scorer_return, mlflow.evaluation.Assessment):
+        scorer_return_values.add(scorer_return.value)
     else:
         scorer_return_values.add(scorer_return)
 
     assert dummy_scorer_values == scorer_return_values
+
+
+def test_scorer_returns_feedback_with_error(sample_data):
+    @scorer
+    def dummy_scorer(inputs):
+        return Feedback(
+            name="feedback_with_error",
+            error=AssessmentError(error_code="500", error_message="This is an error"),
+            source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt"),
+            metadata={"index": 0},
+        )
+
+    with patch("mlflow.get_tracking_uri", return_value="databricks"):
+        results = mlflow.genai.evaluate(
+            data=sample_data,
+            scorers=[dummy_scorer],
+        )
+
+    # Scorer should not be in result when it returns an error
+    assert all("metric/dummy_scorer" not in metric for metric in results.metrics.keys())
 
 
 def test_builtin_scorers_are_callable():
