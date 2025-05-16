@@ -1,12 +1,15 @@
 """
 Databricks Agent Datasets Python SDK. For more details see Databricks Agent Evaluation:
  <https://docs.databricks.com/en/generative-ai/agent-evaluation/index.html>
+
+The API docs can be found here:
+<https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#datasets>
 """
 
 try:
     from databricks.agents.datasets import (
         create_dataset,
-        Dataset,
+        Dataset as EvaluationDataset,
         delete_dataset,
         get_dataset,
     )
@@ -18,7 +21,7 @@ except ImportError:
 
 __all__ = [
     "create_dataset",
-    "Dataset",
+    "EvaluationDataset",
     "delete_dataset",
     "get_dataset",
 ]

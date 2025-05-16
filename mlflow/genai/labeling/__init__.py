@@ -1,6 +1,9 @@
 """
 Databricks Agent Labeling Python SDK. For more details see Databricks Agent Evaluation:
 <https://docs.databricks.com/en/generative-ai/agent-evaluation/index.html>
+
+The API docs can be found here:
+<https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#review-app>
 """
 
 try:
