@@ -618,7 +618,6 @@ def all_scorers() -> list[BuiltInScorer]:
         result = mlflow.genai.evaluate(data=data, scorers=all_scorers())
     """
     return rag_scorers() + [
-        correctness(),
         guideline_adherence(),
         safety(),
         correctness(),
