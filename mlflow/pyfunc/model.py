@@ -55,7 +55,7 @@ from mlflow.types.llm import (
     ChatParams,
 )
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
-from mlflow.utils.annotations import deprecated
+from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
     is_in_databricks_serverless_runtime,
@@ -305,8 +305,7 @@ class PythonModelContext:
 class ChatModel(PythonModel, metaclass=ABCMeta):
     """
     .. tip::
-        Since MLflow 3.0.0, we recommend using
-        :py:class:`ResponsesAgent <mlflow.pyfunc.ResponsesAgent>`
+        Since MLflow 3.0.0, we recommend using `ResponsesAgent`
         instead of :py:class:`ChatModel <mlflow.pyfunc.ChatModel>` unless you need strict
         compatibility with the OpenAI ChatCompletion API.
 
@@ -411,6 +410,7 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         )
 
 
+@experimental
 class ChatAgent(PythonModel, metaclass=ABCMeta):
     """
     **What is the ChatAgent Interface?**
@@ -845,7 +845,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
                     )
 
         @abstractmethod
-        def predict(self, request: ResponsesAgentRequest, context=None) -> ResponsesAgentResponse:
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             pass
 
         @abstractmethod
