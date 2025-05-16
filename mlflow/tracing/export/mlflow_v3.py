@@ -14,7 +14,7 @@ from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import maybe_get_request_id
+from mlflow.tracing.utils import add_size_bytes_to_trace_metadata, maybe_get_request_id
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 
 _logger = logging.getLogger(__name__)
@@ -85,6 +85,10 @@ class MlflowV3SpanExporter(SpanExporter):
         """
         try:
             if trace:
+                try:
+                    add_size_bytes_to_trace_metadata(trace)
+                except Exception:
+                    _logger.warning("Failed to add size bytes to trace metadata.", exc_info=True)
                 returned_trace_info = self._client.start_trace_v3(trace)
                 self._client._upload_trace_data(returned_trace_info, trace.data)
             else:

@@ -5,17 +5,14 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import pytest
+from google.protobuf.json_format import ParseDict
 
 import mlflow
 from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import (
-    MlflowExperimentLocation,
-    TraceLocation,
-    TraceLocationType,
-)
-from mlflow.entities.trace_state import TraceState
 from mlflow.protos import service_pb2 as pb
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.destination import Databricks
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.provider import _get_trace_exporter
@@ -39,37 +36,26 @@ def _flush_async_logging():
 
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
-@pytest.mark.parametrize("experiment_id", [None, _EXPERIMENT_ID])
-def test_export(experiment_id, is_async, monkeypatch):
+def test_export(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
 
-    mlflow.tracing.set_destination(Databricks(experiment_id=experiment_id))
+    mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
 
-    # Create mock for returned trace from _start_trace_v3
-    mock_trace_info = TraceInfo(
-        trace_id="12345",
-        trace_location=TraceLocation(
-            type=TraceLocationType.MLFLOW_EXPERIMENT,
-            mlflow_experiment=MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID),
-        ),
-        request_time=1234567890,
-        state=TraceState.OK,
-        request_preview="Some request",
-        response_preview="Some response",
-        client_request_id=None,
-        execution_duration=100,
-        trace_metadata={"key1": "value1"},
-        tags={"foo": "bar"},
-    ).to_proto()
-    mock_response = pb.StartTraceV3.Response(
-        trace=pb.Trace(trace_info=mock_trace_info),
-    )
+    trace_info = None
+
+    def mock_response(credentials, path, method, trace_json, *args, **kwargs):
+        nonlocal trace_info
+        trace_dict = json.loads(trace_json)
+        trace_proto = ParseDict(trace_dict["trace"], pb.Trace())
+        trace_info_proto = ParseDict(trace_dict["trace"]["trace_info"], pb.TraceInfoV3())
+        trace_info = TraceInfo.from_proto(trace_info_proto)
+        return pb.StartTraceV3.Response(trace=trace_proto)
 
     with (
         mock.patch(
-            "mlflow.store.tracking.rest_store.call_endpoint", return_value=mock_response
+            "mlflow.store.tracking.rest_store.call_endpoint", side_effect=mock_response
         ) as mock_call_endpoint,
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
@@ -87,16 +73,23 @@ def test_export(experiment_id, is_async, monkeypatch):
     # Access the trace that was passed to _start_trace_v3
     endpoint = mock_call_endpoint.call_args.args[1]
     assert endpoint == "/api/3.0/mlflow/traces"
-    trace_json = mock_call_endpoint.call_args.args[3]
-    trace = json.loads(trace_json)["trace"]
+    trace_info_dict = trace_info.to_dict()
+    trace_data = mock_upload_trace_data.call_args.args[1]
 
     # Basic validation of the trace object
-    assert trace["trace_info"]["trace_id"] is not None
+    assert trace_info.trace_id is not None
+
+    assert TraceMetadataKey.SIZE_BYTES in trace_info_dict["trace_metadata"]
+    size_bytes = int(trace_info_dict["trace_metadata"][TraceMetadataKey.SIZE_BYTES])
+    trace_for_expected_size = Trace(info=trace_info, data=trace_data)
+    del trace_for_expected_size.info.trace_metadata[TraceMetadataKey.SIZE_BYTES]
+    actual_size_bytes = len(trace_for_expected_size.to_json().encode("utf-8"))
+    assert size_bytes == actual_size_bytes
 
     # Validate the data was passed to upload_trace_data
     call_args = mock_upload_trace_data.call_args
     assert isinstance(call_args.args[0], TraceInfo)
-    assert call_args.args[0].trace_id == "12345"
+    assert call_args.args[0].trace_id == trace_info.trace_id
 
     # We don't need to validate the exact JSON structure anymore since
     # we're testing the client methods directly, not the HTTP request

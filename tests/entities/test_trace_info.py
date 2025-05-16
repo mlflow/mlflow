@@ -195,3 +195,47 @@ def test_trace_info_proto(client_request_id, assessments):
     # TraceInfo -> dict
     dict_trace_info = trace_info.to_dict()
     assert TraceInfo.from_dict(dict_trace_info) == trace_info
+
+
+def test_from_proto_excludes_undefined_fields():
+    """
+    Test that undefined fields (client_request_id, execution_duration) are excluded when
+    constructing a TraceInfo from a protobuf message instance that does not define these fields.
+    """
+    from google.protobuf.timestamp_pb2 import Timestamp
+
+    from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
+
+    # Manually create a protobuf without setting client_request_id or execution_duration fields
+    request_time = Timestamp()
+    request_time.FromMilliseconds(1234567890)
+
+    proto = ProtoTraceInfoV3(
+        trace_id="trace_id",
+        # Intentionally NOT setting client_request_id
+        # Intentionally NOT setting execution_duration
+        trace_location=TraceLocation.from_experiment_id("123").to_proto(),
+        request_preview="request",
+        response_preview="response",
+        request_time=request_time,
+        state=TraceState.OK.to_proto(),
+    )
+
+    # Verify HasField returns false for undefined fields
+    assert not proto.HasField("client_request_id")
+    assert not proto.HasField("execution_duration")
+
+    # Convert to TraceInfo
+    trace_info = TraceInfo.from_proto(proto)
+
+    # Verify undefined fields are None
+    assert trace_info.client_request_id is None
+    assert trace_info.execution_duration is None
+
+    # Verify other fields are correctly populated
+    assert trace_info.trace_id == "trace_id"
+    assert trace_info.experiment_id == "123"
+    assert trace_info.request_preview == "request"
+    assert trace_info.response_preview == "response"
+    assert trace_info.request_time == 1234567890
+    assert trace_info.state == TraceState.OK
