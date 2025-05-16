@@ -58,21 +58,14 @@ def _make_dummy_response_with_tool():
     if PYDANTIC_AI_VERSION >= Version("0.2.0"):
         call_resp = ModelResponse(parts=call_parts, usage=usage_call)
         final_resp = ModelResponse(parts=final_parts, usage=usage_final)
-        sequence = [
-            call_resp,
-            final_resp,
-        ]
-        return sequence, final_resp
+        yield call_resp
+        yield final_resp
 
     else:
         call_resp = ModelResponse(parts=call_parts)
         final_resp = ModelResponse(parts=final_parts)
-        sequence = [
-            (call_resp, usage_call),
-            (final_resp, usage_final),
-        ]
-
-        return sequence, (final_resp, usage_final)
+        yield call_resp, usage_call
+        yield final_resp, usage_final
 
 
 @pytest.fixture(autouse=True)
@@ -174,13 +167,10 @@ async def test_agent_run_enable_fluent_disable_autolog(simple_agent):
 
 
 def test_agent_run_sync_enable_disable_fluent_autolog_with_tool(agent_with_tool):
-    sequence, resp = _make_dummy_response_with_tool()
+    sequence = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
-        if sequence:
-            return sequence.pop(0)
-
-        return resp
+        return next(sequence)
 
     with patch.object(InstrumentedModel, "request", new=request):
         mlflow.autolog(log_traces=True)
@@ -218,12 +208,10 @@ def test_agent_run_sync_enable_disable_fluent_autolog_with_tool(agent_with_tool)
 
 @pytest.mark.asyncio
 async def test_agent_run_enable_disable_fluent_autolog_with_tool(agent_with_tool):
-    sequence, resp = _make_dummy_response_with_tool()
+    sequence = _make_dummy_response_with_tool()
 
     async def request(self, *args, **kwargs):
-        if sequence:
-            return sequence.pop(0)
-        return resp
+        return next(sequence)
 
     with patch.object(InstrumentedModel, "request", new=request):
         mlflow.autolog(log_traces=True)
