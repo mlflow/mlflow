@@ -215,6 +215,7 @@ def process_api_requests(
     callback_handlers: Optional[list[BaseCallbackHandler]] = None,
     convert_chat_responses: bool = False,
     params: Optional[dict[str, Any]] = None,
+    context: Optional[Context] = None,
 ):
     """
     Processes API requests in parallel.
@@ -224,6 +225,7 @@ def process_api_requests(
     retry_queue = queue.Queue()
     status_tracker = StatusTracker()  # single instance to track a collection of variables
     next_request = None  # variable to hold the next request to call
+    context = context or get_prediction_context()
 
     results = []
     errors = {}
@@ -256,7 +258,7 @@ def process_api_requests(
                     convert_chat_responses=convert_chat_responses,
                     did_perform_chat_conversion=did_perform_chat_conversion,
                     stream=False,
-                    prediction_context=get_prediction_context(),
+                    prediction_context=context,
                     params=params,
                 )
                 status_tracker.start_task()

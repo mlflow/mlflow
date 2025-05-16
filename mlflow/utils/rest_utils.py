@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 from functools import lru_cache
 
 import requests
@@ -34,6 +35,8 @@ from mlflow.utils.request_utils import (
     cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
+
+_logger = logging.getLogger(__name__)
 
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
@@ -473,7 +476,13 @@ def call_endpoint(
 
     response = verify_rest_response(response, endpoint)
     response_to_parse = response.text
-    js_dict = json.loads(response_to_parse)
+    try:
+        js_dict = json.loads(response_to_parse)
+    except json.JSONDecodeError:
+        if len(response_to_parse) > 50:
+            response_to_parse = response_to_parse[:50] + "..."
+        _logger.warning(f"Response is not a valid JSON object: {response_to_parse}")
+        raise
 
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
