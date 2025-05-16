@@ -154,11 +154,10 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                     _logger.debug(
                         f"Adding active model ID {active_model_id} to the trace metadata."
                     )
-            except ImportError:
-                pass
             except Exception as e:
                 _logger.debug(
                     f"Failed to get model ID from the active model: {e}. "
-                    "Skipping adding model ID to trace metadata."
+                    "Skipping adding model ID to trace metadata.",
+                    exc_info=True,
                 )
         return metadata
