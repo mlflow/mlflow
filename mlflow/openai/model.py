@@ -16,17 +16,13 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, _update_active_model_id_based_on_mlflow_model
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.openai.constant import FLAVOR_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking.fluent import (
-    _get_active_model_context,
-    _set_active_model,
-)
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import disable_autologging_globally
@@ -547,18 +543,7 @@ def _load_model(path):
     model_file_path = os.path.dirname(path)
     if os.path.exists(model_file_path):
         mlflow_model = Model.load(model_file_path)
-        if (
-            mlflow_model.model_id
-            and (amc := _get_active_model_context())
-            # only set the active model if the model is not set by the user
-            and not amc.set_by_user
-            and amc.model_id != mlflow_model.model_id
-        ):
-            _set_active_model(model_id=mlflow_model.model_id)
-            _logger.info(
-                "Use `mlflow.set_active_model` to set the active model "
-                "to a different one if needed."
-            )
+        _update_active_model_id_based_on_mlflow_model(mlflow_model)
     with open(path) as f:
         return yaml.safe_load(f)
 

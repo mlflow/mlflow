@@ -209,7 +209,7 @@ def http_request(
         raise MlflowException(f"API request to {url} failed with exception {e}")
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=5)
 def get_workspace_client(
     use_secret_scope_token,
     host,

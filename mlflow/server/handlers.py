@@ -36,7 +36,7 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
@@ -107,6 +107,7 @@ from mlflow.protos.service_pb2 import (
     ListLoggedModelArtifacts,
     LogBatch,
     LogInputs,
+    LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogOutputs,
@@ -223,7 +224,7 @@ def _get_artifact_repo_mlflow_artifacts():
     return _artifact_repo
 
 
-def _get_trace_artifact_repo(trace_info: TraceInfo):
+def _get_trace_artifact_repo(trace_info: TraceInfoV2):
     """
     Resolve the artifact repository for fetching data for the given trace.
 
@@ -1957,7 +1958,6 @@ def _create_model_version():
             "run_link": [_assert_string],
             "description": [_assert_string],
             "model_id": [_assert_string],
-            "model_params": [_assert_array],
         },
     )
 
@@ -1976,7 +1976,6 @@ def _create_model_version():
         tags=request_message.tags,
         description=request_message.description,
         model_id=request_message.model_id,
-        model_params=request_message.model_params,
     )
     if not _is_prompt_request(request_message) and request_message.model_id:
         tracking_store = _get_tracking_store()
@@ -2716,6 +2715,25 @@ def _create_logged_model():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _log_logged_model_params(model_id: str):
+    request_message = _get_request_message(
+        LogLoggedModelParamsRequest(),
+        schema={
+            "model_id": [_assert_string, _assert_required],
+            "params": [_assert_array],
+        },
+    )
+    params = (
+        [LoggedModelParameter.from_proto(param) for param in request_message.params]
+        if request_message.params
+        else []
+    )
+    _get_tracking_store().log_logged_model_params(model_id, params)
+    return _wrap_response(LogLoggedModelParamsRequest.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_logged_model(model_id: str):
     model = _get_tracking_store().get_logged_model(model_id)
     response_message = GetLoggedModel.Response(model=model.to_proto())
@@ -2988,4 +3006,5 @@ HANDLERS = {
     DeleteLoggedModelTag: _delete_logged_model_tag,
     SearchLoggedModels: _search_logged_models,
     ListLoggedModelArtifacts: _list_logged_model_artifacts,
+    LogLoggedModelParamsRequest: _log_logged_model_params,
 }

@@ -1,6 +1,7 @@
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from typing import Any, Optional, Union
 
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
@@ -8,8 +9,9 @@ from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceDataCorrupted,
@@ -84,7 +86,7 @@ class TracingClient:
             tags=tags,
         )
 
-    def start_trace_v3(self, trace: Trace) -> TraceInfoV3:
+    def start_trace_v3(self, trace: Trace) -> TraceInfo:
         """
         Start a trace using the V3 API format.
         NB: This method is named "Start" for internal reason in the backend, but actually
@@ -106,7 +108,7 @@ class TracingClient:
         status: TraceStatus,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
@@ -146,7 +148,7 @@ class TracingClient:
             request_ids=request_ids,
         )
 
-    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
+    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfoV2:
         """
         Get the trace info matching the ``request_id``.
 
@@ -239,7 +241,6 @@ class TracingClient:
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
-        is_databricks = is_databricks_uri(self.tracking_uri)
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -285,8 +286,34 @@ class TracingClient:
                 else None
             )
 
+        if run_id:
+            run = self.store.get_run(run_id)
+            if run.info.experiment_id not in experiment_ids:
+                raise MlflowException(
+                    f"Run {run_id} belongs to experiment {run.info.experiment_id}, which is not "
+                    f"in the list of experiment IDs provided: {experiment_ids}. Please include "
+                    f"experiment {run.info.experiment_id} in the `experiment_ids` parameter to "
+                    "search for traces from this run.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
+            if filter_string:
+                if TraceMetadataKey.SOURCE_RUN in filter_string:
+                    raise MlflowException(
+                        "You cannot filter by run_id when it is already part of the filter string."
+                        f"Please remove the {TraceMetadataKey.SOURCE_RUN} filter from the filter "
+                        "string and try again.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                filter_string += f" AND {additional_filter}"
+            else:
+                filter_string = additional_filter
+
+        is_databricks = is_databricks_uri(self.tracking_uri)
+
         def download_trace_extra_fields(
-            trace_info: Union[TraceInfo, TraceInfoV3],
+            trace_info: Union[TraceInfoV2, TraceInfo],
         ) -> Optional[Trace]:
             """
             Download trace data and assessments for the given trace_info and returns a Trace object.
@@ -294,16 +321,13 @@ class TracingClient:
 
             The trace_info parameter can be either TraceInfo or TraceInfoV3 object.
             """
-            from mlflow.entities.trace_info_v3 import TraceInfoV3
+            from mlflow.entities.trace_info import TraceInfo
 
             # Determine if this is TraceInfo or TraceInfoV3
             # Helps while transitioning to V3 traces for offline & online
-            is_v3 = isinstance(trace_info, TraceInfoV3)
+            is_v3 = isinstance(trace_info, TraceInfo)
             trace_id = trace_info.trace_id if is_v3 else trace_info.request_id
             is_online_trace = is_uuid(trace_id)
-
-            if not include_spans:
-                return Trace(trace_info, TraceData(spans=[]))
 
             # For online traces in Databricks, we need to get trace data from a different endpoint
             try:
@@ -335,25 +359,13 @@ class TracingClient:
             else:
                 return Trace(trace_info, trace_data)
 
-        # If run_id is provided, add it to the filter string
-        if run_id:
-            additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
-            if filter_string:
-                if TraceMetadataKey.SOURCE_RUN in filter_string:
-                    raise MlflowException(
-                        "You cannot filter by run_id when it is already part of the filter string."
-                        f"Please remove the {TraceMetadataKey.SOURCE_RUN} filter from the filter "
-                        "string and try again.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                filter_string += f" AND {additional_filter}"
-            else:
-                filter_string = additional_filter
-
         traces = []
         next_max_results = max_results
         next_token = page_token
-        with ThreadPoolExecutor() as executor:
+
+        max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()
+        executor = ThreadPoolExecutor(max_workers=max_workers) if include_spans else nullcontext()
+        with executor:
             while len(traces) < max_results:
                 trace_infos, next_token = self._search_traces(
                     experiment_ids=experiment_ids,
@@ -364,9 +376,15 @@ class TracingClient:
                     model_id=model_id,
                     sql_warehouse_id=sql_warehouse_id,
                 )
-                traces.extend(
-                    t for t in executor.map(download_trace_extra_fields, trace_infos) if t
-                )
+
+                if include_spans:
+                    traces.extend(
+                        t for t in executor.map(download_trace_extra_fields, trace_infos) if t
+                    )
+                else:
+                    traces.extend(
+                        Trace(trace_info, TraceData(spans=[])) for trace_info in trace_infos
+                    )
 
                 if not next_token:
                     break
@@ -532,12 +550,12 @@ class TracingClient:
 
         self.store.delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 
-    def _get_artifact_repo_for_trace(self, trace_info: TraceInfo):
+    def _get_artifact_repo_for_trace(self, trace_info: TraceInfoV2):
         artifact_uri = get_artifact_uri_for_trace(trace_info)
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
-    def _download_trace_data(self, trace_info: Union[TraceInfo, TraceInfoV3]) -> TraceData:
+    def _download_trace_data(self, trace_info: Union[TraceInfoV2, TraceInfo]) -> TraceData:
         """
         Download trace data from artifact repository.
 
@@ -550,15 +568,15 @@ class TracingClient:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         return TraceData.from_dict(artifact_repo.download_trace_data())
 
-    def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
+    def _upload_trace_data(self, trace_info: TraceInfoV2, trace_data: TraceData) -> None:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
     def _upload_ended_trace_info(
         self,
-        trace_info: TraceInfo,
-    ) -> TraceInfo:
+        trace_info: TraceInfoV2,
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 

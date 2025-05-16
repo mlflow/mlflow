@@ -18,7 +18,6 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.client import TracingClient
@@ -916,11 +915,11 @@ def update_current_trace(
     active_span = get_current_active_span()
 
     if not active_span:
-        raise MlflowException(
+        _logger.warning(
             "No active trace found. Please create a span using `mlflow.start_span` or "
-            "`@mlflow.trace` before calling this function.",
-            error_code=BAD_REQUEST,
+            "`@mlflow.trace` before calling `mlflow.update_current_trace`.",
         )
+        return
 
     if isinstance(tags, dict):
         non_string_items = {k: v for k, v in tags.items() if not isinstance(v, str)}
@@ -945,13 +944,14 @@ def update_current_trace(
         trace.info.tags.update(tags or {})
 
 
-def set_trace_tag(request_id: str, key: str, value: str):
+@request_id_backward_compatible
+def set_trace_tag(trace_id: str, key: str, value: str):
     """
     Set a tag on the trace with the given trace ID.
 
     The trace can be an active one or the one that has already ended and recorded in the
     backend. Below is an example of setting a tag on an active trace. You can replace the
-    ``request_id`` parameter to set a tag on an already ended trace.
+    ``trace_id`` parameter to set a tag on an already ended trace.
 
     .. code-block:: python
         :test:
@@ -959,25 +959,26 @@ def set_trace_tag(request_id: str, key: str, value: str):
         import mlflow
 
         with mlflow.start_span(name="span") as span:
-            mlflow.set_trace_tag(span.request_id, "key", "value")
+            mlflow.set_trace_tag(span.trace_id, "key", "value")
 
     Args:
-        request_id: The ID of the trace to set the tag on.
+        trace_id: The ID of the trace to set the tag on.
         key: The string key of the tag. Must be at most 250 characters long, otherwise
             it will be truncated when stored.
         value: The string value of the tag. Must be at most 250 characters long, otherwise
             it will be truncated when stored.
     """
-    TracingClient().set_trace_tag(request_id, key, value)
+    TracingClient().set_trace_tag(trace_id, key, value)
 
 
-def delete_trace_tag(request_id: str, key: str) -> None:
+@request_id_backward_compatible
+def delete_trace_tag(trace_id: str, key: str) -> None:
     """
     Delete a tag on the trace with the given trace ID.
 
     The trace can be an active one or the one that has already ended and recorded in the
     backend. Below is an example of deleting a tag on an active trace. You can replace the
-    ``request_id`` parameter to delete a tag on an already ended trace.
+    ``trace_id`` parameter to delete a tag on an already ended trace.
 
     .. code-block:: python
         :test:
@@ -985,15 +986,15 @@ def delete_trace_tag(request_id: str, key: str) -> None:
         import mlflow
 
         with mlflow.start_span("my_span") as span:
-            mlflow.set_trace_tag(span.request_id, "key", "value")
-            mlflow.delete_trace_tag(span.request_id, "key")
+            mlflow.set_trace_tag(span.trace_id, "key", "value")
+            mlflow.delete_trace_tag(span.trace_id, "key")
 
     Args:
-        request_id: The ID of the trace to delete the tag from.
+        trace_id: The ID of the trace to delete the tag from.
         key: The string key of the tag. Must be at most 250 characters long, otherwise
             it will be truncated when stored.
     """
-    TracingClient().delete_trace_tag(request_id, key)
+    TracingClient().delete_trace_tag(trace_id, key)
 
 
 @experimental

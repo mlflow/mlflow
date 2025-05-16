@@ -27,7 +27,10 @@ import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.entities import Trace
-from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
+from mlflow.environment_variables import (
+    MLFLOW_LOG_MODEL_COMPRESSION,
+    MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.auth_policy import AuthPolicy, SystemAuthPolicy, UserAuthPolicy
@@ -46,6 +49,7 @@ from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.pyfunc.model import _load_pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
@@ -2194,6 +2198,8 @@ def test_model_as_code_pycache_cleaned_up():
 def test_model_pip_requirements_pin_numpy_when_pandas_included():
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
+            import pandas as pd  # noqa: F401
+
             return model_input
 
     expected_mlflow_version = _mlflow_major_version_string()
@@ -2468,6 +2474,34 @@ def test_both_resources_and_auth_policy():
             )
 
 
+@pytest.mark.parametrize("compression", ["lzma", "bzip2", "gzip"])
+def test_model_save_load_compression(
+    monkeypatch, sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path, compression
+):
+    monkeypatch.setenv(MLFLOW_LOG_MODEL_COMPRESSION.name, compression)
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+    def test_predict(sk_model, model_input):
+        return sk_model.predict(model_input) * 2
+
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        artifacts={"sk_model": sklearn_model_path},
+        conda_env=_conda_env(),
+        python_model=main_scoped_model_class(test_predict),
+    )
+
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+    np.testing.assert_array_equal(
+        loaded_pyfunc_model.predict(iris_data[0]),
+        test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]),
+    )
+
+
+@pytest.mark.skip(reason="Enable once we re-enable the warning")
 def test_load_model_warning():
     class Model(mlflow.pyfunc.PythonModel):
         def predict(self, model_input: list[str]):
@@ -2482,3 +2516,29 @@ def test_load_model_warning():
 
     with pytest.warns(UserWarning, match=r"`runs:/<run_id>/artifact_path` is deprecated"):
         mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
+
+
+def test_pyfunc_model_traces_link_to_model_id():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        @mlflow.trace
+        def predict(self, model_input: list[str]) -> list[str]:
+            return model_input
+
+    model_infos = []
+    for i in range(3):
+        model_infos.append(
+            mlflow.pyfunc.log_model(
+                name="test_model",
+                python_model=TestModel(),
+                input_example=["a", "b", "c"],
+            )
+        )
+
+    for model_info in model_infos:
+        pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+        pyfunc_model.predict(["a", "b", "c"])
+
+    traces = get_traces()[::-1]
+    assert len(traces) == 3
+    for i in range(3):
+        assert traces[i].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_infos[i].model_id

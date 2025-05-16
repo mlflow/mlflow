@@ -13,6 +13,7 @@ from mlflow.entities import (
     ExperimentTag,
     InputTag,
     LifecycleStage,
+    LoggedModelParameter,
     Metric,
     Param,
     RunTag,
@@ -24,16 +25,21 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT
+from mlflow.environment_variables import (
+    _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     CreateAssessment,
+    CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
     DeleteRun,
@@ -41,10 +47,12 @@ from mlflow.protos.service_pb2 import (
     DeleteTraces,
     EndTrace,
     GetExperimentByName,
+    GetLoggedModel,
     GetTraceInfo,
     GetTraceInfoV3,
     LogBatch,
     LogInputs,
+    LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogParam,
@@ -61,7 +69,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
-from mlflow.store.tracking.rest_store import RestStore
+from mlflow.store.tracking.rest_store import _METHOD_TO_INFO, RestStore
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
@@ -70,6 +78,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
+    get_logged_model_endpoint,
     get_search_traces_v3_endpoint,
 )
 
@@ -655,7 +664,7 @@ def test_start_trace():
             tags=tags,
         )
         _verify_requests(mock_http, creds, "traces", "POST", message_to_json(expected_request))
-        assert isinstance(res, TraceInfo)
+        assert isinstance(res, TraceInfoV2)
         assert res.request_id == request_id
         assert res.experiment_id == experiment_id
         assert res.timestamp_ms == timestamp_ms
@@ -671,7 +680,7 @@ def test_start_trace_v3(monkeypatch):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     trace = Trace(
-        info=TraceInfoV3(
+        info=TraceInfo(
             trace_id="tr-123",
             trace_location=TraceLocation.from_experiment_id("123"),
             request_time=123,
@@ -753,7 +762,7 @@ def test_end_trace():
                 message_to_json(expected_request),
                 use_v3=False,
             )
-            assert isinstance(res, TraceInfo)
+            assert isinstance(res, TraceInfoV2)
             assert res.request_id == request_id
             assert res.experiment_id == experiment_id
             assert res.timestamp_ms == timestamp_ms
@@ -864,7 +873,7 @@ def test_search_traces():
     # Verify the correct parameters were passed and the correct trace info objects were returned
     # for either endpoint
     assert len(trace_infos) == 1
-    assert isinstance(trace_infos[0], TraceInfoV3)
+    assert isinstance(trace_infos[0], TraceInfo)
     assert trace_infos[0].trace_id == "tr-1234"
     assert trace_infos[0].experiment_id == "1234"
     assert trace_infos[0].request_time == 123
@@ -931,7 +940,7 @@ def test_search_unified_traces():
 
         # Verify the correct trace info objects were returned
         assert len(trace_infos) == 1
-        assert isinstance(trace_infos[0], TraceInfoV3)
+        assert isinstance(trace_infos[0], TraceInfo)
         assert trace_infos[0].trace_id == "tr-1234"
         assert trace_infos[0].experiment_id == "1234"
         assert trace_infos[0].request_time == 123
@@ -947,7 +956,7 @@ def test_get_artifact_uri_for_trace_compatibility():
     from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 
     # Create a TraceInfo (v2) object
-    trace_info_v2 = TraceInfo(
+    trace_info_v2 = TraceInfoV2(
         request_id="tr-1234",
         experiment_id="1234",
         timestamp_ms=123,
@@ -959,7 +968,7 @@ def test_get_artifact_uri_for_trace_compatibility():
 
     # Create a TraceInfoV3 object
     trace_location = TraceLocation.from_experiment_id("5678")
-    trace_info_v3 = TraceInfoV3(
+    trace_info_v3 = TraceInfo(
         trace_id="tr-5678",
         trace_location=trace_location,
         request_time=789,
@@ -977,7 +986,7 @@ def test_get_artifact_uri_for_trace_compatibility():
     assert v3_uri == "s3://bucket/trace-v3-path"
 
     # Test that get_artifact_uri_for_trace raises the expected exception when tag is missing
-    trace_info_no_tag = TraceInfo(
+    trace_info_no_tag = TraceInfoV2(
         request_id="tr-1234",
         experiment_id="1234",
         timestamp_ms=123,
@@ -1226,7 +1235,7 @@ def test_get_trace_info_v3_api():
     """
     trace_id = "tr-123"
     trace_location = TraceLocation.from_experiment_id("exp-123")
-    trace_info_v3 = TraceInfoV3(
+    trace_info_v3 = TraceInfo(
         trace_id=trace_id,
         trace_location=trace_location,
         request_time=int(datetime.datetime(2023, 5, 1, 12, 0, 0).timestamp() * 1000),
@@ -1236,7 +1245,7 @@ def test_get_trace_info_v3_api():
     )
 
     with mock.patch(
-        "mlflow.entities.trace_info_v3.TraceInfoV3.from_proto", return_value=trace_info_v3
+        "mlflow.entities.trace_info.TraceInfo.from_proto", return_value=trace_info_v3
     ) as mock_from_proto:
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
 
@@ -1254,9 +1263,159 @@ def test_get_trace_info_v3_api():
 
             # Verify we get the expected object back
             assert result is trace_info_v3
-            assert isinstance(result, TraceInfoV3)
+            assert isinstance(result, TraceInfo)
             assert result.trace_id == trace_id
             assert result.experiment_id == "exp-123"
             assert result.trace_metadata == {"key1": "value1"}
             assert result.tags == {"tag1": "value1"}
             assert result.state == TraceState.OK
+
+
+def test_log_logged_model_params():
+    with mock.patch("mlflow.store.tracking.rest_store.call_endpoint") as mock_call_endpoint:
+        # Create test data
+        model_id = "model_123"
+        params = [
+            LoggedModelParameter(key=f"param_{i}", value=f"value_{i}")
+            for i in range(250)  # Create enough params to test batching
+        ]
+
+        batches = [
+            message_to_json(
+                LogLoggedModelParamsRequest(
+                    model_id=model_id,
+                    params=[p.to_proto() for p in params[:100]],
+                )
+            ),
+            message_to_json(
+                LogLoggedModelParamsRequest(
+                    model_id=model_id,
+                    params=[p.to_proto() for p in params[100:200]],
+                )
+            ),
+            message_to_json(
+                LogLoggedModelParamsRequest(
+                    model_id=model_id,
+                    params=[p.to_proto() for p in params[200:]],
+                )
+            ),
+        ]
+
+        store = RestStore(lambda: None)
+
+        store.log_logged_model_params(model_id=model_id, params=params)
+
+        # Verify call_endpoint was called with the correct arguments
+        assert mock_call_endpoint.call_count == 3
+        for i, call in enumerate(mock_call_endpoint.call_args_list):
+            _, endpoint, method, json_body, response_proto = call.args
+
+            # Verify endpoint and method are correct
+            assert endpoint, method == _METHOD_TO_INFO[LogLoggedModelParamsRequest]
+            assert json_body == batches[i]
+
+
+@pytest.mark.parametrize(
+    ("params_count", "expected_call_count", "create_batch_size", "log_batch_size"),
+    [
+        (None, 1, 100, 100),  # None params - only CreateLoggedModel
+        (0, 1, 100, 100),  # No params - only CreateLoggedModel
+        (5, 1, 100, 100),  # Few params - only CreateLoggedModel
+        (100, 1, 100, 100),  # Exactly 100 params - only CreateLoggedModel
+        (
+            150,
+            3,
+            100,
+            100,
+        ),  # 150 params - CreateLoggedModel + LogLoggedModelParamsRequest + GetLoggedModel
+        (
+            250,
+            4,
+            100,
+            100,
+        ),  # 250 params - CreateLoggedModel + 2 LogLoggedModelParamsRequest calls + GetLoggedModel
+        (
+            250,
+            3,
+            200,
+            100,
+        ),  # 250 params with larger create batch - CreateLoggedModel
+        # + 1 LogLoggedModelParamsRequest + GetLoggedModel
+        (
+            250,
+            5,
+            100,
+            50,
+        ),  # 250 params with smaller log batch - CreateLoggedModel
+        # + 4 LogLoggedModelParamsRequest calls + GetLoggedModel
+    ],
+)
+def test_create_logged_models_with_params(
+    monkeypatch, params_count, expected_call_count, create_batch_size, log_batch_size
+):
+    """Test creating logged models with parameters."""
+    # Set environment variables using monkeypatch
+    monkeypatch.setenv(_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, create_batch_size)
+    monkeypatch.setenv(_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, log_batch_size)
+
+    store = RestStore(lambda: None)
+    with (
+        mock.patch("mlflow.entities.logged_model.LoggedModel.from_proto") as mock_from_proto,
+        mock.patch.object(store, "_call_endpoint") as mock_call_endpoint,
+    ):
+        # Setup mocks
+        mock_model = mock.MagicMock()
+        model_id = "model_123"
+        mock_model.model_id = model_id
+        mock_from_proto.return_value = mock_model
+        mock_response = mock.MagicMock()
+        mock_response.model = mock.MagicMock()
+        mock_call_endpoint.return_value = mock_response
+
+        # Create params
+        params = (
+            [LoggedModelParameter(key=f"key_{i}", value=f"value_{i}") for i in range(params_count)]
+            if params_count
+            else None
+        )
+
+        # Call the method
+        store.create_logged_model("experiment_id", params=params)
+
+        # Verify calls
+        endpoint = get_logged_model_endpoint(model_id)
+
+        # CreateLoggedModel should always be called
+        initial_params = [p.to_proto() for p in params[:create_batch_size]] if params else None
+        mock_call_endpoint.assert_any_call(
+            CreateLoggedModel,
+            message_to_json(
+                CreateLoggedModel(
+                    experiment_id="experiment_id",
+                    params=initial_params,
+                )
+            ),
+        )
+
+        # If params > create_batch_size, additional calls should be made
+        if params_count and params_count > create_batch_size:
+            # LogLoggedModelParamsRequest should be called for remaining params
+            remaining_params = params[create_batch_size:]
+            for i in range(0, len(remaining_params), log_batch_size):
+                batch = remaining_params[i : i + log_batch_size]
+                mock_call_endpoint.assert_any_call(
+                    LogLoggedModelParamsRequest,
+                    json_body=message_to_json(
+                        LogLoggedModelParamsRequest(
+                            model_id=model_id,
+                            params=[p.to_proto() for p in batch],
+                        )
+                    ),
+                    endpoint=f"{endpoint}/params",
+                )
+
+            # GetLoggedModel should be called to get the updated model
+            mock_call_endpoint.assert_any_call(GetLoggedModel, endpoint=endpoint)
+
+        # Verify total number of calls
+        assert mock_call_endpoint.call_count == expected_call_count

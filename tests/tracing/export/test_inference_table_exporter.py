@@ -5,7 +5,9 @@ import pytest
 
 import mlflow
 from mlflow.entities import LiveSpan, Trace
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.protos import service_pb2 as pb
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
@@ -82,7 +84,7 @@ def test_export(dual_write_enabled, monkeypatch):
 
         assert mock_tracing_client.start_trace_v3.call_count == 1
         trace = mock_tracing_client.start_trace_v3.call_args[0][0]
-        assert isinstance(trace.info, TraceInfoV3)
+        assert isinstance(trace.info, TraceInfo)
         # The trace ID should be updated to the format that MLflow backend accept
         assert trace.info.trace_id == trace_id
         # The databricks request ID should be set to the client request ID
@@ -151,6 +153,74 @@ def test_export_trace_buffer_not_exceeds_max_size(monkeypatch):
 
     assert pop_trace(_DATABRICKS_REQUEST_ID_1) is None
     assert pop_trace(_DATABRICKS_REQUEST_ID_2) is not None
+
+
+def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
+    """Test that SIZE_BYTES is correctly set in the trace sent to MLflow backend via dual write."""
+    # Enable dual write
+    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "True")
+
+    # Create spans and trace
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=_OTEL_TRACE_ID,
+        span_id=1,
+        parent_id=None,
+        start_time=0,
+        end_time=1_000_000,  # 1 millisecond
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+    span.set_inputs({"input1": "very long input" * 100})
+    span.set_outputs("very long output" * 100)
+
+    # Register with experiment_id to ensure dual write happens (the code checks for this)
+    _register_span_and_trace(span, client_request_id=_DATABRICKS_REQUEST_ID_1, experiment_id="123")
+
+    # Set up mocks to capture the trace sent to MLflow backend
+    captured_trace = None
+
+    def mock_log_trace_to_mlflow_backend(trace):
+        nonlocal captured_trace
+        # Store a copy of the trace before it's modified by the log_trace method
+        captured_trace = Trace(
+            info=TraceInfo.from_proto(TraceInfo.to_proto(trace.info)), data=trace.data
+        )
+        # Mock implementation continues
+        return pb.StartTraceV3.Response()
+
+    # Create mock client that captures the trace
+    mock_tracing_client = mock.MagicMock()
+    mock_tracing_client.start_trace_v3.side_effect = mock_log_trace_to_mlflow_backend
+
+    with mock.patch(
+        "mlflow.tracing.export.inference_table.TracingClient", return_value=mock_tracing_client
+    ):
+        exporter = InferenceTableSpanExporter()
+        exporter.export([otel_span])
+        # Ensure async queue is processed
+        exporter._async_queue.flush(terminate=True)
+
+    # Verify the trace sent to MLflow backend has SIZE_BYTES
+    assert captured_trace is not None, "Trace was not sent to MLflow backend"
+    assert TraceMetadataKey.SIZE_BYTES in captured_trace.info.trace_metadata, (
+        "SIZE_BYTES missing in trace metadata"
+    )
+
+    # Get the size bytes that were set
+    size_bytes = int(captured_trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES])
+
+    # Remove the size metadata to calculate the expected size
+    if TraceMetadataKey.SIZE_BYTES in captured_trace.info.trace_metadata:
+        del captured_trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES]
+
+    # Calculate size exactly the same way the function does
+    expected_size_bytes = len(captured_trace.to_json().encode("utf-8"))
+
+    # Verify that size_bytes matches the expected calculation
+    assert size_bytes == expected_size_bytes, (
+        f"Size bytes mismatch: got {size_bytes}, expected {expected_size_bytes}"
+    )
 
 
 def _register_span_and_trace(
