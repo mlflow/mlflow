@@ -413,6 +413,10 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 @experimental
 class ChatAgent(PythonModel, metaclass=ABCMeta):
     """
+    .. tip::
+        Since MLflow 3.0.0, we recommend using `ResponsesAgent`
+        instead of :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`.
+
     **What is the ChatAgent Interface?**
 
     The ChatAgent interface is a chat schema specification that has been designed for authoring
