@@ -1,4 +1,5 @@
 import re
+import warnings
 from unittest import mock
 
 import numpy
@@ -15,6 +16,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
 from mlflow.utils.rest_utils import (
+    _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING,
     MlflowHostCreds,
     _can_parse_as_json_object,
     augmented_raise_for_status,
@@ -621,3 +623,26 @@ def test_http_request_negative_backoff_factor():
         with pytest.raises(MlflowException, match="The backoff_factor value must be"):
             http_request(host_creds, "/endpoint", "GET", backoff_factor=-1)
         mock_request.assert_not_called()
+
+
+def test_suppress_databricks_retry_after_secs_warnings():
+    host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
+
+    def mock_do(*args, **kwargs):
+        warnings.warn(_DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING)
+        return mock.MagicMock()
+
+    with (
+        warnings.catch_warnings(record=True) as recorded_warnings,
+        mock.patch("mlflow.utils.rest_utils.get_workspace_client") as mock_get_workspace_client,
+    ):
+        warnings.simplefilter("always")
+        mock_workspace_client = mock.MagicMock()
+        mock_workspace_client.api_client.do = mock_do
+        mock_get_workspace_client.return_value = mock_workspace_client
+        http_request(host_creds, "/endpoint", "GET")
+        mock_get_workspace_client.assert_called_once()
+        assert not any(
+            _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING in str(w.message)
+            for w in recorded_warnings
+        )
