@@ -79,7 +79,7 @@ def download_artifacts(
     if artifact_uri is not None:
         return _download_artifact_from_uri(artifact_uri, output_path=dst_path)
 
-    if run_id and artifact_path:
+    if run_id and artifact_path and artifact_path != ".":
         return _download_artifact_from_uri(f"runs:/{run_id}/{artifact_path}", output_path=dst_path)
 
     artifact_path = artifact_path if artifact_path is not None else ""
