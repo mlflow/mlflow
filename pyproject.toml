@@ -46,7 +46,7 @@ dependencies = [
   "packaging<26",
   "pandas<3",
   "protobuf<7,>=3.12.0",
-  "pyarrow<20,>=4.0.0",
+  "pyarrow<21,>=4.0.0",
   "pydantic<3,>=1.10.8",
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
