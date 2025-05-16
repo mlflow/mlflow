@@ -9,10 +9,10 @@ The API docs can be found here:
 try:
     from databricks.agents.review_app import (
         Agent,
-        get_review_app,
-        label_schemas,
         LabelingSession,
         ReviewApp,
+        get_review_app,
+        label_schemas,
     )
 except ImportError:
     raise ImportError(

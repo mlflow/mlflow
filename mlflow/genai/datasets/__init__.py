@@ -8,8 +8,10 @@ The API docs can be found here:
 
 try:
     from databricks.agents.datasets import (
-        create_dataset,
         Dataset as EvaluationDataset,
+    )
+    from databricks.agents.datasets import (
+        create_dataset,
         delete_dataset,
         get_dataset,
     )
