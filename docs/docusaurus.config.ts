@@ -104,6 +104,7 @@ const config: Config = {
           position: "left",
           label: "ML Docs",
           docsPluginId: "classic-ml",
+          className: "ml-docs-link",
         },
         // GenAI docs
         {
@@ -112,6 +113,7 @@ const config: Config = {
           position: "left",
           label: "GenAI Docs",
           docsPluginId: "genai",
+          className: "genai-docs-link",
         },
         {
           to: `${apiReferencePrefix()}api_reference/index.html`,

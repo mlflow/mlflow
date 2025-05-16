@@ -7,34 +7,41 @@ import styles from './index.module.css';
 
 interface PathSelectorProps {
   title: string;
-  path: string;
   description: string;
   color: 'blue' | 'red';
-  onClick: () => void;
+  buttons: {
+    text: string;
+    link: string;
+  }[];
 }
 
 function PathSelector({ 
   title, 
-  path, 
   description, 
   color, 
-  onClick 
+  buttons
 }: PathSelectorProps): JSX.Element {
   return (
-    <div 
-      className={clsx(styles.glossyCard, styles[`glossyCard${color}`])}
-      onClick={onClick}
-    >
+    <div className={clsx(styles.glossyCard, styles[`glossyCard${color}`])}>
       <div className={styles.cardContent}>
         <div className={styles.cardHeader}>
           <div className={clsx(styles.colorBlock, styles[`colorBlock${color}`])}></div>
           <h2 className={styles.cardTitle}>{title}</h2>
         </div>
         <p className={styles.cardDescription}>{description}</p>
-        <div className={styles.cardAction}>
-          <span className={styles.cardButton}>
-            View documentation <span className={styles.arrowIcon}>→</span>
-          </span>
+        <div className={styles.cardActions}>
+          {buttons.map((button, index) => (
+            <a 
+              key={index}
+              href={button.link}
+              className={styles.cardButton}
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent card click propagation
+              }}
+            >
+              {button.text} <span className={styles.arrowIcon}>→</span>
+            </a>
+          ))}
         </div>
       </div>
     </div>
@@ -75,22 +82,34 @@ export default function Home(): JSX.Element {
           <div className={styles.cardsColumn}>
             <PathSelector
               title="Model Training"
-              path="/ml"
               description="Access comprehensive guides for experiment tracking, model packaging, registry management, 
               and deployment. Get started with MLflow's core functionality for traditional machine 
               learning workflows, hyperparameter tuning, and model lifecycle management."
               color="blue"
-              onClick={() => setRedirect('/ml')}
+              buttons={[
+                {
+                  text: "View documentation",
+                  link: "/ml"
+                }
+              ]}
             />
 
             <PathSelector
               title="GenAI Apps & Agents"
-              path="/genai"
               description="Explore tools for LLM tracing, prompt management, foundation model deployment, 
               and evaluation frameworks. Learn how to track, evaluate, and optimize your generative 
               AI applications and agent workflows with MLflow."
               color="red"
-              onClick={() => setRedirect('/genai')}
+              buttons={[
+                {
+                  text: "View documentation",
+                  link: "https://docs.databricks.com/en/machine-learning/"
+                },
+                {
+                  text: "View self-hosted documentation",
+                  link: "/genai"
+                }
+              ]}
             />
           </div>
         </div>

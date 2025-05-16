@@ -1,13 +1,241 @@
 ---
-id: index
-title: MLflow for Machine Learning
-sidebar_label: Overview
-slug: /
+sidebar_position: 0
+sidebar_label: Overview 🌟
 ---
 
 import { Card, LogoCard, CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
-import { ApiLink } from "@site/src/components/APILink"
+import { APILink } from "@site/src/components/APILink";
 
-# MLflow for Machine Learning
+# Traditional ML & Deep Learning
 
-This is placeholder text for the Classic ML docs
+MLflow provides comprehensive support for the full spectrum of machine learning approaches, from classical algorithms to advanced deep learning techniques. This unified platform streamlines the entire ML lifecycle, enabling data scientists and ML engineers to build, train, and deploy models with ease.
+
+<details>
+  <summary>Expand to See More About ML Approaches</summary>
+
+  #### Traditional ML: Foundation of Data-Driven Solutions
+
+  Traditional ML techniques power essential applications across various sectors:
+  - **Healthcare**: Classification algorithms for disease diagnosis and predictive models for patient outcomes
+  - **Finance**: Regression models for risk assessment and time-series forecasting for market analysis
+  - **Supply Chain**: Time-series analyses for inventory optimization and demand forecasting
+  - **Social Sciences**: Statistical modeling for data-driven insights and policy recommendations
+
+  These techniques offer distinct benefits:
+  - **Interpretability**: Clearer insight into decision-making processes, essential for regulatory compliance
+  - **Efficiency**: Lower computational requirements for many common tasks
+  - **Reliability**: Well-established theoretical foundations with proven performance
+  - **Accessibility**: Lower barriers to entry for organizations without specialized hardware
+
+  #### Deep Learning: Powering Advanced Intelligence
+
+  Deep learning extends the capabilities of ML to solve increasingly complex problems:
+  - **Computer Vision**: Image classification, object detection, and segmentation
+  - **Natural Language Processing**: Text understanding, generation, and translation
+  - **Audio Processing**: Speech recognition, music generation, and audio classification
+  - **Time Series**: Complex sequence prediction and anomaly detection
+
+  Key advantages include:
+  - **Feature Learning**: Automatic discovery of representations from raw data
+  - **Scalability**: Performance that improves with more data and compute
+  - **Transfer Learning**: Ability to leverage pre-trained models for new tasks
+  - **Multi-modal Learning**: Integration of different data types in unified models
+
+  <div className="center-div" style={{ width: "80%", padding: "20px" }}>
+    ![ML Spectrum](/images/classic-ml/ml-spectrum.png)
+  </div>
+
+</details>
+
+**MLflow's Unified Platform** provides a comprehensive suite of tools designed to streamline the entire machine learning lifecycle, from experimentation to production deployment, regardless of your preferred ML approach or framework.
+
+## Why Choose MLflow?
+
+- **🧠 End-to-End Lifecycle Management** - MLflow offers a unified platform for tracking experiments, packaging models, and deploying to production, eliminating the need for multiple disconnected tools.
+
+- **🔄 Reproducibility Guaranteed** - Automatically capture code versions, parameters, metrics, and environments to ensure experiments can be reproduced exactly, even months later.
+
+- **📊 Framework Agnostic** - Seamless integration with both traditional ML libraries (scikit-learn, XGBoost) and deep learning frameworks (PyTorch, TensorFlow) with minimal code changes.
+
+- **🚀 Simplified Deployment** - Package models with dependencies and deploy to various platforms including cloud providers, containers, and edge devices with consistent APIs.
+
+- **📈 Comprehensive Tracking** - Record every detail of your experiments, from hyperparameters to evaluation metrics, enabling easy comparison and selection of optimal models.
+
+- **🔍 Model Governance** - Version control, approval workflows, and lineage tracking for ML assets provide enterprise-grade governance capabilities.
+
+## How MLflow Enhances ML Development
+
+MLflow offers a comprehensive toolkit that addresses key challenges in the machine learning development lifecycle:
+
+![ML Product Suite](/images/classic-ml/traditional-ml-products.png)
+
+### Native Library Support
+
+MLflow provides first-class support for popular ML libraries through specialized "flavors" that simplify logging, saving, and deploying models.
+
+<details>
+  <summary>Key Benefits of Native Library Support</summary>
+
+  - **Automatic Logging**: Track parameters, metrics, and artifacts with minimal code through auto-logging capabilities
+  - **Standardized Interfaces**: Consistent APIs for saving, loading, and serving models across different libraries
+  - **Optimized Serialization**: Library-specific optimizations for efficient model storage and loading
+  - **Framework Agnostic Inferencing**: Use the unified PyFunc interface to make predictions regardless of the original framework
+  - **Version Management**: Seamlessly manage different versions of each library with dependency tracking
+
+</details>
+
+#### Traditional ML Libraries
+
+<CardGroup>
+  <SmallLogoCard link="/model#scikit-learn-sklearn">![scikit learn](/images/logos/scikit-learn-logo.svg)</SmallLogoCard>
+  <SmallLogoCard link="/model#xgboost-xgboost">![XGBoost Logo](/images/logos/xgboost-logo.svg)</SmallLogoCard>
+  <SmallLogoCard link="/model#spark-mllib-spark">![Spark Logo](/images/logos/spark-logo.svg)</SmallLogoCard>
+  <SmallLogoCard link="/model#lightgbm-lightgbm">![LightGBM Logo](/images/logos/lightgbm-logo.png)</SmallLogoCard>
+  <SmallLogoCard link="/model#catboost-catboost">![CatBoost Logo](/images/logos/catboost-logo.png)</SmallLogoCard>
+  <SmallLogoCard link="/model#statsmodels-statsmodels">![Statsmodels Logo](/images/logos/statsmodels-logo.svg)</SmallLogoCard>
+  <SmallLogoCard link="/model#prophet-prophet">![Prophet Logo](/images/logos/prophet-logo.png)</SmallLogoCard>
+</CardGroup>
+
+#### Deep Learning Frameworks
+
+<CardGroup>
+  <SmallLogoCard link="/model#pytorch-pytorch">![PyTorch Logo](/images/logos/pytorch-logo.svg)</SmallLogoCard>
+  <SmallLogoCard link="/model#tensorflow-tensorflow">![TensorFlow Logo](/images/logos/TensorFlow-logo.svg)</SmallLogoCard>
+  <SmallLogoCard link="/model#keras-keras">![Keras Logo](/images/logos/keras-logo.svg)</SmallLogoCard>
+  <SmallLogoCard link="/model#onnx-onnx">![ONNX Logo](/images/logos/onnx-logo.png)</SmallLogoCard>
+  <SmallLogoCard link="/model#fastai-fastai">![fastai Logo](/images/logos/fastai-logo.png)</SmallLogoCard>
+</CardGroup>
+
+### Experiment Tracking
+
+MLflow Tracking provides a centralized system for organizing and comparing all aspects of your ML experiments. [➡︎ Learn more](/ml/tracking)
+
+<details>
+  <summary>Key Benefits of Experiment Tracking</summary>
+
+  - **Experiments and Runs**: Organize related work into experiments, with each experiment containing multiple runs to track iterations
+  - **Comprehensive Logging**: Capture metrics, parameters, code versions, and artifacts in a structured format
+  - **Environment Tracking**: Automatically record dependencies and computational environment for reproducibility
+  - **Rich Visualizations**: Compare runs side-by-side with customizable charts and tables
+  - **Model Signatures**: Define expected input and output formats to simplify validation and debugging
+  - **Collaboration Features**: Share experiments with team members through the integrated UI
+  - **Powerful Search**: Quickly find relevant runs with flexible query capabilities
+
+</details>
+
+<Card>
+![Experiment Tracking](/images/tracking/tracking-metrics-ui-temp.png)
+</Card>
+
+### Deep Learning Capabilities
+
+MLflow provides specialized features to support deep learning workflows, addressing unique challenges in this domain. [➡︎ Learn more](/deep-learning)
+
+<details>
+  <summary>Key Deep Learning Features</summary>
+
+  - **GPU Tracking**: Monitor GPU usage, memory, and performance metrics
+  - **Distributed Training Support**: Track metrics from multi-node training jobs
+  - **Hyperparameter Optimization**: Integration with tools like Optuna and Ray Tune
+  - **TensorBoard Integration**: Seamlessly combine TensorBoard visualizations with MLflow tracking
+  - **Model Architecture Logging**: Capture and visualize neural network architectures
+  - **Large Artifact Handling**: Efficiently manage large model weights and datasets
+  - **Hardware-Specific Optimizations**: Deploy models with hardware-specific optimizations
+
+</details>
+
+<Card>
+![Deep Learning Support](/images/deep-learning/dl-run-comparison.gif)
+</Card>
+
+### Model Registry
+
+The Model Registry serves as a centralized hub for managing the full lifecycle of your ML models. [➡︎ Learn more](/model-registry)
+
+<details>
+  <summary>Key Benefits of Model Registry</summary>
+
+  - **Versioning**: Maintain a complete history of model versions with metadata about each iteration
+  - **Stage Transitions**: Move models through defined lifecycle stages (Development, Staging, Production)
+  - **Approval Workflows**: Implement governance with model approval processes
+  - **Model Lineage**: Track the entire ancestry of production models back to source data and code
+  - **Metadata Management**: Add descriptions, tags, and custom properties to models
+  - **Access Control**: Define permissions for model registration and deployment
+  - **Deployment Integration**: Simplify the transition from experimentation to production
+
+</details>
+
+<Card>
+![Model Registry](/images/oss_registry_2_dialog.png)
+</Card>
+
+### MLflow Evaluate
+
+MLflow simplifies model evaluation with automated metrics generation and visualization tools. [➡︎ Learn more](/evaluate)
+
+<details>
+  <summary>Key Benefits of MLflow Evaluate</summary>
+
+  - **Auto-generated Metrics**: Automatically calculate appropriate metrics for regression (RMSE, MAE) and classification (F1-score, AUC-ROC)
+  - **Visualization Tools**: Generate confusion matrices, precision-recall curves, and other plots
+  - **Model Comparison**: Easily compare performance across different models and versions
+  - **Custom Metrics**: Extend evaluation with user-defined metrics and visualizations
+  - **Dataset Validation**: Verify model performance across different data splits and subsets
+  - **Comprehensive Reports**: Generate detailed evaluation reports for stakeholders
+
+</details>
+
+<Card>
+![MLflow Evaluate](/images/model_evaluation_feature_importance.png)
+</Card>
+
+### Model Deployment
+
+MLflow streamlines the transition from development to production with flexible deployment options. [➡︎ Learn more](/deployment)
+
+<details>
+  <summary>Key Benefits of Model Deployment</summary>
+
+  - **Environment Consistency**: Ensure models behave identically across different deployment environments
+  - **Multiple Targets**: Deploy to Kubernetes, cloud platforms (AWS, Azure), or on-premises infrastructure
+  - **Containerization**: Package models with Docker for portable and scalable deployments
+  - **Real-time and Batch**: Support for both real-time inference and batch processing
+  - **Monitoring Integration**: Connect with monitoring tools to track production performance
+  - **Scalability**: Scale from single models to large distributed deployments
+  - **Version Control**: Manage multiple versions in production with easy rollback capabilities
+
+</details>
+
+### Custom PyFunc Models
+
+MLflow's PyFunc framework enables creation of custom model types for specialized use cases. [➡︎ Learn more](/traditional-ml/creating-custom-pyfunc)
+
+<details>
+  <summary>Key Benefits of Custom PyFunc</summary>
+
+  - **Framework Flexibility**: Wrap any Python-callable code as an MLflow model
+  - **Multi-model Endpoints**: Serve multiple models through a single endpoint
+  - **Complex Preprocessing**: Include data preprocessing logic directly in the model
+  - **Custom Inference Patterns**: Implement specialized inference patterns beyond standard predict methods
+  - **Extended Functionality**: Add capabilities not available in standard ML libraries
+  - **Consistent Interface**: Use the same PyFunc interface regardless of underlying implementation
+
+</details>
+
+## Tutorials and Guides
+
+### Traditional ML
+
+<CardGroup>
+  <PageCard headerText="Hyperparameter Tuning with MLflow and Optuna" link="/traditional-ml/hyperparameter-tuning-with-child-runs" text="Explore the integration of MLflow Tracking with Optuna for hyperparameter tuning. Dive into the capabilities of MLflow, understand parent-child run relationships, and compare different tuning runs to optimize model performance." />
+  <PageCard headerText="Custom Pyfunc Models with MLflow" link="/traditional-ml/creating-custom-pyfunc" text="Dive deep into the world of MLflow's Custom Pyfunc. Starting with basic model definitions, embark on a journey that showcases the versatility and power of Pyfunc. From simple mathematical curves to complex machine learning integrations, discover how Pyfunc offers standardized, reproducible, and efficient workflows for a variety of use cases." />
+  <PageCard headerText="Multi-Model Endpoints with PyFunc" link="/traditional-ml/serving-multiple-models-with-pyfunc" text="Dive deep into custom multi-model inference via MLflow's custom PyFunc models. Learn how to simplify low-latency inference by passing additional inference parameters to a simple custom PyFunc implementation. This tutorial can serve as a jumping off point for many multi-model endpoint (MME) use cases!" />
+</CardGroup>
+
+### Deep Learning
+
+<CardGroup>
+  <PageCard headerText="Distributed Training with PyTorch and MLflow" link="/deep-learning/distributed-training-pytorch" text="Learn how to track distributed training jobs with PyTorch and MLflow. This guide covers setting up distributed training, logging metrics from multiple nodes, and visualizing training progress." />
+  <PageCard headerText="TensorFlow Model Optimization and Deployment" link="/deep-learning/tensorflow-optimization" text="Explore techniques for optimizing TensorFlow models for inference, including quantization, pruning, and hardware-specific optimizations. Learn how to track these optimizations with MLflow and deploy the optimized models." />
+  <PageCard headerText="Computer Vision Models with MLflow" link="/deep-learning/computer-vision" text="Discover how to use MLflow to manage the lifecycle of computer vision models, from training to deployment. This guide covers image classification, object detection, and segmentation models." />
+</CardGroup>

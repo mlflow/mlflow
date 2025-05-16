@@ -67,8 +67,8 @@
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   border: 1px solid var(--ifm-color-emphasis-200);
-  cursor: pointer; /* Make sure cursor indicates clickable */
   margin-bottom: 2rem;
+  /* Removed cursor: pointer to make card non-clickable */
 }
 
 .glossyCardblue:hover {
@@ -134,12 +134,13 @@
 }
 
 /* --------------------------------
- * 4. Visual Button (Non-clickable)
+ * 4. Card Actions & Buttons
  * -------------------------------- */
-.cardAction {
+.cardActions {
   margin-top: 1.5rem;
   display: flex;
-  justify-content: flex-start;
+  flex-direction: row;
+  gap: 3rem;
 }
 
 .cardButton {
@@ -149,29 +150,44 @@
   border-radius: 8px;
   font-weight: 600;
   background-color: #FFFFFF;
-  pointer-events: none; /* Ensures it's not clickable */
+  /* Make button clickable */
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 /* Light mode border color */
 [data-theme='light'] .cardButton {
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--ifm-border-color);
   color: var(--ifm-color-emphasis-900);
 }
 
 /* Dark mode styling */
 [data-theme='dark'] .cardButton {
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  color: rgba(0, 0, 0, 0.95);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  background-color: var(--ifm-color-emphasis-100);
+  color: var(--ifm-color-emphasis-800);
 }
 
 .arrowIcon {
   margin-left: 0.5rem;
+  transition: transform 0.2s ease;
 }
 
-/* When card is hovered, animate the arrow slightly */
-.glossyCard:hover .arrowIcon {
+/* When button is hovered, animate the arrow */
+.cardButton:hover .arrowIcon {
   transform: translateX(3px);
-  transition: transform 0.2s ease;
+}
+
+/* Hover effect for the button itself */
+.cardButton:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme='dark'] .cardButton:hover {
+  background-color: var(--ifm-color-emphasis-200);
+  color: rgba(0, 0, 0, 0.9);
+  border-color: var(--ifm-color-emphasis-400);
 }
 
 /* --------------------------------
@@ -210,5 +226,10 @@
   
   .introText {
     font-size: 1rem;
+  }
+  
+  .cardActions {
+    flex-direction: column;
+    gap: 1rem;
   }
 }
