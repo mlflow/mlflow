@@ -116,7 +116,7 @@ def chunk_relevance():
 
 class _ContextSufficiency(_BaseBuiltInScorer):
     name: str = "context_sufficiency"
-    required_columns: set[str] = {"inputs", "retrieved_context", "expected_response"}
+    required_columns: set[str] = {"inputs", "retrieved_context", "expectations/expected_response"}
 
     def __call__(self, *, inputs: Any, retrieved_context: list[dict[str, Any]]) -> Assessment:
         """Evaluate context sufficiency based on retrieved documents."""
@@ -218,7 +218,7 @@ def groundedness():
 
 class _GuidelineAdherence(_BaseBuiltInScorer):
     name: str = "guideline_adherence"
-    required_columns: set[str] = {"inputs", "outputs", "guidelines"}
+    required_columns: set[str] = {"inputs", "outputs", "expectations/guidelines"}
 
     def __call__(
         self,
@@ -496,8 +496,13 @@ class _Correctness(_BaseBuiltInScorer):
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
-        if "expected_response" not in columns and "expected_facts" not in columns:
-            raise MissingColumnsException(self.name, ["expected_response or expected_facts"])
+        if (
+            "expectations/expected_response" not in columns
+            and "expectations/expected_facts" not in columns
+        ):
+            raise MissingColumnsException(
+                self.name, ["expectations/expected_response or expectations/expected_facts"]
+            )
 
     def __call__(self, *, inputs: Any, outputs: Any, expectations: list[str]) -> Assessment:
         """Evaluate correctness of the response against expectations."""

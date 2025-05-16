@@ -35,6 +35,10 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
     be accepted by mlflow.evaluate().
     The expected schema can be found at:
     https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
+
+    NB: The harness secretly support 'expectations' column as well. It accepts a dictionary of
+        expectations, which is same as the schema that mlflow.genai.evaluate() expects.
+        Therefore, we can simply pass through expectations column.
     """
     column_mapping = {
         "inputs": "request",
@@ -89,7 +93,6 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
         df.rename(columns=column_mapping)
         .pipe(_extract_request_from_trace)
         .pipe(_extract_expectations_from_trace)
-        .pipe(_convert_expectations_to_legacy_columns)
     )
 
 
