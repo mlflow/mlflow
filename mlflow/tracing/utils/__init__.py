@@ -467,5 +467,5 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
                 print("inside set_chat_attributes_special_case output created", output)
                 set_span_chat_attributes(span, inputs, output)
 
-    except Exception:
-        pass
+    except Exception as e:
+        print(e)
