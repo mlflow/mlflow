@@ -8,7 +8,7 @@ import pytest
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
@@ -38,9 +38,9 @@ def max_length(outputs, expectations):
 
 @scorer
 def relevance(inputs, outputs):
-    return Assessment(
+    return Feedback(
         name="relevance",
-        feedback=Feedback(value="yes"),
+        value="yes",
         rationale="The response is relevant to the question",
         source=AssessmentSource(source_id="gpt", source_type="LLM_JUDGE"),
     )
@@ -134,30 +134,30 @@ def test_evaluate_with_traces():
 
     # OSS MLflow backend doesn't support assessment APIs now, so we need to manually add them
     data.iloc[0]["trace"].info.assessments = [
-        Assessment(
+        Expectation(
             name="expected_response",
             trace_id="tr-123",
-            expectation=Expectation(value="MLflow is a tool for ML"),
+            value="MLflow is a tool for ML",
             source=AssessmentSource(source_id="me", source_type="HUMAN"),
         ),
-        Assessment(
+        Expectation(
             name="max_length",
             trace_id="tr-123",
-            expectation=Expectation(value=100),
+            value=100,
             source=AssessmentSource(source_id="me", source_type="HUMAN"),
         ),
     ]
     data.iloc[1]["trace"].info.assessments = [
-        Assessment(
+        Expectation(
             name="expected_response",
             trace_id="tr-123",
-            expectation=Expectation(value="Spark is a fast data processing engine"),
+            value="Spark is a fast data processing engine",
             source=AssessmentSource(source_id="me", source_type="HUMAN"),
         ),
-        Assessment(
+        Expectation(
             name="max_length",
             trace_id="tr-123",
-            expectation=Expectation(value=1),
+            value=1,
             source=AssessmentSource(source_id="me", source_type="HUMAN"),
         ),
     ]

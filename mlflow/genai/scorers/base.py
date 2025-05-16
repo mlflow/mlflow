@@ -4,7 +4,7 @@ from typing import Any, Callable, Literal, Optional, Union
 
 from pydantic import BaseModel
 
-from mlflow.entities import Assessment
+from mlflow.entities import Assessment, Feedback
 from mlflow.entities.trace import Trace
 
 
@@ -51,7 +51,7 @@ class Scorer(BaseModel):
         expectations: Optional[dict[str, Any]] = None,
         trace: Optional[Trace] = None,
         **kwargs,
-    ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
+    ) -> Union[int, float, bool, str, Feedback, list[Feedback]]:
         # TODO: make sure scorer's signature is simply equal to whatever keys are
         # in the eval dataset once we migrate from the agent eval harness
         # Currently, the evaluation harness only passes the following reserved
