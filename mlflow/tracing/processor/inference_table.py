@@ -10,7 +10,12 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+    TraceMetadataKey,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     _try_get_prediction_context,
@@ -130,6 +135,29 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
     def _get_trace_metadata(self) -> dict[str, str]:
         metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
 
-        if context := _try_get_prediction_context():
+        context = _try_get_prediction_context()
+        if context:
             metadata[MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME] = context.endpoint_name or ""
+
+        # The model ID fetch order is
+        # 1. from the context, this could be set by databricks serving
+        # 2. from the active model, this could be set by model loading or with environment variable
+        if context and context.model_id:
+            metadata[TraceMetadataKey.MODEL_ID] = context.model_id
+            _logger.debug(f"Model id fetched from the context: {context.model_id}")
+        else:
+            try:
+                from mlflow.tracking.fluent import _get_active_model_id_global
+
+                if active_model_id := _get_active_model_id_global():
+                    metadata[SpanAttributeKey.MODEL_ID] = active_model_id
+                    _logger.debug(
+                        f"Adding active model ID {active_model_id} to the trace metadata."
+                    )
+            except Exception as e:
+                _logger.debug(
+                    f"Failed to get model ID from the active model: {e}. "
+                    "Skipping adding model ID to trace metadata.",
+                    exc_info=True,
+                )
         return metadata

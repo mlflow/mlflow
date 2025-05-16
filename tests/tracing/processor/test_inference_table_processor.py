@@ -5,7 +5,12 @@ import pytest
 
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+    TraceMetadataKey,
+)
 from mlflow.tracing.processor.inference_table import (
     _HEADER_REQUEST_ID_KEY,
     InferenceTableSpanProcessor,
@@ -23,6 +28,7 @@ from tests.tracing.helper import (
 skip_module_when_testing_trace_sdk()
 
 from mlflow.pyfunc.context import Context, set_prediction_context
+from mlflow.tracking.fluent import set_active_model
 
 _OTEL_TRACE_ID = 12345
 _DATABRICKS_REQUEST_ID = "databricks-request-id"
@@ -36,6 +42,7 @@ def test_on_start(context_type):
     )
     trace_manager = InMemoryTraceManager.get_instance()
     processor = InferenceTableSpanProcessor(span_exporter=mock.MagicMock())
+    model = set_active_model(name="test-model")
 
     if context_type == "mlflow":
         with set_prediction_context(
@@ -67,6 +74,7 @@ def test_on_start(context_type):
             assert trace.info.request_metadata == {
                 TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
                 MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME: "test-endpoint",
+                TraceMetadataKey.MODEL_ID: model.model_id,
             }
 
     # Child span should not create a new trace
