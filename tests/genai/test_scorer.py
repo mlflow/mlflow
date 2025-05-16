@@ -10,6 +10,7 @@ import mlflow
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.assessment import FeedbackValue
 from mlflow.entities.assessment_error import AssessmentError
+from mlflow.evaluation import Assessment as LegacyAssessment
 from mlflow.genai import Scorer, scorer
 
 if importlib.util.find_spec("databricks.agents") is None:
@@ -191,7 +192,7 @@ def test_trace_passed_correctly():
             rationale="It's the answer to everything",
         ),
         # Legacy mlflow.evaluation.Assessment object. Still used by managed judges.
-        mlflow.evaluation.Assessment(name="big_question", value=True),
+        LegacyAssessment(name="big_question", value=True),
     ],
 )
 def test_scorer_on_genai_evaluate(sample_data, scorer_return):
@@ -208,7 +209,7 @@ def test_scorer_on_genai_evaluate(sample_data, scorer_return):
         return scorer_return
 
     results = mlflow.genai.evaluate(
-        data=sample_new_data,
+        data=sample_data,
         scorers=[dummy_scorer],
     )
 
@@ -236,7 +237,7 @@ def test_scorer_on_genai_evaluate(sample_data, scorer_return):
     assert dummy_scorer_values == scorer_return_values
 
 
-def test_scorer_returns_feedback_with_error(sample_new_data):
+def test_scorer_returns_feedback_with_error(sample_data):
     @scorer
     def dummy_scorer(inputs):
         return Feedback(
@@ -248,7 +249,7 @@ def test_scorer_returns_feedback_with_error(sample_new_data):
 
     with patch("mlflow.get_tracking_uri", return_value="databricks"):
         results = mlflow.genai.evaluate(
-            data=sample_new_data,
+            data=sample_data,
             scorers=[dummy_scorer],
         )
 
