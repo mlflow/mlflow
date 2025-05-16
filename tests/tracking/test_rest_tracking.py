@@ -41,6 +41,7 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException, RestException
+from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server.handlers import _get_sampled_steps_from_steps
@@ -2657,12 +2658,10 @@ def test_get_logged_model_artifact(mlflow_client: MlflowClient):
 
 
 def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
-    monkeypatch.setenv[MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT.name] = "true"
+    monkeypatch.setenv(MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT.name, "true")
     exp_id = mlflow_client.create_experiment("test_suppress_url_printing")
     run = mlflow_client.create_run(experiment_id=exp_id)
     captured_output = StringIO()
-    sys.stdout = captured_output
-    mlflow_client.set_terminated(run.info.run_id)
-    sys.stdout = sys.__stdout__
+    monkeypatch.setattr(sys, "stdout", captured_output)
+    mlflow_client._tracking_client._log_url(run.info.run_id)
     assert captured_output.getvalue() == ""
-    del os.environ["MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT"]
