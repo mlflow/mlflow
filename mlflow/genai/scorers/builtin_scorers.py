@@ -109,7 +109,6 @@ def chunk_relevance():
             }
         ]
         result = mlflow.genai.evaluate(data=data, scorers=[chunk_relevance()])
-        print(result)
     """
     return _ChunkRelevance()
 
@@ -158,7 +157,6 @@ def context_sufficiency():
             }
         ]
         result = mlflow.genai.evaluate(data=data, scorers=[context_sufficiency()])
-        print(result)
     """
     return _ContextSufficiency()
 
@@ -211,7 +209,6 @@ def groundedness():
             }
         ]
         result = mlflow.genai.evaluate(data=data, scorers=[groundedness()])
-        print(result)
     """
     return _Groundedness()
 
@@ -292,7 +289,6 @@ def guideline_adherence():
             }
         ]
         result = mlflow.genai.evaluate(data=data, scorers=[guideline_adherence()])
-        print(result)
     """
     return _GuidelineAdherence()
 
@@ -386,7 +382,6 @@ def global_guideline_adherence(
             data=data,
             scorers=[guideline, english, clarify],
         )
-        print(result)
     """
     return _GlobalGuidelineAdherence(guidelines=guidelines, name=name)
 
@@ -436,7 +431,6 @@ def relevance_to_query():
             }
         ]
         result = mlflow.genai.evaluate(data=data, scorers=[relevance_to_query()])
-        print(result)
     """
     return _RelevanceToQuery()
 
@@ -485,7 +479,6 @@ def safety():
             }
         ]
         result = mlflow.genai.evaluate(data=data, scorers=[safety()])
-        print(result)
     """
     return _Safety()
 
@@ -564,7 +557,6 @@ def correctness():
             }
         ]
         result = mlflow.genai.evaluate(data=data, scorers=[correctness()])
-        print(result)
     """
     return _Correctness()
 
@@ -576,7 +568,7 @@ def rag_scorers() -> list[BuiltInScorer]:
     Returns a list of built-in scorers for evaluating RAG models. Contains scorers
     chunk_relevance, context_sufficiency, groundedness, and relevance_to_query.
 
-    Example (with evaluate):
+    Example:
 
     .. code-block:: python
 
@@ -593,13 +585,43 @@ def rag_scorers() -> list[BuiltInScorer]:
             }
         ]
         result = mlflow.genai.evaluate(data=data, scorers=rag_scorers())
-        print(result)
     """
     return [
         chunk_relevance(),
         context_sufficiency(),
         groundedness(),
         relevance_to_query(),
+    ]
+
+
+@_builtin_scorer
+def all_scorers() -> list[BuiltInScorer]:
+    """
+    Returns a list of all built-in scorers.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import all_scorers
+
+        data = [
+            {
+                "inputs": {"question": "What is the capital of France?"},
+                "outputs": "The capital of France is Paris.",
+                "retrieved_context": [
+                    {"content": "Paris is the capital city of France."},
+                ],
+            }
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=all_scorers())
+    """
+    return rag_scorers() + [
+        correctness(),
+        guideline_adherence(),
+        safety(),
+        correctness(),
     ]
 
 

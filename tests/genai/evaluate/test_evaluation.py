@@ -287,7 +287,7 @@ def test_no_scorers(mock_get_tracking_uri):
     with pytest.raises(TypeError, match=r"evaluate\(\) missing 1 required positional"):
         mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}])
 
-    with pytest.raises(MlflowException, match=r"At least one scorer is required"):
+    with pytest.raises(MlflowException, match=r"The `scorers` argument must be a list of"):
         mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
 
 
