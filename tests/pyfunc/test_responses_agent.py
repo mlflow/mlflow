@@ -444,9 +444,12 @@ def test_responses_agent_trace_dict_output(tmp_path):
     class TracedResponsesAgent(ResponsesAgent):
         @mlflow.trace(span_type=SpanType.AGENT)
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
-            return {
-                "output": [output_item],
-            }
+            outputs = [
+                event.item
+                for event in self.predict_stream(request)
+                if event.type == "response.output_item.done"
+            ]
+            return ResponsesAgentResponse(output=outputs, custom_outputs=request.custom_inputs)
 
         @mlflow.trace(span_type=SpanType.AGENT)
         def predict_stream(self, request: ResponsesAgentRequest):

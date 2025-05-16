@@ -441,7 +441,6 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
         from mlflow.openai.utils.chat_schema import set_span_chat_attributes
         from mlflow.types.responses import ResponsesAgentResponse, ResponsesAgentStreamEvent
 
-        print("inside set_chat_attributes_special_case")
         try:
             if ResponsesAgentResponse.validate_compat(outputs):
                 inputs = inputs["request"].model_dump_compat()
@@ -464,8 +463,7 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
                     output=output_items,
                     custom_outputs=custom_outputs,
                 )
-                print("inside set_chat_attributes_special_case output created", output)
                 set_span_chat_attributes(span, inputs, output)
 
-    except Exception as e:
-        print(e)
+    except Exception:
+        pass
