@@ -14,6 +14,7 @@ from mlflow.genai.utils.trace_utils import is_model_traced
 from mlflow.models.evaluation.base import (
     _is_model_deployment_endpoint_uri,
 )
+from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
@@ -29,6 +30,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+@experimental
 @dataclass
 class EvaluationResult:
     run_id: str
@@ -36,6 +38,7 @@ class EvaluationResult:
     result_df: "pd.DataFrame"
 
 
+@experimental
 def evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
@@ -279,6 +282,7 @@ def evaluate(
     )
 
 
+@experimental
 def to_predict_fn(endpoint_uri: str) -> Callable:
     """
     Convert an endpoint URI to a predict function.

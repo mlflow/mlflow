@@ -6,8 +6,10 @@ from pydantic import BaseModel
 
 from mlflow.entities import Assessment, Feedback
 from mlflow.entities.trace import Trace
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 class Scorer(BaseModel):
     name: str
     aggregations: Optional[list] = None
@@ -167,6 +169,7 @@ class BuiltInScorer(Scorer):
         raise NotImplementedError("Please use an instance of BuiltInScorer")
 
 
+@experimental
 def scorer(
     func=None,
     *,
