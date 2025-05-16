@@ -35,6 +35,10 @@ from mlflow.utils.request_utils import (
     cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
+from mlflow.utils.warnings_utils import (
+    _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING,
+    suppress_warnings_containing,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -47,6 +51,7 @@ _V3_TRACE_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
 
 
+@suppress_warnings_containing(_DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING)
 def http_request(
     host_creds,
     endpoint,
