@@ -10,7 +10,8 @@ from mlflow.genai.evaluation.utils import (
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
-from mlflow.genai.utils.trace_utils import is_model_traced
+from mlflow.genai.utils.data_validation import validate_inputs_is_dict
+from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
     _is_model_deployment_endpoint_uri,
 )
@@ -255,15 +256,18 @@ def evaluate(
 
     valid_data_for_builtin_scorers(data, builtin_scorers, predict_fn)
 
+    # "request" column must exist after conversion
+    sample_input = data.iloc[0]["request"]
+
+    # Only check 'inputs' column when it is not derived from the trace object
+    if "trace" not in data.columns:
+        validate_inputs_is_dict(sample_input)
+
     if predict_fn:
-        sample_input = data.iloc[0]["request"]
-        if not is_model_traced(predict_fn, sample_input):
-            logger.info("Annotating predict_fn with tracing since it is not already traced.")
-            predict_fn = mlflow.trace(predict_fn)
+        predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
     result = mlflow.models.evaluate(
-        # Wrap the prediction function to unwrap the inputs dictionary into keyword arguments.
-        model=(lambda request: predict_fn(**request)) if predict_fn else None,
+        model=predict_fn,
         data=data,
         evaluator_config=evaluation_config,
         extra_metrics=extra_metrics,

@@ -228,7 +228,7 @@ def _wrap_function(
             with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                 return wrapping_coro.send(fn(*args, **kwargs))
 
-    return functools.wraps(fn)(wrapper)
+    return _wrap_function_safe(fn, wrapper)
 
 
 def _wrap_generator(
@@ -360,7 +360,17 @@ def _wrap_generator(
                     i += 1
             _end_stream_span(span, inputs, outputs, output_reducer)
 
-    return functools.wraps(fn)(wrapper)
+    return _wrap_function_safe(fn, wrapper)
+
+
+def _wrap_function_safe(fn: Callable, wrapper: Callable) -> Callable:
+    wrapped = functools.wraps(fn)(wrapper)
+    # Update the signature of the wrapper to match the signature of the original (safely)
+    try:
+        wrapped.__signature__ = inspect.signature(fn)
+    except Exception:
+        pass
+    return wrapped
 
 
 @contextlib.contextmanager
