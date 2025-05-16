@@ -73,7 +73,7 @@ def get_package_version_infos(package_name: str) -> list[VersionInfo]:
         if (
             len(dist_files) > 0
             and not is_dev_or_pre_release(version)
-            and not any(uploaded_recently(dist) for dist in dist_files)
+            and not any(uploaded_recently(dist) or dist.get("yanked", False) for dist in dist_files)
         )
     ]
 

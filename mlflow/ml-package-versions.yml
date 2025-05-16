@@ -686,7 +686,7 @@ langgraph:
 
   models:
     minimum: "0.2.0"
-    maximum: "0.4.5"
+    maximum: "0.4.3"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -701,7 +701,7 @@ langgraph:
 
   autologging:
     minimum: "0.2.0"
-    maximum: "0.4.5"
+    maximum: "0.4.3"
     requirements:
       ">= 0.0.0": [
           "langchain",
