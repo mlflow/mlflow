@@ -1,6 +1,8 @@
+import importlib.metadata
 from unittest.mock import patch
 
 import pytest
+from packaging.version import Version
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.instrumented import InstrumentedModel
@@ -14,6 +16,8 @@ from tests.tracing.helper import get_traces
 
 _FINAL_ANSWER_WITHOUT_TOOL = "Paris"
 _FINAL_ANSWER_WITH_TOOL = "winner"
+
+pydantic_ai_version = Version(importlib.metadata.version("pydantic_ai"))
 
 
 @pytest.fixture(autouse=True)
@@ -37,9 +41,12 @@ def reset_mlflow_autolog_and_traces():
 
 def _make_dummy_response_without_tool():
     part = TextPart(content=_FINAL_ANSWER_WITHOUT_TOOL)
-    resp = ModelResponse(parts=[part])
+    resp = ModelResponse(parts=())
     usage = Usage(requests=1, request_tokens=1, response_tokens=1, total_tokens=2)
-    return resp, usage
+    if pydantic_ai_version >= Version("0.2.0"):
+        return ModelResponse(parts=[part], usage=usage)
+    else:
+        return resp, usage
 
 
 def _make_dummy_response_with_tool():
