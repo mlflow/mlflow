@@ -16,7 +16,8 @@ from mlflow.entities.span import SpanType
 
 from tests.tracing.helper import get_traces
 
-is_gemini_1_7_or_newer = Version(importlib.metadata.version("google.genai")) >= Version("1.7.0")
+google_gemini_version = Version(importlib.metadata.version("google.genai"))
+is_gemini_1_7_or_newer = google_gemini_version >= Version("1.7.0")
 
 _CONTENT = {"parts": [{"text": "test answer"}], "role": "model"}
 
@@ -185,9 +186,11 @@ def test_generate_content_image_autolog():
     assert span.name == "Models.generate_content"
     assert span.span_type == SpanType.LLM
     assert span.inputs["model"] == "gemini-1.5-flash"
+    extra = {"display_name": None} if google_gemini_version >= Version("1.15.0") else {}
     assert span.inputs["contents"][0]["inline_data"] == {
         "data": "b'image'",
         "mime_type": "image/jpeg",
+        **extra,
     }
     assert span.inputs["contents"][1] == "Caption this image"
     assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
