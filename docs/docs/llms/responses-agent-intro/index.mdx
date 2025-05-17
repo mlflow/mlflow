@@ -154,7 +154,7 @@ Log your agent using the [Models-from-code](/model/models-from-code) approach. T
 with mlflow.start_run():
     logged_agent_info = mlflow.pyfunc.log_model(
         artifact_path="agent",
-        python_model="agent.py", # replace with your relative path to agent code
+        python_model="agent.py",  # replace with your relative path to agent code
     )
 ```
 
@@ -172,8 +172,12 @@ For ease of use, MLflow has built in the following features:
 To test out a ResponsesAgent, you can pass a single input dictionary that follows the ResponsesAgentRequest schema both before and after logging it:
 ```python
 from mlflow.pyfunc import ResponsesAgent
+
+
 class MyResponsesAgent(ResponsesAgent):
     ...
+
+
 responses_agent = MyResponsesAgent()
 responses_agent.predict(
     {
@@ -196,7 +200,8 @@ loaded_model.predict(
 Here's an example of an agent that calls OpenAI's gpt-4o model with a simple tool.
 
 ```python
-%%writefile agent.py
+# if using a jupyter notebook
+# %%writefile agent.py
 import json
 from typing import Any, Callable, Generator
 from uuid import uuid4
@@ -273,7 +278,9 @@ class ToolCallingAgent(ResponsesAgent):
             "call_id": tool_call["call_id"],
             "output": result,
         }
-        return ResponsesAgentStreamEvent(type="response.output_item.done", item=tool_call_output)
+        return ResponsesAgentStreamEvent(
+            type="response.output_item.done", item=tool_call_output
+        )
 
     def call_and_run_tools(
         self,
@@ -321,7 +328,9 @@ class ToolCallingAgent(ResponsesAgent):
             for event in self.predict_stream(request)
             if event.type == "response.output_item.done"
         ]
-        return ResponsesAgentResponse(output=outputs, custom_outputs=request.custom_inputs)
+        return ResponsesAgentResponse(
+            output=outputs, custom_outputs=request.custom_inputs
+        )
 
     @mlflow.trace(span_type=SpanType.AGENT)
     def predict_stream(
@@ -342,13 +351,17 @@ tools = [
             "description": "Get current temperature for provided coordinates in celsius.",
             "parameters": {
                 "type": "object",
-                "properties": {"latitude": {"type": "number"}, "longitude": {"type": "number"}},
+                "properties": {
+                    "latitude": {"type": "number"},
+                    "longitude": {"type": "number"},
+                },
                 "required": ["latitude", "longitude"],
                 "additionalProperties": False,
             },
             "strict": True,
         },
-        exec_fn=lambda latitude, longitude: latitude+longitude,  # dummy tool implementation
+        exec_fn=lambda latitude, longitude: latitude
+        + longitude,  # dummy tool implementation
     )
 ]
 SYSTEM_PROMPT = "You are a helpful assistant that can call tools to get information."
@@ -422,9 +435,9 @@ The `ResponsesAgent` interface extends all functionality previously available in
     {
       "id": "call_1",
       "type": "function",
-      "function": { 
+      "function": {
         "name": "",
-        "arguments": "" 
+        "arguments": ""
       }
     }
   ]

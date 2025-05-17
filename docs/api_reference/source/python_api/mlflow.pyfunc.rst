@@ -41,5 +41,3 @@ mlflow.pyfunc
 .. autoclass:: mlflow.pyfunc.ResponsesAgent
     :members:
     :undoc-members:
-
-
