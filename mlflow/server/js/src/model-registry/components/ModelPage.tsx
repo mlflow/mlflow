@@ -212,7 +212,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
         this.props.navigate(ModelRegistryRoutes.modelListPageRoute);})
   };
 
-  loadPage = (page: any, isInitialLoading: any, loadModelMetadata: boolean = false) => {
+  loadPage = (page: any, isInitialLoading: any, loadModelMetadata = false) => {
     const { modelName } = this.props;
     const {
       pageTokens,
@@ -220,7 +220,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
       orderByAsc,
       // eslint-disable-nextline
     } = this.state;
-    console.log('loadPage', this.state);
     this.setState({ loading: true, error: undefined });
     this.updateUrlWithState(orderByAsc, page);
     const filters_obj = { name: modelName };
