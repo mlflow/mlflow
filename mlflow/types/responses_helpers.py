@@ -25,8 +25,6 @@ https://github.com/openai/openai-python/blob/ed53107e10e6c86754866b48f8bd8626591
 # Response helper classes
 #########################
 class Status(BaseModel):
-    """Base class for objects that can have a status of in_progress, completed, or incomplete."""
-
     status: Optional[str] = None
 
     @model_validator(mode="after")
@@ -44,23 +42,17 @@ class Status(BaseModel):
 
 
 class ResponseError(BaseModel):
-    """Represents an error response with an optional error code and required message."""
-
     code: Optional[str] = None
     message: str
 
 
 class AnnotationFileCitation(BaseModel):
-    """Represents a citation to a file with a file ID and index."""
-
     file_id: str
     index: int
     type: str = "file_citation"
 
 
 class AnnotationURLCitation(BaseModel):
-    """Represents a URL citation with optional start/end indices, title, and URL."""
-
     end_index: Optional[int] = None
     start_index: Optional[int] = None
     title: str
@@ -69,16 +61,12 @@ class AnnotationURLCitation(BaseModel):
 
 
 class AnnotationFilePath(BaseModel):
-    """Represents a file path annotation with a file ID and index."""
-
     file_id: str
     index: int
     type: str = "file_path"
 
 
 class Annotation(BaseModel):
-    """Base class for different types of annotations (file citation, URL citation, file path)."""
-
     model_config = ConfigDict(extra="allow")
     type: str
 
@@ -96,23 +84,17 @@ class Annotation(BaseModel):
 
 
 class ResponseOutputText(BaseModel):
-    """Represents text output that may contain annotations."""
-
     annotations: Optional[list[Annotation]] = None
     text: str
     type: str = "output_text"
 
 
 class ResponseOutputRefusal(BaseModel):
-    """Represents a refusal response with a reason."""
-
     refusal: str
     type: str = "refusal"
 
 
 class Content(BaseModel):
-    """Base class for different types of content (output text, refusal)."""
-
     model_config = ConfigDict(extra="allow")
     type: str
 
@@ -128,8 +110,6 @@ class Content(BaseModel):
 
 
 class ResponseOutputMessage(Status):
-    """Represents a message from the assistant with content and role."""
-
     id: str
     content: list[Content]
     role: str = "assistant"
@@ -149,8 +129,6 @@ class ResponseOutputMessage(Status):
 
 
 class ResponseFunctionToolCall(Status):
-    """Represents a function tool call with arguments, call ID, and name."""
-
     arguments: str
     call_id: str
     name: str
@@ -159,23 +137,17 @@ class ResponseFunctionToolCall(Status):
 
 
 class Summary(BaseModel):
-    """Represents a summary text with type information."""
-
     text: str
     type: str = "summary_text"
 
 
 class ResponseReasoningItem(Status):
-    """Represents a reasoning item with ID and summary information."""
-
     id: str
     summary: list[Summary]
     type: str = "reasoning"
 
 
 class OutputItem(BaseModel):
-    """Base class for different types of output items (message, function call, reasoning, etc.)."""
-
     model_config = ConfigDict(extra="allow")
     type: str
 
@@ -199,8 +171,6 @@ class OutputItem(BaseModel):
 
 
 class IncompleteDetails(BaseModel):
-    """Represents details about why a response is incomplete."""
-
     reason: Optional[str] = None
 
     @model_validator(mode="after")
@@ -211,15 +181,11 @@ class IncompleteDetails(BaseModel):
 
 
 class ToolChoiceFunction(BaseModel):
-    """Represents a function choice for tool selection."""
-
     name: str
     type: str = "function"
 
 
 class FunctionTool(BaseModel):
-    """Represents a function tool with name, parameters, and optional description."""
-
     name: str
     parameters: dict[str, Any]
     strict: Optional[bool] = None
@@ -228,8 +194,6 @@ class FunctionTool(BaseModel):
 
 
 class Tool(BaseModel):
-    """Base class for different types of tools (function, file search, computer use, web search)."""
-
     model_config = ConfigDict(extra="allow")
     type: str
 
@@ -243,8 +207,6 @@ class Tool(BaseModel):
 
 
 class ToolChoice(BaseModel):
-    """Represents a choice of tool to use, either as a string or function."""
-
     tool_choice: Optional[Union[str, ToolChoiceFunction]] = None
 
     @model_validator(mode="after")
@@ -259,8 +221,6 @@ class ToolChoice(BaseModel):
 
 
 class ReasoningParams(BaseModel):
-    """Represents parameters for reasoning including effort level and summary type."""
-
     effort: Optional[str] = None
     generate_summary: Optional[str] = None
 
@@ -278,20 +238,14 @@ class ReasoningParams(BaseModel):
 
 
 class InputTokensDetails(BaseModel):
-    """Represents details about input token usage."""
-
     cached_tokens: int
 
 
 class OutputTokensDetails(BaseModel):
-    """Represents details about output token usage."""
-
     reasoning_tokens: int
 
 
 class ResponseUsage(BaseModel):
-    """Represents token usage statistics for a response."""
-
     input_tokens: int
     input_tokens_details: InputTokensDetails
     output_tokens: int
@@ -300,8 +254,6 @@ class ResponseUsage(BaseModel):
 
 
 class Truncation(BaseModel):
-    """Represents truncation settings for responses."""
-
     truncation: Optional[str] = None
 
     @model_validator(mode="after")
@@ -312,8 +264,6 @@ class Truncation(BaseModel):
 
 
 class Response(Truncation, ToolChoice):
-    """Main response class containing all response data and metadata."""
-
     id: Optional[str] = None
     created_at: Optional[float] = None
     error: Optional[ResponseError] = None
@@ -370,15 +320,11 @@ class Response(Truncation, ToolChoice):
 # ResponsesRequest helper classes
 #################################
 class ResponseInputTextParam(BaseModel):
-    """Represents an input text parameter with type information."""
-
     text: str
     type: str = "input_text"
 
 
 class Message(Status):
-    """Represents a message with content, role, and optional status."""
-
     content: Union[str, list[Union[ResponseInputTextParam, dict[str, Any]]]]
     role: str
     status: Optional[str] = None
@@ -411,16 +357,12 @@ class Message(Status):
 
 
 class FunctionCallOutput(Status):
-    """Represents the output of a function call."""
-
     call_id: str
     output: str
     type: str = "function_call_output"
 
 
 class BaseRequestPayload(Truncation, ToolChoice):
-    """Base class for request payloads with common parameters."""
-
     max_output_tokens: Optional[int] = None
     metadata: Optional[dict[str, str]] = None
     parallel_tool_calls: Optional[bool] = None
@@ -440,8 +382,6 @@ class BaseRequestPayload(Truncation, ToolChoice):
 
 
 class ResponseTextDeltaEvent(BaseModel):
-    """Represents a delta event for text output."""
-
     content_index: Optional[int] = None
     delta: str
     item_id: str
@@ -450,8 +390,6 @@ class ResponseTextDeltaEvent(BaseModel):
 
 
 class ResponseTextAnnotationDeltaEvent(BaseModel):
-    """Represents a delta event for text annotation."""
-
     annotation: Annotation
     annotation_index: int
     content_index: Optional[int] = None
@@ -461,16 +399,12 @@ class ResponseTextAnnotationDeltaEvent(BaseModel):
 
 
 class ResponseOutputItemDoneEvent(BaseModel):
-    """Represents an event indicating completion of an output item."""
-
     item: OutputItem
     output_index: Optional[int] = None
     type: str = "response.output_item.done"
 
 
 class ResponseErrorEvent(BaseModel):
-    """Represents an error event with optional code and parameter information."""
-
     code: Optional[str] = None
     message: str
     param: Optional[str] = None
@@ -478,7 +412,5 @@ class ResponseErrorEvent(BaseModel):
 
 
 class ResponseCompletedEvent(BaseModel):
-    """Represents an event indicating completion of a response."""
-
     response: Response
     type: str = "response.completed"
