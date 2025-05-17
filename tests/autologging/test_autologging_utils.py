@@ -665,7 +665,7 @@ def test_autologging_event_logger_default_implementation_does_not_throw_for_vali
 def test_autologging_event_logger_default_impl_warns_for_log_autolog_called_with_deprecated_args():
     AutologgingEventLogger.set_logger(AutologgingEventLogger())
 
-    with pytest.warns(DeprecationWarning, match="Received 1 positional arguments"):
+    with pytest.warns(FutureWarning, match="Received 1 positional arguments"):
         AutologgingEventLogger.get_logger().log_autolog_called(
             "test_integration",
             # call_args is deprecated in MLflow > 1.13.1; specifying a non-empty

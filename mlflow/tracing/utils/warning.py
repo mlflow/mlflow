@@ -64,7 +64,7 @@ def request_id_backward_compatible(func):
                 f"The request_id parameter is deprecated from the {func.__name__} API "
                 "and will be removed in a future version. Please use the `trace_id` "
                 "parameter instead.",
-                category=DeprecationWarning,
+                category=FutureWarning,
                 stacklevel=2,
             )
 

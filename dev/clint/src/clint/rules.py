@@ -356,3 +356,16 @@ class ForbiddenSetActiveModelUsage(Rule):
         return (
             "Usage of `set_active_model` is not allowed in mlflow, use `_set_active_model` instead."
         )
+
+
+class WarnWithDeprecationWarning(Rule):
+    def _id(self) -> str:
+        return "MLF0022"
+
+    def _message(self) -> str:
+        return (
+            "`DeprecationWarning` is ignored by default unless triggered by code in __main__. "
+            "Use `FutureWarning` instead. "
+            "See https://docs.python.org/3/library/exceptions.html#DeprecationWarning "
+            "for more details."
+        )
