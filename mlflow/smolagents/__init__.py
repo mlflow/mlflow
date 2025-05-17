@@ -48,7 +48,7 @@ def autolog(
             if isinstance(attr, type) and issubclass(attr, models.Model):
                 class_method_map.setdefault(attr.__name__, []).append("__call__")
     except Exception as e:
-        _logger.warn("the error happens while registering models to class_method_map: %s", e)
+        _logger.warning("the error happens while registering models to class_method_map: %s", e)
 
     try:
         for class_name, methods in class_method_map.items():
