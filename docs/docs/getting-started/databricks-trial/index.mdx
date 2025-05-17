@@ -9,10 +9,30 @@ import { APILink } from "@site/src/components/APILink";
 The [Databricks Free Trial](https://docs.databricks.com/en/getting-started/free-trial.html) offers an opportunity to experience the Databricks platform without prior cloud provider access.
 Most Databricks features, including full MLflow functionality are available during the trial period, allowing you to explore the platform with trial credits.
 You create account with your email only and won't get charged unless you decide to upgrade to a paid plan and register your payment information.
-To get started with Databricks Free Trial, visit the [Databricks Trial Signup Page](http://signup.databricks.com)
-and follow the instructions outlined there. It takes about 5 minutes to set up, and you'll have and you'll have access to a nearly fully functional Databricks Workspace for logging your tutorial experiments, runs, and artifacts.
 
-Once you log in to the Databricks Workspace, you will see a landing page like this:
+## Start your trial
+
+To get started with Databricks Free Trial, visit the [Databricks Trial Signup Page](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=TRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS)
+and follow the instructions outlined there. It takes about 5 minutes to set up, after which you'll have access to a nearly fully-functional Databricks Workspace for logging your tutorial experiments, traces, models, and artifacts.
+
+:::tip
+Do you already have a Databricks trial account? [Click here](https://login.databricks.com/?destination_url=/ml/experiments&dbx_source=MLFLOW_DOCS&source=MLFLOW_DOCS) if you'd like to login and get back to the MLflow UI.
+:::
+
+## First Steps
+
+When you login for the first time, you will be directed to the MLflow Tracing tutorial, giving you an opportunity to try out one of the most powerful GenAI features that MLflow has to offer.
+
+Simply click on either of the two tutorials and you will be able to test out MLflow's instrumentation capabilities within minutes.
+
+<figure>
+  ![MLflow Tracing Tutorial](/images/tutorials/introductory/lighthouse/tracing-tutorial.png)
+  <figcaption style={{ textAlign: "center" }}>Learn Tracing within Databricks MLflow UI</figcaption>
+</figure>
+
+## Navigating the Databricks UI
+
+Otherwise, once you log in to the Databricks Workspace on subsequent visits, you will see a landing page like this:
 
 <figure>
   ![Databricks Trial Landing Page](/images/tutorials/introductory/lighthouse/landing-page.png)
@@ -54,7 +74,10 @@ In order to stay within the comfortable confines of your local machine and still
 - Connect to your Databricks Workspace in your MLflow experiment session.
 
 #### Generate a PAT
-Follow the steps in [this guide](https://docs.databricks.com/aws/en/dev-tools/auth/pat) to create a PAT for your Databricks workspace user.
+
+If you are following along in the Tracing Tutorial, these steps are handled for you in both tutorials within the product. You can generate a remote access token directly within the tutorial.
+
+Otherwise, follow the steps in [this guide](https://docs.databricks.com/aws/en/dev-tools/auth/pat) to create a PAT for remotely accessing your Databricks Workspace.
 
 #### Install Dependencies
 Run the following command in your dev environment to install dependencies.
@@ -116,7 +139,7 @@ with mlflow.start_run():
 2025/02/19 12:26:33 INFO mlflow.tracking.fluent: Experiment with name '/Users/<your email>/check-databricks-connection' does not exist. Creating a new experiment.
 ```
 
-#### View Your Experiment on Databricks Workspace
+#### View Your Experiment on your Databricks Workspace
 
 Now let's navigate to your Databricks Workspace to view the experiment result. Log in to your
 Databricks Workspace, and click on top left to select machine learning
