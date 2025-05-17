@@ -1,18 +1,81 @@
 /**
- * Any CSS included here will be global. The classic template
- * bundles Infima by default. Infima is a CSS framework designed to
- * work well for content-centric websites.
+ * MLflow Documentation Styling
+ * Organized by section and functionality
  */
 
-/* You can override the default Infima variables here. */
+/* --------------------------------
+ * 1. Font Imports and Typography
+ * -------------------------------- */
+/* Import DM Sans for body text and DM Mono for code */
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
+
+/* Apply fonts */
 :root {
+  /* Font family variables */
+  --ifm-font-family-base: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --ifm-font-family-monospace: 'DM Mono', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  
+  /* Font weight variables - per designer specs */
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* Typography scale based on designer specs */
+  --font-size-h1: 64px;
+  --font-size-h2: 52px;
+  --font-size-h3: 40px;
+  --font-size-h4: 32px;
+  --font-size-h5: 24px;
+  --font-size-body-l: 18px;
+  --font-size-body-m: 16px;
+  --font-size-body-s: 14px;
+  --font-size-label-l: 14px;
+  --font-size-label-s: 12px;
+  
+  /* Line heights per designer specs */
+  --line-height-h1: 100%;
+  --line-height-h2: 120%;
+  --line-height-h3: 120%;
+  --line-height-h4: 120%;
+  --line-height-h5: 120%;
+  --line-height-body: 140%;
+  --line-height-label: 120%;
+  
+  /* Letter spacing per designer specs */
+  --letter-spacing-h1: -3%;
+  --letter-spacing-h2: -1%;
+  --letter-spacing-h3: -1%;
+  --letter-spacing-h4: 0;
+  --letter-spacing-h5: 0;
+  --letter-spacing-body: 0;
+  --letter-spacing-label: 8%;
+  
+  /* Map to Docusaurus variables */
+  --ifm-font-size-base: var(--font-size-body-m);
+  --ifm-line-height-base: 1.4;
+  --ifm-h1-font-size: var(--font-size-h1);
+  --ifm-h2-font-size: var(--font-size-h2);
+  --ifm-h3-font-size: var(--font-size-h3);
+  --ifm-h4-font-size: var(--font-size-h4);
+  --ifm-h5-font-size: var(--font-size-h5);
+  
+  /* Common layout variables */
   --card-border-radius: 4px;
   --card-shadow1: rgba(50, 50, 93, 0.05);
   --card-shadow2: rgba(50, 50, 93, 0.08);
   --card-shadow3: rgba(0, 0, 0, 0.05);
   --card-hover-shadow: 0 0 0 1px var(--card-shadow1),
     0 0 14px 5px var(--card-shadow2), 0 0 10px 3px var(--card-shadow3);
-
+  --padding-xs: 4px;
+  --padding-sm: 8px;
+  --padding-md: 16px;
+  --padding-lg: 24px;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  
+  /* Classic ML - Blue theme (default) */
   --ifm-color-primary: #0194e2;
   --ifm-color-primary-dark: #0086cf;
   --ifm-color-primary-darker: #0072b0;
@@ -21,7 +84,16 @@
   --ifm-color-primary-lighter: #4accf0;
   --ifm-color-primary-lightest: #54cef0;
 
-  /* Temporary secondary styles */
+  /* GenAI - Red theme */
+  --genai-color-primary: #EB1700;
+  --genai-color-primary-dark: #D21400;
+  --genai-color-primary-darker: #B91100;
+  --genai-color-primary-darkest: #9F0F00;
+  --genai-color-primary-light: #FF3A23;
+  --genai-color-primary-lighter: #FF6C59;
+  --genai-color-primary-lightest: #FF9D8F;
+  
+  /* Secondary colors */
   --ifm-color-secondary: #85552e;
   --ifm-color-secondary-dark: #784c29;
   --ifm-color-secondary-darker: #714827;
@@ -30,7 +102,7 @@
   --ifm-color-secondary-lighter: #996235;
   --ifm-color-secondary-lightest: #ad6e3c;
 
-  /* Temporary danger styles */
+  /* Danger colors */
   --ifm-color-danger: #852e5e;
   --ifm-color-danger-dark: #782955;
   --ifm-color-danger-darker: #712750;
@@ -39,14 +111,7 @@
   --ifm-color-danger-lighter: #99356c;
   --ifm-color-danger-lightest: #ad3c7b;
 
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
-  --padding-xs: 4px;
-  --padding-sm: 8px;
-  --padding-md: 16px;
-  --padding-lg: 24px;
-
-  /* Temporary info styles */
+  /* Info colors */
   --ifm-color-info: #2e8581;
   --ifm-color-info-dark: #297873;
   --ifm-color-info-darker: #27716d;
@@ -55,15 +120,115 @@
   --ifm-color-info-lighter: #359994;
   --ifm-color-info-lightest: #3cada7;
 
-  /* Increase h4 font-size to differentiate from regular bold text */
-  --ifm-h4-font-size: 1.125rem;
-
+  /* Footer colors */
   --ifm-footer-background-color: #303846;
   --ifm-footer-color: #ebedf0;
   --ifm-footer-link-color: #ebedf0;
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
+/* Apply typography directly to elements based on designer specs */
+body {
+  font-family: var(--ifm-font-family-base);
+  font-size: var(--font-size-body-m);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body);
+  letter-spacing: var(--letter-spacing-body);
+}
+
+h1 {
+  font-family: var(--ifm-font-family-base);
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-light);
+  line-height: var(--line-height-h1);
+  letter-spacing: -0.03em; /* -3% */
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+h2 {
+  font-family: var(--ifm-font-family-base);
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-light);
+  line-height: var(--line-height-h2);
+  letter-spacing: -0.01em; /* -1% */
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+h3 {
+  font-family: var(--ifm-font-family-base);
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-h3);
+  letter-spacing: -0.01em; /* -1% */
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+h4 {
+  font-family: var(--ifm-font-family-base);
+  font-size: var(--font-size-h4);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-h4);
+  letter-spacing: 0; /* 0% */
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+h5 {
+  font-family: var(--ifm-font-family-base);
+  font-size: var(--font-size-h5);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-h5);
+  letter-spacing: 0; /* 0% */
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Body text classes */
+.body-large {
+  font-size: var(--font-size-body-l);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body);
+  letter-spacing: var(--letter-spacing-body);
+}
+
+.body-medium {
+  font-size: var(--font-size-body-m);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body);
+  letter-spacing: var(--letter-spacing-body);
+}
+
+.body-small {
+  font-size: var(--font-size-body-s);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body);
+  letter-spacing: var(--letter-spacing-body);
+}
+
+/* Label classes */
+.label-large {
+  font-size: var(--font-size-label-l);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-label);
+  letter-spacing: 0.08em; /* 8% */
+  text-transform: uppercase;
+}
+
+.label-small {
+  font-size: var(--font-size-label-s);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-label);
+  letter-spacing: 0.08em; /* 8% */
+  text-transform: uppercase;
+}
+
+code, pre, kbd {
+  font-family: var(--ifm-font-family-monospace);
+}
+
+/* Dark mode overrides */
 [data-theme="dark"] {
   --ifm-color-primary: #0194e2;
   --ifm-color-primary-dark: #0086cf;
@@ -78,7 +243,7 @@
   --card-shadow2: rgba(162, 162, 162, 0.5);
   --card-shadow3: rgba(255, 255, 255, 0.3);
 
-  /* Temporary secondary styles */
+  /* Secondary colors */
   --ifm-color-secondary: #c2a025;
   --ifm-color-secondary-dark: #af9021;
   --ifm-color-secondary-darker: #a5881f;
@@ -87,7 +252,7 @@
   --ifm-color-secondary-lighter: #d8b432;
   --ifm-color-secondary-lightest: #ddbf4f;
 
-  /* Temporary danger styles */
+  /* Danger colors */
   --ifm-color-danger: #c22547;
   --ifm-color-danger-dark: #af2140;
   --ifm-color-danger-darker: #a51f3c;
@@ -98,9 +263,8 @@
 
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 
-  /* Temporary info styles */
+  /* Info colors */
   --ifm-color-info: #2595c2;
-  --ifm-color-info-dark: #2187af;
   --ifm-color-info-dark: #2187af;
   --ifm-color-info-darker: #1f7fa5;
   --ifm-color-info-darkest: #1a6988;
@@ -108,6 +272,225 @@
   --ifm-color-info-lighter: #32a9d8;
   --ifm-color-info-lightest: #4fb4dd;
 }
+
+/* Mobile/responsive typography overrides */
+@media (max-width: 996px) {
+  :root {
+    --font-size-h1: 48px;
+    --font-size-h2: 40px;
+    --font-size-h3: 32px;
+    --font-size-h4: 24px;
+    --font-size-h5: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --font-size-h1: 40px;
+    --font-size-h2: 32px;
+    --font-size-h3: 28px;
+    --font-size-h4: 22px;
+    --font-size-h5: 18px;
+  }
+}
+
+/* --------------------------------
+ * 2. Theme Switching
+ * -------------------------------- */
+
+/* GenAI theme activation */
+html[data-genai-theme="true"] {
+  --ifm-color-primary: var(--genai-color-primary);
+  --ifm-color-primary-dark: var(--genai-color-primary-dark);
+  --ifm-color-primary-darker: var(--genai-color-primary-darker);
+  --ifm-color-primary-darkest: var(--genai-color-primary-darkest);
+  --ifm-color-primary-light: var(--genai-color-primary-light);
+  --ifm-color-primary-lighter: var(--genai-color-primary-lighter);
+  --ifm-color-primary-lightest: var(--genai-color-primary-lightest);
+}
+
+/* --------------------------------
+ * 3. Navigation Bar Styling
+ * -------------------------------- */
+
+/* Prevent color change on hover for standard navbar links */
+.navbar__link:not(.navbar__link--active):hover {
+  color: inherit !important; /* Keep original text color */
+  background-color: transparent !important; /* Keep original background */
+}
+
+/* Base styling for all navbar links */
+.navbar__link {
+  position: relative;
+  padding-bottom: 6px; /* Space for the underline */
+}
+
+/* Add underline for active navbar items based on current theme */
+.navbar__link--active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  transition: background-color 0.2s ease;
+}
+
+.navbar__link:hover::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  opacity: 0.5;
+}
+
+/* Classic ML theme active navbar item underline */
+html:not([data-genai-theme="true"]) .navbar__link--active::after {
+  background-color: var(--ifm-color-primary);
+}
+
+/* GenAI theme active navbar item underline */
+html[data-genai-theme="true"] .navbar__link--active::after {
+  background-color: var(--genai-color-primary);
+}
+
+/* Base styling for section links */
+.navbar__link[href="/genai"] {
+  position: relative;
+  padding-bottom: 6px; /* Space for the underline */
+}
+
+/* ML section link */
+.navbar__link[href="/ml"] {
+  color: var( --ifm-color-primary);
+  font-weight: 600;
+}
+
+/* GenAI section link */
+.navbar__link[href="/genai"] {
+  color: var(--genai-color-primary);
+  font-weight: 600;
+}
+
+/* ML section active indicator - only show in ML section */
+html:not([data-genai-theme="true"]) .navbar__link[href="/ml"]::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: var( --ifm-color-primary);
+}
+
+/* GenAI section active indicator - only show in GenAI section */
+html[data-genai-theme="true"] .navbar__link[href="/genai"]::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: var(--genai-color-primary);
+}
+
+/* --------------------------------
+ * 4. Sidebar Styling
+ * -------------------------------- */
+
+/* Sidebar background color and spacing */
+.theme-doc-sidebar-container {
+  background-color: transparent;
+}
+
+/* Common sidebar styles for both themes */
+.menu__list {
+  padding-left: 0.5rem;
+}
+
+.sidebar-top-level-category > .menu__link,
+.sidebar-top-level-category > .menu__list-item-collapsible > .menu__link {
+  font-weight: var(--font-weight-medium);
+}
+
+.menu__list-item:not(.sidebar-top-level-category) > .menu__link,
+.menu__list-item:not(.sidebar-top-level-category) > .menu__list-item-collapsible > .menu__link {
+  font-size: var(--font-size-body-s);
+}
+
+/* Regular menu links - neutral grey text */
+.menu__link {
+  color: #6B7280; /* Neutral grey color */
+  transition: color 0.2s ease;
+}
+
+/* Active link styling for light and dark modes */
+.menu__link--active {
+  position: relative;
+}
+
+/* Light mode: Black text for active item */
+html[data-theme='light'] .menu__link--active {
+  color: #000000 !important; /* Pure black text */
+  background-color: transparent !important; /* No background color */
+  font-weight: var(--font-weight-medium);
+}
+
+/* Dark mode: White text for active item */
+html[data-theme='dark'] .menu__link--active {
+  color: #FFFFFF !important; /* Pure white text */
+  background-color: transparent !important; /* No background color */
+  font-weight: var(--font-weight-medium);
+}
+
+/* Make the collapse button smaller */
+.menu__caret:before,
+.menu__link--sublist-caret:after {
+  background: var(--ifm-menu-link-sublist-icon) 50% / 1.5rem 1.5rem;
+}
+
+/* Hover states */
+.menu__link:hover:not(.menu__link--active) {
+  color: #000000; /* Black on hover in light mode */
+  background-color: transparent !important;
+}
+
+[data-theme='dark'] .menu__link:hover:not(.menu__link--active) {
+  color: #FFFFFF; /* White on hover in dark mode */
+  background-color: transparent !important;
+}
+
+/* --------------------------------
+ * 5. Content Navigation
+ * -------------------------------- */
+
+/* Classic ML pagination */
+html:not([data-genai-theme="true"]) .pagination-nav__link--next .pagination-nav__label::after {
+  content: " →";
+  color: var(--ifm-color-primary);
+}
+
+html:not([data-genai-theme="true"]) .pagination-nav__link--prev .pagination-nav__label::before {
+  content: "← ";
+  color: var(--ifm-color-primary);
+}
+
+/* GenAI pagination */
+html[data-genai-theme="true"] .pagination-nav__link--next .pagination-nav__label::after {
+  content: " →";
+  color: var(--genai-color-primary);
+}
+
+html[data-genai-theme="true"] .pagination-nav__link--prev .pagination-nav__label::before {
+  content: "← ";
+  color: var(--genai-color-primary);
+}
+
+/* --------------------------------
+ * 6. Layout Utilities
+ * -------------------------------- */
 
 .flex-column {
   display: flex;
@@ -128,14 +511,18 @@
   padding: var(--padding-md);
 }
 
+.center-div {
+  margin-inline: auto;
+}
+
+/* --------------------------------
+ * 7. Image Styling
+ * -------------------------------- */
+
 /* Most of our images are PNGs with transparent
 backgrounds so they look bad in dark mode */
 main img {
   background-color: white;
-}
-
-.center-div {
-  margin-inline: auto;
 }
 
 /* We need to this class to limit image size using max-height. The class
@@ -154,35 +541,23 @@ must be applied to the wrapping div along with the desired max-height */
   }
 }
 
+/* --------------------------------
+ * 8. Accessibility
+ * -------------------------------- */
+
 /* This class is to be used in non-heading elements that contain a hash link reference.
-In headlines Ducousaurus adds this for us. */
+In headlines Docusaurus adds this for us. */
 .anchor-with-sticky-navbar {
   scroll-margin-top: calc(var(--ifm-navbar-height) + 0.5rem);
 }
 
-.sidebar-top-level-category > .menu__link {
-  font-weight: bold;
-}
-
-.sidebar-top-level-category > .menu__list-item-collapsible > .menu__link {
-  font-weight: bold;
-}
-
-.menu__list-item:not(.sidebar-top-level-category) > .menu__link {
-  font-size: 0.9rem;
-}
-
-.menu__list-item:not(.sidebar-top-level-category)
-  > .menu__list-item-collapsible
-  > .menu__link {
-  font-size: 0.9rem;
-}
-
-/* Make the collapse button smaller */
-.menu__caret:before {
-  background: var(--ifm-menu-link-sublist-icon) 50% / 1.5rem 1.5rem;
-}
-
-.menu__link--sublist-caret:after {
-  background: var(--ifm-menu-link-sublist-icon) 50% / 1.5rem 1.5rem;
+/* --------------------------------
+ * 9. Landing Page Specific Styles
+ * -------------------------------- */
+.homepage .megaHeading {
+  font-family: var(--ifm-font-family-base);
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-h1);
+  letter-spacing: -0.03em; /* -3% */
 }
