@@ -14,18 +14,23 @@ from mlflow.types.agent import ChatContext
 from mlflow.types.chat import BaseModel
 from mlflow.types.responses_helpers import (
     BaseRequestPayload,
+    FunctionCallOutput,
+    IncompleteDetails,
     Message,
     OutputItem,
+    ReasoningParams,
     Response,
     ResponseCompletedEvent,
+    ResponseError,
     ResponseErrorEvent,
     ResponseOutputItemDoneEvent,
     ResponseTextAnnotationDeltaEvent,
     ResponseTextDeltaEvent,
+    ResponseUsage,
+    ToolChoiceFunction,
 )
 
 __all__ = [
-    # Classes defined in this file
     "ResponsesAgentRequest",
     "ResponsesAgentResponse",
     "ResponsesAgentStreamEvent",
@@ -39,16 +44,51 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 
 
 class ResponsesAgentRequest(BaseRequestPayload):
+    """Request object for ResponsesAgent.
+
+    Args:
+        input (List[Union[:py:class:`mlflow.types.responses_helpers.Message`,
+            :py:class:`mlflow.types.responses_helpers.OutputItem`]]):
+            List of input messages or output items
+        custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            to the model. The dictionary values must be JSON-serializable.
+            **Optional** defaults to ``None``
+        context (:py:class:`mlflow.types.agent.ChatContext`): The context to be used in the chat
+            endpoint. Includes conversation_id and user_id. **Optional** defaults to ``None``
+    """
+
     input: list[Union[Message, OutputItem]]
     custom_inputs: Optional[dict[str, Any]] = None
     context: Optional[ChatContext] = None
 
 
 class ResponsesAgentResponse(Response):
+    """Response object for ResponsesAgent.
+
+    Args:
+        output (List[:py:class:`mlflow.types.responses_helpers.OutputItem`]): List of output items
+        reasoning (:py:class:`mlflow.types.responses_helpers.ReasoningParams`): Reasoning parameters
+        usage (:py:class:`mlflow.types.responses_helpers.ResponseUsage`): Usage information
+        custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
+            to ``None``
+    """
+
     custom_outputs: Optional[dict[str, Any]] = None
 
 
 class ResponsesAgentStreamEvent(BaseModel):
+    """Stream event for ResponsesAgent.
+
+    Args:
+        type (str): Type of the stream event
+        item (:py:class:`mlflow.types.responses_helpers.OutputItem`): The output item that is being
+            streamed
+        custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
+            from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
+            to ``None``
+    """
+
     model_config = ConfigDict(extra="allow")
     type: str
     custom_outputs: Optional[dict[str, Any]] = None
