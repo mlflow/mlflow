@@ -690,7 +690,7 @@ class TrackingServiceClient:
         """
         return self._get_artifact_repo(model_id, resource="logged_model").list_artifacts(path)
 
-    def download_artifacts(self, run_id, path, dst_path=None):
+    def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None):
         """Download an artifact file or directory from a run to a local directory if applicable,
         and return a local path for it.
 
@@ -707,7 +707,11 @@ class TrackingServiceClient:
             Local path of desired artifact.
 
         """
-        return self._get_artifact_repo(run_id).download_artifacts(path, dst_path)
+        from mlflow.artifacts import download_artifacts
+
+        return download_artifacts(
+            tracking_uri=self.tracking_uri, run_id=run_id, path=path, dst_path=dst_path
+        )
 
     def _log_url(self, run_id):
         if not isinstance(self.store, RestStore):
