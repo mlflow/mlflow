@@ -10,7 +10,7 @@ import { APILink } from "@site/src/components/APILink";
 - Ensure your model is compatible with OpenAI Responses API, making it compatible with OpenAI's responses client and other downstream UIs/applications
 
 
-We recommend `ResponsesAgent` instead of <APILink fn="mlflow.pyfunc.ChatModel">`ChatModel`</APILink> and <APILink fn="mlflow.pyfunc.ChatAgent">`ChatAgent`</APILink>, as it has all the benefits of `ChatAgent` and is compatible with OpenAIs Responses API.
+We recommend `ResponsesAgent` instead of <APILink fn="mlflow.pyfunc.ChatModel">`ChatModel`</APILink> and <APILink fn="mlflow.pyfunc.ChatAgent">`ChatAgent`</APILink>, as it has all the benefits of `ChatAgent` and is compatible with OpenAI's Responses API.
 
 
 ## Author a ResponsesAgent
@@ -160,7 +160,7 @@ with mlflow.start_run():
 
 For ease of use, MLflow has built in the following features:
 - Automatic model signature inference
-    - An input and output signature that adheres to the ResponsesAgentRequest and ResponsesAgentReponse schemas will be set
+    - An input and output signature that adheres to the ResponsesAgentRequest and ResponsesAgentResponse schemas will be set
 - Metadata
     - `{"task": "agent/v1/responses"}` will be automatically appended to any metadata that you may pass in when logging the model
 - Input Example
