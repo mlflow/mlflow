@@ -1,8 +1,10 @@
-# if not IS_PYDANTIC_V2_OR_NEWER:
-#     raise ImportError(
-#         "mlflow.types.responses is not supported in Pydantic v1. "
-#         "Please upgrade to Pydantic v2 or newer."
-#     )
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
+
+if not IS_PYDANTIC_V2_OR_NEWER:
+    raise ImportError(
+        "mlflow.types.responses is not supported in Pydantic v1. "
+        "Please upgrade to Pydantic v2 or newer."
+    )
 import json
 from typing import Any, Optional, Union
 
@@ -11,84 +13,22 @@ from pydantic import ConfigDict
 from mlflow.types.agent import ChatContext
 from mlflow.types.chat import BaseModel
 from mlflow.types.responses_helpers import (
-    # Re-export all other classes
-    Annotation,
-    AnnotationFileCitation,
-    AnnotationFilePath,
-    AnnotationURLCitation,
     BaseRequestPayload,
-    Content,
-    FunctionCallOutput,
-    FunctionTool,
-    IncompleteDetails,
-    InputTokensDetails,
     Message,
     OutputItem,
-    OutputTokensDetails,
-    ReasoningParams,
     Response,
     ResponseCompletedEvent,
-    ResponseError,
     ResponseErrorEvent,
-    ResponseFunctionToolCall,
-    ResponseInputTextParam,
     ResponseOutputItemDoneEvent,
-    ResponseOutputMessage,
-    ResponseOutputRefusal,
-    ResponseOutputText,
-    ResponseReasoningItem,
     ResponseTextAnnotationDeltaEvent,
     ResponseTextDeltaEvent,
-    ResponseUsage,
-    Status,
-    Summary,
-    Tool,
-    ToolChoice,
-    ToolChoiceFunction,
-    Truncation,
 )
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
 
 __all__ = [
     # Classes defined in this file
     "ResponsesAgentRequest",
     "ResponsesAgentResponse",
     "ResponsesAgentStreamEvent",
-    # Re-exported classes from responses_helpers
-    "Annotation",
-    "AnnotationFileCitation",
-    "AnnotationFilePath",
-    "AnnotationURLCitation",
-    "BaseRequestPayload",
-    "Content",
-    "FunctionCallOutput",
-    "FunctionTool",
-    "IncompleteDetails",
-    "InputTokensDetails",
-    "Message",
-    "OutputItem",
-    "OutputTokensDetails",
-    "ReasoningParams",
-    "Response",
-    "ResponseCompletedEvent",
-    "ResponseError",
-    "ResponseErrorEvent",
-    "ResponseFunctionToolCall",
-    "ResponseInputTextParam",
-    "ResponseOutputItemDoneEvent",
-    "ResponseOutputMessage",
-    "ResponseOutputRefusal",
-    "ResponseOutputText",
-    "ResponseReasoningItem",
-    "ResponseTextAnnotationDeltaEvent",
-    "ResponseTextDeltaEvent",
-    "ResponseUsage",
-    "Status",
-    "Summary",
-    "Tool",
-    "ToolChoice",
-    "ToolChoiceFunction",
-    "Truncation",
 ]
 
 from mlflow.types.schema import Schema
