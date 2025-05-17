@@ -22,6 +22,17 @@ from mlflow.utils.env_manager import CONDA, LOCAL, UV, VIRTUALENV
 from tests.tracing.helper import get_traces
 
 
+@pytest.fixture(autouse=True)
+def remove_pip_index_env(monkeypatch):
+    # Remove PIP_EXTRA_INDEX_URL env var to avoid UV searching
+    # for other packages from this index
+    env_var = os.environ.get("PIP_EXTRA_INDEX_URL")
+    if env_var:
+        urls = env_var.split(" ")
+        urls = list(set(urls) - {"https://download.pytorch.org/whl/cpu"})
+        monkeypatch.setenv("PIP_EXTRA_INDEX_URL", " ".join(urls))
+
+
 @pytest.mark.parametrize(
     ("input_data", "expected_data", "content_type"),
     [
