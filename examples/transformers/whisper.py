@@ -25,15 +25,6 @@ audio_transcription_pipeline = transformers.pipeline(
     task=task, model=model, tokenizer=tokenizer, feature_extractor=feature_extractor
 )
 
-# Note that if the input type is of raw binary audio, the generated signature will match the
-# one created here. For other supported types (i.e., numpy array of float32 with the
-# correct bitrate extraction), a signature is required to override the default of "binary" input
-# type.
-signature = mlflow.models.infer_signature(
-    audio,
-    mlflow.transformers.generate_signature_output(audio_transcription_pipeline, audio),
-)
-
 inference_config = {
     "return_timestamps": "word",
     "chunk_length_s": 20,
@@ -44,8 +35,7 @@ inference_config = {
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=audio_transcription_pipeline,
-        name="whisper_transcriber",
-        signature=signature,
+        artifact_path="whisper_transcriber",
         input_example=audio,
         inference_config=inference_config,
     )
