@@ -19,7 +19,9 @@ We recommend `ResponsesAgent` instead of <APILink fn="mlflow.pyfunc.ChatModel">`
 To create your own agent, subclass `mlflow.pyfunc.ResponsesAgent` and implement your agent logic in the `predict` method. The implementation is framework-agnostic, allowing you to use any agent authoring framework. Note that `pydantic>=2` is required to use ResponsesAgent. For a complete implementation example, see the [example below](#example).
 
 ### Creating agent output
-When implementing your agent, you'll work with two main output types: `ResponsesAgentResponse` and `ResponsesAgentStreamEvent`. These are the only pydantic objects you should create directly. The remaining classes in `mlflow.types.responses_helpers` serve as validation utilities.
+When implementing your agent, you'll work with two main output types: `ResponsesAgentResponse` and `ResponsesAgentStreamEvent`. These are the only pydantic objects you should create directly. The remaining classes in `mlflow.types.responses_helpers` are only for validating dictionaries.
+
+You can also use the `custom_outputs` field for any additional output you want to return from your agent that doesn't fit into the standard interface.
 
 Here's an example of a complete tool calling sequence using `ResponsesAgentResponse`:
 
@@ -360,8 +362,7 @@ tools = [
             },
             "strict": True,
         },
-        exec_fn=lambda latitude, longitude: latitude
-        + longitude,  # dummy tool implementation
+        exec_fn=lambda latitude, longitude: 70,  # dummy tool implementation
     )
 ]
 SYSTEM_PROMPT = "You are a helpful assistant that can call tools to get information."

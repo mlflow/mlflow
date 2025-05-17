@@ -22,6 +22,7 @@ from mlflow.types.responses_helpers import (
     ResponseOutputItemDoneEvent,
     ResponseTextAnnotationDeltaEvent,
     ResponseTextDeltaEvent,
+    ToolChoiceFunction,
 )
 
 __all__ = [
@@ -41,19 +42,21 @@ class ResponsesAgentRequest(BaseRequestPayload):
     """Request object for ResponsesAgent.
 
     Args:
-        input (List[Union[:py:class:`mlflow.types.responses_helpers.Message`,
-            :py:class:`mlflow.types.responses_helpers.OutputItem`]]): List of input
-            messages or output items
+        input (List[Union[:py:class:`mlflow.types.responses_helpers.Message`, :py:class:`mlflow.types.responses_helpers.OutputItem`]]):
+            List of input messages or output items.
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             to the model. The dictionary values must be JSON-serializable.
             **Optional** defaults to ``None``
         context (:py:class:`mlflow.types.agent.ChatContext`): The context to be used in the chat
             endpoint. Includes conversation_id and user_id. **Optional** defaults to ``None``
+        tool_choice (Union[str, :py:class:`mlflow.types.responses_helpers.ToolChoiceFunction`]): The tool choice to be used in the chat
+            endpoint. **Optional** defaults to ``None``
     """
 
     input: list[Union[Message, OutputItem]]
     custom_inputs: Optional[dict[str, Any]] = None
     context: Optional[ChatContext] = None
+    tool_choice: Optional[Union[str, "ToolChoiceFunction"]] = None
 
 
 class ResponsesAgentResponse(Response):
