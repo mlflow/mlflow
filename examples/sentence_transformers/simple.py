@@ -7,18 +7,11 @@ model = SentenceTransformer("all-MiniLM-L6-v2")
 
 example_sentences = ["This is a sentence.", "This is another sentence."]
 
-# Define the signature
-signature = mlflow.models.infer_signature(
-    model_input=example_sentences,
-    model_output=model.encode(example_sentences),
-)
-
 # Log the model using mlflow
 with mlflow.start_run():
     logged_model = mlflow.sentence_transformers.log_model(
         model=model,
-        name="sbert_model",
-        signature=signature,
+        artifact_path="sbert_model",
         input_example=example_sentences,
     )
 
