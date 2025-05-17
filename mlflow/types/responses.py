@@ -60,9 +60,12 @@ class ResponsesAgentResponse(Response):
     """Response object for ResponsesAgent.
 
     Args:
-        output (List[:py:class:`mlflow.types.responses_helpers.OutputItem`]): List of output items
-        reasoning (:py:class:`mlflow.types.responses_helpers.ReasoningParams`): Reasoning parameters
-        usage (:py:class:`mlflow.types.responses_helpers.ResponseUsage`): Usage information
+        output (List[:py:class:`OutputItem <mlflow.types.responses_helpers.OutputItem>`]): List of
+            output items
+        reasoning (:py:class:`ReasoningParams <mlflow.types.responses_helpers.ReasoningParams>`):
+            Reasoning parameters
+        usage (:py:class:`ResponseUsage <mlflow.types.responses_helpers.ResponseUsage>`): Usage
+            information
         custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
             to ``None``
@@ -76,8 +79,8 @@ class ResponsesAgentStreamEvent(BaseModel):
 
     Args:
         type (str): Type of the stream event
-        item (:py:class:`mlflow.types.responses_helpers.OutputItem`): The output item that is being
-            streamed
+        item (:py:class:`OutputItem <mlflow.types.responses_helpers.OutputItem>`): The output item
+            that is being streamed
         custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
             to ``None``
