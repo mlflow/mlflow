@@ -305,7 +305,8 @@ class PythonModelContext:
 class ChatModel(PythonModel, metaclass=ABCMeta):
     """
     .. tip::
-        Since MLflow 3.0.0, we recommend using `ResponsesAgent`
+        Since MLflow 3.0.0, we recommend using
+        :py:class:`ResponsesAgent <mlflow.pyfunc.ResponsesAgent>`
         instead of :py:class:`ChatModel <mlflow.pyfunc.ChatModel>` unless you need strict
         compatibility with the OpenAI ChatCompletion API.
 
@@ -414,7 +415,8 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
 class ChatAgent(PythonModel, metaclass=ABCMeta):
     """
     .. tip::
-        Since MLflow 3.0.0, we recommend using `ResponsesAgent`
+        Since MLflow 3.0.0, we recommend using
+        :py:class:`ResponsesAgent <mlflow.pyfunc.ResponsesAgent>`
         instead of :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`.
 
     **What is the ChatAgent Interface?**
@@ -858,8 +860,10 @@ if IS_PYDANTIC_V2_OR_NEWER:
         @abstractmethod
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             """
-            Given a ResponsesAgentRequest, returns a ResponsesAgentResponse. You can see an example
-            implementation at https://www.mlflow.org/docs/latest/llms/responses-agent-intro#example
+            Given a ResponsesAgentRequest, returns a ResponsesAgentResponse.
+
+            You can see an example implementation at
+            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#example.
             """
 
         @abstractmethod
@@ -868,8 +872,12 @@ if IS_PYDANTIC_V2_OR_NEWER:
         ) -> Generator[ResponsesAgentStreamEvent, None, None]:
             """
             Given a ResponsesAgentRequest, returns a generator of ResponsesAgentStreamEvent objects.
-            See more details at https://www.mlflow.org/docs/latest/llms/responses-agent-intro#streaming-agent-output
-            You can see an example implementation at https://www.mlflow.org/docs/latest/llms/responses-agent-intro#example
+
+            See more details at
+            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#streaming-agent-output.
+
+            You can see an example implementation at
+            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#example.
             """
 
 
