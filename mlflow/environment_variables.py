@@ -556,7 +556,7 @@ MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE = _EnvironmentVariable(
 #: If set to True, mlflow will configure ``mlflow.<module_name>`` loggers with
 #: logging handlers and formatters.
 #: (default: ``True``)
-MLFLOW_CONFIGURE_LOGGING = _BooleanEnvironmentVariable("MLFLOW_LOGGING_CONFIGURE_LOGGING", True)
+MLFLOW_CONFIGURE_LOGGING = _BooleanEnvironmentVariable("MLFLOW_CONFIGURE_LOGGING", True)
 
 #: If set to True, the following entities will be truncated to their maximum length:
 #: - Param value
