@@ -830,6 +830,13 @@ if IS_PYDANTIC_V2_OR_NEWER:
     )
 
     class ResponsesAgent(PythonModel, metaclass=ABCMeta):
+        """
+        A base class for creating ResponsesAgent models.
+
+        This class provides a framework for creating custom ResponsesAgent models.
+        See https://www.mlflow.org/docs/latest/llms/responses-agent-intro/ for more details.
+        """
+
         _skip_type_hint_validation = True
 
         def __init_subclass__(cls, **kwargs) -> None:
@@ -850,13 +857,20 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
         @abstractmethod
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
-            pass
+            """
+            Given a ResponsesAgentRequest, returns a ResponsesAgentResponse. You can see an example
+            implementation at https://www.mlflow.org/docs/latest/llms/responses-agent-intro#example
+            """
 
         @abstractmethod
         def predict_stream(
             self, request: ResponsesAgentRequest
         ) -> Generator[ResponsesAgentStreamEvent, None, None]:
-            pass
+            """
+            Given a ResponsesAgentRequest, returns a generator of ResponsesAgentStreamEvent objects.
+            See more details at https://www.mlflow.org/docs/latest/llms/responses-agent-intro#streaming-agent-output
+            You can see an example implementation at https://www.mlflow.org/docs/latest/llms/responses-agent-intro#example
+            """
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
