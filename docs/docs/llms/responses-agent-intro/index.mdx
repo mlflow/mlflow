@@ -15,12 +15,14 @@ We recommend `ResponsesAgent` instead of <APILink fn="mlflow.pyfunc.ChatModel">`
 
 ## Author a ResponsesAgent
 
-### Getting Started
-To author an agent, create a subclass of the `mlflow.pyfunc.ResponsesAgent` and implement your agent logic in its `predict` method. You can use any agent authoring framework in your implementation. You must use `pydantic>=2` to use ResponsesAgent. See the full example ResponsesAgent below.
+### Getting started
+To create your own agent, subclass `mlflow.pyfunc.ResponsesAgent` and implement your agent logic in the `predict` method. The implementation is framework-agnostic, allowing you to use any agent authoring framework. Note that `pydantic>=2` is required to use ResponsesAgent. For a complete implementation example, see the [example below](#example).
 
+### Creating agent output
+When implementing your agent, you'll work with two main output types: `ResponsesAgentResponse` and `ResponsesAgentStreamEvent`. These are the only pydantic objects you should create directly. The remaining classes in `mlflow.types.responses_helpers` serve as validation utilities.
 
-### Streaming agent output
-When creating output objects, you should only create `ResponsesAgentResponse` and `ResponsesAgentStreamEvent` pydantic objects. The other classes in `mlflow.types.responses_helpers` are for validation only. Below is an example of a tool calling sequence:
+Here's an example of a complete tool calling sequence using `ResponsesAgentResponse`:
+
 ```python
 from mlflow.types.responses import ResponsesAgentResponse
 
@@ -55,7 +57,55 @@ ResponsesAgentResponse(
     ]
 )
 ```
-An equivalent stream would look like:
+
+### Streaming agent output
+For real-time processing, you can use streaming events instead of returning a complete response. Streaming allows you to send partial results as they become available, which is useful for long-running operations or when you want to show progress to users.
+
+#### Basic text streaming
+The simplest form of streaming is text streaming, where you send text chunks as they become available. Each chunk is sent as a `response.output_text.delta` event, and you must include an `item_id` to correspond related events to a single output item. Finally, you send a `response.output_item.done` event to aggregate all chunks and complete the message:
+
+```python
+from mlflow.types.responses import ResponsesAgentStreamEvent
+
+# Stream text chunks
+ResponsesAgentStreamEvent(
+    type="response.output_text.delta",
+    delta="Hello",
+    item_id="msg_1",
+)
+ResponsesAgentStreamEvent(
+    type="response.output_text.delta",
+    delta="world",
+    item_id="msg_1",
+)
+ResponsesAgentStreamEvent(
+    type="response.output_text.delta",
+    delta="!",
+    item_id="msg_1",
+)
+
+# Aggregate the stream with a completion event
+ResponsesAgentStreamEvent(
+    type="response.output_item.done",
+    item={
+        "id": "msg_1",
+        "content": [
+            {
+                "annotations": [],
+                "text": "Hello world!",
+                "type": "output_text",
+            }
+        ],
+        "role": "assistant",
+        "status": "completed",
+        "type": "message",
+    },
+)
+```
+
+#### Tool calling with streaming
+You can also stream tool calls and their results. Each tool call and its output are sent as separate `response.output_item.done` events. This enables MLflow tracing and makes it easier for clients to reconstruct streamed message history:
+
 ```python
 from mlflow.types.responses import ResponsesAgentStreamEvent
 
@@ -95,9 +145,6 @@ ResponsesAgentStreamEvent(
     },
 )
 ```
-
-See the [example below](#example) for a full implementation!
-
 
 
 ## Log your agent
@@ -308,4 +355,132 @@ SYSTEM_PROMPT = "You are a helpful assistant that can call tools to get informat
 mlflow.openai.autolog()
 AGENT = ToolCallingAgent(llm_endpoint="gpt-4o", tools=tools)
 mlflow.models.set_model(AGENT)
+```
+
+## Migrating from `ChatAgent`
+
+When migrating from `ChatAgent` to `ResponsesAgent`, the primary task involves adapting your message formats from the ChatCompletion API to the Responses API schema. For detailed information about these changes, refer to the OpenAI documentation:
+- [Responses vs Chat Completions](https://platform.openai.com/docs/guides/responses-vs-chat-completions)
+- [Responses API Docs](https://platform.openai.com/docs/api-reference/responses)
+
+The `ResponsesAgent` interface extends all functionality previously available in <APILink fn="mlflow.pyfunc.ChatAgent">`ChatAgent`</APILink>, while introducing new features. Below, we outline the key differences in message representation between the two interfaces for common use cases:
+
+### Standard Text Response
+
+#### ResponsesAgent
+
+```json
+{
+  "type": "message",
+  "id": "",
+  "content": [
+    {
+      "annotations": [],
+      "text": "",
+      "type": "output_text"
+    }
+  ],
+  "role": "assistant",
+  "status": "completed"
+}
+
+```
+
+#### ChatAgent
+
+```json
+{
+  "role": "assistant",
+  "content": ""
+}
+```
+
+---
+
+### Tool Calls
+
+#### ResponsesAgent
+
+```json
+{
+  "type": "function_call",
+  "id": "fc_1",
+  "arguments": "",
+  "call_id": "call_1",
+  "name": "",
+  "status": "completed"
+}
+```
+
+#### ChatAgent
+
+```json
+{
+  "role": "assistant",
+  "content": "",
+  "tool_calls": [
+    {
+      "id": "call_1",
+      "type": "function",
+      "function": { 
+        "name": "",
+        "arguments": "" 
+      }
+    }
+  ]
+}
+```
+
+---
+
+### Tool Call Results
+
+#### ResponsesAgent
+
+```json
+{
+  "type": "function_call_output",
+  "call_id": "call_1",
+  "output": ""
+}
+```
+
+#### ChatAgent
+
+```json
+{
+  "role": "tool",
+  "content": "12",
+  "tool_call_id": "call_1"
+}
+```
+
+---
+
+### Tool Definitions
+
+#### ResponsesAgent
+
+```json
+{
+  "name": "",
+  "parameters": {},
+  "strict": true,
+  "type": "function",
+  "description": ""
+}
+```
+
+#### ChatAgent
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "",
+    "description": "",
+    "parameters": {},
+    "strict": true
+  }
+}
 ```
