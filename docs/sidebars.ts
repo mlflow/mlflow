@@ -226,6 +226,17 @@ const sidebars: SidebarsConfig = {
             },
             {
               type: 'category',
+              label: 'ResponsesAgent',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'llms/responses-agent-intro/index',
+                  label: 'ResponsesAgent Introduction',
+                },
+              ],
+            },
+            {
+              type: 'category',
               label: 'ChatModel',
               items: [
                 {

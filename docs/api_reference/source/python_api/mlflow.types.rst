@@ -5,6 +5,9 @@ mlflow.types
     :members:
     :show-inheritance:
 
+.. automodule:: mlflow.types.responses
+    :members:
+
 .. automodule:: mlflow.types.agent
     :members:
 
@@ -19,4 +22,8 @@ mlflow.types
     :undoc-members:
 
 .. automodule:: mlflow.types.llm._BaseDataclass
+    :undoc-members:
+
+.. automodule:: mlflow.types.responses_helpers
+    :members:
     :undoc-members:
