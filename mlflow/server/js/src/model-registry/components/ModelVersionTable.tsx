@@ -359,9 +359,6 @@ export const ModelVersionTable = ({
               sortDirection={header.column.getIsSorted() || 'none'}
               onToggleSort={() => {
                 const [currentSortColumn] = sorting;
-                const fieldMappingToSortKey ={
-                  'CREATION_TIMESTAMP': 'CREATION_TIMESTAMP',
-                };
                 const changingDirection = getSortFieldName(header.column.id) === currentSortColumn.id;
                 const sortDesc = changingDirection ? !currentSortColumn.desc : false;
                 header.column.toggleSorting(sortDesc);

@@ -239,6 +239,7 @@ describe('test modelVersionsByModel', () => {
         model_versions: [],
       },
     };
+    console.log(modelVersionsByModel(state, action));
     expect(modelVersionsByModel(state, action)).toEqual({});
   });
 
@@ -252,6 +253,13 @@ describe('test modelVersionsByModel', () => {
         model_versions: [version2, version1],
       },
     };
+    console.log("me", modelVersionsByModel(state, action));
+    console.log("expect", {
+      modelA: {
+        1: version1,
+        2: version2,
+      },
+    });
     expect(modelVersionsByModel(state, action)).toEqual({
       modelA: {
         1: version1,
@@ -260,7 +268,8 @@ describe('test modelVersionsByModel', () => {
     });
   });
 
-  test('SEARCH_MODEL_VERSION updates states correctly', () => {
+  test('SEARCH_MODEL_VERSION doesnt merge with states', () => {
+    // Reducers should not merge results for pagination
     const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
     const version2 = mockModelVersionDetailed('modelA', 2, 'Staging', 'READY');
     const state = { modelX: {} };
@@ -274,27 +283,6 @@ describe('test modelVersionsByModel', () => {
       modelA: {
         1: version1,
         2: version2,
-      },
-      modelX: {},
-    });
-  });
-
-  test('SEARCH_MODEL_VERSION refreshes state with new models', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
-    const version2 = mockModelVersionDetailed('modelA', 2, 'Staging', 'READY');
-    const version3 = mockModelVersionDetailed('modelA', 3, 'Staging', 'READY');
-    const state = { modelA: { 1: version1, 2: version2 } };
-    const action = {
-      type: fulfilled(SEARCH_MODEL_VERSIONS),
-      payload: {
-        model_versions: [version3],
-      },
-    };
-    expect(modelVersionsByModel(state, action)).toEqual({
-      modelA: {
-        1: version1,
-        2: version2,
-        3: version3,
       },
     });
   });

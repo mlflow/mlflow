@@ -93,24 +93,16 @@ const modelVersionsByModel = (state = {}, action: any) => {
     }
     case fulfilled(SEARCH_MODEL_VERSIONS): {
       const modelVersions = action.payload[getProtoField('model_versions')];
-      if (!modelVersions) {
-        return {};
-      }
-      
-      // Merge all modelVersions into the store
-      const newModelVersions = modelVersions.reduce(
-        (newState: any, modelVersion: any) => {
+      const nameToModelVersionMap: Record<string, Record<string, any>> = {};
+      if (modelVersions) {
+        modelVersions.forEach((modelVersion: any) => {
           const { name, version } = modelVersion;
-          return {
-            ...newState,
-            [name]: {
-              ...newState[name],
-              [version]: modelVersion,
-            },
-          };
-        }
-      );
-      return newModelVersions;
+          (nameToModelVersionMap[name] ||= {})[version] = modelVersion;
+        });
+      }      
+      return {
+        ...nameToModelVersionMap,
+      };
     }
     case fulfilled(DELETE_MODEL_VERSION): {
       const { modelName, version } = action.meta;
