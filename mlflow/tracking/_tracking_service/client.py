@@ -710,7 +710,7 @@ class TrackingServiceClient:
         from mlflow.artifacts import download_artifacts
 
         return download_artifacts(
-            tracking_uri=self.tracking_uri, run_id=run_id, path=path, dst_path=dst_path
+            run_id=run_id, artifact_path=path, dst_path=dst_path, tracking_uri=self.tracking_uri
         )
 
     def _log_url(self, run_id):
