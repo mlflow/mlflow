@@ -120,6 +120,14 @@ def reset_mlflow_uri():
     if "DISABLE_RESET_MLFLOW_URI_FIXTURE" not in os.environ:
         os.environ.pop("MLFLOW_TRACKING_URI", None)
         os.environ.pop("MLFLOW_REGISTRY_URI", None)
+        try:
+            from mlflow.tracking import set_registry_uri
+
+            # clean up the registry URI to avoid side effects
+            set_registry_uri(None)
+        except ImportError:
+            # tracing sdk does not have the registry module
+            pass
 
 
 @pytest.fixture(autouse=True)

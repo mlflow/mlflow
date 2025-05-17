@@ -23,13 +23,13 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 env:
-  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
+  MLFLOW_HOME: ${{ github.workspace }}
   # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
-  PIP_CONSTRAINT: /home/runner/work/mlflow/mlflow/requirements/constraints.txt
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
   PYTHONUTF8: "1"
 
 jobs:
@@ -90,14 +90,15 @@ jobs:
       - name: Import check
         run: |
           source .venv/bin/activate
-          python tests/check_mlflow_lazily_imports_ml_packages.py
+          # `-I` is used to avoid importing modules from user-specific site-packages
+          # that might conflict with the built-in modules (e.g. `types`).
+          python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
-            --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
-            --ignore=tests/deployments/server --ignore=tests/pyspark/optuna \
+            --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
 
   py310:
@@ -332,10 +333,16 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
+          # GenAI evaluation tests require databricks-agents that only work with Python >= 3.10
+          pip install 'databricks-agents<0.22.0' openai
+      - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests
         run: |
           # GenAI evaluation tests require databricks-agents that only work with Python 3.10~
-          pip install databricks-agents openai
+          pip install openai
+          # Install databricks-agents from a pre-release wheel because the latest released version
+          # is not compatible with MLflow master. Using --no-deps because it pings mlflow to 3.0.0rc2.
+          pip install https://ml-team-public-read.s3.us-west-2.amazonaws.com/wheels/rag-studio/dev/samraj.moorjani/databricks_agents-1.0.0rc1.dev0-py3-none-any.whl --no-deps
           pytest tests/genai
 
   optuna:
@@ -440,9 +447,6 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
-      - name: Set PIP_CONSTRAINT
-        run: |
-          echo "PIP_CONSTRAINT=${{ github.workspace }}/requirements/constraints.txt" >> $GITHUB_ENV
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -484,5 +488,5 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server --ignore=tests/optuna \
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/genai tests

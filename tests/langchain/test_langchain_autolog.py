@@ -979,14 +979,15 @@ def test_langchain_auto_tracing_in_serving_runnable():
 
     expected_output = '[{"role": "user", "content": "What is MLflow?"}]'
 
-    request_id, predictions, trace = score_in_model_serving(
+    databricks_request_id, predictions, trace = score_in_model_serving(
         model_info.model_uri,
         [{"product": "MLflow"}],
     )
 
     assert predictions == [expected_output]
     trace = Trace.from_dict(trace)
-    assert trace.info.request_id == request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == databricks_request_id
     assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
     spans = trace.data.spans
     assert len(spans) == 4
@@ -1028,13 +1029,14 @@ def test_langchain_auto_tracing_in_serving_agent():
             input_example=input_example,
         )
 
-    request_id, response, trace_dict = score_in_model_serving(
+    databricks_request_id, response, trace_dict = score_in_model_serving(
         model_info.model_uri,
         input_example,
     )
 
     trace = Trace.from_dict(trace_dict)
-    assert trace.info.request_id == request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == databricks_request_id
     assert trace.info.status == "OK"
 
     spans = trace.data.spans
@@ -1163,3 +1165,21 @@ def test_autolog_link_traces_to_active_model(model_infos):
         assert logged_model_id is not None
         assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
         assert model.model_id != logged_model_id
+
+
+def test_model_loading_set_active_model_id_without_fetching_logged_model():
+    mlflow.langchain.autolog()
+
+    model = create_openai_runnable(temperature=0.9)
+    model_info = mlflow.langchain.log_model(
+        model, name="model", input_example={"product": "MLflow"}
+    )
+
+    with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
+        loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    loaded_model.invoke({"product": "MLflow"})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
+    assert model_id == model_info.model_id

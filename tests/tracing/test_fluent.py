@@ -16,7 +16,7 @@ from mlflow.entities import (
     SpanType,
     Trace,
     TraceData,
-    TraceInfo,
+    TraceInfoV2,
 )
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
@@ -396,7 +396,8 @@ def test_trace_in_databricks_model_serving(
 
     trace_dict = response.json["trace"]
     trace = Trace.from_dict(trace_dict)
-    assert trace.info.trace_id == databricks_request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == databricks_request_id
     assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
     assert len(trace.data.spans) == 3
 
@@ -409,7 +410,7 @@ def test_trace_in_databricks_model_serving(
     assert root_span.status.status_code.value == "OK"
     assert root_span.status.description == ""
     assert root_span.attributes == {
-        "mlflow.traceRequestId": databricks_request_id,
+        "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.UNKNOWN,
         "mlflow.spanFunctionName": "predict",
         "mlflow.spanInputs": {"x": 2, "y": 5},
@@ -421,7 +422,7 @@ def test_trace_in_databricks_model_serving(
     assert child_span_1.parent_id == root_span.span_id
     assert child_span_1.attributes == {
         "delta": 1,
-        "mlflow.traceRequestId": databricks_request_id,
+        "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.LLM,
         "mlflow.spanFunctionName": "add_one",
         "mlflow.spanInputs": {"z": 7},
@@ -432,7 +433,7 @@ def test_trace_in_databricks_model_serving(
     child_span_2 = span_name_to_span["square"]
     assert child_span_2.parent_id == root_span.span_id
     assert child_span_2.attributes == {
-        "mlflow.traceRequestId": databricks_request_id,
+        "mlflow.traceRequestId": trace.info.trace_id,
         "mlflow.spanType": SpanType.UNKNOWN,
     }
     assert asdict(child_span_2.events[0]) == {
@@ -802,7 +803,7 @@ def test_mlflow_trace_isolated_from_other_otel_processors():
     assert other_exporter.exported_spans[0].name == "non_mlflow_span"
 
 
-@mock.patch("mlflow.tracing.export.mlflow.get_display_handler")
+@mock.patch("mlflow.tracing.display.get_display_handler")
 def test_get_trace(mock_get_display_handler):
     model = DefaultTestModel()
     model.predict(2, 5)
@@ -962,30 +963,30 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     assert df.columns.tolist() == [
         "trace_id",
         "trace",
-        "timestamp_ms",
-        "status",
-        "execution_time_ms",
+        "client_request_id",
+        "state",
+        "request_time",
+        "execution_duration",
         "request",
         "response",
-        "request_metadata",
-        "spans",
+        "trace_metadata",
         "tags",
+        "spans",
         "assessments",
-        "request_id",
     ]
     for idx, trace in enumerate(expected_traces):
         assert df.iloc[idx].trace_id == trace.info.trace_id
         assert df.iloc[idx].trace.info.trace_id == trace.info.trace_id
-        assert df.iloc[idx].timestamp_ms == trace.info.timestamp_ms
-        assert df.iloc[idx].status == trace.info.status
-        assert df.iloc[idx].execution_time_ms == trace.info.execution_time_ms
+        assert df.iloc[idx].client_request_id == trace.info.client_request_id
+        assert df.iloc[idx].state == trace.info.state
+        assert df.iloc[idx].request_time == trace.info.request_time
+        assert df.iloc[idx].execution_duration == trace.info.execution_duration
         assert df.iloc[idx].request == json.loads(trace.data.request)
         assert df.iloc[idx].response == json.loads(trace.data.response)
-        assert df.iloc[idx].request_metadata == trace.info.request_metadata
+        assert df.iloc[idx].trace_metadata == trace.info.trace_metadata
         assert df.iloc[idx].spans == [s.to_dict() for s in trace.data.spans]
         assert df.iloc[idx].tags == trace.info.tags
         assert df.iloc[idx].assessments == trace.info.assessments
-        assert df.iloc[idx].request_id == trace.info.request_id
 
 
 @skip_when_testing_trace_sdk
@@ -993,7 +994,7 @@ def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
     mock_client.search_traces.return_value = PagedList(
         [
             Trace(
-                info=TraceInfo(
+                info=TraceInfoV2(
                     request_id=5,
                     experiment_id="test",
                     timestamp_ms=1,
@@ -1013,7 +1014,7 @@ def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
     df = mlflow.search_traces()
     assert df["response"].isnull().all()
     assert df["tags"].tolist() == [{}]
-    assert df["request_metadata"].tolist() == [{}]
+    assert df["trace_metadata"].tolist() == [{}]
 
 
 @skip_when_testing_trace_sdk
@@ -1144,7 +1145,7 @@ def test_search_traces_with_run_id():
     def _create_trace(name, tags=None):
         with mlflow.start_span(name=name) as span:
             for k, v in (tags or {}).items():
-                TracingClient().set_trace_tag(request_id=span.request_id, key=k, value=v)
+                mlflow.set_trace_tag(trace_id=span.request_id, key=k, value=v)
         return span.request_id
 
     def _get_names(traces):
@@ -1177,6 +1178,9 @@ def test_search_traces_with_run_id():
             run_id=run2.info.run_id,
             filter_string="metadata.mlflow.sourceRun = '123'",
         )
+
+    with pytest.raises(MlflowException, match=f"Run {run1.info.run_id} belongs to"):
+        mlflow.search_traces(run_id=run1.info.run_id, experiment_ids=["1"])
 
 
 @pytest.mark.parametrize(
@@ -1270,6 +1274,48 @@ def test_update_current_trace():
     assert traces[0].info.status == "OK"
     tags = {k: v for k, v in traces[0].info.tags.items() if not k.startswith("mlflow.")}
     assert tags == expected_tags
+
+
+@skip_when_testing_trace_sdk
+def test_update_current_trace_should_not_raise_during_model_logging():
+    """
+    Tracing is disabled while model logging. When the model includes
+    `update_current_trace` call, it should be no-op.
+    """
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        @mlflow.trace
+        def predict(self, model_inputs):
+            mlflow.update_current_trace(tags={"fruit": "apple"})
+            return [model_inputs[0] + 1]
+
+    model = MyModel()
+
+    model.predict([1])
+    trace = get_traces()[0]
+    assert trace.info.state == "OK"
+    assert trace.info.tags["fruit"] == "apple"
+    purge_traces()
+
+    model_info = mlflow.pyfunc.log_model(
+        python_model=model,
+        name="model",
+        input_example=[0],
+    )
+    # Trace should not be generated while logging the model
+    assert get_traces() == []
+
+    # Signature should be inferred properly without raising any exception
+    assert model_info.signature is not None
+    assert model_info.signature.inputs is not None
+    assert model_info.signature.outputs is not None
+
+    # Loading back the model
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_model.predict([1])
+    trace = get_traces()[0]
+    assert trace.info.status == "OK"
+    assert trace.info.tags["fruit"] == "apple"
 
 
 @skip_when_testing_trace_sdk
@@ -1468,7 +1514,7 @@ def test_add_trace_raise_for_invalid_trace():
         mlflow.add_trace({"info": {}, "data": {}})
 
     in_progress_trace = Trace(
-        info=TraceInfo(
+        info=TraceInfoV2(
             request_id="123",
             status=TraceStatus.IN_PROGRESS,
             experiment_id="0",
@@ -1510,9 +1556,10 @@ def test_add_trace_in_databricks_model_serving(mock_databricks_serving_with_trac
     # Pop the trace to be written to the inference table
     trace = Trace.from_dict(pop_trace(request_id=db_request_id))
 
-    assert trace.info.trace_id == db_request_id
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.client_request_id == db_request_id
     assert len(trace.data.spans) == 3
-    assert all(span.trace_id == db_request_id for span in trace.data.spans)
+    assert all(span.trace_id == trace.info.trace_id for span in trace.data.spans)
     parent_span, child_span, grandchild_span = trace.data.spans
     assert child_span.parent_id == parent_span.span_id
     assert child_span._trace_id == parent_span._trace_id
@@ -1588,3 +1635,25 @@ def test_log_trace_success(inputs, outputs, intermediate_outputs):
     assert root_span.name == "test"
     assert root_span.start_time_ns == start_time_ms * 1000000
     assert root_span.end_time_ns == (start_time_ms + execution_time_ms) * 1000000
+
+
+def test_set_delete_trace_tag():
+    with mlflow.start_span("span1") as span:
+        trace_id = span.trace_id
+
+    mlflow.set_trace_tag(trace_id=trace_id, key="key1", value="value1")
+    trace = mlflow.get_trace(trace_id=trace_id)
+    assert trace.info.tags["key1"] == "value1"
+
+    mlflow.delete_trace_tag(trace_id=trace_id, key="key1")
+    trace = mlflow.get_trace(trace_id=trace_id)
+    assert "key1" not in trace.info.tags
+
+    # Test with request_id kwarg (backward compatibility)
+    mlflow.set_trace_tag(request_id=trace_id, key="key3", value="value3")
+    trace = mlflow.get_trace(request_id=trace_id)
+    assert trace.info.tags["key3"] == "value3"
+
+    mlflow.delete_trace_tag(request_id=trace_id, key="key3")
+    trace = mlflow.get_trace(request_id=trace_id)
+    assert "key3" not in trace.info.tags

@@ -7,16 +7,9 @@ __all__ = ["autolog"]
 # i.e., skip if only mlflow-tracing package is installed.
 if not IS_TRACING_SDK_ONLY:
     from mlflow.dspy.load import _load_pyfunc, load_model
-    from mlflow.dspy.save import (
-        get_default_conda_env,
-        get_default_pip_requirements,
-        log_model,
-        save_model,
-    )
+    from mlflow.dspy.save import log_model, save_model
 
     __all__ += [
-        "get_default_conda_env",
-        "get_default_pip_requirements",
         "save_model",
         "log_model",
         "load_model",

@@ -53,9 +53,9 @@ from mlflow.types.responses_helpers import (
 
 __all__ = [
     # Classes defined in this file
-    "ResponsesRequest",
-    "ResponsesResponse",
-    "ResponsesStreamEvent",
+    "ResponsesAgentRequest",
+    "ResponsesAgentResponse",
+    "ResponsesAgentStreamEvent",
     # Re-exported classes from responses_helpers
     "Annotation",
     "AnnotationFileCitation",
@@ -100,23 +100,23 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 )
 
 
-class ResponsesRequest(BaseRequestPayload):
+class ResponsesAgentRequest(BaseRequestPayload):
     input: list[Union[Message, OutputItem]]
     custom_inputs: Optional[dict[str, Any]] = None
     context: Optional[ChatContext] = None
 
 
-class ResponsesResponse(Response):
+class ResponsesAgentResponse(Response):
     custom_outputs: Optional[dict[str, Any]] = None
 
 
-class ResponsesStreamEvent(BaseModel):
+class ResponsesAgentStreamEvent(BaseModel):
     model_config = ConfigDict(extra="allow")
     type: str
     custom_outputs: Optional[dict[str, Any]] = None
 
     @model_validator(mode="after")
-    def check_type(self) -> "ResponsesStreamEvent":
+    def check_type(self) -> "ResponsesAgentStreamEvent":
         type = self.type
         if type == "response.output_item.done":
             ResponseOutputItemDoneEvent(**self.model_dump_compat())
@@ -160,8 +160,8 @@ with MlflowEventsAndWarningsBehaviorGlobally(
     disable_event_logs=True,
     disable_warnings=True,
 ):
-    properties = _infer_schema_from_type_hint(ResponsesRequest).to_dict()[0]["properties"]
+    properties = _infer_schema_from_type_hint(ResponsesAgentRequest).to_dict()[0]["properties"]
     formatted_properties = [{**prop, "name": name} for name, prop in properties.items()]
     RESPONSES_AGENT_INPUT_SCHEMA = Schema.from_json(json.dumps(formatted_properties))
-    RESPONSES_AGENT_OUTPUT_SCHEMA = _infer_schema_from_type_hint(ResponsesResponse)
+    RESPONSES_AGENT_OUTPUT_SCHEMA = _infer_schema_from_type_hint(ResponsesAgentResponse)
 RESPONSES_AGENT_INPUT_EXAMPLE = {"input": [{"role": "user", "content": "Hello!"}]}

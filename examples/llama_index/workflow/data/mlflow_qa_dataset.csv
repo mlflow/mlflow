@@ -73,7 +73,7 @@ endpoints:
 ```
 Once configured, you can start MLflow Deployment Server using the following command:
 ```
-mlflow deployments start-server --config-path config.yaml --port {port} --host {host} --workers {worker count}
+mlflow gateway start --config-path config.yaml --port {port} --host {host} --workers {worker count}
 ```
 The endpoints can be queried via either REST API or MLflow Client API. You can also access the auto-generated API documentation at http://{host}:{port}/docs."
 How to set up authentication for MLflow Deployment Server to access Amazon Bedrock models?,"There are two different authentication methods to configure MLflow Deployment Server endpoints with Amazon Bedrock models:

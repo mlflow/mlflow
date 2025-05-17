@@ -167,11 +167,11 @@ LOG_MODEL_PARAM_DOCS = ParamDocs(
         "conda_env": (
             """Either a dictionary representation of a Conda environment or the path to a conda
 environment yaml file. If provided, this describes the environment this model should be run in.
-At a minimum, it should specify the dependencies contained in :func:`get_default_conda_env()`.
+At a minimum, it should specify the dependencies contained in `get_default_conda_env()`.
 If ``None``, a conda environment with pip requirements inferred by
 :func:`mlflow.models.infer_pip_requirements` is added
 to the model. If the requirement inference fails, it falls back to using
-:func:`get_default_pip_requirements`. pip requirements from ``conda_env`` are written to a pip
+`get_default_pip_requirements`. pip requirements from ``conda_env`` are written to a pip
 ``requirements.txt`` file and the full conda environment is written to ``conda.yaml``.
 The following is an *example* dictionary representation of a conda environment::
 
@@ -194,7 +194,7 @@ The following is an *example* dictionary representation of a conda environment::
 a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this
 describes the environment this model should be run in. If ``None``, a default list of requirements
 is inferred by :func:`mlflow.models.infer_pip_requirements` from the current software environment.
-If the requirement inference fails, it falls back to using :func:`get_default_pip_requirements`.
+If the requirement inference fails, it falls back to using `get_default_pip_requirements`.
 Both requirements and constraints are automatically parsed and written to ``requirements.txt`` and
 ``constraints.txt`` files, respectively, and stored as part of the model. Requirements are also
 written to the ``pip`` section of the model's conda environment (``conda.yaml``) file."""

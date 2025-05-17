@@ -616,6 +616,13 @@ MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
     "MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", int, 10
 )
 
+#: Whether to writing trace to the MLflow backend from a model running in a Databricks
+#: model serving endpoint. If true, the trace will be written to both the MLflow backend
+#: and the Inference Table.
+_MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING = _EnvironmentVariable(
+    "MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", bool, False
+)
+
 # Default addressing style to use for boto client
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
     "MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE", str, "auto"
@@ -676,6 +683,12 @@ MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(
 MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
     "MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING", True
 )
+
+#: Specifies the artifact compression method used when logging a model
+#: allowed values are "lzma", "bzip2" and "gzip"
+#: (default: ``None``, indicating no compression)
+MLFLOW_LOG_MODEL_COMPRESSION = _EnvironmentVariable("MLFLOW_LOG_MODEL_COMPRESSION", str, None)
+
 
 # Specifies whether to convert a {"messages": [{"role": "...", "content": "..."}]} input
 # to a List[BaseMessage] object when invoking a PyFunc model saved with langchain flavor.
@@ -742,15 +755,55 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
 )
 
 
-#: Timeout seconds for retrying async trace logging.
-#: (default: ``60``)
+#: Timeout seconds for retrying trace logging.
+#: (default: ``500``)
 MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
-    "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 60
+    "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 500
 )
 
 
-#: Specified the ID of the LoggedModel to link traces to.
-#: This should only by used by MLflow internally or in standalone environments such
-#: as Databricks serving.
+#: Default active LoggedModel ID.
+#: This should only by used by MLflow internally, users should always use
+#: `set_active_model` to set the active LoggedModel, and should not set
+#: this environment variable directly.
 #: (default: ``None``)
-MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("MLFLOW_ACTIVE_MODEL_ID", str, None)
+_MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("_MLFLOW_ACTIVE_MODEL_ID", str, None)
+
+#: Maximum number of parameters to include in the initial CreateLoggedModel request.
+#: Additional parameters will be logged in separate requests.
+#: (default: ``100``)
+_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
+    "_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
+)
+
+
+#: Maximum number of parameters to include in each batch when logging parameters
+#: for a logged model.
+#: (default: ``100``)
+_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
+    "_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
+)
+
+#: A boolean flag that enables printing URLs for logged and registered models when
+#: they are created.
+#: (default: ``True``)
+MLFLOW_PRINT_MODEL_URLS_ON_CREATION = _BooleanEnvironmentVariable(
+    "MLFLOW_PRINT_MODEL_URLS_ON_CREATION", True
+)
+
+#: Maximum number of threads to use when downloading traces during search operations.
+#: (default: ``max(32, (# of system CPUs * 4)``)
+MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
+    # Threads used to download traces during search are network IO-bound (waiting for downloads)
+    # rather than CPU-bound, so we want more threads than CPU cores
+    "MLFLOW_SEARCH_TRACES_MAX_THREADS",
+    int,
+    max(32, (os.cpu_count() or 1) * 4),
+)
+
+
+#: Specifies the logging level for MLflow. This can be set to any valid logging level
+#: (e.g., "DEBUG", "INFO"). This environment must be set before importing mlflow to take
+#: effect. To modify the logging level after importing mlflow, use `importlib.reload(mlflow)`.
+#: (default: ``None``).
+MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, None)

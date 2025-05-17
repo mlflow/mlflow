@@ -18,7 +18,6 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.client import TracingClient
@@ -36,6 +35,7 @@ from mlflow.tracing.utils import (
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
+    set_chat_attributes_special_case,
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.tracing.utils.warning import request_id_backward_compatible
@@ -188,9 +188,13 @@ def _wrap_function(
                 name=span_name, span_type=span_type, attributes=attributes, model_id=model_id
             ) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
-                span.set_inputs(capture_function_input_args(fn, args, kwargs))
+                inputs = capture_function_input_args(fn, args, kwargs)
+                span.set_inputs(inputs)
                 result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
+
+                set_chat_attributes_special_case(span, inputs=inputs, outputs=result)
+
                 try:
                     yield result
                 except GeneratorExit:
@@ -261,14 +265,14 @@ def _wrap_generator(
     even worse, leak span context and pollute subsequent traces.
     """
 
-    def _start_stream_span(fn, args, kwargs):
+    def _start_stream_span(fn, inputs):
         try:
             return start_span_no_context(
                 name=name or fn.__name__,
                 parent_span=get_current_active_span(),
                 span_type=span_type,
                 attributes=attributes,
-                inputs=capture_function_input_args(fn, args, kwargs),
+                inputs=inputs,
             )
         except Exception as e:
             _logger.debug(f"Failed to start stream span: {e}")
@@ -276,6 +280,7 @@ def _wrap_generator(
 
     def _end_stream_span(
         span: LiveSpan,
+        inputs: Optional[dict[str, Any]] = None,
         outputs: Optional[list[Any]] = None,
         output_reducer: Optional[Callable] = None,
         error: Optional[Exception] = None,
@@ -290,6 +295,8 @@ def _wrap_generator(
                 outputs = output_reducer(outputs)
             except Exception as e:
                 _logger.debug(f"Failed to reduce outputs from stream: {e}")
+
+        set_chat_attributes_special_case(span, inputs=inputs, outputs=outputs)
         span.end(outputs=outputs)
 
     def _record_chunk_event(span: LiveSpan, chunk: Any, chunk_index: int):
@@ -306,7 +313,8 @@ def _wrap_generator(
     if inspect.isgeneratorfunction(fn):
 
         def wrapper(*args, **kwargs):
-            span = _start_stream_span(fn, args, kwargs)
+            inputs = capture_function_input_args(fn, args, kwargs)
+            span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
             i = 0
@@ -326,11 +334,12 @@ def _wrap_generator(
                     _record_chunk_event(span, value, i)
                     yield value
                     i += 1
-            _end_stream_span(span, outputs, output_reducer)
+            _end_stream_span(span, inputs, outputs, output_reducer)
     else:
 
         async def wrapper(*args, **kwargs):
-            span = _start_stream_span(fn, args, kwargs)
+            inputs = capture_function_input_args(fn, args, kwargs)
+            span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
             i = 0
@@ -349,7 +358,7 @@ def _wrap_generator(
                     _record_chunk_event(span, value, i)
                     yield value
                     i += 1
-            _end_stream_span(span, outputs, output_reducer)
+            _end_stream_span(span, inputs, outputs, output_reducer)
 
     return functools.wraps(fn)(wrapper)
 
@@ -906,11 +915,11 @@ def update_current_trace(
     active_span = get_current_active_span()
 
     if not active_span:
-        raise MlflowException(
+        _logger.warning(
             "No active trace found. Please create a span using `mlflow.start_span` or "
-            "`@mlflow.trace` before calling this function.",
-            error_code=BAD_REQUEST,
+            "`@mlflow.trace` before calling `mlflow.update_current_trace`.",
         )
+        return
 
     if isinstance(tags, dict):
         non_string_items = {k: v for k, v in tags.items() if not isinstance(v, str)}
@@ -935,13 +944,14 @@ def update_current_trace(
         trace.info.tags.update(tags or {})
 
 
-def set_trace_tag(request_id: str, key: str, value: str):
+@request_id_backward_compatible
+def set_trace_tag(trace_id: str, key: str, value: str):
     """
     Set a tag on the trace with the given trace ID.
 
     The trace can be an active one or the one that has already ended and recorded in the
     backend. Below is an example of setting a tag on an active trace. You can replace the
-    ``request_id`` parameter to set a tag on an already ended trace.
+    ``trace_id`` parameter to set a tag on an already ended trace.
 
     .. code-block:: python
         :test:
@@ -949,25 +959,26 @@ def set_trace_tag(request_id: str, key: str, value: str):
         import mlflow
 
         with mlflow.start_span(name="span") as span:
-            mlflow.set_trace_tag(span.request_id, "key", "value")
+            mlflow.set_trace_tag(span.trace_id, "key", "value")
 
     Args:
-        request_id: The ID of the trace to set the tag on.
+        trace_id: The ID of the trace to set the tag on.
         key: The string key of the tag. Must be at most 250 characters long, otherwise
             it will be truncated when stored.
         value: The string value of the tag. Must be at most 250 characters long, otherwise
             it will be truncated when stored.
     """
-    TracingClient().set_trace_tag(request_id, key, value)
+    TracingClient().set_trace_tag(trace_id, key, value)
 
 
-def delete_trace_tag(request_id: str, key: str) -> None:
+@request_id_backward_compatible
+def delete_trace_tag(trace_id: str, key: str) -> None:
     """
     Delete a tag on the trace with the given trace ID.
 
     The trace can be an active one or the one that has already ended and recorded in the
     backend. Below is an example of deleting a tag on an active trace. You can replace the
-    ``request_id`` parameter to delete a tag on an already ended trace.
+    ``trace_id`` parameter to delete a tag on an already ended trace.
 
     .. code-block:: python
         :test:
@@ -975,15 +986,15 @@ def delete_trace_tag(request_id: str, key: str) -> None:
         import mlflow
 
         with mlflow.start_span("my_span") as span:
-            mlflow.set_trace_tag(span.request_id, "key", "value")
-            mlflow.delete_trace_tag(span.request_id, "key")
+            mlflow.set_trace_tag(span.trace_id, "key", "value")
+            mlflow.delete_trace_tag(span.trace_id, "key")
 
     Args:
-        request_id: The ID of the trace to delete the tag from.
+        trace_id: The ID of the trace to delete the tag from.
         key: The string key of the tag. Must be at most 250 characters long, otherwise
             it will be truncated when stored.
     """
-    TracingClient().delete_trace_tag(request_id, key)
+    TracingClient().delete_trace_tag(trace_id, key)
 
 
 @experimental

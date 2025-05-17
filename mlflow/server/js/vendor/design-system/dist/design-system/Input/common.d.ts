@@ -5,13 +5,14 @@ import type { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSyst
 import type { AnalyticsEventProps, DangerousGeneralProps, DangerouslySetAntdProps, FormElementValidationState, HTMLDataAttributes } from '../types';
 export type InputRef = AntDInput;
 export type { TextAreaRef };
-export interface InputProps extends Omit<AntDInputProps, 'prefixCls' | 'size' | 'addonAfter' | 'bordered'>, FormElementValidationState, HTMLDataAttributes, DangerouslySetAntdProps<AntDInputProps>, DangerousGeneralProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface InputProps extends Omit<AntDInputProps, 'prefixCls' | 'size' | 'addonAfter' | 'bordered'>, FormElementValidationState, HTMLDataAttributes, DangerouslySetAntdProps<AntDInputProps>, DangerousGeneralProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     onClear?: () => void;
     shouldPreventFormSubmission?: boolean;
+    locked?: boolean;
 }
 export interface PasswordProps extends Omit<AntDPasswordProps, 'inputPrefixCls' | 'action' | 'visibilityToggle' | 'iconRender'>, FormElementValidationState, HTMLDataAttributes, DangerouslySetAntdProps<AntDPasswordProps>, DangerousGeneralProps {
 }
-export interface TextAreaProps extends Omit<AntDTextAreaProps, 'bordered' | 'showCount' | 'size'>, FormElementValidationState, HTMLDataAttributes, DangerouslySetAntdProps<AntDTextAreaProps>, DangerousGeneralProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface TextAreaProps extends Omit<AntDTextAreaProps, 'bordered' | 'showCount' | 'size'>, FormElementValidationState, HTMLDataAttributes, DangerouslySetAntdProps<AntDTextAreaProps>, DangerousGeneralProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     allowFormSubmitOnEnter?: boolean;
 }
 export interface InputGroupProps extends Omit<AntDGroupProps, 'size'>, HTMLDataAttributes, DangerouslySetAntdProps<AntDGroupProps>, DangerousGeneralProps {

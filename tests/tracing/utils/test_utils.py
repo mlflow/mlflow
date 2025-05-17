@@ -7,7 +7,6 @@ from mlflow.entities import (
     SpanType,
 )
 from mlflow.entities.span import SpanType
-from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.constant import (
     SpanAttributeKey,
@@ -56,10 +55,6 @@ def test_maybe_get_request_id():
 
     with set_prediction_context(Context(request_id="non_eval", is_evaluate=False)):
         assert maybe_get_request_id(is_evaluate=True) is None
-
-    with pytest.raises(MlflowTracingException, match="Missing request_id for context"):
-        with set_prediction_context(Context(request_id=None, is_evaluate=True)):
-            maybe_get_request_id(is_evaluate=True)
 
 
 def test_set_span_chat_messages_and_tools():

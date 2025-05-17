@@ -5,12 +5,17 @@ from cachetools import TTLCache
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
+from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
+    _MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING,
     MLFLOW_TRACE_BUFFER_MAX_SIZE,
     MLFLOW_TRACE_BUFFER_TTL_SECONDS,
 )
+from mlflow.tracing.client import TracingClient
+from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import add_size_bytes_to_trace_metadata
 
 _logger = logging.getLogger(__name__)
 
@@ -50,6 +55,15 @@ class InferenceTableSpanExporter(SpanExporter):
     def __init__(self):
         self._trace_manager = InMemoryTraceManager.get_instance()
 
+        # NB: When this env var is set to true, MLflow will export traces to both inference
+        #  table and the Databricks Tracing Server.
+        self._should_write_to_mlflow_backend = (
+            _MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING.get()
+        )
+        if self._should_write_to_mlflow_backend:
+            self._client = TracingClient("databricks")
+            self._async_queue = AsyncTraceExportQueue()
+
     def export(self, spans: Sequence[ReadableSpan]):
         """
         Export the spans to Inference Table via the TTLCache buffer.
@@ -71,4 +85,44 @@ class InferenceTableSpanExporter(SpanExporter):
             _set_last_active_trace_id(trace.info.request_id)
 
             # Add the trace to the in-memory buffer so it can be retrieved by upstream
-            _TRACE_BUFFER[trace.info.request_id] = trace.to_dict()
+            # The key is Databricks request ID.
+            _TRACE_BUFFER[trace.info.client_request_id] = trace.to_dict()
+
+            if self._should_write_to_mlflow_backend:
+                if trace.info.experiment_id is None:
+                    # NB: The experiment ID is set based on the MLFLOW_EXPERIMENT_ID env var
+                    #   populated in the scoring server by Agent Framework. If the model is not
+                    #   deployed via agents.deploy(), the env var will not be set and the
+                    #   experiment will be empty, even if the dual write itself is enabled.
+                    _logger.warning(
+                        "Dual write to MLflow backend is enabled, but experiment ID is not set "
+                        "for the trace. Skipping trace export to MLflow backend."
+                    )
+                    continue
+
+                try:
+                    # Log the trace to the MLflow backend asynchronously
+                    self._async_queue.put(
+                        task=Task(
+                            handler=self._log_trace_to_mlflow_backend,
+                            args=(trace,),
+                            error_msg=f"Failed to log trace {trace.info.trace_id}.",
+                        )
+                    )
+                except Exception as e:
+                    _logger.warning(
+                        f"Failed to export trace to MLflow backend. Error: {e}",
+                        stack_info=_logger.isEnabledFor(logging.DEBUG),
+                    )
+
+    def _log_trace_to_mlflow_backend(self, trace: Trace):
+        try:
+            add_size_bytes_to_trace_metadata(trace)
+        except Exception:
+            _logger.warning("Failed to add size bytes to trace metadata.", exc_info=True)
+
+        returned_trace_info = self._client.start_trace_v3(trace)
+        self._client._upload_trace_data(returned_trace_info, trace.data)
+        _logger.debug(
+            f"Finished logging trace to MLflow backend. TraceInfo: {returned_trace_info.to_dict()} "
+        )

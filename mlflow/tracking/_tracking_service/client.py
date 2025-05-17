@@ -489,6 +489,8 @@ class TrackingServiceClient:
             represents future for logging operation.
 
         """
+        from mlflow.tracking.fluent import get_active_model_id
+
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
 
@@ -500,7 +502,7 @@ class TrackingServiceClient:
                 step=metric.step,
                 dataset_name=metric.dataset_name,
                 dataset_digest=metric.dataset_digest,
-                model_id=metric.model_id,
+                model_id=metric.model_id or get_active_model_id(),
                 run_id=metric.run_id,
             )
             for metric in metrics
@@ -825,6 +827,12 @@ class TrackingServiceClient:
             model_type=model_type,
         )
 
+    def log_model_params(self, model_id: str, params: dict[str, str]) -> None:
+        return self.store.log_logged_model_params(
+            model_id=model_id,
+            params=[LoggedModelParameter(str(key), str(value)) for key, value in params.items()],
+        )
+
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         return self.store.finalize_logged_model(model_id, status)
 
@@ -841,6 +849,9 @@ class TrackingServiceClient:
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         return self.store.delete_logged_model_tag(model_id, key)
+
+    def log_model_artifact(self, model_id: str, local_path: str) -> None:
+        self._get_artifact_repo(model_id, resource="logged_model").log_artifact(local_path)
 
     def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
         self._get_artifact_repo(model_id, resource="logged_model").log_artifacts(local_dir)

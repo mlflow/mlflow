@@ -13,12 +13,14 @@ import pytest
 from opentelemetry.sdk.trace import Event, ReadableSpan
 
 import mlflow
-from mlflow.entities import Trace, TraceData, TraceInfo
+from mlflow.entities import Trace, TraceData, TraceInfo, TraceInfoV2
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.inference_table import pop_trace
-from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
+from mlflow.tracing.processor.mlflow_v2 import MlflowV2SpanProcessor
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, get_autolog_function
@@ -117,7 +119,7 @@ def create_test_trace_info(
     request_metadata=None,
     tags=None,
 ):
-    return TraceInfo(
+    return TraceInfoV2(
         request_id=request_id,
         experiment_id=experiment_id,
         timestamp_ms=timestamp_ms,
@@ -125,6 +127,28 @@ def create_test_trace_info(
         status=status,
         request_metadata=request_metadata or {},
         tags=tags or {},
+    )
+
+
+def create_test_trace_info_v3(
+    trace_id,
+    experiment_id="test",
+    request_time=0,
+    execution_duration=1,
+    state=TraceState.OK,
+    trace_metadata=None,
+    tags=None,
+    assessments=None,
+):
+    return TraceInfo(
+        trace_id=trace_id,
+        trace_location=TraceLocation.from_experiment_id(experiment_id),
+        request_time=request_time,
+        execution_duration=execution_duration,
+        state=state,
+        trace_metadata=trace_metadata,
+        tags=tags,
+        assessments=assessments,
     )
 
 
@@ -156,7 +180,7 @@ def get_tracer_tracking_uri() -> Optional[str]:
         tracer = tracer._tracer
     span_processor = tracer.span_processor._span_processors[0]
 
-    if isinstance(span_processor, MlflowSpanProcessor):
+    if isinstance(span_processor, MlflowV2SpanProcessor):
         return span_processor._client.tracking_uri
 
 

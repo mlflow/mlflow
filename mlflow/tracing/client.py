@@ -1,15 +1,18 @@
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Optional
+from contextlib import nullcontext
+from typing import Optional, Union
 
-from mlflow.entities.assessment import Assessment, Expectation, Feedback
-from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.entities.assessment import (
+    Assessment,
+)
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceDataCorrupted,
@@ -84,7 +87,7 @@ class TracingClient:
             tags=tags,
         )
 
-    def start_trace_v3(self, trace: Trace) -> TraceInfoV3:
+    def start_trace_v3(self, trace: Trace) -> TraceInfo:
         """
         Start a trace using the V3 API format.
         NB: This method is named "Start" for internal reason in the backend, but actually
@@ -106,7 +109,7 @@ class TracingClient:
         status: TraceStatus,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
@@ -146,7 +149,7 @@ class TracingClient:
             request_ids=request_ids,
         )
 
-    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
+    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfoV2:
         """
         Get the trace info matching the ``request_id``.
 
@@ -239,7 +242,6 @@ class TracingClient:
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
     ) -> PagedList[Trace]:
-        is_databricks = is_databricks_uri(self.tracking_uri)
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -285,52 +287,17 @@ class TracingClient:
                 else None
             )
 
-        def download_trace_extra_fields(trace_info: TraceInfo) -> Optional[Trace]:
-            """
-            Download trace data and assessments for the given trace_info and returns a Trace object.
-            If the download fails (e.g., the trace data is missing or corrupted), returns None.
-            """
-            # Only the Databricks backend supports additional assessments; avoid making
-            # an unnecessary duplicate call to GET trace_info if not necessary.
-            is_online_trace = is_uuid(trace_info.request_id)
-            if is_databricks and not is_online_trace:
-                trace_info_with_assessments = self.get_trace_info(
-                    trace_info.request_id, should_query_v3=True
-                )
-                trace_info.assessments = trace_info_with_assessments.assessments
-
-            if not include_spans:
-                return Trace(trace_info, TraceData(spans=[]))
-
-            try:
-                if is_databricks and is_online_trace:
-                    trace_data = self.get_online_trace_details(
-                        trace_info.request_id,
-                        sql_warehouse_id=sql_warehouse_id,
-                        source_inference_table=trace_info.request_metadata.get(
-                            "mlflow.sourceTable"
-                        ),
-                        source_databricks_request_id=trace_info.request_metadata.get(
-                            "mlflow.databricksRequestId"
-                        ),
-                    )
-                    trace_data = TraceData.from_dict(json.loads(trace_data))
-                else:
-                    trace_data = self._download_trace_data(trace_info)
-            except MlflowTraceDataException as e:
-                _logger.warning(
-                    (
-                        f"Failed to download trace data for trace {trace_info.request_id!r} "
-                        f"with {e.ctx}. For full traceback, set logging level to DEBUG."
-                    ),
-                    exc_info=_logger.isEnabledFor(logging.DEBUG),
-                )
-                return None
-            else:
-                return Trace(trace_info, trace_data)
-
-        # If run_id is provided, add it to the filter string
         if run_id:
+            run = self.store.get_run(run_id)
+            if run.info.experiment_id not in experiment_ids:
+                raise MlflowException(
+                    f"Run {run_id} belongs to experiment {run.info.experiment_id}, which is not "
+                    f"in the list of experiment IDs provided: {experiment_ids}. Please include "
+                    f"experiment {run.info.experiment_id} in the `experiment_ids` parameter to "
+                    "search for traces from this run.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
             additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
             if filter_string:
                 if TraceMetadataKey.SOURCE_RUN in filter_string:
@@ -344,10 +311,62 @@ class TracingClient:
             else:
                 filter_string = additional_filter
 
+        is_databricks = is_databricks_uri(self.tracking_uri)
+
+        def download_trace_extra_fields(
+            trace_info: Union[TraceInfoV2, TraceInfo],
+        ) -> Optional[Trace]:
+            """
+            Download trace data and assessments for the given trace_info and returns a Trace object.
+            If the download fails (e.g., the trace data is missing or corrupted), returns None.
+
+            The trace_info parameter can be either TraceInfo or TraceInfoV3 object.
+            """
+            from mlflow.entities.trace_info import TraceInfo
+
+            # Determine if this is TraceInfo or TraceInfoV3
+            # Helps while transitioning to V3 traces for offline & online
+            is_v3 = isinstance(trace_info, TraceInfo)
+            trace_id = trace_info.trace_id if is_v3 else trace_info.request_id
+            is_online_trace = is_uuid(trace_id)
+
+            # For online traces in Databricks, we need to get trace data from a different endpoint
+            try:
+                if is_databricks and is_online_trace:
+                    # For online traces, get data from the online API
+                    trace_data = self.get_online_trace_details(
+                        trace_id=trace_id,
+                        sql_warehouse_id=sql_warehouse_id,
+                        source_inference_table=trace_info.request_metadata.get(
+                            "mlflow.sourceTable"
+                        ),
+                        source_databricks_request_id=trace_info.request_metadata.get(
+                            "mlflow.databricksRequestId"
+                        ),
+                    )
+                    trace_data = TraceData.from_dict(json.loads(trace_data))
+                else:
+                    # For offline traces, download data from artifact storage
+                    trace_data = self._download_trace_data(trace_info)
+            except MlflowTraceDataException as e:
+                _logger.warning(
+                    (
+                        f"Failed to download trace data for trace {trace_id!r} "
+                        f"with {e.ctx}. For full traceback, set logging level to DEBUG."
+                    ),
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+                return None
+            else:
+                return Trace(trace_info, trace_data)
+
         traces = []
         next_max_results = max_results
         next_token = page_token
-        with ThreadPoolExecutor() as executor:
+
+        max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()
+        executor = ThreadPoolExecutor(max_workers=max_workers) if include_spans else nullcontext()
+        with executor:
             while len(traces) < max_results:
                 trace_infos, next_token = self._search_traces(
                     experiment_ids=experiment_ids,
@@ -358,9 +377,15 @@ class TracingClient:
                     model_id=model_id,
                     sql_warehouse_id=sql_warehouse_id,
                 )
-                traces.extend(
-                    t for t in executor.map(download_trace_extra_fields, trace_infos) if t
-                )
+
+                if include_spans:
+                    traces.extend(
+                        t for t in executor.map(download_trace_extra_fields, trace_infos) if t
+                    )
+                else:
+                    traces.extend(
+                        Trace(trace_info, TraceData(spans=[])) for trace_info in trace_infos
+                    )
 
                 if not next_token:
                     break
@@ -442,45 +467,21 @@ class TracingClient:
         else:
             self.store.delete_trace_tag(request_id, key)
 
-    def log_assessment(
-        self,
-        trace_id: str,
-        name: str,
-        source: AssessmentSource,
-        expectation: Optional[Expectation] = None,
-        feedback: Optional[Feedback] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        span_id: Optional[str] = None,
-    ) -> Assessment:
+    def log_assessment(self, trace_id: str, assessment: Assessment) -> Assessment:
         if not is_databricks_uri(self.tracking_uri):
             raise MlflowException(
                 "This API is currently only available for Databricks Managed MLflow. This "
                 "will be available in the open-source version of MLflow in a future release."
             )
 
-        assessment = Assessment(
-            # assessment_id must be None when creating a new assessment
-            trace_id=trace_id,
-            name=name,
-            source=source,
-            expectation=expectation,
-            feedback=feedback,
-            rationale=rationale,
-            metadata=metadata,
-            span_id=span_id,
-        )
+        assessment.trace_id = trace_id
         return self.store.create_assessment(assessment)
 
     def update_assessment(
         self,
         trace_id: str,
         assessment_id: str,
-        name: Optional[str] = None,
-        expectation: Optional[Expectation] = None,
-        feedback: Optional[Feedback] = None,
-        rationale: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
+        assessment: Assessment,
     ):
         """
         Update an existing assessment entity in the backend store.
@@ -488,11 +489,7 @@ class TracingClient:
         Args:
             trace_id: The ID of the trace.
             assessment_id: The ID of the feedback assessment to update.
-            name: The updated name of the feedback.
-            expectation: The updated expectation value of the assessment.
-            feedback: The updated feedback value of the assessment.
-            rationale: The updated rationale of the feedback.
-            metadata: Additional metadata for the feedback.
+            assessment: The updated assessment.
         """
         if not is_databricks_uri(self.tracking_uri):
             raise MlflowException(
@@ -503,11 +500,11 @@ class TracingClient:
         return self.store.update_assessment(
             trace_id=trace_id,
             assessment_id=assessment_id,
-            name=name,
-            expectation=expectation,
-            feedback=feedback,
-            rationale=rationale,
-            metadata=metadata,
+            name=assessment.name,
+            expectation=assessment.expectation,
+            feedback=assessment.feedback,
+            rationale=assessment.rationale,
+            metadata=assessment.metadata,
         )
 
     def delete_assessment(self, trace_id: str, assessment_id: str):
@@ -526,24 +523,33 @@ class TracingClient:
 
         self.store.delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 
-    def _get_artifact_repo_for_trace(self, trace_info: TraceInfo):
+    def _get_artifact_repo_for_trace(self, trace_info: TraceInfoV2):
         artifact_uri = get_artifact_uri_for_trace(trace_info)
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
-    def _download_trace_data(self, trace_info: TraceInfo) -> TraceData:
+    def _download_trace_data(self, trace_info: Union[TraceInfoV2, TraceInfo]) -> TraceData:
+        """
+        Download trace data from artifact repository.
+
+        Args:
+            trace_info: Either a TraceInfo or TraceInfoV3 object containing trace metadata.
+
+        Returns:
+            TraceData object representing the downloaded trace data.
+        """
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         return TraceData.from_dict(artifact_repo.download_trace_data())
 
-    def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
+    def _upload_trace_data(self, trace_info: TraceInfoV2, trace_data: TraceData) -> None:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
     def _upload_ended_trace_info(
         self,
-        trace_info: TraceInfo,
-    ) -> TraceInfo:
+        trace_info: TraceInfoV2,
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 

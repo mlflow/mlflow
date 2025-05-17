@@ -17,6 +17,7 @@ from mlflow.azure.client import (
     put_block_list,
 )
 from mlflow.environment_variables import (
+    MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
@@ -149,7 +150,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
         return _Run(id_=parts[3], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint)
 
-    def _call_endpoint(self, service, api, json_body=None, path_params=None):
+    def _call_endpoint(
+        self, service, api, json_body=None, path_params=None, retry_timeout_seconds=None
+    ):
         """
         Calls the specified REST endpoint with the specified JSON body and path parameters.
 
@@ -158,6 +161,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             api: The API to call.
             json_body: The JSON body of the request.
             path_params: The path parameters to substitute into the endpoint URI.
+            retry_timeout_seconds: The timeout in seconds for retrying failed requests.
 
         Returns:
             The response from the REST endpoint.
@@ -167,7 +171,15 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         if path_params:
             endpoint = endpoint.format(**path_params)
         response_proto = api.Response()
-        return call_endpoint(db_creds, endpoint, method, json_body, response_proto)
+
+        return call_endpoint(
+            host_creds=db_creds,
+            endpoint=endpoint,
+            method=method,
+            json_body=json_body,
+            response_proto=response_proto,
+            retry_timeout_seconds=retry_timeout_seconds,
+        )
 
     def _get_credential_infos(self, cred_type: _CredentialType, paths: list[str]):
         """
@@ -229,7 +241,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 raise MlflowTraceDataCorrupted(request_id=self.resource.id) from e
 
     def upload_trace_data(self, trace_data: str) -> None:
-        [cred], _ = self.resource.get_credentials(cred_type=_CredentialType.WRITE)
+        [cred], _ = self.resource.get_credentials(
+            cred_type=_CredentialType.WRITE,
+            timeout=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
+        )
         with write_local_temp_trace_data_file(trace_data) as temp_file:
             if cred.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
                 self._azure_adls_gen2_upload_file(

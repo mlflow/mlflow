@@ -47,6 +47,7 @@ if not IS_TRACING_SDK_ONLY:
         config,  # noqa: F401
         data,  # noqa: F401
         exceptions,  # noqa: F401
+        genai,  # noqa: F401
         models,  # noqa: F401
         projects,  # noqa: F401
         tracking,  # noqa: F401
@@ -84,6 +85,7 @@ paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
 pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
 promptflow = LazyLoader("mlflow.promptflow", globals(), "mlflow.promptflow")
 prophet = LazyLoader("mlflow.prophet", globals(), "mlflow.prophet")
+pydantic_ai = LazyLoader("mlflow.pydantic_ai", globals(), "mlflow.pydantic_ai")
 pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
@@ -95,6 +97,7 @@ sentence_transformers = LazyLoader(
 )
 shap = LazyLoader("mlflow.shap", globals(), "mlflow.shap")
 sklearn = LazyLoader("mlflow.sklearn", globals(), "mlflow.sklearn")
+smolagents = LazyLoader("mlflow.smolagents", globals(), "mlflow.smolagents")
 spacy = LazyLoader("mlflow.spacy", globals(), "mlflow.spacy")
 spark = LazyLoader("mlflow.spark", globals(), "mlflow.spark")
 statsmodels = LazyLoader("mlflow.statsmodels", globals(), "mlflow.statsmodels")
@@ -133,6 +136,7 @@ if TYPE_CHECKING:
         pmdarima,
         promptflow,
         prophet,
+        pydantic_ai,
         pyfunc,
         pyspark,
         pytorch,
@@ -140,6 +144,7 @@ if TYPE_CHECKING:
         sentence_transformers,
         shap,
         sklearn,
+        smolagents,
         spacy,
         spark,
         statsmodels,
@@ -153,12 +158,11 @@ if MLFLOW_CONFIGURE_LOGGING.get() is True:
 
 # Core modules required for mlflow-tracing
 from mlflow.tracing.assessment import (
-    delete_expectation,
-    delete_feedback,
+    delete_assessment,
+    log_assessment,
     log_expectation,
     log_feedback,
-    update_expectation,
-    update_feedback,
+    update_assessment,
 )
 from mlflow.tracing.fluent import (
     add_trace,
@@ -208,12 +212,11 @@ __all__ = [
     "trace",
     "update_current_trace",
     # Assessment APIs
-    "delete_expectation",
-    "delete_feedback",
+    "delete_assessment",
+    "log_assessment",
+    "update_assessment",
     "log_expectation",
     "log_feedback",
-    "update_expectation",
-    "update_feedback",
 ]
 
 # Only import these modules when mlflow or mlflow-skinny is installed i.e. not importing them
@@ -232,7 +235,7 @@ if not IS_TRACING_SDK_ONLY:
         set_system_metrics_samples_before_logging,
         set_system_metrics_sampling_interval,
     )
-    from mlflow.models import evaluate
+    from mlflow.models.evaluation.deprecated import evaluate
     from mlflow.models.evaluation.validation import validate_evaluation_results
     from mlflow.projects import run
     from mlflow.tracking._model_registry.fluent import (
@@ -242,6 +245,7 @@ if not IS_TRACING_SDK_ONLY:
         register_model,
         register_prompt,
         search_model_versions,
+        search_prompts,
         search_registered_models,
         set_prompt_alias,
     )
@@ -279,6 +283,7 @@ if not IS_TRACING_SDK_ONLY:
         log_inputs,
         log_metric,
         log_metrics,
+        log_model_params,
         log_outputs,
         log_param,
         log_params,
@@ -338,6 +343,7 @@ if not IS_TRACING_SDK_ONLY:
         "log_image",
         "log_input",
         "log_inputs",
+        "log_model_params",
         "log_outputs",
         "log_metric",
         "log_metrics",
@@ -354,6 +360,7 @@ if not IS_TRACING_SDK_ONLY:
         "search_model_versions",
         "search_registered_models",
         "search_runs",
+        "search_prompts",
         "set_active_model",
         "set_experiment_tag",
         "set_experiment_tags",

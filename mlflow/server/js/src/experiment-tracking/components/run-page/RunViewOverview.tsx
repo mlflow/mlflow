@@ -23,6 +23,8 @@ import { RunViewRegisteredPromptsBox } from './overview/RunViewRegisteredPrompts
 import { RunViewLoggedModelsBox } from './overview/RunViewLoggedModelsBox';
 import { RunViewSourceBox } from './overview/RunViewSourceBox';
 import { DetailsOverviewMetadataTable } from '@mlflow/mlflow/src/experiment-tracking/components/DetailsOverviewMetadataTable';
+import type { LoggedModelProto } from '../../types';
+import { useExperimentLoggedModelRegisteredVersions } from '../experiment-logged-models/hooks/useExperimentLoggedModelRegisteredVersions';
 import { DetailsOverviewCopyableIdBox } from '../DetailsOverviewCopyableIdBox';
 import type { RunInfoEntity } from '../../types';
 import type {
@@ -35,6 +37,9 @@ import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredMod
 import { isEmpty, uniqBy } from 'lodash';
 import { RunViewLoggedModelsTable } from './overview/RunViewLoggedModelsTable';
 import { isRunPageLoggedModelsTableEnabled } from '../../../common/utils/FeatureUtils';
+import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
+import { DetailsPageLayout } from '../../../common/components/details-page-layout/DetailsPageLayout';
+import { useRunDetailsPageOverviewSectionsV2 } from './hooks/useRunDetailsPageOverviewSectionsV2';
 
 const EmptyValue = () => <Typography.Hint>—</Typography.Hint>;
 
@@ -49,6 +54,7 @@ export const RunViewOverview = ({
   runInputs,
   runOutputs,
   registeredModelVersionSummaries: registeredModelVersionSummariesForRun,
+  loggedModelsV3 = [],
   isLoadingLoggedModels = false,
 }: {
   runUuid: string;
@@ -61,9 +67,11 @@ export const RunViewOverview = ({
   datasets?: RunDatasetWithTags[];
   params: Record<string, KeyValueEntity>;
   registeredModelVersionSummaries: RunPageModelVersionSummary[];
+  loggedModelsV3?: LoggedModelProto[];
   isLoadingLoggedModels?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const { usingUnifiedDetailsLayout } = useExperimentTrackingDetailsPageLayoutStyles();
   const { search } = useLocation();
   const intl = useIntl();
 
@@ -72,20 +80,38 @@ export const RunViewOverview = ({
   const containsLoggedModelsFromInputsOutputs = !isEmpty(runInputs?.modelInputs) || !isEmpty(runOutputs?.modelOutputs);
   const shouldRenderLoggedModelsBox = !isRunPageLoggedModelsTableEnabled() || !containsLoggedModelsFromInputsOutputs;
 
-  const registeredModelVersionSummaries = registeredModelVersionSummariesForRun;
-  const shouldDisplayContentsOfLoggedModelsBox = loggedModelsFromTags?.length > 0;
+  // We have two flags for controlling the visibility of the "logged models" section:
+  // - `shouldRenderLoggedModelsBox` determines if "logged models" section should be rendered.
+  //   It is hidden if any IAv3 logged models are detected in inputs/outputs, in this case we're
+  //   displaying a big table instead.
+  // - `shouldDisplayContentsOfLoggedModelsBox` determines if the contents of the "logged models"
+  //   section should be displayed. It is hidden if there are no logged models to display.
+  const shouldDisplayContentsOfLoggedModelsBox = loggedModelsFromTags?.length > 0 || loggedModelsV3?.length > 0;
+  const loggedModelsV3RegisteredModels = useExperimentLoggedModelRegisteredVersions({ loggedModels: loggedModelsV3 });
 
-  const renderPromptMetadataRow = () => (
-    <DetailsOverviewMetadataRow
-      title={
-        <FormattedMessage
-          defaultMessage="Registered prompts"
-          description="Run page > Overview > Run prompts section label"
-        />
-      }
-      value={<RunViewRegisteredPromptsBox runUuid={runUuid} />}
-    />
+  /**
+   * We have to query multiple sources for registered model versions (logged models API, models API, UC)
+   * and it's possible to end up with duplicates.
+   * We can dedupe them using `link` field, which should be unique for each model.
+   */
+  const registeredModelVersionSummaries = uniqBy(
+    [...registeredModelVersionSummariesForRun, ...loggedModelsV3RegisteredModels],
+    (model) => model?.link,
   );
+
+  const renderPromptMetadataRow = () => {
+    return (
+      <DetailsOverviewMetadataRow
+        title={
+          <FormattedMessage
+            defaultMessage="Registered prompts"
+            description="Run page > Overview > Run prompts section label"
+          />
+        }
+        value={<RunViewRegisteredPromptsBox runUuid={runUuid} />}
+      />
+    );
+  };
 
   const renderDetails = () => {
     return (
@@ -179,6 +205,8 @@ export const RunViewOverview = ({
                   // Pass the run info and logged models
                   runInfo={runInfo}
                   loggedModels={loggedModelsFromTags}
+                  // Provide loggedModels from IA v3
+                  loggedModelsV3={loggedModelsV3}
                 />
               ) : (
                 <EmptyValue />
@@ -210,16 +238,43 @@ export const RunViewOverview = ({
     return <DetailsOverviewParamsTable params={params} />;
   };
 
+  const detailsSectionsV2 = useRunDetailsPageOverviewSectionsV2({
+    runUuid,
+    runInfo,
+    tags,
+    onTagsUpdated: onRunDataUpdated,
+    datasets,
+    loggedModelsV3,
+    shouldRenderLoggedModelsBox,
+    registeredModelVersionSummaries,
+  });
+  const usingSidebarLayout = usingUnifiedDetailsLayout;
   return (
-    <div css={{ flex: '1' }}>
+    <DetailsPageLayout
+      css={{ flex: 1, alignSelf: 'flex-start' }}
+      //
+      // Enable sidebar layout based on feature flag
+      usingSidebarLayout={usingSidebarLayout}
+      secondarySections={detailsSectionsV2}
+    >
       <RunViewDescriptionBox runUuid={runUuid} tags={tags} onDescriptionChanged={onRunDataUpdated} />
-      <Typography.Title level={4}>
-        <FormattedMessage defaultMessage="Details" description="Run page > Overview > Details section title" />
-      </Typography.Title>
-      {renderDetails()}
-      <div css={{ display: 'flex', gap: theme.spacing.lg, minHeight: 360, maxHeight: 760, overflow: 'hidden' }}>
-        {renderParams()}
+      {!usingSidebarLayout && (
+        <>
+          <Typography.Title level={4}>
+            <FormattedMessage defaultMessage="Details" description="Run page > Overview > Details section title" />
+          </Typography.Title>
+          {renderDetails()}
+        </>
+      )}
+      <div
+        // Use different grid setup for unified details page layout
+        css={[
+          usingSidebarLayout ? { flexDirection: 'column' } : { minHeight: 360, maxHeight: 760 },
+          { display: 'flex', gap: theme.spacing.lg, overflow: 'hidden' },
+        ]}
+      >
         <RunViewMetricsTable latestMetrics={latestMetrics} runInfo={runInfo} />
+        {renderParams()}
       </div>
       {isRunPageLoggedModelsTableEnabled() && containsLoggedModelsFromInputsOutputs && (
         <>
@@ -229,7 +284,7 @@ export const RunViewOverview = ({
           </div>
         </>
       )}
-      <Spacer />
-    </div>
+      {!usingSidebarLayout && <Spacer />}
+    </DetailsPageLayout>
   );
 };

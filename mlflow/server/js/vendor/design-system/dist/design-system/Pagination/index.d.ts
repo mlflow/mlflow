@@ -7,7 +7,7 @@ interface AntdExtraPaginationProps extends AntdPaginationProps {
     pageSizeSelectAriaLabel?: string;
     pageQuickJumperAriaLabel?: string;
 }
-export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntdExtraPaginationProps>, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntdExtraPaginationProps>, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /**
      * The index of the current page. Starts at 1.
      */
@@ -28,7 +28,7 @@ export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdP
     style?: React.CSSProperties;
     hideOnSinglePage?: boolean;
 }
-export declare function getPaginationEmotionStyles(clsPrefix: string, theme: Theme, useNewShadows?: boolean): SerializedStyles;
+export declare function getPaginationEmotionStyles(clsPrefix: string, theme: Theme, useNewShadows?: boolean, useNewBorderColors?: boolean): SerializedStyles;
 export declare const Pagination: React.FC<PaginationProps>;
 export interface CursorPaginationProps extends HTMLDataAttributes, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
     /** Callback for when the user clicks the next page button. */

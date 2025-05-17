@@ -3,8 +3,11 @@ The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom "
 models with a user-defined ``PythonModel`` subclass.
 """
 
+import bz2
+import gzip
 import inspect
 import logging
+import lzma
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
@@ -17,6 +20,7 @@ import yaml
 
 import mlflow.pyfunc
 import mlflow.utils
+from mlflow.environment_variables import MLFLOW_LOG_MODEL_COMPRESSION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
@@ -76,9 +80,15 @@ CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
 CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
+CONFIG_KEY_COMPRESSION = "python_model_compression"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
 _DEFAULT_CHAT_AGENT_METADATA_TASK = "agent/v2/chat"
+_COMPRESSION_INFO = {
+    "lzma": {"ext": ".xz", "open": lzma.open},
+    "bzip2": {"ext": ".bz2", "open": bz2.open},
+    "gzip": {"ext": ".gz", "open": gzip.open},
+}
 _DEFAULT_RESPONSES_AGENT_METADATA_TASK = "agent/v1/responses"
 
 _logger = logging.getLogger(__name__)
@@ -783,8 +793,37 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         )
 
 
+def _check_compression_supported(compression):
+    if compression in _COMPRESSION_INFO:
+        return True
+    if compression:
+        supported = ", ".join(sorted(_COMPRESSION_INFO))
+        mlflow.pyfunc._logger.warning(
+            f"Unrecognized compression method '{compression}'"
+            f"Please select one of: {supported}. Falling back to uncompressed storage/loading."
+        )
+    return False
+
+
+def _maybe_compress_cloudpickle_dump(python_model, path, compression):
+    file_open = _COMPRESSION_INFO.get(compression, {}).get("open", open)
+    with file_open(path, "wb") as out:
+        cloudpickle.dump(python_model, out)
+
+
+def _maybe_decompress_cloudpickle_load(path, compression):
+    _check_compression_supported(compression)
+    file_open = _COMPRESSION_INFO.get(compression, {}).get("open", open)
+    with file_open(path, "rb") as f:
+        return cloudpickle.load(f)
+
+
 if IS_PYDANTIC_V2_OR_NEWER:
-    from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
+    from mlflow.types.responses import (
+        ResponsesAgentRequest,
+        ResponsesAgentResponse,
+        ResponsesAgentStreamEvent,
+    )
 
     class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         _skip_type_hint_validation = True
@@ -799,20 +838,20 @@ if IS_PYDANTIC_V2_OR_NEWER:
                         attr_name,
                         wrap_non_list_predict_pydantic(
                             attr,
-                            ResponsesRequest,
+                            ResponsesAgentRequest,
                             "Invalid dictionary input for a ResponsesAgent. "
                             "Expected a dictionary with the ResponsesRequest schema.",
                         ),
                     )
 
         @abstractmethod
-        def predict(self, request: ResponsesRequest) -> ResponsesResponse:
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             pass
 
         @abstractmethod
         def predict_stream(
-            self, request: ResponsesRequest
-        ) -> Generator[ResponsesStreamEvent, None, None]:
+            self, request: ResponsesAgentRequest
+        ) -> Generator[ResponsesAgentStreamEvent, None, None]:
             pass
 
 
@@ -877,14 +916,24 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     }
     if callable(python_model):
         python_model = _FunctionPythonModel(func=python_model, signature=signature)
+
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
+
+    compression = MLFLOW_LOG_MODEL_COMPRESSION.get()
+    if compression:
+        if _check_compression_supported(compression):
+            custom_model_config_kwargs[CONFIG_KEY_COMPRESSION] = compression
+            saved_python_model_subpath += _COMPRESSION_INFO[compression]["ext"]
+        else:
+            compression = None
 
     # If model_code_path is defined, we load the model into python_model, but we don't want to
     # pickle/save the python_model since the module won't be able to be imported.
     if not model_code_path:
         try:
-            with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
-                cloudpickle.dump(python_model, out)
+            _maybe_compress_cloudpickle_dump(
+                python_model, os.path.join(path, saved_python_model_subpath), compression
+            )
         except Exception as e:
             raise MlflowException(
                 "Failed to serialize Python model. Please save the model into a python file "
@@ -1063,12 +1112,14 @@ def _load_context_model_and_signature(
                 python_model_cloudpickle_version,
                 cloudpickle.__version__,
             )
+        python_model_compression = pyfunc_config.get(CONFIG_KEY_COMPRESSION, None)
 
         python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
         if python_model_subpath is None:
             raise MlflowException("Python model path was not specified in the model configuration")
-        with open(os.path.join(model_path, python_model_subpath), "rb") as f:
-            python_model = cloudpickle.load(f)
+        python_model = _maybe_decompress_cloudpickle_load(
+            os.path.join(model_path, python_model_subpath), python_model_compression
+        )
 
     artifacts = {}
     for saved_artifact_name, saved_artifact_info in pyfunc_config.get(
@@ -1117,8 +1168,6 @@ class _PythonModelPyfuncWrapper:
         self.signature = signature
 
     def _convert_input(self, model_input):
-        import pandas as pd
-
         hints = self.python_model.predict_type_hints
         # we still need this for backwards compatibility
         if isinstance(model_input, pd.DataFrame):
