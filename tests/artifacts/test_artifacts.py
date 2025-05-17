@@ -313,3 +313,15 @@ def test_list_artifacts_throws_for_invalid_arguments():
 
     with pytest.raises(MlflowException, match="`artifact_path` cannot be specified"):
         mlflow.artifacts.list_artifacts(artifact_uri="uri", artifact_path="path")
+
+
+def test_download_artifacts_with_run_id_and_artifact_path(tmp_path):
+    class DummyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: list[str]) -> list[str]:
+            return model_input
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+    mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id, artifact_path="model", dst_path=tmp_path
+    )
