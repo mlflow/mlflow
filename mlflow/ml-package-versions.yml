@@ -547,9 +547,7 @@ openai:
       ">= 1.33.0": "3.10"
     requirements:
       ">= 0.0.0": [
-          "pyspark",
           "tiktoken",
-          "aiohttp",
           "tenacity",
           # Required to run tests/openai/mock_openai.py
           "fastapi",
@@ -560,6 +558,8 @@ openai:
     run: |
       pytest tests/openai/test_openai_autolog.py tests/openai/test_openai_agent_autolog.py
     test_every_n_versions: 10
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
 
 dspy:
   package_info:
@@ -580,6 +580,8 @@ dspy:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy/test_dspy_autolog.py
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
 
 langchain:
   package_info:
@@ -626,27 +628,23 @@ langchain:
       # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
       # resulting in a weird module conflict issue.
       pip install './skinny'
-      # Run all langchain tests except autologging and evaluation
-      pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py
+      # Run all langchain tests except autologging
+      pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
         pip install 'pydantic>=2' 'fastapi>=0.100.0'
         echo "Testing langchain model export with pydantic v2"
-        pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py --ignore tests/langchain/test_langchain_evaluation.py
+        pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       fi
   autologging:
     minimum: "0.1.0"
     maximum: "0.3.25"
     requirements:
       ">= 0.0.0": [
-          "pyspark",
           "openai",
           "google-search-results",
-          "psutil",
           "faiss-cpu",
-          "numexpr",
-          "spacy",
           "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
           # Required to run tests/openai/mock_openai.py
           "fastapi",
@@ -676,7 +674,8 @@ langchain:
 
       # TODO: an unexpected issue happens when autolog test and evaluation test are run together, which need investigations
       pytest tests/langchain/test_langchain_autolog.py
-      pytest tests/langchain/test_langchain_evaluation.py
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
 
 langgraph:
   package_info:
@@ -713,6 +712,8 @@ langgraph:
       ">= 0.3.0": ["langgraph-prebuilt"]
     run: |
       pytest tests/langgraph/test_langgraph_autolog.py
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
 
 llama_index:
   package_info:
@@ -749,6 +750,8 @@ llama_index:
         ]
       "< 0.11.0": ["pydantic<2"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
 
 autogen:
   package_info:
@@ -769,6 +772,8 @@ autogen:
           "uvicorn",
         ]
     run: pytest tests/autogen
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
 
 gemini:
   package_info:
@@ -784,6 +789,8 @@ gemini:
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK 
       pip install google-generativeai
       pytest tests/gemini
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
 
 anthropic:
   package_info:
@@ -799,6 +806,8 @@ anthropic:
     # Our CI runs tests for every minor version of the library by default, which results in
     # many test tasks for anthropic. Reducing the number of testing only for every 5 version.
     test_every_n_versions: 5
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
 
 crewai:
   package_info:
@@ -814,6 +823,8 @@ crewai:
       ">= 0.80.0": "3.10"
     requirements:
     run: pytest tests/crewai
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
 
 pydantic_ai:
   package_info:
@@ -874,6 +885,8 @@ mistral:
     maximum: "1.7.0"
     requirements:
     run: pytest tests/mistral
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
 
 sentence_transformers:
   package_info:
@@ -952,6 +965,8 @@ litellm:
           "uvicorn",
         ]
     run: pytest tests/litellm
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
 
 groq:
   package_info:
@@ -963,6 +978,8 @@ groq:
     maximum: "0.24.0"
     requirements:
     run: pytest tests/groq
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
 
 bedrock:
   package_info:
@@ -973,3 +990,5 @@ bedrock:
     minimum: "1.33.0"
     maximum: "1.38.16"
     run: pytest tests/bedrock
+    # Run integration test with the lightweight tracing SDK
+    test_tracing_sdk: true
