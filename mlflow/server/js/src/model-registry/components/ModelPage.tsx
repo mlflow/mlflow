@@ -324,7 +324,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
           // eslint-disable-next-line no-trailing-spaces
         >
           {(loading: any, hasError: any, requests: any) => {
-
             if (hasError) {
               if (Utils.shouldRender404(requests, [this.initgetRegisteredModelApiRequestId])) {
                 return (
@@ -339,6 +338,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
                         modelName: modelName,
                       },
                     )}
+                    fallbackHomePageReactRoute={ModelRegistryRoutes.modelListPageRoute}
                   />
                 );
               }
@@ -362,6 +362,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
                         errorMsg: permissionDeniedErrors[0].error?.getMessageField(),
                       },
                     )}
+                    fallbackHomePageReactRoute={ModelRegistryRoutes.modelListPageRoute}
                   />
                 );
               }
