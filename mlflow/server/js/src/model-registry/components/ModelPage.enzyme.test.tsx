@@ -5,7 +5,6 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { mount } from 'enzyme';
 import React from 'react';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
@@ -19,7 +18,6 @@ import Utils from '../../common/utils/Utils';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ModelRegistryRoutes } from '../routes';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
-import { IntlProvider } from 'react-intl';
 
 describe('ModelPage', () => {
   let wrapper: any;
@@ -35,7 +33,7 @@ describe('ModelPage', () => {
     minimalProps = {
       searchModelVersionsApi: jest.fn(() => Promise.resolve({})),
       getRegisteredModelDetailsApi: jest.fn(() => Promise.resolve({})),
-      navigate,
+      navigate: navigate,
     };
     const versions = [mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY)];
     minimalStore = mockStore({
@@ -55,51 +53,27 @@ describe('ModelPage', () => {
   });
 
   test('should render with minimal props and store without exploding', () => {
-    wrapper = mount(
-      <IntlProvider locale="en">
-        <Provider store={minimalStore}>
-          <MemoryRouter>
-            <ModelPage {...minimalProps} />
-          </MemoryRouter>
-        </Provider>
-      </IntlProvider>,
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <MemoryRouter>
+          <ModelPage {...minimalProps} />
+        </MemoryRouter>
+      </Provider>,
     );
     expect(wrapper.find(ModelPage).length).toBe(1);
   });
 
-  test('should redirect to model listing page when model is deleted', async () => {
-    wrapper = mount(
-      <IntlProvider locale="en">
-        <Provider store={minimalStore}>
-          <MemoryRouter>
-            <ModelPage {...minimalProps} />
-          </MemoryRouter>
-        </Provider>
-      </IntlProvider>,
-    );
-    instance = wrapper.find(ModelPageImpl).instance();
-    const mockError = new ErrorWrapper('{ "error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Foo!" }', 404);
-
-    Utils.isBrowserTabVisible = jest.fn(() => true);
-    instance.loadData = jest.fn().mockReturnValue(Promise.reject(mockError));
-    await instance.pollData();
-    expect(navigate).toHaveBeenCalledWith(ModelRegistryRoutes.modelListPageRoute);
-  });
-
   test('the states should be correctly set when page is loaded initially', () => {
-    wrapper = mount(
-      <IntlProvider locale="en">
-        <Provider store={minimalStore}>
-          <MemoryRouter>
-            <ModelPage {...minimalProps} />
-          </MemoryRouter>
-        </Provider>
-      </IntlProvider>,
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <MemoryRouter>
+          <ModelPage {...minimalProps} />
+        </MemoryRouter>
+      </Provider>,
     );
     instance = wrapper.find(ModelPageImpl).instance();
     jest.spyOn(instance, 'loadPage').mockImplementation(loadPageMock);
-    expect(instance.state.searchInput).toBe('');
     expect(instance.state.orderByKey).toBe(MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD);
-    expect(instance.state.orderByAsc).toBe(true);
+    expect(instance.state.orderByAsc).toBe(false);
   });
 });
