@@ -325,6 +325,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
         >
           {(loading: any, hasError: any, requests: any) => {
             if (hasError) {
+              this.resetHistoryState();
               if (Utils.shouldRender404(requests, [this.initgetRegisteredModelApiRequestId])) {
                 return (
                   <ErrorView
@@ -366,7 +367,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
                   />
                 );
               }
-              this.resetHistoryState();
               // TODO(Zangr) Have a more generic boundary to handle all errors, not just 404.
               triggerError(requests);
             } else if (loading) {
