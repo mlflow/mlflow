@@ -27,7 +27,11 @@ from mlflow.tracing.utils import (
     maybe_get_request_id,
 )
 from mlflow.tracing.utils.environment import resolve_env_metadata
-from mlflow.tracking.fluent import _get_experiment_id, _get_latest_active_run, get_active_model_id
+from mlflow.tracking.fluent import (
+    _get_active_model_id_global,
+    _get_experiment_id,
+    _get_latest_active_run,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -139,7 +143,13 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         if run := _get_latest_active_run():
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
 
-        if model_id := maybe_get_logged_model_id():
+        # The order is:
+        # 1. model_id of the current active model set by `set_active_model`
+        # 2. model_id from the current prediction context
+        #   (set by mlflow pyfunc predict, or explicitly using set_prediction_context)
+        if active_model_id := _get_active_model_id_global():
+            metadata[TraceMetadataKey.MODEL_ID] = active_model_id
+        elif model_id := maybe_get_logged_model_id():
             metadata[TraceMetadataKey.MODEL_ID] = model_id
 
         return metadata
@@ -176,12 +186,10 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         )
 
         # model_id is used in start_span and passed as attribute, so it should
-        # be used even if active_model_id exists
-        # TODO: We should remove the model ID from the span attributes
+        # be used even if the model_Id is already set in the trace info
+        # TODO: remove this once we removed model_id from `start_span` API
         if model_id := get_otel_attribute(root_span, SpanAttributeKey.MODEL_ID):
             trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = model_id
-        elif active_model_id := get_active_model_id():
-            trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = active_model_id
 
     def _truncate_metadata(self, value: Optional[str]) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""

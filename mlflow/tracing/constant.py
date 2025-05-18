@@ -4,6 +4,7 @@ class TraceMetadataKey:
     OUTPUTS = "mlflow.traceOutputs"
     SOURCE_RUN = "mlflow.sourceRun"
     MODEL_ID = "mlflow.modelId"
+    SIZE_BYTES = "mlflow.trace.sizeBytes"
 
 
 class TraceTagKey:

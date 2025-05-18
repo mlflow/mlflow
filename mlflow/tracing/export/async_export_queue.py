@@ -107,8 +107,17 @@ class AsyncTraceExportQueue:
             task.handle()
             self._queue.task_done()
 
-        future = self._worker_threadpool.submit(_handle, task)
-        self._active_tasks.add(future)
+        try:
+            future = self._worker_threadpool.submit(_handle, task)
+            self._active_tasks.add(future)
+        except Exception as e:
+            # In case it fails to submit the task to the worker thread pool
+            # such as interpreter shutdown, handle the task in this thread
+            _logger.debug(
+                f"Failed to submit task to worker thread pool. Error: {e}",
+                exc_info=True,
+            )
+            _handle(task)
 
     def activate(self) -> None:
         """Activate the async queue to accept and handle incoming tasks."""

@@ -158,12 +158,11 @@ if MLFLOW_CONFIGURE_LOGGING.get() is True:
 
 # Core modules required for mlflow-tracing
 from mlflow.tracing.assessment import (
-    delete_expectation,
-    delete_feedback,
+    delete_assessment,
+    log_assessment,
     log_expectation,
     log_feedback,
-    update_expectation,
-    update_feedback,
+    update_assessment,
 )
 from mlflow.tracing.fluent import (
     add_trace,
@@ -213,12 +212,11 @@ __all__ = [
     "trace",
     "update_current_trace",
     # Assessment APIs
-    "delete_expectation",
-    "delete_feedback",
+    "delete_assessment",
+    "log_assessment",
+    "update_assessment",
     "log_expectation",
     "log_feedback",
-    "update_expectation",
-    "update_feedback",
 ]
 
 # Only import these modules when mlflow or mlflow-skinny is installed i.e. not importing them
@@ -237,7 +235,7 @@ if not IS_TRACING_SDK_ONLY:
         set_system_metrics_samples_before_logging,
         set_system_metrics_sampling_interval,
     )
-    from mlflow.models import evaluate
+    from mlflow.models.evaluation.deprecated import evaluate
     from mlflow.models.evaluation.validation import validate_evaluation_results
     from mlflow.projects import run
     from mlflow.tracking._model_registry.fluent import (
@@ -285,6 +283,7 @@ if not IS_TRACING_SDK_ONLY:
         log_inputs,
         log_metric,
         log_metrics,
+        log_model_params,
         log_outputs,
         log_param,
         log_params,
@@ -344,6 +343,7 @@ if not IS_TRACING_SDK_ONLY:
         "log_image",
         "log_input",
         "log_inputs",
+        "log_model_params",
         "log_outputs",
         "log_metric",
         "log_metrics",

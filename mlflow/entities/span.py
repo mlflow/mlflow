@@ -317,14 +317,18 @@ class Span:
         )
         parent = _encode_span_id_to_byte(self._span.parent.span_id) if self._span.parent else b""
 
+        # NB: This is a workaround that some DBX internal code pass float timestamp
+        start_time_unix_nano = int(self._span.start_time) if self._span.start_time else None
+        end_time_unix_nano = int(self._span.end_time) if self._span.end_time else None
+
         return ProtoSpan(
             trace_id=_encode_trace_id_to_byte(self._span.context.trace_id),
             span_id=_encode_span_id_to_byte(self._span.context.span_id),
             trace_state=self._span.context.trace_state or "",
             parent_span_id=parent,
             name=self.name,
-            start_time_unix_nano=self._span.start_time,
-            end_time_unix_nano=self._span.end_time,
+            start_time_unix_nano=start_time_unix_nano,
+            end_time_unix_nano=end_time_unix_nano,
             events=[event.to_proto() for event in self.events],
             status=status,
             attributes={k: ParseDict(v, Value()) for k, v in self._span.attributes.items()},

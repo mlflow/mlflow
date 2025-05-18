@@ -1,9 +1,9 @@
 from mlflow.genai.scorers.base import BuiltInScorer, Scorer, scorer
 from mlflow.genai.scorers.builtin_scorers import (
+    all_scorers,
     chunk_relevance,
     context_sufficiency,
     correctness,
-    global_guideline_adherence,
     groundedness,
     guideline_adherence,
     rag_scorers,
@@ -18,9 +18,9 @@ __all__ = [
     "chunk_relevance",
     "context_sufficiency",
     "correctness",
-    "global_guideline_adherence",
     "groundedness",
     "guideline_adherence",
+    "all_scorers",
     "rag_scorers",
     "relevance_to_query",
     "safety",

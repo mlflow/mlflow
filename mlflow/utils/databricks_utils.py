@@ -9,6 +9,8 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple, Optional, TypeVar
 
+from mlflow.utils.logging_utils import eprint
+
 if TYPE_CHECKING:
     from pyspark.sql.connect.session import SparkSession as SparkConnectSession
 
@@ -1070,6 +1072,25 @@ def _construct_databricks_model_version_url(
     return model_version_url
 
 
+def _construct_databricks_logged_model_url(
+    workspace_url: str, experiment_id: str, model_id: str, workspace_id: Optional[str] = None
+) -> str:
+    """
+    Get a Databricks URL for a given registered model version in Unity Catalog.
+
+    Args:
+        workspace_url: The URL of the workspace the registered model is in.
+        experiment_id: The ID of the experiment the model is logged to.
+        model_id: The ID of the logged model to create the URL for.
+        workspace_id: The ID of the workspace to include as a query parameter (if provided).
+
+    Returns:
+        The Databricks URL for a registered model in Unity Catalog.
+    """
+    query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
+    return f"{workspace_url}/ml/experiments/{experiment_id}/models/{model_id}{query}"
+
+
 def _construct_databricks_uc_registered_model_url(
     workspace_url: str, registered_model_name: str, version: str, workspace_id: Optional[str] = None
 ) -> str:
@@ -1088,6 +1109,26 @@ def _construct_databricks_uc_registered_model_url(
     path = registered_model_name.replace(".", "/")
     query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
     return f"{workspace_url}/explore/data/models/{path}/version/{version}{query}"
+
+
+def _print_databricks_deployment_job_url(
+    model_name: str,
+    job_id: str,
+    workspace_url: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+) -> str:
+    if not workspace_url:
+        workspace_url = get_workspace_url()
+    if not workspace_id:
+        workspace_id = get_workspace_id()
+    # If there is no workspace_url, we cannot print the job URL
+    if not workspace_url:
+        return None
+
+    query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
+    job_url = f"{workspace_url}/jobs/{job_id}{query}"
+    eprint(f"🔗 Linked deployment job to '{model_name}': {job_url}")
+    return job_url
 
 
 def _get_databricks_creds_config(tracking_uri):

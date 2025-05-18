@@ -10,7 +10,6 @@ import inspect
 import logging
 import os
 import threading
-from contextvars import ContextVar
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union, overload
 
@@ -59,7 +58,10 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     is_testing,
 )
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
@@ -179,18 +181,19 @@ def set_experiment(
         if experiment_id is None:
             experiment = client.get_experiment_by_name(experiment_name)
             if not experiment:
+                _logger.info(
+                    "Experiment with name '%s' does not exist. Creating a new experiment.",
+                    experiment_name,
+                )
                 try:
                     experiment_id = client.create_experiment(experiment_name)
-                    _logger.info(
-                        "Experiment with name '%s' does not exist. Creating a new experiment.",
-                        experiment_name,
-                    )
                 except MlflowException as e:
                     if e.error_code == "RESOURCE_ALREADY_EXISTS":
                         # NB: If two simultaneous processes attempt to set the same experiment
                         # simultaneously, a race condition may be encountered here wherein
                         # experiment creation fails
                         return client.get_experiment_by_name(experiment_name)
+                    raise
 
                 experiment = client.get_experiment(experiment_id)
         else:
@@ -2261,6 +2264,38 @@ def _create_logged_model(
 
 
 @experimental
+def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> None:
+    """
+    Log params to the specified logged model.
+
+    Args:
+        params: Params to log on the model.
+        model_id: ID of the model. If not specified, use the current active model ID.
+
+    Returns:
+        None
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        class DummyModel(mlflow.pyfunc.PythonModel):
+            def predict(self, context, model_input: list[str]) -> list[str]:
+                return model_input
+
+
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+        mlflow.log_model_params(params={"param": "value"}, model_id=model_info.model_id)
+    """
+    model_id = model_id or get_active_model_id()
+    MlflowClient().log_model_params(model_id, params)
+
+
+@experimental
 def finalize_logged_model(
     model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
 ) -> LoggedModel:
@@ -2401,14 +2436,14 @@ def search_logged_models(
                 - tags: `tags.tag_name`
             - Comparison operators:
                 - For numeric entities (metrics and numeric attributes): <, <=, >, >=, =, !=
-                - For string entities (params, tags, string attributes): =, !=, LIKE, ILIKE
+                - For string entities (params, tags, string attributes): =, !=, IN, NOT IN
             - Multiple conditions can be joined with 'AND'
             - String values must be enclosed in single quotes
 
             Example filter strings:
                 - `creation_time > 100`
                 - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
-                - `tags.release LIKE 'v1.%'`
+                - `tags.release IN ('v1.0', 'v1.1')`
                 - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
 
         datasets: List of dictionaries to specify datasets on which to apply metrics filters
@@ -3225,6 +3260,9 @@ def autolog(
             register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)
 
 
+_active_model_id_env_lock = threading.Lock()
+
+
 class ActiveModelContext:
     """
     The context of the active model.
@@ -3238,8 +3276,14 @@ class ActiveModelContext:
         # use _MLFLOW_ACTIVE_MODEL_ID as the default value for model_id
         # so that for subprocesses the default _ACTIVE_MODEL_CONTEXT.model_id
         # is still valid, and we don't need to read from env var.
-        self._model_id = model_id or _MLFLOW_ACTIVE_MODEL_ID.get()
         self._set_by_user = set_by_user
+        with _active_model_id_env_lock:
+            self._model_id = model_id or _MLFLOW_ACTIVE_MODEL_ID.get()
+            # In Databricks, we set the active model ID to the environment variable
+            # so that it can be used in the main process, since databricks serving
+            # loads model from threads.
+            if is_in_databricks_model_serving_environment() and self._model_id:
+                _MLFLOW_ACTIVE_MODEL_ID.set(self._model_id)
 
     def __repr__(self):
         return f"ActiveModelContext(model_id={self.model_id}, set_by_user={self.set_by_user})"
@@ -3253,10 +3297,7 @@ class ActiveModelContext:
         return self._set_by_user
 
 
-_ACTIVE_MODEL_CONTEXT = ContextVar(
-    "active_model_context",
-    default=ActiveModelContext(),
-)
+_ACTIVE_MODEL_CONTEXT = ThreadLocalVariable(default_factory=lambda: ActiveModelContext())
 
 
 class ActiveModel(LoggedModel):
@@ -3398,11 +3439,37 @@ def get_active_model_id() -> Optional[str]:
     Get the active model ID. If no active model is set with ``set_active_model()``, the
     default active model is set using model ID from the environment variable
     ``_MLFLOW_ACTIVE_MODEL_ID``. If neither is set, return None.
+    Note that this function only get the active model ID from the current thread.
 
     Returns:
         The active model ID if set, otherwise None.
     """
     return _get_active_model_context().model_id
+
+
+def _get_active_model_id_global() -> Optional[str]:
+    """
+    Get the active model ID from the global context by checking all threads.
+    This is useful when we need to get the active_model_id set by a different thread.
+    """
+    # if the active model ID is set in the current thread, always use it
+    if model_id_in_current_thread := get_active_model_id():
+        _logger.debug(f"Active model ID found in the current thread: {model_id_in_current_thread}")
+        return model_id_in_current_thread
+    model_ids = [
+        ctx.model_id
+        for ctx in _ACTIVE_MODEL_CONTEXT.get_all_thread_values().values()
+        if ctx.model_id is not None
+    ]
+    if model_ids:
+        if len(set(model_ids)) > 1:
+            _logger.debug(
+                "Failed to get one active model id from all threads, multiple active model IDs "
+                f"found: {set(model_ids)}."
+            )
+            return
+        return model_ids[0]
+    _logger.debug("No active model ID found in any thread.")
 
 
 def _reset_active_model_context() -> None:

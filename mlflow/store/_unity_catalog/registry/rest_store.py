@@ -87,7 +87,11 @@ from mlflow.utils._unity_catalog_utils import (
     uc_model_version_tag_from_mlflow_tags,
     uc_registered_model_tag_from_mlflow_tags,
 )
-from mlflow.utils.databricks_utils import get_databricks_host_creds, is_databricks_uri
+from mlflow.utils.databricks_utils import (
+    _print_databricks_deployment_job_url,
+    get_databricks_host_creds,
+    is_databricks_uri,
+)
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
@@ -354,9 +358,14 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
+        if deployment_job_id:
+            _print_databricks_deployment_job_url(
+                model_name=full_name,
+                job_id=str(deployment_job_id),
+            )
         return registered_model_from_uc_proto(response_proto.registered_model)
 
-    def update_registered_model(self, name, description, deployment_job_id=None):
+    def update_registered_model(self, name, description=None, deployment_job_id=None):
         """
         Update description of the registered model.
 
@@ -371,10 +380,17 @@ class UcModelRegistryStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             UpdateRegisteredModelRequest(
-                name=full_name, description=description, deployment_job_id=deployment_job_id
+                name=full_name,
+                description=description,
+                deployment_job_id=str(deployment_job_id) if deployment_job_id else None,
             )
         )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
+        if deployment_job_id:
+            _print_databricks_deployment_job_url(
+                model_name=full_name,
+                job_id=str(deployment_job_id),
+            )
         return registered_model_from_uc_proto(response_proto.registered_model)
 
     def rename_registered_model(self, name, new_name):

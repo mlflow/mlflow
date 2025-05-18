@@ -1788,6 +1788,22 @@ class SqlAlchemyStore(AbstractStore):
             session.commit()
             return logged_model.to_mlflow_entity()
 
+    def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]):
+        with self.ManagedSessionMaker() as session:
+            logged_model = session.query(SqlLoggedModel).get(model_id)
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+
+            session.add_all(
+                SqlLoggedModelParam(
+                    model_id=model_id,
+                    experiment_id=logged_model.experiment_id,
+                    param_key=param.key,
+                    param_value=param.value,
+                )
+                for param in params
+            )
+
     def _raise_model_not_found(self, model_id: str):
         raise MlflowException(
             f"Logged model with ID '{model_id}' not found.",

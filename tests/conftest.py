@@ -123,6 +123,7 @@ def reset_mlflow_uri():
         try:
             from mlflow.tracking import set_registry_uri
 
+            # clean up the registry URI to avoid side effects
             set_registry_uri(None)
         except ImportError:
             # tracing sdk does not have the registry module

@@ -49,6 +49,7 @@ from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.pyfunc.model import _load_pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
@@ -2197,6 +2198,8 @@ def test_model_as_code_pycache_cleaned_up():
 def test_model_pip_requirements_pin_numpy_when_pandas_included():
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
+            import pandas as pd  # noqa: F401
+
             return model_input
 
     expected_mlflow_version = _mlflow_major_version_string()
@@ -2513,3 +2516,29 @@ def test_load_model_warning():
 
     with pytest.warns(UserWarning, match=r"`runs:/<run_id>/artifact_path` is deprecated"):
         mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
+
+
+def test_pyfunc_model_traces_link_to_model_id():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        @mlflow.trace
+        def predict(self, model_input: list[str]) -> list[str]:
+            return model_input
+
+    model_infos = []
+    for i in range(3):
+        model_infos.append(
+            mlflow.pyfunc.log_model(
+                name="test_model",
+                python_model=TestModel(),
+                input_example=["a", "b", "c"],
+            )
+        )
+
+    for model_info in model_infos:
+        pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+        pyfunc_model.predict(["a", "b", "c"])
+
+    traces = get_traces()[::-1]
+    assert len(traces) == 3
+    for i in range(3):
+        assert traces[i].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_infos[i].model_id
