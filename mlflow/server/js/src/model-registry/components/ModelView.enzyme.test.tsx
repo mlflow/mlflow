@@ -113,11 +113,9 @@ describe('ModelView', () => {
   test('should render all model versions initially', () => {
     wrapper = createComponentInstance(minimalProps);
     expect(wrapper.find('div[role="cell"].model-version').length).toBe(3);
-    console.log('-------------------\n--------------------\n--------------------');
-    console.log(wrapper.find('div[role="cell"].model-version'));
-    //expect(wrapper.find('div[role="cell"].model-version').at(0).text()).toBe('Version 3');
-    //expect(wrapper.find('div[role="cell"].model-version').at(1).text()).toBe('Version 2');
-    expect(wrapper.find('div[role="cell"].model-version').at(2).text()).toBe('Version 1');
+    expect(wrapper.find('div[role="cell"].model-version').at(0).text()).toBe('Version 1');
+    expect(wrapper.find('div[role="cell"].model-version').at(1).text()).toBe('Version 2');
+    expect(wrapper.find('div[role="cell"].model-version').at(2).text()).toBe('Version 3');
   });
   test('should render model version table with activeStageOnly when "Active" button is on', async () => {
     mockModelsNextUIDismissed();

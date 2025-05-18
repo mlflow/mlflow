@@ -155,7 +155,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
 
   // Loads the initial set of model versions.
   loadModelVersions(isInitialLoading = true) {
-
     this.loadPage(this.state.currentPage, isInitialLoading, true);
   }
   
@@ -390,6 +389,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
                   onClickSortableColumn={this.handleClickSortableColumn}
                   onSetMaxResult={this.handleMaxResultsChange}
                   maxResultValue={this.getMaxResultsSelection()}
+                  loading={this.state.loading}
                 />
               );
             }

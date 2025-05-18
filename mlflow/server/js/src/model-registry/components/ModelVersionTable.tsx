@@ -9,6 +9,7 @@ import {
   LegacyTooltip,
   Typography,
   useDesignSystemTheme,
+  TableSkeletonRows
 } from '@databricks/design-system';
 import {
   ColumnDef,
@@ -45,6 +46,7 @@ import { truncateToFirstLineWithMaxLength } from '../../common/utils/StringUtils
 import ExpandableList from '../../common/components/ExpandableList';
 
 type ModelVersionTableProps = {
+  isLoading: boolean;
   modelName: string;
   pagination: React.ReactElement;
   orderByKey: string;
@@ -65,14 +67,14 @@ type ModelVersionColumnDef = ColumnDef<ModelVersionInfoEntity> & {
 };
 
 enum COLUMN_IDS {
-  STATUS = 'STATUS',
-  VERSION = 'VERSION',
-  CREATION_TIMESTAMP = 'CREATION_TIMESTAMP',
-  USER_ID = 'USER_ID',
-  TAGS = 'TAGS',
-  STAGE = 'STAGE',
-  DESCRIPTION = 'DESCRIPTION',
-  ALIASES = 'ALIASES',
+  STATUS = 'status',
+  VERSION = 'version',
+  CREATION_TIMESTAMP = 'creation_timestamp',
+  USER_ID = 'user_id',
+  TAGS = 'tags',
+  STAGE = 'current_stage',
+  DESCRIPTION = 'description',
+  ALIASES = 'aliases',
 }
 
 export const ModelVersionTable = ({
@@ -89,6 +91,7 @@ export const ModelVersionTable = ({
   usingNextModelsUI,
   aliases,
   pagination,
+  isLoading
 }: ModelVersionTableProps) => {
   const aliasesByVersion = useMemo(() => {
     const result: Record<string, string[]> = {};
@@ -333,7 +336,7 @@ export const ModelVersionTable = ({
       image={<PlusIcon />}
     />
   );
-
+  console.log(isLoading)
   return (
     <>
       <Table
@@ -359,7 +362,7 @@ export const ModelVersionTable = ({
               sortDirection={header.column.getIsSorted() || 'none'}
               onToggleSort={() => {
                 const [currentSortColumn] = sorting;
-                const changingDirection = getSortFieldName(header.column.id) === currentSortColumn.id;
+                const changingDirection = header.column.id === currentSortColumn.id;
                 const sortDesc = changingDirection ? !currentSortColumn.desc : false;
                 header.column.toggleSorting(sortDesc);
               }}
@@ -369,7 +372,9 @@ export const ModelVersionTable = ({
             </TableHeader>
           ))}
         </TableRow>
-        {table.getRowModel().rows.map((row) => (
+        {isLoading ? (
+          <TableSkeletonRows table={table} />
+        ) : (table.getRowModel().rows.map((row) => (
           <TableRow
             key={row.id}
             css={{
@@ -394,7 +399,7 @@ export const ModelVersionTable = ({
               </TableCell>
             ))}
           </TableRow>
-        ))}
+        )))}
       </Table>
       {EditTagsModal}
       {EditAliasesModal}

@@ -5,12 +5,13 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { mount } from 'enzyme';
 import React from 'react';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
-import { ModelVersionStatus, Stages } from '../constants';
+import { ModelVersionStatus, Stages, MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD } from '../constants';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { ModelPageImpl, ModelPage } from './ModelPage';
@@ -18,14 +19,16 @@ import Utils from '../../common/utils/Utils';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ModelRegistryRoutes } from '../routes';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { IntlProvider } from 'react-intl';
 
 describe('ModelPage', () => {
-  let wrapper;
+  let wrapper: any;
   let instance;
   let minimalProps: any;
   let minimalStore: any;
   const mockStore = configureStore([thunk, promiseMiddleware()]);
   const navigate = jest.fn();
+  const loadPageMock = (page: any, isInitialLoading: any) => {};
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -52,23 +55,27 @@ describe('ModelPage', () => {
   });
 
   test('should render with minimal props and store without exploding', () => {
-    wrapper = mountWithIntl(
-      <Provider store={minimalStore}>
-        <MemoryRouter>
-          <ModelPage {...minimalProps} />
-        </MemoryRouter>
-      </Provider>,
+    wrapper = mount(
+      <IntlProvider locale="en">
+        <Provider store={minimalStore}>
+          <MemoryRouter>
+            <ModelPage {...minimalProps} />
+          </MemoryRouter>
+        </Provider>
+      </IntlProvider>,
     );
     expect(wrapper.find(ModelPage).length).toBe(1);
   });
 
   test('should redirect to model listing page when model is deleted', async () => {
-    wrapper = mountWithIntl(
-      <Provider store={minimalStore}>
-        <MemoryRouter>
-          <ModelPage {...minimalProps} />
-        </MemoryRouter>
-      </Provider>,
+    wrapper = mount(
+      <IntlProvider locale="en">
+        <Provider store={minimalStore}>
+          <MemoryRouter>
+            <ModelPage {...minimalProps} />
+          </MemoryRouter>
+        </Provider>
+      </IntlProvider>,
     );
     instance = wrapper.find(ModelPageImpl).instance();
     const mockError = new ErrorWrapper('{ "error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Foo!" }', 404);
@@ -77,5 +84,22 @@ describe('ModelPage', () => {
     instance.loadData = jest.fn().mockReturnValue(Promise.reject(mockError));
     await instance.pollData();
     expect(navigate).toHaveBeenCalledWith(ModelRegistryRoutes.modelListPageRoute);
+  });
+
+  test('the states should be correctly set when page is loaded initially', () => {
+    wrapper = mount(
+      <IntlProvider locale="en">
+        <Provider store={minimalStore}>
+          <MemoryRouter>
+            <ModelPage {...minimalProps} />
+          </MemoryRouter>
+        </Provider>
+      </IntlProvider>,
+    );
+    instance = wrapper.find(ModelPageImpl).instance();
+    jest.spyOn(instance, 'loadPage').mockImplementation(loadPageMock);
+    expect(instance.state.searchInput).toBe('');
+    expect(instance.state.orderByKey).toBe(MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD);
+    expect(instance.state.orderByAsc).toBe(true);
   });
 });

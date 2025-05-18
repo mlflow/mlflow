@@ -28,7 +28,7 @@ import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
-const CREATION_TIMESTAMP_COLUMN_INDEX = 'CREATION_TIMESTAMP';
+const CREATION_TIMESTAMP_COLUMN_INDEX = 'creation_timestamp';
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -61,6 +61,7 @@ type ModelViewImplProps = {
   onClickSortableColumn: (...args: any[]) => any;
   onSetMaxResult: (...args: any[]) => any;
   maxResultValue: number;
+  loading?: boolean;
 };
 
 type ModelViewImplState = any;
@@ -120,16 +121,8 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   };
 
   unifiedTableSortChange = ({ orderByKey, orderByAsc }: any) => {
-    // Different column keys are used for sorting and data accessing,
-    // mapping to proper keys happens below
-    const fieldMappedToSortKey =
-      // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-      {
-        'CREATION_TIMESTAMP': 'CREATION_TIMESTAMP',
-      }[orderByKey] || orderByKey;
-
     this.handleTableChange(undefined, undefined, {
-      field: fieldMappedToSortKey,
+      field: orderByKey,
       order: orderByAsc ? 'undefined' : 'descend',
     });
   };
@@ -468,6 +461,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             </div>
           )}
           <ModelVersionTable
+            isLoading={this.props.loading || false}
             activeStageOnly={stageFilter === StageFilters.ACTIVE && !this.props.usingNextModelsUI}
             modelName={modelName}
             modelVersions={modelVersions}
