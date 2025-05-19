@@ -411,7 +411,6 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         )
 
 
-@experimental
 class ChatAgent(PythonModel, metaclass=ABCMeta):
     """
     .. tip::
@@ -831,6 +830,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         ResponsesAgentStreamEvent,
     )
 
+    @experimental
     class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         """
         A base class for creating ResponsesAgent models.
@@ -866,7 +866,6 @@ if IS_PYDANTIC_V2_OR_NEWER:
             https://www.mlflow.org/docs/latest/llms/responses-agent-intro#example.
             """
 
-        @abstractmethod
         def predict_stream(
             self, request: ResponsesAgentRequest
         ) -> Generator[ResponsesAgentStreamEvent, None, None]:
@@ -879,6 +878,10 @@ if IS_PYDANTIC_V2_OR_NEWER:
             You can see an example implementation at
             https://www.mlflow.org/docs/latest/llms/responses-agent-intro#example.
             """
+            raise NotImplementedError(
+                "Streaming implementation not provided. Please override the "
+                "`predict_stream` method on your model to generate streaming predictions"
+            )
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417

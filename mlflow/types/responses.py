@@ -41,10 +41,9 @@ class ResponsesAgentRequest(BaseRequestPayload):
     """Request object for ResponsesAgent.
 
     Args:
-        input
-            (List[Union[:py:class:`mlflow.types.responses_helpers.Message`,
-            :py:class:`mlflow.types.responses_helpers.OutputItem`]]):
-            List of input messages or output items
+        input: List of simple `role` and `content` messages or output items. See examples at
+            https://mlflow.org/docs/latest/llms/responses-agent-intro/#testing-out-your-agent and
+            https://mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             to the model. The dictionary values must be JSON-serializable.
             **Optional** defaults to ``None``
@@ -61,14 +60,10 @@ class ResponsesAgentResponse(Response):
     """Response object for ResponsesAgent.
 
     Args:
-        output
-            (List[:py:class:`OutputItem <mlflow.types.responses_helpers.OutputItem>`]):
-            List of output items
-        reasoning (:py:class:`ReasoningParams <mlflow.types.responses_helpers.ReasoningParams>`):
-            Reasoning parameters
-        usage
-            (:py:class:`ResponseUsage <mlflow.types.responses_helpers.ResponseUsage>`):
-            Usage information
+        output: List of output items. See examples at
+            https://mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+        reasoning: Reasoning parameters
+        usage: Usage information
         custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
             to ``None``
@@ -79,11 +74,10 @@ class ResponsesAgentResponse(Response):
 
 class ResponsesAgentStreamEvent(BaseModel):
     """Stream event for ResponsesAgent.
+    See examples at https://mlflow.org/docs/latest/llms/responses-agent-intro/#streaming-agent-output
 
     Args:
         type (str): Type of the stream event
-        item (:py:class:`OutputItem <mlflow.types.responses_helpers.OutputItem>`): The output item
-            that is being streamed
         custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
             to ``None``
