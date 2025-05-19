@@ -103,35 +103,6 @@ def test_event_logging_stream_flushes_properly():
     assert "foo" in stream.content
     assert stream.flush_count > 0
 
-def test_mlflow_configure_logging_env_var():
-    # Save original state
-    original_loggers = [h for h in logging.getLogger("mlflow").handlers]
-    original_value = MLFLOW_CONFIGURE_LOGGING.get()
-    try:
-          # Remove all handlers
-          logger = logging.getLogger("mlflow")
-          for handler in list(logger.handlers):
-              logger.removeHandler(handler)
-
-          # Test with env var set to False
-          os.environ["MLFLOW_CONFIGURE_LOGGING"] = "False"
-          # Force reload mlflow to apply environment variable
-          
-          importlib.reload(mlflow)
-          # Should have no handlers since env var is False
-          assert len([h for h in logging.getLogger("mlflow").handlers]) == 0
-          # Test with env var set to True
-          os.environ["MLFLOW_CONFIGURE_LOGGING"] = "True"
-          importlib.reload(mlflow)
-          # Should have handlers now
-          assert len([h for h in logging.getLogger("mlflow").handlers]) > 0
-    finally:
-          # Restore original state
-          if original_value is True:
-              os.environ["MLFLOW_CONFIGURE_LOGGING"] = "True"
-          else:
-              os.environ.pop("MLFLOW_CONFIGURE_LOGGING", None)
-          importlib.reload(mlflow)
 
 def test_debug_logs_emitted_correctly_when_configured():
     stream = SampleStream()

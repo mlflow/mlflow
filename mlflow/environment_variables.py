@@ -6,9 +6,9 @@ MLflow's environment variables adhere to the following naming conventions:
 """
 
 import os
+import warnings
 from pathlib import Path
-
-
+from mlflow.utils.logging_utils import _configure_mlflow_loggers
 class _EnvironmentVariable:
     """
     Represents an environment variable.
@@ -557,7 +557,10 @@ MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE = _EnvironmentVariable(
 #: logging handlers and formatters.
 #: (default: ``True``)
 MLFLOW_CONFIGURE_LOGGING = _BooleanEnvironmentVariable("MLFLOW_CONFIGURE_LOGGING", True)
-
+if os.environ.get("MLFLOW_LOGGING_CONFIGURE_LOGGING", "true").lower == "false":
+    warnings.warn("MLFLOW_LOGGING_CONFIGURE_LOGGING is deprecated and will be removed in a future release, please use MLFLOW_CONFIGURE_LOGGING instead", FutureWarning)
+elif MLFLOW_CONFIGURE_LOGGING.get() is True:
+    _configure_mlflow_loggers(root_module_name=__name__)
 #: If set to True, the following entities will be truncated to their maximum length:
 #: - Param value
 #: - Tag value
