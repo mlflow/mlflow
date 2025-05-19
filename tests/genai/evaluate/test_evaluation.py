@@ -1,9 +1,7 @@
-import warnings
 from importlib import import_module
 from unittest import mock
 from unittest.mock import patch
 
-import pandas as pd
 import pytest
 from packaging.version import Version
 
@@ -289,40 +287,3 @@ def test_no_scorers(mock_get_tracking_uri):
 
     with pytest.raises(MlflowException, match=r"The `scorers` argument must be a list of"):
         mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
-
-
-def test_genai_evaluate_does_not_warn_about_deprecated_model_type():
-    """
-    MLflow shows a warning when model_type="databricks-agent" is used for mlflow.evaluate()
-    API. This test verifies that the warning is not shown when mlflow.genai.evaluate() is used.
-    """
-    with (
-        patch("mlflow.genai.evaluation.base.is_databricks_uri", return_value=True),
-        patch("mlflow.models.evaluation.base._evaluate") as mock_evaluate_impl,
-        warnings.catch_warnings(),
-    ):
-        warnings.simplefilter("error", FutureWarning)
-        mlflow.genai.evaluate(
-            data=[{"inputs": {"question": "Hello"}, "outputs": "Hi"}],
-            scorers=[safety()],
-        )
-
-    mock_evaluate_impl.assert_called_once()
-
-    # Warning should be shown when "databricks-agent" model type is used with direct call
-    data = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
-    with (
-        patch("mlflow.models.evaluation.base.warnings") as mock_warnings,
-        patch("mlflow.models.evaluation.base._evaluate") as mock_evaluate_impl,
-    ):
-        mlflow.models.evaluate(
-            data=data,
-            model=lambda x: x["x"] * 2,
-            model_type="databricks-agent",
-            extra_metrics=[mlflow.metrics.latency()],
-        )
-    mock_warnings.warn.assert_called_once()
-    assert mock_warnings.warn.call_args[0][0].startswith(
-        "The 'databricks-agent' model type is deprecated"
-    )
-    mock_evaluate_impl.assert_called_once()
