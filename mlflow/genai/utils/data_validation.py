@@ -48,11 +48,11 @@ def _validate_function_and_input_compatibility(
 
     # Check for *args-style parameters which aren't supported
     if _has_variable_positional_arguments(params):
-        _raise_args_not_supported_error(predict_fn, e)
+        _raise_args_not_supported_error(e)
 
     # Check if input keys match function parameters
     if not _has_required_keyword_arguments(params, sample_input.keys()):
-        _raise_input_mismatch_error(predict_fn, params, e)
+        _raise_input_mismatch_error(params, e)
 
     # For other errors, show a generic error message
     raise MlflowException.invalid_parameter_value(
