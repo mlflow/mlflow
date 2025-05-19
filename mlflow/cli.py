@@ -194,9 +194,7 @@ def run(
         try:
             backend_config = json.loads(backend_config)
         except ValueError as e:
-            raise click.UsageError(
-                "Specify only one of 'experiment-name' or 'experiment-id' options."
-            ) from e
+            raise click.UsageError(f"Invalid backend config JSON. Parse error: {e}") from e
     if backend == "kubernetes":
         if backend_config is None:
             raise click.UsageError("Specify 'backend_config' when using kubernetes mode.")
@@ -235,14 +233,12 @@ def _user_args_to_dict(arguments, argument_type="P"):
             name = split[0]
             value = split[1]
         else:
-            eprint(
+            raise click.UsageError(
                 f"Invalid format for -{argument_type} parameter: '{arg}'. "
                 f"Use -{argument_type} name=value."
             )
-            sys.exit(1)
         if name in user_dict:
-            eprint(f"Repeated parameter: '{name}'")
-            sys.exit(1)
+            raise click.UsageError(f"Repeated parameter: '{name}'")
         user_dict[name] = value
     return user_dict
 
