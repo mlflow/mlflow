@@ -27,7 +27,7 @@ def main() -> None:
     DOCS_DIR = Path("docs/docs/")
     changed_pages: list[Path] = []
     for f in fetch_changed_files(pr):
-        if f.suffix in [".md", ".mdx"] and f.parts[0] == "docs":
+        if f.suffix in [".md", ".mdx"] and str(f).startswith(DOCS_DIR):
             path = (
                 f.parent / "index.html"
                 if f.name == "index.mdx"
