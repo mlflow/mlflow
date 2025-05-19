@@ -3491,6 +3491,12 @@ def unset_active_model() -> None:
         mlflow.unset_active_model()
         # Check that the active model is unset
         assert mlflow.get_active_model_id() is None
+
+        # If you want to temporarily set the active model,
+        # use  `set_active_model` as a context manager instead
+        with mlflow.set_active_model(name="my_model") as active_model:
+            assert mlflow.get_active_model_id() == active_model.model_id
+        assert mlflow.get_active_model_id() is None
     """
     # reset the environment variable as well to avoid it being used when creating
     # ActiveModelContext
