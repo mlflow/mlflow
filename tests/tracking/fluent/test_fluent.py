@@ -54,7 +54,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import (
     _ACTIVE_MODEL_CONTEXT,
     ActiveModelContext,
@@ -2087,28 +2087,20 @@ def test_set_active_model_link_traces():
     traces = get_traces()
     assert len(traces) == 3
     for trace in traces:
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model_id
 
     # manual start span without model_id
     with mlflow.start_span():
         predict(model_input=1)
     traces = get_traces()
     assert len(traces) == 4
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
-
-    # manual start span with model_id
-    with mlflow.start_span(model_id="1234"):
-        predict(model_input=1)
-
-    traces = get_traces()
-    assert len(traces) == 5
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == "1234"
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_id
 
     with set_active_model(name="new_model") as new_model:
         predict(model_input=1)
     traces = get_traces()
-    assert len(traces) == 6
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == new_model.model_id
+    assert len(traces) == 5
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == new_model.model_id
     assert new_model.model_id != model_id
 
 
@@ -2118,6 +2110,13 @@ def test_set_active_model_in_databricks_serving():
         return_value=True,
     ):
         model = set_active_model(name="test_model")
+        assert mlflow.get_active_model_id() == model.model_id
+        assert _MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+
+        with set_active_model(name="new_model") as new_model:
+            assert mlflow.get_active_model_id() == new_model.model_id
+            assert _MLFLOW_ACTIVE_MODEL_ID.get() == new_model.model_id
+
         assert mlflow.get_active_model_id() == model.model_id
         assert _MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
 
