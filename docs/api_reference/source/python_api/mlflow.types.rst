@@ -23,7 +23,3 @@ mlflow.types
 
 .. automodule:: mlflow.types.llm._BaseDataclass
     :undoc-members:
-
-.. automodule:: mlflow.types.responses_helpers
-    :members:
-    :undoc-members:

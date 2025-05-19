@@ -41,8 +41,10 @@ class ResponsesAgentRequest(BaseRequestPayload):
     """Request object for ResponsesAgent.
 
     Args:
-        input (List[Union[:py:class:`mlflow.types.responses_helpers.Message`, :py:class:`mlflow.types.responses_helpers.OutputItem`]]):
-                List of input messages or output items
+        input
+            (List[Union[:py:class:`mlflow.types.responses_helpers.Message`,
+            :py:class:`mlflow.types.responses_helpers.OutputItem`]]):
+            List of input messages or output items
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             to the model. The dictionary values must be JSON-serializable.
             **Optional** defaults to ``None``
@@ -59,9 +61,14 @@ class ResponsesAgentResponse(Response):
     """Response object for ResponsesAgent.
 
     Args:
-        output (List[:py:class:`mlflow.types.responses_helpers.OutputItem`]): List of output items
-        reasoning (:py:class:`mlflow.types.responses_helpers.ReasoningParams`): Reasoning parameters
-        usage (:py:class:`mlflow.types.responses_helpers.ResponseUsage`): Usage information
+        output
+            (List[:py:class:`OutputItem <mlflow.types.responses_helpers.OutputItem>`]):
+            List of output items
+        reasoning (:py:class:`ReasoningParams <mlflow.types.responses_helpers.ReasoningParams>`):
+            Reasoning parameters
+        usage
+            (:py:class:`ResponseUsage <mlflow.types.responses_helpers.ResponseUsage>`):
+            Usage information
         custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             from the model. The dictionary values must be JSON-serializable. **Optional**, defaults
             to ``None``

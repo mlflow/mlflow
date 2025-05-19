@@ -449,6 +449,14 @@ nitpick_ignore = [
     # Types in `mlflow.genai`
     ("py:class", "mlflow.genai.evaluation.base.EvaluationResult"),
     ("py:class", "EvaluationDatasetTypes"),
+    # types in `mlflow.types.responses`
+    ("py:class", "mlflow.types.responses_helpers.Message"),
+    ("py:class", "mlflow.types.responses_helpers.OutputItem"),
+    ("py:class", "mlflow.types.responses_helpers.ToolChoiceFunction"),
+    ("py:class", "mlflow.types.responses_helpers.ReasoningParams"),
+    ("py:class", "mlflow.types.responses_helpers.ResponseError"),
+    ("py:class", "mlflow.types.responses_helpers.IncompleteDetails"),
+    ("py:class", "mlflow.types.responses_helpers.ResponseUsage"),
 ]
 
 
