@@ -2,12 +2,14 @@ name: Team review
 
 on:
   pull_request_target:
-    types: [review_requested]
+    types:
+      - labeled
 
 jobs:
   review:
     runs-on: ubuntu-latest
-    if: ${{ github.event.requested_reviewer.login == 'mlflow-automation'}}
+    # Our GitHub Plan doesn't support team pull request reviewers. Use the `team-review` label to trigger this workflow.
+    if: ${{ github.event.label.name == 'team-review' }}
     timeout-minutes: 5
     permissions:
       pull-requests: write
@@ -41,10 +43,4 @@ jobs:
               repo,
               pull_number,
               reviewers: members.filter((m) => !approved.includes(m) && m !== author),
-            });
-            await github.rest.pulls.removeRequestedReviewers({
-              owner,
-              repo,
-              pull_number,
-              reviewers: ["mlflow-automation"],
             });

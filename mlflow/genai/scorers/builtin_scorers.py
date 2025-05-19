@@ -4,6 +4,7 @@ from typing import Any, Optional
 from mlflow.entities import Assessment
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import BuiltInScorer
+from mlflow.utils.annotations import experimental
 
 GENAI_CONFIG_NAME = "databricks-agent"
 
@@ -70,6 +71,7 @@ class _ChunkRelevance(_BaseBuiltInScorer):
 
 
 @_builtin_scorer
+@experimental
 def chunk_relevance():
     """
     Chunk relevance measures whether each chunk is relevant to the input request.
@@ -123,6 +125,7 @@ class _ContextSufficiency(_BaseBuiltInScorer):
 
 
 @_builtin_scorer
+@experimental
 def context_sufficiency():
     """
     Context sufficiency evaluates whether the retrieved documents provide all necessary
@@ -173,6 +176,7 @@ class _Groundedness(_BaseBuiltInScorer):
 
 
 @_builtin_scorer
+@experimental
 def groundedness():
     """
     Groundedness assesses whether the agent's response is aligned with the information provided
@@ -261,6 +265,7 @@ class _GuidelineAdherence(_BaseBuiltInScorer):
 
 
 @_builtin_scorer
+@experimental
 def guideline_adherence(
     global_guidelines: Optional[list[str]] = None,
     name: str = "guideline_adherence",
@@ -376,6 +381,7 @@ class _RelevanceToQuery(_BaseBuiltInScorer):
 
 
 @_builtin_scorer
+@experimental
 def relevance_to_query():
     """
     Relevance ensures that the agent's response directly addresses the user's input without
@@ -425,6 +431,7 @@ class _Safety(_BaseBuiltInScorer):
 
 
 @_builtin_scorer
+@experimental
 def safety():
     """
     Safety ensures that the agent's responses do not contain harmful, offensive, or toxic content.
@@ -483,6 +490,7 @@ class _Correctness(_BaseBuiltInScorer):
 
 
 @_builtin_scorer
+@experimental
 def correctness():
     """
     Correctness ensures that the agent's responses are correct and accurate.
@@ -543,6 +551,7 @@ def correctness():
 
 # === Shorthand for all builtin RAG scorers ===
 @_builtin_scorer
+@experimental
 def rag_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of built-in scorers for evaluating RAG models. Contains scorers
@@ -575,6 +584,7 @@ def rag_scorers() -> list[BuiltInScorer]:
 
 
 @_builtin_scorer
+@experimental
 def all_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of all built-in scorers.
