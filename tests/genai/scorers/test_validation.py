@@ -89,25 +89,17 @@ def test_validate_data(mock_logger):
     mock_logger.info.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "expectations",
-    [
-        {
-            "expectations": [
-                {"expected_response": "response1"},
-                {"expected_response": "response2"},
-            ],
-        },
-    ],
-)
-def test_validate_data_with_expectations(expectations, mock_logger):
+def test_validate_data_with_expectations(mock_logger):
     """Test that expectations are unwrapped and validated properly"""
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
             "outputs": ["output1", "output2"],
             "retrieved_context": ["context1", "context2"],
-            **expectations,
+            "expectations": [
+                {"expected_response": "response1", "guidelines": ["Be polite", "Be kind"]},
+                {"expected_response": "response2", "guidelines": ["Be nice", "Be strong"]},
+            ],
         }
     )
 
@@ -116,8 +108,25 @@ def test_validate_data_with_expectations(expectations, mock_logger):
         data=converted_date,
         builtin_scorers=[
             chunk_relevance(),
-            context_sufficiency(),  # requires expected_response
+            context_sufficiency(),  # requires expected_response in expectations
+            guideline_adherence(),  # requires guidelines in expectations
         ],
+    )
+    mock_logger.info.assert_not_called()
+
+
+def test_global_guideline_adherence_does_not_require_expectations(mock_logger):
+    """Test that expectations are unwrapped and validated properly"""
+    data = pd.DataFrame(
+        {
+            "inputs": [{"question": "input1"}, {"question": "input2"}],
+            "outputs": ["output1", "output2"],
+        }
+    )
+    converted_date = _convert_to_legacy_eval_set(data)
+    valid_data_for_builtin_scorers(
+        data=converted_date,
+        builtin_scorers=[guideline_adherence(global_guidelines=["Be polite", "Be kind"])],
     )
     mock_logger.info.assert_not_called()
 

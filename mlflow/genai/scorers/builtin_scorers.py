@@ -244,8 +244,8 @@ class _GuidelineAdherence(_BaseBuiltInScorer):
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
         # If no global guidelines are specified, the guidelines must exist in the input dataset
-        if not self.global_guidelines and "guidelines" not in columns:
-            raise MissingColumnsException(self.name, ["guidelines"])
+        if not self.global_guidelines and "expectations/guidelines" not in columns:
+            raise MissingColumnsException(self.name, ["expectations/guidelines"])
 
     def __call__(
         self,
