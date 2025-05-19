@@ -299,6 +299,7 @@ if not IS_TRACING_SDK_ONLY:
         set_tag,
         set_tags,
         start_run,
+        unset_active_model,
     )
     from mlflow.tracking.multimedia import Image
     from mlflow.utils.async_logging.run_operations import RunOperations  # noqa: F401
@@ -372,6 +373,7 @@ if not IS_TRACING_SDK_ONLY:
         "set_tags",
         "start_run",
         "validate_evaluation_results",
+        "unset_active_model",
         "Image",
         # Prompt Registry APIs
         "delete_prompt",
