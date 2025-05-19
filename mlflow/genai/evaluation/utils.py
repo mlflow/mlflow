@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.data.evaluation_dataset import EvaluationDataset
@@ -25,6 +26,9 @@ if TYPE_CHECKING:
         ]
     except ImportError:
         EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
@@ -72,14 +76,9 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
                 "Please install it with `pip install pyspark`."
             )
 
-    # Verify format of the input using the first row
-    sample_row = df.iloc[0]
-    if "inputs" in sample_row and not isinstance(sample_row["inputs"], dict):
+    if len(df) == 0:
         raise MlflowException.invalid_parameter_value(
-            "The 'inputs' column must be a dictionary. If you want to pass a single "
-            "argument to the `predict_fn`, use the argument name as the key in the "
-            "dictionary. If you don't pass a `predict_fn`, you can use any string "
-            "key to wrap the value into a dictionary."
+            "The dataset is empty. Please provide a non-empty dataset."
         )
 
     if not any(col in df.columns for col in ("trace", "inputs")):

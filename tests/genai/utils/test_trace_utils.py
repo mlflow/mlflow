@@ -5,9 +5,9 @@ import openai
 import pytest
 
 import mlflow
-from mlflow.genai.utils.trace_utils import is_model_traced
+from mlflow.genai.utils.trace_utils import convert_predict_fn
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, purge_traces
 
 
 def httpx_send_patch(request, *args, **kwargs):
@@ -24,7 +24,7 @@ def httpx_send_patch(request, *args, **kwargs):
                     "index": 0,
                     "message": {
                         "role": "assistant",
-                        "content": '{"name":"Angelo","age":42}',
+                        "content": "test",
                         "refusal": None,
                     },
                     "logprobs": None,
@@ -52,7 +52,7 @@ def get_openai_predict_fn(with_tracing=False):
 
 def get_dummy_predict_fn(with_tracing=False):
     def predict_fn(request):
-        return request
+        return "test"
 
     if with_tracing:
         return mlflow.trace(predict_fn)
@@ -67,12 +67,12 @@ def mock_openai_env(monkeypatch):
 
 @pytest.mark.usefixtures("mock_openai_env")
 @pytest.mark.parametrize(
-    ("predict_fn_generator", "with_tracing", "expected_traced"),
+    ("predict_fn_generator", "with_tracing"),
     [
-        (get_dummy_predict_fn, False, False),
-        (get_dummy_predict_fn, True, True),
-        (get_openai_predict_fn, False, False),
-        (get_openai_predict_fn, True, True),
+        (get_dummy_predict_fn, False),
+        (get_dummy_predict_fn, True),
+        (get_openai_predict_fn, False),
+        (get_openai_predict_fn, True),
     ],
     ids=[
         "dummy predict_fn without tracing",
@@ -81,15 +81,21 @@ def mock_openai_env(monkeypatch):
         "openai predict_fn with tracing",
     ],
 )
-def test_is_traced(predict_fn_generator, with_tracing, expected_traced):
+def test_convert_predict_fn(predict_fn_generator, with_tracing):
     predict_fn = predict_fn_generator(with_tracing=with_tracing)
     sample_input = {"request": {"messages": [{"role": "user", "content": "test"}]}}
-    is_actually_traced = is_model_traced(predict_fn, sample_input)
-    assert is_actually_traced == expected_traced
 
-    # No traces should be logged to backend during the check
-    assert len(get_traces()) == 0
+    # predict_fn is callable as is
+    result = predict_fn(**sample_input)
+    assert result == "test"
+    assert len(get_traces()) == (1 if with_tracing else 0)
+    purge_traces()
 
-    # Make a prediction normally
-    predict_fn(**sample_input)
-    assert len(get_traces()) == (1 if expected_traced else 0)
+    converted_fn = convert_predict_fn(predict_fn, sample_input)
+
+    # converted function takes a single 'request' argument
+    result = converted_fn(request=sample_input)
+    assert result == "test"
+
+    # Trace should be generated
+    assert len(get_traces()) == 1
