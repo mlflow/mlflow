@@ -61,9 +61,9 @@ class Dataset(_MlflowObject):
     def to_proto(self):
         dataset = ProtoDataset()
         dataset.name = self.name
-        dataset.digest = self.digest
-        dataset.source_type = self.source_type
-        dataset.source = self.source
+        dataset.digest = self.digest or ""
+        dataset.source_type = self.source_type or ""
+        dataset.source = self.source or ""
         if self.schema:
             dataset.schema = self.schema
         if self.profile:
