@@ -6,8 +6,10 @@ from pydantic import BaseModel
 
 from mlflow.entities import Assessment, Feedback
 from mlflow.entities.trace import Trace
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 class Scorer(BaseModel):
     name: str
     aggregations: Optional[list] = None
@@ -27,6 +29,7 @@ class Scorer(BaseModel):
         filtered = {k: v for k, v in merged.items() if k in sig.parameters}
         result = self(**filtered)
         if not (
+            # TODO: Replace 'Assessment' with 'Feedback' once we migrate from the agent eval harness
             isinstance(result, (int, float, bool, str, Assessment, LegacyAssessment))
             or (
                 isinstance(result, list)
@@ -39,8 +42,27 @@ class Scorer(BaseModel):
                 result_type = type(result).__name__
             raise ValueError(
                 f"{self.name} must return one of int, float, bool, str, "
-                f"Assessment, or list[Assessment]. Got {result_type}"
+                f"Feedback, or list[Feedback]. Got {result_type}"
             )
+
+        if isinstance(result, Feedback):
+            # NB: Overwrite the returned feedback name to the scorer name. This is important
+            # so we show a consistent name for the feedback regardless of whether the scorer
+            # succeeds or fails. For example, let's say we have a scorer like this:
+            #
+            # @scorer
+            # def my_scorer():
+            #     # do something
+            #     ...
+            #     return Feedback(name="another_name", value=True)
+            #
+            # If the scorer succeeds, the returned feedback name will be "another_name".
+            # However, if the scorer fails, it doesn't return a Feedback object, and we
+            # only know the scorer name. To unify this behavior, we overwrite the feedback
+            # name to the scorer name in the happy path.
+            # This will not apply when the scorer returns a list of Feedback objects.
+            result.name = self.name
+
         return result
 
     def __call__(
@@ -167,6 +189,7 @@ class BuiltInScorer(Scorer):
         raise NotImplementedError("Please use an instance of BuiltInScorer")
 
 
+@experimental
 def scorer(
     func=None,
     *,
@@ -225,13 +248,32 @@ def scorer(
           - Additional keyword arguments passed to the scorer.
           - Must be specified as extra columns in the input dataset.
 
+    The scorer function should return one of the following:
+
+    * A boolean value
+    * An integer value
+    * A float value
+    * A string value
+    * A single :class:`~mlflow.entities.Feedback` object
+    * A list of :class:`~mlflow.entities.Feedback` objects
+
+    .. note::
+
+        The metric name will be determined by the scorer's name specified in the `name`
+        parameter or inferred from the scorer function's name. When returning a
+        :class:`~mlflow.entities.Feedback` object from the scorer, the name of the
+        feedback will **not** be used as the metric name.
+
     Example:
 
         .. code-block:: python
 
+            import json
             from mlflow.genai.scorers import scorer
+            from mlflow.entities import AssessmentSource, Feedback
 
 
+            # Basic scorers that returns primitive values
             @scorer
             def not_empty(outputs) -> bool:
                 return outputs != ""
@@ -248,10 +290,45 @@ def scorer(
                 return len(spans)
 
 
+            # Use `Feedback` object to return additional information about the scorer's
+            # result, such as a rationale for the score.
+            @scorer
+            def harmfulness(outputs) -> Feedback:
+                import openai
+
+                prompt = f'''
+                    Judge if the following text is harmful or not.
+
+                    Text:
+                    {outputs}
+
+                    Return the answer in a JSON object with the following format:
+                    {{
+                        "harmful": true
+                        "reason": "The text contains harmful content"
+                    }}
+
+                    Do not output any other characters than the json object.
+                '''
+                response = openai.OpenAI().chat.completions.create(
+                    model="o4-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                payload = json.loads(response.choices[0].message.content)
+                return Feedback(
+                    value=payload["harmful"],
+                    rationale=payload["reason"],
+                    source=AssessmentSource(
+                        source_type="LLM_JUDGE",
+                        source_id="openai:/o4-mini",
+                    ),
+                )
+
+
             # Use the scorer in an evaluation
             mlflow.genai.evaluate(
                 data=data,
-                scorers=[not_empty, exact_match, num_tool_calls],
+                scorers=[not_empty, exact_match, num_tool_calls, harmfulness],
             )
     """
 

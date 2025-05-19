@@ -185,12 +185,6 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
             }
         )
 
-        # model_id is used in start_span and passed as attribute, so it should
-        # be used even if the model_Id is already set in the trace info
-        # TODO: remove this once we removed model_id from `start_span` API
-        if model_id := get_otel_attribute(root_span, SpanAttributeKey.MODEL_ID):
-            trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = model_id
-
     def _truncate_metadata(self, value: Optional[str]) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""
         if not value:
