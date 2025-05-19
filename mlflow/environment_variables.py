@@ -807,11 +807,3 @@ MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
 #: effect. To modify the logging level after importing mlflow, use `importlib.reload(mlflow)`.
 #: (default: ``None``).
 MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, None)
-
-# Import at the end to avoid circular imports
-from mlflow.utils.logging_utils import _configure_mlflow_loggers
-
-if os.environ.get("MLFLOW_LOGGING_CONFIGURE_LOGGING", "true").lower == "false":
-    warnings.warn("MLFLOW_LOGGING_CONFIGURE_LOGGING is deprecated and will be removed in a future release, please use MLFLOW_CONFIGURE_LOGGING instead", FutureWarning)
-elif MLFLOW_CONFIGURE_LOGGING.get() is True:
-    _configure_mlflow_loggers(root_module_name=__name__)
