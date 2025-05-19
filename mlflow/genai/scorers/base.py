@@ -27,6 +27,7 @@ class Scorer(BaseModel):
         filtered = {k: v for k, v in merged.items() if k in sig.parameters}
         result = self(**filtered)
         if not (
+            # TODO: Replace 'Assessment' with 'Feedback' once we migrate from the agent eval harness
             isinstance(result, (int, float, bool, str, Assessment, LegacyAssessment))
             or (
                 isinstance(result, list)
@@ -39,8 +40,27 @@ class Scorer(BaseModel):
                 result_type = type(result).__name__
             raise ValueError(
                 f"{self.name} must return one of int, float, bool, str, "
-                f"Assessment, or list[Assessment]. Got {result_type}"
+                f"Feedback, or list[Feedback]. Got {result_type}"
             )
+
+        if isinstance(result, Feedback):
+            # NB: Overwrite the returned feedback name to the scorer name. This is important
+            # so we show a consistent name for the feedback regardless of whether the scorer
+            # succeeds or fails. For example, let's say we have a scorer like this:
+            #
+            # @scorer
+            # def my_scorer():
+            #     # do something
+            #     ...
+            #     return Feedback(name="another_name", value=True)
+            #
+            # If the scorer succeeds, the returned feedback name will be "another_name".
+            # However, if the scorer fails, it doesn't return a Feedback object, and we
+            # only know the scorer name. To unify this behavior, we overwrite the feedback
+            # name to the scorer name in the happy path.
+            # This will not apply when the scorer returns a list of Feedback objects.
+            result.name = self.name
+
         return result
 
     def __call__(

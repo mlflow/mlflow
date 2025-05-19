@@ -196,14 +196,6 @@ def test_trace_passed_correctly():
     ],
 )
 def test_scorer_on_genai_evaluate(sample_data, scorer_return):
-    # Skip if `databricks-agents` SDK is not 1.x. It doesn't
-    # support the `mlflow.entities.Assessment` type.
-    is_return_assessment = isinstance(scorer_return, Assessment) or (
-        isinstance(scorer_return, list) and isinstance(scorer_return[0], Assessment)
-    )
-    if is_return_assessment and agent_sdk_version.major < 1:
-        pytest.skip("Skipping test for assessment return type")
-
     @scorer
     def dummy_scorer(inputs, outputs):
         return scorer_return
@@ -271,3 +263,47 @@ def test_builtin_scorers_are_callable():
             request={"question": "What is the capital of France?"},
             response="The capital of France is Paris.",
         )
+
+
+@pytest.mark.parametrize(
+    ("scorer_return", "expected_feedback_name"),
+    [
+        # Single feedback object with default name -> should be renamed to "my_scorer"
+        (
+            Feedback(value=42, rationale="It's the answer to everything"),
+            "my_scorer",
+        ),
+        # Single feedback object -> should be renamed to "my_scorer"
+        (
+            Feedback(name="big_question", value=42, rationale="It's the answer to everything"),
+            "my_scorer",
+        ),
+    ],
+)
+def test_custom_scorer_overwrites_feedback_name(scorer_return, expected_feedback_name):
+    @scorer
+    def my_scorer(inputs, outputs):
+        return scorer_return
+
+    feedback = my_scorer.run(
+        inputs={"question": "What is the capital of France?"},
+        outputs="The capital of France is Paris.",
+    )
+    assert feedback.name == expected_feedback_name
+    assert feedback.value == 42
+
+
+def test_custom_scorer_does_not_overwrite_feedback_name_when_returning_list():
+    @scorer
+    def my_scorer(inputs, outputs):
+        return [
+            Feedback(name="big_question", value=42, rationale="It's the answer to everything"),
+            Feedback(name="small_question", value=1, rationale="Not sure, just a guess"),
+        ]
+
+    feedbacks = my_scorer.run(
+        inputs={"question": "What is the capital of France?"},
+        outputs="The capital of France is Paris.",
+    )
+    assert feedbacks[0].name == "big_question"
+    assert feedbacks[1].name == "small_question"
