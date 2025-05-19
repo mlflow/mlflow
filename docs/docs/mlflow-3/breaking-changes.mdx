@@ -11,7 +11,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 ### MLflow Recipes Removal
 
-**What's changing:** MLflow Recipes (previously known as MLflow Pipelines) has been completely removed from MLflow ([[#15250](https://github.com/mlflow/mlflow/pull/15250)](https://github.com/mlflow/mlflow/pull/15250)).
+**What's changing:** MLflow Recipes (previously known as MLflow Pipelines) has been completely removed from MLflow ([#15250](https://github.com/mlflow/mlflow/pull/15250)).
 
 **Why:** MLflow Recipes was deprecated in previous versions as the team refocused on core MLflow functionality and more modern machine learning workflows.
 
@@ -19,7 +19,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 ### AI Gateway Configuration Changes
 
-**What's changing:** The 'routes' and 'route_type' config keys in the gateway server configuration have been removed ([[#15331](https://github.com/mlflow/mlflow/pull/15331)](https://github.com/mlflow/mlflow/pull/15331)).
+**What's changing:** The 'routes' and 'route_type' config keys in the gateway server configuration have been removed ([#15331](https://github.com/mlflow/mlflow/pull/15331)).
 
 **Why:** The AI Gateway configuration has been simplified and modernized to better support current deployment patterns.
 
@@ -27,7 +27,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 ### MLflow Deployment Server Removal
 
-**What's changing:** The MLflow deployment server application and the `start-server` CLI command have been removed ([[#15327](https://github.com/mlflow/mlflow/pull/15327)](https://github.com/mlflow/mlflow/pull/15327)).
+**What's changing:** The MLflow deployment server application and the `start-server` CLI command have been removed ([#15327](https://github.com/mlflow/mlflow/pull/15327)).
 
 **Why:** MLflow has evolved its deployment strategy to better support modern serving architectures.
 
@@ -37,7 +37,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 ### fastai Flavor Removal
 
-**What's changing:** The `fastai` model flavor has been completely removed ([[#15255](https://github.com/mlflow/mlflow/pull/15255)](https://github.com/mlflow/mlflow/pull/15255)).
+**What's changing:** The `fastai` model flavor has been completely removed ([#15255](https://github.com/mlflow/mlflow/pull/15255)).
 
 **Why:** The fastai library has evolved significantly since this flavor was first added, and usage of this specific flavor has declined over time.
 
@@ -45,7 +45,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 ### mleap Flavor Removal
 
-**What's changing:** The `mleap` flavor has been removed from MLflow ([[#15259](https://github.com/mlflow/mlflow/pull/15259)](https://github.com/mlflow/mlflow/pull/15259)).
+**What's changing:** The `mleap` flavor has been removed from MLflow ([#15259](https://github.com/mlflow/mlflow/pull/15259)).
 
 **Why:** Usage of this specialized flavor has decreased as more flexible alternatives became available.
 
@@ -57,7 +57,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 #### `run_uuid` Attribute Removal
 
-**What's changing:** The `run_uuid` attribute has been removed from the `RunInfo` object ([[#15342](https://github.com/mlflow/mlflow/pull/15342)](https://github.com/mlflow/mlflow/pull/15342)).
+**What's changing:** The `run_uuid` attribute has been removed from the `RunInfo` object ([#15342](https://github.com/mlflow/mlflow/pull/15342)).
 
 **Why:** To simplify the API and reduce duplication, as `run_id` provides the same information.
 
@@ -65,7 +65,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 #### Git Tag Changes
 
-**What's changing:** The run tags `mlflow.gitBranchName` and `mlflow.gitRepoURL` have been removed ([[#15366](https://github.com/mlflow/mlflow/pull/15366)](https://github.com/mlflow/mlflow/pull/15366)).
+**What's changing:** The run tags `mlflow.gitBranchName` and `mlflow.gitRepoURL` have been removed ([#15366](https://github.com/mlflow/mlflow/pull/15366)).
 
 **Why:** MLflow is standardizing how git information is tracked.
 
@@ -73,7 +73,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 #### TensorFlow Autologging Change
 
-**What's changing:** The `every_n_iter` parameter has been removed from TensorFlow autologging ([[#15412](https://github.com/mlflow/mlflow/pull/15412)](https://github.com/mlflow/mlflow/pull/15412)).
+**What's changing:** The `every_n_iter` parameter has been removed from TensorFlow autologging ([#15412](https://github.com/mlflow/mlflow/pull/15412)).
 
 **Why:** To simplify the API and standardize behavior across autologging implementations.
 
@@ -84,10 +84,10 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 #### Parameter Removals
 
 **What's changing:** Several parameters have been removed from model logging and saving APIs:
-- `example_no_conversion` parameter from model logging APIs ([[#15322](https://github.com/mlflow/mlflow/pull/15322)](https://github.com/mlflow/mlflow/pull/15322))
-- `code_path` parameter from model logging and model saving APIs ([[#15368](https://github.com/mlflow/mlflow/pull/15368)](https://github.com/mlflow/mlflow/pull/15368))
-- `requirements_file` parameter from `pytorch` flavor model logging and saving APIs ([[#15369](https://github.com/mlflow/mlflow/pull/15369)](https://github.com/mlflow/mlflow/pull/15369))
-- `inference_config` parameter from `transformers` flavor model logging and saving APIs ([[#15415](https://github.com/mlflow/mlflow/pull/15415)](https://github.com/mlflow/mlflow/pull/15415))
+- `example_no_conversion` parameter from model logging APIs ([#15322](https://github.com/mlflow/mlflow/pull/15322))
+- `code_path` parameter from model logging and model saving APIs ([#15368](https://github.com/mlflow/mlflow/pull/15368))
+- `requirements_file` parameter from `pytorch` flavor model logging and saving APIs ([#15369](https://github.com/mlflow/mlflow/pull/15369))
+- `inference_config` parameter from `transformers` flavor model logging and saving APIs ([#15415](https://github.com/mlflow/mlflow/pull/15415))
 
 **Why:** These parameters were deprecated in earlier releases and have now been fully removed to simplify the API.
 
@@ -98,7 +98,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 #### Other Model Changes
 
-**What's changing:** The `signature_dict` property has been removed from the `ModelInfo` object ([[#15367](https://github.com/mlflow/mlflow/pull/15367)](https://github.com/mlflow/mlflow/pull/15367)).
+**What's changing:** The `signature_dict` property has been removed from the `ModelInfo` object ([#15367](https://github.com/mlflow/mlflow/pull/15367)).
 
 **Why:** To standardize how model signatures are represented in MLflow.
 
@@ -108,7 +108,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 #### Baseline Model Comparison Removal
 
-**What's changing:** The `baseline_model` parameter and related parameters have been removed from the evaluation API ([[#15362](https://github.com/mlflow/mlflow/pull/15362)](https://github.com/mlflow/mlflow/pull/15362)).
+**What's changing:** The `baseline_model` parameter and related parameters have been removed from the evaluation API ([#15362](https://github.com/mlflow/mlflow/pull/15362)).
 
 **Why:** This functionality has been replaced with the more flexible `mlflow.validate_evaluation_results` API.
 
@@ -116,7 +116,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 #### MetricThreshold Constructor Change
 
-**What's changing:** The `higher_is_better` parameter has been removed from the constructor of class `MetricThreshold` ([[#15343](https://github.com/mlflow/mlflow/pull/15343)](https://github.com/mlflow/mlflow/pull/15343)).
+**What's changing:** The `higher_is_better` parameter has been removed from the constructor of class `MetricThreshold` ([#15343](https://github.com/mlflow/mlflow/pull/15343)).
 
 **Why:** It was deprecated in MLflow 2.3.0 in favor of `greater_is_better`. This was done to make a less confusing argument name.
 
@@ -124,7 +124,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 #### Custom Metrics Parameter Removal
 
-**What's changing:** The `custom_metrics` parameter has been removed from the evaluation API ([[#15361](https://github.com/mlflow/mlflow/pull/15361)](https://github.com/mlflow/mlflow/pull/15361)).
+**What's changing:** The `custom_metrics` parameter has been removed from the evaluation API ([#15361](https://github.com/mlflow/mlflow/pull/15361)).
 
 **Why:** A newer, more flexible approach for custom metrics has been implemented.
 
@@ -132,7 +132,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 ### Environment Variable Changes
 
-**What's changing:** The environment variable `MLFLOW_GCS_DEFAULT_TIMEOUT` configuration has been removed ([[#15365](https://github.com/mlflow/mlflow/pull/15365)](https://github.com/mlflow/mlflow/pull/15365)).
+**What's changing:** The environment variable `MLFLOW_GCS_DEFAULT_TIMEOUT` configuration has been removed ([#15365](https://github.com/mlflow/mlflow/pull/15365)).
 
 **Why:** To standardize how timeouts are configured across different storage backends.
 
@@ -142,4 +142,4 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 These breaking changes are part of MLflow's evolution to provide a more consistent, maintainable, and future-proof machine learning framework. While updating your code to accommodate these changes may require some effort, the resulting improvements in clarity, consistency, and performance should make the migration worthwhile.
 
-For detailed guidance on migrating specific code, please consult the [[MLflow 3.0 documentation](https://mlflow.org/docs/3.0.0/index.html)](https://mlflow.org/docs/3.0.0/index.html) or join the [[MLflow community forum](https://github.com/mlflow/mlflow/discussions)](https://github.com/mlflow/mlflow/discussions) for assistance.
+For detailed guidance on migrating specific code, please consult the [MLflow 3.0 documentation](https://mlflow.org/docs/3.0.0/index.html) or join the [MLflow community forum](https://github.com/mlflow/mlflow/discussions) for assistance.
