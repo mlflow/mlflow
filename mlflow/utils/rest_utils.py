@@ -112,7 +112,7 @@ def http_request(
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
             # https://github.com/databricks/databricks-sdk-py/blob/a714146d9c155dd1e3567475be78623f72028ee0/databricks/sdk/core.py#L134
-            # suppress the warning due to bug in https://github.com/databricks/databricks-sdk-py/issues/963
+            # suppress the warning due to https://github.com/databricks/databricks-sdk-py/issues/963
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     "ignore", message=f".*{_DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING}.*"
