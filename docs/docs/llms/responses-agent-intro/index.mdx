@@ -46,6 +46,7 @@ def create_function_call_item(id: str, call_id: str, name: str, arguments: str):
         "arguments": arguments,
     }
 
+
 def create_function_call_output_item(call_id: str, output: str):
     return {
         "type": "function_call_output",
@@ -424,14 +425,18 @@ def convert_to_chat_completion_format(message: dict[str, Any]) -> list[dict[str,
                     {
                         "id": message["call_id"],
                         "type": "function",
-                        "function": {"arguments": message["arguments"], "name": message["name"]},
+                        "function": {
+                            "arguments": message["arguments"],
+                            "name": message["name"],
+                        },
                     }
                 ],
             }
         ]
     elif msg_type == "message" and isinstance(message["content"], list):
         return [
-            {"role": message["role"], "content": content["text"]} for content in message["content"]
+            {"role": message["role"], "content": content["text"]}
+            for content in message["content"]
         ]
     elif msg_type == "function_call_output":
         return [
