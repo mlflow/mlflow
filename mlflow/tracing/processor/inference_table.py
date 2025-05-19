@@ -150,7 +150,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 from mlflow.tracking.fluent import _get_active_model_id_global
 
                 if active_model_id := _get_active_model_id_global():
-                    metadata[SpanAttributeKey.MODEL_ID] = active_model_id
+                    metadata[TraceMetadataKey.MODEL_ID] = active_model_id
                     _logger.debug(
                         f"Adding active model ID {active_model_id} to the trace metadata."
                     )

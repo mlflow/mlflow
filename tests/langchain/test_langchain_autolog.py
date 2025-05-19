@@ -1100,7 +1100,7 @@ def test_autolog_link_traces_to_loaded_model(model_infos, func):
         )
         assert logged_model_id is not None
         assert str(temp) == logged_temp
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == logged_model_id
 
 
 @skip_when_testing_trace_sdk
@@ -1129,7 +1129,7 @@ async def test_autolog_link_traces_to_loaded_model_async(model_infos, func):
         )
         assert logged_model_id is not None
         assert str(temp) == logged_temp
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == logged_model_id
 
 
 @skip_when_testing_trace_sdk
@@ -1145,7 +1145,7 @@ def test_autolog_link_traces_to_loaded_model_pyfunc(model_infos):
     for trace in traces:
         logged_model_id = json.loads(trace.data.request)["product"]
         assert logged_model_id is not None
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == logged_model_id
 
 
 @skip_when_testing_trace_sdk
@@ -1163,7 +1163,7 @@ def test_autolog_link_traces_to_active_model(model_infos):
     for trace in traces:
         logged_model_id = json.loads(trace.data.request)["product"]
         assert logged_model_id is not None
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model.model_id
         assert model.model_id != logged_model_id
 
 
@@ -1181,5 +1181,5 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
 
     traces = get_traces()
     assert len(traces) == 1
-    model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
+    model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id == model_info.model_id
