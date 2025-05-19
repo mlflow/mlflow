@@ -1,24 +1,11 @@
 import inspect
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.provider import trace_disabled
 
 _logger = logging.getLogger(__name__)
-
-
-def validate_inputs_is_dict(sample_input: Any):
-    if not isinstance(sample_input, dict):
-        # If the input value is string, use it in the code example
-        sample_value = sample_input if isinstance(sample_input, str) else "What is MLflow?"
-        input_example = {"query": sample_value}
-
-        code_example = _construct_code_example(input_example=input_example)
-        raise MlflowException.invalid_parameter_value(
-            "The 'inputs' column must be a dictionary of field names and values. "
-            f"For example:\n{code_example}"
-        )
 
 
 def check_model_prediction(predict_fn: Callable, sample_input: Any) -> bool:
@@ -95,28 +82,35 @@ def _has_required_keyword_arguments(params: inspect.Signature, required_args: li
     return set(required_args) <= set(func_args)
 
 
-def _raise_args_not_supported_error(predict_fn: Callable, e: Exception) -> None:
+def _raise_args_not_supported_error(e: Exception):
     """Raise an error for functions using *args which aren't supported."""
-    code_example = _construct_code_example(
-        predict_wrapper_body=(
-            "    # Invoke the original predict function with positional arguments\n"
-            f"    return {predict_fn.__name__}(param1, param2)"
-        ),
-        predict_wrapper_params=["param1", "param2"],
-        input_example={"param1": "value1", "param2": "value2"},
-    )
+    code_sample = """```python
+def predict_fn(param1, param2):
+    # Invoke the original predict function with positional arguments
+    return fn(param1, param2)
+
+data = [
+    {
+        "inputs": {
+            "param1": "value1",
+            "param2": "value2",
+        }
+    }
+]
+
+mlflow.genai.evaluate(predict_fn=predict_fn, data=data, ...)
+```
+"""
 
     raise MlflowException.invalid_parameter_value(
         "The `predict_fn` has dynamic positional arguments (e.g. `*args`), "
         "so it cannot be used as a `predict_fn`. Please wrap it into another "
         "function that accepts explicit keyword arguments.\n"
-        f"Example:\n\n{code_example}\n"
+        f"Example:\n\n{code_sample}\n"
     ) from e
 
 
-def _raise_input_mismatch_error(
-    predict_fn: Callable, params: inspect.Signature, e: Exception
-) -> None:
+def _raise_input_mismatch_error(params: inspect.Signature, e: Exception):
     """Raise an error when input keys don't match function parameters."""
     param_names = list(params.keys())
     input_example = {arg: f"value{i + 1}" for i, arg in enumerate(param_names[:3])}
@@ -124,49 +118,20 @@ def _raise_input_mismatch_error(
     if len(param_names) > 3:
         input_example["..."] = "..."
 
-    code_example = _construct_code_example(
-        predict_fn_name=predict_fn.__name__,
-        input_example=input_example,
-    )
+    code_sample = ["```python"]
+    code_sample.append("data = [")
+    code_sample.append("    {")
+    code_sample.append('        "inputs": {')
+    for k, v in input_example.items():
+        code_sample.append(f'            "{k}": "{v}",')
+    code_sample.append("        }")
+    code_sample.append("    }")
+    code_sample.append("]")
+    code_sample.append("```")
+    code_sample = "\n".join(code_sample)
 
     raise MlflowException.invalid_parameter_value(
         "The `inputs` column must be a dictionary with the parameter names of "
         f"the `predict_fn` as keys. It seems the specified keys do not match "
-        f"with the `predict_fn`'s arguments. Correct example:\n{code_example}"
+        f"with the `predict_fn`'s arguments. Correct example:\n\n{code_sample}"
     ) from e
-
-
-def _construct_code_example(
-    input_example: dict[str, str],
-    predict_fn_name: Optional[str] = None,
-    predict_wrapper_body: Optional[str] = None,
-    predict_wrapper_params: Optional[list[str]] = None,
-) -> str:
-    """
-    Construct a code example for the predict_fn.
-    """
-    code = ["```python"]
-
-    if predict_wrapper_body:
-        params = ", ".join(predict_wrapper_params)
-        code.append(f"def predict_fn({params}):")
-        code.append(predict_wrapper_body + "\n")
-
-    code.append("data = [")
-    code.append("    {")
-    code.append('        "inputs": {')
-    for k, v in input_example.items():
-        code.append(f'            "{k}": "{v}",')
-    code.append("        }")
-    code.append("    }")
-    code.append("]\n")
-
-    if predict_wrapper_body:
-        code.append("mlflow.genai.evaluate(predict_fn=predict_fn, data=data, ...)")
-    elif predict_fn_name:
-        code.append(f"mlflow.genai.evaluate(predict_fn={predict_fn_name}, data=data, ...)")
-    else:
-        code.append("mlflow.genai.evaluate(data=data, scorers=...)")
-
-    code.append("```")
-    return "\n".join(code)

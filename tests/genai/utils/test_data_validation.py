@@ -2,7 +2,6 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.builtin_scorers import safety
 from mlflow.genai.utils.data_validation import check_model_prediction
 
 from tests.tracing.helper import get_traces
@@ -146,7 +145,7 @@ def test_check_model_prediction_unmatched_keys():
     ) as e:
         check_model_prediction(fn, sample_input)
 
-    expected_code_example = """
+    code_example = """
 data = [
     {
         "inputs": {
@@ -155,10 +154,8 @@ data = [
         }
     }
 ]
-
-mlflow.genai.evaluate(predict_fn=fn, data=data, ...)
 """
-    assert _extract_code_example(e.value) == expected_code_example
+    assert _extract_code_example(e.value) == code_example
 
 
 def test_check_model_prediction_unmatched_keys_with_many_args():
@@ -167,13 +164,11 @@ def test_check_model_prediction_unmatched_keys_with_many_args():
 
     sample_input = {"question": "What is the capital of France?"}
 
-    with pytest.raises(
-        MlflowException, match=r"The `inputs` column must be a dictionary with"
-    ) as e:
+    with pytest.raises(MlflowException, match=r"The `inputs` column must be a dictionary") as e:
         check_model_prediction(fn, sample_input)
 
     # The code snippet shouldn't show more than three parameters
-    expected_code_example = """
+    code_example = """
 data = [
     {
         "inputs": {
@@ -184,10 +179,8 @@ data = [
         }
     }
 ]
-
-mlflow.genai.evaluate(predict_fn=fn, data=data, ...)
 """
-    assert _extract_code_example(e.value) == expected_code_example
+    assert _extract_code_example(e.value) == code_example
 
 
 def test_check_model_prediction_unmatched_keys_with_variable_kwargs():
@@ -206,25 +199,3 @@ def test_check_model_prediction_unknown_error():
     sample_input = {"question": "What is the capital of France?"}
     with pytest.raises(MlflowException, match=r"Failed to run the prediction function"):
         check_model_prediction(fn, sample_input)
-
-
-def test_validate_input_is_dict():
-    data = [{"inputs": "A string question", "outputs": "A string response"}]
-
-    with pytest.raises(
-        MlflowException, match=r"The 'inputs' column must be a dictionary of field names"
-    ) as e:
-        mlflow.genai.evaluate(data=data, scorers=[safety()])
-
-    expected_code_example = """
-data = [
-    {
-        "inputs": {
-            "query": "A string question",
-        }
-    }
-]
-
-mlflow.genai.evaluate(data=data, scorers=...)
-"""
-    assert _extract_code_example(e.value) == expected_code_example

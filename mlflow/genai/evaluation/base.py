@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
@@ -10,7 +11,6 @@ from mlflow.genai.evaluation.utils import (
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
-from mlflow.genai.utils.data_validation import validate_inputs_is_dict
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
     _is_model_deployment_endpoint_uri,
@@ -260,8 +260,11 @@ def evaluate(
     sample_input = data.iloc[0]["request"]
 
     # Only check 'inputs' column when it is not derived from the trace object
-    if "trace" not in data.columns:
-        validate_inputs_is_dict(sample_input)
+    if "trace" not in data.columns and not isinstance(sample_input, dict):
+        raise MlflowException.invalid_parameter_value(
+            "The 'inputs' column must be a dictionary of field names and values. "
+            "For example: {'query': 'What is MLflow?'}"
+        )
 
     if predict_fn:
         predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
