@@ -61,14 +61,12 @@ from mlflow.models.utils import (
     _save_example,
 )
 from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
+from mlflow.pyfunc.context import Context
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import (
-    disable_autologging_globally,
-)
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
     is_in_databricks_model_serving_environment,
@@ -420,7 +418,6 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces for internal predict calls while logging model
-@disable_autologging_globally  # Avoid side-effect of autologging while logging model
 def log_model(
     lc_model,
     artifact_path: Optional[str] = None,
@@ -693,7 +690,9 @@ class _LangChainModelWrapper:
 
         return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
 
-    def _update_dependencies_schemas_in_prediction_context(self, callback_handlers):
+    def _update_dependencies_schemas_in_prediction_context(
+        self, callback_handlers
+    ) -> Optional[Context]:
         from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
         if (
@@ -707,8 +706,9 @@ class _LangChainModelWrapper:
         ):
             model = Model.load(self.model_path)
             context = tracer._prediction_context
-            if schema := _get_dependencies_schema_from_model(model):
+            if context and (schema := _get_dependencies_schema_from_model(model)):
                 context.update(**schema)
+            return context
 
     @experimental
     def _predict_with_callbacks(
@@ -731,7 +731,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        self._update_dependencies_schemas_in_prediction_context(callback_handlers)
+        context = self._update_dependencies_schemas_in_prediction_context(callback_handlers)
         messages, return_first_element = self._prepare_predict_messages(data)
         results = process_api_requests(
             lc_model=self.lc_model,
@@ -739,6 +739,7 @@ class _LangChainModelWrapper:
             callback_handlers=callback_handlers,
             convert_chat_responses=convert_chat_responses,
             params=params or {},
+            context=context,
         )
         return results[0] if return_first_element else results
 
@@ -892,7 +893,6 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
 @experimental
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces while loading model
-@disable_autologging_globally  # Avoid side-effect of autologging while loading model
 def load_model(model_uri, dst_path=None):
     """
     Load a LangChain model from a local file or a run.

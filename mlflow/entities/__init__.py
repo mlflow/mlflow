@@ -8,6 +8,8 @@ from mlflow.entities.assessment import (
     AssessmentError,
     AssessmentSource,
     AssessmentSourceType,
+    Expectation,
+    Feedback,
 )
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
@@ -99,4 +101,6 @@ __all__ = [
     "AssessmentError",
     "AssessmentSource",
     "AssessmentSourceType",
+    "Expectation",
+    "Feedback",
 ]

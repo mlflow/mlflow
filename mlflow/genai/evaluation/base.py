@@ -8,13 +8,14 @@ from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
 )
-from mlflow.genai.scorers import BuiltInScorer, Scorer
+from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
-from mlflow.genai.utils.trace_utils import is_model_traced
+from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
+from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
-    _get_model_from_deployment_endpoint_uri,
     _is_model_deployment_endpoint_uri,
 )
+from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
@@ -30,6 +31,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+@experimental
 @dataclass
 class EvaluationResult:
     run_id: str
@@ -37,6 +39,7 @@ class EvaluationResult:
     result_df: "pd.DataFrame"
 
 
+@experimental
 def evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
@@ -224,7 +227,7 @@ def evaluate(
         environments.
     """
     try:
-        from databricks.rag_eval.evaluation.metrics import Metric as DBAgentsMetric
+        import databricks.agents  # noqa: F401
     except ImportError:
         raise ImportError(
             "The `databricks-agents` package is required to use mlflow.genai.evaluate() "
@@ -237,32 +240,7 @@ def evaluate(
             "Please set the tracking URI to Databricks."
         )
 
-    if not scorers:
-        raise MlflowException.invalid_parameter_value(
-            "At least one scorer is required to evaluate a model."
-        )
-
-    builtin_scorers = []
-    custom_scorers = []
-
-    for scorer in scorers:
-        if isinstance(scorer, BuiltInScorer):
-            builtin_scorers.append(scorer)
-        elif isinstance(scorer, Scorer):
-            custom_scorers.append(scorer)
-        elif isinstance(scorer, DBAgentsMetric):
-            logger.warning(
-                f"{scorer} is a legacy metric and will soon be deprecated in future releases. "
-                "Please use the @scorer decorator or use builtin scorers instead."
-            )
-            custom_scorers.append(scorer)
-        else:
-            raise TypeError(
-                (
-                    f"Scorer {scorer} is not a valid scorer. Please use the @scorer decorator ",
-                    "to convert a function into a scorer or inherit from the Scorer class",
-                )
-            )
+    builtin_scorers, custom_scorers = validate_scorers(scorers)
 
     evaluation_config = {
         GENAI_CONFIG_NAME: {
@@ -279,15 +257,23 @@ def evaluate(
     # convert into a pandas dataframe with current evaluation set schema
     data = _convert_to_legacy_eval_set(data)
 
+    valid_data_for_builtin_scorers(data, builtin_scorers, predict_fn)
+
+    # "request" column must exist after conversion
+    sample_input = data.iloc[0]["request"]
+
+    # Only check 'inputs' column when it is not derived from the trace object
+    if "trace" not in data.columns and not isinstance(sample_input, dict):
+        raise MlflowException.invalid_parameter_value(
+            "The 'inputs' column must be a dictionary of field names and values. "
+            "For example: {'query': 'What is MLflow?'}"
+        )
+
     if predict_fn:
-        sample_input = data.iloc[0]["request"]
-        if not is_model_traced(predict_fn, sample_input):
-            logger.info("Annotating predict_fn with tracing since it is not already traced.")
-            predict_fn = mlflow.trace(predict_fn)
+        predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
     result = mlflow.models.evaluate(
-        # Wrap the prediction function to unwrap the inputs dictionary into keyword arguments.
-        model=(lambda request: predict_fn(**request)) if predict_fn else None,
+        model=predict_fn,
         data=data,
         evaluator_config=evaluation_config,
         extra_metrics=extra_metrics,
@@ -303,6 +289,7 @@ def evaluate(
     )
 
 
+@experimental
 def to_predict_fn(endpoint_uri: str) -> Callable:
     """
     Convert an endpoint URI to a predict function.
@@ -314,19 +301,46 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
         A predict function that can be used to make predictions.
 
     Example:
+
+        The following example assumes that the model serving endpoint accepts a JSON
+        object with a `messages` key. Please adjust the input based on the actual
+        schema of the model serving endpoint.
+
         .. code-block:: python
 
-            data = pd.DataFrame(
-                [
-                    {"inputs": {"messages": [{"role": "user", "content": "What is MLflow?"}]}},
-                    {"inputs": {"question": [{"role": "user", "content": "What is Spark?"}]}},
-                ]
-            )
+            from mlflow.genai.scorers import all_scorers
+
+            data = [
+                {
+                    "inputs": {
+                        "messages": [
+                            {"role": "system", "content": "You are a helpful assistant."},
+                            {"role": "user", "content": "What is MLflow?"},
+                        ]
+                    }
+                },
+                {
+                    "inputs": {
+                        "messages": [
+                            {"role": "system", "content": "You are a helpful assistant."},
+                            {"role": "user", "content": "What is Spark?"},
+                        ]
+                    }
+                },
+            ]
             predict_fn = mlflow.genai.to_predict_fn("endpoints:/chat")
             mlflow.genai.evaluate(
                 data=data,
                 predict_fn=predict_fn,
+                scorers=all_scorers,
             )
+
+        You can also directly invoke the function to validate if the endpoint works
+        properly with your input schema.
+
+        .. code-block:: python
+
+            predict_fn(**data[0]["inputs"])
     """
     if not _is_model_deployment_endpoint_uri(endpoint_uri):
         raise ValueError(
@@ -334,8 +348,31 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
             f"deployment endpoint URI."
         )
 
-    model = _get_model_from_deployment_endpoint_uri(endpoint_uri)
-    if model is None:
-        raise ValueError(f"Model not found for endpoint URI: {endpoint_uri}")
+    from mlflow.deployments import get_deploy_client
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-    return model.predict
+    client = get_deploy_client("databricks")
+    _, endpoint = _parse_model_uri(endpoint_uri)
+
+    # NB: Wrap the function to show better docstring and change signature to `model_inputs`
+    #   to unnamed keyword arguments. This is necessary because we pass input samples as
+    #   keyword arguments to the predict function.
+    def predict_fn(**kwargs):
+        # NB: Manually set inputs and outputs rather than using @mlflow.trace decorator,
+        #   because we want to record keyword arguments with names rather than **kwargs.
+        with mlflow.start_span(name="predict") as span:
+            span.set_inputs(kwargs)
+            span.set_attribute("endpoint", endpoint_uri)
+            result = client.predict(endpoint=endpoint, inputs=kwargs)
+            span.set_outputs(result)
+            return result
+
+    predict_fn.__doc__ = f"""
+A wrapper function for invoking the model serving endpoint `{endpoint_uri}`.
+
+Args:
+    **kwargs: The input samples to be passed to the model serving endpoint.
+        For example, if the endpoint accepts a JSON object with a `messages` key,
+        the input sample should be a dictionary with a `messages` key.
+    """
+    return predict_fn

@@ -16,7 +16,7 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey, TraceMetadataKey
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -25,7 +25,7 @@ _logger = logging.getLogger(__name__)
 SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
-    from mlflow.entities import LiveSpan
+    from mlflow.entities import LiveSpan, Trace
     from mlflow.pyfunc.context import Context
     from mlflow.types.chat import ChatMessage, ChatTool
 
@@ -439,11 +439,39 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
     """
     try:
         from mlflow.openai.utils.chat_schema import set_span_chat_attributes
-        from mlflow.types.responses import ResponsesAgentResponse
+        from mlflow.types.responses import ResponsesAgentResponse, ResponsesAgentStreamEvent
 
-        if ResponsesAgentResponse.validate_compat(outputs):
+        if isinstance(outputs, ResponsesAgentResponse):
             inputs = inputs["request"].model_dump_compat()
             set_span_chat_attributes(span, inputs, outputs)
-
+        elif isinstance(outputs, list) and all(
+            isinstance(o, ResponsesAgentStreamEvent) for o in outputs
+        ):
+            inputs = inputs["request"].model_dump_compat()
+            output_items = []
+            custom_outputs = None
+            for o in outputs:
+                if o.type == "response.output_item.done":
+                    output_items.append(o.item)
+                if o.custom_outputs:
+                    custom_outputs = o.custom_outputs
+            output = ResponsesAgentResponse(
+                output=output_items,
+                custom_outputs=custom_outputs,
+            )
+            set_span_chat_attributes(span, inputs, output)
     except Exception:
         pass
+
+
+def add_size_bytes_to_trace_metadata(trace: Trace):
+    """
+    Calculate the size of the trace in bytes and add it as a tag to the trace.
+
+    This method modifies the trace object in place by adding a new tag.
+
+    Note: For simplicity, we calculate the size without considering the size metadata itself.
+    This provides a close approximation without requiring complex calculations.
+    """
+    trace_size_bytes = len(trace.to_json().encode("utf-8"))
+    trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)

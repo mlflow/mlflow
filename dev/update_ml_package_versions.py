@@ -73,7 +73,7 @@ def get_package_version_infos(package_name: str) -> list[VersionInfo]:
         if (
             len(dist_files) > 0
             and not is_dev_or_pre_release(version)
-            and not any(uploaded_recently(dist) for dist in dist_files)
+            and not any(uploaded_recently(dist) or dist.get("yanked", False) for dist in dist_files)
         )
     ]
 
@@ -249,6 +249,9 @@ def update(skip_yml=False):
         new_src = old_src
         config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
         for flavor_key, config in config_dict.items():
+            # We currently don't have bandwidth to support newer versions of these flavors.
+            if flavor_key in ["litellm", "autogen"]:
+                continue
             package_name = config["package_info"]["pip_release"]
             versions_and_upload_times = get_package_version_infos(package_name)
             min_supported_version = get_min_supported_version(versions_and_upload_times)

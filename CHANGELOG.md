@@ -38,7 +38,7 @@ Bug Fixes:
 
 Small bug fixes and documentation updates:
 
-#15396, #15379, #15292, #15305, #15078, #15251, #15267, #15208, #15104, #15045, #15084, #15055, #15056, #15048, #14946, #14956, #14903, #14854, #14830, @serena-ruan; #15417, #15256, #15186, #15007, @TomeHirata; #15119, @bbqiu; #15413, #15314, #15311, #15303, #15301, #15288, #15275, #15269, #15272, #15268, #15262, #15266, #15264, #15261, #15252, #15249, #15244, #15236, #15235, #15237, #15140, #14982, #14898, #14893, #14861, #14870, #14853, #14849, #14813, #14822, @harupy; #15333, #15298, #15300, #15156, #15019, #14957, @B-Step62; #15313, #15297, #14880, @daniellok-db; #15066, #15074, #14913, @joelrobin18; #15232, @kbolashev; #15242, @dbczumar; #15210, #15178, @WeichenXu123; #15187, #15177, @hubertzub-db; #15059, #15070, #15050, #15012, #14959, #14918, #15005, #14965, #14858, #14930, #14927, #14786, #14883, #14863, #14852, #14788, @Gumichocopengin8; #15134, #15129, #15120, #15117, #15002, #14997, #14996, #14998, #14975, #14874, @mlflow-automation; #14920, #14919, @jaceklaskowski
+#15396, #15379, #15292, #15305, #15078, #15251, #15267, #15208, #15104, #15045, #15084, #15055, #15056, #15048, #14946, #14956, #14903, #14854, #14830, @serena-ruan; #15417, #15256, #15186, #15007, @TomeHirata; #15119, @bbqiu; #15413, #15314, #15311, #15303, #15301, #15288, #15275, #15269, #15272, #15268, #15262, #15266, #15264, #15261, #15252, #15249, #15244, #15236, #15235, #15237, #15140, #14982, #14898, #14893, #14861, #14870, #14853, #14849, #14813, #14822, @harupy; #15333, #15298, #15300, #15156, #15019, #14957, @B-Step62; #15313, #15297, #14880, @daniellok-db; #15066, #15074, #14913, @joelrobin18; #15232, @kbolashev; #15242, @dbczumar; #15210, #15178, @WeichenXu123; #15187, #15177, @hubertzub-db; #15059, #15070, #15050, #15012, #14959, #14918, #15005, #14965, #14858, #14930, #14927, #14786, #14883, #14863, #14852, #14788, @Gumichocopengin8; #14920, #14919, @jaceklaskowski
 
 ## 2.21.3 (2025-04-03)
 
@@ -2466,7 +2466,7 @@ Bug fixes and documentation updates:
 - Fix a database migration error for PostgreSQL (#4211, @dolfinus)
 - Fix autologging silent mode bugs (#4231, @dbczumar)
 
-Small bug fixes and doc updates (#4255, #4252, #4254, #4253, #4242, #4247, #4243, #4237, #4233, @harupy; #4225, @dmatrix; #4206, @mlflow-automation; #4207, @shrinath-suresh; #4264, @WeichenXu123; #3884, #3866, #3885, @ankan94; #4274, #4216, @dbczumar)
+Small bug fixes and doc updates (#4255, #4252, #4254, #4253, #4242, #4247, #4243, #4237, #4233, @harupy; #4225, @dmatrix; #4207, @shrinath-suresh; #4264, @WeichenXu123; #3884, #3866, #3885, @ankan94; #4274, #4216, @dbczumar)
 
 ## 1.15.0 (2021-03-26)
 
@@ -2485,7 +2485,7 @@ Bug fixes:
 - Fix bug where SQL-backed MLflow tracking server initialization failed when using the MLflow skinny client (#4161, @eedeleon)
 - Model version creation (e.g. via `mlflow.register_model`) now fails if the model version status is not READY (#4114, @ankit-db)
 
-Small bug fixes and doc updates (#4191, #4149, #4162, #4157, #4155, #4144, #4141, #4138, #4136, #4133, #3964, #4130, #4118, @harupy; #4152, @mlflow-automation; #4139, @WeichenXu123; #4193, @smurching; #4029, @architkulkarni; #4134, @xhochy; #4116, @wenleix; #4160, @wentinghu; #4203, #4184, #4167, @dbczumar)
+Small bug fixes and doc updates (#4191, #4149, #4162, #4157, #4155, #4144, #4141, #4138, #4136, #4133, #3964, #4130, #4118, @harupy; #4139, @WeichenXu123; #4193, @smurching; #4029, @architkulkarni; #4134, @xhochy; #4116, @wenleix; #4160, @wentinghu; #4203, #4184, #4167, @dbczumar)
 
 ## 1.14.1 (2021-03-01)
 
@@ -2676,7 +2676,7 @@ Bug fixes and documentation updates:
 - Fixed bug in runs UI where tags table did not reflect deletion of tags. (#3135, @ParseDark)
 - Added example illustrating the use of RAPIDS with MLflow (#3028, @drobison00)
 
-Small bug fixes and doc updates (#3326, #3344, #3314, #3289, #3225, #3288, #3279, #3265, #3263, #3260, #3255, #3267, #3266, #3264, #3256, #3253, #3231, #3245, #3191, #3238, #3192, #3188, #3189, #3180, #3178, #3166, #3181, #3142, #3165, #2960, #3129, #3244, #3359 @harupy; #3236, #3141, @AveshCSingh; #3295, #3163, @arjundc-db; #3241, #3200, @zhidongqu-db; #3338, #3275, @sueann; #3020, @magnus-m; #3322, #3219, @dmatrix; #3341, #3179, #3355, #3360, #3363 @smurching; #3124, @jdlesage; #3232, #3146, @ankitmathur-db; #3140, @andreakress; #3174, #3133, @mlflow-automation; #3062, @cafeal; #3193, @tomasatdatabricks; 3115, @fhoering; #3328, @apurva-koti; #3046, @OlivierBondu; #3194, #3158, @dmatrix; #3250, @shivp950; #3259, @simonhessner; #3357 @dbczumar)
+Small bug fixes and doc updates (#3326, #3344, #3314, #3289, #3225, #3288, #3279, #3265, #3263, #3260, #3255, #3267, #3266, #3264, #3256, #3253, #3231, #3245, #3191, #3238, #3192, #3188, #3189, #3180, #3178, #3166, #3181, #3142, #3165, #2960, #3129, #3244, #3359 @harupy; #3236, #3141, @AveshCSingh; #3295, #3163, @arjundc-db; #3241, #3200, @zhidongqu-db; #3338, #3275, @sueann; #3020, @magnus-m; #3322, #3219, @dmatrix; #3341, #3179, #3355, #3360, #3363 @smurching; #3124, @jdlesage; #3232, #3146, @ankitmathur-db; #3140, @andreakress; #3062, @cafeal; #3193, @tomasatdatabricks; 3115, @fhoering; #3328, @apurva-koti; #3046, @OlivierBondu; #3194, #3158, @dmatrix; #3250, @shivp950; #3259, @simonhessner; #3357 @dbczumar)
 
 ## 1.10.0 (2020-07-20)
 
@@ -2789,7 +2789,7 @@ Bug fixes and documentation updates:
   terminated (e.g. because it's been deleted), (#2693, @ahmed-shariff)
 - Add missing documentation for `mlflow.spacy` APIs (#2771, @harupy)
 
-Small bug fixes and doc updates (#2919, @willzhan-db; #2940, #2942, #2941, #2943, #2927, #2929, #2926, #2914, #2928, #2913, #2852, #2876, #2808, #2810, #2442, #2780, #2758, #2732, #2734, #2431, #2733, #2716, @harupy; #2915, #2897, @jwgwalton; #2856, @jkthompson; #2962, @hhsecond; #2873, #2829, #2582, @dmatrix; #2908, #2865, #2880, #2866, #2833, #2785, #2723, @smurching; #2906, @dependabot[bot]; #2724, @aarondav; #2896, @ezeeetm; #2741, #2721, @mlflow-automation; #2864, @tallen94; #2726, @crflynn; #2710, #2951 @mparkhe; #2935, #2921, @ankitmathur-db; #2963, #2739, @dbczumar; #2853, @stat4jason; #2709, #2792, @juntai-zheng @juntai-zheng; #2749, @HiromuHota; #2957, #2911, #2718, @arjundc-db; #2885, @willzhan-db; #2803, #2761, @pogil; #2392, @jnmclarty; #2794, @Zethson; #2766, #2916 @shubham769)
+Small bug fixes and doc updates (#2919, @willzhan-db; #2940, #2942, #2941, #2943, #2927, #2929, #2926, #2914, #2928, #2913, #2852, #2876, #2808, #2810, #2442, #2780, #2758, #2732, #2734, #2431, #2733, #2716, @harupy; #2915, #2897, @jwgwalton; #2856, @jkthompson; #2962, @hhsecond; #2873, #2829, #2582, @dmatrix; #2908, #2865, #2880, #2866, #2833, #2785, #2723, @smurching; #2906, @dependabot[bot]; #2724, @aarondav; #2896, @ezeeetm; #2864, @tallen94; #2726, @crflynn; #2710, #2951 @mparkhe; #2935, #2921, @ankitmathur-db; #2963, #2739, @dbczumar; #2853, @stat4jason; #2709, #2792, @juntai-zheng @juntai-zheng; #2749, @HiromuHota; #2957, #2911, #2718, @arjundc-db; #2885, @willzhan-db; #2803, #2761, @pogil; #2392, @jnmclarty; #2794, @Zethson; #2766, #2916 @shubham769)
 
 ## 1.8.0 (2020-04-16)
 
@@ -2837,7 +2837,7 @@ Documentation updates:
 - Added documentation for expected datatype for step argument in `log_metric` to match REST API (#2654, @mparkhe)
 - Added usage of the model registry to the `log_model` function in `sklearn_elasticnet_wine/train.py` example (#2609, @netanel246)
 
-Small bug fixes and doc updates (#2594, @Trollgeir; #2703,#2709, @juntai-zheng; #2538, #2632, @keigohtr; #2656, #2553, @lorenzwalthert; #2622, @pingsutw; #2615, #2600, #2533, @mlflow-automation; #1391, @sueann; #2613, #2598, #2534, #2723, @smurching; #2652, #2710, @mparkhe; #2706, #2653, #2639, @tomasatdatabricks; #2611, @9dogs; #2700, #2705, @aarondav; #2675, #2540, @mengxr; #2686, @RensDimmendaal; #2694, #2695, #2532, @dbczumar; #2733, #2716, @harupy; #2726, @crflynn; #2582, #2687, @dmatrix)
+Small bug fixes and doc updates (#2594, @Trollgeir; #2703,#2709, @juntai-zheng; #2538, #2632, @keigohtr; #2656, #2553, @lorenzwalthert; #2622, @pingsutw; #1391, @sueann; #2613, #2598, #2534, #2723, @smurching; #2652, #2710, @mparkhe; #2706, #2653, #2639, @tomasatdatabricks; #2611, @9dogs; #2700, #2705, @aarondav; #2675, #2540, @mengxr; #2686, @RensDimmendaal; #2694, #2695, #2532, @dbczumar; #2733, #2716, @harupy; #2726, @crflynn; #2582, #2687, @dmatrix)
 
 ## 1.7.2 (2020-03-20)
 

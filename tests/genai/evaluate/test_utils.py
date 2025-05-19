@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
@@ -18,6 +18,17 @@ from mlflow.genai.scorers.builtin_scorers import safety
 
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
+
+
+@pytest.fixture(scope="module")
+def spark():
+    try:
+        from pyspark.sql import SparkSession
+
+        with SparkSession.builder.getOrCreate() as spark:
+            yield spark
+    except Exception as e:
+        pytest.skip(f"Failed to create a spark session: {e}")
 
 
 @pytest.fixture
@@ -139,39 +150,39 @@ def get_test_traces(type=Literal["pandas", "list"]):
     trace.info.assessments.extend(
         [
             # 1. Expectation with reserved name "expected_response"
-            Assessment(
+            Expectation(
                 name="expected_response",
                 source=source,
                 trace_id=trace.info.trace_id,
-                expectation=Expectation(value="expected response for first question"),
+                value="expected response for first question",
             ),
             # 2. Expectation with reserved name "expected_facts"
-            Assessment(
+            Expectation(
                 name="expected_facts",
                 source=source,
                 trace_id=trace.info.trace_id,
-                expectation=Expectation(value=["fact1", "fact2"]),
+                value=["fact1", "fact2"],
             ),
             # 3. Expectation with reserved name "guidelines"
-            Assessment(
+            Expectation(
                 name="guidelines",
                 source=source,
                 trace_id=trace.info.trace_id,
-                expectation=Expectation(value=["Be polite", "Be kind"]),
+                value=["Be polite", "Be kind"],
             ),
             # 4. Expectation with custom name "ground_truth"
-            Assessment(
+            Expectation(
                 name="my_custom_expectation",
                 source=source,
                 trace_id=trace.info.trace_id,
-                expectation=Expectation(value="custom expectation for the first question"),
+                value="custom expectation for the first question",
             ),
             # 5. Non-expectation assessment
-            Assessment(
+            Feedback(
                 name="feedback",
                 source=source,
                 trace_id=trace.info.trace_id,
-                feedback=Feedback(value="some feedback"),
+                value="some feedback",
             ),
         ]
     )
@@ -188,12 +199,11 @@ def test_convert_to_legacy_eval_traces(input_type):
     # "request" column should be derived from the trace
     assert "request" in data.columns
     assert list(data["request"]) == [{"question": "What is MLflow?"}]
-
-    assert data["expected_response"][0] == "expected response for first question"
-    assert data["expected_facts"][0] == ["fact1", "fact2"]
-    assert data["guidelines"][0] == ["Be polite", "Be kind"]
-    assert data["custom_expected"][0] == {
-        "my_custom_expectation": "custom expectation for the first question"
+    assert data["expectations"][0] == {
+        "expected_response": "expected response for first question",
+        "expected_facts": ["fact1", "fact2"],
+        "guidelines": ["Be polite", "Be kind"],
+        "my_custom_expectation": "custom expectation for the first question",
     }
     # Assessment with type "Feedback" should not be present in the transformed data
     assert "feedback" not in data.columns
@@ -207,12 +217,7 @@ def test_convert_to_legacy_eval_set_has_no_errors(data_fixture, request):
 
     assert "request" in transformed_data.columns
     assert "response" in transformed_data.columns
-    assert "expected_response" in transformed_data.columns
-
-
-def test_convert_to_legacy_eval_set_invalid_inputs():
-    with pytest.raises(MlflowException, match="The 'inputs' column must be a dictionary"):
-        _convert_to_legacy_eval_set([{"inputs": "not a dict"}])
+    assert "expectations" in transformed_data.columns
 
 
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)

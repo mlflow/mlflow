@@ -8,6 +8,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from importlib import reload
 from itertools import zip_longest
 from unittest import mock
@@ -35,21 +36,29 @@ from mlflow.entities import (
 )
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
-    MLFLOW_ACTIVE_MODEL_ID,
+    _MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_REGISTRY_URI,
     MLFLOW_RUN_ID,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.models.model import MLMODEL_FILE_NAME, Model
+from mlflow.models.model import (
+    MLMODEL_FILE_NAME,
+    Model,
+    _update_active_model_id_based_on_mlflow_model,
+)
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, TEMPORARILY_UNAVAILABLE
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import (
+    _ACTIVE_MODEL_CONTEXT,
+    ActiveModelContext,
+    _get_active_model_id_global,
     _get_experiment_id,
     _get_experiment_id_from_env,
     _reset_last_logged_model_id,
@@ -1254,6 +1263,17 @@ def test_set_experiment_tags():
         assert str(exact_expected_tags[tag_key]) == tag_value
 
 
+@pytest.mark.parametrize("error_code", [RESOURCE_DOES_NOT_EXIST, TEMPORARILY_UNAVAILABLE])
+def test_set_experiment_throws_for_unexpected_error(error_code: int):
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient.create_experiment",
+        side_effect=MlflowException("Unexpected error", error_code=error_code),
+    ) as mock_create_experiment:
+        with pytest.raises(MlflowException, match="Unexpected error"):
+            mlflow.set_experiment("test-experiment")
+        mock_create_experiment.assert_called_once()
+
+
 def test_log_input(tmp_path):
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
     path = tmp_path / "temp.csv"
@@ -2003,16 +2023,13 @@ def test_set_active_model():
 
     set_active_model(name=model.name)
     assert mlflow.get_active_model_id() == model.model_id
-    assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
 
     set_active_model(model_id=model.model_id)
     assert mlflow.get_active_model_id() == model.model_id
-    assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
 
     model2 = mlflow.create_external_model(name="test_model")
     set_active_model(name="test_model")
     assert mlflow.get_active_model_id() == model2.model_id
-    assert MLFLOW_ACTIVE_MODEL_ID.get() == model2.model_id
 
     set_active_model(name="new_model")
     logged_model = mlflow.search_logged_models(
@@ -2020,19 +2037,14 @@ def test_set_active_model():
     )[0]
     assert logged_model.name == "new_model"
     assert mlflow.get_active_model_id() == logged_model.model_id
-    assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
 
     with set_active_model(model_id=model.model_id) as active_model:
         assert active_model.model_id == model.model_id
         assert mlflow.get_active_model_id() == model.model_id
-        assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
         with set_active_model(name="new_model"):
             assert mlflow.get_active_model_id() == logged_model.model_id
-            assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
         assert mlflow.get_active_model_id() == model.model_id
-        assert MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
     assert mlflow.get_active_model_id() == logged_model.model_id
-    assert MLFLOW_ACTIVE_MODEL_ID.get() == logged_model.model_id
 
 
 def test_set_active_model_error():
@@ -2048,19 +2060,16 @@ def test_set_active_model_error():
 
 
 def test_set_active_model_env_var(monkeypatch):
-    monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "1234")
+    monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "1234")
+    # mimic the behavior when mlflow is imported
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
     assert mlflow.get_active_model_id() == "1234"
 
-    with set_active_model(name="abc") as model:
-        model_id = mlflow.get_active_model_id()
-        assert model_id == model.model_id
-        assert MLFLOW_ACTIVE_MODEL_ID.get() == model_id
-    assert mlflow.get_active_model_id() == "1234"
-    assert MLFLOW_ACTIVE_MODEL_ID.get() == "1234"
+    monkeypatch.delenv(_MLFLOW_ACTIVE_MODEL_ID.name)
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
 
-    monkeypatch.delenv(MLFLOW_ACTIVE_MODEL_ID.name)
     assert mlflow.get_active_model_id() is None
-    assert MLFLOW_ACTIVE_MODEL_ID.get() is None
+    assert _MLFLOW_ACTIVE_MODEL_ID.get() is None
 
 
 def test_set_active_model_link_traces():
@@ -2078,29 +2087,90 @@ def test_set_active_model_link_traces():
     traces = get_traces()
     assert len(traces) == 3
     for trace in traces:
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model_id
 
     # manual start span without model_id
     with mlflow.start_span():
         predict(model_input=1)
     traces = get_traces()
     assert len(traces) == 4
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
-
-    # manual start span with model_id
-    with mlflow.start_span(model_id="1234"):
-        predict(model_input=1)
-
-    traces = get_traces()
-    assert len(traces) == 5
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == "1234"
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_id
 
     with set_active_model(name="new_model") as new_model:
         predict(model_input=1)
     traces = get_traces()
-    assert len(traces) == 6
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == new_model.model_id
+    assert len(traces) == 5
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == new_model.model_id
     assert new_model.model_id != model_id
+
+
+def test_set_active_model_in_databricks_serving():
+    with mock.patch(
+        "mlflow.tracking.fluent.is_in_databricks_model_serving_environment",
+        return_value=True,
+    ):
+        model = set_active_model(name="test_model")
+        assert mlflow.get_active_model_id() == model.model_id
+        assert _MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+
+        with set_active_model(name="new_model") as new_model:
+            assert mlflow.get_active_model_id() == new_model.model_id
+            assert _MLFLOW_ACTIVE_MODEL_ID.get() == new_model.model_id
+
+        assert mlflow.get_active_model_id() == model.model_id
+        assert _MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+
+
+def test_get_active_model_id_global():
+    model = mlflow.create_external_model()
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(set_active_model, model_id=model.model_id) for i in range(4)]
+        for f in futures:
+            f.result()
+
+    assert mlflow.get_active_model_id() is None
+    assert _get_active_model_id_global() == model.model_id
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(set_active_model, name=f"test_model_{i}") for i in range(4)]
+        for f in futures:
+            f.result()
+
+    with mock.patch("mlflow.tracking.fluent._logger.debug") as mock_debug:
+        assert _get_active_model_id_global() is None
+        assert any(
+            "Failed to get one active model id from all threads" in call_args[0][0]
+            for call_args in mock_debug.call_args_list
+        )
+
+
+def test_active_model_set_in_threads_can_be_fetched_from_main_process(monkeypatch):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+
+    class TestModel(mlflow.pyfunc.PythonModel):
+        @mlflow.trace
+        def predict(self, model_input: list[str]) -> list[str]:
+            return model_input
+
+    model_info = mlflow.pyfunc.log_model(
+        name="test_model",
+        python_model=TestModel(),
+        input_example=["a", "b", "c"],
+    )
+
+    def _load_model(model_uri):
+        pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+        _update_active_model_id_based_on_mlflow_model(pyfunc_model._model_meta)
+        return pyfunc_model
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(_load_model, model_info.model_uri) for i in range(4)]
+        for f in futures:
+            f.result()
+
+    assert mlflow.get_active_model_id() is None
+    assert _get_active_model_id_global() == model_info.model_id
 
 
 def test_log_metric_link_to_active_model():
