@@ -21,6 +21,39 @@ To create your own agent, subclass `mlflow.pyfunc.ResponsesAgent` and implement 
 ### Creating agent output
 When implementing your agent, you'll work with two main output types: `ResponsesAgentResponse` and `ResponsesAgentStreamEvent`. These are the only pydantic objects you should create directly. The remaining classes in `mlflow.types.responses_helpers` are only for validating dictionaries.
 
+Below are some helper methods you can use to create common output item types:
+```python
+def create_text_output_item(text: str, id: str):
+    return {
+        "id": id,
+        "content": [
+            {
+                "text": text,
+                "type": "output_text",
+            }
+        ],
+        "role": "assistant",
+        "type": "message",
+    }
+
+
+def create_function_call_item(id: str, call_id: str, name: str, arguments: str):
+    return {
+        "type": "function_call",
+        "id": id,
+        "call_id": call_id,
+        "name": name,
+        "arguments": arguments,
+    }
+
+def create_function_call_output_item(call_id: str, output: str):
+    return {
+        "type": "function_call_output",
+        "call_id": call_id,
+        "output": output,
+    }
+```
+
 You can also use the `custom_outputs` field for any additional output you want to return from your agent that doesn't fit into the standard interface.
 
 Here's an example of a complete tool calling sequence using `ResponsesAgentResponse`:
@@ -376,6 +409,41 @@ mlflow.models.set_model(AGENT)
 When migrating from `ChatAgent` to `ResponsesAgent`, the primary task involves adapting your message formats from the ChatCompletion API to the Responses API schema. For detailed information about these changes, refer to the OpenAI documentation:
 - [Responses vs Chat Completions](https://platform.openai.com/docs/guides/responses-vs-chat-completions)
 - [Responses API Docs](https://platform.openai.com/docs/api-reference/responses)
+
+If the LLM provider you are using uses chat completions, you can modify the below helper function to convert the output from your ResponsesAgent into chat completions messages to support multi-turn agent chat:
+```python
+def convert_to_chat_completion_format(message: dict[str, Any]) -> list[dict[str, Any]]:
+    """Convert from ResponsesAgent output to a ChatCompletions compatible list of messages"""
+    msg_type = message.get("type", None)
+    if msg_type == "function_call":
+        return [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": message["call_id"],
+                        "type": "function",
+                        "function": {"arguments": message["arguments"], "name": message["name"]},
+                    }
+                ],
+            }
+        ]
+    elif msg_type == "message" and isinstance(message["content"], list):
+        return [
+            {"role": message["role"], "content": content["text"]} for content in message["content"]
+        ]
+    elif msg_type == "function_call_output":
+        return [
+            {
+                "role": "tool",
+                "content": message["output"],
+                "tool_call_id": message["call_id"],
+            }
+        ]
+    compatible_keys = ["role", "content", "name", "tool_calls", "tool_call_id"]
+    return [{k: v for k, v in message.items() if k in compatible_keys}]
+```
 
 The `ResponsesAgent` interface extends all functionality previously available in <APILink fn="mlflow.pyfunc.ChatAgent">`ChatAgent`</APILink>, while introducing new features. Below, we outline the key differences in message representation between the two interfaces for common use cases:
 
