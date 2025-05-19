@@ -185,8 +185,7 @@ def run(
     local projects run from the project's root directory.
     """
     if experiment_id is not None and experiment_name is not None:
-        eprint("Specify only one of 'experiment-name' or 'experiment-id' options.")
-        sys.exit(1)
+        raise click.UsageError("Specify only one of 'experiment-name' or 'experiment-id' options.")
 
     param_dict = _user_args_to_dict(param_list)
     args_dict = _user_args_to_dict(docker_args, argument_type="A")
@@ -195,12 +194,12 @@ def run(
         try:
             backend_config = json.loads(backend_config)
         except ValueError as e:
-            eprint(f"Invalid backend config JSON. Parse error: {e}")
-            raise
+            raise click.UsageError(
+                "Specify only one of 'experiment-name' or 'experiment-id' options."
+            ) from e
     if backend == "kubernetes":
         if backend_config is None:
-            eprint("Specify 'backend_config' when using kubernetes mode.")
-            sys.exit(1)
+            raise click.UsageError("Specify 'backend_config' when using kubernetes mode.")
     try:
         projects.run(
             uri,
