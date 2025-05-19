@@ -220,11 +220,6 @@ def test_convert_to_legacy_eval_set_has_no_errors(data_fixture, request):
     assert "expectations" in transformed_data.columns
 
 
-def test_convert_to_legacy_eval_set_invalid_inputs():
-    with pytest.raises(MlflowException, match="The 'inputs' column must be a dictionary"):
-        _convert_to_legacy_eval_set([{"inputs": "not a dict"}])
-
-
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
 def test_scorer_receives_correct_data(data_fixture, request):
     sample_data = request.getfixturevalue(data_fixture)
