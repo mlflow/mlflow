@@ -164,7 +164,7 @@ class Feedback(Assessment):
     may provide feedback with the value ``"correct"``.
 
     Args:
-        name: The name of the assessment.
+        name: The name of the assessment. If not provided, the default name "feedback" is used.
         value: The feedback value. This can be one of the following types:
             - float
             - int
@@ -207,7 +207,7 @@ class Feedback(Assessment):
 
     def __init__(
         self,
-        name: str,
+        name: str = "feedback",
         value: Optional[FeedbackValueType] = None,
         error: Optional[AssessmentError] = None,
         source: Optional[AssessmentSource] = None,
