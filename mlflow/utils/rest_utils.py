@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+import warnings
 from functools import lru_cache
 
 import requests
@@ -45,6 +46,9 @@ _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 _V3_REST_API_PATH_PREFIX = "/api/3.0"
 _V3_TRACE_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
+_DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
+    "The 'retry_after_secs' parameter of DatabricksError is deprecated"
+)
 
 
 def http_request(
@@ -108,17 +112,22 @@ def http_request(
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
             # https://github.com/databricks/databricks-sdk-py/blob/a714146d9c155dd1e3567475be78623f72028ee0/databricks/sdk/core.py#L134
-            raw_response = ws_client.api_client.do(
-                method=method,
-                path=endpoint,
-                headers=extra_headers,
-                raw=True,
-                query=kwargs.get("params"),
-                body=kwargs.get("json"),
-                files=kwargs.get("files"),
-                data=kwargs.get("data"),
-            )
-            return raw_response["contents"]._response
+            # suppress the warning due to https://github.com/databricks/databricks-sdk-py/issues/963
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", message=f".*{_DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING}.*"
+                )
+                raw_response = ws_client.api_client.do(
+                    method=method,
+                    path=endpoint,
+                    headers=extra_headers,
+                    raw=True,
+                    query=kwargs.get("params"),
+                    body=kwargs.get("json"),
+                    files=kwargs.get("files"),
+                    data=kwargs.get("data"),
+                )
+                return raw_response["contents"]._response
         except DatabricksError as e:
             response = requests.Response()
             response.url = url
