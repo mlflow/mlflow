@@ -1,11 +1,11 @@
 import json
+import logging
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import (
-    AGENT_EVAL_CUSTOM_EXPECTATION_KEY,
     AgentEvaluationReserverKey,
 )
 from mlflow.genai.scorers import Scorer
@@ -26,6 +26,9 @@ if TYPE_CHECKING:
         ]
     except ImportError:
         EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
@@ -73,14 +76,9 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
                 "Please install it with `pip install pyspark`."
             )
 
-    # Verify format of the input using the first row
-    sample_row = df.iloc[0]
-    if "inputs" in sample_row and not isinstance(sample_row["inputs"], dict):
+    if len(df) == 0:
         raise MlflowException.invalid_parameter_value(
-            "The 'inputs' column must be a dictionary. If you want to pass a single "
-            "argument to the `predict_fn`, use the argument name as the key in the "
-            "dictionary. If you don't pass a `predict_fn`, you can use any string "
-            "key to wrap the value into a dictionary."
+            "The dataset is empty. Please provide a non-empty dataset."
         )
 
     if not any(col in df.columns for col in ("trace", "inputs")):
@@ -129,40 +127,6 @@ def _extract_expectations_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
         return df
 
     df["expectations"] = expectations_column
-    return df
-
-
-def _convert_expectations_to_legacy_columns(df: "pd.DataFrame") -> "pd.DataFrame":
-    # expand out expectations into separate columns
-    if "expectations" in df.columns:
-        for field in [*AgentEvaluationReserverKey.get_all(), AGENT_EVAL_CUSTOM_EXPECTATION_KEY]:
-            df[field] = None
-
-        # Process each row individually to handle mixed types
-        for idx, value in df["expectations"].items():
-            if isinstance(value, dict):
-                value = value.copy()
-                # Reserved expectation keys is propagated as a new column
-                for field in AgentEvaluationReserverKey.get_all():
-                    if field in value:
-                        df.at[idx, field] = value.pop(field, None)
-                # Other columns go to custom_expected
-                if value:
-                    df.at[idx, AGENT_EVAL_CUSTOM_EXPECTATION_KEY] = value
-
-            elif pd.isna(value):
-                # Only some rows in the dataset might have expectations.
-                # For those rows, we don't have any expectations, so we skip them.
-                continue
-
-            else:
-                raise MlflowException.invalid_parameter_value(
-                    "Expectations must be a dictionary in the form of [name of expectation]: "
-                    '[value], e.g., `{"expectations": {"expected_response": "..."}`'
-                )
-
-        df.drop(columns=["expectations"], inplace=True)
-
     return df
 
 
