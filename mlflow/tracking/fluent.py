@@ -3474,9 +3474,23 @@ def _get_active_model_id_global() -> Optional[str]:
 
 def unset_active_model() -> None:
     """
-    Unset the active model. This will remove the active model previously set by
+    Unset the active model. This will unset the active model previously set by
     :py:func:`mlflow.set_active_model` from current thread. To temporarily switch
     the active model, use ``with mlflow.set_active_model(...)`` instead.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        # Set the active model by name
+        mlflow.set_active_model(name="my_model")
+
+        # Unset the active model
+        mlflow.unset_active_model()
+        # Check that the active model is unset
+        assert mlflow.get_active_model_id() is None
     """
     # reset the environment variable as well to avoid it being used when creating
     # ActiveModelContext
@@ -3485,4 +3499,4 @@ def unset_active_model() -> None:
     _MLFLOW_ACTIVE_MODEL_ID.unset()
     # set_by_user is False because this API clears the state of active model
     # and MLflow might still set the active model in cases like `load_model`
-    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(set_by_user=False))

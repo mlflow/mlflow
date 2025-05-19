@@ -2234,3 +2234,7 @@ def test_unset_active_model():
     traces = get_traces()
     assert len(traces) == 3
     assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
+
+    for _ in range(5):
+        unset_active_model()
+        assert mlflow.get_active_model_id() is None
