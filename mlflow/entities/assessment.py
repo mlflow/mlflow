@@ -155,6 +155,9 @@ class Assessment(_MlflowObject):
             )
 
 
+DEFAULT_FEEDBACK_NAME = "feedback"
+
+
 @experimental
 @dataclass
 class Feedback(Assessment):
@@ -207,9 +210,9 @@ class Feedback(Assessment):
 
     def __init__(
         self,
-        name: str = "feedback",
+        name: str = DEFAULT_FEEDBACK_NAME,
         value: Optional[FeedbackValueType] = None,
-        error: Optional[AssessmentError] = None,
+        error: Optional[Union[Exception, AssertionError]] = None,
         source: Optional[AssessmentSource] = None,
         trace_id: Optional[str] = None,
         metadata: Optional[dict[str, str]] = None,
@@ -226,6 +229,12 @@ class Feedback(Assessment):
         # Default to CODE source if not provided
         if source is None:
             source = AssessmentSource(source_type=AssessmentSourceType.CODE)
+
+        if error is not None and isinstance(error, Exception):
+            error = AssessmentError(
+                error_message=str(error),
+                error_code=error.__class__.__name__,
+            )
 
         super().__init__(
             name=name,
