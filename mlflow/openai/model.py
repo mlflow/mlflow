@@ -489,6 +489,7 @@ def log_model(
 
         import mlflow
         import openai
+        import pandas as pd
 
         # Chat
         with mlflow.start_run():
