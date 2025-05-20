@@ -34,9 +34,11 @@ from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
 __version__ = VERSION
 
-import mlflow.mismatch
 import os
 import warnings
+
+import mlflow.mismatch
+
 # `check_version_mismatch` must be called here before importing any other modules
 with contextlib.suppress(Exception):
     mlflow.mismatch._check_version_mismatch()
@@ -154,8 +156,12 @@ if TYPE_CHECKING:
         xgboost,
     )
 
-if os.environ.get("MLFLOW_LOGGING_CONFIGURE_LOGGING", "true").lower == "false":
-    warnings.warn("MLFLOW_LOGGING_CONFIGURE_LOGGING is deprecated and will be removed in a future release, please use MLFLOW_CONFIGURE_LOGGING instead", FutureWarning)
+if os.environ.get("MLFLOW_LOGGING_CONFIGURE_LOGGING", "true").lower() == "false":
+    warnings.warn(
+        "MLFLOW_LOGGING_CONFIGURE_LOGGING is deprecated and will be removed in a future release, "
+        f"please use {MLFLOW_CONFIGURE_LOGGING.name} instead.",
+        FutureWarning,
+    )
 elif MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
 

@@ -5,6 +5,7 @@ import subprocess
 import sys
 import uuid
 from io import StringIO
+
 import pytest
 
 import mlflow
@@ -155,36 +156,31 @@ def test_logging_level(log_level: str, expected: bool) -> None:
     assert (random_str in stdout) is expected
 
 
-def test_mlflow_configure_logging_env_var():
-    """Test that the MLFLOW_CONFIGURE_LOGGING environment variable works correctly."""
-    # Test with env var set to False - should not configure loggers
+@pytest.mark.parametrize(
+    "env_var_name", ["MLFLOW_CONFIGURE_LOGGING", "MLFLOW_LOGGING_CONFIGURE_LOGGING"]
+)
+def test_mlflow_configure_logging_env_var(env_var_name):
     stdout_false = subprocess.check_output(
         [
             sys.executable,
             "-c",
-            "import mlflow; import logging; "
-            "print(len([h for h in logging.getLogger('mlflow').handlers]))",
+            "import mlflow; import logging; print(len(logging.getLogger('mlflow').handlers))",
         ],
-        env=os.environ.copy() | {"MLFLOW_CONFIGURE_LOGGING": "False"},
+        env=os.environ.copy() | {env_var_name: "False"},
         stderr=subprocess.STDOUT,
         text=True,
     )
-    
-    # Test with env var set to True - should configure loggers
+    assert "0" in stdout_false, stdout_false
+
     stdout_true = subprocess.check_output(
         [
             sys.executable,
             "-c",
-            "import mlflow; import logging; "
-            "print(len([h for h in logging.getLogger('mlflow').handlers]))",
+            "import mlflow; import logging; print(len(logging.getLogger('mlflow').handlers))",
         ],
-        env=os.environ.copy() | {"MLFLOW_CONFIGURE_LOGGING": "True"},
+        env=os.environ.copy() | {env_var_name: "True"},
         stderr=subprocess.STDOUT,
         text=True,
     )
-    
-    # When logging is disabled (False), there should be no handlers
-    assert "0" in stdout_false
-    
-    # When logging is enabled (True), there should be handlers
-    assert int(stdout_true.strip()) > 0
+
+    assert int(stdout_true.strip()) > 0, stdout_true

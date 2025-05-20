@@ -8,6 +8,7 @@ MLflow's environment variables adhere to the following naming conventions:
 import os
 from pathlib import Path
 
+
 class _EnvironmentVariable:
     """
     Represents an environment variable.
