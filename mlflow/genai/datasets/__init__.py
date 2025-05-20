@@ -22,8 +22,8 @@ except ImportError:
     )
 
 __all__ = [
-    "create_dataset",
     "EvaluationDataset",
+    "create_dataset",
     "delete_dataset",
     "get_dataset",
 ]
