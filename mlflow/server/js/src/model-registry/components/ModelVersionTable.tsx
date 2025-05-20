@@ -336,7 +336,6 @@ export const ModelVersionTable = ({
       image={<PlusIcon />}
     />
   );
-  console.log(isLoading)
   return (
     <>
       <Table
