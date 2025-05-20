@@ -170,6 +170,8 @@ def build_flavor_config_from_local_checkpoint(
     local_checkpoint_dir: str,
     task: str,
     processor=None,
+    image_processor=None,
+    feature_extractor=None,
     torch_dtype=None,
 ) -> dict[str, Any]:
     """
@@ -220,6 +222,12 @@ def build_flavor_config_from_local_checkpoint(
 
     if processor:
         flavor_conf.update(_get_component_config(processor, FlavorKey.PROCESSOR))
+    
+    if feature_extractor:
+        flavor_conf.update(_get_component_config(feature_extractor, FlavorKey.FEATURE_EXTRACTOR))
+        
+    if image_processor:
+        flavor_conf.update(_get_component_config(image_processor, FlavorKey.IMAGE_PROCESSOR))
 
     flavor_conf[FlavorKey.COMPONENTS] = list(components)
     return flavor_conf

@@ -271,6 +271,8 @@ def save_model(
     transformers_model,
     path: str,
     processor=None,
+    image_processor=None,
+    feature_extractor=None,
     task: Optional[str] = None,
     torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
@@ -360,6 +362,11 @@ def save_model(
             .. Note:: If a processor is supplied when saving a model, the
                         model will be unavailable for loading as a ``Pipeline`` or for
                         usage with pyfunc inference.
+        image_processor: An optional ``ImageProcessor`` subclass object. Utilize image pprocessor 
+            for some image to image or image to text multi-modal type models.
+        feature_extractor: An optional ``FeatureExtractor`` subclass object. The feature extractor 
+            takes raw input data (typically text) and converts it into meaningful numerical 
+            representations (embeddings) that can be used for downstream machine learning tasks.
         task: The transformers-specific task type of the model, or MLflow inference task type.
             If provided a transformers-specific task type, these strings are utilized so
             that a pipeline can be created with the appropriate internal call architecture
@@ -630,7 +637,7 @@ def save_model(
     # Create the flavor configuration
     if isinstance(transformers_model, str):
         flavor_conf = build_flavor_config_from_local_checkpoint(
-            transformers_model, built_pipeline.task, processor, torch_dtype
+            transformers_model, built_pipeline.task, processor, image_processor, feature_extractor, torch_dtype
         )
     else:
         flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
@@ -775,6 +782,8 @@ def log_model(
     transformers_model,
     artifact_path: Optional[str] = None,
     processor=None,
+    image_processor=None,
+    feature_extra=None,
     task: Optional[str] = None,
     torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
@@ -872,6 +881,11 @@ def log_model(
                 .. Note:: If a processor is supplied when logging a model, the
                     model will be unavailable for loading as a ``Pipeline`` or for usage
                     with pyfunc inference.
+        image_processor: An optional ``ImageProcessor`` subclass object. Utilize image pprocessor 
+            for some image to image or image to text multi-modal type models.
+        feature_extractor: An optional ``FeatureExtractor`` subclass object. The feature extractor 
+            takes raw input data (typically text) and converts it into meaningful numerical 
+            representations (embeddings) that can be used for downstream machine learning tasks.
         task: The transformers-specific task type of the model. These strings are utilized so
             that a pipeline can be created with the appropriate internal call architecture
             to meet the needs of a given model. If this argument is not specified, the
@@ -1014,6 +1028,8 @@ def log_model(
         metadata=metadata,
         transformers_model=transformers_model,
         processor=processor,
+        image_processor=image_processor,
+        feature_extra=feature_extra,
         task=task,
         torch_dtype=torch_dtype,
         model_card=model_card,
