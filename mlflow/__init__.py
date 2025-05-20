@@ -247,6 +247,7 @@ if not IS_TRACING_SDK_ONLY:
         search_model_versions,
         search_prompts,
         search_registered_models,
+        set_model_version_tag,
         set_prompt_alias,
     )
     from mlflow.tracking.fluent import (
@@ -364,6 +365,7 @@ if not IS_TRACING_SDK_ONLY:
         "set_active_model",
         "set_experiment_tag",
         "set_experiment_tags",
+        "set_model_version_tag",
         "set_registry_uri",
         "set_system_metrics_node_id",
         "set_system_metrics_samples_before_logging",

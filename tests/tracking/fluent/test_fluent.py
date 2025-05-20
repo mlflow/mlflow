@@ -2195,3 +2195,8 @@ def test_log_metrics_link_to_active_model():
     assert logged_model.model_id == model.model_id
     assert len(logged_model.metrics) == 2
     assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
+
+
+def test_set_logged_model_tags_error():
+    with pytest.raises(MlflowException, match="You may not have access to the logged model"):
+        mlflow.set_logged_model_tags("non-existing-model-id", {"tag": "value"})
