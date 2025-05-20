@@ -26,7 +26,7 @@ except ImportError:
     raise ImportError(
         "The `databricks-agents` package is required to use `mlflow.genai.label_schemas`. "
         "Please install it with `pip install databricks-agents`."
-    )
+    ) from None
 
 
 def create_label_schema(

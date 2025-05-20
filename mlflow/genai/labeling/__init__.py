@@ -9,16 +9,17 @@ The API docs can be found here:
 from typing import Any, Optional
 
 try:
-    from databricks.agents import review_app
     from databricks.agents.review_app import (
         Agent,
         LabelingSession,
+        ReviewApp,
+        get_review_app,
     )
 except ImportError:
     raise ImportError(
         "The `databricks-agents` package is required to use `mlflow.genai.labeling`. "
         "Please install it with `pip install databricks-agents`."
-    )
+    ) from None
 
 
 def create_labeling_session(
@@ -43,8 +44,7 @@ def create_labeling_session(
     Returns:
         LabelingSession: The created labeling session.
     """
-    app = review_app.get_review_app()
-    return app.create_labeling_session(
+    return get_review_app().create_labeling_session(
         name=name,
         assigned_users=assigned_users,
         agent=agent,
@@ -60,8 +60,7 @@ def get_labeling_sessions() -> list[LabelingSession]:
     Returns:
         list[LabelingSession]: The list of labeling sessions.
     """
-    app = review_app.get_review_app()
-    return app.get_labeling_sessions()
+    return get_review_app().get_labeling_sessions()
 
 
 def get_labeling_session(name: str) -> LabelingSession:
@@ -83,7 +82,7 @@ def get_labeling_session(name: str) -> LabelingSession:
     return labeling_session
 
 
-def delete_labeling_session(labeling_session: LabelingSession) -> review_app.ReviewApp:
+def delete_labeling_session(labeling_session: LabelingSession) -> ReviewApp:
     """Delete a labeling session from the review app.
 
     Args:
@@ -92,13 +91,14 @@ def delete_labeling_session(labeling_session: LabelingSession) -> review_app.Rev
     Returns:
         ReviewApp: The review app.
     """
-    app = review_app.get_review_app()
-    return app.delete_labeling_session(labeling_session)
+    return get_review_app().delete_labeling_session(labeling_session)
 
 
 __all__ = [
     "Agent",
     "LabelingSession",
+    "ReviewApp",
+    "get_review_app",
     "create_labeling_session",
     "get_labeling_sessions",
     "get_labeling_session",
