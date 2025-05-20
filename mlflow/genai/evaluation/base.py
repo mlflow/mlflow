@@ -1,4 +1,5 @@
 import logging
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -272,15 +273,22 @@ def evaluate(
     if predict_fn:
         predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
-    result = mlflow.models.evaluate(
-        model=predict_fn,
-        data=data,
-        evaluator_config=evaluation_config,
-        extra_metrics=extra_metrics,
-        model_type=GENAI_CONFIG_NAME,
-        model_id=model_id,
-        _called_from_genai_evaluate=True,
-    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Hint: Inferred schema contains integer column\(s\).*",
+            category=UserWarning,
+        )
+
+        result = mlflow.models.evaluate(
+            model=predict_fn,
+            data=data,
+            evaluator_config=evaluation_config,
+            extra_metrics=extra_metrics,
+            model_type=GENAI_CONFIG_NAME,
+            model_id=model_id,
+            _called_from_genai_evaluate=True,
+        )
 
     return EvaluationResult(
         run_id=result._run_id,
