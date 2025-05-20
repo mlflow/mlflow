@@ -5,7 +5,6 @@ import subprocess
 import sys
 import uuid
 from io import StringIO
-import importlib
 import pytest
 
 import mlflow
