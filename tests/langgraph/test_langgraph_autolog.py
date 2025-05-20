@@ -3,7 +3,7 @@ import json
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.tracing.helper import get_traces
 
@@ -192,7 +192,7 @@ def test_langgraph_chat_agent_trace():
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_info.model_id
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
     assert traces[0].data.spans[0].name == "LangGraph"
     assert traces[0].data.spans[0].inputs == input_example
 
@@ -201,7 +201,7 @@ def test_langgraph_chat_agent_trace():
     traces = get_traces()
     assert len(traces) == 2
     assert traces[0].info.status == "OK"
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_info.model_id
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
     assert traces[0].data.spans[0].name == "LangGraph"
     assert traces[0].data.spans[0].inputs == input_example
 
