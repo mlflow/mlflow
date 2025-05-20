@@ -71,7 +71,7 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         super().__init__(name, bool, default)
 
     def get(self):
-        # A workaround for https://github.com/mlflow/mlflow/issues/15764
+        # TODO: Remove this block in MLflow 3.2.0
         if self.name == MLFLOW_CONFIGURE_LOGGING.name and (
             val := os.getenv("MLFLOW_LOGGING_CONFIGURE_LOGGING")
         ):
