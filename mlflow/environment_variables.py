@@ -6,7 +6,6 @@ MLflow's environment variables adhere to the following naming conventions:
 """
 
 import os
-import warnings
 from pathlib import Path
 
 class _EnvironmentVariable:
