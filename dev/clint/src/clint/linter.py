@@ -79,7 +79,7 @@ class Violation:
         return (
             f"{self.path}:{cell_loc}{self.lineno}:{self.col_offset}: "
             f"{self.rule.id}: {self.rule.message} "
-            f"See dev/clint/README.md for how to ignore this violation ({self.rule.name})."
+            f"See dev/clint/README.md for how to ignore this rule ({self.rule.name})."
         )
 
     def json(self) -> dict[str, str | int | None]:
