@@ -10,7 +10,7 @@ from typing import Literal, Optional, Union
 
 try:
     from databricks.agents import review_app
-    from databricks.agents.review_app.label_schemas import (
+    from databricks.rag_eval.review_app.label_schemas import (
         EXPECTED_FACTS,
         GUIDELINES,
         EXPECTED_RESPONSE,
