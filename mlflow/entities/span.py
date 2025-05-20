@@ -233,15 +233,13 @@ class Span:
         """
         if trace_id := _get_trace_id_if_v3_format(data):
             raise MlflowException(
-                f"Failed to load trace with ID {trace_id}. This trace was created with MLflow 3.x, "
-                f"but you are currently using MLflow {mlflow.__version__}. These versions use "
-                "different trace formats and the current MLflow client is not compatible with "
-                "the new format. To properly search and view traces from both MLflow 2.x and 3.x, "
-                "please upgrade your MLflow client to version 3.x.\n"
+                f"Failed to load trace with ID {trace_id}. It was created with MLflow 3.x, "
+                f"but you're using MLflow {mlflow.__version__}, which cannot load traces created "
+                "with MLflow 3.x. To properly search and view traces from both MLflow 2.x and 3.x, "
+                "run this command to upgrade MLflow and restart your python process:\n"
                 "```\n"
                 "pip install 'mlflow>=3.0.0'\n"
-                "```\n"
-                "Note: You will need to restart your Python process after upgrading MLflow."
+                "```"
             )
 
         try:
