@@ -78,7 +78,8 @@ class Violation:
         cell_loc = f"cell {self.cell}:" if self.cell is not None else ""
         return (
             f"{self.path}:{cell_loc}{self.lineno}:{self.col_offset}: "
-            f"{self.rule.id}: {self.rule.message}"
+            f"{self.rule.id}: {self.rule.message} "
+            f"See dev/clint/README.md for how to ignore this violation ({self.rule.name})."
         )
 
     def json(self) -> dict[str, str | int | None]:

@@ -24,3 +24,21 @@ clint file.py ...
   "pylint.path": ["${interpreter}", "-m", "clint"]
 }
 ```
+
+## Want to ignore a rule for a specific file or line?
+
+Option 1: Disable a rule on a specific line (recommended).
+
+```python
+foo()  # clint: disable=<rule_name>
+```
+
+Option 2: Update the `exclude` list in the `pyproject.toml` file.
+
+```toml
+[tool.clint]
+exclude = [
+  ...,
+  "path/to/file",
+]
+```
