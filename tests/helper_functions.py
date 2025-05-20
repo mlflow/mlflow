@@ -736,7 +736,8 @@ def _is_hf_hub_healthy() -> bool:
         return True
     except requests.exceptions.RequestException:
         return False
-    except Exception:
+    except Exception as e:
+        _logger.warning(f"Unexpected error while checking Hugging Face Hub health: {e}. ")
         # For any other exceptions, we assume the hub is healthy.
         return True
 
