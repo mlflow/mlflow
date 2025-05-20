@@ -219,6 +219,7 @@ def test_langgraph_chat_agent_trace():
     assert traces[0].data.spans[0].inputs == input_example
 
 
+@skip_when_testing_trace_sdk
 def test_langgraph_autolog_with_update_current_span():
     model_info = mlflow.langchain.log_model(
         lc_model="tests/langgraph/sample_code/langgraph_with_autolog.py",

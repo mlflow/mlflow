@@ -1000,8 +1000,9 @@ litellm:
           "uvicorn",
         ]
     run: pytest tests/litellm
-    # Run integration test with the lightweight tracing SDK
-    test_tracing_sdk: true
+    # NB: LiteLLM tracing callback still depends on MLflowClient, so we need to migrate it before
+    # enabling tracing SDK tests. There are other issues like the above linked one, too.
+    test_tracing_sdk: false
 
 groq:
   package_info:
