@@ -807,3 +807,9 @@ MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
 #: effect. To modify the logging level after importing mlflow, use `importlib.reload(mlflow)`.
 #: (default: ``None``).
 MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, None)
+
+#: Specifies whether to enable environment packing for Databricks Model Serving.
+#: (default: ``True``)
+MLFLOW_ENABLE_ENV_PACK_FOR_DATABRICKS_MODEL_SERVING = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ENV_PACK_FOR_DATABRICKS_MODEL_SERVING", True
+)
