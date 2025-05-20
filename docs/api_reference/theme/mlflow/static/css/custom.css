@@ -208,8 +208,8 @@ mark,
 .rst-content table.field-list thead th,
 .wy-menu-vertical header,
 .wy-menu-vertical p.caption,
-.wy-side-nav-search>a,
-.wy-side-nav-search .wy-dropdown>a,
+.wy-side-nav-search > a,
+.wy-side-nav-search .wy-dropdown > a,
 .rst-content .topic-title,
 .rst-content .sidebar .sidebar-title,
 .rst-content .highlighted,
@@ -257,7 +257,7 @@ table {
 	background-color: #fff;
 }
 
-table>colgroup:first-child {
+table > colgroup:first-child {
 	display: none;
 }
 
@@ -486,7 +486,7 @@ table>colgroup:first-child {
 }
 
 /* Logo */
-.wy-side-nav-search>a.header-logo {
+.wy-side-nav-search > a.header-logo {
 	/* Unfortunately, we have to use a pretty specific selector */
 	display: block;
 	padding: 0;
@@ -494,12 +494,12 @@ table>colgroup:first-child {
 }
 
 @media screen and (max-width: 768px) {
-	.wy-side-nav-search>a.header-logo {
+	.wy-side-nav-search > a.header-logo {
 		display: none;
 	}
 }
 
-.wy-side-nav-search>a.header-logo:hover {
+.wy-side-nav-search > a.header-logo:hover {
 	background-color: transparent;
 }
 
@@ -560,7 +560,7 @@ table>colgroup:first-child {
 .wy-menu-vertical a,
 .wy-menu-vertical li.on a,
 .wy-menu-vertical li.current a,
-.wy-menu-vertical li.current>a {
+.wy-menu-vertical li.current > a {
 	color: #606770;
 	padding: 6px 30px !important;
 	font-size: 14px;
@@ -573,12 +573,12 @@ table>colgroup:first-child {
 .wy-menu-vertical a:hover,
 .wy-menu-vertical li.on a:hover,
 .wy-menu-vertical li.current a:hover,
-.wy-menu-vertical li.current>a:hover {
+.wy-menu-vertical li.current > a:hover {
 	background-color: #f0f0f0 !important;
 }
 
-.wy-menu-vertical>ul.current>li.current>ul.current>li.current>a,
-.wy-menu-vertical>ul.current>li.current>a {
+.wy-menu-vertical > ul.current > li.current > ul.current > li.current > a,
+.wy-menu-vertical > ul.current > li.current > a {
 	padding-bottom: 6px;
 	margin-bottom: 6px;
 	background-color: #0000000d !important;
@@ -588,7 +588,7 @@ table>colgroup:first-child {
 	border-radius: 0.25rem;
 }
 
-.wy-menu-vertical>ul.current:not(:first-of-type)>li.current {
+.wy-menu-vertical > ul.current:not(:first-of-type) > li.current {
 	padding-top: 6px;
 	margin-top: 6px;
 }
@@ -630,7 +630,7 @@ table>colgroup:first-child {
 }
 
 .wy-menu-vertical li.on a span.toctree-expand:before,
-.wy-menu-vertical li.current>a span.toctree-expand:before {
+.wy-menu-vertical li.current > a span.toctree-expand:before {
 	content: "–";
 	font-weight: bold;
 }
@@ -840,7 +840,7 @@ a.btn:active {
 	text-transform: unset !important;
 }
 
-.rst-footer-buttons .btn+.btn {
+.rst-footer-buttons .btn + .btn {
 	margin-left: 1em;
 }
 
