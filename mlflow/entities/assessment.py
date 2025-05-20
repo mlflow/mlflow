@@ -155,6 +155,9 @@ class Assessment(_MlflowObject):
             )
 
 
+DEFAULT_FEEDBACK_NAME = "feedback"
+
+
 @experimental
 @dataclass
 class Feedback(Assessment):
@@ -173,7 +176,8 @@ class Feedback(Assessment):
             - list of values of the same types as above
             - dict with string keys and values of the same types as above
         error: An optional error associated with the feedback. This is used to indicate
-            that the feedback is not valid or cannot be processed.
+            that the feedback is not valid or cannot be processed. Accepts an exception
+            object, or an :py:class:`~mlflow.entities.Expectation` object.
         rationale: The rationale / justification for the feedback.
         source: The source of the assessment. If not provided, the default source is CODE.
         trace_id: The ID of the trace associated with the assessment. If unset, the assessment
@@ -207,9 +211,9 @@ class Feedback(Assessment):
 
     def __init__(
         self,
-        name: str = "feedback",
+        name: str = DEFAULT_FEEDBACK_NAME,
         value: Optional[FeedbackValueType] = None,
-        error: Optional[AssessmentError] = None,
+        error: Optional[Union[Exception, AssessmentError]] = None,
         source: Optional[AssessmentSource] = None,
         trace_id: Optional[str] = None,
         metadata: Optional[dict[str, str]] = None,
@@ -226,6 +230,12 @@ class Feedback(Assessment):
         # Default to CODE source if not provided
         if source is None:
             source = AssessmentSource(source_type=AssessmentSourceType.CODE)
+
+        if isinstance(error, Exception):
+            error = AssessmentError(
+                error_message=str(error),
+                error_code=error.__class__.__name__,
+            )
 
         super().__init__(
             name=name,
