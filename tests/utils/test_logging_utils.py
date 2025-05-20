@@ -1,5 +1,7 @@
 import logging
+import os
 import re
+import subprocess
 import sys
 from io import StringIO
 
@@ -127,3 +129,28 @@ def test_suppress_logs():
     with suppress_logs(module, re.compile("This .* be suppressed.")):
         logger.error(message)
     assert len(capture_stream.getvalue()) == 0
+
+
+@pytest.mark.parametrize(
+    "env_var_name",
+    ["MLFLOW_CONFIGURE_LOGGING", "MLFLOW_LOGGING_CONFIGURE_LOGGING"],
+)
+@pytest.mark.parametrize(
+    "value",
+    ["0", "1"],
+)
+def test_mlflow_configure_logging_env_var(env_var_name: str, value: str) -> None:
+    expected_level = logging.INFO if value == "1" else logging.WARNING
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-c",
+            f"""
+import logging
+import mlflow
+
+assert logging.getLogger("mlflow").isEnabledFor({expected_level})
+""",
+        ],
+        env=os.environ.copy() | {env_var_name: value},
+    )
