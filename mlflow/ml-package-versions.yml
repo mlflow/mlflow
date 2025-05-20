@@ -569,6 +569,9 @@ dspy:
   models:
     minimum: "2.5.17"
     maximum: "2.6.23"
+    python:
+      # json-repaier (dependency of dspy) requires Python >=3.10
+      ">= 0.0.0": "3.10"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
@@ -576,6 +579,9 @@ dspy:
   autologging:
     minimum: "2.5.17"
     maximum: "2.6.23"
+    python:
+      # json-repaier (dependency of dspy) requires Python >=3.10
+      ">= 0.0.0": "3.10"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
