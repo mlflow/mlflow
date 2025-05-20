@@ -799,6 +799,8 @@ def flush_trace_async_logging(terminate=False) -> None:
     Args:
         terminate: If True, shut down the logging threads after flushing.
     """
+    import os
+
     try:
         _get_trace_exporter()._async_queue.flush(terminate=terminate)
     except Exception as e:
