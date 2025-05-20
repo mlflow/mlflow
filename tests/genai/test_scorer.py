@@ -269,18 +269,12 @@ def test_builtin_scorers_are_callable():
     ("scorer_return", "expected_feedback_name"),
     [
         # Single feedback object with default name -> should be renamed to "my_scorer"
-        (
-            Feedback(value=42, rationale="It's the answer to everything"),
-            "my_scorer",
-        ),
-        # Single feedback object -> should be renamed to "my_scorer"
-        (
-            Feedback(name="big_question", value=42, rationale="It's the answer to everything"),
-            "my_scorer",
-        ),
+        (Feedback(value=42, rationale="rationale"), "my_scorer"),
+        # Single feedback object with custom name -> should NOT be renamed to "my_scorer"
+        (Feedback(name="custom_name", value=42, rationale="rationale"), "custom_name"),
     ],
 )
-def test_custom_scorer_overwrites_feedback_name(scorer_return, expected_feedback_name):
+def test_custom_scorer_overwrites_default_feedback_name(scorer_return, expected_feedback_name):
     @scorer
     def my_scorer(inputs, outputs):
         return scorer_return

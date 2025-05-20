@@ -358,3 +358,10 @@ def test_feedback_value_proto_dict_conversion(value, error):
     result = FeedbackValue.from_dictionary(feedback_dict)
     assert result.value == result.value
     assert result.error == result.error
+
+
+def test_feedback_from_exception():
+    feedback = Feedback(error=ValueError("An error occurred."))
+
+    assert feedback.error.error_code == "ValueError"
+    assert feedback.error.error_message == "An error occurred."

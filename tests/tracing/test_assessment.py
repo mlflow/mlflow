@@ -384,3 +384,11 @@ def test_log_expectation_default_source(store, tracking_uri):
     assert assessment.source.source_type == AssessmentSourceType.HUMAN
     assert assessment.source.source_id == "default"
     assert assessment.expectation.value == "MLflow"
+
+
+def test_log_feedback_and_exception_blocks_positional_args():
+    with pytest.raises(TypeError, match=r"log_feedback\(\) takes 0 positional"):
+        mlflow.log_feedback("tr-1234", "faithfulness", 1.0)
+
+    with pytest.raises(TypeError, match=r"log_expectation\(\) takes 0 positional"):
+        mlflow.log_expectation("tr-1234", "expected_answer", "MLflow")
