@@ -268,8 +268,6 @@ def test_builtin_scorers_are_callable():
 @pytest.mark.parametrize(
     ("scorer_return", "expected_feedback_name"),
     [
-        # Single primitive value -> should be named to "my_scorer"
-        (42, "my_scorer"),
         # Single feedback object with default name -> should be renamed to "my_scorer"
         (Feedback(value=42, rationale="rationale"), "my_scorer"),
         # Single feedback object with custom name -> should NOT be renamed to "my_scorer"

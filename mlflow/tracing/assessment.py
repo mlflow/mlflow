@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from mlflow.entities.assessment import (
     DEFAULT_FEEDBACK_NAME,
@@ -229,7 +229,7 @@ def log_feedback(
     name: str = DEFAULT_FEEDBACK_NAME,
     value: Optional[FeedbackValueType] = None,
     source: Optional[AssessmentSource] = None,
-    error: Optional[AssessmentError] = None,
+    error: Optional[Union[Expectation, AssessmentError]] = None,
     rationale: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
     span_id: Optional[str] = None,
@@ -252,8 +252,9 @@ def log_feedback(
                 :py:class:`~mlflow.entities.AssessmentSource`. If not provided, defaults to
                 CODE source type
         error: An error object representing any issues encountered while computing the
-            feedback, e.g., a timeout error from an LLM judge. Either this or `value`
-            must be provided.
+            feedback, e.g., a timeout error from an LLM judge. Accepts an exception
+            object, or an :py:class:`~mlflow.entities.Expectation` object. Either
+            this or `value` must be provided.
         rationale: The rationale / justification for the feedback.
         metadata: Additional metadata for the feedback.
         span_id: The ID of the span associated with the feedback, if it needs be
