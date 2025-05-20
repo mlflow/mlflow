@@ -9,8 +9,15 @@ import pytest
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
+
+if IS_TRACING_SDK_ONLY:
+    pytest.skip(
+        "Skipping test as litellm callback is not migrated off of MLflowClient",
+        allow_module_level=True,
+    )
 
 
 # fixture to run test twice, one for in databricks and one for not in databricks
