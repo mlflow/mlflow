@@ -21,77 +21,34 @@ To create your own agent, subclass `mlflow.pyfunc.ResponsesAgent` and implement 
 ### Creating agent output
 When implementing your agent, you'll work with two main output types: `ResponsesAgentResponse` and `ResponsesAgentStreamEvent`. These are the only pydantic objects you should create directly. The remaining classes in `mlflow.types.responses_helpers` are only for validating dictionaries.
 
-Below are some helper methods you can use to create common output item types:
-```python
-def create_text_output_item(text: str, id: str):
-    return {
-        "id": id,
-        "content": [
-            {
-                "text": text,
-                "type": "output_text",
-            }
-        ],
-        "role": "assistant",
-        "type": "message",
-    }
-
-
-def create_function_call_item(id: str, call_id: str, name: str, arguments: str):
-    return {
-        "type": "function_call",
-        "id": id,
-        "call_id": call_id,
-        "name": name,
-        "arguments": arguments,
-    }
-
-
-def create_function_call_output_item(call_id: str, output: str):
-    return {
-        "type": "function_call_output",
-        "call_id": call_id,
-        "output": output,
-    }
-```
+Below are some helper methods you can use to create common output item types.
+- <APILink fn="mlflow.pyfunc.ResponsesAgent.create_text_delta" />
+- <APILink fn="mlflow.pyfunc.ResponsesAgent.create_text_output_item" />
+- <APILink fn="mlflow.pyfunc.ResponsesAgent.create_function_call_item" />
+- <APILink fn="mlflow.pyfunc.ResponsesAgent.create_function_call_output_item" />
 
 You can also use the `custom_outputs` field for any additional output you want to return from your agent that doesn't fit into the standard interface.
 
 Here's an example of a complete tool calling sequence using `ResponsesAgentResponse`:
-
 ```python
-from mlflow.types.responses import ResponsesAgentResponse
+from mlflow.pyfunc import ResponsesAgent
+from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
 
-ResponsesAgentResponse(
-    output=[
-        {
-            "arguments": '{"code":"result = 4 * 3\\nprint(result)"}',
-            "call_id": "call_1",
-            "name": "python_exec",
-            "type": "function_call",
-            "id": "fc_1",
-            "status": "completed",
-        },
-        {
-            "type": "function_call_output",
-            "call_id": "call_1",
-            "output": "12\n",
-        },
-        {
-            "id": "msg_1",
-            "content": [
-                {
-                    "annotations": [],
-                    "text": "The result of 4 * 3 in Python is 12.",
-                    "type": "output_text",
-                }
-            ],
-            "role": "assistant",
-            "status": "completed",
-            "type": "message",
-        },
-    ]
-)
+class SimpleResponsesAgent(ResponsesAgent):
+    @mlflow.trace(span_type=SpanType.AGENT)
+    def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+        return ResponsesAgentResponse(
+            output=[
+                self.create_function_call_item(
+                    id="fc_1",
+                    call_id="call_1",
+                    name="python_exec",
+                    arguments='{"code":"result = 4 * 3\\nprint(result)"}',
+                ),
+                self.create_function_call_output_item(call_id="call_1", output="12\n"),
+                self.create_text_output_item(text="The result of 4 * 3 in Python is 12.", id="msg_1"),
+            ]
+        )
 ```
 
 ### Streaming agent output
@@ -101,7 +58,12 @@ For real-time processing, you can use streaming events instead of returning a co
 The simplest form of streaming is text streaming, where you send text chunks as they become available. Each chunk is sent as a `response.output_text.delta` event, and you must include an `item_id` to correspond related events to a single output item. Finally, you send a `response.output_item.done` event to aggregate all chunks and complete the message:
 
 ```python
+# Continuing from above
 from mlflow.types.responses import ResponsesAgentStreamEvent
+
+class SimpleResponsesAgent(ResponsesAgent):
+    @mlflow.trace(span_type=SpanType.AGENT)
+    def predict_stream()
 
 # Stream text chunks
 ResponsesAgentStreamEvent(
@@ -236,7 +198,7 @@ loaded_model.predict(
 Here's an example of an agent that calls OpenAI's gpt-4o model with a simple tool.
 
 ```python
-# if using a jupyter notebook
+# uncomment below if running inside a jupyter notebook
 # %%writefile agent.py
 import json
 from typing import Any, Callable, Generator

@@ -2,6 +2,10 @@ import { APILink } from "@site/src/components/APILink";
 
 # Tutorial: Getting Started with ChatModel
 
+:::warning attention
+Starting in MLflow 3.0.0, we recommend `ResponsesAgent` instead of <APILink fn="mlflow.pyfunc.ChatModel">`ChatModel`</APILink>. See more details in the [ResponsesAgent Introduction](./respones-agent-intro).
+:::
+
 MLflow's <APILink fn ="mlflow.pyfunc.ChatModel">`ChatModel`</APILink> class provides a standardized way to create production-ready conversational AI models.
 The resulting models are fully integrated with MLflow's tracking, evaluation, and lifecycle management capabilities. They can be shared
 with others in the MLflow Model Registry, deployed as a REST API, or loaded in a notebook for interactive use. Furthermore, they are

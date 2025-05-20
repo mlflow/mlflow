@@ -302,6 +302,7 @@ class PythonModelContext:
         return self._model_config
 
 
+@deprecated("ResponsesAgent", "3.0.0")
 class ChatModel(PythonModel, metaclass=ABCMeta):
     """
     .. tip::
@@ -833,9 +834,11 @@ if IS_PYDANTIC_V2_OR_NEWER:
     @experimental
     class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         """
-        A base class for creating ResponsesAgent models.
+        A base class for creating ResponsesAgent models. It can be used as a wrapper around any
+        agent framework to create an agent model that can be deployed to MLflow. Has a few helper
+        methods to help create output items that can be a part of a ResponsesAgentResponse or
+        ResponsesAgentStreamEvent.
 
-        This class provides a framework for creating custom ResponsesAgent models.
         See https://www.mlflow.org/docs/latest/llms/responses-agent-intro/ for more details.
         """
 
@@ -882,6 +885,76 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "Streaming implementation not provided. Please override the "
                 "`predict_stream` method on your model to generate streaming predictions"
             )
+
+        def create_text_delta(self, delta: str, id: str) -> dict[str, Any]:
+            """Helper method to create a dictionary conforming to the text delta schema for
+            streaming.
+
+            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#streaming-agent-output.
+            """
+            return {
+                "type": "response.output_text.delta",
+                "id": id,
+                "delta": delta,
+            }
+
+        def create_text_output_item(self, text: str, id: str) -> dict[str, Any]:
+            """Helper method to create a dictionary conforming to the text output item schema.
+
+            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+
+            Args:
+                text (str): The text to be outputted.
+                id (str): The id of the output item.
+            """
+            return {
+                "id": id,
+                "content": [
+                    {
+                        "text": text,
+                        "type": "output_text",
+                    }
+                ],
+                "role": "assistant",
+                "type": "message",
+            }
+
+        def create_function_call_item(
+            self, id: str, call_id: str, name: str, arguments: str
+        ) -> dict[str, Any]:
+            """Helper method to create a dictionary conforming to the function call item schema.
+
+            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+
+            Args:
+                id (str): The id of the output item.
+                call_id (str): The id of the function call.
+                name (str): The name of the function to be called.
+                arguments (str): The arguments to be passed to the function.
+            """
+            return {
+                "type": "function_call",
+                "id": id,
+                "call_id": call_id,
+                "name": name,
+                "arguments": arguments,
+            }
+
+        def create_function_call_output_item(self, call_id: str, output: str) -> dict[str, Any]:
+            """Helper method to create a dictionary conforming to the function call output item
+            schema.
+
+            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+
+            Args:
+                call_id (str): The id of the function call.
+                output (str): The output of the function call.
+            """
+            return {
+                "type": "function_call_output",
+                "call_id": call_id,
+                "output": output,
+            }
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
