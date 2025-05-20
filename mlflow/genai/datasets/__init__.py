@@ -17,7 +17,7 @@ try:
     )
 except ImportError:
     raise ImportError(
-        "The `databricks-agents` package is required to use mlflow.genai.datasets. "
+        "The `databricks-agents` package is required to use `mlflow.genai.datasets`. "
         "Please install it with `pip install databricks-agents`."
     )
 
