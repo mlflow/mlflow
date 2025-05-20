@@ -5291,16 +5291,16 @@ class MlflowClient:
         try:
             self._tracking_client.get_logged_model(model_id)
         except Exception as e:
-            reason = (
+            extra_error_reason = (
                 "the logged model may exist in a different workspace, "
                 if is_in_databricks_runtime()
                 else ""
             )
             raise MlflowException.invalid_parameter_value(
                 f"Failed to get logged model with ID {model_id}. "
-                f"You may not have access to the logged model, {reason}or the "
+                f"You may not have access to the logged model, {extra_error_reason}or the "
                 "logged model may have been deleted. If you are attempting to log parameters "
-                "to a Model Version, this is not supported."
+                "to a Registered Model Version, this is not supported."
             ) from e
         return self._tracking_client.log_model_params(model_id, params)
 
@@ -5364,16 +5364,16 @@ class MlflowClient:
         try:
             self._tracking_client.get_logged_model(model_id)
         except Exception as e:
-            reason = (
+            extra_error_reason = (
                 "the logged model may exist in a different workspace, "
                 if is_in_databricks_runtime()
                 else ""
             )
             raise MlflowException.invalid_parameter_value(
                 f"Failed to get logged model with ID {model_id}. "
-                f"You may not have access to the logged model, {reason}or the "
+                f"You may not have access to the logged model, {extra_error_reason}or the "
                 "logged model may have been deleted. If you are attempting to "
-                "set tags on a Model Version, use `set_model_version_tag` instead."
+                "set tags on a Registered Model Version, use `set_model_version_tag` instead."
             ) from e
         self._tracking_client.set_logged_model_tags(model_id, tags)
 
