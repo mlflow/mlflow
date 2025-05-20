@@ -17,7 +17,8 @@ def main():
         "fastai",
         "h2o",
         "lightgbm",
-        "mleap",
+        # Skipping deprecated flavor
+        # "mleap",
         "onnx",
         "pytorch_lightning",
         "pyspark.ml",
