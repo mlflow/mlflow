@@ -3,7 +3,6 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
 
-from io import StringIO
 import json
 import logging
 import math
@@ -13,6 +12,7 @@ import posixpath
 import sys
 import time
 import urllib.parse
+from io import StringIO
 from unittest import mock
 
 import flask
