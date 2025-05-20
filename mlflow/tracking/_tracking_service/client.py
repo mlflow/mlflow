@@ -26,6 +26,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.dataset_input import DatasetInput
+from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -716,7 +717,7 @@ class TrackingServiceClient:
     def _log_url(self, run_id):
         if not isinstance(self.store, RestStore):
             return
-        if is_in_databricks_notebook():
+        if is_in_databricks_notebook() or MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT.get():
             # In Databricks notebooks, MLflow experiment and run links are displayed automatically.
             return
         host_url = get_workspace_url()
