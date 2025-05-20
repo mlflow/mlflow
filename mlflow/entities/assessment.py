@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+import traceback
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
@@ -232,9 +233,13 @@ class Feedback(Assessment):
             source = AssessmentSource(source_type=AssessmentSourceType.CODE)
 
         if isinstance(error, Exception):
+            stack_trace_string = (
+                "".join(traceback.format_tb(error.__traceback__)) if error.__traceback__ else None
+            )
             error = AssessmentError(
                 error_message=str(error),
                 error_code=error.__class__.__name__,
+                stack_trace=stack_trace_string,
             )
 
         super().__init__(
