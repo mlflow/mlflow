@@ -486,6 +486,7 @@ def log_model(
         metadata of the logged model.
 
     .. code-block:: python
+        :caption: Example
 
         import mlflow
         import openai
