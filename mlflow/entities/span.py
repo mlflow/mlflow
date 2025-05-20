@@ -327,8 +327,7 @@ def _get_trace_id_if_v3_format(data: dict[str, Any]) -> Optional[str]:
         try:
             trace_id_bytes = base64.b64decode(data["trace_id"])
             otel_trace_id = int.from_bytes(trace_id_bytes, byteorder="big", signed=False)
-            mlflow_trace_id = "tr-" + encode_trace_id(otel_trace_id)
-            return mlflow_trace_id
+            return "tr-" + encode_trace_id(otel_trace_id)
         except Exception:
             pass
 
