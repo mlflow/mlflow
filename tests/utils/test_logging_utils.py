@@ -157,30 +157,25 @@ def test_logging_level(log_level: str, expected: bool) -> None:
 
 
 @pytest.mark.parametrize(
-    "env_var_name", ["MLFLOW_CONFIGURE_LOGGING", "MLFLOW_LOGGING_CONFIGURE_LOGGING"]
+    "env_var_name",
+    ["MLFLOW_CONFIGURE_LOGGING", "MLFLOW_LOGGING_CONFIGURE_LOGGING"],
 )
-def test_mlflow_configure_logging_env_var(env_var_name):
-    stdout_false = subprocess.check_output(
+@pytest.mark.parametrize(
+    "value",
+    ["0", "1"],
+)
+def test_mlflow_configure_logging_env_var(env_var_name: str, value: str) -> None:
+    expected_level = logging.INFO if value == "1" else logging.WARNING
+    subprocess.check_call(
         [
             sys.executable,
             "-c",
-            "import mlflow; import logging; print(len(logging.getLogger('mlflow').handlers))",
-        ],
-        env=os.environ.copy() | {env_var_name: "False"},
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-    assert "0" in stdout_false, stdout_false
+            f"""
+import logging
+import mlflow
 
-    stdout_true = subprocess.check_output(
-        [
-            sys.executable,
-            "-c",
-            "import mlflow; import logging; print(len(logging.getLogger('mlflow').handlers))",
+assert logging.getLogger("mlflow").isEnabledFor({expected_level})
+""",
         ],
-        env=os.environ.copy() | {env_var_name: "True"},
-        stderr=subprocess.STDOUT,
-        text=True,
+        env=os.environ.copy() | {env_var_name: value},
     )
-
-    assert int(stdout_true.strip()) > 0, stdout_true

@@ -6,6 +6,7 @@ MLflow's environment variables adhere to the following naming conventions:
 """
 
 import os
+import warnings
 from pathlib import Path
 
 
@@ -70,6 +71,18 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         super().__init__(name, bool, default)
 
     def get(self):
+        # A workaround for https://github.com/mlflow/mlflow/issues/15764
+        if self.name == MLFLOW_CONFIGURE_LOGGING.name and (
+            val := os.getenv("MLFLOW_LOGGING_CONFIGURE_LOGGING")
+        ):
+            warnings.warn(
+                "Environment variable MLFLOW_LOGGING_CONFIGURE_LOGGING is deprecated and will be "
+                f"removed in a future release. Please use {MLFLOW_CONFIGURE_LOGGING.name} instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            return val.lower() in ["true", "1"]
+
         if not self.defined:
             return self.default
 
