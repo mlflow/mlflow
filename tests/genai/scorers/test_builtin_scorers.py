@@ -4,13 +4,15 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import (
     chunk_relevance,
     context_sufficiency,
+    correctness,
+    get_all_scorers,
+    get_rag_scorers,
     groundedness,
     guideline_adherence,
-    rag_scorers,
     relevance_to_query,
     safety,
 )
-from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, all_scorers, correctness
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
 
 
 def normalize_config(config):
@@ -22,7 +24,7 @@ def normalize_config(config):
 
 ALL_SCORERS = [
     guideline_adherence.configure(name="politeness", global_guidelines=["Be polite", "Be kind"]),
-    *all_scorers,
+    *get_all_scorers(),
 ]
 
 expected = {
@@ -48,16 +50,7 @@ expected = {
     [
         ALL_SCORERS,
         ALL_SCORERS + ALL_SCORERS,  # duplicate scorers
-        rag_scorers
-        + [
-            guideline_adherence.configure(
-                name="politeness", global_guidelines=["Be polite", "Be kind"]
-            ),
-            guideline_adherence,
-            correctness,
-            safety,
-        ],
-        [*rag_scorers]
+        get_rag_scorers()
         + [
             guideline_adherence.configure(
                 name="politeness", global_guidelines=["Be polite", "Be kind"]

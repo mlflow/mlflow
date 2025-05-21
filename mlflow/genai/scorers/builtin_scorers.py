@@ -681,18 +681,43 @@ correctness = Correctness()
 
 
 # === Shorthand for all builtin RAG scorers ===
-rag_scorers = [
-    chunk_relevance,
-    context_sufficiency,
-    groundedness,
-    relevance_to_query,
-]
+def get_rag_scorers():
+    """
+    Returns a list of all built-in RAG scorers.
 
-all_scorers = rag_scorers + [
-    guideline_adherence,
-    safety,
-    correctness,
-]
+    Example:
+
+    .. code-block:: python
+
+        from mlflow.genai.scorers import get_rag_scorers
+
+        mlflow.genai.evaluate(data=data, scorers=get_rag_scorers())
+    """
+    return [
+        chunk_relevance,
+        context_sufficiency,
+        groundedness,
+        relevance_to_query,
+    ]
+
+
+def get_all_scorers():
+    """
+    Returns a list of all built-in scorers.
+
+    Example:
+
+    .. code-block:: python
+
+        from mlflow.genai.scorers import get_all_scorers
+
+        mlflow.genai.evaluate(data=data, scorers=get_all_scorers())
+    """
+    return get_rag_scorers() + [
+        guideline_adherence,
+        safety,
+        correctness,
+    ]
 
 
 class MissingColumnsException(MlflowException):

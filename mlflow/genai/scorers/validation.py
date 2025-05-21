@@ -32,7 +32,7 @@ def validate_scorers(scorers: list[Any]) -> tuple[list[BuiltInScorer], list[Scor
         raise MlflowException.invalid_parameter_value(
             "The `scorers` argument must be a list of scorers with at least one scorer. "
             "If you are unsure about which scorer to use, you can specify "
-            "`scorers=mlflow.genai.scorers.all_scorers` to jump start with all "
+            "`scorers=mlflow.genai.scorers.get_all_scorers()` to jump start with all "
             "available built-in scorers."
         )
 
