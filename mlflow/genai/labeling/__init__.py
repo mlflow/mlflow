@@ -25,9 +25,9 @@ except ImportError:
 def create_labeling_session(
     name: str,
     *,
-    assigned_users: list[str] = [],
+    assigned_users: list[str] = [],  # noqa: B006
     agent: Optional[str] = None,
-    label_schemas: list[str] = [],
+    label_schemas: list[str] = [],  # noqa: B006
     enable_multi_turn_chat: bool = False,
     custom_inputs: Optional[dict[str, Any]] = None,
 ) -> LabelingSession:
@@ -74,7 +74,10 @@ def get_labeling_session(name: str) -> LabelingSession:
     """
     labeling_sessions = get_labeling_sessions()
     labeling_session = next(
-        (labeling_session for labeling_session in labeling_sessions if labeling_session.name == name),
+        (
+            labeling_session for labeling_session in labeling_sessions
+            if labeling_session.name == name
+        ),
         None,
     )
     if labeling_session is None:

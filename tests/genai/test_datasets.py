@@ -26,4 +26,4 @@ def test_evaluation_dataset_raises_when_agents_not_installed():
     # A warning is logged when the module is imported, but when EvaluationDataset is explicitly
     # imported, it raises an ImportError.
     with pytest.raises(ImportError, match="cannot import name 'EvaluationDataset'"):
-        from mlflow.genai.datasets import EvaluationDataset
+        from mlflow.genai.datasets import EvaluationDataset  # noqa: F401

@@ -12,15 +12,15 @@ try:
     from databricks.agents import review_app
     from databricks.rag_eval.review_app.label_schemas import (
         EXPECTED_FACTS,
-        GUIDELINES,
         EXPECTED_RESPONSE,
-        LabelSchemaType,
-        LabelSchema,
+        GUIDELINES,
         InputCategorical,
         InputCategoricalList,
         InputNumeric,
         InputText,
         InputTextList,
+        LabelSchema,
+        LabelSchemaType,
     )
 except ImportError:
     raise ImportError(
