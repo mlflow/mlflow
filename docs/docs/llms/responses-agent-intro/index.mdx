@@ -392,11 +392,7 @@ class SimpleResponsesAgent(ResponsesAgent):
         for event in self.client.responses.create(
             input=request.input, stream=True, model=self.model
         ):
-            if (
-                event.type == "response.output_item.done"
-                or event.type == "response.output_text.delta"
-            ):
-                yield ResponsesAgentStreamEvent(**event.to_dict())
+            yield ResponsesAgentStreamEvent(**event.to_dict())
 
 
 agent = SimpleResponsesAgent(model="gpt-4o")
