@@ -3277,13 +3277,16 @@ class ActiveModelContext:
         # so that for subprocesses the default _ACTIVE_MODEL_CONTEXT.model_id
         # is still valid, and we don't need to read from env var.
         self._set_by_user = set_by_user
-        with _active_model_id_env_lock:
-            self._model_id = model_id or _MLFLOW_ACTIVE_MODEL_ID.get()
+        if is_in_databricks_model_serving_environment():
             # In Databricks, we set the active model ID to the environment variable
             # so that it can be used in the main process, since databricks serving
             # loads model from threads.
-            if is_in_databricks_model_serving_environment() and self._model_id:
-                _MLFLOW_ACTIVE_MODEL_ID.set(self._model_id)
+            with _active_model_id_env_lock:
+                self._model_id = model_id or _MLFLOW_ACTIVE_MODEL_ID.get()
+                if self._model_id:
+                    _MLFLOW_ACTIVE_MODEL_ID.set(self._model_id)
+        else:
+            self._model_id = model_id or _MLFLOW_ACTIVE_MODEL_ID.get()
 
     def __repr__(self):
         return f"ActiveModelContext(model_id={self.model_id}, set_by_user={self.set_by_user})"
@@ -3314,7 +3317,17 @@ class ActiveModel(LoggedModel):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        _ACTIVE_MODEL_CONTEXT.set(self.last_active_model_context)
+        if is_in_databricks_model_serving_environment():
+            # create a new instance of ActiveModelContext to make sure the
+            # environment variable is updated in databricks serving environment
+            _ACTIVE_MODEL_CONTEXT.set(
+                ActiveModelContext(
+                    model_id=self.last_active_model_context.model_id,
+                    set_by_user=self.last_active_model_context.set_by_user,
+                )
+            )
+        else:
+            _ACTIVE_MODEL_CONTEXT.set(self.last_active_model_context)
 
 
 # NB: This function is only intended to be used publicly by users to set the

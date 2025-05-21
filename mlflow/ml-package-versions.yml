@@ -465,7 +465,6 @@ transformers:
           "sentencepiece", # required for transformers text2text generation pipeline
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
-          "accelerate<1",
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
@@ -474,6 +473,7 @@ transformers:
       # Pin torchvision to <0.20.0 to avoid https://github.com/pytorch/torchchat/issues/1158
       "< 4.38": ["tensorflow<2.14", "pydantic<2"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
+      "< 4.52.0.dev0": ["accelerate<1"]
     pre_test: |
       export PYTHONPATH=./
       python tests/transformers/helper.py

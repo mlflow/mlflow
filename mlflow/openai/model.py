@@ -25,7 +25,6 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import disable_autologging_globally
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -413,7 +412,6 @@ def save_model(
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-@disable_autologging_globally
 def log_model(
     model,
     task,
@@ -488,9 +486,11 @@ def log_model(
         metadata of the logged model.
 
     .. code-block:: python
+        :caption: Example
 
         import mlflow
         import openai
+        import pandas as pd
 
         # Chat
         with mlflow.start_run():

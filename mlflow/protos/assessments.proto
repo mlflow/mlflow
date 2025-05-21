@@ -35,6 +35,9 @@ message AssessmentError {
   optional string error_code = 1;
 
   optional string error_message = 2;
+
+  // Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+  optional string stack_trace = 3;
 }
 
 // An expectation for the values or guidelines for the outputs that a model or agent should produce

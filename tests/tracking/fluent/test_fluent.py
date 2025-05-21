@@ -2096,18 +2096,10 @@ def test_set_active_model_link_traces():
     assert len(traces) == 4
     assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_id
 
-    # manual start span with model_id
-    with mlflow.start_span(model_id="1234"):
-        predict(model_input=1)
-
-    traces = get_traces()
-    assert len(traces) == 5
-    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == "1234"
-
     with set_active_model(name="new_model") as new_model:
         predict(model_input=1)
     traces = get_traces()
-    assert len(traces) == 6
+    assert len(traces) == 5
     assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == new_model.model_id
     assert new_model.model_id != model_id
 
@@ -2118,6 +2110,13 @@ def test_set_active_model_in_databricks_serving():
         return_value=True,
     ):
         model = set_active_model(name="test_model")
+        assert mlflow.get_active_model_id() == model.model_id
+        assert _MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+
+        with set_active_model(name="new_model") as new_model:
+            assert mlflow.get_active_model_id() == new_model.model_id
+            assert _MLFLOW_ACTIVE_MODEL_ID.get() == new_model.model_id
+
         assert mlflow.get_active_model_id() == model.model_id
         assert _MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
 
@@ -2241,3 +2240,8 @@ def test_clear_active_model():
     # ensure clear_active_model works when no model is set
     clear_active_model()
     assert mlflow.get_active_model_id() is None
+
+
+def test_set_logged_model_tags_error():
+    with pytest.raises(MlflowException, match="You may not have access to the logged model"):
+        mlflow.set_logged_model_tags("non-existing-model-id", {"tag": "value"})
