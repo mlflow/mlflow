@@ -418,13 +418,15 @@ def chat_stream_response_incomplete():
 async def test_gemini_chat_stream(resp):
     config = chat_config()
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
-    with mock.patch("time.time", return_value=1):
-        with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-            provider = GeminiProvider(RouteConfig(**config))
-            payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
+    provider = GeminiProvider(RouteConfig(**config))
+    payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
 
-            stream = provider.chat_stream(chat.RequestPayload(**payload))
-            chunks = [jsonable_encoder(chunk) async for chunk in stream]
+    with (
+        mock.patch("time.time", return_value=1),
+        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+    ):
+        stream = provider.chat_stream(chat.RequestPayload(**payload))
+        chunks = [jsonable_encoder(chunk) async for chunk in stream]
 
     assert chunks == [
         {
@@ -496,13 +498,16 @@ def completions_stream_response_incomplete():
 async def test_gemini_completions_stream(resp):
     config = completions_config()
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
-    with mock.patch("time.time", return_value=1):
-        with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-            provider = GeminiProvider(RouteConfig(**config))
-            payload = {"prompt": "Recite the song jhony jhony yes papa"}
 
-            stream = provider.completions_stream(completions.RequestPayload(**payload))
-            chunks = [jsonable_encoder(chunk) async for chunk in stream]
+    provider = GeminiProvider(RouteConfig(**config))
+    payload = {"prompt": "Recite the song jhony jhony yes papa"}
+
+    with (
+        mock.patch("time.time", return_value=1),
+        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+    ):
+        stream = provider.completions_stream(completions.RequestPayload(**payload))
+        chunks = [jsonable_encoder(chunk) async for chunk in stream]
 
     assert chunks == [
         {
