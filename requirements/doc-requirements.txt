@@ -2,6 +2,7 @@
 tensorflow-cpu<=2.12.0; platform_system!="Darwin" or platform_machine!="arm64"
 tensorflow-macos<=2.12.0; platform_system=="Darwin" and platform_machine=="arm64"
 pyspark
+polars>=1
 datasets
 # nbsphinx and ipython are required for jupyter notebook rendering
 nbsphinx==0.8.8
