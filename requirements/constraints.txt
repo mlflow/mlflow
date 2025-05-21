@@ -3,3 +3,7 @@
 transformers!=4.51.0
 # https://github.com/BerriAI/litellm/issues/10373
 litellm!=1.67.4
+# https://github.com/run-llama/llama_index/issues/18587
+llama-index-core!=0.12.34
+# https://github.com/mangiucugna/json_repair/issues/124
+json_repair!=0.45.0

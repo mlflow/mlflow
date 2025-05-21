@@ -46,7 +46,7 @@ def pretrained_model():
         y = np.array([0, 0, 1, 1, 1, 0])
         lr = LogisticRegression(solver="lbfgs")
         lr.fit(X, y)
-        mlflow.sklearn.log_model(lr, model_path)
+        mlflow.sklearn.log_model(lr, name=model_path)
         run_id = mlflow.active_run().info.run_id
         model_uri = "runs:/" + run_id + "/" + model_path
         return TrainedModel(model_path, run_id, model_uri)
@@ -1300,7 +1300,7 @@ def test_update_deployment_in_replace_mode_with_archiving_does_not_delete_resour
     sk_model = mlflow.sklearn.load_model(model_uri=model_uri)
     new_artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, new_artifact_path)
+        mlflow.sklearn.log_model(sk_model, name=new_artifact_path)
         new_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{new_artifact_path}"
     sagemaker_deployment_client.update_deployment(
         name=name,

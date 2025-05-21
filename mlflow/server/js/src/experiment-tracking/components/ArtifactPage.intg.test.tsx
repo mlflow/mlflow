@@ -154,7 +154,7 @@ describe('Artifact page, artifact files rendering integration test', () => {
       },
     };
 
-    render(<ArtifactPage runUuid="test-run-uuid" runTags={runTags} />, {
+    render(<ArtifactPage runUuid="test-run-uuid" runTags={runTags} experimentId="test-experiment-id" />, {
       wrapper: ({ children }) => (
         <TestRouter
           routes={[
@@ -227,7 +227,7 @@ describe('Artifact page, artifact files rendering integration test', () => {
       },
     };
 
-    render(<ArtifactPage runUuid="test-run-uuid" runTags={runTags} />, {
+    render(<ArtifactPage runUuid="test-run-uuid" runTags={runTags} experimentId="test-experiment-id" />, {
       wrapper: ({ children }) => (
         <TestRouter
           routes={[
@@ -287,7 +287,7 @@ describe('Artifact page, artifact list request error handling', () => {
   };
 
   test('renders error message when artifact list request fails', async () => {
-    render(<ArtifactPage runUuid="test-run-uuid" runTags={{}} />, {
+    render(<ArtifactPage runUuid="test-run-uuid" runTags={{}} experimentId="test-experiment-id" />, {
       wrapper: ({ children }) => (
         <TestRouter
           routes={[

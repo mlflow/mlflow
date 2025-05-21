@@ -43,7 +43,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     Job,
     Lineage,
     LineageHeaderInfo,
-    ModelParam,
     Notebook,
     SearchModelVersionsRequest,
     SearchModelVersionsResponse,
@@ -88,8 +87,11 @@ from mlflow.utils._unity_catalog_utils import (
     uc_model_version_tag_from_mlflow_tags,
     uc_registered_model_tag_from_mlflow_tags,
 )
-from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import get_databricks_host_creds, is_databricks_uri
+from mlflow.utils.databricks_utils import (
+    _print_databricks_deployment_job_url,
+    get_databricks_host_creds,
+    is_databricks_uri,
+)
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
@@ -274,7 +276,6 @@ def _fetch_langchain_dependency_from_model_info(databricks_dependencies, key):
     return databricks_dependencies.get(key, [])
 
 
-@experimental
 class UcModelRegistryStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
@@ -353,13 +354,18 @@ class UcModelRegistryStore(BaseRestStore):
                 name=full_name,
                 description=description,
                 tags=uc_registered_model_tag_from_mlflow_tags(tags),
-                deployment_job_id=deployment_job_id,
+                deployment_job_id=str(deployment_job_id) if deployment_job_id else None,
             )
         )
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
+        if deployment_job_id:
+            _print_databricks_deployment_job_url(
+                model_name=full_name,
+                job_id=str(deployment_job_id),
+            )
         return registered_model_from_uc_proto(response_proto.registered_model)
 
-    def update_registered_model(self, name, description, deployment_job_id=None):
+    def update_registered_model(self, name, description=None, deployment_job_id=None):
         """
         Update description of the registered model.
 
@@ -374,10 +380,17 @@ class UcModelRegistryStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             UpdateRegisteredModelRequest(
-                name=full_name, description=description, deployment_job_id=deployment_job_id
+                name=full_name,
+                description=description,
+                deployment_job_id=str(deployment_job_id) if deployment_job_id else None,
             )
         )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
+        if deployment_job_id:
+            _print_databricks_deployment_job_url(
+                model_name=full_name,
+                job_id=str(deployment_job_id),
+            )
         return registered_model_from_uc_proto(response_proto.registered_model)
 
     def rename_registered_model(self, name, new_name):
@@ -745,10 +758,6 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return mlflow.get_logged_model(model_id)
 
-    def _get_model_params_from_model_id(self, model: LoggedModel):
-        # extract the model parameters and return as ModelParam objects
-        return [ModelParam(name=name, value=value) for name, value in model.params.items()]
-
     def create_model_version(
         self,
         name,
@@ -812,7 +821,6 @@ class UcModelRegistryStore(BaseRestStore):
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
-        model_params = self._get_model_params_from_model_id(logged_model) if logged_model else []
         with self._local_model_dir(source, local_model_path) as local_model_dir:
             self._validate_model_signature(local_model_dir)
             self._download_model_weights_if_not_saved(local_model_dir)
@@ -829,7 +837,6 @@ class UcModelRegistryStore(BaseRestStore):
                     feature_deps=feature_deps,
                     model_version_dependencies=other_model_deps,
                     model_id=model_id,
-                    model_params=model_params,
                 )
             )
             model_version = self._call_endpoint(

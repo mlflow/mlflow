@@ -3,6 +3,7 @@ import { FormattedMessage } from 'react-intl';
 import { isNil, keys } from 'lodash';
 import { TraceTableGenericQuickstart } from './TraceTableGenericQuickstart';
 import { QUICKSTART_CONTENT, QUICKSTART_FLAVOR } from './TraceTableQuickstart.utils';
+import { useTracesViewTableNoTracesQuickstartContext } from './TracesViewTableNoTracesQuickstartContext';
 
 export const TracesViewTableNoTracesQuickstart = ({
   baseComponentId,
@@ -14,6 +15,7 @@ export const TracesViewTableNoTracesQuickstart = ({
   runUuid?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const { introductionText } = useTracesViewTableNoTracesQuickstartContext();
 
   return (
     <div css={{ marginLeft: -theme.spacing.md }}>
@@ -33,29 +35,31 @@ export const TracesViewTableNoTracesQuickstart = ({
           marginBottom: theme.spacing.md,
         }}
       >
-        <FormattedMessage
-          defaultMessage={
-            'This tab displays all the traces logged to this {isRun, select, true {run} other {experiment}}. ' +
-            'MLflow supports automatic tracing for many popular generative AI frameworks. Follow the steps below to log ' +
-            'your first trace. For more information about MLflow Tracing, visit the <a>MLflow documentation</a>.'
-          }
-          description={
-            "Message that explains the function of the 'Traces' tab in the MLflow UI." +
-            'This message is followed by a tutorial explaining how to get started with MLflow Tracing.'
-          }
-          values={{
-            isRun: !isNil(runUuid),
-            a: (text: string) => (
-              <Typography.Link
-                componentId={`${baseComponentId}.traces_table.quickstart_docs_link`}
-                href="https://mlflow.org/docs/latest/llms/tracing/index.html"
-                openInNewTab
-              >
-                {text}
-              </Typography.Link>
-            ),
-          }}
-        />
+        {introductionText ?? (
+          <FormattedMessage
+            defaultMessage={
+              'This tab displays all the traces logged to this {isRun, select, true {run} other {experiment}}. ' +
+              'MLflow supports automatic tracing for many popular generative AI frameworks. Follow the steps below to log ' +
+              'your first trace. For more information about MLflow Tracing, visit the <a>MLflow documentation</a>.'
+            }
+            description={
+              "Message that explains the function of the 'Traces' tab in the MLflow UI." +
+              'This message is followed by a tutorial explaining how to get started with MLflow Tracing.'
+            }
+            values={{
+              isRun: !isNil(runUuid),
+              a: (text: string) => (
+                <Typography.Link
+                  componentId={`${baseComponentId}.traces_table.quickstart_docs_link`}
+                  href="https://mlflow.org/docs/latest/llms/tracing/index.html"
+                  openInNewTab
+                >
+                  {text}
+                </Typography.Link>
+              ),
+            }}
+          />
+        )}
       </Typography.Text>
       <Tabs.Root componentId={`${baseComponentId}.traces_table.quickstart`} defaultValue="openai">
         <Tabs.List>

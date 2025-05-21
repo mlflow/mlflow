@@ -30,6 +30,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
+from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
     from mlflow.entities import Span
@@ -243,25 +244,15 @@ def _setup_tracer_provider(disabled=False):
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
     if _MLFLOW_TRACE_USER_DESTINATION is not None:
+        experiment_id = _MLFLOW_TRACE_USER_DESTINATION.experiment_id
+
+        tracking_uri = None
         if isinstance(_MLFLOW_TRACE_USER_DESTINATION, MlflowExperiment):
-            from mlflow import MlflowClient
-            from mlflow.tracing.export.mlflow import MlflowSpanExporter
-            from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
+            tracking_uri = _MLFLOW_TRACE_USER_DESTINATION.tracking_uri
 
-            client = MlflowClient(tracking_uri=_MLFLOW_TRACE_USER_DESTINATION.tracking_uri)
-            exporter = MlflowSpanExporter(client)
-            processor = MlflowSpanProcessor(
-                exporter, client, _MLFLOW_TRACE_USER_DESTINATION.experiment_id
-            )
-
-        elif isinstance(_MLFLOW_TRACE_USER_DESTINATION, Databricks):
-            from mlflow.tracing.export.databricks import DatabricksSpanExporter
-            from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
-
-            exporter = DatabricksSpanExporter()
-            processor = DatabricksSpanProcessor(
-                span_exporter=exporter, experiment_id=_MLFLOW_TRACE_USER_DESTINATION.experiment_id
-            )
+        processor = _get_mlflow_span_processor(
+            tracking_uri=tracking_uri or mlflow.get_tracking_uri(), experiment_id=experiment_id
+        )
 
     elif should_use_otlp_exporter():
         # Export to OpenTelemetry Collector when configured
@@ -284,11 +275,7 @@ def _setup_tracer_provider(disabled=False):
 
     else:
         # Default to MLflow Tracking Server
-        from mlflow.tracing.export.mlflow import MlflowSpanExporter
-        from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
-
-        exporter = MlflowSpanExporter()
-        processor = MlflowSpanProcessor(exporter)
+        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
 
     tracer_provider = TracerProvider()
     tracer_provider.add_span_processor(processor)
@@ -309,6 +296,30 @@ def _setup_tracer_provider(disabled=False):
     # but some spans are still active. We suppress them because they are not actionable.
     suppress_warning("opentelemetry.sdk.trace", "Setting attribute on ended span")
     suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
+
+
+def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] = None):
+    """
+    Get the MLflow span processor instance that is used by the current tracer provider.
+    """
+    if is_databricks_uri(tracking_uri):
+        from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+        from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
+
+        exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
+        processor = MlflowV3SpanProcessor(exporter, experiment_id=experiment_id)
+
+    else:
+        from mlflow.tracing.export.mlflow_v2 import MlflowV2SpanExporter
+        from mlflow.tracing.processor.mlflow_v2 import MlflowV2SpanProcessor
+
+        exporter = MlflowV2SpanExporter(tracking_uri=tracking_uri)
+        processor = MlflowV2SpanProcessor(
+            span_exporter=exporter,
+            tracking_uri=tracking_uri,
+            experiment_id=experiment_id,
+        )
+    return processor
 
 
 @raise_as_trace_exception

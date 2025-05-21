@@ -1,29 +1,32 @@
-import { first, identity, isFunction } from 'lodash';
-import React, { useCallback, useReducer } from 'react';
+import { first, isEmpty, isEqual } from 'lodash';
+import { useCallback, useReducer, useState } from 'react';
 import { RUNS_VISIBILITY_MODE } from '../../experiment-page/models/ExperimentPageUIState';
 import { isLoggedModelRowHidden } from './useExperimentLoggedModelListPageRowVisibility';
+import { LoggedModelMetricDataset } from '../../../types';
+import { ExperimentLoggedModelListPageKnownColumns } from './useExperimentLoggedModelListPageTableColumns';
+import { useSafeDeferredValue } from '../../../../common/hooks/useSafeDeferredValue';
 
 type ActionType =
-  | { type: 'SET_ORDER_BY'; orderByField: string; orderByAsc: boolean }
+  | { type: 'SET_ORDER_BY'; orderByColumn: string; orderByAsc: boolean }
   | { type: 'SET_COLUMN_VISIBILITY'; columnVisibility: Record<string, boolean> }
-  | { type: 'SET_RUN_VISIBILITY'; visibilityMode?: RUNS_VISIBILITY_MODE; rowUuid?: string; rowIndex?: number }
-  | { type: 'SET_ABC'; abc: string };
-
-const useSafeDeferredValue: <T>(value: T) => T =
-  'useDeferredValue' in React && isFunction(React.useDeferredValue) ? React.useDeferredValue : identity;
+  | { type: 'TOGGLE_DATASET'; dataset: LoggedModelMetricDataset }
+  | { type: 'CLEAR_DATASETS' }
+  | { type: 'SET_RUN_VISIBILITY'; visibilityMode?: RUNS_VISIBILITY_MODE; rowUuid?: string; rowIndex?: number };
 
 /**
  * Defines current state of the logged models table.
  */
 export type LoggedModelsListPageState = {
-  orderByField?: string;
+  orderByColumn?: string;
   orderByAsc: boolean;
   columnVisibility?: Record<string, boolean>;
   rowVisibilityMode: RUNS_VISIBILITY_MODE;
   rowVisibilityMap?: Record<string, boolean>;
+  selectedFilterDatasets?: LoggedModelMetricDataset[];
+  searchQuery?: string;
 };
 
-export const LoggedModelsListPageSortableColumns = ['creation_time'];
+export const LoggedModelsListPageSortableColumns: string[] = [ExperimentLoggedModelListPageKnownColumns.CreationTime];
 
 /**
  * Provides state management for the logged models table.
@@ -32,10 +35,21 @@ export const useLoggedModelsListPageState = () => {
   const [state, dispatch] = useReducer(
     (state: LoggedModelsListPageState, action: ActionType): LoggedModelsListPageState => {
       if (action.type === 'SET_ORDER_BY') {
-        return { ...state, orderByField: action.orderByField, orderByAsc: action.orderByAsc };
+        return { ...state, orderByColumn: action.orderByColumn, orderByAsc: action.orderByAsc };
       }
       if (action.type === 'SET_COLUMN_VISIBILITY') {
         return { ...state, columnVisibility: action.columnVisibility };
+      }
+      if (action.type === 'CLEAR_DATASETS') {
+        return { ...state, selectedFilterDatasets: [] };
+      }
+      if (action.type === 'TOGGLE_DATASET') {
+        return {
+          ...state,
+          selectedFilterDatasets: state.selectedFilterDatasets?.some((dataset) => isEqual(dataset, action.dataset))
+            ? state.selectedFilterDatasets?.filter((dataset) => !isEqual(dataset, action.dataset))
+            : [...(state.selectedFilterDatasets ?? []), action.dataset],
+        };
       }
       if (action.type === 'SET_RUN_VISIBILITY') {
         if (action.visibilityMode) {
@@ -54,7 +68,7 @@ export const useLoggedModelsListPageState = () => {
       return state;
     },
     {
-      orderByField: first(LoggedModelsListPageSortableColumns),
+      orderByColumn: first(LoggedModelsListPageSortableColumns),
       orderByAsc: false,
       columnVisibility: {},
       rowVisibilityMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
@@ -62,7 +76,7 @@ export const useLoggedModelsListPageState = () => {
   );
 
   const setOrderBy = useCallback(
-    (orderByField: string, orderByAsc: boolean) => dispatch({ type: 'SET_ORDER_BY', orderByField, orderByAsc }),
+    (orderByColumn: string, orderByAsc: boolean) => dispatch({ type: 'SET_ORDER_BY', orderByColumn, orderByAsc }),
     [],
   );
 
@@ -81,7 +95,31 @@ export const useLoggedModelsListPageState = () => {
     [],
   );
 
+  const toggleDataset = useCallback(
+    (dataset: LoggedModelMetricDataset) => dispatch({ type: 'TOGGLE_DATASET', dataset }),
+    [],
+  );
+
+  const clearSelectedDatasets = useCallback(() => dispatch({ type: 'CLEAR_DATASETS' }), []);
+
   const deferredState = useSafeDeferredValue(state);
 
-  return { state: deferredState, setOrderBy, setColumnVisibility, setRowVisibilityMode, toggleRowVisibility };
+  // Search filter state does not go through deferred value
+  const [searchQuery, updateSearchQuery] = useState<string>('');
+
+  // To be expanded with other filters in the future
+  const isFilteringActive = Boolean(searchQuery || !isEmpty(state.selectedFilterDatasets));
+
+  return {
+    state: deferredState,
+    isFilteringActive,
+    searchQuery,
+    setOrderBy,
+    setColumnVisibility,
+    setRowVisibilityMode,
+    toggleRowVisibility,
+    updateSearchQuery,
+    toggleDataset,
+    clearSelectedDatasets,
+  };
 };

@@ -9,6 +9,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.dspy.constant import FLAVOR_NAME
 from mlflow.dspy.wrapper import DspyChatModelWrapper, DspyModelWrapper
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
@@ -26,8 +27,8 @@ from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.types.schema import DataType
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import disable_autologging_globally
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -45,8 +46,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-
-FLAVOR_NAME = "dspy"
 
 _MODEL_SAVE_PATH = "model"
 _MODEL_DATA_PATH = "data"
@@ -175,9 +174,6 @@ def save_model(
     else:
         wrapped_dspy_model = DspyModelWrapper(model, dspy_settings, model_config)
 
-    with open(model_path, "wb") as f:
-        cloudpickle.dump(wrapped_dspy_model, f)
-
     flavor_options = {
         "model_path": model_subpath,
     }
@@ -194,6 +190,18 @@ def save_model(
     if saved_example and mlflow_model.signature is None:
         signature = _infer_signature_from_input_example(saved_example, wrapped_dspy_model)
         mlflow_model.signature = signature
+
+    streamable = False
+    # Set the output schema to the model wrapper to use it for streaming
+    if mlflow_model.signature and mlflow_model.signature.outputs:
+        wrapped_dspy_model.output_schema = mlflow_model.signature.outputs
+        # DSPy streaming only supports string outputs.
+        if all(spec.type == DataType.string for spec in mlflow_model.signature.outputs):
+            streamable = True
+
+    with open(model_path, "wb") as f:
+        cloudpickle.dump(wrapped_dspy_model, f)
+
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     # Add flavor info to `mlflow_model`.
@@ -205,6 +213,7 @@ def save_model(
         code=code_dir_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
+        streamable=streamable,
     )
 
     # Add model file size to `mlflow_model`.
@@ -256,7 +265,6 @@ def save_model(
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
-@disable_autologging_globally  # Avoid side-effect of autologging while logging model
 def log_model(
     dspy_model,
     artifact_path: Optional[str] = None,

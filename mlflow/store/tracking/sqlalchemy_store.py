@@ -25,7 +25,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
-    TraceInfo,
+    TraceInfoV2,
     ViewType,
     _DatasetSummary,
 )
@@ -74,7 +74,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceRequestMetadata,
     SqlTraceTag,
 )
-from mlflow.tracing.utils import generate_request_id
+from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
@@ -1788,6 +1788,22 @@ class SqlAlchemyStore(AbstractStore):
             session.commit()
             return logged_model.to_mlflow_entity()
 
+    def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]):
+        with self.ManagedSessionMaker() as session:
+            logged_model = session.query(SqlLoggedModel).get(model_id)
+            if not logged_model:
+                self._raise_model_not_found(model_id)
+
+            session.add_all(
+                SqlLoggedModelParam(
+                    model_id=model_id,
+                    experiment_id=logged_model.experiment_id,
+                    param_key=param.key,
+                    param_value=param.value,
+                )
+                for param in params
+            )
+
     def _raise_model_not_found(self, model_id: str):
         raise MlflowException(
             f"Logged model with ID '{model_id}' not found.",
@@ -1820,12 +1836,6 @@ class SqlAlchemyStore(AbstractStore):
             session.commit()
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
-        if status != LoggedModelStatus.READY:
-            raise MlflowException(
-                f"Invalid model status: {status}. Expected statuses: [{LoggedModelStatus.READY}]",
-                INVALID_PARAMETER_VALUE,
-            )
-
         with self.ManagedSessionMaker() as session:
             logged_model = session.query(SqlLoggedModel).get(model_id)
             if not logged_model:
@@ -1894,8 +1904,14 @@ class SqlAlchemyStore(AbstractStore):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid order by field name: {field_name}"
                     )
-                ob = col.asc() if ascending else col.desc()
-                order_by_clauses.append(ob.nulls_last())
+                # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
+                order_by_clauses.extend(
+                    [
+                        # Sort nulls last
+                        sqlalchemy.case((col.is_(None), 1), else_=0).asc(),
+                        col.asc() if ascending else col.desc(),
+                    ]
+                )
                 continue
 
             entity, name = field_name.split(".", 1)
@@ -1938,8 +1954,14 @@ class SqlAlchemyStore(AbstractStore):
             subquery = select(subquery.c).where(subquery.c.rank == 1).subquery()
 
             models = models.outerjoin(subquery)
-            ob = subquery.c.metric_value.asc() if ascending else subquery.c.metric_value.desc()
-            order_by_clauses.append(ob.nulls_last())
+            # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
+            order_by_clauses.extend(
+                [
+                    # Sort nulls last
+                    sqlalchemy.case((subquery.c.metric_value.is_(None), 1), else_=0).asc(),
+                    subquery.c.metric_value.asc() if ascending else subquery.c.metric_value.desc(),
+                ]
+            )
 
         if not has_creation_timestamp:
             order_by_clauses.append(SqlLoggedModel.creation_timestamp_ms.desc())
@@ -1957,41 +1979,47 @@ class SqlAlchemyStore(AbstractStore):
 
         comparisons = parse_filter_string(filter_string)
         dialect = self._get_dialect()
-        filters: list[sqlalchemy.BinaryExpression] = []
+        attr_filters: list[sqlalchemy.BinaryExpression] = []
+        non_attr_filters: list[sqlalchemy.BinaryExpression] = []
         for comp in comparisons:
             comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
             if comp.entity.type == EntityType.ATTRIBUTE:
-                filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
-                continue
-
-            if comp.entity.type == EntityType.METRIC:
-                subquery = (
+                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
+            elif comp.entity.type == EntityType.METRIC:
+                non_attr_filters.append(
                     session.query(SqlLoggedModelMetric)
-                    .filter(SqlLoggedModelMetric.metric_name == comp.entity.key)
+                    .filter(
+                        SqlLoggedModelMetric.metric_name == comp.entity.key,
+                        comp_func(SqlLoggedModelMetric.metric_value, comp.value),
+                    )
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelMetric.metric_value, comp.value))
             elif comp.entity.type == EntityType.PARAM:
-                subquery = (
+                non_attr_filters.append(
                     session.query(SqlLoggedModelParam)
-                    .filter(SqlLoggedModelParam.param_key == comp.entity.key)
+                    .filter(
+                        SqlLoggedModelParam.param_key == comp.entity.key,
+                        comp_func(SqlLoggedModelParam.param_value, comp.value),
+                    )
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelParam.param_value, comp.value))
             elif comp.entity.type == EntityType.TAG:
-                subquery = (
+                non_attr_filters.append(
                     session.query(SqlLoggedModelTag)
-                    .filter(SqlLoggedModelTag.tag_key == comp.entity.key)
+                    .filter(
+                        SqlLoggedModelTag.tag_key == comp.entity.key,
+                        comp_func(SqlLoggedModelTag.tag_value, comp.value),
+                    )
                     .subquery()
                 )
-                filters.append(comp_func(SqlLoggedModelTag.tag_value, comp.value))
 
-            models = models.join(subquery, SqlLoggedModel.model_id == subquery.c.model_id)
+        for f in non_attr_filters:
+            models = models.join(f)
 
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             SqlLoggedModel.experiment_id.in_(experiment_ids),
-            *filters,
+            *attr_filters,
         )
 
     def search_logged_models(
@@ -2045,7 +2073,7 @@ class SqlAlchemyStore(AbstractStore):
         timestamp_ms: int,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Create an initial TraceInfo object in the database.
 
@@ -2062,7 +2090,7 @@ class SqlAlchemyStore(AbstractStore):
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            request_id = generate_request_id()
+            request_id = generate_request_id_v2()
             trace_info = SqlTraceInfo(
                 request_id=request_id,
                 experiment_id=experiment_id,
@@ -2100,7 +2128,7 @@ class SqlAlchemyStore(AbstractStore):
         status: TraceStatus,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the database with the completed trace info.
 
@@ -2130,7 +2158,7 @@ class SqlAlchemyStore(AbstractStore):
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
             return sql_trace_info.to_mlflow_entity()
 
-    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
+    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfoV2:
         """
         Fetch the trace info for the given request id.
 
@@ -2171,7 +2199,7 @@ class SqlAlchemyStore(AbstractStore):
         page_token: Optional[str] = None,
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
-    ) -> tuple[list[TraceInfo], Optional[str]]:
+    ) -> tuple[list[TraceInfoV2], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -2463,7 +2491,7 @@ def _get_orderby_clauses(order_by_list, session):
                 ordering_joins.append(subquery)
                 order_value = subquery.c.value
 
-            # sqlite does not support NULLS LAST expression, so we sort first by
+            # MySQL does not support NULLS LAST expression, so we sort first by
             # presence of the field (and is_nan for metrics), then by actual value
             # As the subqueries are created independently and used later in the
             # same main query, the CASE WHEN columns need to have unique names to

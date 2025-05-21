@@ -754,7 +754,6 @@ class ColSpec:
     def name(self, value: bool) -> None:
         self._name = value
 
-    @experimental
     @property
     def required(self) -> bool:
         """Whether this column is required."""
@@ -900,7 +899,6 @@ class TensorSpec:
         """The tensor shape"""
         return self._tensorInfo.shape
 
-    @experimental
     @property
     def required(self) -> bool:
         """Whether this tensor is required."""
@@ -1017,7 +1015,6 @@ class Schema:
         """Get list of required data names or range of indices if schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs) if x.required]
 
-    @experimental
     def optional_input_names(self) -> list[Union[str, int]]:
         """Get list of optional data names or range of indices if schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs) if not x.required]
@@ -1114,7 +1111,6 @@ class Schema:
         return repr(self.inputs)
 
 
-@experimental
 class ParamSpec:
     """
     Specification used to represent parameters for the model.
@@ -1296,7 +1292,6 @@ class ParamSpec:
         )
 
 
-@experimental
 class ParamSchema:
     """
     Specification of parameters applicable to the model.

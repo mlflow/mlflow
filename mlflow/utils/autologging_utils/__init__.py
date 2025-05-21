@@ -1,5 +1,4 @@
 import contextlib
-import functools
 import importlib
 import inspect
 import logging
@@ -9,7 +8,6 @@ from typing import Any, Callable, Optional
 
 import mlflow
 from mlflow.entities import Metric
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
 # Define the module-level logger for autologging utilities before importing utilities defined in
@@ -255,6 +253,8 @@ class BatchMetricsLogger:
     """
 
     def __init__(self, run_id=None, tracking_uri=None, model_id=None):
+        from mlflow.tracking.client import MlflowClient
+
         self.run_id = run_id
         self.model_id = model_id
         self.client = MlflowClient(tracking_uri)
@@ -564,24 +564,6 @@ def disable_autologging():
         yield
     finally:
         _AUTOLOGGING_GLOBALLY_DISABLED = False
-
-
-def disable_autologging_globally(fn):
-    """
-    Decorator that temporarily disables autologging globally for all integrations
-    while the decorated function is executed.
-    """
-
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
-        global _AUTOLOGGING_GLOBALLY_DISABLED
-        _AUTOLOGGING_GLOBALLY_DISABLED = True
-        try:
-            return fn(*args, **kwargs)
-        finally:
-            _AUTOLOGGING_GLOBALLY_DISABLED = False
-
-    return wrapper
 
 
 @contextlib.contextmanager

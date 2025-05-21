@@ -7,12 +7,11 @@ import pytest
 import mlflow
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER, pop_trace
 from mlflow.tracing.trace_manager import _Trace
 from mlflow.tracing.utils.timeout import MlflowTraceTimeoutCache
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 
 def _mock_span(span_id, parent_id=None):
@@ -93,13 +92,19 @@ def test_trace_halted_after_timeout(monkeypatch):
     assert first_span.status.status_code == SpanStatusCode.OK
 
     # The rest of the spans should not be logged to the backend.
-    in_progress_traces = mlflow.search_traces(filter_string="status = 'IN_PROGRESS'")
+    in_progress_traces = mlflow.search_traces(
+        filter_string="status = 'IN_PROGRESS'",
+        return_type="list",
+    )
     assert len(in_progress_traces) == 0
 
 
+@skip_when_testing_trace_sdk
 def test_trace_halted_after_timeout_in_model_serving(
     monkeypatch, mock_databricks_serving_with_tracing_env
 ):
+    from mlflow.pyfunc.context import Context, set_prediction_context
+
     monkeypatch.setenv("MLFLOW_TRACE_TIMEOUT_SECONDS", "3")
 
     # Simulate model serving env where multiple requests are processed concurrently

@@ -57,7 +57,7 @@ export class ModelRegistryRoutes {
   }
 }
 
-const PANES = Object.freeze({
+export const PANES = Object.freeze({
   DETAILS: 'details',
   SERVING: 'serving',
 });

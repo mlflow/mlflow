@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow-skinny"
-version = "2.22.1.dev0"
+version = "3.0.0.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README_SKINNY.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -92,7 +92,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.1.0,<=0.3.24"]
+langchain = ["langchain>=0.1.0,<=0.3.25"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]
@@ -120,7 +120,6 @@ openai = "mlflow.deployments.openai"
 mlflow = [
   "store/db_migrations/alembic.ini",
   "temporary_db_migrations_for_pre_1_users/alembic.ini",
-  "pypi_package_index.json",
   "pyspark/ml/log_model_allowlist.txt",
   "server/auth/basic_auth.ini",
   "server/auth/db/migrations/alembic.ini",

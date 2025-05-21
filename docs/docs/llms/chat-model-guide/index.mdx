@@ -4,6 +4,10 @@ import { APILink } from "@site/src/components/APILink";
 
 # Tutorial: Custom GenAI Models using ChatModel
 
+:::warning attention
+Starting in MLflow 3.0.0, we recommend <APILink fn="mlflow.pyfunc.ResponsesAgent">`ResponsesAgent`</APILink> instead of <APILink fn="mlflow.pyfunc.ChatModel">`ChatModel`</APILink>. See more details in the [ResponsesAgent Introduction](/llms/responses-agent-intro).
+:::
+
 The rapidly evolving landscape of Generative Artificial Intelligence (GenAI) presents exciting opportunities and integration challenges.
 To leverage the latest GenAI advancements effectively, developers need a framework that balances flexibility with standardization.
 MLflow addresses this need with the <APILink fn="mlflow.pyfunc.ChatModel">`mlflow.pyfunc.ChatModel`</APILink> class introduced in
@@ -750,7 +754,7 @@ To log and load the model using MLflow, use:
 ```python
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
-        "model",
+        name="model",
         # If needed, update `python_model` to the Python file containing your agent code
         python_model="basic_agent.py",
         model_config=model_config,

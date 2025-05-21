@@ -5,17 +5,19 @@ import pytest
 from opentelemetry import trace
 
 import mlflow
+import mlflow.tracking._tracking_service
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.destination import Databricks, MlflowExperiment
-from mlflow.tracing.export.databricks import DatabricksSpanExporter
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
 )
-from mlflow.tracing.export.mlflow import MlflowSpanExporter
-from mlflow.tracing.processor.databricks import DatabricksSpanProcessor
+from mlflow.tracing.export.mlflow_v2 import MlflowV2SpanExporter
+from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
-from mlflow.tracing.processor.mlflow import MlflowSpanProcessor
+from mlflow.tracing.processor.mlflow_v2 import MlflowV2SpanProcessor
+from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
     _setup_tracer_provider,
@@ -79,7 +81,31 @@ def test_span_processor_and_exporter_model_serving(mock_databricks_serving_with_
     assert isinstance(processors[0].span_exporter, InferenceTableSpanExporter)
 
 
-def test_set_destination_mlflow_experiment():
+@pytest.mark.parametrize(
+    ("tracking_uri", "should_use_v3"),
+    [
+        # OSS (self-host) tracking URI -> V2 exporter should be used
+        ("http://localhost:5000", False),
+        # Databricks tracking URI -> V3 exporter should be used
+        ("databricks", True),
+        ("databricks://default", True),
+    ],
+)
+def test_mlflow_backend_choose_v2_or_v3_correctly(monkeypatch, tracking_uri, should_use_v3):
+    monkeypatch.setattr(mlflow.tracking._tracking_service.utils, "_tracking_uri", tracking_uri)
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    if should_use_v3:
+        assert isinstance(processors[0], MlflowV3SpanProcessor)
+        assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
+    else:
+        assert isinstance(processors[0], MlflowV2SpanProcessor)
+        assert isinstance(processors[0].span_exporter, MlflowV2SpanExporter)
+
+
+def test_set_destination_v2_mlflow_experiment(monkeypatch):
     default_tracking_uri = mlflow.get_tracking_uri()
 
     # Set destination with experiment_id
@@ -88,10 +114,10 @@ def test_set_destination_mlflow_experiment():
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
     assert len(processors) == 1
-    assert isinstance(processors[0], MlflowSpanProcessor)
+    assert isinstance(processors[0], MlflowV2SpanProcessor)
     assert processors[0]._experiment_id == "123"
     assert processors[0]._client.tracking_uri == default_tracking_uri
-    assert isinstance(processors[0].span_exporter, MlflowSpanExporter)
+    assert isinstance(processors[0].span_exporter, MlflowV2SpanExporter)
 
     # Set destination with experiment_id and tracking_uri
     mlflow.tracing.set_destination(
@@ -103,16 +129,28 @@ def test_set_destination_mlflow_experiment():
     assert processors[0]._experiment_id == "456"
     assert processors[0]._client.tracking_uri == "http://localhost"
 
+    # Experiment with Databricks tracking URI -> V3 exporter should be used
+    mlflow.tracing.set_destination(
+        destination=MlflowExperiment(experiment_id="456", tracking_uri="databricks")
+    )
 
-def test_set_destination_databricks():
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert isinstance(processors[0], MlflowV3SpanProcessor)
+    assert processors[0]._experiment_id == "456"
+    assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
+
+
+def test_set_destination_databricks(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
     mlflow.tracing.set_destination(destination=Databricks(experiment_id="123"))
 
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
     assert len(processors) == 1
-    assert isinstance(processors[0], DatabricksSpanProcessor)
+    assert isinstance(processors[0], MlflowV3SpanProcessor)
     assert processors[0]._experiment_id == "123"
-    assert isinstance(processors[0].span_exporter, DatabricksSpanExporter)
+    assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
 
 
 def test_disable_enable_tracing():
@@ -283,8 +321,6 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
     monkeypatch.setenv("ENABLE_MLFLOW_TRACING", str(enable_mlflow_tracing).lower())
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
 
-    client = mlflow.MlflowClient()
-
     def foo():
         return bar()
 
@@ -296,10 +332,10 @@ def test_enable_mlflow_tracing_switch_in_serving_client(monkeypatch, enable_mlfl
     with mock.patch(
         "mlflow.tracing.processor.inference_table.maybe_get_request_id", side_effect=request_ids
     ):
-        client.start_trace("root")
+        span = start_span_no_context("root")
         foo()
         if enable_mlflow_tracing:
-            client.end_trace(request_id="123")
+            span.end()
 
     if enable_mlflow_tracing:
         assert sorted(_TRACE_BUFFER) == request_ids

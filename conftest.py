@@ -7,14 +7,11 @@ import subprocess
 import sys
 import threading
 
-import click
 import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
 from mlflow.utils.os import is_windows
-from mlflow.version import VERSION
-
-from tests.helper_functions import get_safe_port
+from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
 
 def pytest_addoption(parser):
@@ -69,7 +66,10 @@ def pytest_configure(config):
 
 
 @pytest.hookimpl(tryfirst=True)
-def pytest_cmdline_main(config):
+def pytest_cmdline_main(config: pytest.Config):
+    if not_exists := [p for p in config.getoption("ignore") or [] if not os.path.exists(p)]:
+        raise pytest.UsageError(f"The following paths are ignored but do not exist: {not_exists}")
+
     group = config.getoption("group")
     splits = config.getoption("splits")
 
@@ -92,6 +92,11 @@ def pytest_cmdline_main(config):
 
 
 def pytest_sessionstart(session):
+    if IS_TRACING_SDK_ONLY:
+        return
+
+    import click
+
     if uri := MLFLOW_TRACKING_URI.get():
         click.echo(
             click.style(
@@ -190,12 +195,14 @@ def pytest_ignore_collect(collection_path, config):
             "tests/pmdarima",
             "tests/promptflow",
             "tests/prophet",
+            "tests/pydantic_ai",
             "tests/pyfunc",
             "tests/pytorch",
             "tests/sagemaker",
             "tests/sentence_transformers",
             "tests/shap",
             "tests/sklearn",
+            "tests/smolagents",
             "tests/spacy",
             "tests/spark",
             "tests/statsmodels",
@@ -300,7 +307,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 terminalreporter.write(f"{idx}: {child}\n")
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module", autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_envs():
     """
     Clean up virtualenvs and conda environments created during tests to save disk space.
@@ -329,7 +336,7 @@ def enable_mlflow_testing():
         yield
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session", autouse=not IS_TRACING_SDK_ONLY)
 def serve_wheel(request, tmp_path_factory):
     """
     Models logged during tests have a dependency on the dev version of MLflow built from
@@ -338,6 +345,8 @@ def serve_wheel(request, tmp_path_factory):
     PyPI repository running on localhost and appends the repository URL to the
     `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
     """
+    from tests.helper_functions import get_safe_port
+
     if not request.config.getoption("--serve-wheel"):
         yield  # pytest expects a generator fixture to yield
         return

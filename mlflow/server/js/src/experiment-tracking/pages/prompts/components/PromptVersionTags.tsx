@@ -74,7 +74,7 @@ export const PromptVersionTags = ({
                   />
                 ) : (
                   <FormattedMessage
-                    defaultMessage={'{count} more...'}
+                    defaultMessage="{count} more..."
                     description="Label for a link that renders the remaining tags when clicked"
                     values={{ count: tags.length - visibleCount }}
                   />

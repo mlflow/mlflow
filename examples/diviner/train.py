@@ -73,7 +73,7 @@ def grouped_prophet_example(locations, start_dt):
     )
     print(f"Cross Validation Metrics: \n{metrics.to_string()}")
 
-    model_info = mlflow.diviner.log_model(diviner_model=model, artifact_path="diviner_model")
+    model_info = mlflow.diviner.log_model(diviner_model=model, name="diviner_model")
 
     # As an Alternative to saving metrics and params directly with a `log_dict()` function call,
     # Serializing the DataFrames to local as a .csv can be done as well, without requiring

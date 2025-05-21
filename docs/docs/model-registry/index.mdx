@@ -39,6 +39,12 @@ The Model Registry introduces a few concepts that describe and facilitate the fu
     the same model name increments the version number. Model versions have tags, which can be useful for tracking attributes of the model version (e.g. _`pre_deploy_checks: "PASSED"`_)
   </dd>
   <dt>
+    #### Model URI
+  </dt>
+  <dd>
+    You can refer to the registered model by using a URI of this format: `models:/<model-name>/<model-version>`, e.g., if you have a registered model with name "MyModel" and version 1, the URI referring to the model is: `models:/MyModel/1`".
+  </dd>
+  <dt>
     #### Model Alias \{#using-registered-model-aliases}
   </dt>
   <dd>
@@ -168,7 +174,7 @@ with mlflow.start_run() as run:
     # Log the sklearn model and register as version 1
     mlflow.sklearn.log_model(
         sk_model=model,
-        artifact_path="sklearn-model",
+        name="sklearn-model",
         signature=signature,
         registered_model_name="sk-learn-random-forest-reg-model",
     )
@@ -447,6 +453,12 @@ client.rename_registered_model(
 
 #### Listing and Searching MLflow Models
 
+:::warning important
+
+     When using MLflow ≥ 2.21.0 clients with older Model Registry servers (< 2.21.0), search API behavior may differ from expected results. This version mismatch can cause inconsistent search outcomes or missing results. To ensure consistent behavior, please align MLflow versions by either upgrading your server to MLflow 2.21.0 or newer (recommended) or downgrading your client to match your server version.
+
+:::
+
 You can fetch a list of registered models in the registry with a simple method.
 
 ```python
@@ -627,7 +639,7 @@ reg_model_name = "SklearnLinearRegression"
 print("--")
 mlflow.sklearn.log_model(
     loaded_model,
-    "sk_learn",
+    name="sk_learn",
     serialization_format="cloudpickle",
     signature=signature,
     registered_model_name=reg_model_name,
@@ -767,7 +779,7 @@ with mlflow.start_run(run_name="Vader Sentiment Analysis") as run:
 
 # Use the saved model path to log and register into the model registry
 mlflow.pyfunc.log_model(
-    artifact_path=model_path,
+    name=model_path,
     python_model=vader_model,
     registered_model_name=reg_model_name,
     conda_env=conda_env,

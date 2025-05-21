@@ -1121,7 +1121,7 @@ def autolog(
                     input_example = None
                 spark_model_id = mlflow.spark.log_model(
                     spark_model,
-                    "model",
+                    name="model",
                     registered_model_name=registered_model_name,
                     input_example=input_example,
                     signature=signature,
@@ -1129,7 +1129,7 @@ def autolog(
                 if _is_parameter_search_model(spark_model):
                     best_model_id = mlflow.spark.log_model(
                         spark_model.bestModel,
-                        "best_model",
+                        name="best_model",
                     ).model_id
             else:
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))

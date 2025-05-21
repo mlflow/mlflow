@@ -13,25 +13,17 @@ import time
 import uuid
 from contextlib import ExitStack, contextmanager
 from functools import wraps
+from pathlib import Path
 from typing import Iterator, Optional
 from unittest import mock
 
 import pytest
 import requests
-import yaml
 
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import (
-    _CONDA_ENV_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
-    _generate_mlflow_version_pinning,
-    _get_pip_deps,
-)
-from mlflow.utils.file_utils import read_yaml, write_yaml
 from mlflow.utils.os import is_windows
 
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
@@ -375,21 +367,6 @@ def set_boto_credentials(monkeypatch):
     monkeypatch.setenv("AWS_SESSION_TOKEN", "NotARealSessionToken")
 
 
-class safe_edit_yaml:
-    def __init__(self, root, file_name, edit_func):
-        self._root = root
-        self._file_name = file_name
-        self._edit_func = edit_func
-        self._original = read_yaml(root, file_name)
-
-    def __enter__(self):
-        new_dict = self._edit_func(self._original.copy())
-        write_yaml(self._root, self._file_name, new_dict, overwrite=True)
-
-    def __exit__(self, *args):
-        write_yaml(self._root, self._file_name, self._original, overwrite=True)
-
-
 def create_mock_response(status_code, text):
     """
     Create a mock response object with the status_code and text
@@ -405,11 +382,6 @@ def create_mock_response(status_code, text):
     response.status_code = status_code
     response.text = text
     return response
-
-
-def _read_yaml(path):
-    with open(path) as f:
-        return yaml.safe_load(f)
 
 
 def _read_lines(path):
@@ -435,8 +407,12 @@ def _compare_logged_code_paths(code_path: str, model_uri: str, flavor_name: str)
 
 
 def _compare_conda_env_requirements(env_path, req_path):
+    from mlflow.utils.environment import _get_pip_deps
+    from mlflow.utils.yaml_utils import read_yaml
+
     assert os.path.exists(req_path)
-    custom_env_parsed = _read_yaml(env_path)
+    env_root, env_path = os.path.split(env_path)
+    custom_env_parsed = read_yaml(env_root, env_path)
     requirements = _read_lines(req_path)
     assert _get_pip_deps(custom_env_parsed) == requirements
 
@@ -445,6 +421,8 @@ def _get_deps_from_requirement_file(model_uri):
     """
     Returns a list of pip dependencies for the model at `model_uri` and truncate the version number.
     """
+    from mlflow.utils.environment import _REQUIREMENTS_FILE_NAME
+
     local_path = _download_artifact_from_uri(model_uri)
     pip_packages = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
     return [req.split("==")[0] if "==" in req else req for req in pip_packages]
@@ -470,9 +448,17 @@ def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=F
     If `strict` is True, evaluate `set(requirements) == set(loaded_requirements)`.
     Otherwise, evaluate `set(requirements) <= set(loaded_requirements)`.
     """
+    from mlflow.utils.environment import (
+        _CONDA_ENV_FILE_NAME,
+        _CONSTRAINTS_FILE_NAME,
+        _REQUIREMENTS_FILE_NAME,
+        _get_pip_deps,
+    )
+    from mlflow.utils.yaml_utils import read_yaml
+
     local_path = _download_artifact_from_uri(model_uri)
     txt_reqs = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
-    conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, _CONDA_ENV_FILE_NAME)))
+    conda_reqs = _get_pip_deps(read_yaml(local_path, _CONDA_ENV_FILE_NAME))
     compare_func = set.__eq__ if strict else set.__le__
     requirements = set(requirements)
     assert compare_func(requirements, set(txt_reqs))
@@ -600,6 +586,8 @@ def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
 
 
 def _mlflow_major_version_string():
+    from mlflow.utils.environment import _generate_mlflow_version_pinning
+
     return _generate_mlflow_version_pinning()
 
 
@@ -702,17 +690,9 @@ def start_mock_openai_server():
         The base URL of the mock OpenAI server.
     """
     port = get_safe_port()
+    script_path = Path(__file__).parent / "openai" / "mock_openai.py"
     with subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "tests.openai.mock_openai:app",
-            "--host",
-            "localhost",
-            "--port",
-            str(port),
-        ]
+        [sys.executable, script_path, "--host", "localhost", "--port", str(port)]
     ) as proc:
         try:
             base_url = f"http://localhost:{port}"
@@ -746,11 +726,20 @@ def _is_hf_hub_healthy() -> bool:
         return True
 
     try:
-        dataset = next(HfApi().list_datasets(filter="size_categories:n<1K", limit=1))
-        datasets.load_dataset(dataset.id)
+        for dataset in HfApi().list_datasets(filter="size_categories:n<1K", limit=10):
+            # Gated datasets (e.g., https://huggingface.co/datasets/PatronusAI/TRAIL) require
+            # authentication to access.
+            if not dataset.gated:
+                datasets.load_dataset(dataset.id)
+                return True
+
         return True
     except requests.exceptions.RequestException:
         return False
+    except Exception as e:
+        _logger.warning(f"Unexpected error while checking Hugging Face Hub health: {e}. ")
+        # For any other exceptions, we assume the hub is healthy.
+        return True
 
 
 def _iter_pr_files() -> Iterator[str]:

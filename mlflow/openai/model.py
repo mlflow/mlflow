@@ -1,37 +1,3 @@
-"""
-The ``mlflow.openai`` module provides an API for logging and loading OpenAI models.
-
-Credential management for OpenAI on Databricks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. warning::
-
-    Specifying secrets for model serving with ``MLFLOW_OPENAI_SECRET_SCOPE`` is deprecated.
-    Use `secrets-based environment variables <https://docs.databricks.com/en/machine-learning/model-serving/store-env-variable-model-serving.html>`_
-    instead.
-
-When this flavor logs a model on Databricks, it saves a YAML file with the following contents as
-``openai.yaml`` if the ``MLFLOW_OPENAI_SECRET_SCOPE`` environment variable is set.
-
-.. code-block:: yaml
-
-    OPENAI_API_BASE: {scope}:openai_api_base
-    OPENAI_API_KEY: {scope}:openai_api_key
-    OPENAI_API_KEY_PATH: {scope}:openai_api_key_path
-    OPENAI_API_TYPE: {scope}:openai_api_type
-    OPENAI_ORGANIZATION: {scope}:openai_organization
-
-- ``{scope}`` is the value of the ``MLFLOW_OPENAI_SECRET_SCOPE`` environment variable.
-- The keys are the environment variables that the ``openai-python`` package uses to
-  configure the API client.
-- The values are the references to the secrets that store the values of the environment
-  variables.
-
-When the logged model is served on Databricks, each secret will be resolved and set as the
-corresponding environment variable. See https://docs.databricks.com/security/secrets/index.html
-for how to set up secrets on Databricks.
-"""
-
 import importlib.metadata
 import itertools
 import logging
@@ -50,22 +16,15 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, _update_active_model_id_based_on_mlflow_model
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.openai.constant import FLAVOR_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking.fluent import (
-    _get_active_model_context,
-    _set_active_model,
-)
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import (
-    disable_autologging_globally,
-)
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -453,7 +412,6 @@ def save_model(
 
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
-@disable_autologging_globally
 def log_model(
     model,
     task,
@@ -528,9 +486,11 @@ def log_model(
         metadata of the logged model.
 
     .. code-block:: python
+        :caption: Example
 
         import mlflow
         import openai
+        import pandas as pd
 
         # Chat
         with mlflow.start_run():
@@ -538,7 +498,7 @@ def log_model(
                 model="gpt-4o-mini",
                 task=openai.chat.completions,
                 messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
-                artifact_path="model",
+                name="model",
             )
             model = mlflow.pyfunc.load_model(info.model_uri)
             df = pd.DataFrame({"animal": ["cats", "dogs"]})
@@ -549,7 +509,7 @@ def log_model(
             info = mlflow.openai.log_model(
                 model="text-embedding-ada-002",
                 task=openai.embeddings,
-                artifact_path="embeddings",
+                name="embeddings",
             )
             model = mlflow.pyfunc.load_model(info.model_uri)
             print(model.predict(["hello", "world"]))
@@ -583,18 +543,7 @@ def _load_model(path):
     model_file_path = os.path.dirname(path)
     if os.path.exists(model_file_path):
         mlflow_model = Model.load(model_file_path)
-        if (
-            mlflow_model.model_id
-            and (amc := _get_active_model_context())
-            # only set the active model if the model is not set by the user
-            and not amc.set_by_user
-            and amc.model_id != mlflow_model.model_id
-        ):
-            _set_active_model(model_id=mlflow_model.model_id)
-            _logger.info(
-                "Use `mlflow.set_active_model` to set the active model "
-                "to a different one if needed."
-            )
+        _update_active_model_id_based_on_mlflow_model(mlflow_model)
     with open(path) as f:
         return yaml.safe_load(f)
 
