@@ -97,6 +97,7 @@ from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
+    is_in_databricks_runtime,
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
@@ -5275,6 +5276,35 @@ class MlflowClient:
         )
 
     @experimental
+    def log_model_params(self, model_id: str, params: dict[str, str]) -> None:
+        """
+        Log parameters for a logged model.
+
+        Args:
+            model_id: ID of the model to log parameters for.
+            params: Dictionary of parameters to log.
+
+        Returns:
+            None
+        """
+        _validate_model_id_specified(model_id)
+        try:
+            self._tracking_client.get_logged_model(model_id)
+        except Exception as e:
+            extra_error_reason = (
+                "the logged model may exist in a different workspace, "
+                if is_in_databricks_runtime()
+                else ""
+            )
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to get logged model with ID {model_id}. "
+                f"You may not have access to the logged model, {extra_error_reason}or the "
+                "logged model may have been deleted. If you are attempting to log parameters "
+                "to a Registered Model Version, this is not supported."
+            ) from e
+        return self._tracking_client.log_model_params(model_id, params)
+
+    @experimental
     def finalize_logged_model(
         self, model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
     ) -> LoggedModel:
@@ -5331,6 +5361,20 @@ class MlflowClient:
             None
         """
         _validate_model_id_specified(model_id)
+        try:
+            self._tracking_client.get_logged_model(model_id)
+        except Exception as e:
+            extra_error_reason = (
+                "the logged model may exist in a different workspace, "
+                if is_in_databricks_runtime()
+                else ""
+            )
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to get logged model with ID {model_id}. "
+                f"You may not have access to the logged model, {extra_error_reason}or the "
+                "logged model may have been deleted. If you are attempting to "
+                "set tags on a Registered Model Version, use `set_model_version_tag` instead."
+            ) from e
         self._tracking_client.set_logged_model_tags(model_id, tags)
 
     @experimental
@@ -5396,14 +5440,14 @@ class MlflowClient:
                     - tags: `tags.tag_name`
                 - Comparison operators:
                     - For numeric entities (metrics and numeric attributes): <, <=, >, >=, =, !=
-                    - For string entities (params, tags, string attributes): =, !=, LIKE, ILIKE
+                    - For string entities (params, tags, string attributes): =, !=, IN, NOT IN
                 - Multiple conditions can be joined with 'AND'
                 - String values must be enclosed in single quotes
 
                 Example filter strings:
                     - `creation_time > 100`
                     - `metrics.rmse > 0.5 AND params.model_type = 'rf'`
-                    - `tags.release LIKE 'v1.%'`
+                    - `tags.release IN ('v1.0', 'v1.1')`
                     - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
             datasets: List of dictionaries to specify datasets on which to apply metrics filters
                 For example, a filter string with `metrics.accuracy > 0.9` and dataset with name

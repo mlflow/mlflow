@@ -1013,6 +1013,35 @@ public final class Assessments {
      */
     com.google.protobuf.ByteString
         getErrorMessageBytes();
+
+    /**
+     * <pre>
+     * Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+     * </pre>
+     *
+     * <code>optional string stack_trace = 3;</code>
+     * @return Whether the stackTrace field is set.
+     */
+    boolean hasStackTrace();
+    /**
+     * <pre>
+     * Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+     * </pre>
+     *
+     * <code>optional string stack_trace = 3;</code>
+     * @return The stackTrace.
+     */
+    java.lang.String getStackTrace();
+    /**
+     * <pre>
+     * Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+     * </pre>
+     *
+     * <code>optional string stack_trace = 3;</code>
+     * @return The bytes for stackTrace.
+     */
+    com.google.protobuf.ByteString
+        getStackTraceBytes();
   }
   /**
    * Protobuf type {@code mlflow.assessments.AssessmentError}
@@ -1029,6 +1058,7 @@ public final class Assessments {
     private AssessmentError() {
       errorCode_ = "";
       errorMessage_ = "";
+      stackTrace_ = "";
     }
 
     @java.lang.Override
@@ -1072,6 +1102,12 @@ public final class Assessments {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
               errorMessage_ = bs;
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000004;
+              stackTrace_ = bs;
               break;
             }
             default: {
@@ -1215,6 +1251,66 @@ public final class Assessments {
       }
     }
 
+    public static final int STACK_TRACE_FIELD_NUMBER = 3;
+    private volatile java.lang.Object stackTrace_;
+    /**
+     * <pre>
+     * Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+     * </pre>
+     *
+     * <code>optional string stack_trace = 3;</code>
+     * @return Whether the stackTrace field is set.
+     */
+    @java.lang.Override
+    public boolean hasStackTrace() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+     * </pre>
+     *
+     * <code>optional string stack_trace = 3;</code>
+     * @return The stackTrace.
+     */
+    @java.lang.Override
+    public java.lang.String getStackTrace() {
+      java.lang.Object ref = stackTrace_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          stackTrace_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+     * </pre>
+     *
+     * <code>optional string stack_trace = 3;</code>
+     * @return The bytes for stackTrace.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getStackTraceBytes() {
+      java.lang.Object ref = stackTrace_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        stackTrace_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -1235,6 +1331,9 @@ public final class Assessments {
       if (((bitField0_ & 0x00000002) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, errorMessage_);
       }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, stackTrace_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -1249,6 +1348,9 @@ public final class Assessments {
       }
       if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, errorMessage_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, stackTrace_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -1275,6 +1377,11 @@ public final class Assessments {
         if (!getErrorMessage()
             .equals(other.getErrorMessage())) return false;
       }
+      if (hasStackTrace() != other.hasStackTrace()) return false;
+      if (hasStackTrace()) {
+        if (!getStackTrace()
+            .equals(other.getStackTrace())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -1293,6 +1400,10 @@ public final class Assessments {
       if (hasErrorMessage()) {
         hash = (37 * hash) + ERROR_MESSAGE_FIELD_NUMBER;
         hash = (53 * hash) + getErrorMessage().hashCode();
+      }
+      if (hasStackTrace()) {
+        hash = (37 * hash) + STACK_TRACE_FIELD_NUMBER;
+        hash = (53 * hash) + getStackTrace().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -1431,6 +1542,8 @@ public final class Assessments {
         bitField0_ = (bitField0_ & ~0x00000001);
         errorMessage_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
+        stackTrace_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
         return this;
       }
 
@@ -1467,6 +1580,10 @@ public final class Assessments {
           to_bitField0_ |= 0x00000002;
         }
         result.errorMessage_ = errorMessage_;
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.stackTrace_ = stackTrace_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -1524,6 +1641,11 @@ public final class Assessments {
         if (other.hasErrorMessage()) {
           bitField0_ |= 0x00000002;
           errorMessage_ = other.errorMessage_;
+          onChanged();
+        }
+        if (other.hasStackTrace()) {
+          bitField0_ |= 0x00000004;
+          stackTrace_ = other.stackTrace_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -1744,6 +1866,114 @@ public final class Assessments {
   }
   bitField0_ |= 0x00000002;
         errorMessage_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object stackTrace_ = "";
+      /**
+       * <pre>
+       * Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+       * </pre>
+       *
+       * <code>optional string stack_trace = 3;</code>
+       * @return Whether the stackTrace field is set.
+       */
+      public boolean hasStackTrace() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <pre>
+       * Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+       * </pre>
+       *
+       * <code>optional string stack_trace = 3;</code>
+       * @return The stackTrace.
+       */
+      public java.lang.String getStackTrace() {
+        java.lang.Object ref = stackTrace_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            stackTrace_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+       * </pre>
+       *
+       * <code>optional string stack_trace = 3;</code>
+       * @return The bytes for stackTrace.
+       */
+      public com.google.protobuf.ByteString
+          getStackTraceBytes() {
+        java.lang.Object ref = stackTrace_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          stackTrace_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+       * </pre>
+       *
+       * <code>optional string stack_trace = 3;</code>
+       * @param value The stackTrace to set.
+       * @return This builder for chaining.
+       */
+      public Builder setStackTrace(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        stackTrace_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+       * </pre>
+       *
+       * <code>optional string stack_trace = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearStackTrace() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        stackTrace_ = getDefaultInstance().getStackTrace();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+       * </pre>
+       *
+       * <code>optional string stack_trace = 3;</code>
+       * @param value The bytes for stackTrace to set.
+       * @return This builder for chaining.
+       */
+      public Builder setStackTraceBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        stackTrace_ = value;
         onChanged();
         return this;
       }
@@ -8704,30 +8934,31 @@ public final class Assessments {
       ".SourceTypeB\004\370\206\031\001\022\027\n\tsource_id\030\002 \001(\tB\004\370\206" +
       "\031\001\"M\n\nSourceType\022\033\n\027SOURCE_TYPE_UNSPECIF" +
       "IED\020\000\022\t\n\005HUMAN\020\001\022\r\n\tLLM_JUDGE\020\002\022\010\n\004CODE\020" +
-      "\003\"<\n\017AssessmentError\022\022\n\nerror_code\030\001 \001(\t" +
-      "\022\025\n\rerror_message\030\002 \001(\t\"\277\001\n\013Expectation\022" +
-      "%\n\005value\030\002 \001(\0132\026.google.protobuf.Value\022I" +
-      "\n\020serialized_value\030\003 \001(\0132/.mlflow.assess" +
-      "ments.Expectation.SerializedValue\032>\n\017Ser" +
-      "ializedValue\022\034\n\024serialization_format\030\001 \001" +
-      "(\t\022\r\n\005value\030\002 \001(\t\"e\n\010Feedback\022%\n\005value\030\002" +
-      " \001(\0132\026.google.protobuf.Value\0222\n\005error\030\003 " +
-      "\001(\0132#.mlflow.assessments.AssessmentError" +
-      "\"\261\004\n\nAssessment\022\025\n\rassessment_id\030\001 \001(\t\022\035" +
-      "\n\017assessment_name\030\002 \001(\tB\004\370\206\031\001\022\020\n\010trace_i" +
-      "d\030\003 \001(\t\022\017\n\007span_id\030\004 \001(\t\0224\n\006source\030\005 \001(\013" +
-      "2$.mlflow.assessments.AssessmentSource\022/" +
-      "\n\013create_time\030\006 \001(\0132\032.google.protobuf.Ti" +
-      "mestamp\0224\n\020last_update_time\030\007 \001(\0132\032.goog" +
-      "le.protobuf.Timestamp\0220\n\010feedback\030\t \001(\0132" +
-      "\034.mlflow.assessments.FeedbackH\000\0226\n\013expec" +
-      "tation\030\n \001(\0132\037.mlflow.assessments.Expect" +
-      "ationH\000\022\021\n\trationale\030\013 \001(\t\0226\n\005error\030\014 \001(" +
-      "\0132#.mlflow.assessments.AssessmentErrorB\002" +
-      "\030\001\022>\n\010metadata\030\r \003(\0132,.mlflow.assessment" +
-      "s.Assessment.MetadataEntry\032/\n\rMetadataEn" +
-      "try\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001B\007\n\005v" +
-      "alueB\031\n\024org.mlflow.api.proto\220\001\001"
+      "\003\"Q\n\017AssessmentError\022\022\n\nerror_code\030\001 \001(\t" +
+      "\022\025\n\rerror_message\030\002 \001(\t\022\023\n\013stack_trace\030\003" +
+      " \001(\t\"\277\001\n\013Expectation\022%\n\005value\030\002 \001(\0132\026.go" +
+      "ogle.protobuf.Value\022I\n\020serialized_value\030" +
+      "\003 \001(\0132/.mlflow.assessments.Expectation.S" +
+      "erializedValue\032>\n\017SerializedValue\022\034\n\024ser" +
+      "ialization_format\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"e" +
+      "\n\010Feedback\022%\n\005value\030\002 \001(\0132\026.google.proto" +
+      "buf.Value\0222\n\005error\030\003 \001(\0132#.mlflow.assess" +
+      "ments.AssessmentError\"\261\004\n\nAssessment\022\025\n\r" +
+      "assessment_id\030\001 \001(\t\022\035\n\017assessment_name\030\002" +
+      " \001(\tB\004\370\206\031\001\022\020\n\010trace_id\030\003 \001(\t\022\017\n\007span_id\030" +
+      "\004 \001(\t\0224\n\006source\030\005 \001(\0132$.mlflow.assessmen" +
+      "ts.AssessmentSource\022/\n\013create_time\030\006 \001(\013" +
+      "2\032.google.protobuf.Timestamp\0224\n\020last_upd" +
+      "ate_time\030\007 \001(\0132\032.google.protobuf.Timesta" +
+      "mp\0220\n\010feedback\030\t \001(\0132\034.mlflow.assessment" +
+      "s.FeedbackH\000\0226\n\013expectation\030\n \001(\0132\037.mlfl" +
+      "ow.assessments.ExpectationH\000\022\021\n\trational" +
+      "e\030\013 \001(\t\0226\n\005error\030\014 \001(\0132#.mlflow.assessme" +
+      "nts.AssessmentErrorB\002\030\001\022>\n\010metadata\030\r \003(" +
+      "\0132,.mlflow.assessments.Assessment.Metada" +
+      "taEntry\032/\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n" +
+      "\005value\030\002 \001(\t:\0028\001B\007\n\005valueB\031\n\024org.mlflow." +
+      "api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -8747,7 +8978,7 @@ public final class Assessments {
     internal_static_mlflow_assessments_AssessmentError_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_assessments_AssessmentError_descriptor,
-        new java.lang.String[] { "ErrorCode", "ErrorMessage", });
+        new java.lang.String[] { "ErrorCode", "ErrorMessage", "StackTrace", });
     internal_static_mlflow_assessments_Expectation_descriptor =
       getDescriptor().getMessageTypes().get(2);
     internal_static_mlflow_assessments_Expectation_fieldAccessorTable = new

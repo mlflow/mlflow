@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import shutil
-import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -16,7 +15,10 @@ from packaging.requirements import InvalidRequirement, Requirement
 import mlflow
 from mlflow.entities import LoggedModel, LoggedModelOutput, Metric
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
+from mlflow.environment_variables import (
+    MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
+    MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models.auth_policy import AuthPolicy
 from mlflow.models.resources import Resource, ResourceType, _ResourceBuilder
@@ -36,7 +38,7 @@ from mlflow.tracking.fluent import (
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
-    _construct_databricks_uc_registered_model_url,
+    _construct_databricks_logged_model_url,
     get_databricks_runtime_version,
     get_workspace_id,
     get_workspace_url,
@@ -53,11 +55,12 @@ from mlflow.utils.environment import (
     _write_requirements_to_file,
 )
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.uri import (
     append_to_uri_path,
     get_uri_scheme,
-    is_databricks_unity_catalog_uri,
+    is_databricks_uri,
 )
 
 _logger = logging.getLogger(__name__)
@@ -948,6 +951,18 @@ class Model:
                     if tags is not None
                     else None,
                 )
+                if (
+                    MLFLOW_PRINT_MODEL_URLS_ON_CREATION.get()
+                    and is_databricks_uri(tracking_uri)
+                    and (workspace_url := get_workspace_url())
+                ):
+                    logged_model_url = _construct_databricks_logged_model_url(
+                        workspace_url,
+                        model.experiment_id,
+                        model.model_id,
+                        get_workspace_id(),
+                    )
+                    eprint(f"🔗 View Logged Model at: {logged_model_url}")
 
             with _use_logged_model(model=model):
                 if run_id is not None:
@@ -1092,23 +1107,23 @@ class Model:
                                 "Failed to load model config from %s: %s", model_config, e
                             )
 
-                try:
-                    from mlflow.models.utils import _flatten_nested_params
+                    try:
+                        from mlflow.models.utils import _flatten_nested_params
 
-                    # We are using the `/` separator to flatten the nested params
-                    # since we are using the same separator to log nested metrics.
-                    params_to_log = _flatten_nested_params(model_config, sep="/")
-                except Exception as e:
-                    _logger.warning("Failed to flatten nested params: %s", str(e))
-                    params_to_log = model_config
+                        # We are using the `/` separator to flatten the nested params
+                        # since we are using the same separator to log nested metrics.
+                        params_to_log = _flatten_nested_params(model_config, sep="/")
+                    except Exception as e:
+                        _logger.warning("Failed to flatten nested params: %s", str(e))
+                        params_to_log = model_config
 
-                try:
-                    # do not log params to run if run_id is None, since that could trigger
-                    # a new run to be created
-                    if run_id:
-                        mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
-                except Exception as e:
-                    _logger.warning("Failed to log model config as params: %s", str(e))
+                    try:
+                        # do not log params to run if run_id is None, since that could trigger
+                        # a new run to be created
+                        if run_id:
+                            mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
+                    except Exception as e:
+                        _logger.warning("Failed to log model config as params: %s", str(e))
 
             if registered_model_name is not None:
                 registered_model = mlflow.tracking._model_registry.fluent._register_model(
@@ -1120,21 +1135,6 @@ class Model:
             model_info = mlflow_model.get_model_info(model)
             if registered_model is not None:
                 model_info.registered_model_version = registered_model.version
-
-                # Print a link to the UC model version page if the model is in UC.
-                registry_uri = mlflow.get_registry_uri()
-                if is_databricks_unity_catalog_uri(registry_uri) and (url := get_workspace_url()):
-                    uc_model_url = _construct_databricks_uc_registered_model_url(
-                        url,
-                        registered_model_name,
-                        registered_model.version,
-                        get_workspace_id(),
-                    )
-                    # Use sys.stdout.write to make the link clickable in the UI
-                    sys.stdout.write(
-                        f"🔗 View model version '{registered_model.version}' of "
-                        + f"'{registered_model_name}' in Unity Catalog at: {uc_model_url}\n"
-                    )
 
         # If the model signature is Mosaic AI Agent compatible, render a recipe for evaluation.
         from mlflow.models.display_utils import maybe_render_agent_eval_recipe

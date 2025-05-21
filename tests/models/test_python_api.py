@@ -16,7 +16,7 @@ from mlflow.models.python_api import (
     _CONTENT_TYPE_JSON,
     _serialize_input_data,
 )
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.env_manager import CONDA, LOCAL, UV, VIRTUALENV
 
 from tests.tracing.helper import get_traces
@@ -387,6 +387,9 @@ def test_predict_traces_link_to_active_model():
             python_model=TestModel(),
         )
 
+    traces = get_traces()
+    assert len(traces) == 0
+
     mlflow.models.predict(
         model_uri=model_info.model_uri,
         input_data=["a", "b", "c"],
@@ -394,4 +397,4 @@ def test_predict_traces_link_to_active_model():
     )
     traces = get_traces()
     assert len(traces) == 1
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model.model_id

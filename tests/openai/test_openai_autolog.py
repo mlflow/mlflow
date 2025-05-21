@@ -10,6 +10,7 @@ from pydantic import BaseModel
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.openai.utils.chat_schema import _parse_tools
 from mlflow.tracing.constant import STREAM_CHUNK_EVENT_VALUE_KEY, SpanAttributeKey, TraceMetadataKey
 
 from tests.openai.mock_openai import EMPTY_CHOICES
@@ -599,7 +600,7 @@ async def test_autolog_link_traces_to_loaded_model_chat_completions(client):
     assert len(traces) == len(temperatures)
     for trace in traces:
         span = trace.data.spans[0]
-        model_id = trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
+        model_id = trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
         assert model_id is not None
         assert span.inputs["messages"][0]["content"] == f"test {model_id}"
 
@@ -637,7 +638,7 @@ async def test_autolog_link_traces_to_loaded_model_completions(client):
     assert len(traces) == len(temperatures)
     for trace in traces:
         span = trace.data.spans[0]
-        model_id = trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
+        model_id = trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
         assert model_id is not None
         assert span.inputs["prompt"] == f"test {model_id}"
 
@@ -674,7 +675,7 @@ async def test_autolog_link_traces_to_loaded_model_embeddings(client):
     assert len(traces) == len(encoding_formats)
     for trace in traces:
         span = trace.data.spans[0]
-        model_id = trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
+        model_id = trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
         assert model_id is not None
         assert span.inputs["input"] == f"test {model_id}"
 
@@ -712,7 +713,7 @@ def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(monkeypatch, mock
     assert len(traces) == len(encoding_formats)
     for trace in traces:
         span = trace.data.spans[0]
-        model_id = trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
+        model_id = trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
         assert model_id is not None
         assert span.inputs["input"] == [f"test {model_id}"]
 
@@ -751,9 +752,17 @@ def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai):
     assert len(traces) == len(encoding_formats)
     for trace in traces:
         span = trace.data.spans[0]
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model.model_id
         logged_model_id = span.inputs["input"][0]
         assert logged_model_id != model.model_id
+
+
+@pytest.mark.parametrize(
+    "sentinel",
+    [None, 42, object()],
+)
+def test_parse_tools_handles_openai_not_given_sentinel(sentinel):
+    assert _parse_tools({"tools": sentinel}) == []
 
 
 @skip_when_testing_trace_sdk
@@ -782,6 +791,6 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(c
     traces = get_traces()
     assert len(traces) == 1
     span = traces[0].data.spans[0]
-    model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
+    model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id is not None
     assert span.inputs["messages"][0]["content"] == f"test {model_id}"

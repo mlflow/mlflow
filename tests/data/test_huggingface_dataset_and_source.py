@@ -19,6 +19,7 @@ from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
 from tests.helper_functions import skip_if_hf_hub_unhealthy
+from tests.resources.data.dataset_source import SampleDatasetSource
 
 pytestmark = skip_if_hf_hub_unhealthy()
 
@@ -264,3 +265,20 @@ def test_to_evaluation_dataset():
     assert isinstance(evaluation_dataset, EvaluationDataset)
     assert evaluation_dataset.features_data.equals(dataset.ds.to_pandas().drop("label", axis=1))
     assert np.array_equal(evaluation_dataset.labels_data, dataset.ds.to_pandas()["label"].values)
+
+
+def test_from_huggingface_dataset_with_sample_source():
+    source_uri = "test:/my/test/uri"
+    source = SampleDatasetSource._resolve(source_uri)
+
+    data = {"text": ["This is a sample text.", "Another sample text."], "label": [0, 1]}
+    dataset = datasets.Dataset.from_dict(data)
+
+    train_dataset = mlflow.data.from_huggingface(
+        dataset,
+        name="sample-text-dataset",
+        source=source,
+    )
+
+    assert isinstance(train_dataset, HuggingFaceDataset)
+    assert train_dataset.source == source

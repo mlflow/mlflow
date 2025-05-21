@@ -196,3 +196,75 @@ def test_prompt_associate_with_run(tmp_path):
     assert len(prompts) == 1
     assert prompts[0].name == "prompt_1"
     assert prompts[0].version == 1
+
+
+def test_register_model_prints_uc_model_version_url(monkeypatch):
+    orig_registry_uri = mlflow.get_registry_uri()
+    mlflow.set_registry_uri("databricks-uc")
+    workspace_id = "123"
+    model_id = "m-123"
+    name = "name.mlflow.test_model"
+    version = "1"
+    with (
+        mock.patch("mlflow.tracking._model_registry.fluent.eprint") as mock_eprint,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.get_workspace_url",
+            return_value="https://databricks.com",
+        ) as mock_url,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.get_workspace_id", return_value=workspace_id
+        ) as mock_workspace_id,
+        mock.patch(
+            "mlflow.MlflowClient.create_registered_model", return_value=RegisteredModel(name)
+        ) as mock_create_model,
+        mock.patch(
+            "mlflow.MlflowClient._create_model_version",
+            return_value=ModelVersion(name, version, creation_timestamp=123),
+        ) as mock_create_version,
+        mock.patch(
+            "mlflow.MlflowClient.get_logged_model",
+            return_value=mock.Mock(model_id=model_id, name=name, tags={}),
+        ) as mock_get_logged_model,
+        mock.patch("mlflow.MlflowClient.set_logged_model_tags") as mock_set_logged_model_tags,
+    ):
+        register_model(f"models:/{model_id}", name)
+        expected_url = (
+            "https://databricks.com/explore/data/models/name/mlflow/test_model/version/1?o=123"
+        )
+        mock_eprint.assert_called_with(
+            f"🔗 Created version '{version}' of model '{name}': {expected_url}"
+        )
+        mock_url.assert_called_once()
+        mock_workspace_id.assert_called_once()
+        mock_create_model.assert_called_once()
+        mock_create_version.assert_called_once()
+        mock_get_logged_model.assert_called_once()
+        mock_set_logged_model_tags.assert_called_once()
+
+        # Test that the URL is not printed when the environment variable is set to false
+        mock_eprint.reset_mock()
+        monkeypatch.setenv("MLFLOW_PRINT_MODEL_URLS_ON_CREATION", "false")
+        register_model(f"models:/{model_id}", name)
+        mock_eprint.assert_called_with("Created version '1' of model 'name.mlflow.test_model'.")
+
+    # Clean up the global variables set by the server
+    mlflow.set_registry_uri(orig_registry_uri)
+
+
+def test_set_model_version_tag():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input):
+            return model_input
+
+    mlflow.pyfunc.log_model(name="model", python_model=TestModel(), registered_model_name="Model 1")
+
+    mv = MlflowClient().get_model_version("Model 1", "1")
+    assert mv.tags == {}
+    mlflow.set_model_version_tag(
+        name="Model 1",
+        version=1,
+        key="key",
+        value="value",
+    )
+    mv = MlflowClient().get_model_version("Model 1", "1")
+    assert mv.tags == {"key": "value"}

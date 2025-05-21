@@ -584,16 +584,17 @@ def test_mlflow_artifact_only_prints_warning_for_configs():
         mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"),
         mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"),
     ):
-        result = CliRunner(mix_stderr=False).invoke(
+        result = CliRunner().invoke(
             server,
             ["--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],
             catch_exceptions=False,
         )
-        assert result.stderr.startswith(
+        msg = (
             "Usage: server [OPTIONS]\nTry 'server --help' for help.\n\nError: You are starting a "
             "tracking server in `--artifacts-only` mode and have provided a value for "
             "`--backend_store_uri`"
         )
+        assert msg in result.output
         assert result.exit_code != 0
         run_server_mock.assert_not_called()
 

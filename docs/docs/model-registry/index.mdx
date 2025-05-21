@@ -39,6 +39,12 @@ The Model Registry introduces a few concepts that describe and facilitate the fu
     the same model name increments the version number. Model versions have tags, which can be useful for tracking attributes of the model version (e.g. _`pre_deploy_checks: "PASSED"`_)
   </dd>
   <dt>
+    #### Model URI
+  </dt>
+  <dd>
+    You can refer to the registered model by using a URI of this format: `models:/<model-name>/<model-version>`, e.g., if you have a registered model with name "MyModel" and version 1, the URI referring to the model is: `models:/MyModel/1`".
+  </dd>
+  <dt>
     #### Model Alias \{#using-registered-model-aliases}
   </dt>
   <dd>

@@ -6,6 +6,7 @@ MLflow's environment variables adhere to the following naming conventions:
 """
 
 import os
+import warnings
 from pathlib import Path
 
 
@@ -70,6 +71,18 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         super().__init__(name, bool, default)
 
     def get(self):
+        # TODO: Remove this block in MLflow 3.2.0
+        if self.name == MLFLOW_CONFIGURE_LOGGING.name and (
+            val := os.getenv("MLFLOW_LOGGING_CONFIGURE_LOGGING")
+        ):
+            warnings.warn(
+                "Environment variable MLFLOW_LOGGING_CONFIGURE_LOGGING is deprecated and will be "
+                f"removed in a future release. Please use {MLFLOW_CONFIGURE_LOGGING.name} instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            return val.lower() in ["true", "1"]
+
         if not self.defined:
             return self.default
 
@@ -556,7 +569,7 @@ MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE = _EnvironmentVariable(
 #: If set to True, mlflow will configure ``mlflow.<module_name>`` loggers with
 #: logging handlers and formatters.
 #: (default: ``True``)
-MLFLOW_CONFIGURE_LOGGING = _BooleanEnvironmentVariable("MLFLOW_LOGGING_CONFIGURE_LOGGING", True)
+MLFLOW_CONFIGURE_LOGGING = _BooleanEnvironmentVariable("MLFLOW_CONFIGURE_LOGGING", True)
 
 #: If set to True, the following entities will be truncated to their maximum length:
 #: - Param value
@@ -768,3 +781,47 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
 #: this environment variable directly.
 #: (default: ``None``)
 _MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("_MLFLOW_ACTIVE_MODEL_ID", str, None)
+
+#: Maximum number of parameters to include in the initial CreateLoggedModel request.
+#: Additional parameters will be logged in separate requests.
+#: (default: ``100``)
+_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
+    "_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
+)
+
+
+#: Maximum number of parameters to include in each batch when logging parameters
+#: for a logged model.
+#: (default: ``100``)
+_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
+    "_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
+)
+
+#: A boolean flag that enables printing URLs for logged and registered models when
+#: they are created.
+#: (default: ``True``)
+MLFLOW_PRINT_MODEL_URLS_ON_CREATION = _BooleanEnvironmentVariable(
+    "MLFLOW_PRINT_MODEL_URLS_ON_CREATION", True
+)
+
+#: Maximum number of threads to use when downloading traces during search operations.
+#: (default: ``max(32, (# of system CPUs * 4)``)
+MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
+    # Threads used to download traces during search are network IO-bound (waiting for downloads)
+    # rather than CPU-bound, so we want more threads than CPU cores
+    "MLFLOW_SEARCH_TRACES_MAX_THREADS",
+    int,
+    max(32, (os.cpu_count() or 1) * 4),
+)
+
+#: Specifies the logging level for MLflow. This can be set to any valid logging level
+#: (e.g., "DEBUG", "INFO"). This environment must be set before importing mlflow to take
+#: effect. To modify the logging level after importing mlflow, use `importlib.reload(mlflow)`.
+#: (default: ``None``).
+MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, None)
+
+#: Avoid printing experiment and run url to stdout at run termination
+#: (default: ``False``)
+MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable(
+    "MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", False
+)
