@@ -8,7 +8,6 @@ from sklearn.pipeline import Pipeline as sk_Pipeline
 
 import mlflow
 from mlflow import MlflowException
-from mlflow.environment_variables import MLFLOW_LOG_SHAP_EXPLAINER
 from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, _ModelType
 from mlflow.models.evaluation.default_evaluator import (
     BuiltInEvaluator,
@@ -220,7 +219,7 @@ class ShapEvaluator(BuiltInEvaluator):
             _logger.debug("", exc_info=True)
             return
 
-        if MLFLOW_LOG_SHAP_EXPLAINER.get():
+        if self.evaluator_config.get("log_explainer", False):
             try:
                 mlflow.shap.log_explainer(explainer, name="explainer")
             except Exception as e:

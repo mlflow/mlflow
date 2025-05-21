@@ -825,7 +825,3 @@ MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, None)
 MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable(
     "MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", False
 )
-
-#: If True, MLflow logs a SHAP explainer as a model during `mlflow.evaluate`.
-#: (default: ``False``)
-MLFLOW_LOG_SHAP_EXPLAINER = _BooleanEnvironmentVariable("MLFLOW_LOG_SHAP_EXPLAINER", False)
