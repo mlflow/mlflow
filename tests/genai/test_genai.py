@@ -1,4 +1,3 @@
-"""This module tests imports in the mlflow.genai module."""
 import pytest
 
 

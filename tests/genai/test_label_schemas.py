@@ -1,4 +1,3 @@
-"""This module tests the mlflow.genai.label_schemas module."""
 import pytest
 
 

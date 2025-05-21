@@ -1,4 +1,3 @@
-"""This module tests the mlflow.genai.datasets module."""
 import pytest
 
 from mlflow.genai.datasets import create_dataset, delete_dataset, get_dataset
