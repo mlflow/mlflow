@@ -261,7 +261,9 @@ def update(skip_yml=False):
 
                 if category in config and "minimum" in config[category]:
                     old_min_version = config[category]["minimum"]
-                    if min_supported_version is None:
+                    if flavor_key == "spark":
+                        pass
+                    elif min_supported_version is None:
                         # The latest release version was 2 years ago.
                         # set the min version to be the same with the max version.
                         max_ver = config[category]["maximum"]

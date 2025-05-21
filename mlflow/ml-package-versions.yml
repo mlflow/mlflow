@@ -274,7 +274,7 @@ spark:
       pyspark --version
 
   models:
-    minimum: "3.4.1"
+    minimum: "3.2.1"
     maximum: "3.5.5"
     java:
       "> 3.4.1": "17"
@@ -302,7 +302,7 @@ spark:
       fi
 
   autologging:
-    minimum: "3.4.1"
+    minimum: "3.2.1"
     maximum: "3.5.5"
     java:
       ">= 3.4.1": "17"
