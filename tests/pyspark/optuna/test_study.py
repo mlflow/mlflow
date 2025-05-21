@@ -92,5 +92,8 @@ def test_study_with_failed_objective(setup_storage):
     def fail_objective(_):
         raise ValueError()
 
-    with pytest.raises(pyspark.sql.utils.PythonException):
+    with pytest.raises(
+        pyspark.sql.utils.PythonException,
+        match="Optimization run for Optuna MlflowSparkStudy failed",
+    ):
         mlflow_study.optimize(fail_objective, n_trials=4)
