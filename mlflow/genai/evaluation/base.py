@@ -280,7 +280,7 @@ def evaluate(
             category=UserWarning,
         )
         # Suppress numpy warning about ragged nested sequences. This is raised when passing
-        # a dataset that contains complex object to mlflow.evaluate(). MLflow convert data
+        # a dataset that contains complex object to mlflow.evaluate(). MLflow converts data
         # into numpy array to compute dataset digest, which triggers the warning.
         warnings.filterwarnings(
             "ignore",
