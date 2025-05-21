@@ -865,7 +865,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
             """
             Given a ResponsesAgentRequest, returns a ResponsesAgentResponse.
 
-            You can see an example implementations at
+            You can see example implementations at
             https://www.mlflow.org/docs/latest/llms/responses-agent-intro#simple-chat-example and
             https://www.mlflow.org/docs/latest/llms/responses-agent-intro#tool-calling-example.
             """
@@ -879,7 +879,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
             See more details at
             https://www.mlflow.org/docs/latest/llms/responses-agent-intro#streaming-agent-output.
 
-            You can see an example implementations at
+            You can see example implementations at
             https://www.mlflow.org/docs/latest/llms/responses-agent-intro#simple-chat-example and
             https://www.mlflow.org/docs/latest/llms/responses-agent-intro#tool-calling-example.
             """
