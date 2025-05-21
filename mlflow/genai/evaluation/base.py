@@ -75,7 +75,7 @@ def evaluate(
 
         mlflow.genai.evaluate(
             data=trace_df,
-            scorers=[correctness(), safety()],
+            scorers=[correctness, safety],
         )
 
     Built-in scorers will understand the model inputs, outputs, and other intermediate
@@ -157,7 +157,7 @@ def evaluate(
         mlflow.genai.evaluate(
             data=data,
             predict_fn=predict_fn,
-            scorers=[correctness(), safety()],
+            scorers=[correctness, safety],
         )
 
     Args:
