@@ -785,6 +785,23 @@ ag2:
         ]
     run: pytest tests/ag2
 
+autogen:
+  package_info:
+    pip_release: "autogen-agentchat"
+    module_name: "autogen_agentchat"
+  autologging:
+    minimum: "0.5.7"
+    maximum: "0.5.7"
+    python:
+      "== dev": "3.10"
+    requirements:
+      ">= 0.0.0": [
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
+        ]
+    run: pytest tests/autogen
+
 gemini:
   package_info:
     pip_release: "google-genai"
