@@ -82,7 +82,11 @@ __all__ = [
     "create_dataset",
     "delete_dataset",
     "get_dataset",
-    *([
-        "EvaluationDataset",
-    ] if "EvaluationDataset" in locals() else [])
+    *(
+        [
+            "EvaluationDataset",
+        ]
+        if "EvaluationDataset" in locals()
+        else []
+    ),
 ]

@@ -38,18 +38,26 @@ __all__ = [
     "delete_dataset",
     "get_dataset",
     # Labeling exports (only included when databricks-agents is installed)
-    *([
-        "Agent",
-        "LabelingSession",
-        "ReviewApp",
-        "get_review_app",
-        "create_labeling_session",
-        "get_labeling_sessions",
-        "get_labeling_session",
-        "delete_labeling_session",
-    ] if "Agent" in locals() else []),
+    *(
+        [
+            "Agent",
+            "LabelingSession",
+            "ReviewApp",
+            "get_review_app",
+            "create_labeling_session",
+            "get_labeling_sessions",
+            "get_labeling_session",
+            "delete_labeling_session",
+        ]
+        if "Agent" in locals()
+        else []
+    ),
     # Dataset exports (only included when databricks-agents is installed)
-    *([
-        "EvaluationDataset",
-    ] if "EvaluationDataset" in locals() else []),
+    *(
+        [
+            "EvaluationDataset",
+        ]
+        if "EvaluationDataset" in locals()
+        else []
+    ),
 ]

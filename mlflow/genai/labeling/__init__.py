@@ -75,7 +75,8 @@ def get_labeling_session(name: str) -> LabelingSession:
     labeling_sessions = get_labeling_sessions()
     labeling_session = next(
         (
-            labeling_session for labeling_session in labeling_sessions
+            labeling_session
+            for labeling_session in labeling_sessions
             if labeling_session.name == name
         ),
         None,
