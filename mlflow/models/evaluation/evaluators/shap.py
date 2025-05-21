@@ -46,7 +46,7 @@ class ShapEvaluator(BuiltInEvaluator):
     @classmethod
     def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
         return model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR) and evaluator_config.get(
-            "log_model_explainability", False
+            "log_model_explainability", True
         )
 
     def _evaluate(
