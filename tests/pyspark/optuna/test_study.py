@@ -9,7 +9,7 @@ from optuna.samplers import TPESampler
 from packaging.version import Version
 
 import mlflow
-from mlflow.pyspark.optuna.study import MLFlowSparkStudy
+from mlflow.pyspark.optuna.study import MlflowSparkStudy
 
 from tests.pyfunc.test_spark import get_spark_session
 
@@ -67,7 +67,7 @@ def test_study_optimize_run(setup_storage):
     storage = setup_storage
     study_name = "test-study"
     sampler = TPESampler(seed=10)
-    mlflow_study = MLFlowSparkStudy(
+    mlflow_study = MlflowSparkStudy(
         study_name, storage, sampler=sampler, mlflow_tracking_uri=mlflow.get_tracking_uri()
     )
 
@@ -85,7 +85,7 @@ def test_study_with_failed_objective(setup_storage):
     storage = setup_storage
     study_name = "test-study"
     sampler = TPESampler(seed=10)
-    mlflow_study = MLFlowSparkStudy(
+    mlflow_study = MlflowSparkStudy(
         study_name, storage, sampler=sampler, mlflow_tracking_uri=mlflow.get_tracking_uri()
     )
 

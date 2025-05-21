@@ -14,7 +14,7 @@ except ImportError:
     sys.exit()
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, first
 
 import mlflow
 from mlflow.exceptions import ExecutionException
@@ -32,15 +32,15 @@ def is_spark_connect_mode():
     return is_remote()
 
 
-class MLFlowSparkStudy(Study):
+class MlflowSparkStudy(Study):
     """A wrapper of :class:`~optuna.study.Study` to incorporate Optuna with spark
-    via MLFlow experiment.
+    via MLflow experiment.
 
     .. code-block:: python
         :caption: Example
 
         from mlflow.optuna.storage import MlflowStorage
-        from mlflow.pyspark.optuna.study import MLFlowSparkStudy
+        from mlflow.pyspark.optuna.study import MlflowSparkStudy
 
 
         def objective(trial):
@@ -52,7 +52,7 @@ class MLFlowSparkStudy(Study):
         study_name = "spark_mlflow_storage"
 
         storage = MLFlowStorage(experiment_id=experiment_id)
-        mlflow_study = MLFlowSparkStudy(
+        mlflow_study = MlflowSparkStudy(
             study_name, storage, mlflow_tracking_uri=mlflow.get_tracking_uri()
         )
         mlflow_study.optimize(objective, n_trials=4)
@@ -86,7 +86,7 @@ class MLFlowSparkStudy(Study):
 
         if not isinstance(self._storage, MlflowStorage):
             raise ValueError(
-                f"MLFlowSparkStudy only works with `MlflowStorage`. But get {type(self._storage)}."
+                f"MlflowSparkStudy only works with `MlflowStorage`. But get {type(self._storage)}."
             )
 
     def optimize(
@@ -175,9 +175,14 @@ class MLFlowSparkStudy(Study):
                 self.spark.interruptTag(trial_tag)
             else:
                 self.spark.sparkContext.cancelJobGroup(trial_tag)
-            logger.debug("MLFlowSparkStudy.optimize terminated by user.")
+            logger.debug("MlflowSparkStudy optimize terminated by user.")
             raise e
         if "error" in input_df.columns:
             error_count = input_df.filter(col("error") != "").count()
             if error_count > 0:
-                raise ExecutionException("optuna optimize run failed")
+                first_non_null_value = input_df.select(first("error", ignorenulls=True)).first()[0]
+                raise ExecutionException(
+                    f"Optimization run for Optuna MlflowSparkStudy failed. "
+                    f"See full error details in the failed MLflow runs. "
+                    f"First trial failure message: {first_non_null_value}"
+                )
