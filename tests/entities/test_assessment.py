@@ -379,6 +379,10 @@ def test_feedback_from_exception(stack_trace_length):
     assert feedback.error.error_message == "An error occurred."
     assert feedback.error.stack_trace is not None
 
+    # Feedback should expose error_code and error_message for backward compatibility
+    assert feedback.error_code == "ValueError"
+    assert feedback.error_message == "An error occurred."
+
     proto = feedback.to_proto()
     assert len(proto.feedback.error.stack_trace) == min(stack_trace_length, 1000)
     assert proto.feedback.error.stack_trace.endswith("last line")
