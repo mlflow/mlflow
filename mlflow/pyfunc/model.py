@@ -865,8 +865,9 @@ if IS_PYDANTIC_V2_OR_NEWER:
             """
             Given a ResponsesAgentRequest, returns a ResponsesAgentResponse.
 
-            You can see an example implementation at
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#example.
+            You can see an example implementations at
+            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#simple-chat-example and
+            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#tool-calling-example.
             """
 
         def predict_stream(
@@ -878,8 +879,9 @@ if IS_PYDANTIC_V2_OR_NEWER:
             See more details at
             https://www.mlflow.org/docs/latest/llms/responses-agent-intro#streaming-agent-output.
 
-            You can see an example implementation at
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#example.
+            You can see an example implementations at
+            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#simple-chat-example and
+            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#tool-calling-example.
             """
             raise NotImplementedError(
                 "Streaming implementation not provided. Please override the "
