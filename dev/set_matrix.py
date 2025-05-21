@@ -649,7 +649,7 @@ def apply_changed_files(changed_files, matrix):
     changed_flavors = (
         # If this file has been changed, re-run all tests
         all_flavors
-        if (__file__ in changed_files)
+        if (Path(__file__).relative_to(Path.cwd()) in changed_files)
         else get_changed_flavors(changed_files, all_flavors)
     )
 
