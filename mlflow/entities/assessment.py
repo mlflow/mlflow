@@ -305,11 +305,13 @@ class Feedback(Assessment):
 
     # Backward compatibility: The old assessment object had these fields at top level.
     @property
-    def error_code(self):
+    def error_code(self) -> Optional[str]:
+        """The error code of the error that occurred when the feedback was created."""
         return self.feedback.error.error_code if self.feedback.error else None
 
     @property
-    def error_message(self):
+    def error_message(self) -> Optional[str]:
+        """The error message of the error that occurred when the feedback was created."""
         return self.feedback.error.error_message if self.feedback.error else None
 
 
