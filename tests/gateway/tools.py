@@ -260,21 +260,15 @@ def log_completions_transformers_model():
 
     inference_params = {"top_k": 1}
 
-    signature = mlflow.models.infer_signature(
-        ["test1 [MASK]", "[MASK] test2"],
-        mlflow.transformers.generate_signature_output(pipe, ["test3 [MASK]"]),
-        inference_params,
-    )
-
     artifact_path = "mask_model"
 
     with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
+        mlflow.transformers.log_model(
             pipe,
-            name=artifact_path,
-            signature=signature,
+            artifact_path,
+            input_example=(["test1 [MASK]", "[MASK] test2"], inference_params)
         )
-        return model_info.model_uri
+        return mlflow.get_artifact_uri(artifact_path)
 
 
 def start_mlflow_server(port, model_uri):
