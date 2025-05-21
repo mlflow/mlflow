@@ -1,11 +1,8 @@
-import concurrent.futures
 import logging
-import multiprocessing
 import os
-import signal
-import time
 from unittest import mock
 
+import numpy as np
 import pyspark
 import pytest
 from optuna.samplers import TPESampler
@@ -15,7 +12,6 @@ import mlflow
 from mlflow.pyspark.optuna.study import MLFlowSparkStudy
 
 from tests.pyfunc.test_spark import get_spark_session
-from tests.optuna.test_storage import setup_storage
 
 _logger = logging.getLogger(__name__)
 
@@ -81,7 +77,7 @@ def test_study_optimize_run(setup_storage):
 
     mlflow_study.optimize(objective, n_trials=4)
     assert sorted(mlflow_study.best_params.keys()) == ["x"]
-    assert abs(mlflow_study.best_params["x"] - 2.672964698525508) / 2.672964698525508 < 1e-6
+    np.testing.assert_allclose(mlflow_study.best_params["x"], 2.672964698525508, rtol=1e-6)
 
 
 @pytest.mark.usefixtures("setup_storage", "spark")
@@ -96,5 +92,5 @@ def test_study_with_failed_objective(setup_storage):
     def fail_objective(_):
         raise ValueError()
 
-    with pytest.raises(pyspark.errors.exceptions.captured.PythonException):
+    with pytest.raises(pyspark.sql.utils.PythonException):
         mlflow_study.optimize(fail_objective, n_trials=4)

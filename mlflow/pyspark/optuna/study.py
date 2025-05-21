@@ -42,16 +42,19 @@ class MLFlowSparkStudy(Study):
         from mlflow.optuna.storage import MlflowStorage
         from mlflow.pyspark.optuna.study import MLFlowSparkStudy
 
+
         def objective(trial):
             x = trial.suggest_float("x", -10, 10)
             return (x - 2) ** 2
+
 
         experiment_id = "507151065975140"
         study_name = "spark_mlflow_storage"
 
         storage = MLFlowStorage(experiment_id=experiment_id)
         mlflow_study = MLFlowSparkStudy(
-            study_name, storage, mlflow_tracking_uri=mlflow.get_tracking_uri())
+            study_name, storage, mlflow_tracking_uri=mlflow.get_tracking_uri()
+        )
         mlflow_study.optimize(objective, n_trials=4)
     """
 
@@ -159,7 +162,9 @@ class MLFlowSparkStudy(Study):
             if job_group_id is None:
                 job_group_id = trial_tag
                 job_group_description = f"optuna_trial_{study_name}"
-                self.spark.sparkContext.setJobGroup(job_group_id, job_group_description, interruptOnCancel=True)
+                self.spark.sparkContext.setJobGroup(
+                    job_group_id, job_group_description, interruptOnCancel=True
+                )
         try:
             input_df.mapInPandas(
                 func=run_task_on_executor_pd,
@@ -172,7 +177,7 @@ class MLFlowSparkStudy(Study):
                 self.spark.sparkContext.cancelJobGroup(trial_tag)
             logger.debug("MLFlowSparkStudy.optimize terminated by user.")
             raise e
-        error_count = input_df.filter(col("error") != "").count()
-        if error_count > 0:
-            raise ExecutionException(f"optuna optimize run failed")
-
+        if "error" in input_df.columns:
+            error_count = input_df.filter(col("error") != "").count()
+            if error_count > 0:
+                raise ExecutionException("optuna optimize run failed")
