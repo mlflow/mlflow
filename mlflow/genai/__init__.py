@@ -12,16 +12,17 @@ try:
         get_labeling_session,
         delete_labeling_session,
     )
-    # Stick this at the end to avoid unnecessary warnings
-    from mlflow.genai.datasets import (
-        EvaluationDataset,
-        create_dataset,
-        delete_dataset,
-        get_dataset,
-    )
+    from mlflow.genai.datasets import EvaluationDataset
 except ImportError:
     # Silently fail if the databricks-agents package is not installed
     pass
+
+# Stick this at the end to avoid unnecessary warnings (thrown by EvaluationDataset)
+from mlflow.genai.datasets import (
+    create_dataset,
+    delete_dataset,
+    get_dataset,
+)
 
 
 __all__ = [
