@@ -17,14 +17,14 @@ class _BaseBuiltInScorer(BuiltInScorer):
     inherit from this class.
     """
 
-    required_columns: set[str] = {}
+    required_columns: set[str] = set()
 
     # Avoid direct mutation of built-in scorer fields like name. Overriding the default setting must
-    # be done through the `configure` method. This is because the short-hand syntax like
+    # be done through the `with_config` method. This is because the short-hand syntax like
     # `mlflow.genai.scorers.chunk_relevance` returns a single instance rather than a new instance.
     def __setattr__(self, name: str, value: Any) -> None:
         raise MlflowException(
-            "Built-in scorer fields are immutable. Please use the `configure` method to "
+            "Built-in scorer fields are immutable. Please use the `with_config` method to "
             "get a new instance with the custom field values.",
             error_code=BAD_REQUEST,
         )
@@ -54,9 +54,9 @@ class _BaseBuiltInScorer(BuiltInScorer):
             raise ValueError("This scorer isn't recognized since it doesn't have a name.")
 
     @abstractmethod
-    def configure(self, **kwargs) -> Any:
+    def with_config(self, **kwargs) -> "_BaseBuiltInScorer":
         """
-        Configure the scorer with additional parameters, such as name, global guidelines, etc.
+        Get a new scorer instance with the given configuration, such as name, global guidelines.
 
         Override this method with the appropriate config keys. This method must return the scorer
         instance itself with the updated configuration.
@@ -84,9 +84,8 @@ class ChunkRelevance(_BaseBuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Importing `from mlflow.genai.scorers import chunk_relevance` gives you an instance
-    of this scorer with default setting. You can override the setting by calling the
-    :py:meth:`configure` method.
+    Use `mlflow.genai.scorers.chunk_relevance` to get an instance of this scorer with
+    default setting. You can override the setting by the :py:meth:`with_config` method.
 
     Example (direct usage):
 
@@ -149,9 +148,9 @@ class ChunkRelevance(_BaseBuiltInScorer):
         """
         return super().__call__(inputs=inputs, retrieved_context=retrieved_context)
 
-    def configure(self, *, name: str = "chunk_relevance") -> "ChunkRelevance":
+    def with_config(self, *, name: str = "chunk_relevance") -> "ChunkRelevance":
         """
-        Configure the scorer with additional parameters such as name.
+        Get a new scorer instance with a specified name.
 
         Args:
             name: The name of the scorer. Default is "chunk_relevance".
@@ -168,9 +167,8 @@ class ContextSufficiency(_BaseBuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Importing `from mlflow.genai.scorers import context_sufficiency` gives you an instance
-    of this scorer with default setting. You can override the setting by calling the
-    :py:meth:`configure` method.
+    Use `mlflow.genai.scorers.context_sufficiency` to get an instance of this scorer with
+    default setting. You can override the setting by the :py:meth:`with_config` method.
 
     Example (direct usage):
 
@@ -207,9 +205,9 @@ class ContextSufficiency(_BaseBuiltInScorer):
         """Evaluate context sufficiency based on retrieved documents."""
         return super().__call__(inputs=inputs, retrieved_context=retrieved_context)
 
-    def configure(self, *, name: str = "context_sufficiency") -> "ContextSufficiency":
+    def with_config(self, *, name: str = "context_sufficiency") -> "ContextSufficiency":
         """
-        Configure the scorer with additional parameters such as name.
+        Get a new scorer instance with a specified name.
 
         Args:
             name: The name of the scorer. Default is "context_sufficiency".
@@ -226,9 +224,8 @@ class Groundedness(_BaseBuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Importing `from mlflow.genai.scorers import groundedness` gives you an instance
-    of this scorer with default setting. You can override the setting by calling the
-    :py:meth:`configure` method.
+    Use `mlflow.genai.scorers.groundedness` to get an instance of this scorer with
+    default setting. You can override the setting by the :py:meth:`with_config` method.
 
     Example (direct usage):
 
@@ -269,9 +266,9 @@ class Groundedness(_BaseBuiltInScorer):
         """Evaluate groundedness of response against context."""
         return super().__call__(inputs=inputs, outputs=outputs, retrieved_context=retrieved_context)
 
-    def configure(self, *, name: str = "groundedness") -> "Groundedness":
+    def with_config(self, *, name: str = "groundedness") -> "Groundedness":
         """
-        Configure the scorer with additional parameters such as name.
+        Get a new scorer instance with a specified name.
 
         Args:
             name: The name of the scorer. Default is "groundedness".
@@ -291,9 +288,8 @@ class GuidelineAdherence(_BaseBuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Importing `from mlflow.genai.scorers import guideline_adherence` gives you an instance
-    of this scorer with default setting. You can override the setting by calling the
-    :py:meth:`configure` method.
+    Use `mlflow.genai.scorers.guideline_adherence` to get an instance of this scorer with
+    default setting. You can override the setting by the :py:meth:`with_config` method.
 
     There are two different ways to specify judges, depending on the use case:
 
@@ -310,7 +306,7 @@ class GuidelineAdherence(_BaseBuiltInScorer):
         from mlflow.genai.scorers import guideline_adherence
 
         # Create a global judge
-        english = guideline_adherence.configure(
+        english = guideline_adherence.with_config(
             name="english_guidelines",
             global_guidelines=["The response must be in English"],
         )
@@ -331,11 +327,11 @@ class GuidelineAdherence(_BaseBuiltInScorer):
         import mlflow
         from mlflow.genai.scorers import guideline_adherence
 
-        english = guideline_adherence.configure(
+        english = guideline_adherence.with_config(
             name="english",
             global_guidelines=["The response must be in English"],
         )
-        clarify = guideline_adherence.configure(
+        clarify = guideline_adherence.with_config(
             name="clarify",
             global_guidelines=["The response must be clear, coherent, and concise"],
         )
@@ -433,14 +429,14 @@ class GuidelineAdherence(_BaseBuiltInScorer):
             guidelines_context=guidelines_context,
         )
 
-    def configure(
+    def with_config(
         self,
         *,
         name: str = "guideline_adherence",
         global_guidelines: Optional[list[str]] = None,
     ) -> "GuidelineAdherence":
         """
-        Configure the scorer with additional parameters
+        Get a new scorer instance with the given name and global guidelines.
 
         Args:
             name: The name of the scorer. Default is "guideline_adherence".
@@ -456,7 +452,7 @@ class GuidelineAdherence(_BaseBuiltInScorer):
 
             from mlflow.genai.scorers import guideline_adherence
 
-            is_english = guideline_adherence.configure(
+            is_english = guideline_adherence.with_config(
                 name="is_english", global_guidelines=["The response must be in English"]
             )
 
@@ -474,9 +470,8 @@ class RelevanceToQuery(_BaseBuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Importing `from mlflow.genai.scorers import relevance_to_query` gives you an instance
-    of this scorer with default setting. You can override the setting by calling the
-    :py:meth:`configure` method.
+    Use `mlflow.genai.scorers.relevance_to_query` to get an instance of this scorer with
+    default setting. You can override the setting by the :py:meth:`with_config` method.
 
     Example (direct usage):
 
@@ -514,9 +509,9 @@ class RelevanceToQuery(_BaseBuiltInScorer):
         """Evaluate relevance to the user's query."""
         return super().__call__(inputs=inputs, outputs=outputs)
 
-    def configure(self, *, name: str = "relevance_to_query") -> "RelevanceToQuery":
+    def with_config(self, *, name: str = "relevance_to_query") -> "RelevanceToQuery":
         """
-        Configure the scorer with additional parameters such as name.
+        Get a new scorer instance with a specified name.
 
         Args:
             name: The name of the scorer. Default is "relevance_to_query".
@@ -532,9 +527,8 @@ class Safety(_BaseBuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Importing `from mlflow.genai.scorers import safety` gives you an instance
-    of this scorer with default setting. You can override the setting by calling the
-    :py:meth:`configure` method.
+    Use `mlflow.genai.scorers.safety` to get an instance of this scorer with
+    default setting. You can override the setting by the :py:meth:`with_config` method.
 
     Example (direct usage):
 
@@ -572,9 +566,9 @@ class Safety(_BaseBuiltInScorer):
         """Evaluate safety of the response."""
         return super().__call__(inputs=inputs, outputs=outputs)
 
-    def configure(self, *, name: str = "safety") -> "Safety":
+    def with_config(self, *, name: str = "safety") -> "Safety":
         """
-        Configure the scorer with additional parameters such as name.
+        Get a new scorer instance with a specified name.
 
         Args:
             name: The name of the scorer. Default is "safety".
@@ -590,9 +584,8 @@ class Correctness(_BaseBuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Importing `from mlflow.genai.scorers import correctness` gives you an instance
-    of this scorer with default setting. You can override the setting by calling the
-    :py:meth:`configure` method.
+    Use `mlflow.genai.scorers.correctness` to get an instance of this scorer with
+    default setting. You can override the setting by the :py:meth:`with_config` method.
 
     Example (direct usage):
 
@@ -660,12 +653,12 @@ class Correctness(_BaseBuiltInScorer):
         """Evaluate correctness of the response against expectations."""
         return super().__call__(inputs=inputs, outputs=outputs, expectations=expectations)
 
-    def configure(self, *, name: str = "correctness") -> "Correctness":
+    def with_config(self, *, name: str = "correctness") -> "Correctness":
         """
-        Configure the scorer with additional parameters such as name.
+        Get a new scorer instance with a specified name.
 
         Args:
-            name: The name of the scorer. Default is "correctness".
+            name: The new name of the scorer. Default is "correctness".
         """
         return Correctness(name=name)
 

@@ -23,7 +23,7 @@ def normalize_config(config):
 
 
 ALL_SCORERS = [
-    guideline_adherence.configure(name="politeness", global_guidelines=["Be polite", "Be kind"]),
+    guideline_adherence.with_config(name="politeness", global_guidelines=["Be polite", "Be kind"]),
     *get_all_scorers(),
 ]
 
@@ -52,7 +52,7 @@ expected = {
         ALL_SCORERS + ALL_SCORERS,  # duplicate scorers
         get_rag_scorers()
         + [
-            guideline_adherence.configure(
+            guideline_adherence.with_config(
                 name="politeness", global_guidelines=["Be polite", "Be kind"]
             ),
             guideline_adherence,
@@ -98,7 +98,7 @@ def test_individual_scorers(scorer, expected_metric):
 def test_global_guideline_adherence():
     """Test that the global guideline adherence scorer correctly updates the evaluation config."""
     evaluation_config = {}
-    scorer = guideline_adherence.configure(global_guidelines=["Be polite", "Be kind"])
+    scorer = guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"])
     evaluation_config = scorer.update_evaluation_config(evaluation_config)
 
     expected_conf = {
@@ -117,14 +117,14 @@ def test_multiple_global_guideline_adherence():
     """Test passing multiple global guideline adherence scorers with different names."""
     evaluation_config = {}
 
-    guideline = guideline_adherence.configure(
+    guideline = guideline_adherence.with_config(
         global_guidelines=["Be polite", "Be kind"]
     )  # w/ default name
-    english = guideline_adherence.configure(
+    english = guideline_adherence.with_config(
         name="english",
         global_guidelines=["The response must be in English"],
     )
-    clarify = guideline_adherence.configure(
+    clarify = guideline_adherence.with_config(
         name="clarify",
         global_guidelines=["The response must be clear, coherent, and concise"],
     )
@@ -150,12 +150,12 @@ def test_multiple_global_guideline_adherence():
     "scorers",
     [
         [
-            guideline_adherence.configure(global_guidelines=["Be polite", "Be kind"]),
+            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"]),
             guideline_adherence,
         ],
         [
             guideline_adherence,
-            guideline_adherence.configure(global_guidelines=["Be polite", "Be kind"]),
+            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"]),
         ],
     ],
 )
@@ -201,13 +201,13 @@ def test_builtin_scorer_block_mutations():
     ids=lambda x: x.__class__.__name__,
 )
 def test_configure_builtin_scorers(scorer, updates):
-    updated_scorer = scorer.configure(**updates)
+    updated_scorer = scorer.with_config(**updates)
 
-    assert updated_scorer is not scorer  # configure() should return a new instance
+    assert updated_scorer is not scorer  # with_config() should return a new instance
     assert isinstance(updated_scorer, scorer.__class__)
     for key, value in updates.items():
         assert getattr(updated_scorer, key) == value
 
     # Positional argument should not be allowed
-    with pytest.raises(TypeError, match=rf"{scorer.__class__.__name__}.configure\(\) takes"):
-        scorer.configure("custom_name")
+    with pytest.raises(TypeError, match=rf"{scorer.__class__.__name__}.with_config\(\) takes"):
+        scorer.with_config("custom_name")

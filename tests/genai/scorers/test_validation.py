@@ -31,7 +31,7 @@ def test_validate_scorers_valid():
         [
             chunk_relevance,
             correctness,
-            guideline_adherence.configure(global_guidelines=["Be polite", "Be kind"]),
+            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"]),
             custom_scorer,
         ]
     )
@@ -77,7 +77,7 @@ def test_validate_data(mock_logger):
         builtin_scorers=[
             chunk_relevance,
             groundedness,
-            guideline_adherence.configure(global_guidelines=["Be polite", "Be kind"]),
+            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"]),
         ],
     )
     mock_logger.info.assert_not_called()
@@ -120,7 +120,9 @@ def test_global_guideline_adherence_does_not_require_expectations(mock_logger):
     converted_date = _convert_to_legacy_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
-        builtin_scorers=[guideline_adherence.configure(global_guidelines=["Be polite", "Be kind"])],
+        builtin_scorers=[
+            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"])
+        ],
     )
     mock_logger.info.assert_not_called()
 
@@ -168,7 +170,7 @@ def test_validate_data_missing_columns(mock_logger):
         builtin_scorers=[
             chunk_relevance,
             groundedness,
-            guideline_adherence.configure(global_guidelines=["Be polite", "Be kind"]),
+            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"]),
         ],
     )
 
@@ -194,7 +196,7 @@ def test_validate_data_with_trace(mock_logger):
         builtin_scorers=[
             chunk_relevance,
             groundedness,
-            guideline_adherence.configure(global_guidelines=["Be polite", "Be kind"]),
+            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"]),
         ],
     )
     mock_logger.info.assert_not_called()
@@ -210,7 +212,7 @@ def test_validate_data_with_predict_fn(mock_logger):
         predict_fn=lambda x: x,
         builtin_scorers=[
             # Requires "outputs" but predict_fn will provide it
-            guideline_adherence.configure(global_guidelines=["Be polite", "Be kind"]),
+            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"]),
             # Requires "retrieved_context" but predict_fn will provide it
             chunk_relevance,
         ],
