@@ -185,7 +185,7 @@ class RunsArtifactRepository(ArtifactRepository):
             )
 
             raise MlflowException(
-                f"Failed to download artifacts from {full_path} due to: {e}. "
+                f"Failed to download artifacts from {full_path}. "
                 f"Searched for a model with name {model_name!r} associated with the run {run_id}, "
                 f"but no such model was found."
             ) from e
