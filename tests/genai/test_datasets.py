@@ -3,6 +3,10 @@ import pytest
 from mlflow.genai.datasets import create_dataset, delete_dataset, get_dataset
 
 
+def test_star_import_succeeds():
+    exec("from mlflow.genai.datasets import *")
+
+
 def test_create_dataset_raises_when_agents_not_installed():
     with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
         create_dataset("test_dataset")

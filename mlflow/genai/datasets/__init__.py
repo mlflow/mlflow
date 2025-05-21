@@ -79,8 +79,10 @@ def get_dataset(uc_table_name: str) -> "EvaluationDataset":
 
 
 __all__ = [
-    "EvaluationDataset",
     "create_dataset",
     "delete_dataset",
     "get_dataset",
+    *([
+        "EvaluationDataset",
+    ] if "EvaluationDataset" in locals() else [])
 ]
