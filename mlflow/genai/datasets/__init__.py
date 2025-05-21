@@ -23,6 +23,16 @@ except ImportError:
 def create_dataset(
     uc_table_name: str, experiment_id: Optional[Union[str, list[str]]] = None
 ) -> "EvaluationDataset":
+    """Create a dataset with the given name and associate it with the given experiment.
+
+    Args:
+        uc_table_name: The UC table name of the dataset.
+        experiment_id: The ID of the experiment to associate the dataset with. If not provided,
+            the current experiment is inferred from the environment.
+
+    Returns:
+        EvaluationDataset: The created dataset.
+    """
     try:
         from databricks.agents.datasets import create_dataset
     except ImportError:
@@ -34,6 +44,11 @@ def create_dataset(
 
 
 def delete_dataset(uc_table_name: str) -> None:
+    """Delete the dataset with the given name.
+
+    Args:
+        uc_table_name: The UC table name of the dataset.
+    """
     try:
         from databricks.agents.datasets import delete_dataset
     except ImportError:
@@ -45,6 +60,14 @@ def delete_dataset(uc_table_name: str) -> None:
 
 
 def get_dataset(uc_table_name: str) -> "EvaluationDataset":
+    """Get the dataset with the given name.
+
+    Args:
+        uc_table_name: The UC table name of the dataset.
+
+    Returns:
+        EvaluationDataset: The dataset.
+    """
     try:
         from databricks.agents.datasets import get_dataset
     except ImportError:
