@@ -19,7 +19,7 @@ import pytest
 import mlflow
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
-from mlflow import MlflowClient, set_active_model, unset_active_model
+from mlflow import MlflowClient, clear_active_model, set_active_model
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
@@ -2198,7 +2198,7 @@ def test_log_metrics_link_to_active_model():
     assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
 
 
-def test_unset_active_model():
+def test_clear_active_model():
     @mlflow.trace
     def predict(model_input):
         return model_input
@@ -2211,7 +2211,7 @@ def test_unset_active_model():
     assert len(traces) == 1
     assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model.model_id
 
-    unset_active_model()
+    clear_active_model()
     assert mlflow.get_active_model_id() is None
     with mlflow.start_run():
         mlflow.log_metric("metric", 1)
@@ -2235,9 +2235,9 @@ def test_unset_active_model():
     assert len(traces) == 3
     assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
 
-    unset_active_model()
+    clear_active_model()
     assert mlflow.get_active_model_id() is None
 
-    # ensure unset_active_model works when no model is set
-    unset_active_model()
+    # ensure clear_active_model works when no model is set
+    clear_active_model()
     assert mlflow.get_active_model_id() is None

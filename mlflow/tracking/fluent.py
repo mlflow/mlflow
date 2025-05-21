@@ -3472,9 +3472,9 @@ def _get_active_model_id_global() -> Optional[str]:
     _logger.debug("No active model ID found in any thread.")
 
 
-def unset_active_model() -> None:
+def clear_active_model() -> None:
     """
-    Unset the active model. This will unset the active model previously set by
+    Clear the active model. This will clear the active model previously set by
     :py:func:`mlflow.set_active_model` from current thread. To temporarily switch
     the active model, use ``with mlflow.set_active_model(...)`` instead.
 
@@ -3487,9 +3487,9 @@ def unset_active_model() -> None:
         # Set the active model by name
         mlflow.set_active_model(name="my_model")
 
-        # Unset the active model
-        mlflow.unset_active_model()
-        # Check that the active model is unset
+        # Clear the active model
+        mlflow.clear_active_model()
+        # Check that the active model is None
         assert mlflow.get_active_model_id() is None
 
         # If you want to temporarily set the active model,
