@@ -683,15 +683,26 @@ correctness = Correctness()
 # === Shorthand for all builtin RAG scorers ===
 def get_rag_scorers():
     """
-    Returns a list of all built-in RAG scorers.
+    Returns a list of built-in scorers for evaluating RAG models. Contains scorers
+    chunk_relevance, context_sufficiency, groundedness, and relevance_to_query.
 
     Example:
 
     .. code-block:: python
 
+        import mlflow
         from mlflow.genai.scorers import get_rag_scorers
 
-        mlflow.genai.evaluate(data=data, scorers=get_rag_scorers())
+        data = [
+            {
+                "inputs": {"question": "What is the capital of France?"},
+                "outputs": "The capital of France is Paris.",
+                "retrieved_context": [
+                    {"content": "Paris is the capital city of France."},
+                ],
+            }
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=get_rag_scorers())
     """
     return [
         chunk_relevance,
@@ -709,9 +720,19 @@ def get_all_scorers():
 
     .. code-block:: python
 
+        import mlflow
         from mlflow.genai.scorers import get_all_scorers
 
-        mlflow.genai.evaluate(data=data, scorers=get_all_scorers())
+        data = [
+            {
+                "inputs": {"question": "What is the capital of France?"},
+                "outputs": "The capital of France is Paris.",
+                "retrieved_context": [
+                    {"content": "Paris is the capital city of France."},
+                ],
+            }
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=get_all_scorers())
     """
     return get_rag_scorers() + [
         guideline_adherence,
