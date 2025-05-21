@@ -1024,7 +1024,7 @@ def test_search_traces_with_no_spans(monkeypatch):
 
 
 # no spans have the input or output with name,
-# some span has an input but we’re looking for output,
+# some span has an input but we're looking for output,
 def test_search_traces_with_input_and_no_output(monkeypatch):
     with mlflow.start_span(name="with_input_and_no_output") as span:
         span.set_inputs({"a": 1})
@@ -1066,7 +1066,7 @@ def test_search_traces_with_invalid_span_content(monkeypatch):
         mlflow.search_traces()
 
 
-# Test case where span inputs / outputs aren’t dict
+# Test case where span inputs / outputs aren't dict
 def test_search_traces_with_non_dict_span_inputs_outputs(monkeypatch):
     with mlflow.start_span(name="non_dict_span") as span:
         span.set_inputs(["a", "b"])
@@ -1133,7 +1133,7 @@ def test_search_traces_with_multiple_spans_with_same_name(monkeypatch):
     assert df["duplicate_name_2.inputs.z"].tolist() == [7]
 
 
-# Test a field that doesn’t exist for extraction - we shouldn’t throw, just return empty column
+# Test a field that doesn't exist for extraction - we shouldn't throw, just return empty column
 def test_search_traces_with_non_existent_field(monkeypatch):
     model = DefaultTestModel()
     model.predict(2, 5)
@@ -1158,7 +1158,7 @@ def test_search_traces_with_non_existent_field(monkeypatch):
     assert df["add_one_with_custom_name.inputs.z"].tolist() == [7]
 
 
-# Test experiment ID doesn’t need to be specified
+# Test experiment ID doesn't need to be specified
 def test_search_traces_without_experiment_id(monkeypatch):
     model = DefaultTestModel()
     model.predict(2, 5)
@@ -1258,6 +1258,63 @@ def test_search_traces_with_run_id():
             run_id=run2.info.run_id,
             filter_string="metadata.mlflow.sourceRun = '123'",
         )
+
+
+def test_search_traces_raises_for_v3_format(monkeypatch, databricks_tracking_uri, mock_store):
+    # The backend V2 SearchTraces endpoint returns V2 TraceInfo objects
+    # even when the traces are written from the MLflow 3.x clients
+    trace_info_v2_v3_mixed = [
+        # V3 trace info
+        TraceInfo(
+            request_id="tr-v3",
+            experiment_id="0",
+            timestamp_ms=0,
+            execution_time_ms=0,
+            status=SpanStatusCode.OK,
+            request_metadata={
+                "mlflow.trace_schema.version": "3",
+            },
+        ),
+        # V2 trace info
+        TraceInfo(
+            request_id="tr-v2",
+            experiment_id="0",
+            timestamp_ms=0,
+            execution_time_ms=0,
+            status=SpanStatusCode.OK,
+            request_metadata={
+                "mlflow.trace_schema.version": "2",
+            },
+        ),
+    ]
+    monkeypatch.setattr(
+        mock_store, "search_traces", mock.MagicMock(return_value=(trace_info_v2_v3_mixed, ""))
+    )
+    monkeypatch.setattr(
+        mock_store, "get_trace_info", mock.MagicMock(side_effect=trace_info_v2_v3_mixed)
+    )
+
+    # Mock artifact store to return different data for V2 and V3 traces
+    mock_v2_artifact_repo = mock.MagicMock()
+    mock_v2_artifact_repo.download_trace_data.return_value = {
+        "request": "request",
+        "response": "response",
+        "spans": [],
+    }
+
+    mock_v3_artifact_repo = mock.MagicMock()
+    mock_v3_artifact_repo.download_trace_data.return_value = {"spans": []}
+
+    def _mock_get_artifact_repo_for_trace(trace_info):
+        if trace_info.request_metadata.get("mlflow.trace_schema.version") == "2":
+            return mock_v2_artifact_repo
+        return mock_v3_artifact_repo
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient._get_artifact_repo_for_trace",
+        side_effect=_mock_get_artifact_repo_for_trace,
+    ):
+        mlflow.search_traces()
 
 
 @pytest.mark.parametrize(

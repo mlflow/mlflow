@@ -225,3 +225,21 @@ def test_from_dict_raises_when_request_id_is_empty():
                 "events": [],
             }
         )
+
+
+def test_from_dict_raises_for_v3_format():
+    v3_span_dict = {
+        "name": "test span",
+        "trace_id": "MTIzNDU2Nzg5MDEyMzQ1Ng==",
+        "span_id": "MTIzNDU2Nzg=",
+        "parent_span_id": None,
+        "start_time_unix_nano": 1234567890,
+        "end_time_unix_nano": 1234567891,
+        "status": {"code": 1, "message": "OK"},
+        "attributes": {"mlflow.request_id": {"string_value": "tr-123"}},
+        "events": [],
+        "trace_state": "",
+    }
+
+    with pytest.raises(MlflowException, match=r"Failed to load trace with ID"):
+        Span.from_dict(v3_span_dict)
