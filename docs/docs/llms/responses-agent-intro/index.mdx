@@ -19,7 +19,7 @@ We recommend <APILink fn="mlflow.pyfunc.ResponsesAgent">`ResponsesAgent`</APILin
 To create your own agent, subclass `mlflow.pyfunc.ResponsesAgent` and implement your agent logic in the `predict` method. The implementation is framework-agnostic, allowing you to use any agent authoring framework. Note that `pydantic>=2` is required to use ResponsesAgent. For example implementations, see the [simple chat agent](#simple-chat-example) and the [tool calling agent](#tool-calling-example) below.
 
 ### Creating agent output
-When implementing your agent, you'll work with two main output types: `ResponsesAgentResponse` and `ResponsesAgentStreamEvent`. These are the only pydantic objects you should create directly. The remaining classes in `mlflow.types.responses_helpers` are only for validating dictionaries.
+When implementing your agent, you'll work with two main output types: <APILink fn="mlflow.types.responses.ResponsesAgentResponse">`ResponsesAgentResponse`</APILink> and <APILink fn="mlflow.types.responses.ResponsesAgentResponse">`ResponsesAgentStreamEvent`</APILink>. These are the only pydantic objects you should create directly. The remaining classes in `mlflow.types.responses_helpers` are only for validating dictionaries.
 
 If you want to return outputs that don't fit into the standard interface, you can use the `custom_outputs` field.
 
