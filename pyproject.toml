@@ -272,6 +272,10 @@ exclude = [
   "mlflow/models/notebook_resources/eval_with_synthetic_example.py",
   "mlflow/server/js",
   "mlflow/store/db_migrations",
+  "mlflow/genai/__init__.py",
+  "mlflow/genai/datasets/__init__.py",
+  "mlflow/genai/labeling/__init__.py",
+  "mlflow/genai/label_schemas/__init__.py",
   "tests/protos",
 ]
 typing-extensions-allowlist = [
