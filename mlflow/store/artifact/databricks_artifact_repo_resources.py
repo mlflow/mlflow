@@ -1,11 +1,10 @@
 import posixpath
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Optional
 
 from mlflow.entities.file_info import FileInfo
-from mlflow.environment_variables import MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT
 from mlflow.protos.databricks_artifacts_pb2 import (
     DatabricksMlflowArtifactsService,
     GetCredentialsForLoggedModelDownload,
@@ -41,7 +40,7 @@ class HttpHeader:
 class ArtifactCredentialInfo:
     signed_uri: str
     type: Any
-    headers: list[HttpHeader]
+    headers: list[HttpHeader] = field(default_factory=list)
 
 
 @dataclass
@@ -64,9 +63,13 @@ class _Resource(ABC):
     def __init__(self, id_: str, artifact_uri: str, call_endpoint: Callable[..., Any]):
         self.id = id_
         self.artifact_uri = artifact_uri
-        self.call_endpoint = call_endpoint
+        self._call_endpoint = call_endpoint
         self._artifact_root = None
         self._relative_path = None
+
+    @property
+    def call_endpoint(self) -> Callable[..., Any]:
+        return self._call_endpoint
 
     @property
     def artifact_root(self) -> str:
@@ -234,7 +237,10 @@ class _Run(_Resource):
         path: Optional[str] = None,
         page_token: Optional[str] = None,
     ) -> ListArtifactsPage:
-        json_body = message_to_json(ListArtifacts(run_id=self.id, path=path, page_token=page_token))
+        path = posixpath.join(self.relative_path, path) if path else self.relative_path
+        json_body = message_to_json(
+            ListArtifacts(run_id=self.id, path=path, page_token=page_token),
+        )
         response = self.call_endpoint(MlflowService, ListArtifacts, json_body)
         files = response.files
         # If `path` is a file, ListArtifacts returns a single list element with the
@@ -265,6 +271,7 @@ class _Trace(_Resource):
         cred_type: _CredentialType,
         paths: Optional[list[str]] = None,
         page_token: Optional[str] = None,
+        timeout: Optional[int] = None,
     ) -> tuple[list[ArtifactCredentialInfo], Optional[str]]:
         res = self.call_endpoint(
             DatabricksMlflowArtifactsService,
@@ -274,7 +281,7 @@ class _Trace(_Resource):
                 else GetCredentialsForTraceDataUpload
             ),
             path_params={"request_id": self.id},
-            retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
+            retry_timeout_seconds=timeout,
         )
         cred_inf = ArtifactCredentialInfo(
             signed_uri=res.credential_info.signed_uri,

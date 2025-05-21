@@ -28,6 +28,7 @@ from langchain.evaluation.qa import QAEvalChain
 from mlflow.environment_variables import (
     MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN,
 )
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.types.schema import Object, Property
 
@@ -3681,3 +3682,39 @@ def test_log_langchain_model_with_prompt():
         response
         == '[{"role": "user", "content": "What is a good name for a company that makes shoe?"}]'
     )
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Feature not existing",
+)
+def test_predict_with_callbacks_with_tracing(monkeypatch):
+    # Simulate the model serving environment
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
+    # write to mlflow backend as well
+    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "true")
+    mlflow.tracing.reset()
+
+    model_info = mlflow.langchain.log_model(
+        os.path.abspath("tests/langchain/sample_code/workflow.py"),
+        name="model_path",
+        input_example={"messages": [{"role": "user", "content": "What is MLflow?"}]},
+    )
+    # serving environment only reads from this environment variable
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", mlflow.last_logged_model().experiment_id)
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    request_id = "mock_request_id"
+    tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
+    input_example = {"messages": [{"role": "user", "content": TEST_CONTENT}]}
+
+    with mock.patch("mlflow.tracing.client.TracingClient.start_trace_v3") as mock_start_trace_v3:
+        pyfunc_model._model_impl._predict_with_callbacks(
+            data=input_example, callback_handlers=[tracer]
+        )
+        mock_start_trace_v3.assert_called_once()
+        trace = mock_start_trace_v3.call_args[0][0]
+        assert trace.info.client_request_id == request_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id

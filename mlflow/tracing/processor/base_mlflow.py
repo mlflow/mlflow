@@ -7,7 +7,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
@@ -26,11 +26,12 @@ from mlflow.tracing.utils import (
     maybe_get_logged_model_id,
     maybe_get_request_id,
 )
-from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
-from mlflow.tracking.context.git_context import GitRunContext
-from mlflow.tracking.context.registry import resolve_tags
-from mlflow.tracking.fluent import _get_experiment_id, _get_latest_active_run, get_active_model_id
-from mlflow.utils.mlflow_tags import TRACE_RESOLVE_TAGS_ALLOWLIST
+from mlflow.tracing.utils.environment import resolve_env_metadata
+from mlflow.tracking.fluent import (
+    _get_active_model_id_global,
+    _get_experiment_id,
+    _get_latest_active_run,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -49,17 +50,7 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         self.span_exporter = span_exporter
         self._experiment_id = experiment_id
         self._trace_manager = InMemoryTraceManager.get_instance()
-
-        # Common environment metadata to be saved in the trace info. These should not
-        # change over time, so we resolve them once at the processor initialization.
-        # TODO: Update this to metadata field rather than tags in the follow-up,
-        #   because tags are designed for mutable values.
-        unfiltered_tags = resolve_tags(ignore=[DatabricksRepoRunContext, GitRunContext])
-        self._env_tags = {
-            key: value
-            for key, value in unfiltered_tags.items()
-            if key in TRACE_RESOLVE_TAGS_ALLOWLIST
-        }
+        self._env_metadata = resolve_env_metadata()
 
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
         """
@@ -87,7 +78,7 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
 
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
 
-    def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
+    def _start_trace(self, root_span: OTelSpan) -> TraceInfoV2:
         raise NotImplementedError("Subclasses must implement this method.")
 
     def on_end(self, span: OTelReadableSpan) -> None:
@@ -136,7 +127,10 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         return _get_experiment_id()
 
     def _get_basic_trace_metadata(self) -> dict[str, Any]:
-        metadata = {TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}
+        metadata = {
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+            **self._env_metadata,
+        }
 
         # If the span is started within an active MLflow run, we should record it as a trace tag
         # Note `mlflow.active_run()` can only get thread-local active run,
@@ -149,7 +143,13 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         if run := _get_latest_active_run():
             metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
 
-        if model_id := maybe_get_logged_model_id():
+        # The order is:
+        # 1. model_id of the current active model set by `set_active_model`
+        # 2. model_id from the current prediction context
+        #   (set by mlflow pyfunc predict, or explicitly using set_prediction_context)
+        if active_model_id := _get_active_model_id_global():
+            metadata[TraceMetadataKey.MODEL_ID] = active_model_id
+        elif model_id := maybe_get_logged_model_id():
             metadata[TraceMetadataKey.MODEL_ID] = model_id
 
         return metadata
@@ -158,7 +158,7 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         # If the trace is created in the context of MLflow model evaluation, we extract the request
         # ID from the prediction context. Otherwise, we create a new trace info by calling the
         # backend API.
-        tags = self._env_tags.copy()
+        tags = {}
         if request_id := maybe_get_request_id(is_evaluate=True):
             tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
         if dependencies_schema := maybe_get_dependencies_schemas():
@@ -184,14 +184,6 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
                 ),
             }
         )
-
-        # model_id is used in start_span and passed as attribute, so it should
-        # be used even if active_model_id exists
-        # TODO: We should remove the model ID from the span attributes
-        if model_id := get_otel_attribute(root_span, SpanAttributeKey.MODEL_ID):
-            trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = model_id
-        elif active_model_id := get_active_model_id():
-            trace.info.request_metadata[SpanAttributeKey.MODEL_ID] = active_model_id
 
     def _truncate_metadata(self, value: Optional[str]) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""

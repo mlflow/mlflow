@@ -21,10 +21,11 @@ from mlflow.entities import (
     SpanStatusCode,
     SpanType,
     Trace,
-    TraceInfo,
+    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
@@ -175,7 +176,7 @@ def test_client_create_run_with_name(mock_store, mock_time):
 
 
 def test_client_get_trace(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfo(
+    mock_store.get_trace_info.return_value = TraceInfoV2(
         request_id="tr-1234567",
         experiment_id="0",
         timestamp_ms=123,
@@ -232,7 +233,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
 
 
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfo(
+    mock_store.get_trace_info.return_value = TraceInfoV2(
         request_id="1234567",
         experiment_id="0",
         timestamp_ms=123,
@@ -259,7 +260,7 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
 @pytest.mark.parametrize("include_spans", [True, False])
 def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
     mock_traces = [
-        TraceInfo(
+        TraceInfoV2(
             request_id="1234567",
             experiment_id="1",
             timestamp_ms=123,
@@ -267,7 +268,7 @@ def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
             status=TraceStatus.OK,
             tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
         ),
-        TraceInfo(
+        TraceInfoV2(
             request_id="8910",
             experiment_id="2",
             timestamp_ms=456,
@@ -322,7 +323,7 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
         return_value=CustomArtifactRepository("test"),
     ) as mock_get_artifact_repository:
         mock_traces = [
-            TraceInfo(
+            TraceInfoV2(
                 request_id="1234567",
                 experiment_id="1",
                 timestamp_ms=123,
@@ -2041,6 +2042,53 @@ def test_log_and_detach_prompt(tracking_uri):
     assert [p.name for p in prompts] == ["p2"]
 
 
+def test_search_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    client.register_prompt(name="prompt_1", template="Hi, {{name}}!")
+    client.register_prompt(name="prompt_2", template="Hello, {{name}}!")
+    client.register_prompt(name="prompt_3", template="Greetings, {{name}}!")
+    client.register_prompt(name="prompt_4", template="Howdy, {{name}}!")
+    client.register_prompt(name="prompt_5", template="Salutations, {{name}}!")
+    client.register_prompt(name="prompt_6", template="Bonjour, {{name}}!")
+    client.register_prompt(name="test", template="Test Template")
+    client.register_prompt(name="new", template="Bonjour, {{name}}!")
+
+    prompts = client.search_prompts(filter_string="name='prompt_1'")
+    assert len(prompts) == 1
+    assert prompts[0].name == "prompt_1"
+
+    prompts = client.search_prompts(filter_string="name LIKE '%prompt%'")
+    assert len(prompts) == 6
+    assert all("prompt" in prompt.name for prompt in prompts)
+
+    prompts = client.search_prompts()
+    assert len(prompts) == 8
+
+    prompts = client.search_prompts(max_results=3)
+    assert len(prompts) == 3
+
+
+def test_search_prompt_multiple_versions(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+    name = "prompt_multi"
+
+    v1 = client.register_prompt(name=name, template="First version, {{x}}")
+    assert v1.version == 1
+    assert v1.template == "First version, {{x}}"
+
+    v2 = client.register_prompt(name=name, template="Second version, {{x}}")
+    assert v2.version == 2
+    assert v2.template == "Second version, {{x}}"
+
+    prompts = client.search_prompts()
+    assert len(prompts) == 1
+
+    prompt = prompts[0]
+    versions = sorted([mv.version for mv in prompt.latest_versions])
+    assert versions == [2]
+
+
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment_id = client.create_experiment("test")
@@ -2084,3 +2132,55 @@ def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
     ]
     artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="dir")
     assert artifacts == [FileInfo(path="dir/another_file", is_dir=False, file_size=2)]
+
+
+def test_logged_model_model_id_required(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.finalize_logged_model("", LoggedModelStatus.READY)
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.get_logged_model("")
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.delete_logged_model("")
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.set_logged_model_tags("", {})
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.delete_logged_model_tag("", "")
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+def test_log_metric_link_to_active_model(tracking_uri):
+    model = mlflow.create_external_model(name="test_model")
+    mlflow.set_active_model(name=model.name)
+    client = MlflowClient(tracking_uri=tracking_uri)
+    with mlflow.start_run() as run:
+        client.log_metric(run.info.run_id, "metric", 1)
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.name == model.name
+    assert logged_model.model_id == model.model_id
+    assert logged_model.metrics[0].key == "metric"
+    assert logged_model.metrics[0].value == 1
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+def test_log_batch_link_to_active_model(tracking_uri):
+    model = mlflow.create_external_model(name="test_model")
+    mlflow.set_active_model(name=model.name)
+    client = MlflowClient(tracking_uri=tracking_uri)
+    with mlflow.start_run() as run:
+        client.log_batch(run.info.run_id, [Metric("metric1", 1, 0, 0), Metric("metric2", 2, 0, 0)])
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.name == model.name
+    assert logged_model.model_id == model.model_id
+    assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}

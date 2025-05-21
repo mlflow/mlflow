@@ -47,7 +47,12 @@ from mlflow.models.dependencies_schemas import (
     _get_dependencies_schema_from_model,
     _get_dependencies_schemas,
 )
-from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH, MODEL_CONFIG
+from mlflow.models.model import (
+    MLMODEL_FILE_NAME,
+    MODEL_CODE_PATH,
+    MODEL_CONFIG,
+    _update_active_model_id_based_on_mlflow_model,
+)
 from mlflow.models.resources import DatabricksFunction, Resource, _ResourceBuilder
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import (
@@ -56,18 +61,12 @@ from mlflow.models.utils import (
     _save_example,
 )
 from mlflow.pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
+from mlflow.pyfunc.context import Context
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking.fluent import (
-    _get_active_model_context,
-    _set_active_model,
-)
 from mlflow.types.schema import ColSpec, DataType, Schema
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import (
-    disable_autologging_globally,
-)
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
     is_in_databricks_model_serving_environment,
@@ -419,7 +418,6 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces for internal predict calls while logging model
-@disable_autologging_globally  # Avoid side-effect of autologging while logging model
 def log_model(
     lc_model,
     artifact_path: Optional[str] = None,
@@ -692,7 +690,9 @@ class _LangChainModelWrapper:
 
         return self._predict_with_callbacks(data, params, callback_handlers=callbacks)
 
-    def _update_dependencies_schemas_in_prediction_context(self, callback_handlers):
+    def _update_dependencies_schemas_in_prediction_context(
+        self, callback_handlers
+    ) -> Optional[Context]:
         from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
         if (
@@ -706,8 +706,9 @@ class _LangChainModelWrapper:
         ):
             model = Model.load(self.model_path)
             context = tracer._prediction_context
-            if schema := _get_dependencies_schema_from_model(model):
+            if context and (schema := _get_dependencies_schema_from_model(model)):
                 context.update(**schema)
+            return context
 
     @experimental
     def _predict_with_callbacks(
@@ -730,7 +731,7 @@ class _LangChainModelWrapper:
         """
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
-        self._update_dependencies_schemas_in_prediction_context(callback_handlers)
+        context = self._update_dependencies_schemas_in_prediction_context(callback_handlers)
         messages, return_first_element = self._prepare_predict_messages(data)
         results = process_api_requests(
             lc_model=self.lc_model,
@@ -738,6 +739,7 @@ class _LangChainModelWrapper:
             callback_handlers=callback_handlers,
             convert_chat_responses=convert_chat_responses,
             params=params or {},
+            context=context,
         )
         return results[0] if return_first_element else results
 
@@ -847,17 +849,6 @@ def _load_pyfunc(path: str, model_config: Optional[dict[str, Any]] = None):  # n
 
 def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
     mlflow_model = Model.load(local_model_path)
-    if (
-        mlflow_model.model_id
-        and (amc := _get_active_model_context())
-        # only set the active model if the model is not set by the user
-        and not amc.set_by_user
-        and amc.model_id != mlflow_model.model_id
-    ):
-        _set_active_model(model_id=mlflow_model.model_id)
-        logger.info(
-            "Use `mlflow.set_active_model` to set the active model to a different one if needed."
-        )
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pyfunc_flavor_conf = _get_flavor_configuration(
         model_path=local_model_path, flavor_name=PYFUNC_FLAVOR_NAME
@@ -891,15 +882,17 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
             # We would like to clean up the dependencies schema which is set to global
             # after loading the mode to avoid the schema being used in the next model loading
             _clear_dependencies_schemas()
-        return model
     else:
-        return _load_model(local_model_path, flavor_conf)
+        model = _load_model(local_model_path, flavor_conf)
+    # set active model after model loading since experiment ID might be set
+    # in the model loading process
+    _update_active_model_id_based_on_mlflow_model(mlflow_model)
+    return model
 
 
 @experimental
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces while loading model
-@disable_autologging_globally  # Avoid side-effect of autologging while loading model
 def load_model(model_uri, dst_path=None):
     """
     Load a LangChain model from a local file or a run.

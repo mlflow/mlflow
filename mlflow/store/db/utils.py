@@ -162,13 +162,13 @@ def _get_managed_session_maker(SessionMaker, db_type):
                     "SQLAlchemy database error. The following exception is caught.\n%s",
                     e,
                 )
-                raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE)
+                raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE) from e
             except sqlalchemy.exc.SQLAlchemyError as e:
                 session.rollback()
-                raise MlflowException(message=e, error_code=BAD_REQUEST)
+                raise MlflowException(message=e, error_code=BAD_REQUEST) from e
             except Exception as e:
                 session.rollback()
-                raise MlflowException(message=e, error_code=INTERNAL_ERROR)
+                raise MlflowException(message=e, error_code=INTERNAL_ERROR) from e
 
     return make_managed_session
 

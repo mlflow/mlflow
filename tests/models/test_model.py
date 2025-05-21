@@ -681,3 +681,29 @@ def test_save_model_with_prompts():
     assert len(associated_prompts) == 2
     assert associated_prompts[0].name == prompt_2.name
     assert associated_prompts[1].name == prompt_1.name
+
+
+def test_logged_model_status():
+    def predict_fn(model_input: list[str]):
+        return model_input
+
+    model_info = mlflow.pyfunc.log_model(
+        name="test_model",
+        python_model=predict_fn,
+        input_example=["a", "b", "c"],
+    )
+    logged_model = mlflow.get_logged_model(model_info.model_id)
+    assert logged_model.status == "READY"
+
+    with pytest.raises(Exception, match=r"mock exception"):
+        with mock.patch(
+            "mlflow.pyfunc.model._save_model_with_class_artifacts_params",
+            side_effect=Exception("mock exception"),
+        ):
+            mlflow.pyfunc.log_model(
+                name="test_model",
+                python_model=predict_fn,
+                input_example=["a", "b", "c"],
+            )
+    logged_model = mlflow.last_logged_model()
+    assert logged_model.status == "FAILED"

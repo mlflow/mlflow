@@ -15,7 +15,6 @@ import {
   PDF_EXTENSIONS,
   DATA_EXTENSIONS,
   AUDIO_EXTENSIONS,
-  VIDEO_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { getLoggedModelPathsFromTags, getLoggedTablesFromTags } from '../../../common/utils/TagUtils';
 import { ONE_MB } from '../../constants';
@@ -25,7 +24,6 @@ import { LazyShowArtifactMapView } from './LazyShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
 import { LazyShowArtifactPdfView } from './LazyShowArtifactPdfView';
 import { LazyShowArtifactTableView } from './LazyShowArtifactTableView';
-import { LazyShowArtifactVideoView } from './LazyShowArtifactVideoView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import previewIcon from '../../../common/static/preview-icon.png';
 import warningSvg from '../../../common/static/warning.svg';
@@ -48,18 +46,18 @@ type ShowArtifactPageProps = {
   runTags?: any;
   modelVersions?: any[];
   showArtifactLoggedTableView?: boolean;
-  autoRefreshEnabled?: boolean; // Add autoRefreshEnabled prop
 } & LoggedModelArtifactViewerProps;
 
 class ShowArtifactPage extends Component<ShowArtifactPageProps> {
   render() {
     if (this.props.path) {
-      const { loggedModelId, isLoggedModelsMode, path, runUuid, autoRefreshEnabled } = this.props;
+      const { loggedModelId, isLoggedModelsMode, path, runUuid, experimentId } = this.props;
       const commonArtifactProps = {
         loggedModelId,
         isLoggedModelsMode,
         path,
         runUuid,
+        experimentId,
       };
 
       const normalizedExtension = getExtension(this.props.path);
@@ -87,6 +85,7 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
               path={this.props.path}
               artifactRootUri={this.props.artifactRootUri}
               registeredModelLink={registeredModelLink}
+              experimentId={this.props.experimentId}
             />
           );
         }
@@ -98,13 +97,7 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
         } else if (DATA_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactTableView {...commonArtifactProps} />;
         } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return (
-            <ShowArtifactTextView
-              {...commonArtifactProps}
-              size={this.props.size}
-              autoRefreshEnabled={autoRefreshEnabled}
-            />
-          ); // Pass the auto-refresh prop
+          return <ShowArtifactTextView {...commonArtifactProps} size={this.props.size} />;
         } else if (MAP_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactMapView {...commonArtifactProps} />;
         } else if (HTML_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
@@ -113,8 +106,6 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
           return <LazyShowArtifactPdfView {...commonArtifactProps} />;
         } else if (AUDIO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactAudioView {...commonArtifactProps} />;
-        } else if (VIDEO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <LazyShowArtifactVideoView {...commonArtifactProps} />;
         }
       }
     }
@@ -140,7 +131,7 @@ const getSelectFileView = () => {
         }
         description={
           <FormattedMessage
-            defaultMessage="Supported formats: image, text, html, pdf, audio, video, geojson files"
+            defaultMessage="Supported formats: image, text, html, pdf, audio, geojson files"
             description="Text to explain users which formats are supported to display the artifacts"
           />
         }

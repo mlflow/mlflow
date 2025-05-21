@@ -2,8 +2,11 @@ import json
 import logging
 from typing import Any, Optional
 
+import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
+from mlflow.entities.run import Run
+from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
@@ -14,6 +17,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -23,7 +27,13 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import active_run
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import (
+    _construct_databricks_uc_registered_model_url,
+    get_workspace_id,
+    get_workspace_url,
+)
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils.uri import is_databricks_unity_catalog_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -169,10 +179,27 @@ def _register_model(
         local_model_path=local_model_path,
         model_id=model_id,
     )
-    eprint(
+    created_message = (
         f"Created version '{create_version_response.version}' of model "
-        f"'{create_version_response.name}'."
+        f"'{create_version_response.name}'"
     )
+    # Print a link to the UC model version page if the model is in UC.
+    registry_uri = mlflow.get_registry_uri()
+    if (
+        MLFLOW_PRINT_MODEL_URLS_ON_CREATION.get()
+        and is_databricks_unity_catalog_uri(registry_uri)
+        and (url := get_workspace_url())
+    ):
+        uc_model_url = _construct_databricks_uc_registered_model_url(
+            url,
+            create_version_response.name,
+            create_version_response.version,
+            get_workspace_id(),
+        )
+        created_message = "🔗 " + created_message + f": {uc_model_url}"
+    else:
+        created_message += "."
+    eprint(created_message)
 
     if model_id:
         new_value = [
@@ -193,7 +220,7 @@ def _register_model(
     return create_version_response
 
 
-def _get_logged_models_from_run(source_run: str, model_name: str) -> list[LoggedModel]:
+def _get_logged_models_from_run(source_run: Run, model_name: str) -> list[LoggedModel]:
     """Get all logged models from the source rnu that have the specified model name.
 
     Args:
@@ -207,17 +234,12 @@ def _get_logged_models_from_run(source_run: str, model_name: str) -> list[Logged
     while True:
         logged_models_page = client.search_logged_models(
             experiment_ids=[source_run.info.experiment_id],
-            # TODO: Use filter_string once the backend supports it
-            # filter_string="...",
+            # TODO: Filter by 'source_run_id' once Databricks backend supports it
+            filter_string=f"name = '{model_name}'",
             page_token=page_token,
         )
         logged_models.extend(
-            [
-                logged_model
-                for logged_model in logged_models_page
-                if logged_model.source_run_id == source_run.info.run_id
-                and logged_model.name == model_name
-            ]
+            m for m in logged_models_page if m.source_run_id == source_run.info.run_id
         )
         if not logged_models_page.token:
             break
@@ -428,6 +450,29 @@ def search_model_versions(
     )
 
 
+def set_model_version_tag(
+    name: str,
+    version: Optional[str] = None,
+    key: Optional[str] = None,
+    value: Any = None,
+) -> None:
+    """
+    Set a tag for the model version.
+
+    Args:
+        name: Registered model name.
+        version: Registered model version.
+        key: Tag key to log. key is required.
+        value: Tag value to log. value is required.
+    """
+    return MlflowClient().set_model_version_tag(
+        name=name,
+        version=version,
+        key=key,
+        value=value,
+    )
+
+
 @experimental
 @require_prompt_registry
 def register_prompt(
@@ -522,6 +567,23 @@ def register_prompt(
         commit_message=commit_message,
         tags=tags,
         version_metadata=version_metadata,
+    )
+
+
+@require_prompt_registry
+def search_prompts(
+    filter_string: Optional[str] = None,
+    max_results: Optional[int] = None,
+) -> PagedList[Prompt]:
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_prompts(
+            filter_string=filter_string, max_results=number_to_get, page_token=next_page_token
+        )
+
+    return get_results_from_paginated_fn(
+        pagination_wrapper_func,
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        max_results,
     )
 
 

@@ -10,7 +10,12 @@ import { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFace
 import { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import { searchModelVersionsApi } from '../../../../model-registry/actions';
-import { shouldEnableExperimentPageAutoRefresh } from '../../../../common/utils/FeatureUtils';
+import { PredefinedError } from '@databricks/web-shared/errors';
+import { mapErrorWrapperToPredefinedError } from '../../../../common/utils/ErrorUtils';
+import {
+  shouldEnableExperimentPageAutoRefresh,
+  shouldUsePredefinedErrorsInExperimentTracking,
+} from '../../../../common/utils/FeatureUtils';
 import Utils from '../../../../common/utils/Utils';
 import { useExperimentRunsAutoRefresh } from './useExperimentRunsAutoRefresh';
 import type { RunEntity, SearchRunsApiResponse } from '../../../types';
@@ -96,8 +101,11 @@ export const useExperimentRuns = (
 
   const loadModelVersions = useCallback(
     (runs: Parameters<typeof fetchModelVersionsForRuns>[0]) => {
-      const handleModelVersionLoadFailure = (e: Error | ErrorWrapper) => {
-        const message = e instanceof ErrorWrapper ? e.getMessageField() : e.message;
+      const handleModelVersionLoadFailure = (error: Error | ErrorWrapper) => {
+        const normalizedError =
+          (error instanceof ErrorWrapper ? mapErrorWrapperToPredefinedError(error) : error) ?? error;
+        const message =
+          normalizedError instanceof ErrorWrapper ? normalizedError.getMessageField() : normalizedError.message;
         Utils.displayGlobalErrorNotification(`Failed to load model versions for runs: ${message}`);
       };
 
@@ -123,6 +131,7 @@ export const useExperimentRuns = (
 
             setIsLoadingRuns(false);
             setIsInitialLoadingRuns(false);
+            setRequestError(null);
 
             if (lastRequestedParams.current && options.discardResultsFn?.(lastRequestedParams.current, value)) {
               return value;
@@ -140,11 +149,25 @@ export const useExperimentRuns = (
             loadModelVersions(value.runs || []);
             return value;
           })
-          .catch((e) => {
+          .catch((e: ErrorWrapper | PredefinedError) => {
             setIsLoadingRuns(false);
             setIsInitialLoadingRuns(false);
+            if (shouldUsePredefinedErrorsInExperimentTracking()) {
+              // If it's already a PredefinedError, we don't need to map it again
+              if (e instanceof PredefinedError) {
+                setRequestError(e);
+                return;
+              }
+              const maybePredefinedError = mapErrorWrapperToPredefinedError(e);
+              if (maybePredefinedError) {
+                setRequestError(maybePredefinedError);
+                return;
+              }
+            }
             setRequestError(e);
-            Utils.logErrorAndNotifyUser(e);
+            if (!shouldUsePredefinedErrorsInExperimentTracking()) {
+              Utils.logErrorAndNotifyUser(e);
+            }
           });
       }),
     [dispatch, setResultRunsData, loadModelVersions],

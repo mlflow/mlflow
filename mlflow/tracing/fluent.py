@@ -18,7 +18,6 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
 from mlflow.tracing.client import TracingClient
@@ -64,7 +63,6 @@ def trace(
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
     output_reducer: Optional[Callable] = None,
-    model_id: Optional[str] = None,
 ) -> Callable:
     """
     A decorator that creates a new span for the decorated function.
@@ -155,7 +153,6 @@ def trace(
         attributes: A dictionary of attributes to set on the span.
         output_reducer: A function that reduces the outputs of the generator function into a
             single value to be set as the span output.
-        model_id: If specified, associates the span with the given model ID.
     """
 
     def decorator(fn):
@@ -166,7 +163,7 @@ def trace(
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions."
                 )
-            return _wrap_function(fn, name, span_type, attributes, model_id)
+            return _wrap_function(fn, name, span_type, attributes)
 
     return decorator(func) if func else decorator
 
@@ -176,7 +173,6 @@ def _wrap_function(
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
-    model_id: Optional[str] = None,
 ) -> Callable:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -185,9 +181,7 @@ def _wrap_function(
         def _wrapping_logic(fn, args, kwargs):
             span_name = name or fn.__name__
 
-            with start_span(
-                name=span_name, span_type=span_type, attributes=attributes, model_id=model_id
-            ) as span:
+            with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
                 inputs = capture_function_input_args(fn, args, kwargs)
                 span.set_inputs(inputs)
@@ -229,7 +223,7 @@ def _wrap_function(
             with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                 return wrapping_coro.send(fn(*args, **kwargs))
 
-    return functools.wraps(fn)(wrapper)
+    return _wrap_function_safe(fn, wrapper)
 
 
 def _wrap_generator(
@@ -361,7 +355,17 @@ def _wrap_generator(
                     i += 1
             _end_stream_span(span, inputs, outputs, output_reducer)
 
-    return functools.wraps(fn)(wrapper)
+    return _wrap_function_safe(fn, wrapper)
+
+
+def _wrap_function_safe(fn: Callable, wrapper: Callable) -> Callable:
+    wrapped = functools.wraps(fn)(wrapper)
+    # Update the signature of the wrapper to match the signature of the original (safely)
+    try:
+        wrapped.__signature__ = inspect.signature(fn)
+    except Exception:
+        pass
+    return wrapped
 
 
 @contextlib.contextmanager
@@ -369,7 +373,6 @@ def start_span(
     name: str = "span",
     span_type: Optional[str] = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
-    model_id: Optional[str] = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -421,7 +424,6 @@ def start_span(
         span_type: The type of the span. Can be either a string or
             a :py:class:`SpanType <mlflow.entities.SpanType>` enum value
         attributes: A dictionary of attributes to set on the span.
-        model_id: If specified, associates the span with the given model ID.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
@@ -433,8 +435,6 @@ def start_span(
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
         mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
         attributes = dict(attributes) if attributes is not None else {}
-        if model_id is not None:
-            attributes[SpanAttributeKey.MODEL_ID] = model_id
         mlflow_span.set_attributes(attributes)
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
@@ -916,11 +916,11 @@ def update_current_trace(
     active_span = get_current_active_span()
 
     if not active_span:
-        raise MlflowException(
+        _logger.warning(
             "No active trace found. Please create a span using `mlflow.start_span` or "
-            "`@mlflow.trace` before calling this function.",
-            error_code=BAD_REQUEST,
+            "`@mlflow.trace` before calling `mlflow.update_current_trace`.",
         )
+        return
 
     if isinstance(tags, dict):
         non_string_items = {k: v for k, v in tags.items() if not isinstance(v, str)}
@@ -945,13 +945,14 @@ def update_current_trace(
         trace.info.tags.update(tags or {})
 
 
-def set_trace_tag(request_id: str, key: str, value: str):
+@request_id_backward_compatible
+def set_trace_tag(trace_id: str, key: str, value: str):
     """
     Set a tag on the trace with the given trace ID.
 
     The trace can be an active one or the one that has already ended and recorded in the
     backend. Below is an example of setting a tag on an active trace. You can replace the
-    ``request_id`` parameter to set a tag on an already ended trace.
+    ``trace_id`` parameter to set a tag on an already ended trace.
 
     .. code-block:: python
         :test:
@@ -959,25 +960,26 @@ def set_trace_tag(request_id: str, key: str, value: str):
         import mlflow
 
         with mlflow.start_span(name="span") as span:
-            mlflow.set_trace_tag(span.request_id, "key", "value")
+            mlflow.set_trace_tag(span.trace_id, "key", "value")
 
     Args:
-        request_id: The ID of the trace to set the tag on.
+        trace_id: The ID of the trace to set the tag on.
         key: The string key of the tag. Must be at most 250 characters long, otherwise
             it will be truncated when stored.
         value: The string value of the tag. Must be at most 250 characters long, otherwise
             it will be truncated when stored.
     """
-    TracingClient().set_trace_tag(request_id, key, value)
+    TracingClient().set_trace_tag(trace_id, key, value)
 
 
-def delete_trace_tag(request_id: str, key: str) -> None:
+@request_id_backward_compatible
+def delete_trace_tag(trace_id: str, key: str) -> None:
     """
     Delete a tag on the trace with the given trace ID.
 
     The trace can be an active one or the one that has already ended and recorded in the
     backend. Below is an example of deleting a tag on an active trace. You can replace the
-    ``request_id`` parameter to delete a tag on an already ended trace.
+    ``trace_id`` parameter to delete a tag on an already ended trace.
 
     .. code-block:: python
         :test:
@@ -985,15 +987,15 @@ def delete_trace_tag(request_id: str, key: str) -> None:
         import mlflow
 
         with mlflow.start_span("my_span") as span:
-            mlflow.set_trace_tag(span.request_id, "key", "value")
-            mlflow.delete_trace_tag(span.request_id, "key")
+            mlflow.set_trace_tag(span.trace_id, "key", "value")
+            mlflow.delete_trace_tag(span.trace_id, "key")
 
     Args:
-        request_id: The ID of the trace to delete the tag from.
+        trace_id: The ID of the trace to delete the tag from.
         key: The string key of the tag. Must be at most 250 characters long, otherwise
             it will be truncated when stored.
     """
-    TracingClient().delete_trace_tag(request_id, key)
+    TracingClient().delete_trace_tag(trace_id, key)
 
 
 @experimental

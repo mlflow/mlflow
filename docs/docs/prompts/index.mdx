@@ -184,6 +184,38 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
+### 5. Search Prompts
+
+You can discover prompts by name, tag or other registry fields:
+
+<Tabs>
+  <TabItem value="python" label="Python" default>
+  ```python
+  import mlflow
+
+  # Fluent API: returns a flat list of all matching prompts
+  prompts = mlflow.search_prompts(filter_string="task='summarization'")
+  print(f"Found {len(prompts)} prompts")
+
+  # For pagination control, use the client API:
+  from mlflow.tracking import MlflowClient
+
+  client = MlflowClient()
+  all_prompts = []
+  token = None
+  while True:
+      page = client.search_prompts(
+          filter_string="task='summarization'",
+          max_results=50,
+          page_token=token,
+      )
+      all_prompts.extend(page)
+      token = page.token
+      if not token:
+          break
+  print(f"Total prompts across pages: {len(all_prompts)}")
+  ```
+</TabItem> </Tabs>
 
 ## Prompt Object
 

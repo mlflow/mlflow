@@ -21,7 +21,8 @@ class AssessmentSource(_MlflowObject):
     Args:
         source_type: The type of the assessment source. Must be one of the values in
             the AssessmentSourceType enum.
-        source_id: An identifier for the source, e.g. user ID or LLM judge ID.
+        source_id: An identifier for the source, e.g. user ID or LLM judge ID. If not
+            provided, the default value "default" is used.
 
     Example:
 
@@ -66,7 +67,7 @@ class AssessmentSource(_MlflowObject):
     """
 
     source_type: str
-    source_id: str
+    source_id: str = "default"
 
     def __post_init__(self):
         # Perform the standardization on source_type after initialization

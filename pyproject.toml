@@ -28,8 +28,6 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
   "Flask<4",
-  "Jinja2<4,>=2.11; platform_system != 'Windows'",
-  "Jinja2<4,>=3.0; platform_system == 'Windows'",
   "alembic<2,!=1.10.0",
   "cachetools<6,>=5.0.0",
   "click<9,>=7.0",
@@ -41,7 +39,6 @@ dependencies = [
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
   "importlib_metadata<9,>=3.7.0,!=4.7.0",
-  "markdown<4,>=3.3",
   "matplotlib<4",
   "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
@@ -49,7 +46,7 @@ dependencies = [
   "packaging<26",
   "pandas<3",
   "protobuf<7,>=3.12.0",
-  "pyarrow<20,>=4.0.0",
+  "pyarrow<21,>=4.0.0",
   "pydantic<3,>=1.10.8",
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
@@ -110,7 +107,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 xethub = ["mlflow-xethub"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.1.0,<=0.3.24"]
+langchain = ["langchain>=0.1.0,<=0.3.25"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]
@@ -138,7 +135,6 @@ openai = "mlflow.deployments.openai"
 mlflow = [
   "store/db_migrations/alembic.ini",
   "temporary_db_migrations_for_pre_1_users/alembic.ini",
-  "pypi_package_index.json",
   "pyspark/ml/log_model_allowlist.txt",
   "server/auth/basic_auth.ini",
   "server/auth/db/migrations/alembic.ini",
@@ -276,6 +272,10 @@ exclude = [
   "mlflow/models/notebook_resources/eval_with_synthetic_example.py",
   "mlflow/server/js",
   "mlflow/store/db_migrations",
+  "mlflow/genai/__init__.py",
+  "mlflow/genai/datasets/__init__.py",
+  "mlflow/genai/labeling/__init__.py",
+  "mlflow/genai/label_schemas/__init__.py",
   "tests/protos",
 ]
 typing-extensions-allowlist = [

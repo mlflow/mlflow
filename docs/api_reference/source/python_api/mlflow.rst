@@ -6,11 +6,17 @@ mlflow
     :undoc-members:
     :exclude-members:
         MlflowClient,
+        add_trace,
         trace,
         start_span,
         start_span_no_context,
         get_trace,
         search_traces,
+        log_assessment,
+        log_expectation,
+        log_feedback,
+        update_assessment,
+        delete_assessment,
         get_current_active_span,
         get_last_active_trace_id,
         create_external_model,
@@ -21,7 +27,9 @@ mlflow
         last_logged_model,
         search_logged_models,
         set_active_model,
-        set_logged_model_tags
+        set_logged_model_tags,
+        log_model_params,
+        clear_active_model
 
 .. _mlflow-tracing-fluent-python-apis:
 
@@ -38,6 +46,11 @@ guidance on how to use these tracing APIs, please refer to the `Tracing Fluent A
 .. autofunction:: mlflow.search_traces
 .. autofunction:: mlflow.get_current_active_span
 .. autofunction:: mlflow.get_last_active_trace_id
+.. autofunction:: mlflow.add_trace
+.. autofunction:: mlflow.log_assessment
+.. autofunction:: mlflow.update_assessment
+.. autofunction:: mlflow.delete_assessment
+
 .. automodule:: mlflow.tracing
     :members:
     :undoc-members:
@@ -50,6 +63,7 @@ MLflow Logged Model APIs
 
 The ``mlflow`` module provides a set of high-level APIs to interact with ``MLflow Logged Models``.
 
+.. autofunction:: mlflow.clear_active_model
 .. autofunction:: mlflow.create_external_model
 .. autofunction:: mlflow.delete_logged_model_tag
 .. autofunction:: mlflow.finalize_logged_model
@@ -59,3 +73,4 @@ The ``mlflow`` module provides a set of high-level APIs to interact with ``MLflo
 .. autofunction:: mlflow.search_logged_models
 .. autofunction:: mlflow.set_active_model
 .. autofunction:: mlflow.set_logged_model_tags
+.. autofunction:: mlflow.log_model_params
