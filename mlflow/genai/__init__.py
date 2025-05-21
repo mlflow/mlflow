@@ -1,7 +1,14 @@
+import warnings
+
 from mlflow.genai.evaluation import evaluate, to_predict_fn
 from mlflow.genai.scorers import Scorer, scorer
 
 try:
+    with warnings.catch_warnings():
+        # Ignore warnings from the mlflow.genai.datasets module
+        warnings.filterwarnings("ignore", message="The `databricks-agents` package is required")
+        from mlflow.genai.datasets import EvaluationDataset
+
     from mlflow.genai.labeling import (
         Agent,
         LabelingSession,
@@ -12,12 +19,10 @@ try:
         get_labeling_session,
         delete_labeling_session,
     )
-    from mlflow.genai.datasets import EvaluationDataset
 except ImportError:
     # Silently fail if the databricks-agents package is not installed
     pass
 
-# Stick this at the end to avoid unnecessary warnings (thrown by EvaluationDataset)
 from mlflow.genai.datasets import (
     create_dataset,
     delete_dataset,

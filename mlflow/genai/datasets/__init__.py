@@ -6,17 +6,15 @@ The API docs can be found here:
 <https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#datasets>
 """
 
-import logging
+import warnings
 from typing import Optional, Union
-
-logger = logging.getLogger(__name__)
 
 try:
     from databricks.agents.datasets import (
         Dataset as EvaluationDataset,
     )
 except ImportError:
-    logger.warning(
+    warnings.warn(
         "The `databricks-agents` package is required to use `mlflow.genai.datasets`. "
         "Please install it with `pip install databricks-agents`."
     )
