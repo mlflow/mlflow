@@ -681,7 +681,8 @@ correctness = Correctness()
 
 
 # === Shorthand for all builtin RAG scorers ===
-def get_rag_scorers():
+@experimental
+def get_rag_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of built-in scorers for evaluating RAG models. Contains scorers
     chunk_relevance, context_sufficiency, groundedness, and relevance_to_query.
@@ -712,7 +713,8 @@ def get_rag_scorers():
     ]
 
 
-def get_all_scorers():
+@experimental
+def get_all_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of all built-in scorers.
 
