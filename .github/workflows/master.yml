@@ -343,7 +343,9 @@ jobs:
           # Install databricks-agents from a pre-release wheel because the latest released version
           # is not compatible with MLflow master. Using --no-deps because it pings mlflow to 3.0.0rc2.
           pip install https://ml-team-public-read.s3.us-west-2.amazonaws.com/wheels/rag-studio/dev/samraj.moorjani/databricks_agents-1.0.0rc1.dev0-py3-none-any.whl --no-deps
-          pytest tests/genai
+          pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py
+          pip uninstall -y databricks-agents
+          pytest tests/genai/test_genai_import_without_agent_sdk.py
 
   optuna:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
