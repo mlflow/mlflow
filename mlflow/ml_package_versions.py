@@ -282,13 +282,13 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.12.36"
         }
     },
-    "autogen": {
+    "ag2": {
         "package_info": {
-            "pip_release": "autogen-agentchat"
+            "pip_release": "ag2"
         },
         "autologging": {
             "minimum": "0.2.36",
-            "maximum": "0.2.40"
+            "maximum": "0.6.1"
         }
     },
     "gemini": {
@@ -428,6 +428,7 @@ FLAVOR_TO_MODULE_NAME = {
     "llama_index": "llama_index.core",
     "autogen": "autogen",
     "gemini": "google.genai",
+    "ag2": "ag2",
     "anthropic": "anthropic",
     "crewai": "crewai",
     "pydantic_ai": "pydantic_ai",

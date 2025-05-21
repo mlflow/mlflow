@@ -768,15 +768,12 @@ llama_index:
       "< 0.11.0": ["pydantic<2"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
 
-autogen:
+ag2:
   package_info:
-    pip_release: "autogen-agentchat"
-    # TODO: Uncomment this once we support autogen 0.4
-    # install_dev: |
-    #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
+    pip_release: "ag2"
   autologging:
     minimum: "0.2.36"
-    maximum: "0.2.40"
+    maximum: "0.6.1"
     unsupported: [">=0.4"]
     python:
       "== dev": "3.10"
@@ -786,7 +783,7 @@ autogen:
           "fastapi",
           "uvicorn",
         ]
-    run: pytest tests/autogen
+    run: pytest tests/ag2
 
 gemini:
   package_info:

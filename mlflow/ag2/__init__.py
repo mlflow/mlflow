@@ -1,7 +1,7 @@
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 
-FLAVOR_NAME = "autogen"
+FLAVOR_NAME = "ag2"
 
 
 @experimental
@@ -11,8 +11,8 @@ def autolog(
     silent: bool = False,
 ):
     """
-    Enables (or disables) and configures autologging from Autogen to MLflow. Currently, MLflow
-    only supports tracing for Autogen agents.
+    Enables (or disables) and configures autologging from ag2 to MLflow. Currently, MLflow
+    only supports tracing for ag2 agents.
 
     Args:
         log_traces: If ``True``, traces are logged for Autogen agents by using runtime logging.
@@ -23,7 +23,7 @@ def autolog(
     """
     from autogen import runtime_logging
 
-    from mlflow.autogen.autogen_logger import MlflowAutogenLogger
+    from mlflow.ag2.ag2_logger import MlflowAutogenLogger
 
     # NB: The @autologging_integration annotation is used for adding shared logic. However, one
     # caveat is that the wrapped function is NOT executed when disable=True is passed. This prevents
