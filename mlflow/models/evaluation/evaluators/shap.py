@@ -8,6 +8,7 @@ from sklearn.pipeline import Pipeline as sk_Pipeline
 
 import mlflow
 from mlflow import MlflowException
+from mlflow.environment_variables import MLFLOW_LOG_SHAP_EXPLAINER
 from mlflow.models.evaluation.base import EvaluationMetric, EvaluationResult, _ModelType
 from mlflow.models.evaluation.default_evaluator import (
     BuiltInEvaluator,
@@ -45,7 +46,7 @@ class ShapEvaluator(BuiltInEvaluator):
     @classmethod
     def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
         return model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR) and evaluator_config.get(
-            "log_model_explainability", True
+            "log_model_explainability", False
         )
 
     def _evaluate(
@@ -218,17 +219,20 @@ class ShapEvaluator(BuiltInEvaluator):
             )
             _logger.debug("", exc_info=True)
             return
-        try:
-            mlflow.shap.log_explainer(explainer, name="explainer")
-        except Exception as e:
-            # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
-            #   then fallback to shap explainer saver, and shap explainer will call `model.save`
-            #   for sklearn model, there is no `.save` method, so error will happen.
-            _logger.warning(
-                f"Logging explainer failed. Reason: {e!r}. "
-                "Set logging level to DEBUG to see the full traceback."
-            )
-            _logger.debug("", exc_info=True)
+
+        if MLFLOW_LOG_SHAP_EXPLAINER.get():
+            try:
+                mlflow.shap.log_explainer(explainer, name="explainer")
+            except Exception as e:
+                # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return
+                #   "unknown", then fallback to shap explainer saver, and shap explainer will call
+                #   `model.save` for sklearn model, there is no `.save` method, so error will
+                #   happen.
+                _logger.warning(
+                    f"Logging explainer failed. Reason: {e!r}. "
+                    "Set logging level to DEBUG to see the full traceback."
+                )
+                _logger.debug("", exc_info=True)
 
         def _adjust_color_bar():
             pyplot.gcf().axes[-1].set_aspect("auto")
