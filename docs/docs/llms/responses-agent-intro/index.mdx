@@ -68,7 +68,7 @@ For real-time processing, you can use streaming events instead of returning a co
 To stream text within the ResponsesAgent interface, you should:
 - yield `response.output_text.delta` events with the chunks as they become available
     - it must have an `item_id` that corresponds related events to a single output item
-- yield a `response.output_item.done` event to aggregate all chunks and complete the message
+- yield a `response.output_item.done` event to aggregate all chunks
 
 ```python
 from mlflow.types.responses import ResponsesAgentStreamEvent
@@ -91,10 +91,14 @@ class SimpleResponsesAgent(ResponsesAgent):
             **self.create_text_delta(delta="!", item_id="msg_1"),
         )
 
-        # the text output item id should be the same item_id as the streamed text deltas
+        # the text output item id should be the same
+        # item_id as the streamed text deltas
         yield ResponsesAgentStreamEvent(
             type="response.output_item.done",
-            item=self.create_text_output_item(text="Hello world!", id="msg_1"),
+            item=self.create_text_output_item(
+                text="Hello world!",
+                id="msg_1",
+            ),
         )
 ```
 
