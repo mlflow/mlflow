@@ -291,6 +291,16 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.6.1"
         }
     },
+    "autogen": {
+        "package_info": {
+            "pip_release": "autogen-agentchat",
+            "module_name": "autogen_agentchat"
+        },
+        "autologging": {
+            "minimum": "0.5.7",
+            "maximum": "0.5.7"
+        }
+    },
     "gemini": {
         "package_info": {
             "pip_release": "google-genai",
@@ -426,9 +436,9 @@ FLAVOR_TO_MODULE_NAME = {
     "dspy": "dspy",
     "langchain": "langchain",
     "llama_index": "llama_index.core",
-    "autogen": "autogen",
-    "gemini": "google.genai",
     "ag2": "ag2",
+    "autogen": "autogen_agentchat",
+    "gemini": "google.genai",
     "anthropic": "anthropic",
     "crewai": "crewai",
     "pydantic_ai": "pydantic_ai",
