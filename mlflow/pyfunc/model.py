@@ -886,7 +886,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "`predict_stream` method on your model to generate streaming predictions"
             )
 
-        def create_text_delta(self, delta: str, id: str) -> dict[str, Any]:
+        def create_text_delta(self, delta: str, item_id: str) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the text delta schema for
             streaming.
 
@@ -894,7 +894,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
             """
             return {
                 "type": "response.output_text.delta",
-                "id": id,
+                "item_id": item_id,
                 "delta": delta,
             }
 

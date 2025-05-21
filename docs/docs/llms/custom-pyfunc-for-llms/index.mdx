@@ -3,6 +3,10 @@ import { CardGroup, PageCard } from "@site/src/components/Card";
 
 # Deploying Advanced LLMs with Custom PyFuncs in MLflow
 
+:::warning attention
+Starting in MLflow 3.0.0, we recommend `ResponsesAgent` instead of <APILink fn="mlflow.pyfunc.ChatModel">`ChatModel`</APILink>. See more details in the [ResponsesAgent Introduction](./respones-agent-intro).
+:::
+
 Advanced Large Language Models (LLMs) such as the MPT-7B instruct transformer are intricate and have requirements that don't align with
 traditional MLflow flavors. This demands a deeper understanding and the need for custom solutions.
 
