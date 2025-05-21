@@ -303,6 +303,15 @@ class Feedback(Assessment):
         feedback.assessment_id = d.get("assessment_id") or None
         return feedback
 
+    # Backward compatibility: The old assessment object had these fields at top level.
+    @property
+    def error_code(self):
+        return self.feedback.error.error_code if self.feedback.error else None
+
+    @property
+    def error_message(self):
+        return self.feedback.error.error_message if self.feedback.error else None
+
 
 @experimental
 @dataclass
