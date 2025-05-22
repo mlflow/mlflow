@@ -186,8 +186,8 @@ class RunsArtifactRepository(ArtifactRepository):
 
             raise MlflowException(
                 f"Failed to download artifacts from {full_path}. "
-                f"Searched for a model with name {model_name!r} associated with the run {run_id}, "
-                f"but no such model was found."
+                f"No model named {model_name!r} was found for run {run_id}. "
+                f"Please ensure that you've specified the correct model name or artifact path."
             ) from e
 
     def _download_file(self, remote_file_path, local_path):
