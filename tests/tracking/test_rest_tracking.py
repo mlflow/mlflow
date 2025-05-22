@@ -12,6 +12,7 @@ import posixpath
 import sys
 import time
 import urllib.parse
+from io import StringIO
 from unittest import mock
 
 import flask
@@ -39,6 +40,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
@@ -2653,3 +2655,13 @@ def test_get_logged_model_artifact(mlflow_client: MlflowClient):
     )
     assert resp.status_code == 200
     assert model_info.model_id in resp.text
+
+
+def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
+    monkeypatch.setenv(MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT.name, "true")
+    exp_id = mlflow_client.create_experiment("test_suppress_url_printing")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+    captured_output = StringIO()
+    monkeypatch.setattr(sys, "stdout", captured_output)
+    mlflow_client._tracking_client._log_url(run.info.run_id)
+    assert captured_output.getvalue() == ""

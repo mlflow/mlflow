@@ -1117,13 +1117,13 @@ class Model:
                         _logger.warning("Failed to flatten nested params: %s", str(e))
                         params_to_log = model_config
 
-                try:
-                    # do not log params to run if run_id is None, since that could trigger
-                    # a new run to be created
-                    if run_id:
-                        mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
-                except Exception as e:
-                    _logger.warning("Failed to log model config as params: %s", str(e))
+                    try:
+                        # do not log params to run if run_id is None, since that could trigger
+                        # a new run to be created
+                        if run_id:
+                            mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
+                    except Exception as e:
+                        _logger.warning("Failed to log model config as params: %s", str(e))
 
             if registered_model_name is not None:
                 registered_model = mlflow.tracking._model_registry.fluent._register_model(

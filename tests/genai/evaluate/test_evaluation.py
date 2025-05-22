@@ -10,6 +10,7 @@ from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.genai.evaluation.base import _evaluate, _to_predict_fn
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, safety
 
@@ -70,7 +71,7 @@ def test_evaluate_with_static_dataset():
         },
     ]
 
-    result = mlflow.genai.evaluate(
+    result = _evaluate(
         data=data,
         scorers=[exact_match, max_length, relevance, has_trace],
     )
@@ -108,7 +109,7 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced):
     model = TestModel()
     predict_fn = mlflow.trace(model.predict) if is_predict_fn_traced else model.predict
 
-    result = mlflow.genai.evaluate(
+    result = _evaluate(
         predict_fn=predict_fn,
         data=data,
         scorers=[exact_match, max_length, relevance, has_trace],
@@ -173,7 +174,7 @@ def test_evaluate_with_traces(pass_full_dataframe):
     if not pass_full_dataframe:
         data = data[["trace"]]
 
-    result = mlflow.genai.evaluate(
+    result = _evaluate(
         data=data,
         scorers=[exact_match, max_length, relevance, has_trace],
     )
@@ -213,7 +214,7 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client):
         },
     ]
 
-    predict_fn = mlflow.genai.to_predict_fn("endpoints:/chat")
+    predict_fn = _to_predict_fn("endpoints:/chat")
 
     # predict_fn should be callable with a single input
     response = predict_fn(**data[0]["inputs"])
@@ -226,7 +227,7 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client):
     mock_client.reset_mock()
 
     # Running evaluation
-    result = mlflow.genai.evaluate(
+    result = _evaluate(
         data=data,
         predict_fn=predict_fn,
         scorers=[has_trace],
@@ -258,7 +259,7 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client):
 
 
 def test_evaluate_passes_model_id_to_mlflow_evaluate():
-    # Tracking URI = databricks is required to use mlflow.genai.evaluate()
+    # Tracking URI = databricks is required to use _evaluate()
     mlflow.set_tracking_uri("databricks")
     data = [
         {"inputs": {"x": "bar"}, "outputs": "response from model"},
@@ -271,11 +272,11 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
         def model(x):
             return x
 
-        mlflow.genai.evaluate(
+        _evaluate(
             data=data,
             predict_fn=model,
             model_id="test_model_id",
-            scorers=[safety()],
+            scorers=[safety],
         )
 
         # Verify the call was made with the right parameters
@@ -293,10 +294,10 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
 @patch("mlflow.get_tracking_uri", return_value="databricks")
 def test_no_scorers(mock_get_tracking_uri):
     with pytest.raises(TypeError, match=r"evaluate\(\) missing 1 required positional"):
-        mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}])
+        _evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}])
 
     with pytest.raises(MlflowException, match=r"The `scorers` argument must be a list of"):
-        mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
+        _evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
 
 
 @pytest.mark.parametrize("pass_full_dataframe", [True, False])
@@ -315,4 +316,4 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe):
         traces = traces[["trace"]]
 
     # Harness should run without an error
-    mlflow.genai.evaluate(data=traces, scorers=[safety()])
+    _evaluate(data=traces, scorers=[safety])

@@ -5,6 +5,7 @@ from typing import Any, Callable, Literal, Optional, Union
 from pydantic import BaseModel
 
 from mlflow.entities import Assessment, Feedback
+from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.utils.annotations import experimental
 
@@ -45,7 +46,7 @@ class Scorer(BaseModel):
                 f"Feedback, or list[Feedback]. Got {result_type}"
             )
 
-        if isinstance(result, Feedback):
+        if isinstance(result, Feedback) and result.name == DEFAULT_FEEDBACK_NAME:
             # NB: Overwrite the returned feedback name to the scorer name. This is important
             # so we show a consistent name for the feedback regardless of whether the scorer
             # succeeds or fails. For example, let's say we have a scorer like this:
@@ -54,13 +55,14 @@ class Scorer(BaseModel):
             # def my_scorer():
             #     # do something
             #     ...
-            #     return Feedback(name="another_name", value=True)
+            #     return Feedback(value=True)
             #
-            # If the scorer succeeds, the returned feedback name will be "another_name".
+            # If the scorer succeeds, the returned feedback name will be default "feedback".
             # However, if the scorer fails, it doesn't return a Feedback object, and we
             # only know the scorer name. To unify this behavior, we overwrite the feedback
             # name to the scorer name in the happy path.
             # This will not apply when the scorer returns a list of Feedback objects.
+            # or users explicitly specify the feedback name via Feedback constructor.
             result.name = self.name
 
         return result
@@ -259,10 +261,8 @@ def scorer(
 
     .. note::
 
-        The metric name will be determined by the scorer's name specified in the `name`
-        parameter or inferred from the scorer function's name. When returning a
-        :class:`~mlflow.entities.Feedback` object from the scorer, the name of the
-        feedback will **not** be used as the metric name.
+        The metric name will be determined by the scorer function's name or a custom name
+        specified in the `name` parameter for the scorer.
 
     Example:
 

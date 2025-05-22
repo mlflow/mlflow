@@ -310,7 +310,7 @@ def infer_python_version(package: str, version: str) -> str:
     """
     Infer the minimum Python version required by the package.
     """
-    candidates = ("3.9", "3.10")
+    candidates = ("3.10",)
     if rp := _requires_python(package, version):
         spec = SpecifierSet(rp)
         return next(filter(spec.contains, candidates), candidates[0])
@@ -649,7 +649,7 @@ def apply_changed_files(changed_files, matrix):
     changed_flavors = (
         # If this file has been changed, re-run all tests
         all_flavors
-        if (__file__ in changed_files)
+        if str(Path(__file__).relative_to(Path.cwd())) in changed_files
         else get_changed_flavors(changed_files, all_flavors)
     )
 

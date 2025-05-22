@@ -450,6 +450,29 @@ def search_model_versions(
     )
 
 
+def set_model_version_tag(
+    name: str,
+    version: Optional[str] = None,
+    key: Optional[str] = None,
+    value: Any = None,
+) -> None:
+    """
+    Set a tag for the model version.
+
+    Args:
+        name: Registered model name.
+        version: Registered model version.
+        key: Tag key to log. key is required.
+        value: Tag value to log. value is required.
+    """
+    return MlflowClient().set_model_version_tag(
+        name=name,
+        version=version,
+        key=key,
+        value=value,
+    )
+
+
 @experimental
 @require_prompt_registry
 def register_prompt(

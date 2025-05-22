@@ -1,6 +1,7 @@
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from mlflow.entities.assessment import (
+    DEFAULT_FEEDBACK_NAME,
     Assessment,
     AssessmentError,
     Expectation,
@@ -118,6 +119,7 @@ def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
 
 @experimental
 def log_expectation(
+    *,
     trace_id: str,
     name: str,
     value: Any,
@@ -126,9 +128,7 @@ def log_expectation(
     span_id: Optional[str] = None,
 ) -> Assessment:
     """
-    DEPRECATED: Use :py:func:`~mlflow.log_assessment` instead.
-
-    Logs an expectation (e.g. ground truth label) to a Trace.
+    Logs an expectation (e.g. ground truth label) to a Trace. This API only takes keyword arguments.
 
     Args:
         trace_id: The ID of the trace.
@@ -224,23 +224,23 @@ def delete_assessment(trace_id: str, assessment_id: str):
 
 @experimental
 def log_feedback(
+    *,
     trace_id: str,
-    name: str,
+    name: str = DEFAULT_FEEDBACK_NAME,
     value: Optional[FeedbackValueType] = None,
     source: Optional[AssessmentSource] = None,
-    error: Optional[AssessmentError] = None,
+    error: Optional[Union[Expectation, AssessmentError]] = None,
     rationale: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
     span_id: Optional[str] = None,
 ) -> Assessment:
     """
-    DEPRECATED: Use :py:func:`~mlflow.log_assessment` instead.
-
-    Logs feedback to a Trace.
+    Logs feedback to a Trace. This API only takes keyword arguments.
 
     Args:
         trace_id: The ID of the trace.
-        name: The name of the feedback assessment e.g., "faithfulness"
+        name: The name of the feedback assessment e.g., "faithfulness". Defaults to
+            "feedback" if not provided.
         value: The value of the feedback. Must be one of the following types:
             - float
             - int
@@ -252,8 +252,9 @@ def log_feedback(
                 :py:class:`~mlflow.entities.AssessmentSource`. If not provided, defaults to
                 CODE source type
         error: An error object representing any issues encountered while computing the
-            feedback, e.g., a timeout error from an LLM judge. Either this or `value`
-            must be provided.
+            feedback, e.g., a timeout error from an LLM judge. Accepts an exception
+            object, or an :py:class:`~mlflow.entities.Expectation` object. Either
+            this or `value` must be provided.
         rationale: The rationale / justification for the feedback.
         metadata: Additional metadata for the feedback.
         span_id: The ID of the span associated with the feedback, if it needs be

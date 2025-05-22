@@ -97,6 +97,7 @@ from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
+    is_in_databricks_runtime,
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
@@ -5287,6 +5288,20 @@ class MlflowClient:
             None
         """
         _validate_model_id_specified(model_id)
+        try:
+            self._tracking_client.get_logged_model(model_id)
+        except Exception as e:
+            extra_error_reason = (
+                "the logged model may exist in a different workspace, "
+                if is_in_databricks_runtime()
+                else ""
+            )
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to get logged model with ID {model_id}. "
+                f"You may not have access to the logged model, {extra_error_reason}or the "
+                "logged model may have been deleted. If you are attempting to log parameters "
+                "to a Registered Model Version, this is not supported."
+            ) from e
         return self._tracking_client.log_model_params(model_id, params)
 
     @experimental
@@ -5346,6 +5361,20 @@ class MlflowClient:
             None
         """
         _validate_model_id_specified(model_id)
+        try:
+            self._tracking_client.get_logged_model(model_id)
+        except Exception as e:
+            extra_error_reason = (
+                "the logged model may exist in a different workspace, "
+                if is_in_databricks_runtime()
+                else ""
+            )
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to get logged model with ID {model_id}. "
+                f"You may not have access to the logged model, {extra_error_reason}or the "
+                "logged model may have been deleted. If you are attempting to "
+                "set tags on a Registered Model Version, use `set_model_version_tag` instead."
+            ) from e
         self._tracking_client.set_logged_model_tags(model_id, tags)
 
     @experimental

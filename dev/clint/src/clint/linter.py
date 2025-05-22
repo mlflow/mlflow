@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import fnmatch
+import functools
 import json
 import re
 import textwrap
@@ -39,19 +40,6 @@ def ignore_map(code: str) -> dict[str, set[int]]:
     return mapping
 
 
-def _is_log_model(node: ast.AST) -> bool:
-    """
-    Is this node a call to `log_model`?
-    """
-    if isinstance(node, ast.Name):
-        return "log_model" in node.id
-
-    elif isinstance(node, ast.Attribute):
-        return "log_model" in node.attr
-
-    return False
-
-
 def _is_set_active_model(node: ast.AST) -> bool:
     """
     Is this node a call to `set_active_model`?
@@ -78,7 +66,8 @@ class Violation:
         cell_loc = f"cell {self.cell}:" if self.cell is not None else ""
         return (
             f"{self.path}:{cell_loc}{self.lineno}:{self.col_offset}: "
-            f"{self.rule.id}: {self.rule.message}"
+            f"{self.rule.id}: {self.rule.message} "
+            f"See dev/clint/README.md for instructions on ignoring this rule ({self.rule.name})."
         )
 
     def json(self) -> dict[str, str | int | None]:
@@ -179,6 +168,39 @@ def _parse_docstring_args(docstring: str) -> list[str]:
             args_header_indent = _get_indent(line)
 
     return args
+
+
+class _ArtifactPathFinder(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.artifact_path_index: int | None = None
+
+    @classmethod
+    def parse(cls, file: Path) -> int | None:
+        v = cls()
+        v.visit(ast.parse(file.read_text()))
+        return v.artifact_path_index
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        if node.name == "log_model":
+            artifact_path_index = next(
+                (i for i, arg in enumerate(node.args.args) if arg.arg == "artifact_path"), None
+            )
+            if artifact_path_index is not None:
+                self.artifact_path_index = artifact_path_index
+
+
+@functools.lru_cache(maxsize=32)
+def _find_artifact_path_index(call_path: tuple[str, str]) -> int | None:
+    """
+    Finds the index of the `artifact_path` argument in the function signature of `log_model`.
+    """
+    for p in Path(*call_path).rglob("*.py"):
+        if not p.is_file():
+            continue
+
+        if (idx := _ArtifactPathFinder.parse(p)) is not None:
+            return idx
+    return None
 
 
 class Linter(ast.NodeVisitor):
@@ -454,6 +476,37 @@ class Linter(ast.NodeVisitor):
             rules.ForbiddenSetActiveModelUsage(),
         )
 
+    def _resolve_call(self, node: ast.AST) -> list[str]:
+        if isinstance(node, ast.Call):
+            return self._resolve_call(node.func)
+        elif isinstance(node, ast.Attribute):
+            return self._resolve_call(node.value) + [node.attr]
+        elif isinstance(node, ast.Name):
+            return [node.id]
+        return []
+
+    def _log_model_with_artifact_path(self, node: ast.Call) -> bool:
+        """
+        Returns True if the call looks like `mlflow.<flavor>.log_model(...)` and
+        the `artifact_path` argument is specified.
+        """
+        parts = self._resolve_call(node)
+        if len(parts) != 3:
+            return False
+
+        first, second, third = parts
+        if not (first == "mlflow" and third == "log_model"):
+            return False
+
+        artifact_path_idx = _find_artifact_path_index((first, second))
+        if artifact_path_idx is None:
+            return False
+
+        if len(node.args) > artifact_path_idx:
+            return True
+        else:
+            return any(kw.arg and kw.arg == "artifact_path" for kw in node.keywords)
+
     def visit_Call(self, node: ast.Call) -> None:
         if (
             self.is_mlflow_init_py
@@ -468,12 +521,8 @@ class Linter(ast.NodeVisitor):
             ):
                 self.lazy_modules[last_arg.value] = Location.from_node(node)
 
-        if (
-            self.path.parts[0] in ["tests", "mlflow"]
-            and _is_log_model(node.func)
-            and any(arg.arg == "artifact_path" for arg in node.keywords)
-        ):
-            self._check(Location.from_node(node), rules.KeywordArtifactPath())
+        if self._log_model_with_artifact_path(node):
+            self._check(Location.from_node(node), rules.LogModelArtifactPath())
 
         if rules.UseSysExecutable.check(node):
             self._check(Location.from_node(node), rules.UseSysExecutable())

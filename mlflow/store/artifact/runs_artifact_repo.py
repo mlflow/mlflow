@@ -134,7 +134,7 @@ class RunsArtifactRepository(ArtifactRepository):
         """
         try:
             return self.repo.download_artifacts(artifact_path, dst_path)
-        except Exception:
+        except Exception as e:
             from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
             full_path = f"{self.artifact_uri}/{artifact_path}"
@@ -184,7 +184,11 @@ class RunsArtifactRepository(ArtifactRepository):
                 f"run {run_id}."
             )
 
-            raise  # raise the original exception if no matching model is found
+            raise MlflowException(
+                f"Failed to download artifacts from {full_path}. "
+                f"No model named {model_name!r} was found for run {run_id}. "
+                f"Please ensure that you've specified the correct model name or artifact path."
+            ) from e
 
     def _download_file(self, remote_file_path, local_path):
         """

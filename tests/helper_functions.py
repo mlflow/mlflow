@@ -726,11 +726,20 @@ def _is_hf_hub_healthy() -> bool:
         return True
 
     try:
-        dataset = next(HfApi().list_datasets(filter="size_categories:n<1K", limit=1))
-        datasets.load_dataset(dataset.id)
+        for dataset in HfApi().list_datasets(filter="size_categories:n<1K", limit=10):
+            # Gated datasets (e.g., https://huggingface.co/datasets/PatronusAI/TRAIL) require
+            # authentication to access.
+            if not dataset.gated:
+                datasets.load_dataset(dataset.id)
+                return True
+
         return True
     except requests.exceptions.RequestException:
         return False
+    except Exception as e:
+        _logger.warning(f"Unexpected error while checking Hugging Face Hub health: {e}. ")
+        # For any other exceptions, we assume the hub is healthy.
+        return True
 
 
 def _iter_pr_files() -> Iterator[str]:
