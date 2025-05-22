@@ -772,9 +772,8 @@ ag2:
   package_info:
     pip_release: "ag2"
   autologging:
-    minimum: "0.2.36"
-    maximum: "0.6.1"
-    unsupported: [">=0.4"]
+    minimum: "0.7.0"
+    maximum: "0.9.1"
     python:
       "== dev": "3.10"
     requirements:
@@ -782,6 +781,7 @@ ag2:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          "openai",
         ]
     run: pytest tests/ag2
 

@@ -287,8 +287,8 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "ag2"
         },
         "autologging": {
-            "minimum": "0.2.36",
-            "maximum": "0.6.1"
+            "minimum": "0.7.0",
+            "maximum": "0.9.1"
         }
     },
     "autogen": {
