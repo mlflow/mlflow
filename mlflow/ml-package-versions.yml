@@ -284,6 +284,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow", "numpy<2"]
+      "< 3.4.0": ["pandas<2"]
       ">= 3.5.0": ["torch<2.6.0", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
     run: |
@@ -312,6 +313,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["scikit-learn", "numpy<2"]
+      "< 3.4.0": ["pandas<2"]
     run: |
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
