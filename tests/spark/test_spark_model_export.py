@@ -994,7 +994,7 @@ def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator
     with mlflow.start_run():
         model_info = mlflow.spark.log_model(
             model,
-            name="model",
+            artifact_path="model",
             signature=ModelSignature(
                 inputs=Schema(
                     [

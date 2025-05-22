@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import ast
 import fnmatch
+import functools
+import importlib
+import inspect
 import json
 import re
 import textwrap
@@ -37,19 +40,6 @@ def ignore_map(code: str) -> dict[str, set[int]]:
         if m := DISABLE_COMMENT_REGEX.search(tok.string):
             mapping.setdefault(m.group(1), set()).add(tok.start[0])
     return mapping
-
-
-def _is_log_model(node: ast.AST) -> bool:
-    """
-    Is this node a call to `log_model`?
-    """
-    if isinstance(node, ast.Name):
-        return "log_model" in node.id
-
-    elif isinstance(node, ast.Attribute):
-        return "log_model" in node.attr
-
-    return False
 
 
 def _is_set_active_model(node: ast.AST) -> bool:
@@ -155,6 +145,17 @@ def _iter_code_blocks(docstring: str) -> Iterator[CodeBlock]:
     if code_lines:
         code = textwrap.dedent("\n".join(code_lines))
         yield CodeBlock(code=code, loc=code_block_loc)
+
+
+def get_object(full_name: str) -> Any:
+    module_name, object_name = full_name.rsplit(".", 1)
+    module = importlib.import_module(module_name)
+    return getattr(module, object_name)
+
+
+@functools.lru_cache(maxsize=64)
+def get_signature(full_name: str) -> inspect.Signature:
+    return inspect.signature(get_object(full_name))
 
 
 def _parse_docstring_args(docstring: str) -> list[str]:
@@ -455,6 +456,37 @@ class Linter(ast.NodeVisitor):
             rules.ForbiddenSetActiveModelUsage(),
         )
 
+    def _resolve_call(self, node: ast.AST) -> list[str]:
+        if isinstance(node, ast.Call):
+            return self._resolve_call(node.func)
+        elif isinstance(node, ast.Attribute):
+            return self._resolve_call(node.value) + [node.attr]
+        elif isinstance(node, ast.Name):
+            return [node.id]
+        return []
+
+    def _log_model_called_with_artifact_path(self, node: ast.Call) -> None:
+        parts = self._resolve_call(node)
+        if len(parts) != 3:
+            return False
+
+        first, _, third = parts
+        if not (first == "mlflow" and third == "log_model"):
+            return False
+
+        signature = get_signature(".".join(parts))
+        artifact_path_idx = next(
+            (i for i, p in enumerate(signature.parameters.values()) if p.name == "artifact_path"),
+            None,
+        )
+        if artifact_path_idx is None:
+            return False
+
+        if len(node.args) > artifact_path_idx:
+            return True
+        else:
+            return any(kw.arg and kw.arg == "artifact_path" for kw in node.keywords)
+
     def visit_Call(self, node: ast.Call) -> None:
         if (
             self.is_mlflow_init_py
@@ -469,12 +501,8 @@ class Linter(ast.NodeVisitor):
             ):
                 self.lazy_modules[last_arg.value] = Location.from_node(node)
 
-        if (
-            self.path.parts[0] in ["tests", "mlflow"]
-            and _is_log_model(node.func)
-            and any(arg.arg == "artifact_path" for arg in node.keywords)
-        ):
-            self._check(Location.from_node(node), rules.KeywordArtifactPath())
+        if self._log_model_called_with_artifact_path(node):
+            self._check(Location.from_node(node), rules.LogModelArtifactPath())
 
         if rules.UseSysExecutable.check(node):
             self._check(Location.from_node(node), rules.UseSysExecutable())
