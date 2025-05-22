@@ -40,8 +40,10 @@ class EvaluationResult:
     result_df: "pd.DataFrame"
 
 
+# TODO (B-Step62): Remove underscore from the function name once we release
+# the new evaluate API
 @experimental
-def evaluate(
+def _evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
     predict_fn: Optional[Callable[..., Any]] = None,
@@ -306,7 +308,7 @@ def evaluate(
 
 
 @experimental
-def to_predict_fn(endpoint_uri: str) -> Callable:
+def _to_predict_fn(endpoint_uri: str) -> Callable:
     """
     Convert an endpoint URI to a predict function.
 
