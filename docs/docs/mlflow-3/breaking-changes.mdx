@@ -144,7 +144,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 
 **What's changing:** `mlflow.evaluate` no longer logs an explainer as a model by default.
 
-**How to migrate:** Use the `log_explainer` config to log the explainer as a model.
+**How to migrate:** Set the `log_explainer` config to `True` in the `evaluator_config` parameter to log the explainer as a model.
 
 ```python
 mlflow.evaluate(
