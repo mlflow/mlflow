@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import uuid
@@ -11,7 +12,7 @@ from typing import Literal, Optional
 from packaging.version import Version
 
 import mlflow
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENV_ROOT, MLFLOW_PYENV_BIN_PATH
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENV_ROOT
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils import env_manager as em
@@ -88,11 +89,11 @@ _SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 
 
 def _get_pyenv_bin_path() -> str | None:
-    if path := MLFLOW_PYENV_BIN_PATH.get():
-        return path
-    elif os.path.exists(_DATABRICKS_PYENV_BIN_PATH):
-        return _DATABRICKS_PYENV_BIN_PATH
-    return shutil.which("pyenv")
+    tmp_directory = tempfile.gettempdir()
+    subprocess.check_call(
+        ["git", "clone", "--depth", "1", "https://github.com/pyenv/pyenv", tmp_directory]
+    )
+    return os.path.join(tmp_directory, "bin", "pyenv")
 
 
 def _find_latest_installable_python_version(version_prefix):
