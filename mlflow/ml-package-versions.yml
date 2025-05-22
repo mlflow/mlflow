@@ -452,6 +452,8 @@ transformers:
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         ">=4.38.0,<4.39.0",
+        # https://github.com/huggingface/transformers/issues/38269
+        "==4.52.*",
       ]
     requirements:
       ">= 0.0.0": [
@@ -493,6 +495,8 @@ transformers:
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         ">=4.38.0,<4.39.0",
+        # https://github.com/huggingface/transformers/issues/38269
+        "==4.52.*",
       ]
     requirements:
       ">= 0.0.0": [
