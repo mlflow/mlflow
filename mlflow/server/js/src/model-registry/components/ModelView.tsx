@@ -20,7 +20,13 @@ import { setRegisteredModelTagApi, deleteRegisteredModelTagApi } from '../action
 import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import { Button, SegmentedControlGroup, SegmentedControlButton, DangerModal, CursorPagination } from '@databricks/design-system';
+import {
+  Button,
+  SegmentedControlGroup,
+  SegmentedControlButton,
+  DangerModal,
+  CursorPagination,
+} from '@databricks/design-system';
 import { Descriptions } from '../../common/components/Descriptions';
 import { ModelVersionInfoEntity, type ModelEntity } from '../../experiment-tracking/types';
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
@@ -289,13 +295,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   }
 
   renderDetails = () => {
-    const {
-      model,
-      modelVersions,
-      tags,
-      currentPage,
-      nextPageToken,
-    } = this.props;
+    const { model, modelVersions, tags, currentPage, nextPageToken } = this.props;
     const {
       stageFilter,
       showDescriptionEditor,

@@ -9,7 +9,7 @@ import {
   LegacyTooltip,
   Typography,
   useDesignSystemTheme,
-  TableSkeletonRows
+  TableSkeletonRows,
 } from '@databricks/design-system';
 import {
   ColumnDef,
@@ -91,7 +91,7 @@ export const ModelVersionTable = ({
   usingNextModelsUI,
   aliases,
   pagination,
-  isLoading
+  isLoading,
 }: ModelVersionTableProps) => {
   const aliasesByVersion = useMemo(() => {
     const result: Record<string, string[]> = {};
@@ -373,32 +373,34 @@ export const ModelVersionTable = ({
         </TableRow>
         {isLoading ? (
           <TableSkeletonRows table={table} />
-        ) : (table.getRowModel().rows.map((row) => (
-          <TableRow
-            key={row.id}
-            css={{
-              '.table-row-select-cell': {
-                alignItems: 'flex-start',
-              },
-            }}
-          >
-            <TableRowSelectCell
-              componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_477"
-              checked={row.getIsSelected()}
-              onChange={row.getToggleSelectedHandler()}
-            />
-            {row.getAllCells().map((cell) => (
-              <TableCell
-                className={(cell.column.columnDef as ModelVersionColumnDef).meta?.className}
-                multiline={(cell.column.columnDef as ModelVersionColumnDef).meta?.multiline}
-                key={cell.id}
-                css={(cell.column.columnDef as ModelVersionColumnDef).meta?.styles}
-              >
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
-        )))}
+        ) : (
+          table.getRowModel().rows.map((row) => (
+            <TableRow
+              key={row.id}
+              css={{
+                '.table-row-select-cell': {
+                  alignItems: 'flex-start',
+                },
+              }}
+            >
+              <TableRowSelectCell
+                componentId="codegen_mlflow_app_src_model-registry_components_modelversiontable.tsx_477"
+                checked={row.getIsSelected()}
+                onChange={row.getToggleSelectedHandler()}
+              />
+              {row.getAllCells().map((cell) => (
+                <TableCell
+                  className={(cell.column.columnDef as ModelVersionColumnDef).meta?.className}
+                  multiline={(cell.column.columnDef as ModelVersionColumnDef).meta?.multiline}
+                  key={cell.id}
+                  css={(cell.column.columnDef as ModelVersionColumnDef).meta?.styles}
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))
+        )}
       </Table>
       {EditTagsModal}
       {EditAliasesModal}

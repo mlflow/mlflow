@@ -17,7 +17,11 @@ import { ModelView } from './ModelView';
 import { getModelVersions } from '../reducers';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
-import { MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD, MODEL_VERSIONS_PER_PAGE_COMPACT, AntdTableSortOrder } from '../constants';
+import {
+  MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD,
+  MODEL_VERSIONS_PER_PAGE_COMPACT,
+  AntdTableSortOrder,
+} from '../constants';
 import { PageContainer } from '../../common/components/PageContainer';
 import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
 import { Spinner } from '../../common/components/Spinner';
@@ -40,7 +44,7 @@ type ModelPageImplState = {
   maxResultsSelection: number;
   pageTokens: Record<number, string | null>;
   loading: boolean;
-  error: Error | undefined
+  error: Error | undefined;
 };
 
 type ModelPageImplProps = WithRouterNextProps<{ subpage: string }> & {
@@ -121,7 +125,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
 
   updateUrlWithState = (orderByAsc: any, page: any) => {
     const urlParams = {};
-    
+
     if (orderByAsc === false) {
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       urlParams['orderByAsc'] = orderByAsc;
@@ -131,7 +135,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
       urlParams['page'] = page;
     }
     const newUrl = createMLflowRoutePath(
-      `${ModelRegistryRoutes.getModelPageRoute(this.props.modelName)}?${Utils.getSearchUrlFromState(urlParams)}`
+      `${ModelRegistryRoutes.getModelPageRoute(this.props.modelName)}?${Utils.getSearchUrlFromState(urlParams)}`,
     );
     if (newUrl !== this.props.location.pathname + this.props.location.search) {
       this.props.navigate(newUrl);
@@ -157,7 +161,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   loadModelVersions(isInitialLoading = true) {
     this.loadPage(this.state.currentPage, isInitialLoading, true);
   }
-  
+
   /**
    * Returns a LocalStorageStore instance that can be used to persist data associated with the
    * ModelRegistry component.
@@ -205,10 +209,9 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
 
   handleDelete = () => {
     const { model } = this.props;
-    return this.
-      props.deleteRegisteredModelApi(model.name, this.deleteRegisteredModelApiId)
-      .then(() => {
-        this.props.navigate(ModelRegistryRoutes.modelListPageRoute);})
+    return this.props.deleteRegisteredModelApi(model.name, this.deleteRegisteredModelApiId).then(() => {
+      this.props.navigate(ModelRegistryRoutes.modelListPageRoute);
+    });
   };
 
   loadPage = (page: any, isInitialLoading: any, loadModelMetadata = false) => {
@@ -223,16 +226,17 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     this.updateUrlWithState(orderByAsc, page);
     const filters_obj = { name: modelName };
     const promiseValues = [
-      this.props.searchModelVersionsApi(
-        filters_obj,
-        this.state.maxResultsSelection,
-        ModelPageImpl.getOrderByExpr(orderByKey, orderByAsc),
-        pageTokens[page],
-        isInitialLoading ? this.initSearchModelVersionsApiRequestId : this.searchModelVersionsApiRequestId,
-      )
-      .then((r: any) => {
-        this.updatePageState(page, r);
-      })
+      this.props
+        .searchModelVersionsApi(
+          filters_obj,
+          this.state.maxResultsSelection,
+          ModelPageImpl.getOrderByExpr(orderByKey, orderByAsc),
+          pageTokens[page],
+          isInitialLoading ? this.initSearchModelVersionsApiRequestId : this.searchModelVersionsApiRequestId,
+        )
+        .then((r: any) => {
+          this.updatePageState(page, r);
+        }),
     ];
     if (loadModelMetadata) {
       promiseValues.push(

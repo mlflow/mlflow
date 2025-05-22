@@ -99,7 +99,7 @@ const modelVersionsByModel = (state = {}, action: any) => {
           const { name, version } = modelVersion;
           (nameToModelVersionMap[name] ||= {})[version] = modelVersion;
         });
-      }      
+      }
       return {
         ...nameToModelVersionMap,
       };
