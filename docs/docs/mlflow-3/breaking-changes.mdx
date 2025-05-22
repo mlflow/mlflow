@@ -84,6 +84,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 #### Parameter Removals
 
 **What's changing:** Several parameters have been removed from model logging and saving APIs:
+
 - `example_no_conversion` parameter from model logging APIs ([#15322](https://github.com/mlflow/mlflow/pull/15322))
 - `code_path` parameter from model logging and model saving APIs ([#15368](https://github.com/mlflow/mlflow/pull/15368))
 - `requirements_file` parameter from `pytorch` flavor model logging and saving APIs ([#15369](https://github.com/mlflow/mlflow/pull/15369))
@@ -92,6 +93,7 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 **Why:** These parameters were deprecated in earlier releases and have now been fully removed to simplify the API.
 
 **How to migrate:** Update your model logging and saving calls to remove these parameters. Use the recommended alternatives:
+
 - For `code_path`, use the code directory structure MLflow expects by default
 - For `requirements_file`, specify dependencies with the `pip_requirements` or `extra_pip_requirements` arguments when logging your torch models
 - For `inference_config` in transformers models, set your configuration before logging the model
@@ -137,6 +139,22 @@ MLflow 3.0 introduces several breaking changes as part of our commitment to impr
 **Why:** To standardize how timeouts are configured across different storage backends.
 
 **How to migrate:** Update your code to handle GCS timeouts using the standard approach for your GCS client library.
+
+### `mlflow.evaluate` no longer logs an explainer as a model by default.
+
+**What's changing:** `mlflow.evaluate` no longer logs an explainer as a model by default.
+
+**How to migrate:** Set the `log_explainer` config to `True` in the `evaluator_config` parameter to log the explainer as a model.
+
+```python
+mlflow.evaluate(
+    ...,
+    evaluator_config={
+        "log_model_explainability": True,
+        "log_explainer": True,
+    },
+)
+```
 
 ## Summary
 
