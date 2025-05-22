@@ -137,11 +137,11 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "pyspark"
         },
         "models": {
-            "minimum": "3.4.1",
+            "minimum": "3.2.1",
             "maximum": "3.5.5"
         },
         "autologging": {
-            "minimum": "3.4.1",
+            "minimum": "3.2.1",
             "maximum": "3.5.5"
         }
     },
