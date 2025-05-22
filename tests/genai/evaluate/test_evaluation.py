@@ -275,7 +275,7 @@ def test_evaluate_passes_model_id_to_mlflow_evaluate():
             data=data,
             predict_fn=model,
             model_id="test_model_id",
-            scorers=[safety()],
+            scorers=[safety],
         )
 
         # Verify the call was made with the right parameters
@@ -315,4 +315,4 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe):
         traces = traces[["trace"]]
 
     # Harness should run without an error
-    mlflow.genai.evaluate(data=traces, scorers=[safety()])
+    mlflow.genai.evaluate(data=traces, scorers=[safety])

@@ -10,3 +10,4 @@ mlflow.genai
     :members:
     :undoc-members:
     :show-inheritance:
+    :exclude-members: Scorer

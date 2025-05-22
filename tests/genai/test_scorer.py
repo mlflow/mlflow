@@ -254,7 +254,7 @@ def test_builtin_scorers_are_callable():
 
     # test with new scorer signature format
     with patch("databricks.agents.evals.judges.safety") as mock_safety:
-        safety()(
+        safety(
             inputs={"question": "What is the capital of France?"},
             outputs="The capital of France is Paris.",
         )
