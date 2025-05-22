@@ -29,7 +29,6 @@ def llm_config(mock_openai):
                 "model": "gpt-4o-mini",
                 "base_url": mock_openai,
                 "api_key": "test",
-                "temperature": 0.5,
                 "max_tokens": 100,
             },
         ]

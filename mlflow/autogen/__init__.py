@@ -1,19 +1,15 @@
 import logging
-from typing import Optional
-
-from opentelemetry.context import Context
-from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import mlflow
-from mlflow.entities.span import create_mlflow_span
-from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.provider import _get_tracer_provider
-from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import get_otel_attribute
+from mlflow.autogen.chat import (
+    convert_assistant_message_to_chat_message,
+    log_chat_messages,
+    log_tools,
+)
+from mlflow.entities import SpanType
+from mlflow.tracing.utils import construct_full_inputs, set_span_chat_messages
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
-    _logger,
     autologging_integration,
     get_autologging_config,
     safe_patch,
@@ -31,72 +27,75 @@ def autolog(
     disable: bool = False,
     silent: bool = False,
 ):
-    from autogen_agentchat.agents import AssistantAgent, BaseChatAgent
-    from autogen_core import SingleThreadedAgentRuntime
+    """
+    Enables (or disables) and configures autologging for AutoGen flavor.
+    Due to its patch design, this method needs to be called after importing AutoGen classes.
 
-    tracer_provider = _get_tracer_provider()
-    tracer_provider.add_span_processor(AutogenSpanProcessor())
+    Args:
+        log_traces: If ``True``, traces are logged for AutoGen models.
+            If ``False``, no traces are collected during inference. Default to ``True``.
+        disable: If ``True``, disables the AutoGen autologging. Default to ``False``.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during AutoGen
+            autologging. If ``False``, show all events and warnings.
 
-    def patched_init(original, self, *args, **kwargs):
-        if not get_autologging_config(FLAVOR_NAME, "log_traces"):
-            return original(self, *args, **kwargs)
+    Example:
 
-        if _tracer_provider := kwargs.get("tracer_provider"):
-            _logger.warning(
-                f"Tracer provider is provided to {original.__class__}."
-                "The original provider has been replaced by MLflow autologging."
-            )
-            kwargs.pop("tracer_provider")
-        return original(self, *args, **kwargs, tracer_provider=tracer_provider)
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        from autogen_agentchat.agents import AssistantAgent
+        from autogen_ext.models.openai import OpenAIChatCompletionClient
+
+        mlflow.autogen.autolog()
+        agent = AssistantAgent("assistant", OpenAIChatCompletionClient(model="gpt-4o-mini"))
+        result = await agent.run(task="Say 'Hello World!'")
+        print(result)
+    """
+    from autogen_agentchat.agents import BaseChatAgent
+    from autogen_core.models import ChatCompletionClient
 
     async def patched_run(original, self, *args, **kwargs):
         if not get_autologging_config(FLAVOR_NAME, "log_traces"):
             return await original(self, *args, **kwargs)
         else:
-            return await mlflow.trace(original)(self, *args, **kwargs)
+            span_type = SpanType.AGENT if isinstance(self, BaseChatAgent) else SpanType.LLM
+            with mlflow.start_span(original.__name__, span_type=span_type) as span:
+                inputs = construct_full_inputs(original, self, *args, **kwargs)
+                span.set_inputs(inputs)
 
-    safe_patch(FLAVOR_NAME, SingleThreadedAgentRuntime, "__init__", patched_init)
-    safe_patch(FLAVOR_NAME, AssistantAgent, "run", patched_run)
-    safe_patch(FLAVOR_NAME, AssistantAgent, "on_messages", patched_run)
+                if tools := getattr(self, "_tools", None):
+                    log_tools(span, tools)
 
-    try:
-        from autogen_ext.runtimes.grpc import GrpcWorkerAgentRuntimeHost
+                if isinstance(self, ChatCompletionClient) and (messages := inputs.get("messages")):
+                    log_chat_messages(span, messages)
 
-        safe_patch(FLAVOR_NAME, GrpcWorkerAgentRuntimeHost, "__init__", patched_init)
-    except ImportError:
-        pass
+                outputs = await original(self, *args, **kwargs)
+
+                if isinstance(self, ChatCompletionClient) and (
+                    content := getattr(outputs, "content", None)
+                ):
+                    if chat_message := convert_assistant_message_to_chat_message(content):
+                        set_span_chat_messages(span, [chat_message], append=True)
+
+                span.set_outputs(outputs)
+
+                return outputs
+
+    for cls in BaseChatAgent.__subclasses__():
+        safe_patch(FLAVOR_NAME, cls, "run", patched_run)
+        safe_patch(FLAVOR_NAME, cls, "on_messages", patched_run)
+
+    for cls in _get_all_subclasses(ChatCompletionClient):
+        safe_patch(FLAVOR_NAME, cls, "create", patched_run)
 
 
-class AutogenSpanProcessor(SimpleSpanProcessor):
-    """
-    An span processor that resister the span to the mlflow trace manager.
-    This class fills the gap between Otel and mlflow tracing where we store the spans
-    in memory until the root span is ended.
-    """
+def _get_all_subclasses(cls):
+    """Get all subclasses recursively"""
+    all_subclasses = []
 
-    def __init__(self):
-        pass
+    for subclass in cls.__subclasses__():
+        all_subclasses.append(subclass)
+        all_subclasses.extend(_get_all_subclasses(subclass))
 
-    def on_start(self, span: Span, parent_context: Optional[Context] = None):
-        request_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-        mlflow_span = create_mlflow_span(span, request_id)
-        # Set span attributes logged by Autogen to the MLflow span.
-        # We shouldn't overwrite the attributes with `mlflow.` prefix as they are treated separately.
-        mlflow_span.set_attributes(
-            {
-                key: value
-                for key, value in dict(span.attributes).items()
-                if not key.startswith("mlflow.")
-            }
-        )
-        # TODO: operation type publish and create does not contain useful information,
-        # consider how to exlucde noisy spans.
-        
-        # `message` attribute is used for the input message to handlers
-        if message := mlflow_span.attributes.get("message"):
-            mlflow_span.set_inputs(message)
-        InMemoryTraceManager.get_instance().register_span(mlflow_span)
-
-    def on_end(self, span: ReadableSpan) -> None:
-        # traces are exported through BaseMlflowSpanProcessor.on_end
-        pass
+    return all_subclasses

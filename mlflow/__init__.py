@@ -112,6 +112,7 @@ if TYPE_CHECKING:
     # Do not move this block above the lazy-loaded modules above.
     # All the lazy-loaded modules above must be imported here for code completion to work in IDEs.
     from mlflow import (  # noqa: F401
+        ag2,
         anthropic,
         autogen,
         bedrock,

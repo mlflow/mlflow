@@ -303,7 +303,7 @@ def maybe_set_prediction_context(context: Optional["Context"]):
 
 def set_span_chat_messages(
     span: LiveSpan,
-    messages: Union[dict, ChatMessage],
+    messages: list[Union[dict, ChatMessage]],
     append=False,
 ):
     """

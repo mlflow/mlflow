@@ -89,8 +89,8 @@ class MlflowAutogenLogger(BaseLogger):
             )
         if hasattr(agent, "register_function"):
 
-            def patched(original, _self, function_map):
-                original(_self, function_map)
+            def patched(original, _self, function_map, **kwargs):
+                original(_self, function_map, **kwargs)
                 # Wrap the newly registered tools to start and end a span around its invocation.
                 for name, f in function_map.items():
                     if f is not None:
