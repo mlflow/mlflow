@@ -1932,23 +1932,7 @@ def test_log_prompt(tracking_uri):
         client.log_prompt("run3", 123)
 
 
-@pytest.mark.parametrize("registry_uri", ["databricks", "databricks-uc", "uc://localhost:5000"])
-def test_crud_prompt_on_unsupported_registry(registry_uri):
-    client = MlflowClient(registry_uri=registry_uri)
 
-    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is only available"):
-        client.register_prompt(
-            name="prompt_1",
-            template="Hi, {{title}} {{name}}! How are you today?",
-            commit_message="A friendly greeting",
-            tags={"model": "my-model"},
-        )
-
-    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is only available"):
-        client.load_prompt("prompt_1")
-
-    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is only available"):
-        client.delete_prompt("prompt_1")
 
 
 def test_block_create_model_with_prompt_tag(tracking_uri):
@@ -2184,3 +2168,44 @@ def test_log_batch_link_to_active_model(tracking_uri):
     assert logged_model.name == model.name
     assert logged_model.model_id == model.model_id
     assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
+
+
+@pytest.mark.parametrize("registry_uri", ["databricks", "databricks://profile"])
+def test_crud_prompt_on_legacy_databricks_registry(registry_uri):
+    """Legacy Databricks workspace registries should not support prompts."""
+    client = MlflowClient(registry_uri=registry_uri)
+
+    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is not supported"):
+        client.register_prompt(
+            name="prompt_1",
+            template="Hi, {{title}} {{name}}! How are you today?",
+            commit_message="A friendly greeting",
+            tags={"model": "my-model"},
+        )
+
+    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is not supported"):
+        client.load_prompt("prompt_1")
+
+    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is not supported"):
+        client.delete_prompt("prompt_1")
+
+
+@pytest.mark.parametrize("registry_uri", ["databricks-uc", "databricks-uc://profile", "uc://localhost:5000"])
+def test_crud_prompt_on_uc_registry_without_feature_flag(registry_uri):
+    """UC registries should not support prompts when feature flag is disabled."""
+    with mock.patch("mlflow.environment_variables.MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get", return_value=False):
+        client = MlflowClient(registry_uri=registry_uri)
+
+        with pytest.raises(MlflowException, match=r"The 'register_prompt' API is not supported"):
+            client.register_prompt(
+                name="prompt_1",
+                template="Hi, {{title}} {{name}}! How are you today?",
+                commit_message="A friendly greeting",
+                tags={"model": "my-model"},
+            )
+
+        with pytest.raises(MlflowException, match=r"The 'load_prompt' API is not supported"):
+            client.load_prompt("prompt_1")
+
+        with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is not supported"):
+            client.delete_prompt("prompt_1")

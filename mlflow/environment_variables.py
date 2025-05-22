@@ -660,6 +660,10 @@ MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int,
 #: (default: ``False``)
 MLFLOW_ENABLE_UC_FUNCTIONS = _BooleanEnvironmentVariable("MLFLOW_ENABLE_UC_FUNCTIONS", False)
 
+#: Enable Unity Catalog Prompt Registry support.
+#: (default: ``False``)
+MLFLOW_ENABLE_UC_PROMPT_SUPPORT = _BooleanEnvironmentVariable("MLFLOW_ENABLE_UC_PROMPT_SUPPORT", False)
+
 #: Specifies the length of time in seconds for the asynchronous logging thread to wait before
 #: logging a batch.
 MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS = _EnvironmentVariable(
