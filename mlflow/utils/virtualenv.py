@@ -11,7 +11,7 @@ from typing import Literal, Optional
 from packaging.version import Version
 
 import mlflow
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENV_ROOT
+from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENV_ROOT, MLFLOW_PYENV_BIN_PATH
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils import env_manager as em
@@ -87,8 +87,10 @@ def _validate_virtualenv_is_available():
 _SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 
 
-def _get_pyenv_bin_path():
-    if os.path.exists(_DATABRICKS_PYENV_BIN_PATH):
+def _get_pyenv_bin_path() -> str | None:
+    if path := MLFLOW_PYENV_BIN_PATH.get():
+        return path
+    elif os.path.exists(_DATABRICKS_PYENV_BIN_PATH):
         return _DATABRICKS_PYENV_BIN_PATH
     return shutil.which("pyenv")
 

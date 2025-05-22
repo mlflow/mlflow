@@ -825,3 +825,5 @@ MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, None)
 MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable(
     "MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", False
 )
+
+MLFLOW_PYENV_BIN_PATH = _EnvironmentVariable("MLFLOW_PYENV_PATH", str, None)
