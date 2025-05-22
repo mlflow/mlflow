@@ -37,8 +37,14 @@ import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { ErrorCodes } from '../../common/constants';
 
+type UrlState = {
+  orderByKey?: string;
+  orderByAsc?: string;
+  page?: string;
+};
+
 type ModelPageImplState = {
-  orderByKey: string;
+  orderByKey: string | undefined;
   orderByAsc: boolean;
   currentPage: number;
   maxResultsSelection: number;
@@ -96,19 +102,11 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     // eslint-disable-next-line react/no-did-mount-set-state
     this.setState(
       {
-        // @ts-expect-error TS(4111): Property 'orderByKey' comes from an index signatur... Remove this comment to see the full error message
-        orderByKey: urlState.orderByKey === undefined ? this.state.orderByKey : urlState.orderByKey,
-        orderByAsc:
-          // @ts-expect-error TS(4111): Property 'orderByAsc' comes from an index signatur... Remove this comment to see the full error message
-          urlState.orderByAsc === undefined
-            ? this.state.orderByAsc
-            : // @ts-expect-error TS(4111): Property 'orderByAsc' comes from an index signatur... Remove this comment to see the full error message
-              urlState.orderByAsc === 'true',
+        orderByKey: urlState.orderByKey ?? this.state.orderByKey,
+        orderByAsc: urlState.orderByAsc === undefined ? this.state.orderByAsc : urlState.orderByAsc === 'true',
         currentPage:
-          // @ts-expect-error TS(4111): Property 'page' comes from an index signature, so ... Remove this comment to see the full error message
           urlState.page !== undefined && (urlState as any).page in persistedPageTokens
-            ? // @ts-expect-error TS(2345): Argument of type 'unknown' is not assignable to pa... Remove this comment to see the full error message
-              parseInt(urlState.page, 10)
+            ? parseInt(urlState.page, 10)
             : this.state.currentPage,
         maxResultsSelection: maxResultsForTokens,
         pageTokens: persistedPageTokens,
@@ -119,8 +117,16 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     );
   }
 
-  getUrlState() {
-    return this.props.location ? Utils.getSearchParamsFromUrl(this.props.location.search) : {};
+  getUrlState(): UrlState {
+    if (!this.props.location) {
+      return {};
+    }
+    const params = Utils.getSearchParamsFromUrl(this.props.location.search);
+    return {
+      orderByKey: params['orderByKey'] as string | undefined,
+      orderByAsc: params['orderByAsc'] as string | undefined,
+      page: params['page'] as string | undefined,
+    };
   }
 
   updateUrlWithState = (orderByAsc: any, page: any) => {
