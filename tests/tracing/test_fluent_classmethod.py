@@ -49,6 +49,40 @@ def test_trace_with_staticmethod():
     assert result == 3
 
 
+def test_trace_with_staticmethod_order_reversed():
+    class TestModel:
+        @staticmethod
+        @mlflow.trace
+        def predict(x, y):
+            return x + y
+
+    result = TestModel.predict(1, 2)
+    assert result == 3
+
+
+def test_trace_with_staticmethod_with_params():
+    class TestModel:
+        @mlflow.trace(name="custom_predict", span_type=SpanType.MODEL_INFERENCE)
+        @staticmethod
+        def predict(x, y):
+            return x + y
+
+    result = TestModel.predict(1, 2)
+    assert result == 3
+
+
+def test_trace_with_classmethod_issue_example():
+    """Test the exact example provided in the issue description."""
+    class Model:
+        @mlflow.trace
+        @classmethod
+        def predict(cls, x, y):
+            return x + y
+
+    result = Model.predict(1, 2)
+    assert result == 3
+
+
 def test_trace_classmethod_object_detection():
     """Test to verify we can detect if a function is a classmethod."""
 

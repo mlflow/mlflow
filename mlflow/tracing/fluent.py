@@ -124,6 +124,10 @@ def trace(
           - ✅ (>= 2.20.2)
         * - Async Generator
           - ✅ (>= 2.20.2)
+        * - ClassMethod
+          - ✅ (>= 2.20.2)
+        * - StaticMethod
+          - ✅ (>= 2.20.2)
 
     For more examples of using the @mlflow.trace decorator, including streaming/async
     handling, see the `MLflow Tracing documentation <https://www.mlflow.org/docs/latest/tracing/api/manual-instrumentation#decorator>`_.
@@ -156,14 +160,35 @@ def trace(
     """
 
     def decorator(fn):
-        if inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
-            return _wrap_generator(fn, name, span_type, attributes, output_reducer)
+        # Check if the function is a classmethod or staticmethod
+        is_classmethod = isinstance(fn, classmethod)
+        is_staticmethod = isinstance(fn, staticmethod)
+        
+        # Extract the original function if it's a descriptor
+        if is_classmethod:
+            original_fn = fn.__func__
+        elif is_staticmethod:
+            original_fn = fn.__func__
+        else:
+            original_fn = fn
+        
+        # Apply the appropriate wrapper to the original function
+        if inspect.isgeneratorfunction(original_fn) or inspect.isasyncgenfunction(original_fn):
+            wrapped = _wrap_generator(original_fn, name, span_type, attributes, output_reducer)
         else:
             if output_reducer is not None:
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions."
                 )
-            return _wrap_function(fn, name, span_type, attributes)
+            wrapped = _wrap_function(original_fn, name, span_type, attributes)
+        
+        # If the original was a descriptor, wrap the result back as the same type of descriptor
+        if is_classmethod:
+            return classmethod(wrapped)
+        elif is_staticmethod:
+            return staticmethod(wrapped)
+        else:
+            return wrapped
 
     return decorator(func) if func else decorator
 
