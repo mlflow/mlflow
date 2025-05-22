@@ -3,8 +3,6 @@ from __future__ import annotations
 import ast
 import fnmatch
 import functools
-import importlib
-import inspect
 import json
 import re
 import textwrap
@@ -147,17 +145,6 @@ def _iter_code_blocks(docstring: str) -> Iterator[CodeBlock]:
         yield CodeBlock(code=code, loc=code_block_loc)
 
 
-def get_object(full_name: str) -> Any:
-    module_name, object_name = full_name.rsplit(".", 1)
-    module = importlib.import_module(module_name)
-    return getattr(module, object_name)
-
-
-@functools.lru_cache(maxsize=64)
-def get_signature(full_name: str) -> inspect.Signature:
-    return inspect.signature(get_object(full_name))
-
-
 def _parse_docstring_args(docstring: str) -> list[str]:
     args: list[str] = []
     args_header_indent: int | None = None
@@ -181,6 +168,39 @@ def _parse_docstring_args(docstring: str) -> list[str]:
             args_header_indent = _get_indent(line)
 
     return args
+
+
+class _ArtifactPathFinder(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.artifact_path_index: int | None = None
+
+    @classmethod
+    def parse(cls, file: Path) -> int | None:
+        v = cls()
+        v.visit(ast.parse(file.read_text()))
+        return v.artifact_path_index
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        if node.name == "log_model":
+            artifact_path_index = next(
+                (i for i, arg in enumerate(node.args.args) if arg.arg == "artifact_path"), None
+            )
+            if artifact_path_index is not None:
+                self.artifact_path_index = artifact_path_index
+
+
+@functools.lru_cache(maxsize=32)
+def _find_artifact_path_index(call_path: tuple[str, str]) -> int | None:
+    """
+    Finds the index of the `artifact_path` argument in the function signature of `log_model`.
+    """
+    for p in Path(*call_path).rglob("*.py"):
+        if not p.is_file():
+            continue
+
+        if (idx := _ArtifactPathFinder.parse(p)) is not None:
+            return idx
+    return None
 
 
 class Linter(ast.NodeVisitor):
@@ -474,15 +494,11 @@ class Linter(ast.NodeVisitor):
         if len(parts) != 3:
             return False
 
-        first, _, third = parts
+        first, second, third = parts
         if not (first == "mlflow" and third == "log_model"):
             return False
 
-        signature = get_signature(".".join(parts))
-        artifact_path_idx = next(
-            (i for i, p in enumerate(signature.parameters.values()) if p.name == "artifact_path"),
-            None,
-        )
+        artifact_path_idx = _find_artifact_path_index((first, second))
         if artifact_path_idx is None:
             return False
 

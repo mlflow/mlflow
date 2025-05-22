@@ -47,7 +47,7 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/typos.json"
       - name: Install dependencies
         run: |
-          uv pip install --system -r requirements/lint-requirements.txt .
+          uv pip install --system -r requirements/lint-requirements.txt
           dev/install-taplo.sh
           dev/install-typos.sh
           mkdir -p /tmp/conftest/bin
