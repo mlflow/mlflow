@@ -88,7 +88,7 @@ def _validate_virtualenv_is_available():
 _SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 
 
-def _get_pyenv_bin_path() -> str | None:
+def _get_pyenv_bin_path() -> str:
     tmp_directory = tempfile.gettempdir()
     subprocess.check_call(
         ["git", "clone", "--depth", "1", "https://github.com/pyenv/pyenv", tmp_directory]
