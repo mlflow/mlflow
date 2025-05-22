@@ -75,7 +75,7 @@ def evaluate(
 
         mlflow.genai.evaluate(
             data=trace_df,
-            scorers=[correctness(), safety()],
+            scorers=[correctness, safety],
         )
 
     Built-in scorers will understand the model inputs, outputs, and other intermediate
@@ -157,7 +157,7 @@ def evaluate(
         mlflow.genai.evaluate(
             data=data,
             predict_fn=predict_fn,
-            scorers=[correctness(), safety()],
+            scorers=[correctness, safety],
         )
 
     Args:
@@ -324,7 +324,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
 
         .. code-block:: python
 
-            from mlflow.genai.scorers import all_scorers
+            from mlflow.genai.scorers import get_all_scorers
 
             data = [
                 {
@@ -348,7 +348,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
             mlflow.genai.evaluate(
                 data=data,
                 predict_fn=predict_fn,
-                scorers=all_scorers,
+                scorers=get_all_scorers(),
             )
 
         You can also directly invoke the function to validate if the endpoint works

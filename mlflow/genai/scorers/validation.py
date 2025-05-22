@@ -32,7 +32,7 @@ def validate_scorers(scorers: list[Any]) -> tuple[list[BuiltInScorer], list[Scor
         raise MlflowException.invalid_parameter_value(
             "The `scorers` argument must be a list of scorers with at least one scorer. "
             "If you are unsure about which scorer to use, you can specify "
-            "`scorers=mlflow.genai.scorers.all_scorers()` to jump start with all "
+            "`scorers=mlflow.genai.scorers.get_all_scorers()` to jump start with all "
             "available built-in scorers."
         )
 
@@ -48,15 +48,6 @@ def validate_scorers(scorers: list[Any]) -> tuple[list[BuiltInScorer], list[Scor
         elif isinstance(scorer, Metric):
             legacy_metrics.append(scorer)
             custom_scorers.append(scorer)
-        elif isinstance(scorer, Callable) and getattr(scorer, "__is_mlflow_builtin_scorer", False):
-            raise MlflowException.invalid_parameter_value(
-                f"A built-in scorer {scorer.__name__} is specified, but the constructor function "
-                "is specified, not the scorer object itself. Please pass the returned scorer "
-                "object from the constructor function instead.\n"
-                "Example:\n"
-                "  - Correct:   `mlflow.genai.evaluate(scorers=[correctness()])`\n"
-                "  - Incorrect: `mlflow.genai.evaluate(scorers=[correctness])`"
-            )
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Scorer {scorer} is not a valid scorer. Please use the @scorer decorator "
