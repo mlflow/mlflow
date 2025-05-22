@@ -465,7 +465,11 @@ class Linter(ast.NodeVisitor):
             return [node.id]
         return []
 
-    def _log_model_called_with_artifact_path(self, node: ast.Call) -> None:
+    def _log_model_called_with_artifact_path(self, node: ast.Call) -> bool:
+        """
+        Returns True if the call looks like `mlflow.<flavor>.log_model(...)` and
+        the `artifact_path` argument is specified.
+        """
         parts = self._resolve_call(node)
         if len(parts) != 3:
             return False
