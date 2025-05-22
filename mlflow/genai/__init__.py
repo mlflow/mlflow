@@ -1,8 +1,5 @@
 import warnings
 
-from mlflow.genai.evaluation import evaluate, to_predict_fn
-from mlflow.genai.scorers import Scorer, scorer
-
 try:
     with warnings.catch_warnings():
         # Ignore warnings from the mlflow.genai.datasets module
@@ -30,10 +27,6 @@ from mlflow.genai.datasets import (
 )
 
 __all__ = [
-    "evaluate",
-    "to_predict_fn",
-    "Scorer",
-    "scorer",
     "create_dataset",
     "delete_dataset",
     "get_dataset",
