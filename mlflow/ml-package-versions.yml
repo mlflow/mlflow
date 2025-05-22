@@ -621,8 +621,6 @@ langchain:
           "uvicorn",
           # Required for testing Databricks dependency extraction
           "databricks-vectorsearch",
-          # This version is incompatible with pyspark
-          "databricks-connect!=16.1.5",
         ]
       # langchain-openai 0.1.22 is imcomptible with earlier langchain-core due to
       # https://github.com/langchain-ai/langchain/commit/b83f1eb0d56dbf99605a1fce93953ee09d77aabf
@@ -633,6 +631,9 @@ langchain:
           "unitycatalog-langchain",
         ]
       ">=0.3": ["databricks-langchain"]
+    pre_test: |
+      # Installing both pyspark and databricks-connect causes a conflict
+      pip uninstall -y databricks-connect
     run: |
       # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
       # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
@@ -665,8 +666,6 @@ langchain:
           "uvicorn",
           # Some model logging/loading requires langchain community
           "langchain-community",
-          # This version is incompatible with pyspark
-          "databricks-connect!=16.1.5",
         ]
       "< 0.3.0": ["langchain_openai<0.2.0"]
       ">= 0.3.0": [
@@ -674,6 +673,9 @@ langchain:
           "fastapi>=0.100.0",
           "langchain-openai>=0.2.0",
         ]
+    pre_test: |
+      # Installing both pyspark and databricks-connect causes a conflict
+      pip uninstall -y databricks-connect
     run: |
       pytest tests/langchain/test_langchain_autolog.py
       # test both pydantic v1 and v2
