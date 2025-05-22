@@ -7,6 +7,7 @@ from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store 
 )
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.rest_store import RestStore
+from mlflow.store._unity_catalog.registry.uc_prompt_rest_store import UcPromptRestStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _resolve_tracking_uri,
@@ -159,19 +160,18 @@ def _get_file_store(store_uri, **_):
 
 
 def _get_store_registry():
+    """Get or create a store registry."""
     global _model_registry_store_registry
-    from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
-    from mlflow.store._unity_catalog.registry.uc_oss_rest_store import UnityCatalogOssStore
 
     if _model_registry_store_registry is not None:
         return _model_registry_store_registry
 
     _model_registry_store_registry = ModelRegistryStoreRegistry()
+    
+    # Register the stores
     _model_registry_store_registry.register("databricks", _get_databricks_rest_store)
-    # Register a placeholder function that raises if users pass a registry URI with scheme
-    # "databricks-uc"
-    _model_registry_store_registry.register(_DATABRICKS_UNITY_CATALOG_SCHEME, UcModelRegistryStore)
-    _model_registry_store_registry.register(_OSS_UNITY_CATALOG_SCHEME, UnityCatalogOssStore)
+    _model_registry_store_registry.register(_DATABRICKS_UNITY_CATALOG_SCHEME, UcPromptRestStore)
+    _model_registry_store_registry.register(_OSS_UNITY_CATALOG_SCHEME, UcPromptRestStore)
 
     for scheme in ["http", "https"]:
         _model_registry_store_registry.register(scheme, _get_rest_store)
