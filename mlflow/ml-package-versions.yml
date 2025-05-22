@@ -81,6 +81,7 @@ keras:
     maximum: "3.9.2"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
+      "< 3.10.0": ["jax[cpu]<0.6"]
     run: |
       export KERAS_BACKEND=jax
       pytest tests/keras/test_callback.py
@@ -90,6 +91,7 @@ keras:
     maximum: "3.9.2"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
+      "< 3.10.0": ["jax[cpu]<0.6"]
     run: |
       export KERAS_BACKEND=jax
       pytest tests/keras/test_autolog.py
