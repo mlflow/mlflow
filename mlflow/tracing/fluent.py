@@ -125,9 +125,9 @@ def trace(
         * - Async Generator
           - ✅ (>= 2.20.2)
         * - ClassMethod
-          - ✅ (>= 2.20.2)
+          - ✅ (>= 3.0.0)
         * - StaticMethod
-          - ✅ (>= 2.20.2)
+          - ✅ (>= 3.0.0)
 
     For more examples of using the @mlflow.trace decorator, including streaming/async
     handling, see the `MLflow Tracing documentation <https://www.mlflow.org/docs/latest/tracing/api/manual-instrumentation#decorator>`_.
