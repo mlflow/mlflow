@@ -112,7 +112,7 @@ class DspyModelWrapper(PythonModel):
                     "Please provide a single input.",
                     INVALID_PARAMETER_VALUE,
                 )
-            inputs = inputs.flatten()[0]
+            inputs = inputs[0]
 
         return inputs
 

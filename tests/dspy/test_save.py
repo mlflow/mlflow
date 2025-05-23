@@ -268,11 +268,19 @@ def test_serving_logged_model(dummy_model):
 
 
 def test_log_model_multi_inputs(dummy_model):
-    dspy_model = dspy.ChainOfThought("question, hint -> answer")
+    class MultiInputCoT(dspy.Module):
+        def __init__(self):
+            super().__init__()
+            self.prog = dspy.ChainOfThought("question, hint -> answer")
+
+        def forward(self, question, hint):
+            return self.prog(question=question, hint=hint)
+
+    dspy_model = MultiInputCoT()
 
     dspy.settings.configure(lm=dummy_model)
 
-    input_example = {"inputs": "What is 2 + 2?", "hint": "Hint: 2 + 2 = ?"}
+    input_example = {"question": "What is 2 + 2?", "hint": "Hint: 2 + 2 = ?"}
 
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(
@@ -283,6 +291,20 @@ def test_log_model_multi_inputs(dummy_model):
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert loaded_model.predict(input_example) == {"answer": "6", _REASONING_KEYWORD: "reason"}
+
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_info.model_uri,
+        data=json.dumps({"inputs": [input_example]}),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+
+    json_response = json.loads(response.content)
+
+    assert _REASONING_KEYWORD in json_response["predictions"]
+    assert "answer" in json_response["predictions"]
 
 
 def test_save_chat_model_with_string_output(dummy_model):
