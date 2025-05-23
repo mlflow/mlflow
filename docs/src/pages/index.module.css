@@ -66,9 +66,12 @@
   background: var(--ifm-card-background-color);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
-  border: 1px solid var(--ifm-color-emphasis-200);
+  border: 1px solid var(--ifm-color-emphasis-600);
   margin-bottom: 2rem;
-  /* Removed cursor: pointer to make card non-clickable */
+}
+
+[data-theme='dark'] .glossyCard {
+    border: 1px solid var(--ifm-color-emphasis-300);
 }
 
 .glossyCardblue:hover {
@@ -123,7 +126,7 @@
 }
 
 [data-theme='dark'] .cardTitle {
-  color: rgba(255, 255, 255, 0.9); /* 90% white for dark mode */
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .cardDescription {

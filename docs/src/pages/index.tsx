@@ -36,7 +36,7 @@ function PathSelector({
               href={button.link}
               className={styles.cardButton}
               onClick={(e) => {
-                e.stopPropagation(); // Prevent card click propagation
+                e.stopPropagation();
               }}
             >
               {button.text} <span className={styles.arrowIcon}>→</span>
@@ -69,7 +69,6 @@ export default function Home(): JSX.Element {
       description="MLflow Documentation - Machine Learning and GenAI lifecycle management">
       <main className={styles.homeContainer}>
         <div className={styles.contentGrid}>
-          {/* Left Column - Text */}
           <div className={styles.textColumn}>
             <h1 className={styles.megaHeading}>Documentation</h1>
             <p className={styles.introText}>
@@ -88,7 +87,7 @@ export default function Home(): JSX.Element {
               color="blue"
               buttons={[
                 {
-                  text: "View documentation",
+                  text: "Self Hosting",
                   link: "/ml"
                 }
               ]}
@@ -102,11 +101,11 @@ export default function Home(): JSX.Element {
               color="red"
               buttons={[
                 {
-                  text: "View documentation",
+                  text: "Managed MLflow",
                   link: "https://docs.databricks.com/en/machine-learning/"
                 },
                 {
-                  text: "View self-hosted documentation",
+                  text: "Self Hosting",
                   link: "/genai"
                 }
               ]}

@@ -1,0 +1,173 @@
+---
+sidebar_position: 2
+sidebar_label: TensorFlow
+---
+
+import Link from "@docusaurus/Link";
+import { CardGroup, PageCard } from "@site/src/components/Card";
+
+# MLflow TensorFlow Integration
+
+## Introduction
+
+**TensorFlow** is an end-to-end open source platform for machine learning that has revolutionized how developers and researchers approach AI development. With its comprehensive ecosystem of tools, libraries, and community resources, TensorFlow enables both cutting-edge research and production-ready ML applications at scale.
+
+TensorFlow's strength lies in its versatility - from rapid prototyping with high-level Keras APIs to fine-grained control with low-level operations, it adapts to your workflow needs. Whether you're building computer vision models, natural language processing systems, or complex neural architectures, TensorFlow provides the foundation for scalable machine learning.
+
+<details>
+  <summary>Why TensorFlow Leads the ML Ecosystem</summary>
+
+  #### Production-Ready by Design
+  - 🚀 **Scalable Deployment**: From mobile devices to large-scale distributed systems
+  - 🔧 **TensorFlow Serving**: Purpose-built model serving infrastructure  
+  - 📊 **TensorFlow Extended (TFX)**: End-to-end ML pipeline platform
+  - 🌐 **Cross-Platform Support**: Deploy anywhere - cloud, edge, or mobile
+
+  #### Research and Development Excellence
+  - 🧠 **Cutting-Edge APIs**: Access to latest ML research through TensorFlow Research
+  - 🔬 **Flexible Architecture**: Low-level ops for custom research alongside high-level Keras
+  - 📈 **Advanced Optimization**: Built-in support for mixed precision, distributed training
+  - 🎯 **Specialized Libraries**: TensorFlow Probability, TensorFlow Federated, and more
+
+</details>
+
+## Why MLflow + TensorFlow?
+
+The integration of MLflow with TensorFlow creates a powerful combination that addresses the complete ML lifecycle:
+
+- ⚡ **One-Line Autologging**: Enable comprehensive experiment tracking with just `mlflow.tensorflow.autolog()` - zero configuration required
+- 🎛️ **Keras Callback Integration**: Seamless integration with TensorFlow's callback system for granular control
+- 📊 **Complete Experiment Capture**: Automatically log model architecture, training metrics, hyperparameters, and artifacts
+- 🔄 **Flexible Logging Options**: Choose between automatic logging or manual instrumentation based on your needs
+- 🚀 **Production-Ready Deployment**: Convert experiments to deployable models with MLflow's serving capabilities
+- 👥 **Team Collaboration**: Share TensorFlow experiments and models through MLflow's intuitive interface
+
+## Key Features
+
+### Effortless Autologging
+
+MLflow's TensorFlow integration offers the most comprehensive autologging experience in the deep learning space:
+
+```python
+import mlflow
+import tensorflow as tf
+
+# Enable complete experiment tracking with one line
+mlflow.tensorflow.autolog()
+
+# Your existing TensorFlow/Keras code works unchanged
+model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
+```
+
+<details>
+  <summary>What Gets Automatically Captured</summary>
+
+  #### Comprehensive Metrics Tracking
+  - 📈 **Training Metrics**: Loss, accuracy, and all custom metrics specified in `model.compile()`
+  - 📊 **Validation Metrics**: Complete validation performance tracking across epochs
+  - 🛑 **Early Stopping Integration**: Automatic logging of early stopping callback metrics and parameters
+
+  #### Model and Training Configuration
+  - 🏗️ **Model Architecture**: Complete model summary with layer details and parameter counts
+  - ⚙️ **Hyperparameters**: Training configuration including batch size, epochs, learning rate
+  - 🔧 **Optimizer Settings**: Complete optimizer configuration and state
+
+  #### Production-Ready Artifacts
+  - 🤖 **Saved Models**: TensorFlow SavedModel format for immediate deployment
+  - 📊 **TensorBoard Logs**: Complete training visualization logs
+  - 📋 **Model Signatures**: Automatic input/output schema inference for deployment
+
+</details>
+
+### Advanced Keras Callback System
+
+For users requiring fine-grained control, MLflow provides deep integration with TensorFlow's callback ecosystem:
+
+<details>
+  <summary>Flexible Callback Integration</summary>
+
+  - 🎛️ **Built-in MLflow Callback**: Ready-to-use `mlflow.tensorflow.MlflowCallback` for standard tracking
+  - 🔧 **Custom Callback Support**: Easy extension of MLflow callbacks for specialized logging needs
+  - ⏱️ **Configurable Logging Frequency**: Log per epoch, per batch, or at custom intervals
+  - 📊 **Multi-Metric Handling**: Simultaneous tracking of multiple metrics with batch logging
+  - 🏷️ **Advanced Artifact Management**: Custom artifact logging during training phases
+
+</details>
+
+### Enterprise-Grade Model Management
+
+Beyond experiment tracking, MLflow transforms how you manage TensorFlow models:
+
+<details>
+  <summary>Complete Model Lifecycle Management</summary>
+
+  #### Model Versioning and Storage
+  - 📦 **Multiple Save Formats**: Support for SavedModel, H5, and Keras formats
+  - 🔄 **Version Control**: Complete model lineage from experiment to production
+  - 🏷️ **Model Registry**: Centralized model management with staging and approval workflows
+
+  #### Deployment and Serving
+  - 🚀 **One-Click Deployment**: Transform experiments into production-ready endpoints
+  - 🌐 **Multi-Platform Serving**: Deploy to cloud, edge, or on-premises infrastructure
+  - 📊 **Model Monitoring**: Track model performance in production environments
+
+</details>
+
+## Real-World Applications
+
+The MLflow-TensorFlow integration excels across diverse ML applications:
+
+- 🖼️ **Computer Vision**: Track CNN architectures, data augmentation pipelines, and transfer learning experiments for image classification, object detection, and semantic segmentation
+- 💬 **Natural Language Processing**: Log transformer models, tokenization strategies, and fine-tuning experiments for text classification, generation, and translation tasks  
+- 🎵 **Audio and Signal Processing**: Monitor RNN and transformer architectures for speech recognition, music generation, and audio classification
+- 📈 **Time Series Forecasting**: Track LSTM, GRU, and attention-based models for financial forecasting, demand prediction, and anomaly detection
+- 🧠 **Deep Reinforcement Learning**: Log agent architectures, reward functions, and training dynamics for game AI and robotics applications
+- 🔬 **Scientific Computing**: Track physics-informed neural networks, differential equation solvers, and scientific simulations
+
+## Get Started in 5 Minutes
+
+Ready to supercharge your TensorFlow workflow with MLflow? Our comprehensive guide walks you through everything from basic autologging to advanced deployment strategies.
+
+<CardGroup>
+  <PageCard 
+    headerText="TensorFlow Developer Guide" 
+    link="/ml/deep-learning/tensorflow/guide" 
+    text="Master TensorFlow-MLflow integration through comprehensive examples covering autologging, custom callbacks, model deployment, and production best practices." 
+  />
+</CardGroup>
+
+## [Detailed Documentation](/ml/deep-learning/tensorflow/guide)
+
+Our comprehensive developer guide covers the complete spectrum of TensorFlow-MLflow integration:
+
+<details>
+  <summary>Complete Learning Journey</summary>
+
+  #### Foundation Skills
+  - ⚡ Set up one-line autologging for immediate experiment tracking across any TensorFlow workflow
+  - 🎛️ Leverage Keras callbacks for granular control over experiment logging and monitoring
+  - 📊 Master both automatic and manual logging approaches for different use cases
+  - 🔧 Configure advanced logging parameters for custom training scenarios
+
+  #### Advanced Techniques  
+  - 🚀 Deploy TensorFlow models with MLflow's serving infrastructure for production use
+  - 📦 Work with multiple model formats (SavedModel, H5, Keras) and understand their trade-offs
+  - 🏷️ Implement model signatures for robust production deployment and monitoring
+  - 📈 Integrate with TensorBoard for comprehensive training visualization
+
+  #### Production Excellence
+  - 🏭 Build production-ready ML pipelines with proper experiment tracking and model governance
+  - 👥 Implement team collaboration workflows for shared TensorFlow model development
+  - 🔍 Set up model monitoring and performance tracking in production environments
+  - 📋 Establish model registry workflows for staging, approval, and deployment processes
+
+</details>
+
+To learn more about the nuances of the `tensorflow` flavor in MLflow, delve into the comprehensive guide below.
+
+<Link className="button button--primary" to="/ml/deep-learning/tensorflow/guide">
+  <span>View the Comprehensive Guide</span>
+</Link>
+
+
+Whether you're prototyping your first neural network or deploying enterprise-scale ML systems, the MLflow-TensorFlow integration provides the robust foundation needed for professional machine learning development that scales with your ambitions.

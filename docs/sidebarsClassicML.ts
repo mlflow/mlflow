@@ -5,7 +5,122 @@ const sidebarsClassicML: SidebarsConfig = {
     {
       type: 'doc',
       id: 'index',
-      className: 'sidebar-top-level-category'
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'category',
+      label: 'Getting Started 🚀',
+      className: 'sidebar-top-level-category',
+      collapsed: false,
+      items: [
+        {
+          type: 'doc',
+          id: 'getting-started/databricks-trial/index',
+        },
+        {
+          type: 'doc',
+          id: 'getting-started/intro-quickstart/index',
+        },
+        {
+          type: 'doc',
+          id: 'getting-started/running-notebooks/index',
+        },
+        {
+          type: 'doc',
+          id: 'getting-started/logging-first-model/index',
+        },
+        {
+          type: 'doc',
+          id: 'getting-started/hyperparameter-tuning/index',
+        },
+        {
+          type: 'doc',
+          id: 'getting-started/registering-first-model/index',
+        },
+        {
+          type: 'doc',
+          id: 'getting-started/tracking-server-overview/index',
+        }
+      ],
+      link: {
+        type: 'doc',
+        id: 'getting-started/index',
+      }
+    },
+    {
+      type: 'category',
+      label: 'Machine Learning 🤖',
+      className: 'sidebar-top-level-category',
+      collapsed: false,
+      items: [
+        {
+          type: 'category',
+          label: 'Deep Learning 🕸️',
+          items: [
+            {
+              type: 'category',
+              label: 'Keras',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'deep-learning/keras/quickstart/quickstart_keras-ipynb',
+                  label: 'Quickstart',
+                },
+                {
+                  type: 'doc',
+                  id: 'deep-learning/keras/guide/index',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'deep-learning/keras/index',
+              },
+            },
+            {
+              type: 'category',
+              label: 'PyTorch',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'deep-learning/pytorch/quickstart/pytorch_quickstart-ipynb',
+                  label: 'Quickstart',
+                },
+                {
+                  type: 'doc',
+                  id: 'deep-learning/pytorch/guide/index',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'deep-learning/pytorch/index',
+              },
+            },
+            {
+              type: 'category',
+              label: 'TensorFlow',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'deep-learning/tensorflow/quickstart/quickstart_tensorflow-ipynb',
+                  label: 'Quickstart',
+                },
+                {
+                  type: 'doc',
+                  id: 'deep-learning/tensorflow/guide/index',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'deep-learning/tensorflow/index',
+              },
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'deep-learning/index',
+          }
+        }
+      ]
     },
     {
       type: 'category',
@@ -19,7 +134,7 @@ const sidebarsClassicML: SidebarsConfig = {
           items: [
             {
               type: 'link',
-              href: '/getting-started/intro-quickstart/',
+              href: '/ml/getting-started/intro-quickstart/',
               label: 'Quickstart ⚡',
             },
             {
@@ -61,12 +176,16 @@ const sidebarsClassicML: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
+                  id: 'search-models/index',
+                },
+                {
+                  type: 'doc',
                   id: 'search-runs/index',
                 },
                 {
                   type: 'doc',
                   id: 'search-experiments/index',
-                }
+                },
               ]
             },
             {
@@ -89,20 +208,35 @@ const sidebarsClassicML: SidebarsConfig = {
             },
           ],
         },
-      ]
+      ],
     },
+    {
+      type: 'category',
+      label: 'Deploy 🚢',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'model-registry/index',
+          label: 'MLflow Model Registry 📚'
+        },
+        {
+          type: 'category',
+          label: 'MLflow Serving ⚙️',
+          items: [
+            {
+              type: 'doc',
+              id: 'deployment/deploy-model-locally/index'
+            }
+          ],
+          link: {
+            type: 'doc',
+            id: 'deployment/index'
+          }
+        }
+      ],
+    }
 
-    // {
-    //   type: 'category',
-    //   label: 'Getting Started',
-    //   items: ['installation', 'quickstart'],
-    // },
-    // {
-    //   type: 'category',
-    //   label: 'Core Features',
-    //   items: ['tracking', 'projects', 'model', 'model-registry'],
-    // },
-    // Add other categories and items as needed
   ],
 };
 
