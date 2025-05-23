@@ -51,7 +51,7 @@ module.exports = async ({ context, github, core }) => {
         user: pullRequest.user,
       })
     ) {
-      const message = `This workflow can only be triggered on PRs filed by a repository owner, member, or collaborator. @${pullRequest.user.login} (${pullRequest.author_association}) does not have sufficient permissions to trigger it.`;
+      const message = `This workflow can only be triggered on PRs filed by a repository owner, member, or collaborator. @${pullRequest.user.login} (${pullRequest.author_association}) does not have sufficient permissions.`;
       await createFailureComment(github, context, message);
       core.setFailed(message);
     }
