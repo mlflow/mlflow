@@ -35,7 +35,7 @@ module.exports = async ({ context, github, core }) => {
         user: comment.user,
       })
     ) {
-      const message = `This workflow can only be run on PRs filed by a repository owner, member, or collaborator. Your current role (${comment.author_association}) does not have sufficient permissions to trigger it.`;
+      const message = `This workflow can only be run on PRs filed by a repository owner, member, or collaborator. Your current role (${comment.author_association}, @${comment.user.login}) does not have sufficient permissions to trigger it.`;
       await createFailureComment(github, context, message);
       core.setFailed(message);
     }
@@ -51,7 +51,7 @@ module.exports = async ({ context, github, core }) => {
         user: pullRequest.user,
       })
     ) {
-      const message = `This workflow can only be run on PRs filed by a repository owner, member, or collaborator. Your current role (${pullRequest.author_association}) does not have sufficient permissions.`;
+      const message = `This workflow can only be run on PRs filed by a repository owner, member, or collaborator. Your current role (${pullRequest.author_association}, @${pullRequest.user.login}) does not have sufficient permissions.`;
       await createFailureComment(github, context, message);
       core.setFailed(message);
     }
