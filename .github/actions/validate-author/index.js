@@ -18,7 +18,7 @@ async function createFailureComment(github, context, message) {
       owner: context.repo.owner,
       repo: context.repo.repo,
       issue_number: context.issue.number,
-      body: `❌ **Validation Failed**: ${message}`
+      body: `❌ **Validation Failed**: ${message}`,
     });
   } catch (error) {
     // Log the error but don't fail the workflow because of comment creation issues
