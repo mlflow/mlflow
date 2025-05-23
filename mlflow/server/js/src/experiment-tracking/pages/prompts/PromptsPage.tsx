@@ -24,10 +24,25 @@ const PromptsPage = () => {
     usePromptsListQuery({ searchFilter: debouncedSearchFilter });
 
   const { EditTagsModal, showEditPromptTagsModal } = useUpdateRegisteredPromptTags({ onSuccess: refetch });
-  const { CreatePromptModal, openModal: openCreateVersionModal } = useCreatePromptModal({
+  // Checks if existing prompts are available
+  const hasPrompts = Array.isArray(data) && data.length > 0;
+  const { CreatePromptModal: CreatePrompModal, openModal: openCreatePromptModal } = useCreatePromptModal({
     mode: CreatePromptModalMode.CreatePrompt,
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
   });
+  const { CreatePromptModal: CreatePromptVersionModal, openModal: openCreatePromptVersionModal } = useCreatePromptModal({
+    mode: CreatePromptModalMode.CreatePromptVersion,
+    onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
+  });
+
+  // handler for the button
+  const handleCreatePromptClick = () => {
+    if (hasPrompts) {
+      openCreatePromptVersionModal();
+    } else {
+      openCreatePromptModal();
+    }
+  };
 
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -35,7 +50,7 @@ const PromptsPage = () => {
       <Header
         title={<FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />}
         buttons={
-          <Button componentId="mlflow.prompts.list.create" type="primary" onClick={openCreateVersionModal}>
+          <Button componentId="mlflow.prompts.list.create" type="primary" onClick={handleCreatePromptClick}>
             <FormattedMessage
               defaultMessage="Create prompt"
               description="Label for the create prompt button on the registered prompts page"
@@ -65,7 +80,8 @@ const PromptsPage = () => {
         />
       </div>
       {EditTagsModal}
-      {CreatePromptModal}
+      {CreatePrompModal}
+      {CreatePromptVersionModal}
     </ScrollablePageWrapper>
   );
 };
