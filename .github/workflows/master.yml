@@ -191,6 +191,8 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
+        with:
+          java-version: 11
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
