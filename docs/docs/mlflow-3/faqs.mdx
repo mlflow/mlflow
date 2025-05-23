@@ -14,7 +14,7 @@ For example, the following code fails to load the model in MLflow 3.x since the 
 import mlflow
 
 with mlflow.start_run() as run:
-    mlflow.sklearn.log_model(my_model, "model")
+    mlflow.sklearn.log_model(my_model, name="model")
     mlflow.sklearn.load_model(mlflow.get_artifact_uri("model"))
     # Throws a `ResourceNotFound` error.
 ```
