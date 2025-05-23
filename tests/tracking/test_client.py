@@ -32,6 +32,7 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
@@ -43,7 +44,6 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
-from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.utils import (
@@ -644,11 +644,6 @@ def test_log_trace_with_databricks_tracking_uri(
 
     model = TestModel()
 
-    def _mock_update_trace_info(trace_info):
-        trace_manager = InMemoryTraceManager.get_instance()
-        with trace_manager.get_trace("tr-0") as trace:
-            trace.info.tags.update({"tag": "tag_value"})
-
     with (
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data"
@@ -665,10 +660,6 @@ def test_log_trace_with_databricks_tracking_uri(
         mock.patch(
             "mlflow.MlflowClient.get_experiment_by_name",
             return_value=mock_experiment,
-        ),
-        mock.patch(
-            "mlflow.tracing.trace_manager.InMemoryTraceManager.update_trace_info",
-            side_effect=_mock_update_trace_info,
         ),
     ):
         model.predict(1, 2)
@@ -755,12 +746,11 @@ def test_end_trace_raise_error_when_trace_not_exist():
         client.end_trace("test")
 
 
-@pytest.mark.parametrize("status", TraceStatus.pending_statuses())
-def test_end_trace_works_for_trace_in_pending_status(status):
+def test_end_trace_works_for_trace_in_pending_status():
     client = mlflow.tracking.MlflowClient()
     mock_tracing_client = mock.MagicMock()
     mock_tracing_client.get_trace.return_value = Trace(
-        info=create_test_trace_info("test", status=status), data=TraceData()
+        info=create_test_trace_info("test", state=TraceState.IN_PROGRESS), data=TraceData()
     )
     client._tracing_client = mock_tracing_client
     client.end_span = lambda *args: None
@@ -768,12 +758,12 @@ def test_end_trace_works_for_trace_in_pending_status(status):
     client.end_trace("test")
 
 
-@pytest.mark.parametrize("status", TraceStatus.end_statuses())
-def test_end_trace_raise_error_for_trace_in_end_status(status):
+@pytest.mark.parametrize("state", [TraceState.OK, TraceState.ERROR])
+def test_end_trace_raise_error_for_trace_in_end_status(state):
     client = mlflow.tracking.MlflowClient()
     mock_tracing_client = mock.MagicMock()
     mock_tracing_client.get_trace.return_value = Trace(
-        info=create_test_trace_info("test", status=status), data=TraceData()
+        info=create_test_trace_info("test", state=state), data=TraceData()
     )
     client._tracing_client = mock_tracing_client
 

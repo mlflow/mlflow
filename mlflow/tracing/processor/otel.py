@@ -40,7 +40,7 @@ class OtelSpanProcessor(BatchSpanProcessor):
         """
         trace_id = generate_trace_id_v3()
         trace_info = TraceInfo(
-            trace_id=generate_trace_id_v3(),
+            trace_id=trace_id,
             trace_location=TraceLocation(experiment_id=None),
             request_time=span.start_time // 1_000_000,  # nanosecond to millisecond
             execution_duration=None,
