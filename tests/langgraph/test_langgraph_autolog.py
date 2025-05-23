@@ -5,9 +5,10 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import TraceMetadataKey
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 
+@skip_when_testing_trace_sdk
 def test_langgraph_save_as_code():
     input_example = {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
 
@@ -55,6 +56,7 @@ def test_langgraph_save_as_code():
         assert chunk[role]["messages"][0]["content"] == expected_content
 
 
+@skip_when_testing_trace_sdk
 def test_langgraph_tracing_prebuilt():
     mlflow.langchain.autolog()
 
@@ -103,6 +105,7 @@ def test_langgraph_tracing_prebuilt():
     assert tool_span.status.status_code == SpanStatusCode.OK
 
 
+@skip_when_testing_trace_sdk
 def test_langgraph_tracing_diy_graph():
     mlflow.langchain.autolog()
 
@@ -127,6 +130,7 @@ def test_langgraph_tracing_diy_graph():
     assert len(chat_spans) == 3
 
 
+@skip_when_testing_trace_sdk
 def test_langgraph_tracing_with_custom_span():
     mlflow.langchain.autolog()
 
@@ -176,6 +180,7 @@ def test_langgraph_tracing_with_custom_span():
     assert inner_runnable_span.name == "RunnableSequence_2"
 
 
+@skip_when_testing_trace_sdk
 def test_langgraph_chat_agent_trace():
     input_example = {"messages": [{"role": "user", "content": "hi"}]}
 
@@ -206,6 +211,7 @@ def test_langgraph_chat_agent_trace():
     assert traces[0].data.spans[0].inputs == input_example
 
 
+@skip_when_testing_trace_sdk
 def test_langgraph_autolog_with_update_current_span():
     model_info = mlflow.langchain.log_model(
         lc_model="tests/langgraph/sample_code/langgraph_with_autolog.py",

@@ -1,5 +1,6 @@
 import asyncio
 import base64
+from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
@@ -218,7 +219,8 @@ def test_messages_autolog(is_async):
 def test_messages_autolog_multi_modal(is_async):
     mlflow.anthropic.autolog()
 
-    with open("tests/resources/images/test.png", "rb") as f:
+    image_dir = Path(__file__).parent.parent / "resources" / "images"
+    with open(image_dir / "test.png", "rb") as f:
         image_bytes = f.read()
         image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
