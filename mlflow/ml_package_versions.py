@@ -288,7 +288,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.7.0",
-            "maximum": "0.9.1"
+            "maximum": "0.9.0"
         }
     },
     "autogen": {
