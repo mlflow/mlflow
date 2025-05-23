@@ -307,30 +307,23 @@ def test_trace_stream(wrap_sync_func):
     assert len(trace.data.spans[4].events) == 3
 
 
-def test_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, async_logging_enabled, mock_store, monkeypatch
-):
+def test_trace_with_databricks_tracking_uri(databricks_tracking_uri, monkeypatch):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
 
-    mock_experiment = mock.MagicMock()
-    mock_experiment.experiment_id = "test_experiment_id"
-    monkeypatch.setattr(
-        mock_store, "get_experiment_by_name", mock.MagicMock(return_value=mock_experiment)
-    )
-
     model = DefaultTestModel()
 
-    with mock.patch(
-        "mlflow.tracing.client.TracingClient._upload_trace_data"
-    ) as mock_upload_trace_data:
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data"
+        ) as mock_upload_trace_data,
+        mock.patch("mlflow.tracing.client._get_store") as mock_get_store,
+    ):
         model.predict(2, 5)
-        if async_logging_enabled:
-            mlflow.flush_trace_async_logging(terminate=True)
+        mlflow.flush_trace_async_logging(terminate=True)
 
-    mock_store.start_trace.assert_called_once()
-    mock_store.end_trace.assert_called_once()
+    mock_get_store().start_trace_v3.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
 

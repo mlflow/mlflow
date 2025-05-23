@@ -67,7 +67,7 @@ class MlflowV2SpanProcessor(BaseMlflowSpanProcessor):
             tags=self._get_basic_trace_tags(span),
         )
 
-        self._trace_manager.register_trace(span.context.trace_id, trace_info)
+        self._trace_manager.register_trace(span.context.trace_id, trace_info.to_v3())
 
         # NB: This is a workaround to exclude the latency of backend StartTrace API call (within
         #   _create_trace_info()) from the execution time of the span. The API call takes ~1 sec
