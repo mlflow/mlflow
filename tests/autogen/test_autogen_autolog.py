@@ -191,7 +191,7 @@ async def test_autolog_multi_modal():
     trace = traces[0]
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 3
-    span = traces.data.spans[0]
+    span = trace.data.spans[0]
     assert span.name == "run"
     assert span.span_type == SpanType.AGENT
     assert span.inputs["task"]["content"][0] == "Can you describe the number in the image?"
