@@ -1173,3 +1173,31 @@ def test_load_model_to_device(sequential_model):
             load_model_mock.assert_called_with(mock.ANY, **model_config)
             mlflow.pytorch.load_model(model_uri=model_info.model_uri, **model_config)
             load_model_mock.assert_called_with(path=mock.ANY, **model_config)
+
+
+def test_passing_params_to_model(data):
+    class CustomModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = torch.nn.Linear(4, 1)
+
+        def forward(self, x, y):
+            if not torch.is_tensor(x):
+                x = torch.from_numpy(x)
+            y = torch.tensor(y)
+            combined = x * y
+            return self.linear(combined)
+
+    model = CustomModel()
+    x = np.random.randn(8, 4).astype(np.float32)
+
+    signature = mlflow.models.infer_signature(x, None, {"y": 1})
+    with mlflow.start_run():
+        model_info = mlflow.pytorch.log_model(model, name="model", signature=signature)
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    with torch.no_grad():
+        np.testing.assert_array_almost_equal(pyfunc_model.predict(x), model(x, 1), decimal=4)
+        np.testing.assert_array_almost_equal(
+            pyfunc_model.predict(x, {"y": 2}), model(x, 2), decimal=4
+        )
