@@ -23,6 +23,24 @@ import _ from 'lodash';
 import { fulfilled, rejected } from '../common/utils/ActionUtils';
 import { RegisteredModelTag, ModelVersionTag } from './sdk/ModelRegistryMessages';
 
+const nextPageTokenByModel = (state: Record<string, string | null> = {}, action: any) => {
+  switch (action.type) {
+    case fulfilled(SEARCH_MODEL_VERSIONS): {
+      const modelName = action.meta.modelName ?? action.meta.filterObj?.name ?? '__unknown_model__';
+      const nextPageToken = action.payload.next_page_token ?? null;
+
+      if (state[modelName] === nextPageToken) return state;
+      return { ...state, [modelName]: nextPageToken };
+    }
+    case fulfilled(DELETE_REGISTERED_MODEL): {
+      const { model } = action.meta;
+      return _.omit(state, model.name);
+    }
+    default:
+      return state;
+  }
+};
+
 const modelByName = (state = {}, action: any) => {
   switch (action.type) {
     case fulfilled(SEARCH_REGISTERED_MODELS): {
@@ -92,29 +110,11 @@ const modelVersionsByModel = (state = {}, action: any) => {
       };
     }
     case fulfilled(SEARCH_MODEL_VERSIONS): {
-      const modelVersions = action.payload[getProtoField('model_versions')];
-      if (!modelVersions) {
-        return state;
-      }
-      // Merge all modelVersions into the store
-      const newModelVersions = modelVersions.reduce(
-        (newState: any, modelVersion: any) => {
-          const { name, version } = modelVersion;
-          return {
-            ...newState,
-            [name]: {
-              ...newState[name],
-              [version]: modelVersion,
-            },
-          };
-        },
-        { ...state },
-      );
+      const modelVersions = action.payload[getProtoField('model_versions')] || [];
+      const { modelName } = action.meta;
 
-      if (_.isEqual(state, newModelVersions)) {
-        return state;
-      }
-      return newModelVersions;
+      const newSlice = modelVersions.reduce((acc: Record<string, any>, mv: any) => ({ ...acc, [mv.version]: mv }), {});
+      return { ...state, [modelName]: newSlice };
     }
     case fulfilled(DELETE_MODEL_VERSION): {
       const { modelName, version } = action.meta;
@@ -344,12 +344,16 @@ export const getModelVersionTags = (modelName: any, version: any, state: any) =>
   }
 };
 
+export const getNextPageToken = (state: any, modelName: string) =>
+  state.entities.nextPageTokenByModel?.[modelName] ?? null;
+
 const reducers = {
   modelByName,
   modelVersionsByModel,
   tagsByRegisteredModel,
   tagsByModelVersion,
   mlModelArtifactByModelVersion,
+  nextPageTokenByModel,
 };
 
 export default reducers;
