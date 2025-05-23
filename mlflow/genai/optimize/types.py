@@ -1,9 +1,9 @@
 from typing import Optional
+from mlflow.entities.model_registry import Prompt
 
 
 class PromptOptimizationResult:
-    prompt_uri: str  # "prompts:/<prompt name>/<version>
-    prompt_template: str
+    prompt: Prompt
 
 
 class LLMParam:
