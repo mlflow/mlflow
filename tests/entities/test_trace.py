@@ -2,6 +2,7 @@ import importlib
 import json
 import re
 from datetime import datetime
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -387,3 +388,41 @@ def test_from_v2_dict():
     assert trace.info.request_time == 100
     assert trace.info.execution_duration == 200
     assert len(trace.data.spans) == 2
+
+
+def test_request_response_smart_truncation():
+    # Create a trace info with chat format request/response
+    @mlflow.trace
+    def f(messages: list[dict[str, Any]]) -> dict[str, Any]:
+        return {"choices": [{"message": {"role": "assistant", "content": "Hi!" * 10000}}]}
+
+    messages = [{"role": "user", "content": "Hello!" * 10000}]
+    result = f(messages)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert len(trace.info.request_preview) == 10000
+    assert trace.info.request_preview.startswith("Hello!")
+    assert len(trace.info.response_preview) == 10000
+    assert trace.info.response_preview.startswith("Hi!")
+
+    assert trace.data.spans[0].inputs == {"messages": messages}
+    assert trace.data.spans[0].outputs == result
+
+
+def test_request_response_smart_truncation_non_chat_format():
+    # Non-chat request/response will be naively truncated
+    @mlflow.trace
+    def f(question: str) -> list[str]:
+        return ["a" * 5000, "b" * 5000, "c" * 5000]
+
+    question = "start" + "a" * 10000
+    result = f(question)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert len(trace.info.request_preview) == 10000
+    assert trace.info.request_preview.startswith('{"question": "startaaa')
+    assert len(trace.info.response_preview) == 10000
+    assert trace.info.response_preview.startswith('["aaaaa')
+
+    assert trace.data.spans[0].inputs == {"question": question}
+    assert trace.data.spans[0].outputs == result
