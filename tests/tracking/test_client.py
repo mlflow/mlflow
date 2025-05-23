@@ -62,7 +62,6 @@ from mlflow.utils.mlflow_tags import (
 )
 
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
-from tests.tracing.conftest import mock_store as mock_store_for_tracing  # noqa: F401
 from tests.tracing.helper import create_test_trace_info, get_traces
 
 
@@ -122,6 +121,29 @@ def mock_databricks_tracking_store():
         return_value=mock_tracking_store,
     ):
         yield mock_tracking_store
+
+
+@pytest.fixture
+def mock_store_start_trace_v3():
+    def _mock_start_trace_v3(trace):
+        return create_test_trace_info(
+            trace_id="tr-123",
+            experiment_id=trace.info.experiment_id,
+            request_time=trace.info.request_time,
+            execution_duration=trace.info.execution_duration,
+            state=trace.info.state,
+            trace_metadata=trace.info.trace_metadata,
+            tags={
+                "mlflow.user": "bob",
+                "mlflow.artifactLocation": "test",
+                **trace.info.tags,
+            },
+        )
+
+    with mock.patch(
+        "mlflow.tracing.client.TracingClient.start_trace_v3", side_effect=_mock_start_trace_v3
+    ) as mock_start_trace_v3:
+        yield mock_start_trace_v3
 
 
 @pytest.fixture
@@ -597,9 +619,9 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     assert non_ended_span.status.status_code == SpanStatusCode.UNSET
 
 
-@mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
+@mock.patch("mlflow.get_tracking_uri", return_value="databricks")
 def test_log_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, mock_store_for_tracing, monkeypatch, async_logging_enabled
+    databricks_tracking_uri, mock_store_start_trace_v3, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
@@ -663,12 +685,9 @@ def test_log_trace_with_databricks_tracking_uri(
         ),
     ):
         model.predict(1, 2)
+        mlflow.flush_trace_async_logging(terminate=True)
 
-        if async_logging_enabled:
-            mlflow.flush_trace_async_logging(terminate=True)
-
-    mock_store_for_tracing.start_trace.assert_called_once()
-    mock_store_for_tracing.end_trace.assert_called_once()
+    mock_store_start_trace_v3.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
 

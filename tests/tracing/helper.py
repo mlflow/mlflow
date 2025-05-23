@@ -110,7 +110,7 @@ def create_trace(request_id) -> Trace:
 
 
 def create_test_trace_info(
-    request_id,
+    trace_id,
     experiment_id="test",
     request_time=0,
     execution_duration=1,
@@ -119,7 +119,7 @@ def create_test_trace_info(
     tags=None,
 ):
     return TraceInfo(
-        trace_id=request_id,
+        trace_id=trace_id,
         trace_location=TraceLocation.from_experiment_id(experiment_id),
         request_time=request_time,
         execution_duration=execution_duration,
