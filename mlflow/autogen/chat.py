@@ -11,7 +11,6 @@ from mlflow.types.chat import (
     TextContentPart,
     ToolCall,
 )
-from mlflow.utils.autologging_utils import _logger
 
 if TYPE_CHECKING:
     from autogen_core import FunctionCall
