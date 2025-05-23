@@ -64,13 +64,13 @@ library_to_mlflow_module_genai = {
     llama_index.core: mlflow.llama_index,
     langchain: mlflow.langchain,
     anthropic: mlflow.anthropic,
-    autogen: mlflow.autogen,
     dspy: mlflow.dspy,
     litellm: mlflow.litellm,
     google.genai: mlflow.gemini,
     boto3: mlflow.bedrock,
     groq: mlflow.groq,
     mistralai: mlflow.mistral,
+    autogen: mlflow.ag2,
     # TODO: once Python 3.10 is introduced, enable smolagents
     # smolagents: mlflow.smolagents,
 }
@@ -117,6 +117,7 @@ def reset_global_states():
     mlflow.utils.import_hooks._post_import_hooks.pop("smolagents", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("pydantic_ai", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("crewai", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("autogen_agentchat", None)
     # TODO: Remove this line when we stop supporting google.generativeai
     mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
