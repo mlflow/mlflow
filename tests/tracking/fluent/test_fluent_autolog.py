@@ -487,6 +487,7 @@ def test_autolog_genai_import(disable, flavor_and_module):
         "crewai",
         "smolagents",
         "pydantic_ai",
+        "autogen",
     }:
         return
 
