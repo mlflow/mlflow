@@ -11,6 +11,7 @@ function isAllowed({ author_association, user }) {
  * @param {Object} github - The github object from the action context
  * @param {Object} context - The context object from the action
  * @param {string} message - The message to add as a comment
+ * @returns {Promise<void>}
  */
 async function createFailureComment(github, context, message) {
   try {
