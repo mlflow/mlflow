@@ -61,7 +61,7 @@ repos:
         name: custom-python-lint
         entry: clint
         language: system
-        files: '\.(py|ipynb)$'
+        files: '\.(py|ipynb|rst)$'
         stages: [pre-commit]
         require_serial: true
 

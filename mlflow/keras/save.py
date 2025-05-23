@@ -344,7 +344,7 @@ def log_model(
             ]
         )
         with mlflow.start_run() as run:
-            mlflow.keras.log_model(model, name="model")
+            mlflow.keras.log_model(model, "model")
     """
     return Model.log(
         artifact_path=artifact_path,
