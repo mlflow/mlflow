@@ -43,7 +43,9 @@ class DspyModelWrapper(PythonModel):
         converted_inputs = self._get_model_input(inputs)
 
         with dspy.context(**self.dspy_settings):
-            if isinstance(inputs, dict):
+            if isinstance(converted_inputs, dict):
+                # We pass a dict as keyword args and don't allow DSPy models
+                # to receive a single dict.
                 return self.model(**converted_inputs).toDict()
             else:
                 return self.model(converted_inputs).toDict()
@@ -93,16 +95,24 @@ class DspyModelWrapper(PythonModel):
                 INVALID_PARAMETER_VALUE,
             )
         if isinstance(inputs, pd.DataFrame):
-            inputs = inputs.values
-        if isinstance(inputs, np.ndarray):
-            flatten = inputs.reshape(-1)
-            if len(flatten) > 1:
+            if len(inputs) != 1:
                 raise MlflowException(
-                    "Dspy model doesn't support multiple inputs or batch inference. Please "
-                    "provide a single input.",
+                    "Dspy model doesn't support batch inference or empty input. "
+                    "Please provide a single input.",
                     INVALID_PARAMETER_VALUE,
                 )
-            inputs = str(flatten[0])
+            if all(isinstance(col, str) for col in inputs.columns):
+                inputs = inputs.to_dict(orient="records")[0]
+            else:
+                inputs = inputs.values
+        if isinstance(inputs, np.ndarray):
+            if len(inputs) != 1:
+                raise MlflowException(
+                    "Dspy model doesn't support batch inference or empty input. "
+                    "Please provide a single input.",
+                    INVALID_PARAMETER_VALUE,
+                )
+            inputs = inputs.flatten()[0]
 
         return inputs
 

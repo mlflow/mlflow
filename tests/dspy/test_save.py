@@ -22,7 +22,7 @@ from tests.helper_functions import (
 
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
 
-_DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
+_DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0")
 
 _DSPY_2_6_23_OR_OLDER = _DSPY_VERSION <= Version("2.6.23")
 skip_if_2_6_23_or_older = pytest.mark.skipif(
@@ -265,6 +265,24 @@ def test_serving_logged_model(dummy_model):
 
     assert _REASONING_KEYWORD in json_response["predictions"]
     assert "answer" in json_response["predictions"]
+
+
+def test_log_model_multi_inputs(dummy_model):
+    dspy_model = dspy.ChainOfThought("question, hint -> answer")
+
+    dspy.settings.configure(lm=dummy_model)
+
+    input_example = {"inputs": "What is 2 + 2?", "hint": "Hint: 2 + 2 = ?"}
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            input_example=input_example,
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert loaded_model.predict(input_example) == {"answer": "6", _REASONING_KEYWORD: "reason"}
 
 
 def test_save_chat_model_with_string_output(dummy_model):
