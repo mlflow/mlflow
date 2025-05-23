@@ -6,7 +6,7 @@ import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.entities.run import Run
-from mlflow.environment_variables import MLFLOW_ENABLE_ENV_PACK_FOR_DATABRICKS_MODEL_SERVING, MLFLOW_PRINT_MODEL_URLS_ON_CREATION
+from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
@@ -180,7 +180,7 @@ def _register_model(
     # Otherwise if the uri is of the form models:/..., try to get the model_id from the uri directly
     model_id = _parse_model_id_if_present(model_uri) if not model_id else model_id
     
-    if env_pack == "databricks_model_serving" and MLFLOW_ENABLE_ENV_PACK_FOR_DATABRICKS_MODEL_SERVING.get():
+    if env_pack == "databricks_model_serving":
         eprint(f"Packing environment for Databricks Model Serving...")
         with pack_env_for_databricks_model_serving(
             model_uri,
@@ -235,7 +235,7 @@ def _register_model(
             {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
         )
 
-    if env_pack == "databricks_model_serving" and MLFLOW_ENABLE_ENV_PACK_FOR_DATABRICKS_MODEL_SERVING.get():
+    if env_pack == "databricks_model_serving":
         eprint(f"Staging model {create_version_response.name} version {create_version_response.version} for Databricks Model Serving...")
         stage_model_for_databricks_model_serving(
             model_name=create_version_response.name,

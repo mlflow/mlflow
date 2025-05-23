@@ -9,7 +9,6 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple, Optional, TypeVar
 
-from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.request_utils import augmented_raise_for_status
 
@@ -1423,7 +1422,6 @@ def get_databricks_local_temp_dir():
             return entry_point.getReplLocalTempDir()
 
 
-@experimental
 def stage_model_for_databricks_model_serving(model_name: str, model_version: str):
     response = http_request(
         host_creds=get_databricks_host_creds(),

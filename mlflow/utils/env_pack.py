@@ -78,13 +78,13 @@ def pack_env_for_databricks_model_serving(
                         os.path.join(local_artifacts_dir, _REQUIREMENTS_FILE_NAME),
                     ],
                     capture_output=True,
+                    stderr=subprocess.stdout,
                     text=True,
                 )
                 result.check_returncode()
             except subprocess.CalledProcessError as e:
                 eprint("Error installing requirements:")
                 eprint(e.stdout)
-                eprint(e.stderr)
                 raise
 
         # Package model artifacts and env into temp_dir/_databricks
@@ -94,8 +94,4 @@ def pack_env_for_databricks_model_serving(
         _tar(sys.prefix, os.path.join(temp_artifacts_dir, _MODEL_ENVIRONMENT_TAR))
         shutil.move(temp_artifacts_dir, local_artifacts_dir)
 
-        try:
-            yield local_artifacts_dir
-        finally:
-            # Cleanup will happen automatically when temp_dir context exits
-            pass
+        yield local_artifacts_dir
