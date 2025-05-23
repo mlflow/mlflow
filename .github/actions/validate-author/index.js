@@ -1,8 +1,12 @@
 function isAllowed({ author_association, user }) {
   return (
-    ["owner", "member", "collaborator"].includes(author_association.toLowerCase()) ||
+    ["owner", "member", "collaborator"].includes(
+      author_association.toLowerCase(),
+    ) ||
     // Allow Copilot to run this workflow
-    (user && user.login.toLowerCase() === "copilot" && user.type.toLowerCase() === "bot")
+    (user &&
+      user.login.toLowerCase() === "copilot" &&
+      user.type.toLowerCase() === "bot")
   );
 }
 
@@ -51,7 +55,7 @@ module.exports = async ({ context, github, core }) => {
         user: pullRequest.user,
       })
     ) {
-      const message = `This workflow can only be triggered by a repository owner, member, or collaborator. @${pullRequest.user.login} (${pullRequest.author_association}) does not have sufficient permissions to trigger it.`;
+      const message = `This workflow can only be triggered on PRs filed by a repository owner, member, or collaborator. @${pullRequest.user.login} (${pullRequest.author_association}) does not have sufficient permissions to trigger it.`;
       await createFailureComment(github, context, message);
       core.setFailed(message);
     }
