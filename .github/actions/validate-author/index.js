@@ -35,7 +35,7 @@ module.exports = async ({ context, github, core }) => {
         user: comment.user,
       })
     ) {
-      const message = `This workflow can only be triggered by a repository owner, member, or collaborator. @${comment.user.login} (${comment.author_association}) does not have sufficient permissions to trigger it.`;
+      const message = `This workflow can only be triggered by a repository owner, member, or collaborator. @${comment.user.login} (${comment.author_association}) does not have sufficient permissions.`;
       await createFailureComment(github, context, message);
       core.setFailed(message);
     }
