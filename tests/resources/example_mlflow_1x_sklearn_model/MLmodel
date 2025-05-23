@@ -4,7 +4,7 @@ flavors:
     loader_module: mlflow.sklearn
     model_path: model.pkl
     predict_fn: predict
-    python_version: 3.9.18
+    python_version: 3.10.16
   sklearn:
     code: null
     pickled_model: model.pkl
@@ -12,4 +12,4 @@ flavors:
     sklearn_version: 1.5.2
 mlflow_version: 1.30.1
 model_uuid: 4d622e7b02614d1eb71f44eeb927be4f
-utc_time_created: '2024-10-29 07:39:02.032550'
+utc_time_created: "2024-10-29 07:39:02.032550"
