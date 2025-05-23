@@ -5,9 +5,11 @@ from typing import Any, Optional, Union
 
 import mlflow
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
+from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_NAME_RULE
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
+from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_oss_unity_catalog_uri
 
 
 def add_prompt_filter_string(
@@ -43,11 +45,21 @@ def is_prompt_supported_registry(registry_uri: Optional[str] = None) -> bool:
     """
     Check if the current registry supports prompts.
 
-    Prompts registration is supported only in the OSS MLflow Tracking Server,
-    not in Databricks or OSS Unity Catalog.
+    Prompts registration is supported in OSS MLflow Tracking Server and Unity Catalog 
+    (Databricks and OSS) when the feature flag is enabled.
     """
     registry_uri = registry_uri or mlflow.get_registry_uri()
-    return not registry_uri.startswith("databricks") and not registry_uri.startswith("uc:")
+    
+    # Always support OSS MLflow server
+    if not registry_uri.startswith("databricks") and not registry_uri.startswith("uc:"):
+        return True
+    
+    # For Unity Catalog (both Databricks and OSS), check feature flag
+    if (is_databricks_unity_catalog_uri(registry_uri) or is_oss_unity_catalog_uri(registry_uri)):
+        return MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get()
+    
+    # Legacy Databricks workspace registry is not supported
+    return False
 
 
 def require_prompt_registry(func):
@@ -62,7 +74,9 @@ def require_prompt_registry(func):
 
         if not is_prompt_supported_registry(registry_uri):
             raise MlflowException(
-                f"The '{func.__name__}' API is only available with the OSS MLflow Tracking Server."
+                f"The '{func.__name__}' API is not supported with the current registry. "
+                "It is supported with the OSS MLflow Tracking Server or Unity Catalog "
+                "with the UC prompt support feature flag enabled (MLFLOW_ENABLE_UC_PROMPT_SUPPORT=true)."
             )
         return func(*args, **kwargs)
 
@@ -72,8 +86,9 @@ def require_prompt_registry(func):
 
         .. note::
 
-            This API is supported only when using the OSS MLflow Model Registry. Prompts are not
-            supported in Databricks or the OSS Unity Catalog model registry.
+            This API is supported when using the OSS MLflow Model Registry or Unity Catalog
+            Model Registry with the UC prompt support feature flag enabled. Prompts are not
+            supported in the legacy Databricks workspace model registry.
     """)
     return wrapper
 

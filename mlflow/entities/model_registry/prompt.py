@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import re
-from typing import Optional, Union
+from typing import Optional, Union, Dict, List
 
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
+from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
@@ -25,56 +27,155 @@ def _is_reserved_tag(key: str) -> bool:
 # Prompt is implemented as a special type of ModelVersion. MLflow stores both prompts
 # and model versions in the model registry as ModelVersion DB records, but distinguishes
 # them using the special tag "mlflow.prompt.is_prompt".
-class Prompt(ModelVersion):
+class Prompt:
     """
-    An entity representing a prompt (template) for GenAI applications.
-
-    Args:
-        name: The name of the prompt.
-        version: The version number of the prompt.
-        template: The template text of the prompt. It can contain variables enclosed in
-            double curly braces, e.g. {{variable}}, which will be replaced with actual values
-            by the `format` method. MLflow use the same variable naming rules same as Jinja2
-            https://jinja.palletsprojects.com/en/stable/api/#notes-on-identifiers
-        commit_message: The commit message for the prompt version. Optional.
-        creation_timestamp: Timestamp of the prompt creation. Optional.
-        version_metadata: A dictionary of metadata associated with the **prompt version**.
-            This is useful for storing version-specific information, such as the author of
-            the changes. Optional.
-        prompt_tags: A dictionary of tags associated with the entire prompt. This is different
-            from the `version_metadata` as it is not tied to a specific version of the prompt.
+    MLflow entity for Unity Catalog Prompt.
     """
-
+    
     def __init__(
         self,
         name: str,
-        version: int,
-        template: str,
-        commit_message: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
-        version_metadata: Optional[dict[str, str]] = None,
-        prompt_tags: Optional[dict[str, str]] = None,
-        aliases: Optional[list[str]] = None,
+        last_updated_timestamp: Optional[int] = None,
+        description: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        aliases: Optional[Dict[str, str]] = None,
+        tags: Optional[Dict[str, str]] = None,
+        latest_version: Optional[PromptVersion] = None,
     ):
-        # Store template text as a tag
-        version_metadata = version_metadata or {}
-        version_metadata[PROMPT_TEXT_TAG_KEY] = template
-        version_metadata[IS_PROMPT_TAG_KEY] = "true"
+        """
+        Initialize a Prompt.
+        
+        Args:
+            name: Full three tier UC name of the prompt
+            creation_timestamp: Timestamp recorded when this prompt was created
+            last_updated_timestamp: Timestamp recorded when metadata was last updated
+            description: Description of this prompt
+            experiment_id: ExperimentID associated with this prompt
+            aliases: Dictionary of alias name to version number
+            tags: Dictionary of prompt tags
+            latest_version: Latest version of this prompt
+        """
+        self._name = name
+        self._creation_timestamp = creation_timestamp
+        self._last_updated_timestamp = last_updated_timestamp
+        self._description = description
+        self._experiment_id = experiment_id
+        self._aliases = aliases or {}
+        self._tags = tags or {}
+        self._latest_version = latest_version
 
-        super().__init__(
-            name=name,
-            version=version,
-            creation_timestamp=creation_timestamp,
-            description=commit_message,
-            # "version_metadata" is represented as ModelVersion tags.
-            tags=[ModelVersionTag(key=key, value=value) for key, value in version_metadata.items()],
+    @property
+    def name(self) -> str:
+        """Get the prompt name."""
+        return self._name
+
+    @property
+    def creation_timestamp(self) -> Optional[int]:
+        """Get the creation timestamp."""
+        return self._creation_timestamp
+
+    @property
+    def last_updated_timestamp(self) -> Optional[int]:
+        """Get the last updated timestamp."""
+        return self._last_updated_timestamp
+
+    @property
+    def description(self) -> Optional[str]:
+        """Get the description."""
+        return self._description
+
+    @property
+    def experiment_id(self) -> Optional[str]:
+        """Get the experiment ID."""
+        return self._experiment_id
+
+    @property
+    def aliases(self) -> Dict[str, str]:
+        """Get the aliases dictionary."""
+        return self._aliases
+
+    @property
+    def tags(self) -> Dict[str, str]:
+        """Get the tags dictionary."""
+        return self._tags
+
+    @property
+    def latest_version(self) -> Optional[PromptVersion]:
+        """Get the latest version."""
+        return self._latest_version
+
+    @classmethod
+    def from_proto(cls, proto, latest_version=None):
+        """
+        Create a Prompt from protocol buffer.
+        
+        Args:
+            proto: Protocol buffer message
+            latest_version: Optional latest version to include
+            
+        Returns:
+            Prompt object
+        """
+        aliases = {}
+        if proto.aliases:
+            aliases = {a.alias: a.version for a in proto.aliases}
+            
+        tags = {}
+        if proto.tags:
+            tags = {t.key: t.value for t in proto.tags}
+            
+        creation_ts = None
+        if proto.creation_timestamp:
+            creation_ts = int(proto.creation_timestamp.seconds * 1000)
+            
+        last_updated_ts = None
+        if proto.last_updated_timestamp:
+            last_updated_ts = int(proto.last_updated_timestamp.seconds * 1000)
+            
+        return cls(
+            name=proto.name,
+            creation_timestamp=creation_ts,
+            last_updated_timestamp=last_updated_ts,
+            description=proto.description,
+            experiment_id=proto.experiment_id,
             aliases=aliases,
+            tags=tags,
+            latest_version=latest_version,
         )
 
-        self._variables = set(PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(self.template))
+    def to_proto(self):
+        """
+        Convert to protocol buffer message.
+        
+        Returns:
+            Proto message
+        """
+        from mlflow.protos import uc_prompt_pb2
 
-        # Store the prompt-level tags (from RegisteredModel).
-        self._prompt_tags = prompt_tags or {}
+        proto = uc_prompt_pb2.Prompt()
+        proto.name = self.name
+        
+        if self.description:
+            proto.description = self.description
+            
+        if self.experiment_id:
+            proto.experiment_id = self.experiment_id
+            
+        for alias, version in self.aliases.items():
+            proto_alias = proto.aliases.add()
+            proto_alias.alias = alias
+            proto_alias.version = version
+            
+        for key, value in self.tags.items():
+            proto_tag = proto.tags.add()
+            proto_tag.key = key
+            proto_tag.value = value
+            
+        return proto
+
+    def __repr__(self):
+        return f"<Prompt: name={self.name}>"
 
     def __repr__(self) -> str:
         text = (
@@ -108,7 +209,7 @@ class Prompt(ModelVersion):
         Return a list of variables in the template text.
         The value must be enclosed in double curly braces, e.g. {{variable}}.
         """
-        return self._variables
+        return set(PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(self.template))
 
     @property
     def commit_message(self) -> Optional[str]:
@@ -122,13 +223,6 @@ class Prompt(ModelVersion):
         """Return the tags of the prompt as a dictionary."""
         # Remove the prompt text tag as it should not be user-facing
         return {key: value for key, value in self._tags.items() if not _is_reserved_tag(key)}
-
-    @property
-    def tags(self) -> dict[str, str]:
-        """
-        Return the prompt-level tags (from RegisteredModel).
-        """
-        return {key: value for key, value in self._prompt_tags.items() if not _is_reserved_tag(key)}
 
     @property
     def run_ids(self) -> list[str]:
