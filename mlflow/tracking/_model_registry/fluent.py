@@ -1,10 +1,23 @@
+import json
+import logging
 from typing import Any, Optional
 
+import mlflow
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
+from mlflow.entities.run import Run
+from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import require_prompt_registry
-from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    ALREADY_EXISTS,
+    NOT_FOUND,
+    RESOURCE_ALREADY_EXISTS,
+    ErrorCode,
+)
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.store.artifact.utils.models import _parse_model_id_if_present
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -12,9 +25,17 @@ from mlflow.store.model_registry import (
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import active_run
-from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import (
+    _construct_databricks_uc_registered_model_url,
+    get_workspace_id,
+    get_workspace_url,
+)
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils.uri import is_databricks_unity_catalog_uri
+
+_logger = logging.getLogger(__name__)
 
 
 def register_model(
@@ -65,7 +86,7 @@ def register_model(
             rfr = RandomForestRegressor(**params).fit(X, y)
             signature = infer_signature(X, rfr.predict(X))
             mlflow.log_params(params)
-            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+            mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
         model_uri = f"runs:/{run.info.run_id}/sklearn-model"
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
         print(f"Name: {mv.name}")
@@ -78,7 +99,10 @@ def register_model(
         Version: 1
     """
     return _register_model(
-        model_uri=model_uri, name=name, await_registration_for=await_registration_for, tags=tags
+        model_uri=model_uri,
+        name=name,
+        await_registration_for=await_registration_for,
+        tags=tags,
     )
 
 
@@ -106,11 +130,46 @@ def _register_model(
             raise e
 
     run_id = None
+    model_id = None
     source = model_uri
     if RunsArtifactRepository.is_runs_uri(model_uri):
-        source = RunsArtifactRepository.get_underlying_uri(model_uri)
-        (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
+        # If the uri is of the form runs:/...
+        (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(model_uri)
+        runs_artifact_repo = RunsArtifactRepository(model_uri)
+        if runs_artifact_repo._is_directory(artifact_path):
+            # First check if run has artifact at artifact_path,
+            # if so use the run's artifact location as source
+            source = RunsArtifactRepository.get_underlying_uri(model_uri)
+        else:
+            # Otherwise check if there's a logged model with
+            # name artifact_path and source_run_id run_id
+            run = client.get_run(run_id)
+            logged_models = _get_logged_models_from_run(run, artifact_path)
+            if not logged_models:
+                raise MlflowException(
+                    f"Unable to find a logged_model with artifact_path {artifact_path} "
+                    f"under run {run_id}",
+                    error_code=ErrorCode.Name(NOT_FOUND),
+                )
+            if len(logged_models) > 1:
+                if run.outputs is None:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Multiple logged models found for run {run_id}. Cannot determine "
+                        "which model to register. Please use `models:/<model_id>` instead."
+                    )
+                # If there are multiple such logged models, get the one logged at the largest step
+                model_id_to_step = {m_o.model_id: m_o.step for m_o in run.outputs.model_outputs}
+                model_id = max(logged_models, key=lambda lm: model_id_to_step[lm.model_id]).model_id
+            else:
+                model_id = logged_models[0].model_id
+            source = f"models:/{model_id}"
+            _logger.warning(
+                f"Run with id {run_id} has no artifacts at artifact path {artifact_path!r}, "
+                f"registering model based on {source} instead"
+            )
 
+    # Otherwise if the uri is of the form models:/..., try to get the model_id from the uri directly
+    model_id = _parse_model_id_if_present(model_uri) if not model_id else model_id
     create_version_response = client._create_model_version(
         name=name,
         source=source,
@@ -118,12 +177,75 @@ def _register_model(
         tags=tags,
         await_creation_for=await_registration_for,
         local_model_path=local_model_path,
+        model_id=model_id,
     )
-    eprint(
+    created_message = (
         f"Created version '{create_version_response.version}' of model "
-        f"'{create_version_response.name}'."
+        f"'{create_version_response.name}'"
     )
+    # Print a link to the UC model version page if the model is in UC.
+    registry_uri = mlflow.get_registry_uri()
+    if (
+        MLFLOW_PRINT_MODEL_URLS_ON_CREATION.get()
+        and is_databricks_unity_catalog_uri(registry_uri)
+        and (url := get_workspace_url())
+    ):
+        uc_model_url = _construct_databricks_uc_registered_model_url(
+            url,
+            create_version_response.name,
+            create_version_response.version,
+            get_workspace_id(),
+        )
+        created_message = "🔗 " + created_message + f": {uc_model_url}"
+    else:
+        created_message += "."
+    eprint(created_message)
+
+    if model_id:
+        new_value = [
+            {
+                "name": create_version_response.name,
+                "version": create_version_response.version,
+            }
+        ]
+        model = client.get_logged_model(model_id)
+        if existing_value := model.tags.get(mlflow_tags.MLFLOW_MODEL_VERSIONS):
+            new_value = json.loads(existing_value) + new_value
+
+        client.set_logged_model_tags(
+            model_id,
+            {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
+        )
+
     return create_version_response
+
+
+def _get_logged_models_from_run(source_run: Run, model_name: str) -> list[LoggedModel]:
+    """Get all logged models from the source rnu that have the specified model name.
+
+    Args:
+        source_run: Source run from which to retrieve logged models.
+        model_name: Name of the model to retrieve.
+    """
+    client = MlflowClient()
+    logged_models = []
+    page_token = None
+
+    while True:
+        logged_models_page = client.search_logged_models(
+            experiment_ids=[source_run.info.experiment_id],
+            # TODO: Filter by 'source_run_id' once Databricks backend supports it
+            filter_string=f"name = '{model_name}'",
+            page_token=page_token,
+        )
+        logged_models.extend(
+            m for m in logged_models_page if m.source_run_id == source_run.info.run_id
+        )
+        if not logged_models_page.token:
+            break
+        page_token = logged_models_page.token
+
+    return logged_models
 
 
 def search_registered_models(
@@ -171,12 +293,12 @@ def search_registered_models(
         with mlflow.start_run():
             mlflow.sklearn.log_model(
                 LogisticRegression(),
-                "Cordoba",
+                name="Cordoba",
                 registered_model_name="CordobaWeatherForecastModel",
             )
             mlflow.sklearn.log_model(
                 LogisticRegression(),
-                "Boston",
+                name="Boston",
                 registered_model_name="BostonWeatherForecastModel",
             )
 
@@ -285,7 +407,7 @@ def search_model_versions(
             with mlflow.start_run():
                 mlflow.sklearn.log_model(
                     LogisticRegression(),
-                    "Cordoba",
+                    name="Cordoba",
                     registered_model_name="CordobaWeatherForecastModel",
                 )
 
@@ -325,6 +447,29 @@ def search_model_versions(
         paginated_fn=pagination_wrapper_func,
         max_results_per_page=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
         max_results=max_results,
+    )
+
+
+def set_model_version_tag(
+    name: str,
+    version: Optional[str] = None,
+    key: Optional[str] = None,
+    value: Any = None,
+) -> None:
+    """
+    Set a tag for the model version.
+
+    Args:
+        name: Registered model name.
+        version: Registered model version.
+        key: Tag key to log. key is required.
+        value: Tag value to log. value is required.
+    """
+    return MlflowClient().set_model_version_tag(
+        name=name,
+        version=version,
+        key=key,
+        value=value,
     )
 
 
@@ -422,6 +567,23 @@ def register_prompt(
         commit_message=commit_message,
         tags=tags,
         version_metadata=version_metadata,
+    )
+
+
+@require_prompt_registry
+def search_prompts(
+    filter_string: Optional[str] = None,
+    max_results: Optional[int] = None,
+) -> PagedList[Prompt]:
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_prompts(
+            filter_string=filter_string, max_results=number_to_get, page_token=next_page_token
+        )
+
+    return get_results_from_paginated_fn(
+        pagination_wrapper_func,
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        max_results,
     )
 
 

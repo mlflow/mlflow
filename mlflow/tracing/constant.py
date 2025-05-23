@@ -3,6 +3,8 @@ class TraceMetadataKey:
     INPUTS = "mlflow.traceInputs"
     OUTPUTS = "mlflow.traceOutputs"
     SOURCE_RUN = "mlflow.sourceRun"
+    MODEL_ID = "mlflow.modelId"
+    SIZE_BYTES = "mlflow.trace.sizeBytes"
 
 
 class TraceTagKey:
@@ -32,6 +34,10 @@ class SpanAttributeKey:
     INTERMEDIATE_OUTPUTS = "mlflow.trace.intermediate_outputs"
 
 
+class AssessmentMetadataKey:
+    SOURCE_RUN_ID = "mlflow.assessment.sourceRunId"
+
+
 # All storage backends are guaranteed to support request_metadata key/value up to 250 characters
 MAX_CHARS_IN_TRACE_INFO_METADATA = 250
 # All storage backends are guaranteed to support tag keys up to 250 characters,
@@ -44,7 +50,7 @@ TRUNCATION_SUFFIX = "..."
 TRACE_REQUEST_ID_PREFIX = "tr-"
 
 # Schema version of traces and spans.
-TRACE_SCHEMA_VERSION = 2
+TRACE_SCHEMA_VERSION = 3
 
 # Key for the trace schema version in the trace. This key is also used in
 # Databricks model serving to be careful when modifying it.

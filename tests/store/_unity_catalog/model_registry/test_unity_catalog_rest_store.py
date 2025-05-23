@@ -226,35 +226,70 @@ def langchain_local_model_dir(tmp_path):
     return tmp_path
 
 
-@pytest.fixture
-def langchain_local_model_dir_with_resources(tmp_path):
+@pytest.fixture(params=[True, False])  # True tests with resources and False tests with auth policy
+def langchain_local_model_dir_with_resources(request, tmp_path):
     fake_signature = ModelSignature(
         inputs=Schema([ColSpec(DataType.string)]), outputs=Schema([ColSpec(DataType.string)])
     )
-    fake_mlmodel_contents = {
-        "artifact_path": "some-artifact-path",
-        "run_id": "abc123",
-        "signature": fake_signature.to_dict(),
-        "resources": {
-            "databricks": {
-                "serving_endpoint": [
-                    {"name": "embedding_endpoint"},
-                    {"name": "llm_endpoint"},
-                    {"name": "chat_endpoint"},
-                ],
-                "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
-                "function": [
-                    {"name": "test.schema.test_function"},
-                    {"name": "test.schema.test_function_2"},
-                ],
-                "uc_connection": [{"name": "test_connection"}],
-                "table": [
-                    {"name": "test.schema.test_table"},
-                    {"name": "test.schema.test_table_2"},
-                ],
-            }
-        },
-    }
+    if request.param:
+        fake_mlmodel_contents = {
+            "artifact_path": "some-artifact-path",
+            "run_id": "abc123",
+            "signature": fake_signature.to_dict(),
+            "resources": {
+                "databricks": {
+                    "serving_endpoint": [
+                        {"name": "embedding_endpoint"},
+                        {"name": "llm_endpoint"},
+                        {"name": "chat_endpoint"},
+                    ],
+                    "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
+                    "function": [
+                        {"name": "test.schema.test_function"},
+                        {"name": "test.schema.test_function_2"},
+                    ],
+                    "uc_connection": [{"name": "test_connection"}],
+                    "table": [
+                        {"name": "test.schema.test_table"},
+                        {"name": "test.schema.test_table_2"},
+                    ],
+                }
+            },
+        }
+    else:
+        fake_mlmodel_contents = {
+            "artifact_path": "some-artifact-path",
+            "run_id": "abc123",
+            "signature": fake_signature.to_dict(),
+            "auth_policy": {
+                "system_auth_policy": {
+                    "resources": {
+                        "databricks": {
+                            "serving_endpoint": [
+                                {"name": "embedding_endpoint"},
+                                {"name": "llm_endpoint"},
+                                {"name": "chat_endpoint"},
+                            ],
+                            "vector_search_index": [{"name": "index1"}, {"name": "index2"}],
+                            "function": [
+                                {"name": "test.schema.test_function"},
+                                {"name": "test.schema.test_function_2"},
+                            ],
+                            "uc_connection": [{"name": "test_connection"}],
+                            "table": [
+                                {"name": "test.schema.test_table"},
+                                {"name": "test.schema.test_table_2"},
+                            ],
+                        }
+                    },
+                },
+                "user_auth_policy": {
+                    "api_scopes": [
+                        "serving.serving-endpoints,vectorsearch.vector-search-endpoints,vectorsearch.vector-search-indexes"
+                    ]
+                },
+            },
+        }
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
 
@@ -2032,3 +2067,36 @@ def test_store_use_presigned_url_store_when_enabled(monkeypatch):
         presigned_store = uc_store._get_artifact_repo(model_version)
 
     assert type(presigned_store) is PresignedUrlArtifactRepository
+
+
+@mock_http_200
+def test_create_and_update_registered_model_print_job_url(mock_http, store):
+    name = "model_for_job_url_test"
+    description = "test model with job id"
+    deployment_job_id = "123"
+
+    with (
+        mock.patch(
+            "mlflow.store._unity_catalog.registry.rest_store._print_databricks_deployment_job_url",
+        ) as mock_print_url,
+    ):
+        # Should not print the job url when the deployment job id is None
+        store.create_registered_model(name=name, description=description, deployment_job_id=None)
+        store.create_registered_model(name=name, description=description, deployment_job_id="")
+        mock_print_url.assert_not_called()
+        # Should print the job url when the deployment job id is not None
+        store.create_registered_model(
+            name=name, description=description, deployment_job_id=deployment_job_id
+        )
+        mock_print_url.assert_called_once_with(model_name=name, job_id=deployment_job_id)
+        mock_print_url.reset_mock()
+
+        # Should not print the job url when the deployment job id is false-y
+        store.update_registered_model(name=name, description=description, deployment_job_id=None)
+        store.update_registered_model(name=name, description=description, deployment_job_id="")
+        mock_print_url.assert_not_called()
+        # Should print the job url when the deployment job id is not None
+        store.update_registered_model(
+            name=name, description=description, deployment_job_id=deployment_job_id
+        )
+        mock_print_url.assert_called_once_with(model_name=name, job_id=deployment_job_id)

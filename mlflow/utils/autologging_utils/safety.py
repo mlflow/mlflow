@@ -12,7 +12,6 @@ import mlflow.utils.autologging_utils
 from mlflow.entities.run_status import RunStatus
 from mlflow.environment_variables import _MLFLOW_AUTOLOGGING_TESTING
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla, is_iterator
 from mlflow.utils.autologging_utils import _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLoggerWrapper
@@ -156,6 +155,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
         tags: A dictionary of string tags to set on each managed run created during the
             execution of `patch_function`.
     """
+    from mlflow.tracking.fluent import active_run
     from mlflow.utils.autologging_utils import _has_active_training_session
 
     def create_managed_run():
@@ -175,7 +175,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
         # in current thread, it means the thread is spawned by `estimator.fit`
         # as a worker thread, we should disable autologging in
         # these worker threads, so skip creating managed run.
-        if not mlflow.active_run() and not _has_active_training_session():
+        if not active_run() and not _has_active_training_session():
             managed_run = create_managed_run()
 
         try:
@@ -259,6 +259,7 @@ def safe_patch(
             `patch_function`.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
+    from mlflow.tracking.fluent import active_run
     from mlflow.utils.autologging_utils import autologging_is_disabled, get_autologging_config
 
     # NB: Checking the signature of the patch function rather than original, so that we don't
@@ -368,13 +369,13 @@ def safe_patch(
             ),
         ):
             if is_testing():
-                preexisting_run_for_testing = mlflow.active_run()
+                preexisting_run_for_testing = active_run()
 
             # Whether or not to exclude autologged content from user-created fluent runs
             # (i.e. runs created manually via `mlflow.start_run()`)
             exclusive = get_autologging_config(autologging_integration, "exclusive", False)
             user_created_fluent_run_is_active = (
-                mlflow.active_run() and not _AutologgingSessionManager.active_session()
+                active_run() and not _AutologgingSessionManager.active_session()
             )
             active_session_failed = (
                 _AutologgingSessionManager.active_session() is not None
@@ -454,7 +455,7 @@ def safe_patch(
                                 # determine whether or not the patch implementation created
                                 # a run and perform validation if necessary
                                 nonlocal patch_function_run_for_testing
-                                patch_function_run_for_testing = mlflow.active_run()
+                                patch_function_run_for_testing = active_run()
 
                             nonlocal original_has_been_called
                             original_has_been_called = True
@@ -497,7 +498,7 @@ def safe_patch(
                 if is_testing() and not preexisting_run_for_testing:
                     # If an MLflow run was created during the execution of patch code, verify that
                     # it is no longer active and that it contains expected autologging tags
-                    assert not mlflow.active_run(), (
+                    assert not active_run(), (
                         f"Autologging integration {autologging_integration} leaked an active run"
                     )
                     if patch_function_run_for_testing:
@@ -547,13 +548,13 @@ def safe_patch(
             ),
         ):
             if is_testing():
-                preexisting_run_for_testing = mlflow.active_run()
+                preexisting_run_for_testing = active_run()
 
             # Whether or not to exclude autologged content from user-created fluent runs
             # (i.e. runs created manually via `mlflow.start_run()`)
             exclusive = get_autologging_config(autologging_integration, "exclusive", False)
             user_created_fluent_run_is_active = (
-                mlflow.active_run() and not _AutologgingSessionManager.active_session()
+                active_run() and not _AutologgingSessionManager.active_session()
             )
             active_session_failed = (
                 _AutologgingSessionManager.active_session() is not None
@@ -609,7 +610,7 @@ def safe_patch(
                                     og_kwargs,
                                 )
                                 nonlocal patch_function_run_for_testing
-                                patch_function_run_for_testing = mlflow.active_run()
+                                patch_function_run_for_testing = active_run()
 
                             nonlocal original_has_been_called
                             original_has_been_called = True
@@ -647,7 +648,7 @@ def safe_patch(
                 if is_testing() and not preexisting_run_for_testing:
                     # If an MLflow run was created during the execution of patch code, verify that
                     # it is no longer active and that it contains expected autologging tags
-                    assert not mlflow.active_run(), (
+                    assert not active_run(), (
                         f"Autologging integration {autologging_integration} leaked an active run"
                     )
                     if patch_function_run_for_testing:
@@ -835,6 +836,8 @@ def _validate_autologging_run(autologging_integration, run_id):
         - The run has an autologging tag whose value is the name of the autologging integration
         - The run has a terminal status (e.g., KILLED, FAILED, FINISHED)
     """
+    from mlflow.tracking.client import MlflowClient
+
     client = MlflowClient()
     run = client.get_run(run_id)
     autologging_tag_value = run.data.tags.get(MLFLOW_AUTOLOGGING)

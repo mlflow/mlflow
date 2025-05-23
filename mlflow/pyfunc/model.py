@@ -3,8 +3,11 @@ The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom "
 models with a user-defined ``PythonModel`` subclass.
 """
 
+import bz2
+import gzip
 import inspect
 import logging
+import lzma
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
@@ -17,6 +20,7 @@ import yaml
 
 import mlflow.pyfunc
 import mlflow.utils
+from mlflow.environment_variables import MLFLOW_LOG_MODEL_COMPRESSION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
@@ -76,9 +80,15 @@ CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
 CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
+CONFIG_KEY_COMPRESSION = "python_model_compression"
 _SAVED_PYTHON_MODEL_SUBPATH = "python_model.pkl"
 _DEFAULT_CHAT_MODEL_METADATA_TASK = "agent/v1/chat"
 _DEFAULT_CHAT_AGENT_METADATA_TASK = "agent/v2/chat"
+_COMPRESSION_INFO = {
+    "lzma": {"ext": ".xz", "open": lzma.open},
+    "bzip2": {"ext": ".bz2", "open": bz2.open},
+    "gzip": {"ext": ".gz", "open": gzip.open},
+}
 _DEFAULT_RESPONSES_AGENT_METADATA_TASK = "agent/v1/responses"
 
 _logger = logging.getLogger(__name__)
@@ -282,7 +292,6 @@ class PythonModelContext:
         """
         return self._artifacts
 
-    @experimental
     @property
     def model_config(self):
         """
@@ -293,11 +302,12 @@ class PythonModelContext:
         return self._model_config
 
 
-@experimental
+@deprecated("ResponsesAgent", "3.0.0")
 class ChatModel(PythonModel, metaclass=ABCMeta):
     """
     .. tip::
-        Since MLflow 2.20.2, we recommend using :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`
+        Since MLflow 3.0.0, we recommend using
+        :py:class:`ResponsesAgent <mlflow.pyfunc.ResponsesAgent>`
         instead of :py:class:`ChatModel <mlflow.pyfunc.ChatModel>` unless you need strict
         compatibility with the OpenAI ChatCompletion API.
 
@@ -402,9 +412,13 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         )
 
 
-@experimental
 class ChatAgent(PythonModel, metaclass=ABCMeta):
     """
+    .. tip::
+        Since MLflow 3.0.0, we recommend using
+        :py:class:`ResponsesAgent <mlflow.pyfunc.ResponsesAgent>`
+        instead of :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`.
+
     **What is the ChatAgent Interface?**
 
     The ChatAgent interface is a chat schema specification that has been designed for authoring
@@ -538,7 +552,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
         with mlflow.start_run():
             logged_agent_info = mlflow.pyfunc.log_model(
-                artifact_path="agent",
+                name="agent",
                 python_model=os.path.join(os.getcwd(), "agent"),
                 # Add serving endpoints, tools, and vector search indexes here
                 resources=[],
@@ -571,7 +585,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         - ``{"task": "agent/v2/chat"}`` will be automatically appended to any metadata that you may
           pass in when logging the model
     - Input Example
-        - Providng an input example is optional, ``mlflow.types.agent.CHAT_AGENT_INPUT_EXAMPLE``
+        - Providing an input example is optional, ``mlflow.types.agent.CHAT_AGENT_INPUT_EXAMPLE``
           will be provided by default
         - If you do provide an input example, ensure it's a dict with the
           :py:class:`ChatAgentRequest <mlflow.types.agent.ChatAgentRequest>` schema
@@ -785,10 +799,49 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         )
 
 
-if IS_PYDANTIC_V2_OR_NEWER:
-    from mlflow.types.responses import ResponsesRequest, ResponsesResponse, ResponsesStreamEvent
+def _check_compression_supported(compression):
+    if compression in _COMPRESSION_INFO:
+        return True
+    if compression:
+        supported = ", ".join(sorted(_COMPRESSION_INFO))
+        mlflow.pyfunc._logger.warning(
+            f"Unrecognized compression method '{compression}'"
+            f"Please select one of: {supported}. Falling back to uncompressed storage/loading."
+        )
+    return False
 
+
+def _maybe_compress_cloudpickle_dump(python_model, path, compression):
+    file_open = _COMPRESSION_INFO.get(compression, {}).get("open", open)
+    with file_open(path, "wb") as out:
+        cloudpickle.dump(python_model, out)
+
+
+def _maybe_decompress_cloudpickle_load(path, compression):
+    _check_compression_supported(compression)
+    file_open = _COMPRESSION_INFO.get(compression, {}).get("open", open)
+    with file_open(path, "rb") as f:
+        return cloudpickle.load(f)
+
+
+if IS_PYDANTIC_V2_OR_NEWER:
+    from mlflow.types.responses import (
+        ResponsesAgentRequest,
+        ResponsesAgentResponse,
+        ResponsesAgentStreamEvent,
+    )
+
+    @experimental
     class ResponsesAgent(PythonModel, metaclass=ABCMeta):
+        """
+        A base class for creating ResponsesAgent models. It can be used as a wrapper around any
+        agent framework to create an agent model that can be deployed to MLflow. Has a few helper
+        methods to help create output items that can be a part of a ResponsesAgentResponse or
+        ResponsesAgentStreamEvent.
+
+        See https://www.mlflow.org/docs/latest/llms/responses-agent-intro/ for more details.
+        """
+
         _skip_type_hint_validation = True
 
         def __init_subclass__(cls, **kwargs) -> None:
@@ -801,21 +854,109 @@ if IS_PYDANTIC_V2_OR_NEWER:
                         attr_name,
                         wrap_non_list_predict_pydantic(
                             attr,
-                            ResponsesRequest,
+                            ResponsesAgentRequest,
                             "Invalid dictionary input for a ResponsesAgent. "
                             "Expected a dictionary with the ResponsesRequest schema.",
                         ),
                     )
 
         @abstractmethod
-        def predict(self, request: ResponsesRequest) -> ResponsesResponse:
-            pass
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            """
+            Given a ResponsesAgentRequest, returns a ResponsesAgentResponse.
 
-        @abstractmethod
+            You can see example implementations at
+            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#simple-chat-example and
+            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#tool-calling-example.
+            """
+
         def predict_stream(
-            self, request: ResponsesRequest
-        ) -> Generator[ResponsesStreamEvent, None, None]:
-            pass
+            self, request: ResponsesAgentRequest
+        ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+            """
+            Given a ResponsesAgentRequest, returns a generator of ResponsesAgentStreamEvent objects.
+
+            See more details at
+            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#streaming-agent-output.
+
+            You can see example implementations at
+            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#simple-chat-example and
+            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#tool-calling-example.
+            """
+            raise NotImplementedError(
+                "Streaming implementation not provided. Please override the "
+                "`predict_stream` method on your model to generate streaming predictions"
+            )
+
+        def create_text_delta(self, delta: str, item_id: str) -> dict[str, Any]:
+            """Helper method to create a dictionary conforming to the text delta schema for
+            streaming.
+
+            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#streaming-agent-output.
+            """
+            return {
+                "type": "response.output_text.delta",
+                "item_id": item_id,
+                "delta": delta,
+            }
+
+        def create_text_output_item(self, text: str, id: str) -> dict[str, Any]:
+            """Helper method to create a dictionary conforming to the text output item schema.
+
+            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+
+            Args:
+                text (str): The text to be outputted.
+                id (str): The id of the output item.
+            """
+            return {
+                "id": id,
+                "content": [
+                    {
+                        "text": text,
+                        "type": "output_text",
+                    }
+                ],
+                "role": "assistant",
+                "type": "message",
+            }
+
+        def create_function_call_item(
+            self, id: str, call_id: str, name: str, arguments: str
+        ) -> dict[str, Any]:
+            """Helper method to create a dictionary conforming to the function call item schema.
+
+            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+
+            Args:
+                id (str): The id of the output item.
+                call_id (str): The id of the function call.
+                name (str): The name of the function to be called.
+                arguments (str): The arguments to be passed to the function.
+            """
+            return {
+                "type": "function_call",
+                "id": id,
+                "call_id": call_id,
+                "name": name,
+                "arguments": arguments,
+            }
+
+        def create_function_call_output_item(self, call_id: str, output: str) -> dict[str, Any]:
+            """Helper method to create a dictionary conforming to the function call output item
+            schema.
+
+            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+
+            Args:
+                call_id (str): The id of the function call.
+                output (str): The output of the function call.
+            """
+            return {
+                "type": "function_call_output",
+                "call_id": call_id,
+                "output": output,
+            }
 
 
 def _save_model_with_class_artifacts_params(  # noqa: D417
@@ -879,14 +1020,24 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     }
     if callable(python_model):
         python_model = _FunctionPythonModel(func=python_model, signature=signature)
+
     saved_python_model_subpath = _SAVED_PYTHON_MODEL_SUBPATH
+
+    compression = MLFLOW_LOG_MODEL_COMPRESSION.get()
+    if compression:
+        if _check_compression_supported(compression):
+            custom_model_config_kwargs[CONFIG_KEY_COMPRESSION] = compression
+            saved_python_model_subpath += _COMPRESSION_INFO[compression]["ext"]
+        else:
+            compression = None
 
     # If model_code_path is defined, we load the model into python_model, but we don't want to
     # pickle/save the python_model since the module won't be able to be imported.
     if not model_code_path:
         try:
-            with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
-                cloudpickle.dump(python_model, out)
+            _maybe_compress_cloudpickle_dump(
+                python_model, os.path.join(path, saved_python_model_subpath), compression
+            )
         except Exception as e:
             raise MlflowException(
                 "Failed to serialize Python model. Please save the model into a python file "
@@ -1065,12 +1216,14 @@ def _load_context_model_and_signature(
                 python_model_cloudpickle_version,
                 cloudpickle.__version__,
             )
+        python_model_compression = pyfunc_config.get(CONFIG_KEY_COMPRESSION, None)
 
         python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
         if python_model_subpath is None:
             raise MlflowException("Python model path was not specified in the model configuration")
-        with open(os.path.join(model_path, python_model_subpath), "rb") as f:
-            python_model = cloudpickle.load(f)
+        python_model = _maybe_decompress_cloudpickle_load(
+            os.path.join(model_path, python_model_subpath), python_model_compression
+        )
 
     artifacts = {}
     for saved_artifact_name, saved_artifact_info in pyfunc_config.get(
@@ -1119,8 +1272,6 @@ class _PythonModelPyfuncWrapper:
         self.signature = signature
 
     def _convert_input(self, model_input):
-        import pandas as pd
-
         hints = self.python_model.predict_type_hints
         # we still need this for backwards compatibility
         if isinstance(model_input, pd.DataFrame):

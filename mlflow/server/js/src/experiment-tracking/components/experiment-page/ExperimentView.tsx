@@ -1,4 +1,4 @@
-import { LegacySkeleton } from '@databricks/design-system';
+import { Alert, LegacySkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
@@ -17,6 +17,7 @@ import {
   isExperimentEvalResultsMonitoringUIEnabled,
   isExperimentLoggedModelsUIEnabled,
   shouldEnableTracingUI,
+  shouldUsePredefinedErrorsInExperimentTracking,
 } from '../../../common/utils/FeatureUtils';
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
 import { usePersistExperimentPageViewState } from './hooks/usePersistExperimentPageViewState';
@@ -31,9 +32,17 @@ import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import invariant from 'invariant';
 import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
 import { ExperimentViewTraces } from './components/ExperimentViewTraces';
+import { FormattedMessage } from 'react-intl';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
+import { NotFoundError, PermissionError } from '@databricks/web-shared/errors';
+import { ExperimentViewNotFound } from './components/ExperimentViewNotFound';
+import { ExperimentViewNoPermissionsError } from './components/ExperimentViewNoPermissionsError';
+import { ErrorViewV2 } from '../../../common/components/ErrorViewV2';
 
+// END-EDGE
 export const ExperimentView = () => {
   const dispatch = useDispatch<ThunkDispatch>();
+  const { theme } = useDesignSystemTheme();
 
   const [searchFacets, experimentIds, isPreview] = useExperimentPageSearchFacets();
   const [viewMode] = useExperimentPageViewMode();
@@ -42,7 +51,7 @@ export const ExperimentView = () => {
 
   const [firstExperiment] = experiments;
 
-  const { fetchExperiments, isLoadingExperiment, requestError } = useFetchExperiments();
+  const { fetchExperiments, isLoadingExperiment, requestError: experimentRequestError } = useFetchExperiments();
 
   const { elementHeight: hideableElementHeight, observeHeight } = useElementHeight();
 
@@ -88,7 +97,10 @@ export const ExperimentView = () => {
   useEffect(() => {
     const requestAction = searchDatasetsApi(experimentIds);
     dispatch(requestAction).catch((e) => {
-      Utils.logErrorAndNotifyUser(e);
+      // In V2 error handling, do not display datasets retrieval error
+      if (!shouldUsePredefinedErrorsInExperimentTracking()) {
+        Utils.logErrorAndNotifyUser(e);
+      }
     });
   }, [dispatch, experimentIds]);
 
@@ -98,17 +110,31 @@ export const ExperimentView = () => {
 
   const isViewInitialized = Boolean(!isLoadingExperiment && experiments[0] && runsData && searchFacets);
 
+  if (
+    // Scenario for 404: either request error is resolved to NotFoundError or the code of ErrorWrapper is "RESOURCE_DOES_NOT_EXIST"
+    experimentRequestError instanceof NotFoundError ||
+    (experimentRequestError instanceof ErrorWrapper &&
+      experimentRequestError.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST)
+  ) {
+    return <ExperimentViewNotFound />;
+  }
+
+  if (
+    // Scenario for 401: either request error is resolved to PermissionError or the code of ErrorWrapper is "PERMISSION_DENIED"
+    experimentRequestError instanceof PermissionError ||
+    (experimentRequestError instanceof ErrorWrapper &&
+      experimentRequestError.getErrorCode() === ErrorCodes.PERMISSION_DENIED)
+  ) {
+    return <ExperimentViewNoPermissionsError />;
+  }
+
+  if (experimentRequestError instanceof Error) {
+    return <ErrorViewV2 css={{ height: '100%' }} error={experimentRequestError} />;
+  }
+
   if (!isViewInitialized) {
     // In the new view state model, wait for search facets to initialize
     return <LegacySkeleton />;
-  }
-
-  if (requestError && requestError.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
-    return <PermissionDeniedView errorMessage={requestError.getMessageField()} />;
-  }
-
-  if (requestError && requestError.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
-    return <NotFoundPage />;
   }
 
   invariant(searchFacets, 'searchFacets should be initialized at this point');

@@ -6,10 +6,10 @@ IN NEW CODE. INSTEAD, USE `mlflow/entities/assessment.py` FOR ASSESSMENT CLASSES
 import pandas as pd
 
 from mlflow.evaluation.evaluation import EvaluationEntity as EvaluationEntity
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 
 
-@experimental
+@deprecated(since="3.0.0")
 def evaluations_to_dataframes(
     evaluations: list[EvaluationEntity],
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -146,6 +146,10 @@ def _get_metrics_dataframe_schema() -> dict[str, str]:
         "key": "string",
         "value": "float64",
         "timestamp": "int64",
+        "model_id": "string",
+        "dataset_name": "string",
+        "dataset_digest": "string",
+        "run_id": "string",
     }
 
 

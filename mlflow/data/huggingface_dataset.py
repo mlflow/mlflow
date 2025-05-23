@@ -4,6 +4,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
 
 from mlflow.data.dataset import Dataset
+from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_pandas_digest
 from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
@@ -169,6 +170,8 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
             targets=self._targets,
             path=path,
             feature_names=feature_names,
+            name=self.name,
+            digest=self.digest,
         )
 
 
@@ -182,6 +185,7 @@ def from_huggingface(
     name: Optional[str] = None,
     digest: Optional[str] = None,
     trust_remote_code: Optional[bool] = None,
+    source: Optional[Union[str, DatasetSource]] = None,
 ) -> HuggingFaceDataset:
     """
     Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
@@ -214,10 +218,12 @@ def from_huggingface(
         digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest is
             automatically computed.
         trust_remote_code: Whether to trust remote code from the dataset repo.
+        source: The source of the dataset, e.g. a S3 URI, an HTTPS URL etc.
     """
     import datasets
 
     from mlflow.data.code_dataset_source import CodeDatasetSource
+    from mlflow.data.dataset_source_registry import resolve_dataset_source
     from mlflow.tracking.context import registry
 
     if not isinstance(ds, datasets.Dataset):
@@ -229,7 +235,14 @@ def from_huggingface(
 
     # Set the source to a `HuggingFaceDatasetSource` if a path is specified, otherwise set it to a
     # `CodeDatasetSource`.
-    if path is not None:
+    if source is not None and path is not None:
+        _logger.warning(
+            "Both 'source' and 'path' are provided."
+            "'source' will take precedence, and 'path' will be ignored."
+        )
+    if source is not None:
+        source = source if isinstance(source, DatasetSource) else resolve_dataset_source(source)
+    elif path is not None:
         source = HuggingFaceDatasetSource(
             path=path,
             config_name=ds.config_name,

@@ -29,7 +29,7 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.models import Model
@@ -48,12 +48,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
-from mlflow.utils.file_utils import (
-    TempDir,
-    path_to_local_file_uri,
-    read_yaml,
-    write_yaml,
-)
+from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_LOGGED_MODELS,
@@ -64,8 +59,9 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import MAX_EXPERIMENT_NAME_LENGTH
+from mlflow.utils.yaml_utils import read_yaml, safe_edit_yaml, write_yaml
 
-from tests.helper_functions import random_int, random_str, safe_edit_yaml
+from tests.helper_functions import random_int, random_str
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
 
@@ -83,7 +79,7 @@ def store_and_trace_info(store):
 
 
 class TraceInfos(NamedTuple):
-    trace_infos: list[TraceInfo]
+    trace_infos: list[TraceInfoV2]
     store: FileStore
     exp_id: str
     request_ids: list[str]
@@ -974,6 +970,7 @@ def _verify_run(store, run_id, run_data):
     # key without actually deleting it from self.run_data
     _run_info = run_info.copy()
     _run_info.pop("deleted_time", None)
+    _run_info.pop("run_uuid", None)
     assert _run_info == dict(run.info)
 
 
@@ -1876,7 +1873,7 @@ def test_malformed_metric(store):
         pytest.raises(
             MlflowException,
             match=f"Metric 'test' is malformed; persisted metric data contained "
-            f"4 fields. Expected 2 or 3 fields. "
+            f"4 fields. Expected 2, 3, or 5 fields. "
             f"Experiment id: {exp_id}",
         ),
     ):

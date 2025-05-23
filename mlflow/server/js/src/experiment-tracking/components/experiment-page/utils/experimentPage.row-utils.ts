@@ -9,6 +9,7 @@ import type {
   RunDatasetWithTags,
   MetricEntity,
 } from '../../../types';
+import type { LoggedModelProto } from '../../../types';
 import {
   RowGroupRenderMetadata,
   RowRenderMetadata,
@@ -211,6 +212,7 @@ const createKeyValueDataForRunRow = (
 export const prepareRunsGridData = ({
   experiments,
   modelVersionsByRunUuid,
+  loggedModelsV3ByRunUuid = {},
   runsExpanded,
   nestChildren,
   referenceTime,
@@ -331,6 +333,7 @@ export const prepareRunsGridData = ({
     const models: RunRowModelsInfo = {
       registeredModels: modelVersionsByRunUuid[runInfo.runUuid] || [], // ModelInfoEntity
       loggedModels: Utils.getLoggedModelsFromTags(tags),
+      loggedModelsV3: loggedModelsV3ByRunUuid[runInfo.runUuid] || [],
       experimentId: runInfo.experimentId,
       runUuid: runInfo.runUuid,
     };
@@ -420,6 +423,7 @@ export const prepareRunsGridData = ({
 export const useExperimentRunRows = ({
   experiments,
   modelVersionsByRunUuid,
+  loggedModelsV3ByRunUuid,
   runsExpanded,
   nestChildren,
   referenceTime,
@@ -442,6 +446,7 @@ export const useExperimentRunRows = ({
       prepareRunsGridData({
         experiments,
         modelVersionsByRunUuid,
+        loggedModelsV3ByRunUuid,
         runsExpanded,
         nestChildren,
         referenceTime,
@@ -463,6 +468,7 @@ export const useExperimentRunRows = ({
       // Explicitly include each dependency here to avoid unnecessary recalculations
       experiments,
       modelVersionsByRunUuid,
+      loggedModelsV3ByRunUuid,
       runsExpanded,
       nestChildren,
       referenceTime,
@@ -550,6 +556,10 @@ type PrepareRunsGridDataParams = Pick<
      */
     modelVersionsByRunUuid: Record<string, ModelVersionInfoEntity[]>;
 
+    /**
+     * Logged models v3 data
+     */
+    loggedModelsV3ByRunUuid?: Record<string, LoggedModelProto[]>;
     /**
      * Boolean flag indicating if hierarchical runs should be generated
      */

@@ -16,6 +16,7 @@ from typing import Any, Callable, Optional, Union
 import sqlalchemy
 from flask import (
     Flask,
+    Request,
     Response,
     flash,
     jsonify,
@@ -27,6 +28,7 @@ from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
 from mlflow.entities import Experiment
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.protos.databricks_pb2 import (
@@ -60,23 +62,32 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
+    # Routes for logged models
+    CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
+    DeleteLoggedModel,
+    DeleteLoggedModelTag,
     DeleteRun,
     DeleteTag,
+    FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
+    GetLoggedModel,
     GetMetricHistory,
     GetRun,
     ListArtifacts,
     LogBatch,
+    LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogParam,
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
+    SearchLoggedModels,
     SetExperimentTag,
+    SetLoggedModelTags,
     SetTag,
     UpdateExperiment,
     UpdateRun,
@@ -154,14 +165,17 @@ def make_forbidden_response() -> Response:
 def _get_request_param(param: str) -> str:
     if request.method == "GET":
         args = request.args
-    elif request.method in ("POST", "PATCH", "DELETE"):
+    elif request.method in ("POST", "PATCH"):
         args = request.json
+    elif request.method == "DELETE":
+        args = request.json if request.is_json else request.args
     else:
         raise MlflowException(
             f"Unsupported HTTP method '{request.method}'",
             BAD_REQUEST,
         )
 
+    args = args | (request.view_args or {})
     if param not in args:
         # Special handling for run_id
         if param == "run_id":
@@ -242,6 +256,17 @@ def _get_permission_from_run_id() -> Permission:
     )
 
 
+def _get_permission_from_model_id() -> Permission:
+    # logged model permissions inherit from parent resource (experiment)
+    model_id = _get_request_param("model_id")
+    model = _get_tracking_store().get_logged_model(model_id)
+    experiment_id = model.experiment_id
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
 def _get_permission_from_registered_model_name() -> Permission:
     name = _get_request_param("name")
     username = authenticate_request().username
@@ -282,6 +307,7 @@ def validate_can_delete_experiment_artifact_proxy():
     return _get_permission_from_experiment_id_artifact_proxy().can_manage
 
 
+# Runs
 def validate_can_read_run():
     return _get_permission_from_run_id().can_read
 
@@ -298,6 +324,24 @@ def validate_can_manage_run():
     return _get_permission_from_run_id().can_manage
 
 
+# Logged models
+def validate_can_read_logged_model():
+    return _get_permission_from_model_id().can_read
+
+
+def validate_can_update_logged_model():
+    return _get_permission_from_model_id().can_update
+
+
+def validate_can_delete_logged_model():
+    return _get_permission_from_model_id().can_delete
+
+
+def validate_can_manage_logged_model():
+    return _get_permission_from_model_id().can_manage
+
+
+# Registered models
 def validate_can_read_registered_model():
     return _get_permission_from_registered_model_name().can_read
 
@@ -398,6 +442,14 @@ def get_before_request_handler(request_class):
     return BEFORE_REQUEST_HANDLERS.get(request_class)
 
 
+def _re_compile_path(path: str) -> re.Pattern:
+    """
+    Convert a path with angle brackets to a regex pattern. For example,
+    "/api/2.0/experiments/<experiment_id>" becomes "/api/2.0/experiments/([^/]+)".
+    """
+    return re.compile(re.sub(r"<([^>]+)>", r"([^/]+)", path))
+
+
 BEFORE_REQUEST_VALIDATORS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
@@ -422,6 +474,29 @@ BEFORE_REQUEST_VALIDATORS.update(
         (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
     }
 )
+
+
+LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
+    CreateLoggedModel: validate_can_update_experiment,
+    GetLoggedModel: validate_can_read_logged_model,
+    DeleteLoggedModel: validate_can_delete_logged_model,
+    FinalizeLoggedModel: validate_can_update_logged_model,
+    DeleteLoggedModelTag: validate_can_delete_logged_model,
+    SetLoggedModelTags: validate_can_update_logged_model,
+    LogLoggedModelParamsRequest: validate_can_update_logged_model,
+}
+
+
+def get_logged_model_before_request_handler(request_class):
+    return LOGGED_MODEL_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS = {
+    # Paths for logged models contains path parameters (e.g. /mlflow/logged-models/<model_id>)
+    (_re_compile_path(http_path), method): handler
+    for http_path, handler, methods in get_endpoints(get_logged_model_before_request_handler)
+    for method in methods
+}
 
 
 def _is_proxy_artifact_path(path: str) -> bool:
@@ -474,6 +549,25 @@ def authenticate_request_basic_auth() -> Union[Authorization, Response]:
         return make_basic_auth_response()
 
 
+def _find_validator(req: Request) -> Optional[Callable[[], bool]]:
+    """
+    Finds the validator matching the request path and method.
+    """
+    if "/mlflow/logged-models" in req.path:
+        # logged model routes are not registered in the app
+        # so we need to check them manually
+        return next(
+            (
+                v
+                for (pat, method), v in LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+    else:
+        return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
+
+
 @catch_mlflow_exception
 def _before_request():
     if is_unprotected_route(request.path):
@@ -494,7 +588,7 @@ def _before_request():
         return
 
     # authorization
-    if validator := BEFORE_REQUEST_VALIDATORS.get((request.path, request.method)):
+    if validator := _find_validator(request):
         if not validator():
             return make_forbidden_response()
     elif _is_proxy_artifact_path(request.path):
@@ -585,6 +679,80 @@ def filter_search_experiments(resp: Response):
     resp.data = message_to_json(response_message)
 
 
+def filter_search_logged_models(resp: Response) -> None:
+    """
+    Filter out unreadable logged models from the search results.
+    """
+    from mlflow.utils.search_utils import SearchLoggedModelsPaginationToken as Token
+
+    if sender_is_admin():
+        return
+
+    response_proto = SearchLoggedModels.Response()
+    parse_dict(resp.json, response_proto)
+
+    # fetch permissions
+    username = authenticate_request().username
+    perms = store.list_experiment_permissions(username)
+    can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
+    default_can_read = get_permission(auth_config.default_permission).can_read
+
+    # Remove unreadable models
+    for m in list(response_proto.models):
+        if not can_read.get(m.info.experiment_id, default_can_read):
+            response_proto.models.remove(m)
+
+    request_proto = _get_request_message(SearchLoggedModels())
+    max_results = request_proto.max_results
+    # These parameters won't change in the loop
+    params = {
+        "experiment_ids": list(request_proto.experiment_ids),
+        "filter_string": request_proto.filter or None,
+        "order_by": (
+            [
+                {
+                    "field_name": ob.field_name,
+                    "ascending": ob.ascending,
+                    "dataset_name": ob.dataset_name,
+                    "dataset_digest": ob.dataset_digest,
+                }
+                for ob in request_proto.order_by
+            ]
+            if request_proto.order_by
+            else None
+        ),
+    }
+    next_page_token = response_proto.next_page_token or None
+    tracking_store = _get_tracking_store()
+    while len(response_proto.models) < max_results and next_page_token is not None:
+        batch: PagedList[LoggedModel] = tracking_store.search_logged_models(
+            max_results=max_results, page_token=next_page_token, **params
+        )
+        is_last_page = batch.token is None
+        offset = Token.decode(next_page_token).offset if next_page_token else 0
+        last_index = len(batch) - 1
+        for index, model in enumerate(batch):
+            if not can_read.get(model.experiment_id, default_can_read):
+                continue
+            response_proto.models.append(model.to_proto())
+            if len(response_proto.models) >= max_results:
+                next_page_token = (
+                    None
+                    if is_last_page and index == last_index
+                    else Token(offset=offset + index + 1, **params).encode()
+                )
+                break
+        else:
+            # If we reach here, it means we have not reached the max results.
+            next_page_token = (
+                None if is_last_page else Token(offset=offset + max_results, **params).encode()
+            )
+
+    if next_page_token:
+        response_proto.next_page_token = next_page_token
+    resp.data = message_to_json(response_proto)
+
+
 def filter_search_registered_models(resp: Response):
     if sender_is_admin():
         return
@@ -655,6 +823,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     CreateRegisteredModel: set_can_manage_registered_model_permission,
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
+    SearchLoggedModels: filter_search_logged_models,
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
 }

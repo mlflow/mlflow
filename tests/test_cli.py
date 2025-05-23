@@ -200,7 +200,7 @@ def _create_run_in_store(store, create_artifacts=True):
 def test_mlflow_gc_sqlite(sqlite_store, create_artifacts_in_run):
     store = sqlite_store[0]
     run = _create_run_in_store(store, create_artifacts=create_artifacts_in_run)
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     subprocess.check_call(
         [
             sys.executable,
@@ -214,7 +214,7 @@ def test_mlflow_gc_sqlite(sqlite_store, create_artifacts_in_run):
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException, match=r"Run .+ not found"):
-        store.get_run(run.info.run_uuid)
+        store.get_run(run.info.run_id)
 
     artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
     assert not os.path.exists(artifact_path)
@@ -223,7 +223,7 @@ def test_mlflow_gc_sqlite(sqlite_store, create_artifacts_in_run):
 def test_mlflow_gc_sqlite_older_than(sqlite_store):
     store = sqlite_store[0]
     run = _create_run_in_store(store)
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     with pytest.raises(subprocess.CalledProcessError, match=r".+") as exp:
         subprocess.run(
             [
@@ -236,7 +236,7 @@ def test_mlflow_gc_sqlite_older_than(sqlite_store):
                 "--older-than",
                 "10d10h10m10s",
                 "--run-ids",
-                run.info.run_uuid,
+                run.info.run_id,
             ],
             check=True,
             capture_output=True,
@@ -258,7 +258,7 @@ def test_mlflow_gc_sqlite_older_than(sqlite_store):
             "--older-than",
             "1s",
             "--run-ids",
-            run.info.run_uuid,
+            run.info.run_id,
         ]
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
@@ -269,14 +269,14 @@ def test_mlflow_gc_sqlite_older_than(sqlite_store):
 def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
     store = file_store[0]
     run = _create_run_in_store(store, create_artifacts=create_artifacts_in_run)
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     subprocess.check_output(
         [sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", file_store[1]]
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException, match=r"Run .+ not found"):
-        store.get_run(run.info.run_uuid)
+        store.get_run(run.info.run_id)
 
     artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
     assert not os.path.exists(artifact_path)
@@ -285,7 +285,7 @@ def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
 def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
     store = file_store[0]
     run = _create_run_in_store(store)
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     subprocess.check_output(
         [
             sys.executable,
@@ -295,13 +295,13 @@ def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
             "--backend-store-uri",
             file_store[1],
             "--run-ids",
-            run.info.run_uuid,
+            run.info.run_id,
         ]
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException, match=r"Run .+ not found"):
-        store.get_run(run.info.run_uuid)
+        store.get_run(run.info.run_id)
 
 
 def test_mlflow_gc_not_deleted_run(file_store):
@@ -317,7 +317,7 @@ def test_mlflow_gc_not_deleted_run(file_store):
                 "--backend-store-uri",
                 file_store[1],
                 "--run-ids",
-                run.info.run_uuid,
+                run.info.run_id,
             ]
         )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
@@ -327,7 +327,7 @@ def test_mlflow_gc_not_deleted_run(file_store):
 def test_mlflow_gc_file_store_older_than(file_store):
     store = file_store[0]
     run = _create_run_in_store(store)
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     with pytest.raises(subprocess.CalledProcessError, match=r".+") as exp:
         subprocess.run(
             [
@@ -340,7 +340,7 @@ def test_mlflow_gc_file_store_older_than(file_store):
                 "--older-than",
                 "10d10h10m10s",
                 "--run-ids",
-                run.info.run_uuid,
+                run.info.run_id,
             ],
             check=True,
             capture_output=True,
@@ -362,7 +362,7 @@ def test_mlflow_gc_file_store_older_than(file_store):
             "--older-than",
             "1s",
             "--run-ids",
-            run.info.run_uuid,
+            run.info.run_id,
         ]
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
@@ -447,7 +447,7 @@ def test_mlflow_gc_sqlite_with_s3_artifact_repository(
 ):
     store = sqlite_store_with_s3_artifact_repository[0]
     run = _create_run_in_store(store, create_artifacts=False)
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
 
     artifact_repo = get_artifact_repository(run.info.artifact_uri)
     bucket, dest_path = artifact_repo.parse_s3_compliant_uri(run.info.artifact_uri)
@@ -478,7 +478,7 @@ def test_mlflow_gc_sqlite_with_s3_artifact_repository(
         runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
         assert len(runs) == 0
         with pytest.raises(MlflowException, match=r"Run .+ not found"):
-            store.get_run(run.info.run_uuid)
+            store.get_run(run.info.run_id)
 
 
 @pytest.mark.skip(reason="mlserver is incompatible with the latest version of pydantic")
@@ -506,7 +506,7 @@ def test_mlflow_models_serve(enable_mlserver):
             # We need MLServer to be present on the Conda environment, so we'll
             # add that as an extra requirement.
             mlflow.pyfunc.log_model(
-                "model",
+                name="model",
                 python_model=model,
                 extra_pip_requirements=[
                     "mlserver>=1.2.0,!=1.3.1",
@@ -515,7 +515,7 @@ def test_mlflow_models_serve(enable_mlserver):
                 ],
             )
         else:
-            mlflow.pyfunc.log_model("model", python_model=model)
+            mlflow.pyfunc.log_model(name="model", python_model=model)
         model_uri = mlflow.get_artifact_uri("model")
 
     data = pd.DataFrame({"a": [0]})
@@ -584,16 +584,17 @@ def test_mlflow_artifact_only_prints_warning_for_configs():
         mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"),
         mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"),
     ):
-        result = CliRunner(mix_stderr=False).invoke(
+        result = CliRunner().invoke(
             server,
             ["--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],
             catch_exceptions=False,
         )
-        assert result.stderr.startswith(
+        msg = (
             "Usage: server [OPTIONS]\nTry 'server --help' for help.\n\nError: You are starting a "
             "tracking server in `--artifacts-only` mode and have provided a value for "
             "`--backend_store_uri`"
         )
+        assert msg in result.output
         assert result.exit_code != 0
         run_server_mock.assert_not_called()
 

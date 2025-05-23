@@ -11,8 +11,10 @@ from typing import Any, Optional
 
 import pydantic
 from google.protobuf.descriptor import FieldDescriptor
+from google.protobuf.duration_pb2 import Duration
 from google.protobuf.json_format import MessageToJson, ParseDict
 from google.protobuf.struct_pb2 import NULL_VALUE, Value
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
@@ -124,6 +126,42 @@ def message_to_json(message):
         json_dict_with_int64_fields_only, json_dict_with_int64_as_str
     )
     return json.dumps(json_dict_with_int64_as_numbers, indent=2)
+
+
+def proto_timestamp_to_milliseconds(timestamp: str) -> int:
+    """
+    Converts a timestamp string (e.g. "2025-04-15T08:49:18.699Z") to milliseconds.
+    """
+    t = Timestamp()
+    t.FromJsonString(timestamp)
+    return t.ToMilliseconds()
+
+
+def milliseconds_to_proto_timestamp(milliseconds: int) -> str:
+    """
+    Converts milliseconds to a timestamp string (e.g. "2025-04-15T08:49:18.699Z").
+    """
+    t = Timestamp()
+    t.FromMilliseconds(milliseconds)
+    return t.ToJsonString()
+
+
+def proto_duration_to_milliseconds(duration: str) -> int:
+    """
+    Converts a duration string (e.g. "1.5s") to milliseconds.
+    """
+    d = Duration()
+    d.FromJsonString(duration)
+    return d.ToMilliseconds()
+
+
+def milliseconds_to_proto_duration(milliseconds: int) -> str:
+    """
+    Converts milliseconds to a duration string (e.g. "1.5s").
+    """
+    d = Duration()
+    d.FromMilliseconds(milliseconds)
+    return d.ToJsonString()
 
 
 def _stringify_all_experiment_ids(x):

@@ -13,7 +13,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.protos.model_registry_pb2 import (
@@ -75,7 +75,7 @@ from mlflow.server.handlers import (
     _transition_stage,
     _update_model_version,
     _update_registered_model,
-    _validate_source,
+    _validate_source_run,
     catch_mlflow_exception,
     get_endpoints,
 )
@@ -868,7 +868,7 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
                 "run specified by the run_id"
             ),
         ):
-            _validate_source("/local/path/xyz", run_id)
+            _validate_source_run("/local/path/xyz", run_id)
 
 
 @pytest.mark.parametrize(
@@ -893,7 +893,7 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
 def test_get_trace_artifact_repo(location, expected_class, expected_uri, monkeypatch):
     monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
     monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
-    trace_info = TraceInfo("123", "0", 0, 1, "OK", tags={MLFLOW_ARTIFACT_LOCATION: location})
+    trace_info = TraceInfoV2("123", "0", 0, 1, "OK", tags={MLFLOW_ARTIFACT_LOCATION: location})
     repo = _get_trace_artifact_repo(trace_info)
     assert isinstance(repo, expected_class)
     assert repo.artifact_uri == expected_uri

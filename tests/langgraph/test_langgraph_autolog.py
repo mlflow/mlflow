@@ -3,6 +3,7 @@ import json
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.tracing.helper import get_traces
 
@@ -13,7 +14,7 @@ def test_langgraph_save_as_code():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langgraph/sample_code/langgraph_prebuilt.py",
-            "langgraph",
+            name="langgraph",
             input_example=input_example,
         )
 
@@ -62,7 +63,7 @@ def test_langgraph_tracing_prebuilt():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langgraph/sample_code/langgraph_prebuilt.py",
-            "langgraph",
+            name="langgraph",
             input_example=input_example,
         )
 
@@ -110,7 +111,7 @@ def test_langgraph_tracing_diy_graph():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langgraph/sample_code/langgraph_diy.py",
-            "langgraph",
+            name="langgraph",
         )
 
     loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
@@ -134,7 +135,7 @@ def test_langgraph_tracing_with_custom_span():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             "tests/langgraph/sample_code/langgraph_with_custom_span.py",
-            "langgraph",
+            name="langgraph",
             input_example=input_example,
         )
 
@@ -180,7 +181,7 @@ def test_langgraph_chat_agent_trace():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "agent",
+            name="agent",
             python_model="tests/langgraph/sample_code/langgraph_chat_agent.py",
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -191,6 +192,7 @@ def test_langgraph_chat_agent_trace():
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
     assert traces[0].data.spans[0].name == "LangGraph"
     assert traces[0].data.spans[0].inputs == input_example
 
@@ -199,5 +201,16 @@ def test_langgraph_chat_agent_trace():
     traces = get_traces()
     assert len(traces) == 2
     assert traces[0].info.status == "OK"
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
     assert traces[0].data.spans[0].name == "LangGraph"
     assert traces[0].data.spans[0].inputs == input_example
+
+
+def test_langgraph_autolog_with_update_current_span():
+    model_info = mlflow.langchain.log_model(
+        lc_model="tests/langgraph/sample_code/langgraph_with_autolog.py",
+        input_example={"status": "done"},
+    )
+    assert model_info.signature is not None
+    assert model_info.signature.inputs is not None
+    assert model_info.signature.outputs is not None

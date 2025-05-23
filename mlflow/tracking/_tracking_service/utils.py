@@ -9,7 +9,6 @@ from typing import Generator, Union
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.provider import reset
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
@@ -131,6 +130,8 @@ def get_tracking_uri() -> str:
 
 
 def _get_file_store(store_uri, **_):
+    from mlflow.store.tracking.file_store import FileStore
+
     return FileStore(store_uri, store_uri)
 
 

@@ -17,6 +17,13 @@ jest.mock('../../../../model-registry/actions', () => ({
   searchModelVersionsApi: jest.fn(() => mockAction('models_request')),
 }));
 
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableGraphQLRunDetailsPage: () => false,
+}));
+
 const testRunUuid = 'test-run-uuid';
 const testExperimentId = '12345';
 

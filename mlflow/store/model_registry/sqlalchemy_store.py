@@ -1,6 +1,6 @@
 import logging
 import urllib
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import sqlalchemy
 from sqlalchemy.future import select
@@ -38,6 +38,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelAlias,
     SqlRegisteredModelTag,
 )
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
@@ -155,7 +156,7 @@ class SqlAlchemyStore(AbstractStore):
         # loading_relationships.html#relationship-loading-techniques
         return [sqlalchemy.orm.subqueryload(SqlModelVersion.model_version_tags)]
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -164,6 +165,7 @@ class SqlAlchemyStore(AbstractStore):
             tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                 instances associated with this registered model.
             description: Description of the version.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -224,13 +226,14 @@ class SqlAlchemyStore(AbstractStore):
             )
         return rms[0]
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """
         Update description of the registered model.
 
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -714,6 +717,7 @@ class SqlAlchemyStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -727,6 +731,8 @@ class SqlAlchemyStore(AbstractStore):
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
             local_model_path: Unused.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -747,9 +753,17 @@ class SqlAlchemyStore(AbstractStore):
         if urllib.parse.urlparse(source).scheme == "models":
             parsed_model_uri = _parse_model_uri(source)
             try:
-                storage_location = self.get_model_version_download_uri(
-                    parsed_model_uri.name, parsed_model_uri.version
-                )
+                if parsed_model_uri.model_id is not None:
+                    # TODO: Propagate tracking URI to file sqlalchemy directly, rather than relying
+                    # on global URI (individual MlflowClient instances may have different tracking
+                    # URIs)
+                    model = MlflowClient().get_logged_model(parsed_model_uri.model_id)
+                    storage_location = model.artifact_location
+                    run_id = run_id or model.source_run_id
+                else:
+                    storage_location = self.get_model_version_download_uri(
+                        parsed_model_uri.name, parsed_model_uri.version
+                    )
             except Exception as e:
                 raise MlflowException(
                     f"Unable to fetch model from model URI source artifact location '{source}'."

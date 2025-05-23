@@ -18,6 +18,27 @@ class Context:
     is_evaluate: bool = False
     # The schema of the dependencies to be added into the tag of trace info.
     dependencies_schemas: Optional[dict] = None
+    # The logged model ID associated with the current prediction request
+    model_id: Optional[str] = None
+    # The model serving endpoint name where the prediction request is made
+    endpoint_name: Optional[str] = None
+
+    def __init__(
+        self,
+        request_id: Optional[str] = None,
+        is_evaluate: bool = False,
+        dependencies_schemas: Optional[dict] = None,
+        model_id: Optional[str] = None,
+        endpoint_name: Optional[str] = None,
+        # Accept extra kwargs so we don't need to worry backward compatibility
+        # when adding new attributes to the Context class
+        **kwargs,
+    ):
+        self.request_id = request_id
+        self.is_evaluate = is_evaluate
+        self.dependencies_schemas = dependencies_schemas
+        self.model_id = model_id
+        self.endpoint_name = endpoint_name
 
     def update(self, **kwargs):
         for key, value in kwargs.items():
@@ -55,16 +76,3 @@ def get_prediction_context() -> Optional[Context]:
         The context for the current prediction request, or None if no context is set.
     """
     return _PREDICTION_REQUEST_CTX.get()
-
-
-@contextlib.contextmanager
-def maybe_set_prediction_context(context: Optional[Context]):
-    """
-    Set the prediction context if the given context
-    is not None. Otherwise no-op.
-    """
-    if context:
-        with set_prediction_context(context):
-            yield
-    else:
-        yield

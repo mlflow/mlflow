@@ -5,6 +5,7 @@ import sys
 import time
 import urllib
 from os.path import join
+from typing import Optional
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -53,11 +54,8 @@ from mlflow.utils.file_utils import (
     local_file_uri_to_path,
     make_containing_dirs,
     mkdir,
-    overwrite_yaml,
     read_file,
-    read_yaml,
     write_to,
-    write_yaml,
 )
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
@@ -72,6 +70,7 @@ from mlflow.utils.validation import (
 from mlflow.utils.validation import (
     _validate_model_name as _original_validate_model_name,
 )
+from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
 
 
 def _default_root_dir():
@@ -182,7 +181,7 @@ class FileStore(AbstractStore):
         registered_model.last_updated_timestamp = updated_time
         self._save_registered_model_as_meta_file(registered_model)
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -191,6 +190,7 @@ class FileStore(AbstractStore):
             tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                 instances associated with this registered model.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -247,13 +247,14 @@ class FileStore(AbstractStore):
         registered_model.latest_versions = self.get_latest_versions(os.path.basename(model_path))
         return registered_model
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """
         Update description of the registered model.
 
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -588,9 +589,23 @@ class FileStore(AbstractStore):
         return [alias.alias for alias in aliases if alias.version == version]
 
     def _get_file_model_version_from_dir(self, directory) -> FileModelVersion:
+        from mlflow.tracking.client import MlflowClient
+
         meta = FileStore._read_yaml(directory, FileStore.META_DATA_FILE_NAME)
         meta["tags"] = self._get_model_version_tags_from_dir(directory)
         meta["aliases"] = self._get_model_version_aliases(directory)
+        # Fetch metrics and params from model ID
+        #
+        # TODO: Propagate tracking URI to file store directly, rather than relying on global
+        # URI (individual MlflowClient instances may have different tracking URIs)
+        if "model_id" in meta:
+            try:
+                model = MlflowClient().get_logged_model(meta["model_id"])
+                meta["metrics"] = model.metrics
+                meta["params"] = model.params
+            except Exception:
+                # TODO: Make this exception handling more specific
+                pass
         return FileModelVersion.from_dictionary(meta)
 
     def _save_model_version_as_meta_file(
@@ -623,6 +638,7 @@ class FileStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ) -> ModelVersion:
         """
         Create a new model version from given source and run ID.
@@ -636,6 +652,8 @@ class FileStore(AbstractStore):
             run_link: Link to the run from an MLflow tracking server that generated this model.
             description: Description of the version.
             local_model_path: Unused.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -658,9 +676,19 @@ class FileStore(AbstractStore):
         if urllib.parse.urlparse(source).scheme == "models":
             parsed_model_uri = _parse_model_uri(source)
             try:
-                storage_location = self.get_model_version_download_uri(
-                    parsed_model_uri.name, parsed_model_uri.version
-                )
+                from mlflow.tracking.client import MlflowClient
+
+                if parsed_model_uri.model_id is not None:
+                    # TODO: Propagate tracking URI to file store directly, rather than relying on
+                    # global URI (individual MlflowClient instances may have different tracking
+                    # URIs)
+                    model = MlflowClient().get_logged_model(parsed_model_uri.model_id)
+                    storage_location = model.artifact_location
+                    run_id = run_id or model.source_run_id
+                else:
+                    storage_location = self.get_model_version_download_uri(
+                        parsed_model_uri.name, parsed_model_uri.version
+                    )
             except Exception as e:
                 raise MlflowException(
                     f"Unable to fetch model from model URI source artifact location '{source}'."
@@ -686,6 +714,7 @@ class FileStore(AbstractStore):
                     tags=tags,
                     aliases=[],
                     storage_location=storage_location,
+                    model_id=model_id,
                 )
                 model_version_dir = self._get_model_version_dir(name, version)
                 mkdir(model_version_dir)
@@ -696,7 +725,7 @@ class FileStore(AbstractStore):
                 if tags is not None:
                     for tag in tags:
                         self.set_model_version_tag(name, version, tag)
-                return model_version.to_mlflow_entity()
+                return self.get_model_version(name, version)
             except Exception as e:
                 more_retries = self.CREATE_MODEL_VERSION_RETRIES - attempt - 1
                 logging.warning(

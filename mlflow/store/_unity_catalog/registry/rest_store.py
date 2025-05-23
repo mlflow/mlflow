@@ -4,9 +4,11 @@ import logging
 import os
 import shutil
 from contextlib import contextmanager
+from typing import Optional
 
 import mlflow
 from mlflow.entities import Run
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -85,8 +87,11 @@ from mlflow.utils._unity_catalog_utils import (
     uc_model_version_tag_from_mlflow_tags,
     uc_registered_model_tag_from_mlflow_tags,
 )
-from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import get_databricks_host_creds, is_databricks_uri
+from mlflow.utils.databricks_utils import (
+    _print_databricks_deployment_job_url,
+    get_databricks_host_creds,
+    is_databricks_uri,
+)
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
@@ -184,7 +189,12 @@ def get_model_version_dependencies(model_dir):
     model_info = model.get_model_info()
     dependencies = []
 
-    databricks_resources = getattr(model, "resources", {})
+    # Try to get model.auth_policy.system_auth_policy.resources. If that is not found or empty,
+    # then use model.resources.
+    if model.auth_policy:
+        databricks_resources = model.auth_policy.get("system_auth_policy", {}).get("resources", {})
+    else:
+        databricks_resources = model.resources
 
     if databricks_resources:
         databricks_dependencies = databricks_resources.get("databricks", {})
@@ -266,7 +276,6 @@ def _fetch_langchain_dependency_from_model_info(databricks_dependencies, key):
     return databricks_dependencies.get(key, [])
 
 
-@experimental
 class UcModelRegistryStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
@@ -323,7 +332,7 @@ class UcModelRegistryStore(BaseRestStore):
 
     # CRUD API for RegisteredModel objects
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -332,6 +341,7 @@ class UcModelRegistryStore(BaseRestStore):
             tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                 instances associated with this registered model.
             description: Description of the model.
+            deployment_job_id: Optional deployment job id.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -344,27 +354,43 @@ class UcModelRegistryStore(BaseRestStore):
                 name=full_name,
                 description=description,
                 tags=uc_registered_model_tag_from_mlflow_tags(tags),
+                deployment_job_id=str(deployment_job_id) if deployment_job_id else None,
             )
         )
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
+        if deployment_job_id:
+            _print_databricks_deployment_job_url(
+                model_name=full_name,
+                job_id=str(deployment_job_id),
+            )
         return registered_model_from_uc_proto(response_proto.registered_model)
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description=None, deployment_job_id=None):
         """
         Update description of the registered model.
 
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job id.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            UpdateRegisteredModelRequest(name=full_name, description=description)
+            UpdateRegisteredModelRequest(
+                name=full_name,
+                description=description,
+                deployment_job_id=str(deployment_job_id) if deployment_job_id else None,
+            )
         )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
+        if deployment_job_id:
+            _print_databricks_deployment_job_url(
+                model_name=full_name,
+                job_id=str(deployment_job_id),
+            )
         return registered_model_from_uc_proto(response_proto.registered_model)
 
     def rename_registered_model(self, name, new_name):
@@ -726,6 +752,12 @@ class UcModelRegistryStore(BaseRestStore):
                 if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
                     shutil.rmtree(local_model_dir)
 
+    def _get_logged_model_from_model_id(self, model_id) -> Optional[LoggedModel]:
+        # load the MLflow LoggedModel by model_id and
+        if model_id is None:
+            return None
+        return mlflow.get_logged_model(model_id)
+
     def create_model_version(
         self,
         name,
@@ -735,6 +767,7 @@ class UcModelRegistryStore(BaseRestStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: Optional[str] = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -752,12 +785,17 @@ class UcModelRegistryStore(BaseRestStore):
                 to the model registry to avoid a redundant download from the source location when
                 logging and registering a model via a single
                 mlflow.<flavor>.log_model(..., registered_model_name) call.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
             created in the backend.
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
+        logged_model = self._get_logged_model_from_model_id(model_id)
+        if logged_model:
+            run_id = logged_model.source_run_id
         headers, run = self._get_run_and_headers(run_id)
         source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
@@ -798,6 +836,7 @@ class UcModelRegistryStore(BaseRestStore):
                     run_tracking_server_id=source_workspace_id,
                     feature_deps=feature_deps,
                     model_version_dependencies=other_model_deps,
+                    model_id=model_id,
                 )
             )
             model_version = self._call_endpoint(

@@ -163,14 +163,15 @@ def format_docstring(param_docs):
 # `{{ ... }}` represents a placeholder.
 LOG_MODEL_PARAM_DOCS = ParamDocs(
     {
+        "name": "Model name.",
         "conda_env": (
             """Either a dictionary representation of a Conda environment or the path to a conda
 environment yaml file. If provided, this describes the environment this model should be run in.
-At a minimum, it should specify the dependencies contained in :func:`get_default_conda_env()`.
+At a minimum, it should specify the dependencies contained in `get_default_conda_env()`.
 If ``None``, a conda environment with pip requirements inferred by
 :func:`mlflow.models.infer_pip_requirements` is added
 to the model. If the requirement inference fails, it falls back to using
-:func:`get_default_pip_requirements`. pip requirements from ``conda_env`` are written to a pip
+`get_default_pip_requirements`. pip requirements from ``conda_env`` are written to a pip
 ``requirements.txt`` file and the full conda environment is written to ``conda.yaml``.
 The following is an *example* dictionary representation of a conda environment::
 
@@ -193,7 +194,7 @@ The following is an *example* dictionary representation of a conda environment::
 a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this
 describes the environment this model should be run in. If ``None``, a default list of requirements
 is inferred by :func:`mlflow.models.infer_pip_requirements` from the current software environment.
-If the requirement inference fails, it falls back to using :func:`get_default_pip_requirements`.
+If the requirement inference fails, it falls back to using `get_default_pip_requirements`.
 Both requirements and constraints are automatically parsed and written to ``requirements.txt`` and
 ``constraints.txt`` files, respectively, and stored as part of the model. Requirements are also
 written to the ``pip`` section of the model's conda environment (``conda.yaml``) file."""
@@ -250,11 +251,6 @@ DataFrame and then serialized to json using the Pandas split-oriented
 format, or a numpy array where the example will be serialized to json
 by converting it to a list. Bytes are base64-encoded. When the ``signature`` parameter is
 ``None``, the input example is used to infer a model signature.
-"""
-        ),
-        "example_no_conversion": (
-            """This parameter is deprecated and will be removed in a future release.
-It's no longer used and can be safely removed. Input examples are not converted anymore.
 """
         ),
         "prompt_template": (
@@ -372,6 +368,11 @@ usage.
         Experimental: This parameter may change or be removed in a future release without warning.
             """
         ),
+        "params": "A dictionary of parameters to log with the model.",
+        "tags": "A dictionary of tags to log with the model.",
+        "model_type": "The type of the model.",
+        "step": "The step at which to log the model outputs and metrics",
+        "model_id": "The ID of the model.",
         "prompts": """\
 A list of prompt URIs registered in the MLflow Prompt Registry, to be associated with the model.
 Each prompt URI should be in the form ``prompt:/<name>/<version>``. The prompts should be
@@ -393,7 +394,7 @@ navigate to the model as well.
     # Log a model with the registered prompt
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            MyModel(),
+            name=MyModel(),
             artifact_path="model",
             prompts=["prompt:/my_prompt/1"]
         )

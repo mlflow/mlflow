@@ -1,6 +1,6 @@
 import warnings
 from dataclasses import asdict, dataclass
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
@@ -15,14 +15,59 @@ class AssessmentSource(_MlflowObject):
     """
     Source of an assessment (human, LLM as a judge with GPT-4, etc).
 
+    When recording an assessment, MLflow mandates providing a source information
+    to keep track of how the assessment is conducted.
+
     Args:
         source_type: The type of the assessment source. Must be one of the values in
             the AssessmentSourceType enum.
-        source_id: An identifier for the source, e.g. user ID or LLM judge ID.
+        source_id: An identifier for the source, e.g. user ID or LLM judge ID. If not
+            provided, the default value "default" is used.
+
+    Example:
+
+    Human annotation can be represented with a source type of "HUMAN":
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
+
+        source = AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN,
+            source_id="bob@example.com",
+        )
+
+    LLM-as-a-judge can be represented with a source type of "LLM_JUDGE":
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
+
+        source = AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="gpt-4o-mini",
+        )
+
+    Heuristic evaluation can be represented with a source type of "CODE":
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType
+
+        source = AssessmentSource(
+            source_type=AssessmentSourceType.CODE,
+            source_id="repo/evaluation_script.py",
+        )
+
+    To record more context about the assessment, you can use the `metadata` field of
+    the assessment logging APIs as well.
     """
 
     source_type: str
-    source_id: Optional[str] = None
+    source_id: str = "default"
 
     def __post_init__(self):
         # Perform the standardization on source_type after initialization

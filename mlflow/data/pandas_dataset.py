@@ -132,7 +132,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         try:
             return _infer_schema(self._df)
         except Exception as e:
-            _logger.warning("Failed to infer schema for Pandas dataset. Exception: %s", e)
+            _logger.debug("Failed to infer schema for Pandas dataset. Exception: %s", e)
             return None
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:
@@ -158,6 +158,8 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
             path=path,
             feature_names=feature_names,
             predictions=self._predictions,
+            name=self.name,
+            digest=self.digest,
         )
 
 

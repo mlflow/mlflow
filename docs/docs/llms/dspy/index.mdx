@@ -140,7 +140,7 @@ with mlflow.start_run():
     # Log the model
     model_info = mlflow.dspy.log_model(
         dspy_model,
-        artifact_path="model",
+        name="model",
         input_example="what is 2 + 2?",
     )
 ```
@@ -180,6 +180,36 @@ print(response)
     people humorously refer to the American black bear or the polar bear when discussing
     "the best" kind of bear.""",
 }
+```
+
+The MLflow PythonModel for DSPy supports streaming. To enable streaming, ensure the following conditions are met:
+
+1. Install `dspy` version greater than 2.6.23.
+2. Log your model with a signature.
+3. Ensure all outputs of your model are strings.
+
+```python
+stream_response = model.predict_stream("What kind of bear is best?")
+for output in stream_response:
+    print(output)
+```
+
+```python title="Output"
+{"predict_name": "prog.predict", "signature_field_name": "reasoning", "chunk": "The"}
+{
+    "predict_name": "prog.predict",
+    "signature_field_name": "reasoning",
+    "chunk": " question",
+}
+{"predict_name": "prog.predict", "signature_field_name": "reasoning", "chunk": " of"}
+{"predict_name": "prog.predict", "signature_field_name": "reasoning", "chunk": " what"}
+{"predict_name": "prog.predict", "signature_field_name": "reasoning", "chunk": " kind"}
+{"predict_name": "prog.predict", "signature_field_name": "reasoning", "chunk": " of"}
+{"predict_name": "prog.predict", "signature_field_name": "reasoning", "chunk": " bear"}
+{"predict_name": "prog.predict", "signature_field_name": "reasoning", "chunk": " is"}
+{"predict_name": "prog.predict", "signature_field_name": "reasoning", "chunk": " best"}
+{"predict_name": "prog.predict", "signature_field_name": "reasoning", "chunk": " is"}
+...
 ```
 
 To load the DSPy program itself back instead of the PyFunc-wrapped model, use the <APILink fn="mlflow.dspy.load_model" /> function.

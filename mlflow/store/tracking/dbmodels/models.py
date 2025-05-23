@@ -5,10 +5,12 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     PrimaryKeyConstraint,
     String,
+    Text,
     UnicodeText,
 )
 from sqlalchemy.orm import backref, relationship
@@ -26,11 +28,15 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
-    TraceInfo,
+    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.logged_model import LoggedModel
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
+from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.mlflow_tags import _get_run_name_from_tags
@@ -218,7 +224,6 @@ class SqlRun(Base):
             mlflow.entities.Run: Description of the return value.
         """
         run_info = RunInfo(
-            run_uuid=self.run_uuid,
             run_id=self.run_uuid,
             run_name=self.name,
             experiment_id=str(self.experiment_id),
@@ -593,6 +598,7 @@ class SqlInput(Base):
     Destination Id: `String` (limit 36 characters). Defined as *Non-null* in schema.
     Part of *Primary Key* for ``inputs`` table.
     """
+    step = Column(BigInteger, nullable=False, server_default="0")
 
     def __repr__(self):
         return "<SqlInput ({}, {}, {}, {}, {})>".format(
@@ -684,7 +690,7 @@ class SqlTraceInfo(Base):
         Returns:
             :py:class:`mlflow.entities.TraceInfo` object.
         """
-        return TraceInfo(
+        return TraceInfoV2(
             request_id=self.request_id,
             experiment_id=str(self.experiment_id),
             timestamp_ms=self.timestamp_ms,
@@ -753,3 +759,297 @@ class SqlTraceRequestMetadata(Base):
         PrimaryKeyConstraint("request_id", "key", name="trace_request_metadata_pk"),
         Index(f"index_{__tablename__}_request_id"),
     )
+
+
+class SqlLoggedModel(Base):
+    __tablename__ = "logged_models"
+
+    model_id = Column(String(36), nullable=False)
+    """
+    Model ID: `String` (limit 36 characters). *Primary Key* for ``logged_models`` table.
+    """
+
+    experiment_id = Column(Integer, nullable=False)
+    """
+    Experiment ID to which this model belongs: *Foreign Key* into ``experiments`` table.
+    """
+
+    name = Column(String(500), nullable=False)
+    """
+    Model name: `String` (limit 500 characters).
+    """
+
+    artifact_location = Column(String(1000), nullable=False)
+    """
+    Artifact location: `String` (limit 1000 characters).
+    """
+
+    creation_timestamp_ms = Column(BigInteger, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+
+    last_updated_timestamp_ms = Column(BigInteger, nullable=False)
+    """
+    Last updated timestamp: `BigInteger`.
+    """
+
+    status = Column(Integer, nullable=False)
+    """
+    Status: `Integer`.
+    """
+
+    lifecycle_stage = Column(String(32), default=LifecycleStage.ACTIVE)
+    """
+    Lifecycle Stage of model: `String` (limit 32 characters).
+    """
+
+    model_type = Column(String(500), nullable=True)
+    """
+    Model type: `String` (limit 500 characters).
+    """
+
+    source_run_id = Column(String(32), nullable=True)
+    """
+    Source run ID: `String` (limit 32 characters).
+    """
+
+    status_message = Column(String(1000), nullable=True)
+    """
+    Status message: `String` (limit 1000 characters).
+    """
+
+    tags = relationship("SqlLoggedModelTag", backref="logged_model", cascade="all")
+    params = relationship("SqlLoggedModelParam", backref="logged_model", cascade="all")
+    metrics = relationship("SqlLoggedModelMetric", backref="logged_model", cascade="all")
+
+    __table_args__ = (
+        PrimaryKeyConstraint("model_id", name="logged_models_pk"),
+        CheckConstraint(
+            lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
+            name="logged_models_lifecycle_stage_check",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id"],
+            ["experiments.experiment_id"],
+            ondelete="CASCADE",
+            name="fk_logged_models_experiment_id",
+        ),
+    )
+
+    def to_mlflow_entity(self) -> LoggedModel:
+        return LoggedModel(
+            model_id=self.model_id,
+            experiment_id=str(self.experiment_id),
+            name=self.name,
+            artifact_location=self.artifact_location,
+            creation_timestamp=self.creation_timestamp_ms,
+            last_updated_timestamp=self.last_updated_timestamp_ms,
+            status=LoggedModelStatus.from_int(self.status),
+            model_type=self.model_type,
+            source_run_id=self.source_run_id,
+            status_message=self.status_message,
+            tags={t.tag_key: t.tag_value for t in self.tags} if self.tags else None,
+            params={p.param_key: p.param_value for p in self.params} if self.params else None,
+            metrics=[m.to_mlflow_entity() for m in self.metrics] if self.metrics else None,
+        )
+
+    ALIASES = {
+        "creation_time": "creation_timestamp_ms",
+        "creation_timestamp": "creation_timestamp_ms",
+        "last_updated_timestamp": "last_updated_timestamp_ms",
+    }
+
+    @staticmethod
+    def is_numeric(s: str) -> bool:
+        return SqlLoggedModel.ALIASES.get(s, s) in {
+            "creation_timestamp_ms",
+            "last_updated_timestamp_ms",
+        }
+
+
+class SqlLoggedModelMetric(Base):
+    __tablename__ = "logged_model_metrics"
+
+    model_id = Column(String(36), nullable=False)
+    """
+    Model ID: `String` (limit 36 characters).
+    """
+
+    metric_name = Column(String(500), nullable=False)
+    """
+    Metric name: `String` (limit 500 characters).
+    """
+
+    metric_timestamp_ms = Column(BigInteger, nullable=False)
+    """
+    Metric timestamp: `BigInteger`.
+    """
+
+    metric_step = Column(BigInteger, nullable=False)
+    """
+    Metric step: `BigInteger`.
+    """
+
+    metric_value = Column(sa.types.Float(precision=53), nullable=True)
+    """
+    Metric value: `Float`.
+    """
+
+    experiment_id = Column(Integer, nullable=False)
+    """
+    Experiment ID: `Integer`.
+    """
+
+    run_id = Column(String(32), nullable=False)
+    """
+    Run ID: `String` (limit 32 characters).
+    """
+
+    dataset_uuid = Column(String(36), nullable=True)
+    """
+    Dataset UUID: `String` (limit 36 characters).
+    """
+
+    dataset_name = Column(String(500), nullable=True)
+    """
+    Dataset name: `String` (limit 500 characters).
+    """
+
+    dataset_digest = Column(String(36), nullable=True)
+    """
+    Dataset digest: `String` (limit 36 characters).
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "model_id",
+            "metric_name",
+            "metric_timestamp_ms",
+            "metric_step",
+            "run_id",
+            name="logged_model_metrics_pk",
+        ),
+        ForeignKeyConstraint(
+            ["model_id"],
+            ["logged_models.model_id"],
+            ondelete="CASCADE",
+            name="fk_logged_model_metrics_model_id",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id"],
+            ["experiments.experiment_id"],
+            name="fk_logged_model_metrics_experiment_id",
+        ),
+        ForeignKeyConstraint(
+            ["run_id"],
+            ["runs.run_uuid"],
+            ondelete="CASCADE",
+            name="fk_logged_model_metrics_run_id",
+        ),
+        Index("index_logged_model_metrics_model_id", "model_id"),
+    )
+
+    def to_mlflow_entity(self) -> Metric:
+        return Metric(
+            key=self.metric_name,
+            value=self.metric_value,
+            timestamp=self.metric_timestamp_ms,
+            step=self.metric_step,
+            run_id=self.run_id,
+            dataset_name=self.dataset_name,
+            dataset_digest=self.dataset_digest,
+            model_id=self.model_id,
+        )
+
+
+class SqlLoggedModelParam(Base):
+    __tablename__ = "logged_model_params"
+
+    model_id = Column(String(36), nullable=False)
+    """
+    Model ID: `String` (limit 36 characters).
+    """
+
+    experiment_id = Column(Integer, nullable=False)
+    """
+    Experiment ID: `Integer`.
+    """
+
+    param_key = Column(String(255), nullable=False)
+    """
+    Param key: `String` (limit 255 characters).
+    """
+
+    param_value = Column(Text(), nullable=False)
+    """
+    Param value: `Text`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "model_id",
+            "param_key",
+            name="logged_model_params_pk",
+        ),
+        ForeignKeyConstraint(
+            ["model_id"],
+            ["logged_models.model_id"],
+            name="fk_logged_model_params_model_id",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id"],
+            ["experiments.experiment_id"],
+            name="fk_logged_model_params_experiment_id",
+        ),
+    )
+
+    def to_mlflow_entity(self) -> LoggedModelParameter:
+        return LoggedModelParameter(key=self.param_key, value=self.param_value)
+
+
+class SqlLoggedModelTag(Base):
+    __tablename__ = "logged_model_tags"
+
+    model_id = Column(String(36), nullable=False)
+    """
+    Model ID: `String` (limit 36 characters).
+    """
+
+    experiment_id = Column(Integer, nullable=False)
+    """
+    Experiment ID: `Integer`.
+    """
+
+    tag_key = Column(String(255), nullable=False)
+    """
+    Tag key: `String` (limit 255 characters).
+    """
+
+    tag_value = Column(Text(), nullable=False)
+    """
+    Tag value: `Text`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "model_id",
+            "tag_key",
+            name="logged_model_tags_pk",
+        ),
+        ForeignKeyConstraint(
+            ["model_id"],
+            ["logged_models.model_id"],
+            name="fk_logged_model_tags_model_id",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id"],
+            ["experiments.experiment_id"],
+            name="fk_logged_model_tags_experiment_id",
+        ),
+    )
+
+    def to_mlflow_entity(self) -> LoggedModelTag:
+        return LoggedModelTag(key=self.tag_key, value=self.tag_value)

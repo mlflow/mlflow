@@ -8,23 +8,20 @@ import dspy
 from dspy.utils.callback import BaseCallback
 
 import mlflow
-from mlflow.dspy.save import FLAVOR_NAME
+from mlflow.dspy.constant import FLAVOR_NAME
 from mlflow.dspy.util import log_dspy_module_params, save_dspy_module_state
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
-from mlflow.pyfunc.context import get_prediction_context, maybe_set_prediction_context
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import (
-    end_client_span_or_trace,
-    set_span_chat_messages,
-    start_client_span_or_trace,
-)
+from mlflow.tracing.utils import maybe_set_prediction_context, set_span_chat_messages
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
 _lock = threading.Lock()
@@ -43,7 +40,6 @@ class MlflowCallback(BaseCallback):
     """Callback for generating MLflow traces for DSPy components"""
 
     def __init__(self, dependencies_schema: Optional[dict[str, Any]] = None):
-        self._client = mlflow.MlflowClient()
         self._dependencies_schema = dependencies_schema
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
@@ -299,13 +295,17 @@ class MlflowCallback(BaseCallback):
         inputs: dict[str, Any],
         attributes: dict[str, Any],
     ):
-        prediction_context = get_prediction_context()
-        if prediction_context and self._dependencies_schema:
-            prediction_context.update(**self._dependencies_schema)
+        if not IS_TRACING_SDK_ONLY:
+            from mlflow.pyfunc.context import get_prediction_context
+
+            prediction_context = get_prediction_context()
+            if prediction_context and self._dependencies_schema:
+                prediction_context.update(**self._dependencies_schema)
+        else:
+            prediction_context = None
 
         with maybe_set_prediction_context(prediction_context):
-            span = start_client_span_or_trace(
-                self._client,
+            span = start_span_no_context(
                 name=name,
                 span_type=span_type,
                 parent_span=mlflow.get_current_active_span(),
@@ -336,12 +336,7 @@ class MlflowCallback(BaseCallback):
             st.span.add_event(SpanEvent.from_exception(exception))
 
         try:
-            end_client_span_or_trace(
-                client=self._client,
-                span=st.span,
-                outputs=outputs,
-                status=status,
-            )
+            st.span.end(outputs=outputs, status=status)
         finally:
             detach_span_from_context(st.token)
 

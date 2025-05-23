@@ -9,6 +9,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.dspy.constant import FLAVOR_NAME
 from mlflow.dspy.wrapper import DspyChatModelWrapper, DspyModelWrapper
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
@@ -26,6 +27,7 @@ from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.types.schema import DataType
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -44,8 +46,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-
-FLAVOR_NAME = "dspy"
 
 _MODEL_SAVE_PATH = "model"
 _MODEL_DATA_PATH = "data"
@@ -174,9 +174,6 @@ def save_model(
     else:
         wrapped_dspy_model = DspyModelWrapper(model, dspy_settings, model_config)
 
-    with open(model_path, "wb") as f:
-        cloudpickle.dump(wrapped_dspy_model, f)
-
     flavor_options = {
         "model_path": model_subpath,
     }
@@ -193,6 +190,18 @@ def save_model(
     if saved_example and mlflow_model.signature is None:
         signature = _infer_signature_from_input_example(saved_example, wrapped_dspy_model)
         mlflow_model.signature = signature
+
+    streamable = False
+    # Set the output schema to the model wrapper to use it for streaming
+    if mlflow_model.signature and mlflow_model.signature.outputs:
+        wrapped_dspy_model.output_schema = mlflow_model.signature.outputs
+        # DSPy streaming only supports string outputs.
+        if all(spec.type == DataType.string for spec in mlflow_model.signature.outputs):
+            streamable = True
+
+    with open(model_path, "wb") as f:
+        cloudpickle.dump(wrapped_dspy_model, f)
+
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     # Add flavor info to `mlflow_model`.
@@ -204,6 +213,7 @@ def save_model(
         code=code_dir_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
+        streamable=streamable,
     )
 
     # Add model file size to `mlflow_model`.
@@ -257,7 +267,7 @@ def save_model(
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     dspy_model,
-    artifact_path: str,
+    artifact_path: Optional[str] = None,
     task: Optional[str] = None,
     model_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
@@ -271,6 +281,12 @@ def log_model(
     metadata: Optional[dict[str, Any]] = None,
     resources: Optional[Union[str, Path, list[Resource]]] = None,
     prompts: Optional[list[Union[str, Prompt]]] = None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -280,7 +296,7 @@ def log_model(
 
     Args:
         dspy_model: an instance of `dspy.Module`. The Dspy model to be saved.
-        artifact_path: the run-relative path to which to log model artifacts.
+        artifact_path: Deprecated. Use `name` instead.
         task: defaults to None. The task type of the model. Can only be `llm/v1/chat` or None for
             now.
         model_config: keyword arguments to be passed to the Dspy Module at instantiation.
@@ -303,6 +319,12 @@ def log_model(
         resources: A list of model resources or a resources.yaml file containing a list of
             resources required to serve the model.
         prompts: {{ prompts }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     .. code-block:: python
         :caption: Example
@@ -347,6 +369,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.dspy,
         model=dspy_model,
         task=task,
@@ -362,4 +385,9 @@ def log_model(
         metadata=metadata,
         resources=resources,
         prompts=prompts,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )

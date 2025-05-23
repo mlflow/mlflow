@@ -13,9 +13,11 @@ type EditedModelTrace = {
 export const useEditExperimentTraceTags = ({
   onSuccess,
   existingTagKeys = [],
+  useV3Apis,
 }: {
   onSuccess?: () => void;
   existingTagKeys?: string[];
+  useV3Apis?: boolean;
 }) => {
   const { showEditTagsModal, EditTagsModal } = useEditKeyValueTagsModal<EditedModelTrace>({
     saveTagsHandler: async (editedEntity, existingTags, newTags) => {
@@ -39,8 +41,16 @@ export const useEditExperimentTraceTags = ({
 
       // Fire all requests at once
       const updateRequests = Promise.all([
-        ...addedOrModifiedTags.map(({ key, value }) => MlflowService.setExperimentTraceTag(requestId, key, value)),
-        ...deletedTags.map(({ key }) => MlflowService.deleteExperimentTraceTag(requestId, key)),
+        ...addedOrModifiedTags.map(({ key, value }) =>
+          useV3Apis
+            ? MlflowService.setExperimentTraceTagV3(requestId, key, value)
+            : MlflowService.setExperimentTraceTag(requestId, key, value),
+        ),
+        ...deletedTags.map(({ key }) =>
+          useV3Apis
+            ? MlflowService.deleteExperimentTraceTagV3(requestId, key)
+            : MlflowService.deleteExperimentTraceTag(requestId, key),
+        ),
       ]);
 
       return updateRequests;

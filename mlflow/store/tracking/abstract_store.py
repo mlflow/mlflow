@@ -1,9 +1,16 @@
+import json
 from abc import ABCMeta, abstractmethod
-from typing import Optional
+from typing import Any, Optional
 
 from mlflow.entities import (
     DatasetInput,
-    TraceInfo,
+    LoggedModel,
+    LoggedModelInput,
+    LoggedModelOutput,
+    LoggedModelParameter,
+    LoggedModelStatus,
+    LoggedModelTag,
+    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.metric import MetricWithRunId
@@ -11,6 +18,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -239,7 +247,7 @@ class AbstractStore:
         timestamp_ms: int,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Start an initial TraceInfo object in the backend store.
 
@@ -263,7 +271,7 @@ class AbstractStore:
         status: TraceStatus,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
@@ -335,7 +343,7 @@ class AbstractStore:
     ) -> int:
         raise NotImplementedError
 
-    def get_trace_info(self, request_id: str) -> TraceInfo:
+    def get_trace_info(self, request_id: str) -> TraceInfoV2:
         """
         Get the trace matching the `request_id`.
 
@@ -347,6 +355,17 @@ class AbstractStore:
         """
         raise NotImplementedError
 
+    def get_online_trace_details(
+        self,
+        trace_id: str,
+        sql_warehouse_id: str,
+        source_inference_table: str,
+        source_databricks_request_id: str,
+    ) -> str:
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support `get_online_trace_details`."
+        )
+
     def search_traces(
         self,
         experiment_ids: list[str],
@@ -354,7 +373,9 @@ class AbstractStore:
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-    ) -> tuple[list[TraceInfo], Optional[str]]:
+        model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
+    ) -> tuple[list[TraceInfoV2], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -365,6 +386,9 @@ class AbstractStore:
             order_by: List of order_by clauses.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
+            model_id: If specified, return traces associated with the model ID.
+            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
+                searching traces in inference tables.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
@@ -650,25 +674,12 @@ class AbstractStore:
             self._async_logging_queue.shut_down_async_logging()
 
     @abstractmethod
-    def record_logged_model(self, run_id, mlflow_model):
-        """
-        Record logged model information with tracking store. The list of logged model infos is
-        maintained in a mlflow.models tag in JSON format.
-
-        Note: The actual models are logged as artifacts via artifact repository.
-
-        Args:
-            run_id: String id for the run.
-            mlflow_model: Model object to be recorded.
-
-        The default implementation is a no-op.
-
-        Returns:
-            None.
-        """
-
-    @abstractmethod
-    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
+    ):
         """
         Log inputs, such as datasets, to the specified run.
 
@@ -676,7 +687,169 @@ class AbstractStore:
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
                 as inputs to the run.
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log
+                as inputs to the run.
 
         Returns:
             None.
         """
+
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
+        """
+        Log outputs, such as models, to the specified run.
+
+        Args:
+            run_id: String id for the run
+            models: List of :py:class:`mlflow.entities.LoggedModelOutput` instances to log
+                as outputs of the run.
+
+        Returns:
+            None.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def record_logged_model(self, run_id, mlflow_model):
+        raise NotImplementedError(self.__class__.__name__)
+
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: Optional[str] = None,
+        source_run_id: Optional[str] = None,
+        tags: Optional[list[LoggedModelTag]] = None,
+        params: Optional[list[LoggedModelParameter]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        """
+        Create a new logged model.
+
+        Args:
+            experiment_id: ID of the experiment to which the model belongs.
+            name: Name of the model. If not specified, a random name will be generated.
+            source_run_id: ID of the run that produced the model.
+            tags: Tags to set on the model.
+            params: Parameters to set on the model.
+            model_type: Type of the model.
+
+        Returns:
+            The created model.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def search_logged_models(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str] = None,
+        datasets: Optional[list[dict[str, Any]]] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[LoggedModel]:
+        """
+        Search for logged models that match the specified search criteria.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            datasets: List of dictionaries to specify datasets on which to apply metrics filters.
+                The following fields are supported:
+
+                name (str): Required. Name of the dataset.
+                digest (str): Optional. Digest of the dataset.
+            max_results: Maximum number of logged models desired.
+            order_by: List of dictionaries to specify the ordering of the search results.
+                The following fields are supported:
+
+                field_name (str): Required. Name of the field to order by, e.g. "metrics.accuracy".
+                ascending: (bool): Optional. Whether the order is ascending or not.
+                dataset_name: (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the name of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name will be considered for ordering.
+                    This field may only be set if ``field_name`` refers to a metric.
+                dataset_digest (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the digest of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name and digest will be considered for
+                    ordering. This field may only be set if ``dataset_name`` is also set.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
+        """
+
+        raise NotImplementedError(self.__class__.__name__)
+
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
+        """
+        Set tags on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            tags: Tags to set on the model.
+
+        Returns:
+            None
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def set_model_versions_tags(self, name: str, version: str, model_id: str) -> None:
+        mvs = [{"name": name, "version": version}]
+        model = self.get_logged_model(model_id)
+        if existing_mvs := model.tags.get(mlflow_tags.MLFLOW_MODEL_VERSIONS):
+            existing_mvs = json.loads(existing_mvs)
+            if mvs[0] not in existing_mvs:
+                mvs = existing_mvs + mvs
+
+        self.set_logged_model_tags(
+            model_id,
+            [
+                LoggedModelTag(
+                    key=mlflow_tags.MLFLOW_MODEL_VERSIONS,
+                    value=json.dumps(mvs),
+                )
+            ],
+        )
+
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            key: Key of the tag to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_logged_model(self, model_id: str) -> None:
+        """
+        Delete the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)

@@ -98,7 +98,6 @@ from mlflow.transformers.signature import (
 from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils import _truncate_and_ellipsize
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     disable_discrete_autologging,
@@ -189,7 +188,6 @@ AudioInput = Union[str, bytes, np.ndarray]
 _logger = logging.getLogger(__name__)
 
 
-@experimental
 def get_default_pip_requirements(model) -> list[str]:
     """
     Args:
@@ -258,7 +256,6 @@ def _validate_transformers_model_dict(transformers_model):
         )
 
 
-@experimental
 def get_default_conda_env(model):
     """
     Returns:
@@ -268,7 +265,6 @@ def get_default_conda_env(model):
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(model))
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
@@ -278,7 +274,6 @@ def save_model(
     task: Optional[str] = None,
     torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
-    inference_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
@@ -288,7 +283,6 @@ def save_model(
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
     model_config: Optional[dict[str, Any]] = None,
-    example_no_conversion: Optional[bool] = None,
     prompt_template: Optional[str] = None,
     save_pretrained: bool = True,
     **kwargs,  # pylint: disable=unused-argument
@@ -387,9 +381,6 @@ def save_model(
             .. Note:: In order for a ModelCard to be fetched (if not provided),
                         the huggingface_hub package must be installed and the version
                         must be >=0.10.0
-        inference_config:
-
-            .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
 
         code_paths: {{ code_paths }}
         mlflow_model: An MLflow model object that specifies the flavor that this model is being
@@ -484,7 +475,6 @@ def save_model(
                     task=task,
                     model_config=model_config,
                 )
-        example_no_conversion: {{ example_no_conversion }}
         prompt_template: {{ prompt_template }}
         save_pretrained: {{ save_pretrained }}
         kwargs: Optional additional configurations for transformers serialization.
@@ -582,7 +572,7 @@ def save_model(
 
     if input_example is not None:
         input_example = format_input_example_for_special_cases(input_example, built_pipeline)
-        _save_example(mlflow_model, input_example, str(path), example_no_conversion)
+        _save_example(mlflow_model, input_example, str(path))
 
     if metadata is not None:
         mlflow_model.metadata = metadata
@@ -676,15 +666,6 @@ def save_model(
             "will be logged instead."
         )
 
-    if inference_config:
-        _logger.warning(
-            "Indicating `inference_config` is deprecated and will be removed in a future version "
-            "of MLflow. Use `model_config` instead."
-        )
-        path.joinpath(_INFERENCE_CONFIG_BINARY_KEY).write_text(
-            json.dumps(inference_config, indent=2)
-        )
-
     model_name = built_pipeline.model.name_or_path
 
     # Get the model card from either the argument or the HuggingFace marketplace
@@ -708,7 +689,7 @@ def save_model(
             mlflow_model.signature = infer_or_get_default_signature(
                 pipeline=built_pipeline,
                 example=input_example,
-                model_config=model_config or inference_config,
+                model_config=model_config,
                 flavor_config=flavor_conf,
             )
 
@@ -788,17 +769,15 @@ def save_model(
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     transformers_model,
-    artifact_path: str,
+    artifact_path: Optional[str] = None,
     processor=None,
     task: Optional[str] = None,
     torch_dtype: Optional[torch.dtype] = None,
     model_card=None,
-    inference_config: Optional[dict[str, Any]] = None,
     code_paths: Optional[list[str]] = None,
     registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
@@ -809,10 +788,15 @@ def log_model(
     conda_env=None,
     metadata: Optional[dict[str, Any]] = None,
     model_config: Optional[dict[str, Any]] = None,
-    example_no_conversion: Optional[bool] = None,
     prompt_template: Optional[str] = None,
     save_pretrained: bool = True,
     prompts: Optional[list[Union[str, Prompt]]] = None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -847,7 +831,7 @@ def log_model(
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
                         transformers_model=qa_pipe,
-                        artifact_path="model",
+                        name="model",
                     )
 
             An example of specifying component-level parts of a transformers model is shown below:
@@ -867,7 +851,7 @@ def log_model(
                     }
                     mlflow.transformers.log_model(
                         transformers_model=components,
-                        artifact_path="model",
+                        name="model",
                     )
 
             An example of specifying a local checkpoint path is shown below:
@@ -877,10 +861,10 @@ def log_model(
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
                         transformers_model="path/to/local/checkpoint",
-                        artifact_path="model",
+                        name="model",
                     )
 
-        artifact_path: Local path destination for the serialized model to be saved.
+        artifact_path: Deprecated. Use `name` instead.
         processor: An optional ``Processor`` subclass object. Some model architectures,
             particularly multi-modal types, utilize Processors to combine text
             encoding and image or audio encoding in a single entrypoint.
@@ -907,9 +891,6 @@ def log_model(
                 .. Note:: In order for a ModelCard to be fetched (if not provided),
                     the huggingface_hub package must be installed and the version
                     must be >=0.10.0
-        inference_config:
-
-            .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
 
         code_paths: {{ code_paths }}
         registered_model_name: This argument may change or be removed in a
@@ -936,7 +917,7 @@ def log_model(
                 with mlflow.start_run() as run:
                     mlflow.transformers.log_model(
                         transformers_model=en_to_de,
-                        artifact_path="english_to_german_translator",
+                        name="english_to_german_translator",
                         signature=signature,
                         input_example=data,
                     )
@@ -1009,18 +990,24 @@ def log_model(
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
                         transformers_model=sentence_pipeline,
-                        artifact_path="my_sentence_generator",
+                        name="my_sentence_generator",
                         task=task,
                         model_config=model_config,
                     )
-        example_no_conversion: {{ example_no_conversion }}
         prompt_template: {{ prompt_template }}
         save_pretrained: {{ save_pretrained }}
         prompts: {{ prompts }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=sys.modules[__name__],  # Get the current module.
         registered_model_name=registered_model_name,
         await_registration_for=await_registration_for,
@@ -1030,7 +1017,6 @@ def log_model(
         task=task,
         torch_dtype=torch_dtype,
         model_card=model_card,
-        inference_config=inference_config,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -1044,15 +1030,18 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         model_config=model_config,
-        example_no_conversion=example_no_conversion,
         prompt_template=prompt_template,
         save_pretrained=save_pretrained,
         prompts=prompts,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
 
-@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 def load_model(
     model_uri: str, dst_path: Optional[str] = None, return_type="pipeline", device=None, **kwargs
@@ -1157,7 +1146,7 @@ def persist_pretrained_model(model_uri: str) -> None:
         with mlflow.start_run() as run:
             model = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
             mlflow.transformers.log_model(
-                transformers_model=model, artifact_path="pipeline", save_pretrained=False
+                transformers_model=model, name="pipeline", save_pretrained=False
             )
 
         # The model cannot be registered to the Model Registry as it is
@@ -1690,7 +1679,6 @@ def _try_import_conversational_pipeline():
         return
 
 
-@experimental
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
@@ -2907,7 +2895,6 @@ class _TransformersWrapper:
         )
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,

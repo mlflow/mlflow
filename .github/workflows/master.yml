@@ -23,13 +23,13 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 env:
-  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
+  MLFLOW_HOME: ${{ github.workspace }}
   # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
-  PIP_CONSTRAINT: /home/runner/work/mlflow/mlflow/requirements/constraints.txt
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
   PYTHONUTF8: "1"
 
 jobs:
@@ -41,7 +41,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -59,7 +60,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -88,20 +90,23 @@ jobs:
       - name: Import check
         run: |
           source .venv/bin/activate
-          python tests/check_mlflow_lazily_imports_ml_packages.py
+          # `-I` is used to avoid importing modules from user-specific site-packages
+          # that might conflict with the built-in modules (e.g. `types`).
+          python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
-            --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
-            --ignore=tests/deployments/server tests
+            --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
+            --ignore tests/genai tests
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -131,7 +136,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -147,7 +153,7 @@ jobs:
           set +e
           err=0
           trap 'err=1' ERR
-
+          RESULTS=""
           for service in $(./tests/db/compose.sh config --services | grep '^mlflow-' | sort)
           do
             # Set `--no-TTY` to show container logs on GitHub Actions:
@@ -156,8 +162,10 @@ jobs:
               tests/store/tracking/test_sqlalchemy_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
               tests/db
+              RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
           done
 
+          echo -e "$RESULTS"
           test $err = 0
 
       - name: Run migration check
@@ -182,7 +190,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -204,7 +213,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -240,7 +250,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -274,7 +285,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -302,11 +314,45 @@ jobs:
         run: |
           pytest tests/evaluate/test_default_evaluator_delta.py
 
+  genai:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: "3.10"
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+          # GenAI evaluation tests require databricks-agents that only work with Python >= 3.10
+          pip install 'databricks-agents<0.22.0' openai
+      - uses: ./.github/actions/show-versions
+      - name: Run GenAI Tests
+        run: |
+          # GenAI evaluation tests require databricks-agents that only work with Python 3.10~
+          pip install openai
+          # Install databricks-agents from a pre-release wheel because the latest released version
+          # is not compatible with MLflow master. Using --no-deps because it pings mlflow to 3.0.0rc2.
+          pip install https://ml-team-public-read.s3.us-west-2.amazonaws.com/wheels/rag-studio/dev/samraj.moorjani/databricks_agents-1.0.0rc1.dev0-py3-none-any.whl --no-deps
+          pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py
+          pip uninstall -y databricks-agents
+          pytest tests/genai/test_genai_import_without_agent_sdk.py
+
   optuna:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -328,7 +374,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -368,7 +415,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -389,7 +437,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
     timeout-minutes: 120
-    permissions: {}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -400,9 +449,6 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           submodules: recursive
-      - name: Set PIP_CONSTRAINT
-        run: |
-          echo "PIP_CONSTRAINT=${{ github.workspace }}/requirements/constraints.txt" >> $GITHUB_ENV
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -444,8 +490,5 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate --ignore tests/deployments/server --ignore=tests/optuna \
-            tests
-          # MLeap is incompatible on Windows with PySpark3.4 release.
-          # Reinstate tests when MLeap has released a fix. [ML-30491]
-          # pytest tests/mleap
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
+            --ignore=tests/genai tests

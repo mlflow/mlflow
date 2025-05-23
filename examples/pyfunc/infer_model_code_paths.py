@@ -16,7 +16,7 @@ class CustomPredict(mlflow.pyfunc.PythonModel):
 with mlflow.start_run(run_name="test_custom_model_with_inferred_code_paths"):
     # log a custom model
     model_info = mlflow.pyfunc.log_model(
-        artifact_path="artifacts",
+        name="artifacts",
         infer_code_paths=True,
         python_model=CustomPredict(),
     )

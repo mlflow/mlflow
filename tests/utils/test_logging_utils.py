@@ -1,6 +1,9 @@
 import logging
+import os
 import re
+import subprocess
 import sys
+import uuid
 from io import StringIO
 
 import pytest
@@ -127,3 +130,52 @@ def test_suppress_logs():
     with suppress_logs(module, re.compile("This .* be suppressed.")):
         logger.error(message)
     assert len(capture_stream.getvalue()) == 0
+
+
+@pytest.mark.parametrize(
+    ("log_level", "expected"),
+    [
+        ("DEBUG", True),
+        ("INFO", False),
+        ("NOTSET", False),
+    ],
+)
+def test_logging_level(log_level: str, expected: bool) -> None:
+    random_str = str(uuid.uuid4())
+    stdout = subprocess.check_output(
+        [
+            sys.executable,
+            "-c",
+            f"from mlflow.utils.logging_utils import _debug; _debug({random_str!r})",
+        ],
+        env=os.environ.copy() | {"MLFLOW_LOGGING_LEVEL": log_level},
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+
+    assert (random_str in stdout) is expected
+
+
+@pytest.mark.parametrize(
+    "env_var_name",
+    ["MLFLOW_CONFIGURE_LOGGING", "MLFLOW_LOGGING_CONFIGURE_LOGGING"],
+)
+@pytest.mark.parametrize(
+    "value",
+    ["0", "1"],
+)
+def test_mlflow_configure_logging_env_var(env_var_name: str, value: str) -> None:
+    expected_level = logging.INFO if value == "1" else logging.WARNING
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-c",
+            f"""
+import logging
+import mlflow
+
+assert logging.getLogger("mlflow").isEnabledFor({expected_level})
+""",
+        ],
+        env=os.environ.copy() | {env_var_name: value},
+    )

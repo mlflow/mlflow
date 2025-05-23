@@ -10,10 +10,10 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.protos.databricks_trace_server_pb2 import Trace as ProtoTrace
-from mlflow.protos.databricks_trace_server_pb2 import TraceData as ProtoTraceData
+from mlflow.protos.service_pb2 import Trace as ProtoTrace
 
 _logger = logging.getLogger(__name__)
 
@@ -30,8 +30,12 @@ class Trace(_MlflowObject):
     info: TraceInfo
     data: TraceData
 
+    def __post_init__(self):
+        if isinstance(self.info, TraceInfoV2):
+            self.info = self.info.to_v3(request=self.data.request, response=self.data.response)
+
     def __repr__(self) -> str:
-        return f"Trace(request_id={self.info.request_id})"
+        return f"Trace(trace_id={self.info.trace_id})"
 
     def to_dict(self) -> dict[str, Any]:
         return {"info": self.info.to_dict(), "data": self.data.to_dict()}
@@ -103,16 +107,17 @@ class Trace(_MlflowObject):
 
     def to_pandas_dataframe_row(self) -> dict[str, Any]:
         return {
-            "request_id": self.info.request_id,
+            "trace_id": self.info.trace_id,
             "trace": self,
-            "timestamp_ms": self.info.timestamp_ms,
-            "status": self.info.status,
-            "execution_time_ms": self.info.execution_time_ms,
+            "client_request_id": self.info.client_request_id,
+            "state": self.info.state,
+            "request_time": self.info.request_time,
+            "execution_duration": self.info.execution_duration,
             "request": self._deserialize_json_attr(self.data.request),
             "response": self._deserialize_json_attr(self.data.response),
-            "request_metadata": self.info.request_metadata,
-            "spans": [span.to_dict() for span in self.data.spans],
+            "trace_metadata": self.info.trace_metadata,
             "tags": self.info.tags,
+            "spans": [span.to_dict() for span in self.data.spans],
             "assessments": self.info.assessments,
         }
 
@@ -224,23 +229,26 @@ class Trace(_MlflowObject):
     @staticmethod
     def pandas_dataframe_columns() -> list[str]:
         return [
-            "request_id",
+            "trace_id",
             "trace",
-            "timestamp_ms",
-            "status",
-            "execution_time_ms",
+            "client_request_id",
+            "state",
+            "request_time",
+            "execution_duration",
             "request",
             "response",
-            "request_metadata",
-            "spans",
+            "trace_metadata",
             "tags",
+            "spans",
             "assessments",
         ]
 
     def to_proto(self):
-        """Convert into a proto object to sent to the Databricks Trace Server."""
-        return ProtoTrace(
-            # Convert MLflow's TraceInfoV3 to Databricks Trace Server's TraceInfo
-            info=self.info.to_v3_proto(self.data.request, self.data.response),
-            data=ProtoTraceData(spans=[span.to_proto() for span in self.data.spans]),
-        )
+        """
+        Convert into a proto object to sent to the MLflow backend.
+
+        NB: The Trace definition in MLflow backend doesn't include the `data` field,
+            but rather only contains TraceInfoV3.
+        """
+
+        return ProtoTrace(trace_info=self.info.to_proto())

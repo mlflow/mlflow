@@ -14,7 +14,13 @@ import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPag
 import type { KeyValueEntity, RunInfoEntity } from '../../types';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import type { LoggedModelProto } from '../../types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
+import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
+
+jest.mock('../../hooks/useExperimentTrackingDetailsPageLayoutStyles', () => ({
+  useExperimentTrackingDetailsPageLayoutStyles: jest.fn(),
+}));
 
 jest.mock('../../../common/components/Prompt', () => ({
   Prompt: jest.fn(() => <div />),
@@ -23,6 +29,13 @@ jest.mock('../../../common/components/Prompt', () => ({
 jest.mock('../../actions', () => ({
   setTagApi: jest.fn(() => ({ type: 'setTagApi', payload: Promise.resolve() })),
   getRunApi: jest.fn(() => ({ type: 'getRunApi', payload: Promise.resolve() })),
+}));
+
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableGraphQLRunDetailsPage: () => false,
 }));
 
 const testPromptName = 'test-prompt';
@@ -90,16 +103,23 @@ const testEntitiesState: Partial<ReduxState['entities']> = {
 describe('RunViewOverview integration', () => {
   const onRunDataUpdated = jest.fn();
 
+  beforeEach(() => {
+    jest.mocked<any>(useExperimentTrackingDetailsPageLayoutStyles).mockReturnValue({
+      usingUnifiedDetailsLayout: false,
+    });
+  });
   const renderComponent = ({
     tags = {},
     runInfo,
     reduxStoreEntities = {},
+    loggedModelsV3,
     registeredModelVersionSummaries = [],
   }: {
     tags?: Record<string, KeyValueEntity>;
     reduxStoreEntities?: DeepPartial<ReduxState['entities']>;
     runInfo?: Partial<RunInfoEntity>;
     registeredModelVersionSummaries?: RunPageModelVersionSummary[];
+    loggedModelsV3?: LoggedModelProto[] | undefined;
   } = {}) => {
     const state: DeepPartial<ReduxState> = {
       entities: merge(
@@ -129,6 +149,7 @@ describe('RunViewOverview integration', () => {
                   runInfo={{ ...testRunInfo, ...runInfo }}
                   tags={merge({}, testEntitiesState.tagsByRunUuid?.[testRunUuid], tags) || {}}
                   registeredModelVersionSummaries={registeredModelVersionSummaries}
+                  loggedModelsV3={loggedModelsV3}
                 />
               </MemoryRouter>
             </TestApolloProvider>

@@ -1,5 +1,7 @@
 import base64
 import json
+import logging
+import warnings
 from functools import lru_cache
 
 import requests
@@ -35,11 +37,18 @@ from mlflow.utils.request_utils import (
 )
 from mlflow.utils.string_utils import strip_suffix
 
+_logger = logging.getLogger(__name__)
+
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
 _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
+_V3_REST_API_PATH_PREFIX = "/api/3.0"
+_V3_TRACE_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
+_DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
+    "The 'retry_after_secs' parameter of DatabricksError is deprecated"
+)
 
 
 def http_request(
@@ -103,17 +112,22 @@ def http_request(
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
             # https://github.com/databricks/databricks-sdk-py/blob/a714146d9c155dd1e3567475be78623f72028ee0/databricks/sdk/core.py#L134
-            raw_response = ws_client.api_client.do(
-                method=method,
-                path=endpoint,
-                headers=extra_headers,
-                raw=True,
-                query=kwargs.get("params"),
-                body=kwargs.get("json"),
-                files=kwargs.get("files"),
-                data=kwargs.get("data"),
-            )
-            return raw_response["contents"]._response
+            # suppress the warning due to https://github.com/databricks/databricks-sdk-py/issues/963
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", message=f".*{_DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING}.*"
+                )
+                raw_response = ws_client.api_client.do(
+                    method=method,
+                    path=endpoint,
+                    headers=extra_headers,
+                    raw=True,
+                    query=kwargs.get("params"),
+                    body=kwargs.get("json"),
+                    files=kwargs.get("files"),
+                    data=kwargs.get("data"),
+                )
+                return raw_response["contents"]._response
         except DatabricksError as e:
             response = requests.Response()
             response.url = url
@@ -207,7 +221,7 @@ def http_request(
         raise MlflowException(f"API request to {url} failed with exception {e}")
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=5)
 def get_workspace_client(
     use_secret_scope_token,
     host,
@@ -356,32 +370,100 @@ def extract_all_api_info_for_service(service, path_prefix):
     return res
 
 
-def get_single_trace_endpoint(request_id):
+def get_single_trace_endpoint(request_id, use_v3=False):
+    """
+    Get the endpoint for a single trace.
+    For Databricks tracking URIs, use the V3 API.
+    For all other tracking URIs, use the V2 API.
+
+    Args:
+        request_id: The trace ID.
+        use_v3: Whether to use the V3 API. If True, use the V3 API. If False, use the V2 API.
+    """
+    if use_v3:
+        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{request_id}"
     return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}"
 
 
+def get_logged_model_endpoint(model_id: str) -> str:
+    return f"{_REST_API_PATH_PREFIX}/mlflow/logged-models/{model_id}"
+
+
 def get_trace_info_endpoint(request_id):
-    return f"{get_single_trace_endpoint(request_id)}/info"
+    return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}/info"
 
 
-def get_trace_assessment_endpoint(request_id):
-    # TEMPORARY ENDPOINT: this is currently hosted at /api/2.0/... but will be moved to /api/3.0/...
-    return f"{get_single_trace_endpoint(request_id)}"
+def get_trace_assessment_endpoint(request_id, is_databricks=False):
+    """
+    Get the endpoint for a trace assessment.
+
+    Args:
+        request_id: The trace ID.
+        is_databricks: Whether the tracking URI is a Databricks URI.
+    """
+    return get_single_trace_endpoint(request_id, use_v3=is_databricks)
 
 
-def get_set_trace_tag_endpoint(request_id):
-    return f"{get_single_trace_endpoint(request_id)}/tags"
+def get_set_trace_tag_endpoint(request_id, is_databricks=False):
+    """
+    Get the endpoint for setting trace tags.
+
+    Args:
+        request_id: The trace ID.
+        is_databricks: Whether the tracking URI is a Databricks URI.
+    """
+    return f"{get_single_trace_endpoint(request_id, use_v3=is_databricks)}/tags"
 
 
-def get_create_assessment_endpoint(trace_id: str):
+def get_create_assessment_endpoint(trace_id: str, is_databricks=False):
+    """
+    Get the endpoint for creating an assessment.
+
+    Args:
+        trace_id: The trace ID.
+        is_databricks: Whether the tracking URI is a Databricks URI.
+    """
+    if is_databricks:
+        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
     return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
 
 
-def get_single_assessment_endpoint(trace_id: str, assessment_id: str):
+def get_single_assessment_endpoint(trace_id: str, assessment_id: str, is_databricks=False):
+    """
+    Get the endpoint for a single assessment.
+
+    Args:
+        trace_id: The trace ID.
+        assessment_id: The assessment ID.
+        is_databricks: Whether the tracking URI is a Databricks URI.
+    """
+    if is_databricks:
+        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
     return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
 
 
-def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
+def get_search_traces_v3_endpoint(is_databricks=False):
+    """
+    Return the endpoint for the SearchTraces API.
+
+    Args:
+        is_databricks: Whether the tracking URI is a Databricks URI. If True,
+                       returns the v3 endpoint, otherwise returns the v2 endpoint.
+    """
+    if is_databricks:
+        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
+    return f"{_TRACE_REST_API_PATH_PREFIX}/search"
+
+
+def call_endpoint(
+    host_creds,
+    endpoint,
+    method,
+    json_body,
+    response_proto,
+    extra_headers=None,
+    retry_timeout_seconds=None,
+):
     # Convert json string to json dictionary, to pass to requests
     if json_body is not None:
         json_body = json.loads(json_body)
@@ -392,6 +474,8 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     }
     if extra_headers is not None:
         call_kwargs["extra_headers"] = extra_headers
+    if retry_timeout_seconds is not None:
+        call_kwargs["retry_timeout_seconds"] = retry_timeout_seconds
     if method == "GET":
         call_kwargs["params"] = json_body
         response = http_request(**call_kwargs)
@@ -401,7 +485,13 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
 
     response = verify_rest_response(response, endpoint)
     response_to_parse = response.text
-    js_dict = json.loads(response_to_parse)
+    try:
+        js_dict = json.loads(response_to_parse)
+    except json.JSONDecodeError:
+        if len(response_to_parse) > 50:
+            response_to_parse = response_to_parse[:50] + "..."
+        _logger.warning(f"Response is not a valid JSON object: {response_to_parse}")
+        raise
 
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto

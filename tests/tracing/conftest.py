@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import TraceInfo
+from mlflow.entities import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 
@@ -19,12 +19,23 @@ def reset_active_experiment():
     mlflow.tracking.fluent._active_experiment_id = None
 
 
+@pytest.fixture(autouse=True)
+def reset_tracking_uri():
+    # Some API like set_destination("databricks") updates the tracking URI,
+    # we should reset it between tests
+    original_tracking_uri = mlflow.get_tracking_uri()
+
+    yield
+
+    mlflow.set_tracking_uri(original_tracking_uri)
+
+
 @pytest.fixture
 def mock_upload_trace_data():
     with (
         mock.patch(
             "mlflow.tracking._tracking_service.client.TrackingServiceClient.end_trace",
-            return_value=TraceInfo(
+            return_value=TraceInfoV2(
                 request_id="tr-1234",
                 experiment_id="0",
                 timestamp_ms=0,
@@ -49,10 +60,10 @@ def mock_store(monkeypatch):
     API calls, so the rest of the tracking API calls the actual tracking store e.g. create_run().
     """
     store = mlflow.tracking._tracking_service.utils._get_store()
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
+    with mock.patch("mlflow.tracing.client._get_store") as mock_get_store:
         mock_get_store.return_value = store
 
-        _traces: dict[str, TraceInfo] = {}
+        _traces: dict[str, TraceInfoV2] = {}
 
         def _mock_start_trace(experiment_id, timestamp_ms, request_metadata, tags):
             trace_info = create_test_trace_info(

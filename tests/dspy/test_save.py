@@ -24,6 +24,12 @@ _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
 
 _DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
 
+_DSPY_2_6_23_OR_OLDER = _DSPY_VERSION <= Version("2.6.23")
+skip_if_2_6_23_or_older = pytest.mark.skipif(
+    _DSPY_2_6_23_OR_OLDER,
+    reason="Streaming API is only supported in dspy 2.6.24 or later.",
+)
+
 _REASONING_KEYWORD = "rationale" if _DSPY_UNDER_2_6 else "reasoning"
 
 
@@ -43,6 +49,15 @@ class CoT(dspy.Module):
         return self.prog(question=question)
 
 
+class NumericalCoT(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.prog = dspy.ChainOfThought("question -> answer: int")
+
+    def forward(self, question):
+        return self.prog(question=question).answer
+
+
 @pytest.fixture(autouse=True)
 def reset_dspy_settings():
     yield
@@ -55,7 +70,7 @@ def test_basic_save():
     dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(dspy_model, "model")
+        model_info = mlflow.dspy.log_model(dspy_model, name="model")
 
     # Clear the lm setting to test the loading logic.
     dspy.settings.configure(lm=None)
@@ -90,7 +105,7 @@ def test_save_compiled_model(dummy_model):
     optimized_cot = optimizer.compile(dspy_model, trainset=trainset)
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(optimized_cot, "model")
+        model_info = mlflow.dspy.log_model(optimized_cot, name="model")
 
     # Clear the lm setting to test the loading logic.
     dspy.settings.configure(lm=None)
@@ -145,7 +160,7 @@ def test_dspy_save_preserves_object_state():
     optimized_cot = optimizer.compile(dspy_model, trainset=trainset)
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(optimized_cot, "model")
+        model_info = mlflow.dspy.log_model(optimized_cot, name="model")
 
     original_settings = dict(dspy.settings.config)
     original_settings["traces"] = None
@@ -202,7 +217,7 @@ def test_load_logged_model_in_native_dspy(dummy_model):
     dspy.settings.configure(lm=dummy_model)
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(dspy_model, "model")
+        model_info = mlflow.dspy.log_model(dspy_model, name="model")
     loaded_dspy_model = mlflow.dspy.load_model(model_info.model_uri)
 
     assert isinstance(loaded_dspy_model, CoT)
@@ -230,7 +245,7 @@ def test_serving_logged_model(dummy_model):
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(
             dspy_model,
-            artifact_path,
+            name=artifact_path,
             signature=signature,
             input_example=input_examples,
         )
@@ -272,7 +287,7 @@ def test_save_chat_model_with_string_output(dummy_model):
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(
             dspy_model,
-            artifact_path,
+            name=artifact_path,
             task="llm/v1/chat",
             input_example=input_examples,
         )
@@ -304,7 +319,7 @@ def test_serve_chat_model(dummy_model):
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(
             dspy_model,
-            artifact_path,
+            name=artifact_path,
             task="llm/v1/chat",
             input_example=input_examples,
         )
@@ -335,7 +350,7 @@ def test_code_paths_is_used():
         mlflow.start_run(),
         mock.patch("mlflow.dspy.load._add_code_from_conf_to_system_path") as add_mock,
     ):
-        model_info = mlflow.dspy.log_model(dspy_model, artifact_path, code_paths=[__file__])
+        model_info = mlflow.dspy.log_model(dspy_model, name=artifact_path, code_paths=[__file__])
         _compare_logged_code_paths(__file__, model_info.model_uri, "dspy")
         mlflow.dspy.load_model(model_info.model_uri)
         add_mock.assert_called()
@@ -347,7 +362,7 @@ def test_additional_pip_requirements():
     dspy_model = CoT()
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(
-            dspy_model, artifact_path, extra_pip_requirements=["dummy"]
+            dspy_model, name=artifact_path, extra_pip_requirements=["dummy"]
         )
 
         _assert_pip_requirements(model_info.model_uri, [expected_mlflow_version, "dummy"])
@@ -359,7 +374,7 @@ def test_infer_signature_from_input_examples(dummy_model):
     dspy.settings.configure(lm=dummy_model)
     with mlflow.start_run():
         model_info = mlflow.dspy.log_model(
-            dspy_model, artifact_path, input_example="what is 2 + 2?"
+            dspy_model, name=artifact_path, input_example="what is 2 + 2?"
         )
 
         loaded_model = Model.load(model_info.model_uri)
@@ -370,3 +385,59 @@ def test_infer_signature_from_input_examples(dummy_model):
                 ColSpec(name=_REASONING_KEYWORD, type="string"),
             ]
         )
+
+
+@skip_if_2_6_23_or_older
+def test_predict_stream_unsupported_schema(dummy_model):
+    dspy_model = NumericalCoT()
+    dspy.settings.configure(lm=dummy_model)
+
+    model_info = mlflow.dspy.log_model(dspy_model, name="model")
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    assert not loaded_model._model_meta.flavors["python_function"]["streamable"]
+    output = loaded_model.predict_stream({"question": "What is 2 + 2?"})
+    with pytest.raises(
+        mlflow.exceptions.MlflowException,
+        match="This model does not support predict_stream method.",
+    ):
+        next(output)
+
+
+@skip_if_2_6_23_or_older
+def test_predict_stream_success(dummy_model):
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dummy_model)
+
+    model_info = mlflow.dspy.log_model(
+        dspy_model, name="model", input_example={"question": "what is 2 + 2?"}
+    )
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    assert loaded_model._model_meta.flavors["python_function"]["streamable"]
+    results = []
+
+    def dummy_streamify(*args, **kwargs):
+        yield dspy.streaming.StreamResponse(
+            predict_name="prog.predict",
+            signature_field_name="answer",
+            chunk="2",
+        )
+        yield dspy.streaming.StreamResponse(
+            predict_name="prog.predict",
+            signature_field_name=_REASONING_KEYWORD,
+            chunk="reason",
+        )
+
+    with mock.patch("dspy.streamify", return_value=dummy_streamify):
+        output = loaded_model.predict_stream({"question": "What is 2 + 2?"})
+        for o in output:
+            results.append(o)
+    assert results == [
+        {"predict_name": "prog.predict", "signature_field_name": "answer", "chunk": "2"},
+        {
+            "predict_name": "prog.predict",
+            "signature_field_name": _REASONING_KEYWORD,
+            "chunk": "reason",
+        },
+    ]

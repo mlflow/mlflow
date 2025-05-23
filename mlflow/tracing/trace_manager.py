@@ -4,9 +4,8 @@ import threading
 from dataclasses import dataclass, field
 from typing import Generator, Optional
 
-from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
+from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfoV2
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
-from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
 
 _logger = logging.getLogger(__name__)
@@ -16,7 +15,7 @@ _logger = logging.getLogger(__name__)
 # Dict[str, Span] is used instead of TraceData to allow access by span_id.
 @dataclass
 class _Trace:
-    info: TraceInfo
+    info: TraceInfoV2
     span_dict: dict[str, LiveSpan] = field(default_factory=dict)
 
     def to_mlflow_trace(self) -> Trace:
@@ -24,10 +23,6 @@ class _Trace:
         for span in self.span_dict.values():
             # Convert LiveSpan, mutable objects, into immutable Span objects before persisting.
             trace_data.spans.append(span.to_immutable_span())
-            if span.parent_id is None:
-                # Accessing the OTel span directly get serialized value directly.
-                trace_data.request = span._span.attributes.get(SpanAttributeKey.INPUTS)
-                trace_data.response = span._span.attributes.get(SpanAttributeKey.OUTPUTS)
         return Trace(self.info, trace_data)
 
     def get_root_span(self) -> Optional[LiveSpan]:
@@ -61,7 +56,7 @@ class InMemoryTraceManager:
         self._trace_id_to_request_id: dict[int, str] = {}
         self._lock = threading.Lock()  # Lock for _traces
 
-    def register_trace(self, trace_id: int, trace_info: TraceInfo):
+    def register_trace(self, trace_id: int, trace_info: TraceInfoV2):
         """
         Register a new trace info object to the in-memory trace registry.
 
@@ -75,7 +70,7 @@ class InMemoryTraceManager:
             self._traces[trace_info.request_id] = _Trace(trace_info)
             self._trace_id_to_request_id[trace_id] = trace_info.request_id
 
-    def update_trace_info(self, trace_info: TraceInfo):
+    def update_trace_info(self, trace_info: TraceInfoV2):
         """
         Update the trace info object in the in-memory trace registry.
 
@@ -179,9 +174,9 @@ class InMemoryTraceManager:
                     self._traces = get_trace_cache_with_timeout()
 
     @classmethod
-    def reset(self):
+    def reset(cls):
         """Clear all the aggregated trace data. This should only be used for testing."""
-        if self._instance:
-            with self._instance._lock:
-                self._instance._traces.clear()
-            self._instance = None
+        if cls._instance:
+            with cls._instance._lock:
+                cls._instance._traces.clear()
+            cls._instance = None

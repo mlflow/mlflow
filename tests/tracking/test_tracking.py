@@ -26,6 +26,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.tracking.file_store import FileStore
+from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.fluent import start_run
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import (
@@ -159,11 +160,11 @@ def test_set_experiment_with_zero_id():
     mock_experiment = MockExperiment(experiment_id=0, lifecycle_stage=LifecycleStage.ACTIVE)
     with (
         mock.patch.object(
-            MlflowClient,
+            TrackingServiceClient,
             "get_experiment_by_name",
             mock.Mock(return_value=mock_experiment),
         ) as get_experiment_by_name_mock,
-        mock.patch.object(MlflowClient, "create_experiment") as create_experiment_mock,
+        mock.patch.object(TrackingServiceClient, "create_experiment") as create_experiment_mock,
     ):
         mlflow.set_experiment("my_exp")
         get_experiment_by_name_mock.assert_called_once()
@@ -205,7 +206,7 @@ def test_metric_timestamp():
     with mlflow.start_run() as active_run:
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_1", 30)
-        run_id = active_run.info.run_uuid
+        run_id = active_run.info.run_id
     # Check that metric timestamps are between run start and finish
     client = MlflowClient()
     history = client.get_metric_history(run_id, "name_1")

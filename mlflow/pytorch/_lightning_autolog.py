@@ -420,7 +420,7 @@ def _log_early_stop_params(early_stop_callback, client, run_id):
     )
 
 
-def _log_early_stop_metrics(early_stop_callback, client, run_id):
+def _log_early_stop_metrics(early_stop_callback, client, run_id, model_id=None):
     """
     Logs early stopping behavior results (e.g. stopped epoch) as metrics to MLflow.
 
@@ -428,6 +428,7 @@ def _log_early_stop_metrics(early_stop_callback, client, run_id):
         early_stop_callback: The early stopping callback instance used during training.
         client: An `MlflowAutologgingQueueingClient` instance used for MLflow logging.
         run_id: The ID of the MLflow Run to which to log configuration parameters.
+        model_id: The ID of the LoggedModel to which the metrics are associated.
     """
     if early_stop_callback.stopped_epoch == 0:
         return
@@ -443,7 +444,7 @@ def _log_early_stop_metrics(early_stop_callback, client, run_id):
     if hasattr(early_stop_callback, "wait_count"):
         metrics["wait_count"] = early_stop_callback.wait_count
 
-    client.log_metrics(run_id, metrics)
+    client.log_metrics(run_id, metrics, model_id=model_id)
 
 
 def patched_fit(original, self, *args, **kwargs):
@@ -472,9 +473,13 @@ def patched_fit(original, self, *args, **kwargs):
         run_id = mlflow.active_run().info.run_id
         tracking_uri = mlflow.get_tracking_uri()
         client = MlflowAutologgingQueueingClient(tracking_uri)
-        metrics_logger = BatchMetricsLogger(run_id, tracking_uri)
 
         log_models = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_models", True)
+        model_id = None
+        if log_models:
+            model_id = mlflow.initialize_logged_model(name="model").model_id
+        metrics_logger = BatchMetricsLogger(run_id, tracking_uri, model_id=model_id)
+
         log_every_n_epoch = get_autologging_config(
             mlflow.pytorch.FLAVOR_NAME, "log_every_n_epoch", 1
         )
@@ -539,7 +544,7 @@ def patched_fit(original, self, *args, **kwargs):
         result = original(self, *args, **kwargs)
 
         if early_stop_callback is not None:
-            _log_early_stop_metrics(early_stop_callback, client, run_id)
+            _log_early_stop_metrics(early_stop_callback, client, run_id, model_id=model_id)
 
         if Version(pl.__version__) < Version("1.4.0"):
             summary = str(ModelSummary(self.model, mode="full"))
@@ -559,8 +564,9 @@ def patched_fit(original, self, *args, **kwargs):
             )
             mlflow.pytorch.log_model(
                 self.model,
-                "model",
+                name="model",
                 registered_model_name=registered_model_name,
+                model_id=model_id,
             )
 
             if early_stop_callback is not None and self.checkpoint_callback.best_model_path:

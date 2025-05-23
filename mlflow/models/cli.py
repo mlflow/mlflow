@@ -287,21 +287,23 @@ def build_docker(**kwargs):
 
         Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**
         for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o",
-        "mleap", "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
+        "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
         that uses SparkML, please specify the ``--install-java`` flag to enforce Java installation.
 
-    .. warning::
-
-        The image built without ``--model-uri`` doesn't support serving models with RFunc / Java
-        MLeap model server.
-
-    NB: by default, the container will start nginx and gunicorn processes. If you don't need the
+    NB: by default, the container will start nginx and uvicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),
     you can disable it via the DISABLE_NGINX environment variable:
 
     .. code:: bash
 
         docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
+
+    By default, the number of uvicorn workers is set to CPU count. If you want to set a custom
+    number of workers, you can set the MLFLOW_MODELS_WORKERS environment variable:
+
+    .. code:: bash
+
+        docker run -p 5001:8080 -e MLFLOW_MODELS_WORKERS=4 "my-image-name"
 
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.

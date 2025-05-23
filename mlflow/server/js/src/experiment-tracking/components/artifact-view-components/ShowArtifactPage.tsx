@@ -46,18 +46,18 @@ type ShowArtifactPageProps = {
   runTags?: any;
   modelVersions?: any[];
   showArtifactLoggedTableView?: boolean;
-  autoRefreshEnabled?: boolean; // Add autoRefreshEnabled prop
 } & LoggedModelArtifactViewerProps;
 
 class ShowArtifactPage extends Component<ShowArtifactPageProps> {
   render() {
     if (this.props.path) {
-      const { loggedModelId, isLoggedModelsMode, path, runUuid, autoRefreshEnabled } = this.props;
+      const { loggedModelId, isLoggedModelsMode, path, runUuid, experimentId } = this.props;
       const commonArtifactProps = {
         loggedModelId,
         isLoggedModelsMode,
         path,
         runUuid,
+        experimentId,
       };
 
       const normalizedExtension = getExtension(this.props.path);
@@ -85,6 +85,7 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
               path={this.props.path}
               artifactRootUri={this.props.artifactRootUri}
               registeredModelLink={registeredModelLink}
+              experimentId={this.props.experimentId}
             />
           );
         }
@@ -96,13 +97,7 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
         } else if (DATA_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactTableView {...commonArtifactProps} />;
         } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return (
-            <ShowArtifactTextView
-              {...commonArtifactProps}
-              size={this.props.size}
-              autoRefreshEnabled={autoRefreshEnabled}
-            />
-          ); // Pass the auto-refresh prop
+          return <ShowArtifactTextView {...commonArtifactProps} size={this.props.size} />;
         } else if (MAP_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactMapView {...commonArtifactProps} />;
         } else if (HTML_EXTENSIONS.has(normalizedExtension.toLowerCase())) {

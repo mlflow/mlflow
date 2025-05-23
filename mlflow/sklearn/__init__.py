@@ -334,7 +334,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def log_model(
     sk_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
@@ -346,6 +346,13 @@ def log_model(
     extra_pip_requirements=None,
     pyfunc_predict_fn="predict",
     metadata=None,
+    # New arguments
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
+    name: Optional[str] = None,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -357,7 +364,7 @@ def log_model(
 
     Args:
         sk_model: scikit-learn model to be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         serialization_format: The format in which to serialize the model. This should be one of
@@ -381,6 +388,12 @@ def log_model(
             are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
             ``"predict_joint_log_proba"``, and ``"score"``.
         metadata: {{ metadata }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
+        name: {{ name }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -407,11 +420,12 @@ def log_model(
             signature = infer_signature(iris.data, sk_model.predict(iris.data))
 
             # log model
-            mlflow.sklearn.log_model(sk_model, "sk_models", signature=signature)
+            mlflow.sklearn.log_model(sk_model, name="sk_models", signature=signature)
 
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.sklearn,
         sk_model=sk_model,
         conda_env=conda_env,
@@ -425,6 +439,11 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         pyfunc_predict_fn=pyfunc_predict_fn,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 
@@ -688,11 +707,12 @@ class _AutologgingMetricsManager:
     """
 
     def __init__(self):
-        self._pred_result_id_to_dataset_name_and_run_id = {}
+        self._pred_result_id_mapping = {}
         self._eval_dataset_info_map = defaultdict(lambda: defaultdict(list))
         self._metric_api_call_info = defaultdict(lambda: defaultdict(list))
         self._log_post_training_metrics_enabled = True
         self._metric_info_artifact_need_update = defaultdict(lambda: False)
+        self._model_id_mapping = {}
 
     def should_log_post_training_metrics(self):
         """
@@ -741,6 +761,16 @@ class _AutologgingMetricsManager:
         """
         model._mlflow_run_id = run_id
 
+    def record_model_id(self, model, model_id):
+        """
+        Record the id(model) -> model_id mapping so that we can log metrics to the
+        model later.
+        """
+        self._model_id_mapping[id(model)] = model_id
+
+    def get_model_id_for_model(self, model) -> Optional[str]:
+        return self._model_id_mapping.get(id(model))
+
     @staticmethod
     def gen_name_with_index(name, index):
         assert index >= 0
@@ -786,18 +816,18 @@ class _AutologgingMetricsManager:
 
         return self.gen_name_with_index(eval_dataset_name, index)
 
-    def register_prediction_result(self, run_id, eval_dataset_name, predict_result):
+    def register_prediction_result(self, run_id, eval_dataset_name, predict_result, model_id=None):
         """
         Register the relationship
-         id(prediction_result) --> (eval_dataset_name, run_id)
-        into map `_pred_result_id_to_dataset_name_and_run_id`
+         id(prediction_result) --> (eval_dataset_name, run_id, model_id)
+        into map `_pred_result_id_mapping`
         """
-        value = (eval_dataset_name, run_id)
+        value = (eval_dataset_name, run_id, model_id)
         prediction_result_id = id(predict_result)
-        self._pred_result_id_to_dataset_name_and_run_id[prediction_result_id] = value
+        self._pred_result_id_mapping[prediction_result_id] = value
 
         def clean_id(id_):
-            _AUTOLOGGING_METRICS_MANAGER._pred_result_id_to_dataset_name_and_run_id.pop(id_, None)
+            _AUTOLOGGING_METRICS_MANAGER._pred_result_id_mapping.pop(id_, None)
 
         # When the `predict_result` object being GCed, its ID may be reused, so register a finalizer
         # to clear the ID from the dict for preventing wrong ID mapping.
@@ -883,15 +913,15 @@ class _AutologgingMetricsManager:
         self._metric_info_artifact_need_update[run_id] = True
         return metric_key
 
-    def get_run_id_and_dataset_name_for_metric_api_call(self, call_pos_args, call_kwargs):
+    def get_info_for_metric_api_call(self, call_pos_args, call_kwargs):
         """
         Given a metric api call (include the called metric function, and call arguments)
         Register the call information (arguments dict) into the `metric_api_call_arg_dict_list_map`
-        and return a tuple of (run_id, eval_dataset_name)
+        and return a tuple of (run_id, eval_dataset_name, model_id)
         """
         call_arg_list = list(call_pos_args) + list(call_kwargs.values())
 
-        dataset_id_list = self._pred_result_id_to_dataset_name_and_run_id.keys()
+        dataset_id_list = self._pred_result_id_mapping.keys()
 
         # Note: some metric API the arguments is not like `y_true`, `y_pred`
         #  e.g.
@@ -899,22 +929,23 @@ class _AutologgingMetricsManager:
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html#sklearn.metrics.silhouette_score
         for arg in call_arg_list:
             if arg is not None and not np.isscalar(arg) and id(arg) in dataset_id_list:
-                dataset_name, run_id = self._pred_result_id_to_dataset_name_and_run_id[id(arg)]
+                dataset_name, run_id, model_id = self._pred_result_id_mapping[id(arg)]
                 break
         else:
-            return None, None
+            return None, None, None
 
-        return run_id, dataset_name
+        return run_id, dataset_name, model_id
 
-    def log_post_training_metric(self, run_id, key, value):
+    def log_post_training_metric(self, run_id, key, value, model_id=None):
         """
         Log the metric into the specified mlflow run.
         and it will also update the metric_info artifact if needed.
+        If model_id is not None, metrics are logged into the model as well.
         """
         # Note: if the case log the same metric key multiple times,
         #  newer value will overwrite old value
         client = MlflowClient()
-        client.log_metric(run_id=run_id, key=key, value=value)
+        client.log_metric(run_id=run_id, key=key, value=value, model_id=model_id)
         if self._metric_info_artifact_need_update[run_id]:
             call_commands_list = []
             for v in self._metric_api_call_info[run_id].values():
@@ -1396,7 +1427,7 @@ def _autolog(  # noqa: D417
             )
             if flavor_name == mlflow.xgboost.FLAVOR_NAME:
                 model_format = get_autologging_config(flavor_name, "model_format", "xgb")
-                log_model_func(
+                model_info = log_model_func(
                     self,
                     "model",
                     signature=signature,
@@ -1405,13 +1436,14 @@ def _autolog(  # noqa: D417
                     model_format=model_format,
                 )
             else:
-                log_model_func(
+                model_info = log_model_func(
                     self,
                     "model",
                     signature=signature,
                     input_example=input_example,
                     registered_model_name=registered_model_name,
                 )
+            _AUTOLOGGING_METRICS_MANAGER.record_model_id(self, model_info.model_id)
         return fit_output
 
     def fit_mlflow(original, self, *args, **kwargs):
@@ -1525,30 +1557,13 @@ def _autolog(  # noqa: D417
 
             return infer_signature(input_example, model_output)
 
-        # log common metrics and artifacts for estimators (classifier, regressor)
-        logged_metrics = _log_estimator_content(
-            autologging_client=autologging_client,
-            estimator=estimator,
-            prefix=_TRAINING_PREFIX,
-            run_id=mlflow.active_run().info.run_id,
-            X=X,
-            y_true=y,
-            sample_weight=sample_weight,
-            pos_label=pos_label,
-        )
-        if y is None and not logged_metrics:
-            _logger.warning(
-                "Training metrics will not be recorded because training labels were not specified."
-                " To automatically record training metrics, provide training labels as inputs to"
-                " the model training function."
-            )
-
         def _log_model_with_except_handling(*args, **kwargs):
             try:
                 return log_model(*args, **kwargs)
             except _SklearnCustomModelPicklingError as e:
                 _logger.warning(str(e))
 
+        model_id = None
         if log_models:
             # Will only resolve `input_example` and `signature` if `log_models` is `True`.
             input_example, signature = resolve_input_example_and_signature(
@@ -1561,29 +1576,73 @@ def _autolog(  # noqa: D417
             registered_model_name = get_autologging_config(
                 FLAVOR_NAME, "registered_model_name", None
             )
-            _log_model_with_except_handling(
+            should_log_params_deeply = not _is_parameter_search_estimator(estimator)
+            params = estimator.get_params(deep=should_log_params_deeply)
+            if hasattr(estimator, "best_params_"):
+                params |= {
+                    f"best_{param_name}": param_value
+                    for param_name, param_value in estimator.best_params_.items()
+                }
+            if logged_model := _log_model_with_except_handling(
                 estimator,
-                "model",
+                name="model",
                 signature=signature,
                 input_example=input_example,
                 serialization_format=serialization_format,
                 registered_model_name=registered_model_name,
+                params=params,
+            ):
+                model_id = logged_model.model_id
+                _AUTOLOGGING_METRICS_MANAGER.record_model_id(estimator, logged_model.model_id)
+
+        # log common metrics and artifacts for estimators (classifier, regressor)
+        context_tags = context_registry.resolve_tags()
+        source = CodeDatasetSource(context_tags)
+        try:
+            dataset = _create_dataset(X, source, y)
+        except Exception:
+            _logger.debug("Failed to create dataset for logging.", exc_info=True)
+            dataset = None
+        logged_metrics = _log_estimator_content(
+            autologging_client=autologging_client,
+            estimator=estimator,
+            prefix=_TRAINING_PREFIX,
+            run_id=mlflow.active_run().info.run_id,
+            X=X,
+            y_true=y,
+            sample_weight=sample_weight,
+            pos_label=pos_label,
+            dataset=dataset,
+            model_id=model_id,
+        )
+        if y is None and not logged_metrics:
+            _logger.warning(
+                "Training metrics will not be recorded because training labels were not specified."
+                " To automatically record training metrics, provide training labels as inputs to"
+                " the model training function."
             )
 
+        best_estimator_model_id = None
+        best_estimator_params = None
         if _is_parameter_search_estimator(estimator):
             if hasattr(estimator, "best_estimator_") and log_models:
-                _log_model_with_except_handling(
+                best_estimator_params = estimator.best_estimator_.get_params(deep=True)
+                if model_info := _log_model_with_except_handling(
                     estimator.best_estimator_,
-                    "best_estimator",
+                    name="best_estimator",
                     signature=signature,
                     input_example=input_example,
                     serialization_format=serialization_format,
-                )
+                    params=best_estimator_params,
+                ):
+                    best_estimator_model_id = model_info.model_id
 
             if hasattr(estimator, "best_score_"):
                 autologging_client.log_metrics(
                     run_id=mlflow.active_run().info.run_id,
                     metrics={"best_cv_score": estimator.best_score_},
+                    dataset=dataset,
+                    model_id=model_id,
                 )
 
             if hasattr(estimator, "best_params_"):
@@ -1608,6 +1667,9 @@ def _autolog(  # noqa: D417
                         parent_run=mlflow.active_run(),
                         max_tuning_runs=max_tuning_runs,
                         child_tags=child_tags,
+                        dataset=dataset,
+                        best_estimator_params=best_estimator_params,
+                        best_estimator_model_id=best_estimator_model_id,
                     )
                 except Exception as e:
                     _logger.warning(
@@ -1685,7 +1747,10 @@ def _autolog(  # noqa: D417
                 self, eval_dataset
             )
             _AUTOLOGGING_METRICS_MANAGER.register_prediction_result(
-                run_id, eval_dataset_name, predict_result
+                run_id,
+                eval_dataset_name,
+                predict_result,
+                model_id=_AUTOLOGGING_METRICS_MANAGER.get_model_id_for_model(self),
             )
             if log_datasets:
                 try:
@@ -1725,18 +1790,15 @@ def _autolog(  # noqa: D417
                     None, original, *args, **kwargs
                 )
 
-                (
-                    run_id,
-                    dataset_name,
-                ) = _AUTOLOGGING_METRICS_MANAGER.get_run_id_and_dataset_name_for_metric_api_call(
-                    args, kwargs
+                (run_id, dataset_name, model_id) = (
+                    _AUTOLOGGING_METRICS_MANAGER.get_info_for_metric_api_call(args, kwargs)
                 )
                 if run_id and dataset_name:
                     metric_key = _AUTOLOGGING_METRICS_MANAGER.register_metric_api_call(
                         run_id, metric_name, dataset_name, call_command
                     )
                     _AUTOLOGGING_METRICS_MANAGER.log_post_training_metric(
-                        run_id, metric_key, metric
+                        run_id, metric_key, metric, model_id=model_id
                     )
 
             return metric
@@ -1768,8 +1830,9 @@ def _autolog(  # noqa: D417
                 metric_key = _AUTOLOGGING_METRICS_MANAGER.register_metric_api_call(
                     run_id, metric_name, eval_dataset_name, call_command
                 )
+                model_id = _AUTOLOGGING_METRICS_MANAGER.get_model_id_for_model(self)
                 _AUTOLOGGING_METRICS_MANAGER.log_post_training_metric(
-                    run_id, metric_key, score_value
+                    run_id, metric_key, score_value, model_id=model_id
                 )
 
             return score_value
