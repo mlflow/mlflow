@@ -8,6 +8,8 @@ from mlflow.gemini.chat import (
     convert_gemini_func_to_mlflow_chat_tool,
     parse_gemini_content_to_mlflow_chat_messages,
 )
+from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.types.chat import ChatMessage
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
@@ -43,6 +45,18 @@ def patched_class_call(original, self, *args, **kwargs):
             name=f"{self.__class__.__name__}.{original.__name__}",
             span_type=_get_span_type(original.__name__),
         ) as span:
+            # BUG-FIX (#15511 - Gemini variant)
+            # When we create a *root* span we must tell MLflow which run it
+            # belongs to; otherwise traces from different threads all land
+            # on whatever run happened to be first.
+            active_run = mlflow.active_run()
+            if active_run is not None:
+                InMemoryTraceManager().get_instance().set_request_metadata(
+                    span.request_id,
+                    TraceMetadataKey.SOURCE_RUN,
+                    active_run.info.run_id,
+                )
+
             inputs = _construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
             if has_generativeai and isinstance(self, generativeai.GenerativeModel):
@@ -85,6 +99,14 @@ def patched_module_call(original, *args, **kwargs):
             name=f"{original.__name__}",
             span_type=_get_span_type(original.__name__),
         ) as span:
+            # BUG-FIX (#15511 - Gemini variant)
+            active_run = mlflow.active_run()
+            if active_run is not None:
+                InMemoryTraceManager().get_instance().set_request_metadata(
+                    span.request_id,
+                    TraceMetadataKey.SOURCE_RUN,
+                    active_run.info.run_id,
+                )
             inputs = _construct_full_inputs(original, *args, **kwargs)
             span.set_inputs(inputs)
             result = original(*args, **kwargs)
