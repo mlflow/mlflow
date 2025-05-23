@@ -135,7 +135,7 @@ const sidebarsClassicML: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
-                  id: 'deep-learning/keras/quickstart/index',
+                  id: 'deep-learning/keras/quickstart/quickstart-keras-ipynb',
                   label: 'Quickstart',
                 },
                 {
@@ -154,7 +154,7 @@ const sidebarsClassicML: SidebarsConfig = {
               items: [
                 {
                     type: 'doc',
-                    id: 'deep-learning/pytorch/quickstart/index',
+                    id: 'deep-learning/pytorch/quickstart/quickstart-pytorch-ipynb',
                     label: 'Quickstart',
                 },
                 {
@@ -173,7 +173,7 @@ const sidebarsClassicML: SidebarsConfig = {
               items: [
                 {
                     type: 'doc',
-                    id: 'deep-learning/tensorflow/quickstart/index',
+                    id: 'deep-learning/tensorflow/quickstart/quickstart-tensorflow-ipynb',
                     label: 'Quickstart',
                 },
                 {
