@@ -1,8 +1,7 @@
 from typing import TYPE_CHECKING, Callable, Optional, Union
 
-from mlflow.entities import Assessment
 from mlflow.entities.model_registry import Prompt
-from mlflow.genai.optimize.types import LLMParam, OptimizerParam
+from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParam, OptimizerParam
 from mlflow.genai.scorers import Scorer
 from mlflow.types.chat import ChatMessage
 
@@ -21,9 +20,7 @@ class _BaseOptimizer:
         agent_lm: LLMParam,
         train_data: "pd.DataFrame",
         scorers: list[Scorer],
-        objective: Optional[
-            Callable[[dict[str, Union[bool, float, str, Assessment]]], float]
-        ] = None,
+        objective: Optional[OBJECTIVE_FN] = None,
         eval_data: Optional["pd.DataFrame"] = None,
     ) -> Union[str, list[ChatMessage]]:
         raise NotImplementedError("Method not implemented")
@@ -65,9 +62,7 @@ class _DSPyOptimizer(_BaseOptimizer):
         input_fields: dict[str, type],
         output_fields: dict[str, type],
         scorers: list[Scorer],
-        objective: Optional[
-            Callable[[dict[str, Union[bool, float, str, Assessment]]], float]
-        ] = None,
+        objective: Optional[OBJECTIVE_FN] = None,
     ) -> Callable[["dspy.Example"], float]:
         def metric(example: "dspy.Example") -> float:
             scores = {}
@@ -99,9 +94,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         agent_lm: LLMParam,
         train_data: "pd.DataFrame",
         scorers: list[Scorer],
-        objective: Optional[
-            Callable[[dict[str, Union[bool, float, str, Assessment]]], float]
-        ] = None,
+        objective: Optional[OBJECTIVE_FN] = None,
         eval_data: Optional["pd.DataFrame"] = None,
     ) -> Union[str, list[ChatMessage]]:
         import dspy
