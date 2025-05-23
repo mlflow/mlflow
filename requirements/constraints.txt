@@ -12,3 +12,5 @@ transformers!=4.52.2
 transformers!=4.52.1
 # TODO(https://github.com/mlflow/mlflow/issues/15847): Remove this constraint when MLflow is ready for pyspark 4.0.0
 pyspark<4.0.0
+# https://github.com/run-llama/llama_index/issues/18823
+llama-index-llms-openai!=0.3.43
