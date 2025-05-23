@@ -773,7 +773,7 @@ ag2:
     pip_release: "ag2"
   autologging:
     minimum: "0.7.0"
-    maximum: "0.9.1"
+    maximum: "0.9.0"
     python:
       "== dev": "3.10"
     requirements:
