@@ -53,19 +53,20 @@ def client(request, monkeypatch, mock_openai):
         return client
 
 
-
 @pytest.fixture
 def completion_models():
     model_infos = []
     for temp in [0.1, 0.2, 0.3]:
-        model_infos.append(mlflow.openai.log_model(
-            "gpt-4o-mini",
-            "completions",
-            name="model",
-            temperature=temp,
-            prompt="Say {text}",
-            pip_requirements=["mlflow"],  # Hard code for speed up
-        ))
+        model_infos.append(
+            mlflow.openai.log_model(
+                "gpt-4o-mini",
+                "completions",
+                name="model",
+                temperature=temp,
+                prompt="Say {text}",
+                pip_requirements=["mlflow"],  # Hard code for speed up
+            )
+        )
     return model_infos
 
 
@@ -617,7 +618,6 @@ async def test_autolog_link_traces_to_loaded_model_chat_completions(client, comp
         if client._is_async:
             await resp
 
-
     traces = get_traces()
     assert len(traces) == len(completion_models)
     for trace in traces:
@@ -676,7 +676,9 @@ async def test_autolog_link_traces_to_loaded_model_embeddings(client, embedding_
 
 
 @skip_when_testing_trace_sdk
-def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(monkeypatch, mock_openai, embedding_models):
+def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(
+    monkeypatch, mock_openai, embedding_models
+):
     monkeypatch.setenvs(
         {
             "OPENAI_API_KEY": "test",
@@ -736,7 +738,9 @@ def test_parse_tools_handles_openai_not_given_sentinel(sentinel):
 
 @skip_when_testing_trace_sdk
 @pytest.mark.asyncio
-async def test_model_loading_set_active_model_id_without_fetching_logged_model(client, completion_models):
+async def test_model_loading_set_active_model_id_without_fetching_logged_model(
+    client, completion_models
+):
     mlflow.openai.autolog()
 
     model_info = completion_models[0]
