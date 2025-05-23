@@ -56,7 +56,7 @@ module.exports = async ({ context, github, core }) => {
       core.setFailed(message);
     }
   } else {
-    const message = `Unsupported event: ${context.eventName}`;
+    const message = `This workflow does not support the "${context.eventName}" event type.`;
     await createFailureComment(github, context, message);
     core.setFailed(message);
   }
