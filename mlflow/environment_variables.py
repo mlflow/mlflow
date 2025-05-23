@@ -585,7 +585,7 @@ _MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", Fa
 
 #: The OpenJDK version to install in the Docker image used for MLflow models.
 #: (default: ``11``)
-MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERSION", str, "11")
+MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERSION", str, "17")
 
 
 #: How long a trace can be "in-progress". When this is set to a positive value and a trace is
