@@ -135,7 +135,7 @@ const sidebarsClassicML: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
-                  id: 'deep-learning/keras/quickstart/quickstart-keras-ipynb',
+                  id: 'deep-learning/keras/quickstart/index',
                   label: 'Quickstart',
                 },
                 {
