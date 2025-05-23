@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Generator, Optional
 
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
+from mlflow.entities.assessment import Assessment
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
 
@@ -162,6 +163,14 @@ class InMemoryTraceManager:
                 # We need to check here again in case this method runs in parallel
                 if new_timeout != getattr(self._traces, "timeout", None):
                     self._traces = get_trace_cache_with_timeout()
+
+    def add_or_update_assessment(self, trace_id: str, assessment: Assessment):
+        """
+        Add or update an assessment for the given trace ID.
+        """
+        with self.get_trace(trace_id) as trace:
+            if trace:
+                trace.info.assessments.append(assessment)
 
     @classmethod
     def reset(cls):

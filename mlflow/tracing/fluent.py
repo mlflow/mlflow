@@ -835,9 +835,40 @@ def get_current_active_span() -> Optional[LiveSpan]:
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
 
 
+def get_active_trace_id() -> Optional[str]:
+    """
+    Get the active trace ID in the current process.
+
+    This function is thread-safe.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            trace_id = mlflow.get_active_trace_id()
+            print(trace_id)
+
+
+        f()
+
+    Returns:
+        The ID of the current active trace if exists, otherwise None.
+    """
+    active_span = get_current_active_span()
+    if active_span:
+        return active_span.trace_id
+    return None
+
+
 def get_last_active_trace_id(thread_local: bool = False) -> Optional[str]:
     """
-    Get the last active trace in the same process if exists.
+    Get the **LAST** active trace in the same process if exists.
 
     .. warning::
 

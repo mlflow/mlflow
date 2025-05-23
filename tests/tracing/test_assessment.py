@@ -24,8 +24,7 @@ from mlflow.exceptions import MlflowException
 @pytest.fixture
 def store():
     mock_store = mock.MagicMock()
-    with mock.patch("mlflow.tracing.client._get_store") as mock_get_store:
-        mock_get_store.return_value = mock_store
+    with mock.patch("mlflow.tracing.client._get_store", return_value=mock_store):
         yield mock_store
 
 
@@ -392,3 +391,105 @@ def test_log_feedback_and_exception_blocks_positional_args():
 
     with pytest.raises(TypeError, match=r"log_expectation\(\) takes 0 positional"):
         mlflow.log_expectation("tr-1234", "expected_answer", "MLflow")
+
+
+@pytest.mark.parametrize("legacy_api", [True, False])
+def test_log_assessment_on_in_progress_trace(store, tracking_uri, legacy_api):
+    @mlflow.trace
+    def func(x: int, y: int) -> int:
+        trace_id = mlflow.get_active_trace_id()
+        if legacy_api:
+            mlflow.log_assessment(trace_id, Feedback(name="feedback", value=1.0))
+            mlflow.log_assessment(trace_id, Expectation(name="expectation", value="MLflow"))
+            mlflow.log_assessment("other_trace_id", Feedback(name="other", value=2.0))
+        else:
+            mlflow.log_feedback(trace_id=trace_id, name="feedback", value=1.0)
+            mlflow.log_expectation(trace_id=trace_id, name="expectation", value="MLflow")
+            mlflow.log_feedback(trace_id="other_trace_id", name="other", value=2.0)
+        return x + y
+
+    assert func(1, 2) == 3
+
+    mlflow.flush_trace_async_logging()
+
+    # Two assessments should be logged as a part of StartTraceV3 call
+    store.start_trace_v3.assert_called_once()
+    trace = store.start_trace_v3.call_args[1]["trace"]
+    assert trace.info.request_id == mlflow.get_last_active_trace_id()
+    assert len(trace.info.assessments) == 2
+    assert trace.info.assessments[0].name == "feedback"
+    assert trace.info.assessments[0].feedback.value == 1.0
+    assert trace.info.assessments[1].name == "expectation"
+    assert trace.info.assessments[1].expectation.value == "MLflow"
+
+    # CreateAssessment should be called for the last assessment on the other trace
+    store.create_assessment.assert_called_once()
+    assessment = store.create_assessment.call_args[0][0]
+    assert assessment.trace_id == "other_trace_id"
+    assert assessment.name == "other"
+    assert assessment.feedback.value == 2.0
+
+
+@pytest.mark.asyncio
+async def test_log_assessment_on_in_progress_trace_async(store, tracking_uri):
+    @mlflow.trace
+    async def func(x: int, y: int) -> int:
+        trace_id = mlflow.get_active_trace_id()
+        mlflow.log_assessment(trace_id, Feedback(name="feedback", value=1.0))
+        mlflow.log_assessment(trace_id, Expectation(name="expectation", value="MLflow"))
+        return x + y
+
+    assert (await func(1, 2)) == 3
+
+    mlflow.flush_trace_async_logging()
+
+    store.create_assessment.assert_not_called()
+
+    store.start_trace_v3.assert_called_once()
+    trace = store.start_trace_v3.call_args[1]["trace"]
+    assert trace.info.request_id == mlflow.get_last_active_trace_id()
+    assert len(trace.info.assessments) == 2
+    assert trace.info.assessments[0].name == "feedback"
+    assert trace.info.assessments[0].feedback.value == 1.0
+    assert trace.info.assessments[1].name == "expectation"
+    assert trace.info.assessments[1].expectation.value == "MLflow"
+
+
+def test_log_assessment_on_in_progress_with_span_id(store, tracking_uri):
+    with mlflow.start_span(name="test_span") as span:
+        mlflow.log_assessment(
+            trace_id=span.trace_id,
+            assessment=Feedback(name="feedback", value=1.0, span_id=span.span_id),
+        )
+
+    mlflow.flush_trace_async_logging()
+
+    # Two assessments should be logged as a part of StartTraceV3 call
+    store.start_trace_v3.assert_called_once()
+    trace = store.start_trace_v3.call_args[1]["trace"]
+    assert trace.info.request_id == mlflow.get_last_active_trace_id()
+    assert len(trace.info.assessments) == 1
+    assert trace.info.assessments[0].name == "feedback"
+    assert trace.info.assessments[0].feedback.value == 1.0
+    assert trace.info.assessments[0].span_id == span.span_id
+
+    store.create_assessment.assert_not_called()
+
+
+def test_log_assessment_on_in_progress_trace_works_when_tracing_is_disabled(store, tracking_uri):
+    # Calling log_assessment to an active trace should not fail when tracing is disabled.
+    mlflow.tracing.disable()
+
+    @mlflow.trace
+    def func(x: int, y: int):
+        trace_id = mlflow.get_active_trace_id()
+        mlflow.log_assessment(trace_id=trace_id, assessment=Feedback(name="feedback", value=1.0))
+        return x + y
+
+    assert func(1, 2) == 3
+
+    mlflow.flush_trace_async_logging()
+
+    # Neither CreateAssessment nor StartTraceV3 should be called
+    store.create_assessment.assert_not_called()
+    store.start_trace_v3.assert_not_called()
