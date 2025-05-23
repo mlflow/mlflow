@@ -18,7 +18,6 @@ module.exports = async ({ context, github, core }) => {
       repo: context.repo.repo,
       pull_number: context.issue.number,
     });
-
     if (!isAllowed(pullRequest.author_association)) {
       core.setFailed(
         `This workflow is not allowed to run on PRs from ${pullRequest.author_association}.`
