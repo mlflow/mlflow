@@ -284,7 +284,8 @@ _ML_PACKAGE_VERSIONS = {
     },
     "ag2": {
         "package_info": {
-            "pip_release": "ag2"
+            "pip_release": "ag2",
+            "module_name": "autogen"
         },
         "autologging": {
             "minimum": "0.7.0",
@@ -436,7 +437,7 @@ FLAVOR_TO_MODULE_NAME = {
     "dspy": "dspy",
     "langchain": "langchain",
     "llama_index": "llama_index.core",
-    "ag2": "ag2",
+    "ag2": "autogen",
     "autogen": "autogen_agentchat",
     "gemini": "google.genai",
     "anthropic": "anthropic",

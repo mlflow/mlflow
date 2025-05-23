@@ -771,6 +771,7 @@ llama_index:
 ag2:
   package_info:
     pip_release: "ag2"
+    module_name: "autogen"
   autologging:
     minimum: "0.7.0"
     maximum: "0.9.0"
@@ -782,6 +783,7 @@ ag2:
           "fastapi",
           "uvicorn",
           "openai",
+          "numpy<2",
         ]
     run: pytest tests/ag2
 
@@ -799,6 +801,7 @@ autogen:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          "autogen_ext",
         ]
     run: pytest tests/autogen
 
