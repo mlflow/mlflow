@@ -1202,6 +1202,7 @@ def log_input(
     context: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
     model: Optional[LoggedModelInput] = None,
+    run_id: Optional[str] = None,
 ) -> None:
     """
     Log a dataset used in the current run.
@@ -1213,6 +1214,8 @@ def log_input(
         tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
         model: A :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input
             to the run.
+        run_id: If specified, log the dataset to the specified run. If not specified, log the
+            dataset to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1228,7 +1231,7 @@ def log_input(
         with mlflow.start_run():
             mlflow.log_input(dataset, context="training")
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     datasets = [_create_dataset_input(dataset, context, tags)] if dataset else None
     models = [model] if model else None
 
@@ -1240,6 +1243,7 @@ def log_inputs(
     contexts: Optional[list[Optional[str]]] = None,
     tags_list: Optional[list[Optional[dict[str, str]]]] = None,
     models: Optional[list[Optional[LoggedModelInput]]] = None,
+    run_id: Optional[str] = None,
 ) -> None:
     """
     Log a batch of datasets used in the current run.
@@ -1256,6 +1260,8 @@ def log_inputs(
             tag_key -> tag_value.
         models: List of :py:class:`mlflow.entities.LoggedModelInput` instance to log as input
             to the run. Currently only Databricks managed MLflow supports this argument.
+        run_id: If specified, log the datasets to the specified run. If not specified, log the
+            dataset to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1283,7 +1289,7 @@ def log_inputs(
     """
     from mlflow.utils.databricks_utils import is_databricks_uri
 
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
 
     datasets = datasets or []
     contexts = contexts or []
