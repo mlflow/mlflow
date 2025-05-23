@@ -15,6 +15,10 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.pyfunc import PythonModel
 from mlflow.types.schema import DataType, Schema
 
+_INVALID_SIZE_MESSAGE = (
+    "Dspy model doesn't support batch inference or empty input. Please provide a single input."
+)
+
 
 class DspyModelWrapper(PythonModel):
     """MLflow PyFunc wrapper class for Dspy models.
@@ -97,8 +101,7 @@ class DspyModelWrapper(PythonModel):
         if isinstance(inputs, pd.DataFrame):
             if len(inputs) != 1:
                 raise MlflowException(
-                    "Dspy model doesn't support batch inference or empty input. "
-                    "Please provide a single input.",
+                    _INVALID_SIZE_MESSAGE,
                     INVALID_PARAMETER_VALUE,
                 )
             if all(isinstance(col, str) for col in inputs.columns):
@@ -108,8 +111,7 @@ class DspyModelWrapper(PythonModel):
         if isinstance(inputs, np.ndarray):
             if len(inputs) != 1:
                 raise MlflowException(
-                    "Dspy model doesn't support batch inference or empty input. "
-                    "Please provide a single input.",
+                    _INVALID_SIZE_MESSAGE,
                     INVALID_PARAMETER_VALUE,
                 )
             inputs = inputs[0]
