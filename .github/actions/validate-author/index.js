@@ -1,15 +1,20 @@
-function isAllowed(pullRequest) {
-  const { author_association, user } = pullRequest;
+function isAllowed({ author_association, user }) {
   return (
     ["owner", "member", "collaborator"].includes(author_association.toLowerCase()) ||
     // Allow Copilot to run this workflow
-    (user.login.toLowerCase() === "copilot" && user.type.toLowerCase() === "bot")
+    (user && user.login.toLowerCase() === "copilot" && user.type.toLowerCase() === "bot")
   );
 }
 
 module.exports = async ({ context, github, core }) => {
   if (context.eventName === "issue_comment") {
-    if (!isAllowed(context.payload.comment.author_association)) {
+    const { comment } = context.payload;
+    if (
+      !isAllowed({
+        author_association: comment.author_association,
+        user: comment.user,
+      })
+    ) {
       core.setFailed(`${comment.author_association} is not allowed to use this workflow.`);
     }
 
@@ -18,7 +23,12 @@ module.exports = async ({ context, github, core }) => {
       repo: context.repo.repo,
       pull_number: context.issue.number,
     });
-    if (!isAllowed(pullRequest.author_association)) {
+    if (
+      !isAllowed({
+        author_association: pullRequest.author_association,
+        user: pullRequest.user,
+      })
+    ) {
       core.setFailed(
         `This workflow is not allowed to run on PRs from ${pullRequest.author_association}.`
       );
