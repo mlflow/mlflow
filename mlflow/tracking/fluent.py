@@ -737,7 +737,9 @@ def get_parent_run(run_id: str) -> Optional[Run]:
     return MlflowClient().get_parent_run(run_id)
 
 
-def log_param(key: str, value: Any, synchronous: Optional[bool] = None) -> Any:
+def log_param(
+    key: str, value: Any, synchronous: Optional[bool] = None, run_id: Optional[str] = None
+) -> Any:
     """
     Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
     this method will create a new active run.
@@ -752,6 +754,8 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = None) -> Any:
             False, logs the parameter asynchronously and returns a future representing the logging
             operation. If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`,
             which defaults to False if not set.
+        run_id: If specified, log the parameter to the specified run. If not specified, log the
+            parameter to the currently active run.
 
     Returns:
         When `synchronous=True`, returns parameter value. When `synchronous=False`, returns an
@@ -769,7 +773,7 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = None) -> Any:
             assert value == 0.01
             value = mlflow.log_param("learning_rate", 0.02, synchronous=False)
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_param(run_id, key, value, synchronous=synchronous)
 
@@ -829,7 +833,9 @@ def set_experiment_tag(key: str, value: Any) -> None:
     MlflowClient().set_experiment_tag(experiment_id, key, value)
 
 
-def set_tag(key: str, value: Any, synchronous: Optional[bool] = None) -> Optional[RunOperations]:
+def set_tag(
+    key: str, value: Any, synchronous: Optional[bool] = None, run_id: Optional[str] = None
+) -> Optional[RunOperations]:
     """
     Set a tag under the current run. If no run is active, this method will create a new active
     run.
@@ -844,6 +850,9 @@ def set_tag(key: str, value: Any, synchronous: Optional[bool] = None) -> Optiona
             logs the tag asynchronously and returns a future representing the logging operation.
             If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
             defaults to False if not set.
+        run_id: If specified, log the tag to the specified run. If not specified, log the tag
+            to the currently active run. If no run is active, this method will create a new
+            active run.
 
     Returns:
         When `synchronous=True`, returns None. When `synchronous=False`, returns an
@@ -864,18 +873,20 @@ def set_tag(key: str, value: Any, synchronous: Optional[bool] = None) -> Optiona
         with mlflow.start_run():
             mlflow.set_tag("release.version", "2.2.1", synchronous=False)
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().set_tag(run_id, key, value, synchronous=synchronous)
 
 
-def delete_tag(key: str) -> None:
+def delete_tag(key: str, run_id: Optional[str] = None) -> None:
     """
     Delete a tag from a run. This is irreversible. If no run is active, this method
     will create a new active run.
 
     Args:
         key: Name of the tag
+        run_id: If specified, delete the tag from the specified run. If not specified,
+            delete the tag from the currently active run.
 
     .. code-block:: python
         :test:
@@ -891,7 +902,7 @@ def delete_tag(key: str) -> None:
         with mlflow.start_run(run_id=run.info.run_id):
             mlflow.delete_tag("engineering_remote")
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().delete_tag(run_id, key)
 
 
@@ -1191,6 +1202,7 @@ def log_input(
     context: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
     model: Optional[LoggedModelInput] = None,
+    run_id: Optional[str] = None,
 ) -> None:
     """
     Log a dataset used in the current run.
@@ -1202,6 +1214,8 @@ def log_input(
         tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
         model: A :py:class:`mlflow.entities.LoggedModelInput` instance to log as as input
             to the run.
+        run_id: If specified, log the dataset to the specified run. If not specified, log the
+            dataset to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1217,7 +1231,7 @@ def log_input(
         with mlflow.start_run():
             mlflow.log_input(dataset, context="training")
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     datasets = [_create_dataset_input(dataset, context, tags)] if dataset else None
     models = [model] if model else None
 
@@ -1229,6 +1243,7 @@ def log_inputs(
     contexts: Optional[list[Optional[str]]] = None,
     tags_list: Optional[list[Optional[dict[str, str]]]] = None,
     models: Optional[list[Optional[LoggedModelInput]]] = None,
+    run_id: Optional[str] = None,
 ) -> None:
     """
     Log a batch of datasets used in the current run.
@@ -1245,6 +1260,8 @@ def log_inputs(
             tag_key -> tag_value.
         models: List of :py:class:`mlflow.entities.LoggedModelInput` instance to log as input
             to the run. Currently only Databricks managed MLflow supports this argument.
+        run_id: If specified, log the datasets to the specified run. If not specified, log the
+            dataset to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1272,7 +1289,7 @@ def log_inputs(
     """
     from mlflow.utils.databricks_utils import is_databricks_uri
 
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
 
     datasets = datasets or []
     contexts = contexts or []
@@ -1321,7 +1338,9 @@ def set_experiment_tags(tags: dict[str, Any]) -> None:
         set_experiment_tag(key, value)
 
 
-def set_tags(tags: dict[str, Any], synchronous: Optional[bool] = None) -> Optional[RunOperations]:
+def set_tags(
+    tags: dict[str, Any], synchronous: Optional[bool] = None, run_id: Optional[str] = None
+) -> Optional[RunOperations]:
     """
     Log a batch of tags for the current run. If no run is active, this method will create a
     new active run.
@@ -1333,6 +1352,8 @@ def set_tags(tags: dict[str, Any], synchronous: Optional[bool] = None) -> Option
             logs tags asynchronously and returns a future representing the logging operation.
             If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
             defaults to False if not set.
+        run_id: Run ID. If specified, log the tags to the specified run. If not specified, log
+            the tags to the currently active run.
 
     Returns:
         When `synchronous=True`, returns None. When `synchronous=False`, returns an
@@ -1359,7 +1380,7 @@ def set_tags(tags: dict[str, Any], synchronous: Optional[bool] = None) -> Option
         with mlflow.start_run():
             mlflow.set_tags(tags, synchronous=False)
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     tags_arr = [RunTag(key, str(value)) for key, value in tags.items()]
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
@@ -1519,6 +1540,7 @@ def log_figure(
     artifact_file: str,
     *,
     save_kwargs: Optional[dict[str, Any]] = None,
+    run_id: Optional[str] = None,
 ) -> None:
     """
     Log a figure as an artifact. The following figure objects are supported:
@@ -1537,6 +1559,8 @@ def log_figure(
         artifact_file: The run-relative artifact file path in posixpath format to which
             the figure is saved (e.g. "dir/file.png").
         save_kwargs: Additional keyword arguments passed to the method that saves the figure.
+        run_id: If specified, log the figure to the specified run. If not specified, log the
+            figure to the currently active run.
 
     .. code-block:: python
         :test:
@@ -1563,7 +1587,7 @@ def log_figure(
         with mlflow.start_run():
             mlflow.log_figure(fig, "figure.html")
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_figure(run_id, figure, artifact_file, save_kwargs=save_kwargs)
 
 
@@ -1574,6 +1598,7 @@ def log_image(
     step: Optional[int] = None,
     timestamp: Optional[int] = None,
     synchronous: Optional[bool] = False,
+    run_id: Optional[str] = None,
 ) -> None:
     """
     Logs an image in MLflow, supporting two use cases:
@@ -1635,6 +1660,8 @@ def log_image(
             Defaults to 0.
         timestamp: Time when this image was saved. Defaults to the current system time.
         synchronous: *Experimental* If True, blocks until the image is logged successfully.
+        run_id: If specified, log the image to the specified run. If not specified, log the
+            image to the currently active run.
 
     .. code-block:: python
         :caption: Time-stepped image logging numpy example
@@ -1693,7 +1720,7 @@ def log_image(
         with mlflow.start_run():
             mlflow.log_image(image, "image.png")
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp, synchronous)
 
 
