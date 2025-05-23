@@ -323,7 +323,7 @@ def test_tracing_composite_agent(llm_config):
 
 def test_autogen_logger_catch_exception(llm_config):
     # Error from the logger should not affect the main execution
-    mlflow.autogen.autolog()
+    mlflow.ag2.autolog()
 
     with patch(
         "mlflow.tracing.provider.start_detached_span", side_effect=Exception("error")

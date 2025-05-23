@@ -15,10 +15,10 @@ def autolog(
     only supports tracing for ag2 agents.
 
     Args:
-        log_traces: If ``True``, traces are logged for Autogen agents by using runtime logging.
+        log_traces: If ``True``, traces are logged for AG2 agents by using runtime logging.
             If ``False``, no traces are collected during inference. Default to ``True``.
-        disable: If ``True``, disables the Autogen autologging. Default to ``False``.
-        silent: If ``True``, suppress all event logs and warnings from MLflow during Autogen
+        disable: If ``True``, disables the AG2 autologging. Default to ``False``.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during AG2
             autologging. If ``False``, show all events and warnings.
     """
     from autogen import runtime_logging
