@@ -2739,7 +2739,21 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         sage_client = boto3.client(
             "sagemaker", region_name=self.region_name, **assume_role_credentials
         )
-        return sage_client.list_endpoints()["Endpoints"]
+
+        # Create a reusable Paginator
+        endpoint_paginator = sage_client.get_paginator("list_endpoints")
+
+        # Create a PageIterator from the Paginator with MAX_RESULTS_PER_PAGE results
+        # per page to minimize iterations
+        MAX_RESULTS_PER_PAGE = 100
+        endpoint_page_iterator = endpoint_paginator.paginate(MaxResults=MAX_RESULTS_PER_PAGE)
+
+        # Iterate through the pages and collect the Endpoints
+        endpoints = []
+        for page in endpoint_page_iterator:
+            endpoints.extend(page["Endpoints"])
+
+        return endpoints
 
     def get_deployment(self, name, endpoint=None):
         """

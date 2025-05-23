@@ -6,11 +6,21 @@ from typing import Any, NamedTuple
 from moto.core import DEFAULT_ACCOUNT_ID, BackendDict, BaseBackend, BaseModel
 from moto.core.models import base_decorator
 from moto.core.responses import BaseResponse
+from moto.utilities.paginator import paginate
 
 
 class SageMakerResourceWithArn(NamedTuple):
     resource: Any
     arn: str
+
+PAGINATION_MODEL = {
+    "list_endpoints": {
+        "input_token": "NextToken",
+        "limit_key": "MaxResults",
+        "limit_default": 100,
+        "unique_attribute": "arn",
+    }
+}
 
 
 class SageMakerResponse(BaseResponse):
@@ -114,13 +124,22 @@ class SageMakerResponse(BaseResponse):
         Handler for the SageMaker "ListEndpoints" API call documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpoints.html.
 
-        This function does not support pagination. All endpoint configs are returned in a
-        single response.
+        All endpoint configs are returned in a single response.
         """
-        endpoint_summaries = self.sagemaker_backend.list_endpoints()
-        return json.dumps(
-            {"Endpoints": [summary.response_object for summary in endpoint_summaries]}
+        MaxResults = (
+            self.request_params["MaxResults"] if "MaxResults" in self.request_params else None
         )
+        NextToken = self.request_params["NextToken"] if "NextToken" in self.request_params else None
+        (endpoint_summaries, next_token) = self.sagemaker_backend.list_endpoints(
+            MaxResults=MaxResults, NextToken=NextToken
+        )
+
+        response = {"Endpoints": [summary.response_object for summary in endpoint_summaries]}
+
+        if next_token:
+            response["NextToken"] = next_token
+
+        return json.dumps(response)
 
     def list_endpoint_configs(self):
         """
@@ -476,6 +495,7 @@ class SageMakerBackend(BaseBackend):
 
         del self.endpoints[endpoint_name]
 
+    @paginate(pagination_model=PAGINATION_MODEL)
     def list_endpoints(self):
         """
         Modifies backend state during calls to the SageMaker "ListEndpoints" API
