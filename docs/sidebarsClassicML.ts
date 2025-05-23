@@ -1,4 +1,5 @@
 import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
+import { apiReferencePrefix } from "./docusaurusConfigUtils";
 
 const sidebarsClassicML: SidebarsConfig = {
   classicMLSidebar: [
@@ -59,25 +60,65 @@ const sidebarsClassicML: SidebarsConfig = {
             items: [
                 {
                     type: 'category',
-                    label: 'Hyperparameter Tuning Guide',
+                    label: 'Hyperparameter Tuning with MLflow and Optuna',
                     items: [
                         {
-                            type: 'category',
-                            label: 'Notebooks',  //TODO: add tutorials
-                            items: [
-                                {
-                                    type: 'doc',
-                                    id: 'classic-ml/traditional-ml/hyperparameter-tuning/notebooks/hyperparameter-tuning-with-child-runs',
-                                    label: 'Hyperparameter Tuning with Optuna',
-                                }
-                            ]
-                        }
+                            type: 'doc',
+                            id: 'traditional-ml/hyperparameter-tuning/part1-child-runs/index',
+                        },
+                        {
+                            type: 'doc',
+                            id: 'traditional-ml/hyperparameter-tuning/part2-logging-plots/index',
+                        },
+                        {
+                            type: 'doc',
+                            id: 'traditional-ml/hyperparameter-tuning/notebooks/index',
+                            label: 'Notebooks',
+                        },
                     ],
                     link: {
                         type: 'doc',
-                        id: 'traditional-ml/hyperparameter-tuning/index'
+                        id: 'traditional-ml/hyperparameter-tuning/index',
+                    },
+                },
+                {
+                    type: 'category',
+                    label: 'Building Custom Python Function Models with MLflow',
+                    items: [
+                        {
+                            type: 'doc',
+                            id: 'traditional-ml/creating-custom-pyfunc/part1-named-flavors/index',
+                        },
+                        {
+                            type: 'doc',
+                            id: 'traditional-ml/creating-custom-pyfunc/part2-pyfunc-components/index',
+                        },
+                        {
+                            type: 'doc',
+                            id: 'traditional-ml/creating-custom-pyfunc/notebooks/index',
+                            label: 'Notebooks',
+                        },
+                    ],
+                    link: {
+                        type: 'doc',
+                        id: 'traditional-ml/creating-custom-pyfunc/index',
                     }
-                }
+                },
+                {
+                    type: 'category',
+                    label: 'Serving Multiple Models on a Single Endpoint with a Custom PyFunc Model',
+                    items: [
+                        {
+                            type: 'doc',
+                            id: 'traditional-ml/serving-multiple-models-with-pyfunc/notebooks/index',
+                            label: 'Notebooks',
+                        },
+                    ],
+                    link: {
+                        type: 'doc',
+                        id: 'traditional-ml/serving-multiple-models-with-pyfunc/index',
+                    },
+                },
             ],
             link: {
                 type: 'doc',
@@ -90,11 +131,11 @@ const sidebarsClassicML: SidebarsConfig = {
           items: [
             {
               type: 'category',
-              label: 'Keras',  //TODO: add quickstart notebook content
+              label: 'Keras',
               items: [
                 {
                   type: 'doc',
-                  id: 'deep-learning/keras/quickstart/quickstart-keras-ipynb',
+                  id: 'deep-learning/keras/quickstart/index',
                   label: 'Quickstart',
                 },
                 {
@@ -109,8 +150,13 @@ const sidebarsClassicML: SidebarsConfig = {
             },
             {
               type: 'category',
-              label: 'PyTorch', //TODO: add quickstart notebook content
+              label: 'PyTorch',
               items: [
+                {
+                    type: 'doc',
+                    id: 'deep-learning/pytorch/quickstart/index',
+                    label: 'Quickstart',
+                },
                 {
                   type: 'doc',
                   id: 'deep-learning/pytorch/guide/index',
@@ -123,8 +169,13 @@ const sidebarsClassicML: SidebarsConfig = {
             },
             {
               type: 'category',
-              label: 'TensorFlow', //TODO: add quickstart notebook content
+              label: 'TensorFlow',
               items: [
+                {
+                    type: 'doc',
+                    id: 'deep-learning/tensorflow/quickstart/index',
+                    label: 'Quickstart',
+                },
                 {
                   type: 'doc',
                   id: 'deep-learning/tensorflow/guide/index',
@@ -232,6 +283,37 @@ const sidebarsClassicML: SidebarsConfig = {
       ],
     },
     {
+        type: 'category',
+        label: 'Evaluate 🎯',
+        className: 'sidebar-top-level-category',
+        items: [
+            {
+                type: 'doc',
+                id: 'evaluation/function-eval/index',
+            },
+            {
+                type: 'doc',
+                id: 'evaluation/dataset-eval/index',
+            },
+            {
+                type: 'doc',
+                id: 'evaluation/model-eval/index',
+            },
+            {
+                type: 'doc',
+                id: 'evaluation/metrics-visualizations/index',
+            },
+            {
+                type: 'doc',
+                id: 'evaluation/shap/index',
+            },
+        ],
+        link: {
+            type: 'doc',
+            id: 'evaluation/index'
+        }
+    },
+    {
       type: 'category',
       label: 'Deploy 🚢',
       className: 'sidebar-top-level-category',
@@ -254,10 +336,93 @@ const sidebarsClassicML: SidebarsConfig = {
             type: 'doc',
             id: 'deployment/index'
           }
-        }
+        },
       ],
-    }
-
+    },
+    {
+      type: 'category',
+      label: 'Team Collaboration 👥',
+      className: 'sidebar-top-level-category',
+      collapsed: true,
+      items: [
+        {
+          type: 'link',
+          href: 'tracking/#tracking-setup',
+          label: 'Self-Hosting'
+        },
+        {
+          type: 'link',
+          href: '#running-mlflow-anywhere',
+          label: 'Managed Services'
+        },
+        {
+          type: 'doc',
+          id: 'auth/index',
+          label: 'Access Control 🔐',
+        },
+        {
+          type: 'doc',
+          id: 'projects/index',
+          label: 'MLflow Projects 📦',
+        },
+      ]
+    },
+    {
+        type: 'category',
+        label: 'API References',
+        className: 'sidebar-top-level-category',
+        collapsed: true,
+        items: [
+        {
+            type: 'link',
+            label: 'Python API',
+            href: `${apiReferencePrefix()}api_reference/python_api/index.html`,
+        },
+        {
+            type: 'link',
+            label: 'Java API',
+            href: `${apiReferencePrefix()}api_reference/java_api/index.html`,
+        },
+        {
+            type: 'link',
+            label: 'R API',
+            href: `${apiReferencePrefix()}api_reference/R-api.html`,
+        },
+        {
+            type: 'link',
+            label: 'REST API',
+            href: `${apiReferencePrefix()}api_reference/rest-api.html`,
+        },
+        {
+            type: 'link',
+            label: 'CLI',
+            href: `${apiReferencePrefix()}cli.html`,
+        }
+        ]
+    },
+    {
+        type: 'category',
+        label: 'More',
+        collapsed: true,
+        className:'sidebar-top-level-category',
+        items: [
+        {
+            type: 'link',
+            label: 'Contributing 🤝',
+            href: 'https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md',
+        },
+        {
+            type: 'link',
+            label: 'MLflow Blogs 📰',
+            href: 'https://mlflow.org/blog/index.html',
+        },
+        {
+            type: 'doc',
+            id: 'plugins/index',
+            label: 'MLflow Plugins 🔌'
+        },
+        ]
+    },
   ],
 };
 
