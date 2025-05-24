@@ -44,10 +44,14 @@ def is_prompt_supported_registry(registry_uri: Optional[str] = None) -> bool:
     Check if the current registry supports prompts.
 
     Prompts registration is supported only in the OSS MLflow Tracking Server,
-    not in Databricks or OSS Unity Catalog.
+    not in Databricks, Azure ML, or OSS Unity Catalog.
     """
     registry_uri = registry_uri or mlflow.get_registry_uri()
-    return not registry_uri.startswith("databricks") and not registry_uri.startswith("uc:")
+    return not (
+        registry_uri.startswith("databricks") 
+        or registry_uri.startswith("uc:") 
+        or registry_uri.startswith("azureml://")
+    )
 
 
 def require_prompt_registry(func):
@@ -73,7 +77,7 @@ def require_prompt_registry(func):
         .. note::
 
             This API is supported only when using the OSS MLflow Model Registry. Prompts are not
-            supported in Databricks or the OSS Unity Catalog model registry.
+            supported in Databricks, Azure ML, or the OSS Unity Catalog model registry.
     """)
     return wrapper
 
