@@ -37,13 +37,6 @@ if TYPE_CHECKING:
 
 def capture_function_input_args(func, args, kwargs, is_classmethod=False) -> Optional[dict[str, Any]]:
     try:
-        # For cases where @classmethod comes first, we don't get is_classmethod=True
-        # so check for cls as first parameter and first argument is type
-        if not is_classmethod:
-            params = list(inspect.signature(func).parameters.keys())
-            if params and params[0] == "cls" and args and isinstance(args[0], type):
-                is_classmethod = True
-        
         func_signature = inspect.signature(func)
         bound_arguments = func_signature.bind(*args, **kwargs)
         bound_arguments.apply_defaults()
@@ -52,8 +45,10 @@ def capture_function_input_args(func, args, kwargs, is_classmethod=False) -> Opt
         if bound_arguments.arguments.get("self"):
             del bound_arguments.arguments["self"]
             
-        # Remove `cls` from bound arguments only if it exists and the function is a classmethod
-        if is_classmethod and bound_arguments.arguments.get("cls"):
+        # Remove `cls` from bound arguments if it's the first parameter and it's a type
+        # This detects classmethods more reliably
+        params = list(bound_arguments.arguments.keys())
+        if params and params[0] == "cls" and isinstance(bound_arguments.arguments["cls"], type):
             del bound_arguments.arguments["cls"]
 
         return bound_arguments.arguments
