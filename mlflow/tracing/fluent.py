@@ -174,13 +174,13 @@ def trace(
         
         # Apply the appropriate wrapper to the original function
         if inspect.isgeneratorfunction(original_fn) or inspect.isasyncgenfunction(original_fn):
-            wrapped = _wrap_generator(original_fn, name, span_type, attributes, output_reducer)
+            wrapped = _wrap_generator(original_fn, name, span_type, attributes, output_reducer, is_classmethod=is_classmethod)
         else:
             if output_reducer is not None:
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions."
                 )
-            wrapped = _wrap_function(original_fn, name, span_type, attributes)
+            wrapped = _wrap_function(original_fn, name, span_type, attributes, is_classmethod=is_classmethod)
         
         # If the original was a descriptor, wrap the result back as the same type of descriptor
         if is_classmethod:
@@ -198,17 +198,18 @@ def _wrap_function(
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
+    is_classmethod: bool = False,
 ) -> Callable:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
         # between sync and async cases
         @staticmethod
-        def _wrapping_logic(fn, args, kwargs):
+        def _wrapping_logic(fn, args, kwargs, is_classmethod=False):
             span_name = name or fn.__name__
 
             with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
-                inputs = capture_function_input_args(fn, args, kwargs)
+                inputs = capture_function_input_args(fn, args, kwargs, is_classmethod=is_classmethod)
                 span.set_inputs(inputs)
                 result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
@@ -221,8 +222,8 @@ def _wrap_function(
                     # Swallow `GeneratorExit` raised when the generator is closed
                     pass
 
-        def __init__(self, fn, args, kwargs):
-            self.coro = self._wrapping_logic(fn, args, kwargs)
+        def __init__(self, fn, args, kwargs, is_classmethod=False):
+            self.coro = self._wrapping_logic(fn, args, kwargs, is_classmethod=is_classmethod)
 
         def __enter__(self):
             next(self.coro)
@@ -240,12 +241,12 @@ def _wrap_function(
     if inspect.iscoroutinefunction(fn):
 
         async def wrapper(*args, **kwargs):
-            with _WrappingContext(fn, args, kwargs) as wrapping_coro:
+            with _WrappingContext(fn, args, kwargs, is_classmethod=is_classmethod) as wrapping_coro:
                 return wrapping_coro.send(await fn(*args, **kwargs))
     else:
 
         def wrapper(*args, **kwargs):
-            with _WrappingContext(fn, args, kwargs) as wrapping_coro:
+            with _WrappingContext(fn, args, kwargs, is_classmethod=is_classmethod) as wrapping_coro:
                 return wrapping_coro.send(fn(*args, **kwargs))
 
     return _wrap_function_safe(fn, wrapper)
@@ -257,6 +258,7 @@ def _wrap_generator(
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
     output_reducer: Optional[Callable] = None,
+    is_classmethod: bool = False,
 ) -> Callable:
     """
     Wrap a generator function to create a span.
@@ -333,7 +335,7 @@ def _wrap_generator(
     if inspect.isgeneratorfunction(fn):
 
         def wrapper(*args, **kwargs):
-            inputs = capture_function_input_args(fn, args, kwargs)
+            inputs = capture_function_input_args(fn, args, kwargs, is_classmethod=is_classmethod)
             span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
@@ -358,7 +360,7 @@ def _wrap_generator(
     else:
 
         async def wrapper(*args, **kwargs):
-            inputs = capture_function_input_args(fn, args, kwargs)
+            inputs = capture_function_input_args(fn, args, kwargs, is_classmethod=is_classmethod)
             span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
