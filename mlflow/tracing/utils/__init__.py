@@ -196,9 +196,17 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> Optional[dict[str, int]
     input_tokens, output_tokens, total_tokens = 0, 0, 0
     has_usage_data = False
 
+    span_id_to_spans = {span.span_id: span for span in spans}
     for span in spans:
         # Get usage attribute from span
         if usage := span.get_attribute(SpanAttributeKey.CHAT_USAGE):
+            # If the parent span is also LLM/Chat span and has the token usage data,
+            # it tracks the same usage data by multiple flavors e.g. LangChain ChatOpenAI
+            # and OpenAI tracing. We should avoid double counting the usage data.
+            if span.parent_id and (parent_span := span_id_to_spans[span.parent_id]):
+                if parent_span.get_attribute(SpanAttributeKey.CHAT_USAGE):
+                    continue
+
             input_tokens += usage.get(TokenUsageKey.INPUT_TOKENS, 0)
             output_tokens += usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
             total_tokens += usage.get(TokenUsageKey.TOTAL_TOKENS, 0)

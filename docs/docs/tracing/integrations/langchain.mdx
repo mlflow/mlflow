@@ -90,6 +90,57 @@ The following APIs are supported by auto tracing for LangChain.
 * ``get_relevant_documents`` (for retrievers)
 * ``__call__`` (for Chains and AgentExecutors)
 
+## Token Usage Tracking
+
+MLflow >= 3.1.0 supports token usage tracking for LangChain. The token usage for each LLM call during a chain invocation will be logged in the `mlflow.chat.tokenUsage` span attribute, and the total usage in the entire trace will be logged in the `mlflow.trace.tokenUsage` metadata field.
+
+```python
+import json
+import mlflow
+
+mlflow.langchain.autolog()
+
+# Execute the chain defined in the previous example
+chain.invoke(
+    {
+        "person": "Linus Torvalds",
+        "question": "Can I just set everyone's access to sudo to make things easier?",
+    }
+)
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Token usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.attributes.get("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 81
+  Output tokens: 257
+  Total tokens: 338
+
+== Token usage for each LLM call: ==
+ChatOpenAI:
+  Input tokens: 81
+  Output tokens: 257
+  Total tokens: 338
+```
 
 ### Customize Tracing Behavior
 

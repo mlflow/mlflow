@@ -11,10 +11,13 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
+from langchain_core.outputs.chat_generation import ChatGeneration
+from langchain_core.outputs.generation import Generation
 from packaging.version import Version
 
 from mlflow.langchain.utils.chat import (
     convert_lc_message_to_chat_message,
+    parse_token_usage,
     transform_request_json_for_chat_if_necessary,
     try_transform_response_iter_to_chat_format,
     try_transform_response_to_chat_format,
@@ -181,3 +184,47 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
         assert transformed_request[0][1][0] == AIMessage(content="What would you like to ask?")
         assert transformed_request[0][2][0] == HumanMessage(content="Who owns MLflow?")
         assert transformed_request[1] is True
+
+
+@pytest.mark.parametrize(
+    ("generation", "expected"),
+    [
+        (ChatGeneration(message=AIMessage(content="foo", id="123")), None),
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    usage_metadata={"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+                )
+            ),
+            {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+        ),
+        (
+            ChatGeneration(
+                message=AIMessageChunk(
+                    content="foo",
+                    id="123",
+                    usage_metadata={"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+                )
+            ),
+            {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+        ),
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    response_metadata={
+                        "usage": {"prompt_tokens": 5, "completion_tokens": 10, "total_tokens": 15}
+                    },
+                )
+            ),
+            {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+        ),
+        # Legacy completion generation object
+        (Generation(text="foo"), None),
+    ],
+)
+def test_parse_token_usage(generation, expected):
+    assert parse_token_usage([generation]) == expected

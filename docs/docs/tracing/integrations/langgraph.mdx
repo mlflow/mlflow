@@ -31,7 +31,7 @@ MLflow LangGraph integration is not only about tracing. MLflow offers full track
 :::
 
 
-### Usage
+### Example Usage
 
 Running the following code will generate a trace for the graph as shown in the above video clip.
 
@@ -72,6 +72,58 @@ result = graph.invoke(
     {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
 )
 ```
+
+## Token Usage Tracking
+
+MLflow >= 3.1.0 supports token usage tracking for LangGraph. The token usage for each LLM call during a graph invocation will be logged in the `mlflow.chat.tokenUsage` span attribute, and the total usage in the entire trace will be logged in the `mlflow.trace.tokenUsage` metadata field.
+
+```python
+import json
+import mlflow
+
+mlflow.langchain.autolog()
+
+# Execute the agent graph defined in the previous example
+graph.invoke({"messages": [{"role": "user", "content": "what is the weather in sf?"}]})
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Token usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.attributes.get("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 149
+  Output tokens: 135
+  Total tokens: 284
+
+== Token usage for each LLM call: ==
+ChatOpenAI_1:
+  Input tokens: 58
+  Output tokens: 87
+  Total tokens: 145
+ChatOpenAI_2:
+  Input tokens: 91
+  Output tokens: 48
+  Total tokens: 139
+```
+
 
 ### Adding spans within a node or a tool
 
