@@ -431,14 +431,25 @@ class ModelRegistryClient:
         self.store.delete_registered_model_alias(name, alias)
 
     def get_model_version_by_alias(self, name, alias):
-        """Get the model version instance by name and alias.
-
+        """
         Args:
             name: Registered model name.
             alias: Name of the alias.
 
         Returns:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
-
         """
         return self.store.get_model_version_by_alias(name, alias)
+
+    def get_prompt(self, name: str, version: Optional[str] = None):
+        """
+        Get prompt by name and version or alias.
+
+        Args:
+            name: Registered prompt name.
+            version: Registered prompt version or alias. If None, loads the latest version.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.Prompt` object, or None if not found.
+        """
+        return self.store.get_prompt(name, version)

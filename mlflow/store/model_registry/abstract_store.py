@@ -3,7 +3,8 @@ from abc import ABCMeta, abstractmethod
 from time import sleep, time
 from typing import Optional
 
-from mlflow.entities.model_registry import ModelVersionTag
+from mlflow.entities.model_registry import ModelVersionTag, Prompt
+from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import has_prompt_tag
@@ -376,6 +377,51 @@ class AbstractStore:
         Returns:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
+
+    def get_prompt(self, name: str, version: Optional[str] = None) -> Optional[Prompt]:
+        """
+        Get prompt by name and version or alias.
+
+        Args:
+            name: Registered prompt name.
+            version: Registered prompt version or alias. If None, loads the latest version.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.Prompt` object, or None if not found.
+        """
+        try:
+            # Handle latest version resolution when version is None
+            if version is None:
+                latest_versions = self.get_latest_versions(name, stages=ALL_STAGES)
+                if not latest_versions:
+                    return None
+                mv = latest_versions[0]
+            else:
+                # Try to get by version number first, then by alias
+                try:
+                    mv = self.get_model_version(name, version)
+                except MlflowException as e:
+                    if e.error_code == "RESOURCE_DOES_NOT_EXIST":
+                        # Try to get by alias
+                        try:
+                            mv = self.get_model_version_by_alias(name, version)
+                        except MlflowException:
+                            return None
+                    else:
+                        raise
+
+            # Fetch the prompt-level tags from the registered model
+            try:
+                prompt_tags = self.get_registered_model(name)._tags
+            except MlflowException:
+                return None
+
+            return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
+
+        except MlflowException as e:
+            if e.error_code == "RESOURCE_DOES_NOT_EXIST":
+                return None
+            raise
 
     def copy_model_version(self, src_mv, dst_name):
         """
