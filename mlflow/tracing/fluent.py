@@ -163,7 +163,7 @@ def trace(
         # Check if the function is a classmethod or staticmethod
         is_classmethod = isinstance(fn, classmethod)
         is_staticmethod = isinstance(fn, staticmethod)
-        
+
         # Extract the original function if it's a descriptor
         if is_classmethod:
             original_fn = fn.__func__
@@ -171,17 +171,25 @@ def trace(
             original_fn = fn.__func__
         else:
             original_fn = fn
-        
+
         # Apply the appropriate wrapper to the original function
-        if inspect.isgeneratorfunction(original_fn) or inspect.isasyncgenfunction(original_fn):
-            wrapped = _wrap_generator(original_fn, name, span_type, attributes, output_reducer, is_classmethod=is_classmethod)
+        if inspect.isgeneratorfunction(original_fn) or inspect.isasyncgenfunction(
+            original_fn
+        ):
+            wrapped = _wrap_generator(
+                original_fn,
+                name,
+                span_type,
+                attributes,
+                output_reducer,
+            )
         else:
             if output_reducer is not None:
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions."
                 )
-            wrapped = _wrap_function(original_fn, name, span_type, attributes, is_classmethod=is_classmethod)
-        
+            wrapped = _wrap_function(original_fn, name, span_type, attributes)
+
         # If the original was a descriptor, wrap the result back as the same type of descriptor
         if is_classmethod:
             return classmethod(wrapped)
@@ -198,18 +206,19 @@ def _wrap_function(
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
-    is_classmethod: bool = False,
 ) -> Callable:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
         # between sync and async cases
         @staticmethod
-        def _wrapping_logic(fn, args, kwargs, is_classmethod=False):
+        def _wrapping_logic(fn, args, kwargs):
             span_name = name or fn.__name__
 
-            with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
+            with start_span(
+                name=span_name, span_type=span_type, attributes=attributes
+            ) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
-                inputs = capture_function_input_args(fn, args, kwargs, is_classmethod=is_classmethod)
+                inputs = capture_function_input_args(fn, args, kwargs)
                 span.set_inputs(inputs)
                 result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
@@ -222,8 +231,8 @@ def _wrap_function(
                     # Swallow `GeneratorExit` raised when the generator is closed
                     pass
 
-        def __init__(self, fn, args, kwargs, is_classmethod=False):
-            self.coro = self._wrapping_logic(fn, args, kwargs, is_classmethod=is_classmethod)
+        def __init__(self, fn, args, kwargs):
+            self.coro = self._wrapping_logic(fn, args, kwargs)
 
         def __enter__(self):
             next(self.coro)
@@ -241,12 +250,13 @@ def _wrap_function(
     if inspect.iscoroutinefunction(fn):
 
         async def wrapper(*args, **kwargs):
-            with _WrappingContext(fn, args, kwargs, is_classmethod=is_classmethod) as wrapping_coro:
+            with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                 return wrapping_coro.send(await fn(*args, **kwargs))
+
     else:
 
         def wrapper(*args, **kwargs):
-            with _WrappingContext(fn, args, kwargs, is_classmethod=is_classmethod) as wrapping_coro:
+            with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                 return wrapping_coro.send(fn(*args, **kwargs))
 
     return _wrap_function_safe(fn, wrapper)
@@ -258,7 +268,6 @@ def _wrap_generator(
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
     output_reducer: Optional[Callable] = None,
-    is_classmethod: bool = False,
 ) -> Callable:
     """
     Wrap a generator function to create a span.
@@ -326,7 +335,11 @@ def _wrap_generator(
             event = SpanEvent(
                 name=STREAM_CHUNK_EVENT_NAME_FORMAT.format(index=chunk_index),
                 # OpenTelemetry SpanEvent only support str-str key-value pairs for attributes
-                attributes={STREAM_CHUNK_EVENT_VALUE_KEY: json.dumps(chunk, cls=TraceJSONEncoder)},
+                attributes={
+                    STREAM_CHUNK_EVENT_VALUE_KEY: json.dumps(
+                        chunk, cls=TraceJSONEncoder
+                    )
+                },
             )
             span.add_event(event)
         except Exception as e:
@@ -335,7 +348,7 @@ def _wrap_generator(
     if inspect.isgeneratorfunction(fn):
 
         def wrapper(*args, **kwargs):
-            inputs = capture_function_input_args(fn, args, kwargs, is_classmethod=is_classmethod)
+            inputs = capture_function_input_args(fn, args, kwargs)
             span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
@@ -357,10 +370,11 @@ def _wrap_generator(
                     yield value
                     i += 1
             _end_stream_span(span, inputs, outputs, output_reducer)
+
     else:
 
         async def wrapper(*args, **kwargs):
-            inputs = capture_function_input_args(fn, args, kwargs, is_classmethod=is_classmethod)
+            inputs = capture_function_input_args(fn, args, kwargs)
             span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
@@ -859,7 +873,9 @@ def get_current_active_span() -> Optional[LiveSpan]:
 
     trace_manager = InMemoryTraceManager.get_instance()
     request_id = json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
-    return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
+    return trace_manager.get_span_from_id(
+        request_id, encode_span_id(otel_span.context.span_id)
+    )
 
 
 def get_last_active_trace_id(thread_local: bool = False) -> Optional[str]:
@@ -902,7 +918,9 @@ def get_last_active_trace_id(thread_local: bool = False) -> Optional[str]:
         trace = mlflow.get_trace(trace_id)
     """
     return (
-        _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get() if thread_local else _LAST_ACTIVE_TRACE_ID_GLOBAL
+        _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get()
+        if thread_local
+        else _LAST_ACTIVE_TRACE_ID_GLOBAL
     )
 
 
@@ -1269,7 +1287,9 @@ def log_trace(
     """
     if intermediate_outputs:
         if attributes:
-            attributes.update(SpanAttributeKey.INTERMEDIATE_OUTPUTS, intermediate_outputs)
+            attributes.update(
+                SpanAttributeKey.INTERMEDIATE_OUTPUTS, intermediate_outputs
+            )
         else:
             attributes = {SpanAttributeKey.INTERMEDIATE_OUTPUTS: intermediate_outputs}
 
@@ -1282,9 +1302,11 @@ def log_trace(
     )
     span.end(
         outputs=response,
-        end_time_ns=(start_time_ms + execution_time_ms) * 1000000
-        if start_time_ms and execution_time_ms
-        else None,
+        end_time_ns=(
+            (start_time_ms + execution_time_ms) * 1000000
+            if start_time_ms and execution_time_ms
+            else None
+        ),
     )
 
     return span.trace_id
@@ -1308,7 +1330,9 @@ def _merge_trace(
     # The merged trace should have the same trace ID as the parent trace.
     with trace_manager.get_trace(target_trace_id) as parent_trace:
         if not parent_trace:
-            _logger.warning(f"Parent trace with ID {target_trace_id} not found. Skipping merge.")
+            _logger.warning(
+                f"Parent trace with ID {target_trace_id} not found. Skipping merge."
+            )
             return
 
         new_trace_id = parent_trace.span_dict[target_parent_span_id]._trace_id
