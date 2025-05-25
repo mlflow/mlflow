@@ -38,10 +38,10 @@ class OtelSpanProcessor(BatchSpanProcessor):
                 span is obtained from the global context, it won't be passed here so we should not
                 rely on it.
         """
-        trace_id = generate_trace_id_v3()
+        trace_id = generate_trace_id_v3(span)
         trace_info = TraceInfo(
             trace_id=trace_id,
-            trace_location=TraceLocation(experiment_id=None),
+            trace_location=TraceLocation.from_experiment_id(None),
             request_time=span.start_time // 1_000_000,  # nanosecond to millisecond
             execution_duration=None,
             state=TraceState.IN_PROGRESS,
