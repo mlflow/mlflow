@@ -37,14 +37,18 @@ if TYPE_CHECKING:
 
 def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:
     try:
-        # Avoid capturing `self`
+        # Avoid capturing `self` and `cls`
         func_signature = inspect.signature(func)
         bound_arguments = func_signature.bind(*args, **kwargs)
         bound_arguments.apply_defaults()
 
-        # Remove `self` from bound arguments if it exists
+        # Remove `self` from bound arguments if it exists (for instance methods)
         if bound_arguments.arguments.get("self"):
             del bound_arguments.arguments["self"]
+            
+        # Remove `cls` from bound arguments if it exists (for classmethods)
+        if bound_arguments.arguments.get("cls"):
+            del bound_arguments.arguments["cls"]
 
         return bound_arguments.arguments
     except Exception:
