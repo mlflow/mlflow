@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import openai
@@ -6,7 +7,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 
 from tests.tracing.helper import get_traces
 
@@ -69,6 +70,15 @@ async def test_responses_autolog(client, _input):
         {"role": "user", "content": "Hello"},
         {"role": "assistant", "content": [{"type": "text", "text": "Dummy output"}]},
     ]
+
+    # Token usage should be aggregated correctly
+    assert traces[0].info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
+        {
+            TokenUsageKey.INPUT_TOKENS: 36,
+            TokenUsageKey.OUTPUT_TOKENS: 87,
+            TokenUsageKey.TOTAL_TOKENS: 123,
+        }
+    )
 
 
 @pytest.mark.asyncio
@@ -440,3 +450,12 @@ async def test_responses_stream_autolog(client):
         {"role": "user", "content": "Hello"},
         {"role": "assistant", "content": [{"type": "text", "text": "Dummy output"}]},
     ]
+
+    # Token usage should be aggregated correctly
+    assert traces[0].info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
+        {
+            TokenUsageKey.INPUT_TOKENS: 36,
+            TokenUsageKey.OUTPUT_TOKENS: 87,
+            TokenUsageKey.TOTAL_TOKENS: 123,
+        }
+    )

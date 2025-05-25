@@ -20,6 +20,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
+    aggregate_usage_from_spans,
     deduplicate_span_names_in_place,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
@@ -184,6 +185,10 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
                 ),
             }
         )
+
+        # Aggregate token usage information from all spans
+        if usage := aggregate_usage_from_spans(trace.span_dict.values()):
+            trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
     def _truncate_metadata(self, value: Optional[str]) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""

@@ -11,7 +11,12 @@ import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.openai.utils.chat_schema import _parse_tools
-from mlflow.tracing.constant import STREAM_CHUNK_EVENT_VALUE_KEY, SpanAttributeKey, TraceMetadataKey
+from mlflow.tracing.constant import (
+    STREAM_CHUNK_EVENT_VALUE_KEY,
+    SpanAttributeKey,
+    TokenUsageKey,
+    TraceMetadataKey,
+)
 
 from tests.openai.mock_openai import EMPTY_CHOICES
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
@@ -118,6 +123,14 @@ async def test_chat_completions_autolog(client):
 
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
 
+    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
+        {
+            TokenUsageKey.INPUT_TOKENS: 9,
+            TokenUsageKey.OUTPUT_TOKENS: 12,
+            TokenUsageKey.TOTAL_TOKENS: 21,
+        }
+    )
+
 
 @pytest.mark.asyncio
 async def test_chat_completions_autolog_under_current_active_span(client):
@@ -126,32 +139,43 @@ async def test_chat_completions_autolog_under_current_active_span(client):
 
     messages = [{"role": "user", "content": "test"}]
     with mlflow.start_span(name="parent"):
-        response = client.chat.completions.create(
-            messages=messages,
-            model="gpt-4o-mini",
-            temperature=0,
-        )
+        for _ in range(3):
+            response = client.chat.completions.create(
+                messages=messages,
+                model="gpt-4o-mini",
+                temperature=0,
+            )
 
-        if client._is_async:
-            await response
+            if client._is_async:
+                await response
 
     traces = get_traces()
     assert len(traces) == 1
     trace = traces[0]
     assert trace is not None
     assert trace.info.status == "OK"
-    assert len(trace.data.spans) == 2
+    assert len(trace.data.spans) == 4
     parent_span = trace.data.spans[0]
     assert parent_span.name == "parent"
     child_span = trace.data.spans[1]
-    assert child_span.name == "AsyncCompletions" if client._is_async else "Completions"
+    assert child_span.name == "AsyncCompletions_1" if client._is_async else "Completions_1"
     assert child_span.inputs == {"messages": messages, "model": "gpt-4o-mini", "temperature": 0}
     assert child_span.outputs["id"] == "chatcmpl-123"
     assert child_span.parent_id == parent_span.span_id
 
+    # Token usage should be aggregated correctly
+    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
+        {
+            TokenUsageKey.INPUT_TOKENS: 27,
+            TokenUsageKey.OUTPUT_TOKENS: 36,
+            TokenUsageKey.TOTAL_TOKENS: 63,
+        }
+    )
+
 
 @pytest.mark.asyncio
-async def test_chat_completions_autolog_streaming(client):
+@pytest.mark.parametrize("include_usage", [True, False])
+async def test_chat_completions_autolog_streaming(client, include_usage):
     mlflow.openai.autolog()
 
     messages = [{"role": "user", "content": "test"}]
@@ -160,6 +184,7 @@ async def test_chat_completions_autolog_streaming(client):
         model="gpt-4o-mini",
         temperature=0,
         stream=True,
+        stream_options={"include_usage": include_usage},
     )
 
     if client._is_async:
@@ -180,6 +205,7 @@ async def test_chat_completions_autolog_streaming(client):
         "model": "gpt-4o-mini",
         "temperature": 0,
         "stream": True,
+        "stream_options": {"include_usage": include_usage},
     }
     assert span.outputs == "Hello world"  # aggregated string of streaming response
 
@@ -192,6 +218,15 @@ async def test_chat_completions_autolog_streaming(client):
     chunk_2 = json.loads(stream_event_data[1].attributes[STREAM_CHUNK_EVENT_VALUE_KEY])
     assert chunk_2["id"] == "chatcmpl-123"
     assert chunk_2["choices"][0]["delta"]["content"] == " world"
+
+    if include_usage:
+        assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
+            {
+                TokenUsageKey.INPUT_TOKENS: 9,
+                TokenUsageKey.OUTPUT_TOKENS: 12,
+                TokenUsageKey.TOTAL_TOKENS: 21,
+            }
+        )
 
 
 @pytest.mark.asyncio
@@ -483,6 +518,14 @@ async def test_autolog_raw_response(client):
     )
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
+    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
+        {
+            TokenUsageKey.INPUT_TOKENS: 9,
+            TokenUsageKey.OUTPUT_TOKENS: 12,
+            TokenUsageKey.TOTAL_TOKENS: 21,
+        }
+    )
+
 
 @pytest.mark.asyncio
 async def test_autolog_raw_response_stream(client):
@@ -601,6 +644,14 @@ async def test_response_format(client):
     span = trace.data.spans[0]
     assert span.outputs["choices"][0]["message"]["content"] == '{"name":"Angelo","age":42}'
     assert span.span_type == SpanType.CHAT_MODEL
+
+    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
+        {
+            TokenUsageKey.INPUT_TOKENS: 68,
+            TokenUsageKey.OUTPUT_TOKENS: 11,
+            TokenUsageKey.TOTAL_TOKENS: 79,
+        }
+    )
 
 
 @skip_when_testing_trace_sdk

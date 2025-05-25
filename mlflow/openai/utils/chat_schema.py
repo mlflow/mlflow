@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from mlflow.entities.span import LiveSpan
 from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.types.chat import (
     ChatMessage,
     ChatTool,
@@ -47,6 +48,10 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
             set_span_chat_tools(span, tools)
         except MlflowException:
             _logger.debug("Failed to set chat tools on span", exc_info=True)
+
+    # Extract and set usage information if available
+    if usage := _parse_usage(output):
+        span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
 
 
 def _parse_inputs_output(inputs: dict[str, Any], output: Any) -> list[ChatMessage]:
@@ -318,3 +323,45 @@ def _parse_tools(inputs: dict[str, Any]) -> list[ChatTool]:
             raise MlflowException(f"Unknown tool type: {tool_type}")
 
     return parsed_tools
+
+
+def _parse_usage(output: Any) -> Optional[dict]:
+    """
+    Parse token usage information from OpenAI response objects.
+
+    Args:
+        output: The response object from OpenAI API calls
+
+    Returns:
+        A dictionary containing token usage information.
+    """
+    if output is None:
+        return None
+
+    # Handle OpenAI ChatCompletion API response
+    try:
+        from openai.types.chat import ChatCompletion
+
+        if isinstance(output, ChatCompletion) and (usage := output.usage):
+            return {
+                TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+                TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+                TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+            }
+    except ImportError:
+        pass
+
+    # Handle OpenAI Responses API response
+    try:
+        from openai.types.responses import Response
+
+        if isinstance(output, Response) and (usage := output.usage):
+            return {
+                TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
+                TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,
+                TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+            }
+    except ImportError:
+        pass
+
+    return None

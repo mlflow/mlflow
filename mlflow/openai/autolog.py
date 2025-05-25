@@ -18,6 +18,8 @@ from mlflow.openai.utils.chat_schema import set_span_chat_attributes
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
+    SpanAttributeKey,
+    TokenUsageKey,
     TraceMetadataKey,
 )
 from mlflow.tracing.fluent import start_span_no_context
@@ -315,8 +317,7 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
             for i, chunk in enumerate(stream):
                 output.append(_process_chunk(span, i, chunk))
                 yield chunk
-            output = chunk.response if _is_responses_final_event(chunk) else "".join(output)
-            _end_span_on_success(span, inputs, output)
+            _process_last_chunk(span, chunk, inputs, output)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     elif isinstance(result, AsyncStream):
@@ -326,8 +327,7 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
             async for chunk in stream:
                 output.append(_process_chunk(span, len(output), chunk))
                 yield chunk
-            output = chunk.response if _is_responses_final_event(chunk) else "".join(output)
-            _end_span_on_success(span, inputs, output)
+            _process_last_chunk(span, chunk, inputs, output)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     else:
@@ -336,6 +336,24 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
             span.end(outputs=result)
         except Exception as e:
             _logger.warning(f"Encountered unexpected error when ending trace: {e}", exc_info=True)
+
+
+def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], output: list[Any]):
+    if _is_responses_final_event(chunk):
+        output = chunk.response
+    else:
+        output = "".join(output)
+        # For ChatCompletion, the usage info is stored in the last chunk and only when
+        # `stream_options={"include_usage": True}` is specified by the user.
+        if usage := chunk.usage:
+            usage_dict = {
+                TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+                TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+                TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+            }
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+
+    _end_span_on_success(span, inputs, output)
 
 
 def _is_responses_final_event(chunk: Any) -> bool:

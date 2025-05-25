@@ -16,7 +16,12 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey, TraceMetadataKey
+from mlflow.tracing.constant import (
+    TRACE_REQUEST_ID_PREFIX,
+    SpanAttributeKey,
+    TokenUsageKey,
+    TraceMetadataKey,
+)
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -184,6 +189,30 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
         if count := span_name_counter.get(span.name):
             span_name_counter[span.name] += 1
             span._span._name = f"{span.name}_{count}"
+
+
+def aggregate_usage_from_spans(spans: list[LiveSpan]) -> Optional[dict[str, int]]:
+    """Aggregate token usage information from all spans in the trace."""
+    input_tokens, output_tokens, total_tokens = 0, 0, 0
+    has_usage_data = False
+
+    for span in spans:
+        # Get usage attribute from span
+        if usage := span.get_attribute(SpanAttributeKey.CHAT_USAGE):
+            input_tokens += usage.get(TokenUsageKey.INPUT_TOKENS, 0)
+            output_tokens += usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
+            total_tokens += usage.get(TokenUsageKey.TOTAL_TOKENS, 0)
+            has_usage_data = True
+
+    # If none of the spans have token usage data, we shouldn't log token usage metadata.
+    if not has_usage_data:
+        return None
+
+    return {
+        TokenUsageKey.INPUT_TOKENS: input_tokens,
+        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+        TokenUsageKey.TOTAL_TOKENS: total_tokens,
+    }
 
 
 def get_otel_attribute(span: trace_api.Span, key: str) -> Optional[str]:

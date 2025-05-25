@@ -386,6 +386,73 @@ The following example implements a simple function calling agent using OpenAI Fu
 </Tabs>
 
 
+
+## Token usage
+
+MLflow >= 3.1.0 supports token usage tracking for OpenAI. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute, and the total usage in the entire trace will be logged in the `mlflow.trace.tokenUsage` metadata field.
+
+```python
+import json
+import mlflow
+
+mlflow.openai.autolog()
+
+# Run the tool calling agent defined in the previous section
+question = "What's the weather like in Paris today?"
+answer = run_tool_agent(question)
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = json.loads(trace.info.trace_metadata["mlflow.trace.tokenUsage"])
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Token usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.attributes.get("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 84
+  Output tokens: 22
+  Total tokens: 106
+
+== Token usage for each LLM call: ==
+Completions_1:
+  Input tokens: 45
+  Output tokens: 14
+  Total tokens: 59
+Completions_2:
+  Input tokens: 39
+  Output tokens: 8
+  Total tokens: 47
+```
+
+
+### Supported APIs:
+
+Token usage tracking is supported for the following OpenAI APIs:
+
+|Mode|Chat Completion|Responses|
+|:--:|:--:|:--:|
+|Normal|✅|✅|
+|Streaming|✅(*1)|✅|
+|Async|✅|✅|
+
+(*1) By default, OpenAI does not return token usage information for Chat Completion API when streaming. To track token usage, you need to specify `stream_options={"include_usage": True}` in the request ([OpenAI API Reference](https://platform.openai.com/docs/api-reference/chat/create)).
+
+
 ## Disable auto-tracing
 
 Auto tracing for OpenAI can be disabled globally by calling `mlflow.openai.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
