@@ -37,7 +37,7 @@ dependencies = [
   "narwhals<3,>=1.32.0",
   "numpy<3",
   "pandas<3",
-  "pyarrow<20,>=4.0.0",
+  "pyarrow<21,>=4.0.0",
   "scikit-learn<2",
   "scipy<2",
   "sqlalchemy<3,>=1.4.0",

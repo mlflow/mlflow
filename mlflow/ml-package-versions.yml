@@ -81,6 +81,7 @@ keras:
     maximum: "3.9.2"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
+      "< 3.10.0": ["jax[cpu]<0.6"]
     run: |
       export KERAS_BACKEND=jax
       pytest tests/keras/test_callback.py
@@ -90,6 +91,7 @@ keras:
     maximum: "3.9.2"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
+      "< 3.10.0": ["jax[cpu]<0.6"]
     run: |
       export KERAS_BACKEND=jax
       pytest tests/keras/test_autolog.py
@@ -274,7 +276,7 @@ spark:
       pyspark --version
 
   models:
-    minimum: "3.4.1"
+    minimum: "3.2.1"
     maximum: "3.5.5"
     java:
       "> 3.4.1": "17"
@@ -284,6 +286,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow", "numpy<2"]
+      "< 3.4.0": ["pandas<2"]
       ">= 3.5.0": ["torch<2.6.0", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
     run: |
@@ -302,7 +305,7 @@ spark:
       fi
 
   autologging:
-    minimum: "3.4.1"
+    minimum: "3.2.1"
     maximum: "3.5.5"
     java:
       ">= 3.4.1": "17"
@@ -312,6 +315,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["scikit-learn", "numpy<2"]
+      "< 3.4.0": ["pandas<2"]
     run: |
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
@@ -448,6 +452,9 @@ transformers:
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         ">=4.38.0,<4.39.0",
+        # https://github.com/huggingface/transformers/issues/38269
+        "== 4.52.1",
+        "== 4.52.2",
       ]
     requirements:
       ">= 0.0.0": [
@@ -465,7 +472,6 @@ transformers:
           "sentencepiece", # required for transformers text2text generation pipeline
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
-          "accelerate<1",
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
@@ -474,6 +480,7 @@ transformers:
       # Pin torchvision to <0.20.0 to avoid https://github.com/pytorch/torchchat/issues/1158
       "< 4.38": ["tensorflow<2.14", "pydantic<2"] # Older versions of transformers are incompatible with tensorflow >= 2.14
       ">= 4.38": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
+      "< 4.52.0.dev0": ["accelerate<1"]
     pre_test: |
       export PYTHONPATH=./
       python tests/transformers/helper.py
@@ -489,6 +496,9 @@ transformers:
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
         ">=4.38.0,<4.39.0",
+        # https://github.com/huggingface/transformers/issues/38269
+        "== 4.52.1",
+        "== 4.52.2",
       ]
     requirements:
       ">= 0.0.0": [
@@ -501,7 +511,6 @@ transformers:
           "tensorflow",
           "setfit",
           "optuna",
-          "accelerate<1",
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
@@ -512,6 +521,7 @@ transformers:
       # datasets > 2.4.0 is incompatible with huggingface_hub<0.24.0
       # evaluate >= 0.4.3 is incompatible with datasets<=2.4.0
       "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0", "evaluate<0.4.3"]
+      "< 4.52.0.dev0": ["accelerate<1"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
@@ -621,6 +631,10 @@ langchain:
           "unitycatalog-langchain",
         ]
       ">=0.3": ["databricks-langchain"]
+    pre_test: |
+      # Installing both pyspark and databricks-connect causes a conflict
+      pip uninstall -y databricks-connect
+      pip install --no-deps --force-reinstall pyspark
     run: |
       # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
       # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
@@ -660,6 +674,10 @@ langchain:
           "fastapi>=0.100.0",
           "langchain-openai>=0.2.0",
         ]
+    pre_test: |
+      # Installing both pyspark and databricks-connect causes a conflict
+      pip uninstall -y databricks-connect
+      pip install --no-deps --force-reinstall pyspark
     run: |
       pytest tests/langchain/test_langchain_autolog.py
       # test both pydantic v1 and v2

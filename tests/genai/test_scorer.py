@@ -11,7 +11,8 @@ from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, 
 from mlflow.entities.assessment import FeedbackValue
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.evaluation import Assessment as LegacyAssessment
-from mlflow.genai import Scorer, scorer
+from mlflow.genai.evaluation.base import _evaluate
+from mlflow.genai.scorers import Scorer, scorer
 
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
@@ -54,7 +55,7 @@ def sample_data():
 
 @pytest.mark.parametrize("dummy_scorer", [AlwaysYesScorer(name="always_yes"), scorer(always_yes)])
 def test_scorer_existence_in_metrics(sample_data, dummy_scorer):
-    result = mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
+    result = _evaluate(data=sample_data, scorers=[dummy_scorer])
     assert any("always_yes" in metric for metric in result.metrics.keys())
 
 
@@ -63,7 +64,7 @@ def test_scorer_existence_in_metrics(sample_data, dummy_scorer):
 )
 def test_scorer_name_works(sample_data, dummy_scorer):
     _SCORER_NAME = "always_no"
-    result = mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
+    result = _evaluate(data=sample_data, scorers=[dummy_scorer])
     assert any(_SCORER_NAME in metric for metric in result.metrics.keys())
 
 
@@ -81,7 +82,7 @@ def test_scorer_is_called_with_correct_arguments(sample_data):
         )
         return 0.0
 
-    mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
+    _evaluate(data=sample_data, scorers=[dummy_scorer])
 
     assert len(actual_call_args_list) == len(sample_data)
 
@@ -114,7 +115,7 @@ def test_scorer_receives_extra_arguments():
         received_args.append((inputs, outputs, retrieved_context))
         return 0
 
-    mlflow.genai.evaluate(
+    _evaluate(
         data=[
             {
                 "inputs": {"question": "What is Spark?"},
@@ -153,7 +154,7 @@ def test_trace_passed_correctly():
         {"inputs": {"question": "input1"}},
         {"inputs": {"question": "input2"}},
     ]
-    mlflow.genai.evaluate(
+    _evaluate(
         predict_fn=predict_fn,
         data=data,
         scorers=[dummy_scorer],
@@ -196,19 +197,11 @@ def test_trace_passed_correctly():
     ],
 )
 def test_scorer_on_genai_evaluate(sample_data, scorer_return):
-    # Skip if `databricks-agents` SDK is not 1.x. It doesn't
-    # support the `mlflow.entities.Assessment` type.
-    is_return_assessment = isinstance(scorer_return, Assessment) or (
-        isinstance(scorer_return, list) and isinstance(scorer_return[0], Assessment)
-    )
-    if is_return_assessment and agent_sdk_version.major < 1:
-        pytest.skip("Skipping test for assessment return type")
-
     @scorer
     def dummy_scorer(inputs, outputs):
         return scorer_return
 
-    results = mlflow.genai.evaluate(
+    results = _evaluate(
         data=sample_data,
         scorers=[dummy_scorer],
     )
@@ -248,7 +241,7 @@ def test_scorer_returns_feedback_with_error(sample_data):
         )
 
     with patch("mlflow.get_tracking_uri", return_value="databricks"):
-        results = mlflow.genai.evaluate(
+        results = _evaluate(
             data=sample_data,
             scorers=[dummy_scorer],
         )
@@ -262,7 +255,7 @@ def test_builtin_scorers_are_callable():
 
     # test with new scorer signature format
     with patch("databricks.agents.evals.judges.safety") as mock_safety:
-        safety()(
+        safety(
             inputs={"question": "What is the capital of France?"},
             outputs="The capital of France is Paris.",
         )
@@ -271,3 +264,41 @@ def test_builtin_scorers_are_callable():
             request={"question": "What is the capital of France?"},
             response="The capital of France is Paris.",
         )
+
+
+@pytest.mark.parametrize(
+    ("scorer_return", "expected_feedback_name"),
+    [
+        # Single feedback object with default name -> should be renamed to "my_scorer"
+        (Feedback(value=42, rationale="rationale"), "my_scorer"),
+        # Single feedback object with custom name -> should NOT be renamed to "my_scorer"
+        (Feedback(name="custom_name", value=42, rationale="rationale"), "custom_name"),
+    ],
+)
+def test_custom_scorer_overwrites_default_feedback_name(scorer_return, expected_feedback_name):
+    @scorer
+    def my_scorer(inputs, outputs):
+        return scorer_return
+
+    feedback = my_scorer.run(
+        inputs={"question": "What is the capital of France?"},
+        outputs="The capital of France is Paris.",
+    )
+    assert feedback.name == expected_feedback_name
+    assert feedback.value == 42
+
+
+def test_custom_scorer_does_not_overwrite_feedback_name_when_returning_list():
+    @scorer
+    def my_scorer(inputs, outputs):
+        return [
+            Feedback(name="big_question", value=42, rationale="It's the answer to everything"),
+            Feedback(name="small_question", value=1, rationale="Not sure, just a guess"),
+        ]
+
+    feedbacks = my_scorer.run(
+        inputs={"question": "What is the capital of France?"},
+        outputs="The capital of France is Paris.",
+    )
+    assert feedbacks[0].name == "big_question"
+    assert feedbacks[1].name == "small_question"

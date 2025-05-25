@@ -349,8 +349,13 @@ def test_generate_content_tool_calling_chat_history_autolog():
         )
     )
 
-    tool_result = '{"id":null,"name":"multiply","response":{"result":2508.0}}'
-
+    tool_result = (
+        # https://github.com/googleapis/python-genai/commit/6258dad0f9634b5e40e6562353e1911fe3c2d1a6
+        # added `will_continue` and `scheduling` fields
+        '{"will_continue":null,"scheduling":null,"id":null,"name":"multiply","response":{"result":2508.0}}'
+        if google_gemini_version >= Version("1.16.0")
+        else '{"id":null,"name":"multiply","response":{"result":2508.0}}'
+    )
     chat_messages = [
         {
             "content": [

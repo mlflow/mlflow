@@ -154,3 +154,28 @@ def test_logging_level(log_level: str, expected: bool) -> None:
     )
 
     assert (random_str in stdout) is expected
+
+
+@pytest.mark.parametrize(
+    "env_var_name",
+    ["MLFLOW_CONFIGURE_LOGGING", "MLFLOW_LOGGING_CONFIGURE_LOGGING"],
+)
+@pytest.mark.parametrize(
+    "value",
+    ["0", "1"],
+)
+def test_mlflow_configure_logging_env_var(env_var_name: str, value: str) -> None:
+    expected_level = logging.INFO if value == "1" else logging.WARNING
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-c",
+            f"""
+import logging
+import mlflow
+
+assert logging.getLogger("mlflow").isEnabledFor({expected_level})
+""",
+        ],
+        env=os.environ.copy() | {env_var_name: value},
+    )

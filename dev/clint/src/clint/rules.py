@@ -68,17 +68,12 @@ class TestNameTypo(Rule):
         return "This function looks like a test, but its name does not start with 'test_'."
 
 
-# TODO: Consider dropping this rule once https://github.com/astral-sh/ruff/discussions/13622
-#       is supported.
-class KeywordArtifactPath(Rule):
+class LogModelArtifactPath(Rule):
     def _id(self) -> str:
         return "MLF0005"
 
     def _message(self) -> str:
-        return (
-            "artifact_path must be passed as a positional argument. "
-            "See https://github.com/mlflow/mlflow/pull/13268 for why this is necessary."
-        )
+        return "`artifact_path` parameter of `log_model` is deprecated. Use `name` instead."
 
 
 class ExampleSyntaxError(Rule):

@@ -13,7 +13,7 @@ jobs:
   check-comment:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'autoformat') }}
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/autoformat') }}
     permissions:
       statuses: write # autoformat.createStatus
       pull-requests: write # autoformat.createReaction on PRs
@@ -235,13 +235,8 @@ jobs:
             const needs = ${{ toJson(needs) }};
             const head_sha = '${{ needs.check-comment.outputs.head_sha }}'
             const autoformat = require('./.github/workflows/autoformat.js');
-            // TODO: Remove try-catch block once we are confident that the code works fine.
-            try {
-              const push_head_sha = '${{ needs.push.outputs.head_sha }}';
-              if (push_head_sha) {
-                await autoformat.approveWorkflowRuns(context, github, push_head_sha);
-              }
-            } catch (error) {
-              core.warning(`Failed to approve workflow runs: ${error}`);
+            const push_head_sha = '${{ needs.push.outputs.head_sha }}';
+            if (push_head_sha) {
+              await autoformat.approveWorkflowRuns(context, github, push_head_sha);
             }
             await autoformat.updateStatus(context, github, head_sha, needs);

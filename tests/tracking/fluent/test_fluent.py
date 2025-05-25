@@ -19,7 +19,7 @@ import pytest
 import mlflow
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
-from mlflow import MlflowClient, set_active_model
+from mlflow import MlflowClient, clear_active_model, set_active_model
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
@@ -54,7 +54,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import (
     _ACTIVE_MODEL_CONTEXT,
     ActiveModelContext,
@@ -2087,28 +2087,20 @@ def test_set_active_model_link_traces():
     traces = get_traces()
     assert len(traces) == 3
     for trace in traces:
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model_id
 
     # manual start span without model_id
     with mlflow.start_span():
         predict(model_input=1)
     traces = get_traces()
     assert len(traces) == 4
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_id
-
-    # manual start span with model_id
-    with mlflow.start_span(model_id="1234"):
-        predict(model_input=1)
-
-    traces = get_traces()
-    assert len(traces) == 5
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == "1234"
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_id
 
     with set_active_model(name="new_model") as new_model:
         predict(model_input=1)
     traces = get_traces()
-    assert len(traces) == 6
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == new_model.model_id
+    assert len(traces) == 5
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == new_model.model_id
     assert new_model.model_id != model_id
 
 
@@ -2118,6 +2110,13 @@ def test_set_active_model_in_databricks_serving():
         return_value=True,
     ):
         model = set_active_model(name="test_model")
+        assert mlflow.get_active_model_id() == model.model_id
+        assert _MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
+
+        with set_active_model(name="new_model") as new_model:
+            assert mlflow.get_active_model_id() == new_model.model_id
+            assert _MLFLOW_ACTIVE_MODEL_ID.get() == new_model.model_id
+
         assert mlflow.get_active_model_id() == model.model_id
         assert _MLFLOW_ACTIVE_MODEL_ID.get() == model.model_id
 
@@ -2196,3 +2195,53 @@ def test_log_metrics_link_to_active_model():
     assert logged_model.model_id == model.model_id
     assert len(logged_model.metrics) == 2
     assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
+
+
+def test_clear_active_model():
+    @mlflow.trace
+    def predict(model_input):
+        return model_input
+
+    model = mlflow.create_external_model(name="test_model")
+    set_active_model(name=model.name)
+    assert mlflow.get_active_model_id() == model.model_id
+    predict(1)
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model.model_id
+
+    clear_active_model()
+    assert mlflow.get_active_model_id() is None
+    with mlflow.start_run():
+        mlflow.log_metric("metric", 1)
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.metrics is None
+
+    predict(1)
+    traces = get_traces()
+    assert len(traces) == 2
+    assert TraceMetadataKey.MODEL_ID not in traces[0].info.request_metadata
+
+    # load model sets the active model again
+    model_info = mlflow.pyfunc.log_model(
+        name="test_model",
+        python_model=predict,
+        input_example=["a", "b", "c"],
+    )
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    loaded_model.predict(["a", "b", "c"])
+    traces = get_traces()
+    assert len(traces) == 3
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
+
+    clear_active_model()
+    assert mlflow.get_active_model_id() is None
+
+    # ensure clear_active_model works when no model is set
+    clear_active_model()
+    assert mlflow.get_active_model_id() is None
+
+
+def test_set_logged_model_tags_error():
+    with pytest.raises(MlflowException, match="You may not have access to the logged model"):
+        mlflow.set_logged_model_tags("non-existing-model-id", {"tag": "value"})

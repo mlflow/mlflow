@@ -1,8 +1,10 @@
 import logging
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
@@ -10,10 +12,11 @@ from mlflow.genai.evaluation.utils import (
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
-from mlflow.genai.utils.trace_utils import is_model_traced
+from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
     _is_model_deployment_endpoint_uri,
 )
+from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
@@ -29,6 +32,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+@experimental
 @dataclass
 class EvaluationResult:
     run_id: str
@@ -36,7 +40,10 @@ class EvaluationResult:
     result_df: "pd.DataFrame"
 
 
-def evaluate(
+# TODO (B-Step62): Remove underscore from the function name once we release
+# the new evaluate API
+@experimental
+def _evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
     predict_fn: Optional[Callable[..., Any]] = None,
@@ -70,7 +77,7 @@ def evaluate(
 
         mlflow.genai.evaluate(
             data=trace_df,
-            scorers=[correctness(), safety()],
+            scorers=[correctness, safety],
         )
 
     Built-in scorers will understand the model inputs, outputs, and other intermediate
@@ -152,7 +159,7 @@ def evaluate(
         mlflow.genai.evaluate(
             data=data,
             predict_fn=predict_fn,
-            scorers=[correctness(), safety()],
+            scorers=[correctness, safety],
         )
 
     Args:
@@ -255,22 +262,43 @@ def evaluate(
 
     valid_data_for_builtin_scorers(data, builtin_scorers, predict_fn)
 
-    if predict_fn:
-        sample_input = data.iloc[0]["request"]
-        if not is_model_traced(predict_fn, sample_input):
-            logger.info("Annotating predict_fn with tracing since it is not already traced.")
-            predict_fn = mlflow.trace(predict_fn)
+    # "request" column must exist after conversion
+    sample_input = data.iloc[0]["request"]
 
-    result = mlflow.models.evaluate(
-        # Wrap the prediction function to unwrap the inputs dictionary into keyword arguments.
-        model=(lambda request: predict_fn(**request)) if predict_fn else None,
-        data=data,
-        evaluator_config=evaluation_config,
-        extra_metrics=extra_metrics,
-        model_type=GENAI_CONFIG_NAME,
-        model_id=model_id,
-        _called_from_genai_evaluate=True,
-    )
+    # Only check 'inputs' column when it is not derived from the trace object
+    if "trace" not in data.columns and not isinstance(sample_input, dict):
+        raise MlflowException.invalid_parameter_value(
+            "The 'inputs' column must be a dictionary of field names and values. "
+            "For example: {'query': 'What is MLflow?'}"
+        )
+
+    if predict_fn:
+        predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Hint: Inferred schema contains integer column\(s\).*",
+            category=UserWarning,
+        )
+        # Suppress numpy warning about ragged nested sequences. This is raised when passing
+        # a dataset that contains complex object to mlflow.evaluate(). MLflow converts data
+        # into numpy array to compute dataset digest, which triggers the warning.
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Creating an ndarray from ragged nested sequences",
+            module="mlflow.data.evaluation_dataset",
+        )
+
+        result = mlflow.models.evaluate(
+            model=predict_fn,
+            data=data,
+            evaluator_config=evaluation_config,
+            extra_metrics=extra_metrics,
+            model_type=GENAI_CONFIG_NAME,
+            model_id=model_id,
+            _called_from_genai_evaluate=True,
+        )
 
     return EvaluationResult(
         run_id=result._run_id,
@@ -279,7 +307,8 @@ def evaluate(
     )
 
 
-def to_predict_fn(endpoint_uri: str) -> Callable:
+@experimental
+def _to_predict_fn(endpoint_uri: str) -> Callable:
     """
     Convert an endpoint URI to a predict function.
 
@@ -297,7 +326,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
 
         .. code-block:: python
 
-            from mlflow.genai.scorers import all_scorers
+            from mlflow.genai.scorers import get_all_scorers
 
             data = [
                 {
@@ -321,7 +350,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
             mlflow.genai.evaluate(
                 data=data,
                 predict_fn=predict_fn,
-                scorers=all_scorers,
+                scorers=get_all_scorers(),
             )
 
         You can also directly invoke the function to validate if the endpoint works

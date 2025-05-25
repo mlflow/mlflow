@@ -249,3 +249,22 @@ def test_register_model_prints_uc_model_version_url(monkeypatch):
 
     # Clean up the global variables set by the server
     mlflow.set_registry_uri(orig_registry_uri)
+
+
+def test_set_model_version_tag():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input):
+            return model_input
+
+    mlflow.pyfunc.log_model(name="model", python_model=TestModel(), registered_model_name="Model 1")
+
+    mv = MlflowClient().get_model_version("Model 1", "1")
+    assert mv.tags == {}
+    mlflow.set_model_version_tag(
+        name="Model 1",
+        version=1,
+        key="key",
+        value="value",
+    )
+    mv = MlflowClient().get_model_version("Model 1", "1")
+    assert mv.tags == {"key": "value"}

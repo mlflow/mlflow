@@ -1,5 +1,6 @@
 import json
 import time
+from unittest.mock import patch
 
 import pytest
 
@@ -358,3 +359,36 @@ def test_feedback_value_proto_dict_conversion(value, error):
     result = FeedbackValue.from_dictionary(feedback_dict)
     assert result.value == result.value
     assert result.error == result.error
+
+
+@pytest.mark.parametrize("stack_trace_length", [500, 2000])
+def test_feedback_from_exception(stack_trace_length):
+    err = None
+    try:
+        raise ValueError("An error occurred.")
+    except ValueError as e:
+        err = e
+
+    # Mock traceback.format_tb to simulate long stack trace
+    with patch(
+        "mlflow.entities.assessment.traceback.format_tb",
+        return_value=["A" * (stack_trace_length - 9) + "last line"],
+    ):
+        feedback = Feedback(error=err)
+    assert feedback.error.error_code == "ValueError"
+    assert feedback.error.error_message == "An error occurred."
+    assert feedback.error.stack_trace is not None
+
+    # Feedback should expose error_code and error_message for backward compatibility
+    assert feedback.error_code == "ValueError"
+    assert feedback.error_message == "An error occurred."
+
+    proto = feedback.to_proto()
+    assert len(proto.feedback.error.stack_trace) == min(stack_trace_length, 1000)
+    assert proto.feedback.error.stack_trace.endswith("last line")
+    if stack_trace_length > 1000:
+        assert proto.feedback.error.stack_trace.startswith("[Stack trace is truncated]\n...\n")
+
+    recovered = Feedback.from_proto(feedback.to_proto())
+    assert feedback.error.error_code == recovered.error.error_code
+    assert feedback.error.error_message == recovered.error.error_message
