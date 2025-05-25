@@ -214,9 +214,7 @@ def _wrap_function(
         def _wrapping_logic(fn, args, kwargs):
             span_name = name or fn.__name__
 
-            with start_span(
-                name=span_name, span_type=span_type, attributes=attributes
-            ) as span:
+            with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
                 inputs = capture_function_input_args(fn, args, kwargs)
                 span.set_inputs(inputs)
@@ -252,7 +250,6 @@ def _wrap_function(
         async def wrapper(*args, **kwargs):
             with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                 return wrapping_coro.send(await fn(*args, **kwargs))
-
     else:
 
         def wrapper(*args, **kwargs):
@@ -335,11 +332,7 @@ def _wrap_generator(
             event = SpanEvent(
                 name=STREAM_CHUNK_EVENT_NAME_FORMAT.format(index=chunk_index),
                 # OpenTelemetry SpanEvent only support str-str key-value pairs for attributes
-                attributes={
-                    STREAM_CHUNK_EVENT_VALUE_KEY: json.dumps(
-                        chunk, cls=TraceJSONEncoder
-                    )
-                },
+                attributes={STREAM_CHUNK_EVENT_VALUE_KEY: json.dumps(chunk, cls=TraceJSONEncoder)},
             )
             span.add_event(event)
         except Exception as e:
@@ -370,7 +363,6 @@ def _wrap_generator(
                     yield value
                     i += 1
             _end_stream_span(span, inputs, outputs, output_reducer)
-
     else:
 
         async def wrapper(*args, **kwargs):
@@ -873,9 +865,7 @@ def get_current_active_span() -> Optional[LiveSpan]:
 
     trace_manager = InMemoryTraceManager.get_instance()
     request_id = json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
-    return trace_manager.get_span_from_id(
-        request_id, encode_span_id(otel_span.context.span_id)
-    )
+    return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
 
 
 def get_last_active_trace_id(thread_local: bool = False) -> Optional[str]:
@@ -918,9 +908,7 @@ def get_last_active_trace_id(thread_local: bool = False) -> Optional[str]:
         trace = mlflow.get_trace(trace_id)
     """
     return (
-        _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get()
-        if thread_local
-        else _LAST_ACTIVE_TRACE_ID_GLOBAL
+        _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get() if thread_local else _LAST_ACTIVE_TRACE_ID_GLOBAL
     )
 
 
@@ -1287,9 +1275,7 @@ def log_trace(
     """
     if intermediate_outputs:
         if attributes:
-            attributes.update(
-                SpanAttributeKey.INTERMEDIATE_OUTPUTS, intermediate_outputs
-            )
+            attributes.update(SpanAttributeKey.INTERMEDIATE_OUTPUTS, intermediate_outputs)
         else:
             attributes = {SpanAttributeKey.INTERMEDIATE_OUTPUTS: intermediate_outputs}
 
@@ -1302,11 +1288,9 @@ def log_trace(
     )
     span.end(
         outputs=response,
-        end_time_ns=(
-            (start_time_ms + execution_time_ms) * 1000000
-            if start_time_ms and execution_time_ms
-            else None
-        ),
+        end_time_ns=(start_time_ms + execution_time_ms) * 1000000
+        if start_time_ms and execution_time_ms
+        else None,
     )
 
     return span.trace_id
@@ -1330,9 +1314,7 @@ def _merge_trace(
     # The merged trace should have the same trace ID as the parent trace.
     with trace_manager.get_trace(target_trace_id) as parent_trace:
         if not parent_trace:
-            _logger.warning(
-                f"Parent trace with ID {target_trace_id} not found. Skipping merge."
-            )
+            _logger.warning(f"Parent trace with ID {target_trace_id} not found. Skipping merge.")
             return
 
         new_trace_id = parent_trace.span_dict[target_parent_span_id]._trace_id
