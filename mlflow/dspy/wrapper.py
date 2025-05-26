@@ -15,6 +15,10 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.pyfunc import PythonModel
 from mlflow.types.schema import DataType, Schema
 
+_INVALID_SIZE_MESSAGE = (
+    "Dspy model doesn't support batch inference or empty input. Please provide a single input."
+)
+
 
 class DspyModelWrapper(PythonModel):
     """MLflow PyFunc wrapper class for Dspy models.
@@ -43,7 +47,9 @@ class DspyModelWrapper(PythonModel):
         converted_inputs = self._get_model_input(inputs)
 
         with dspy.context(**self.dspy_settings):
-            if isinstance(inputs, dict):
+            if isinstance(converted_inputs, dict):
+                # We pass a dict as keyword args and don't allow DSPy models
+                # to receive a single dict.
                 return self.model(**converted_inputs).toDict()
             else:
                 return self.model(converted_inputs).toDict()
@@ -81,7 +87,18 @@ class DspyModelWrapper(PythonModel):
                     yield output
 
     def _get_model_input(self, inputs: Any) -> Union[str, dict[str, Any]]:
-        """Convert the PythonModel input into the DSPy program input"""
+        """Convert the PythonModel input into the DSPy program input
+
+        Examples of expected conversions:
+        - str -> str
+        - dict -> dict
+        - np.ndarray with one element -> single element
+        - pd.DataFrame with one row and string column -> single row dict
+        - pd.DataFrame with one row and non-string column -> single element
+        - list -> raises an exception
+        - np.ndarray with more than one element -> raises an exception
+        - pd.DataFrame with more than one row -> raises an exception
+        """
         import numpy as np
         import pandas as pd
 
@@ -93,16 +110,22 @@ class DspyModelWrapper(PythonModel):
                 INVALID_PARAMETER_VALUE,
             )
         if isinstance(inputs, pd.DataFrame):
-            inputs = inputs.values
-        if isinstance(inputs, np.ndarray):
-            flatten = inputs.reshape(-1)
-            if len(flatten) > 1:
+            if len(inputs) != 1:
                 raise MlflowException(
-                    "Dspy model doesn't support multiple inputs or batch inference. Please "
-                    "provide a single input.",
+                    _INVALID_SIZE_MESSAGE,
                     INVALID_PARAMETER_VALUE,
                 )
-            inputs = str(flatten[0])
+            if all(isinstance(col, str) for col in inputs.columns):
+                inputs = inputs.to_dict(orient="records")[0]
+            else:
+                inputs = inputs.values[0]
+        if isinstance(inputs, np.ndarray):
+            if len(inputs) != 1:
+                raise MlflowException(
+                    _INVALID_SIZE_MESSAGE,
+                    INVALID_PARAMETER_VALUE,
+                )
+            inputs = inputs[0]
 
         return inputs
 
