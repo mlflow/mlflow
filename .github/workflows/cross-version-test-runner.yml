@@ -11,7 +11,7 @@ jobs:
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ github.event.issue.pull_request && github.event.comment.body }}
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/cvt') }}
     permissions:
       pull-requests: write
       actions: write

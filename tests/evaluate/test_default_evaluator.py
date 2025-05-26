@@ -629,7 +629,10 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_
             model_type="classifier",
             targets=target_col,
             evaluators="default",
-            evaluator_config={"explainability_algorithm": "kernel"},
+            evaluator_config={
+                "explainability_algorithm": "kernel",
+                "log_explainer": True,
+            },
         )
     run_id = run.info.run_id
     run_data = get_run_data(run_id)

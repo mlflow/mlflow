@@ -40,6 +40,7 @@ from pyspark.sql.functions import col
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import RunStatus
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.pyspark.ml import (
     _gen_estimator_metadata,
@@ -206,7 +207,7 @@ def test_basic_estimator(dataset_binomial):
         )
         assert run_data.tags == get_expected_class_tags(estimator)
         if isinstance(estimator, MultilayerPerceptronClassifier):
-            with pytest.raises(OSError, match=r"No such file or directory"):
+            with pytest.raises(MlflowException, match=r"No model named 'model' was found"):
                 load_model_by_run_id(run_id)
         else:
             loaded_model = load_model_by_run_id(run_id)

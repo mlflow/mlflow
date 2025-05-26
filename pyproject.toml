@@ -272,12 +272,18 @@ exclude = [
   "mlflow/models/notebook_resources/eval_with_synthetic_example.py",
   "mlflow/server/js",
   "mlflow/store/db_migrations",
+  "mlflow/genai/__init__.py",
+  "mlflow/genai/datasets/__init__.py",
+  "mlflow/genai/labeling/__init__.py",
+  "mlflow/genai/label_schemas/__init__.py",
   "tests/protos",
 ]
 typing-extensions-allowlist = [
   # Docs: https://typing-extensions.readthedocs.io/en/latest/
   "typing_extensions.Self", # Added in 4.0.0
 ]
+# Rules that are only enabled for code examples.
+example-rules = ["lazy-builtin-import", "log-model-artifact-path"]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]
@@ -303,6 +309,19 @@ extend-exclude = [
   # Vendored files
   "mlflow/utils/gorilla.py",
 ]
+
+[tool.pytest.ini_options]
+addopts = "-p no:legacypath --strict-markers --color=yes --durations=10 --showlocals -v"
+filterwarnings = [
+  # Prevent deprecated numpy type aliases from being used
+  "error:^`np\\.[a-z]+` is a deprecated alias for.+:DeprecationWarning:mlflow",
+  "error:^`np\\.[a-z]+` is a deprecated alias for.+:DeprecationWarning:tests",
+  "error::pytest.PytestCollectionWarning",
+  # TODO: In pytest 8.4.0 (not released yet), this can be removed.
+  # Raise an error if async tests without the `@pytest.mark.asyncio` decorator are found.
+  "error::pytest.PytestUnhandledCoroutineWarning",
+]
+timeout = 1200
 
 [tool.typos.default]
 extend-ignore-re = [

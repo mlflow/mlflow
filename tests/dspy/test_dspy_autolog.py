@@ -18,7 +18,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, score_in_model_serving, skip_when_testing_trace_sdk
@@ -891,7 +891,7 @@ def test_autolog_link_traces_loaded_model_custom_module():
     model_infos = []
     for _ in range(5):
         with mlflow.start_run():
-            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model"))
+            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model", pip_requirements=[]))
 
     for model_info in model_infos:
         loaded_model = mlflow.dspy.load_model(model_info.model_uri)
@@ -901,7 +901,7 @@ def test_autolog_link_traces_loaded_model_custom_module():
     assert len(traces) == len(model_infos)
     for trace in traces:
         model_id = json.loads(trace.data.request)["args"][0]
-        assert model_id == trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
+        assert model_id == trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
 
 
 @skip_when_testing_trace_sdk
@@ -915,7 +915,7 @@ def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
     model_infos = []
     for _ in range(5):
         with mlflow.start_run():
-            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model"))
+            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model", pip_requirements=[]))
 
     for model_info in model_infos:
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -925,7 +925,7 @@ def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
     assert len(traces) == len(model_infos)
     for trace in traces:
         model_id = json.loads(trace.data.request)["args"][0]
-        assert model_id == trace.info.request_metadata[SpanAttributeKey.MODEL_ID]
+        assert model_id == trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
 
 
 @skip_when_testing_trace_sdk
@@ -941,7 +941,7 @@ def test_autolog_link_traces_active_model():
     model_infos = []
     for _ in range(5):
         with mlflow.start_run():
-            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model"))
+            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model", pip_requirements=[]))
 
     for model_info in model_infos:
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -952,7 +952,7 @@ def test_autolog_link_traces_active_model():
     for trace in traces:
         model_id = json.loads(trace.data.request)["args"][0]
         assert model_id != model.model_id
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model.model_id
 
 
 @skip_when_testing_trace_sdk
@@ -963,7 +963,7 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
     )
     dspy_model = CoT()
 
-    model_info = mlflow.dspy.log_model(dspy_model, name="model")
+    model_info = mlflow.dspy.log_model(dspy_model, name="model", pip_requirements=[])
 
     with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
         loaded_model = mlflow.dspy.load_model(model_info.model_uri)
@@ -972,4 +972,4 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
     traces = get_traces()
     assert len(traces) == 1
     model_id = json.loads(traces[0].data.request)["args"][0]
-    assert model_id == traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
+    assert model_id == traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]

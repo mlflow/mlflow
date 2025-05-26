@@ -1,4 +1,5 @@
 import logging
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -39,8 +40,10 @@ class EvaluationResult:
     result_df: "pd.DataFrame"
 
 
+# TODO (B-Step62): Remove underscore from the function name once we release
+# the new evaluate API
 @experimental
-def evaluate(
+def _evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
     predict_fn: Optional[Callable[..., Any]] = None,
@@ -74,7 +77,7 @@ def evaluate(
 
         mlflow.genai.evaluate(
             data=trace_df,
-            scorers=[correctness(), safety()],
+            scorers=[correctness, safety],
         )
 
     Built-in scorers will understand the model inputs, outputs, and other intermediate
@@ -156,7 +159,7 @@ def evaluate(
         mlflow.genai.evaluate(
             data=data,
             predict_fn=predict_fn,
-            scorers=[correctness(), safety()],
+            scorers=[correctness, safety],
         )
 
     Args:
@@ -272,15 +275,30 @@ def evaluate(
     if predict_fn:
         predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
-    result = mlflow.models.evaluate(
-        model=predict_fn,
-        data=data,
-        evaluator_config=evaluation_config,
-        extra_metrics=extra_metrics,
-        model_type=GENAI_CONFIG_NAME,
-        model_id=model_id,
-        _called_from_genai_evaluate=True,
-    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Hint: Inferred schema contains integer column\(s\).*",
+            category=UserWarning,
+        )
+        # Suppress numpy warning about ragged nested sequences. This is raised when passing
+        # a dataset that contains complex object to mlflow.evaluate(). MLflow converts data
+        # into numpy array to compute dataset digest, which triggers the warning.
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Creating an ndarray from ragged nested sequences",
+            module="mlflow.data.evaluation_dataset",
+        )
+
+        result = mlflow.models.evaluate(
+            model=predict_fn,
+            data=data,
+            evaluator_config=evaluation_config,
+            extra_metrics=extra_metrics,
+            model_type=GENAI_CONFIG_NAME,
+            model_id=model_id,
+            _called_from_genai_evaluate=True,
+        )
 
     return EvaluationResult(
         run_id=result._run_id,
@@ -290,7 +308,7 @@ def evaluate(
 
 
 @experimental
-def to_predict_fn(endpoint_uri: str) -> Callable:
+def _to_predict_fn(endpoint_uri: str) -> Callable:
     """
     Convert an endpoint URI to a predict function.
 
@@ -308,7 +326,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
 
         .. code-block:: python
 
-            from mlflow.genai.scorers import all_scorers
+            from mlflow.genai.scorers import get_all_scorers
 
             data = [
                 {
@@ -332,7 +350,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
             mlflow.genai.evaluate(
                 data=data,
                 predict_fn=predict_fn,
-                scorers=all_scorers,
+                scorers=get_all_scorers(),
             )
 
         You can also directly invoke the function to validate if the endpoint works

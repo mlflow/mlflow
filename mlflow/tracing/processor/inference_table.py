@@ -7,8 +7,9 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
-from mlflow.entities.trace_info_v2 import TraceInfoV2
-from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION,
@@ -93,18 +94,18 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
             tags.update(dependencies_schema)
 
         if span._parent is None:
-            trace_info = TraceInfoV2(
-                request_id=trace_id,
+            trace_info = TraceInfo(
+                trace_id=trace_id,
                 client_request_id=databricks_request_id,
                 # NB: Agent framework populate the MLFLOW_EXPERIMENT_ID environment variable
                 #   with the experiment ID to which the model is logged. We don't use the
                 #   _get_experiment_id() method because it will fallback to the default
                 #   experiment if the MLFLOW_EXPERIMENT_ID is not set.
-                experiment_id=MLFLOW_EXPERIMENT_ID.get(),
-                timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
-                execution_time_ms=None,
-                status=TraceStatus.IN_PROGRESS,
-                request_metadata=self._get_trace_metadata(),
+                trace_location=TraceLocation.from_experiment_id(MLFLOW_EXPERIMENT_ID.get()),
+                request_time=span.start_time // 1_000_000,  # nanosecond to millisecond
+                execution_duration=None,
+                state=TraceState.IN_PROGRESS,
+                trace_metadata=self._get_trace_metadata(),
                 tags=tags,
             )
             self._trace_manager.register_trace(span.context.trace_id, trace_info)
@@ -120,14 +121,14 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
         if span._parent is not None:
             return
 
-        request_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-        with self._trace_manager.get_trace(request_id) as trace:
+        trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+        with self._trace_manager.get_trace(trace_id) as trace:
             if trace is None:
-                _logger.debug(f"Trace data with request ID {request_id} not found.")
+                _logger.debug(f"Trace data with trace ID {trace_id} not found.")
                 return
 
-            trace.info.execution_time_ms = (span.end_time - span.start_time) // 1_000_000
-            trace.info.status = TraceStatus.from_otel_status(span.status)
+            trace.info.execution_duration = (span.end_time - span.start_time) // 1_000_000
+            trace.info.state = TraceState.from_otel_status(span.status)
             deduplicate_span_names_in_place(list(trace.span_dict.values()))
 
         super().on_end(span)
@@ -150,7 +151,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 from mlflow.tracking.fluent import _get_active_model_id_global
 
                 if active_model_id := _get_active_model_id_global():
-                    metadata[SpanAttributeKey.MODEL_ID] = active_model_id
+                    metadata[TraceMetadataKey.MODEL_ID] = active_model_id
                     _logger.debug(
                         f"Adding active model ID {active_model_id} to the trace metadata."
                     )
