@@ -367,7 +367,7 @@ class Linter(ast.NodeVisitor):
             offset=example.loc,
         )
         linter.visit(tree)
-        return [v for v in linter.violations if isinstance(v.rule, (rules.LogModelArtifactPath,))]
+        return [v for v in linter.violations if v.rule.name in config.example_rules]
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
