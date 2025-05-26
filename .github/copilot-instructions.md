@@ -1,7 +1,7 @@
-
 # Copilot Instructions
 
 This file provides guidelines and instructions for customizing GitHub Copilot's behavior in this repository.
+
 ## Linting and Formatting
 
 We use `pre-commit` to run linters and formatters on the codebase. See [`lint.yml`](/.github/workflows/lint.yml) for instructions on how to install required tools.
