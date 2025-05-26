@@ -107,7 +107,7 @@ class DspyModelWrapper(PythonModel):
             if all(isinstance(col, str) for col in inputs.columns):
                 inputs = inputs.to_dict(orient="records")[0]
             else:
-                inputs = inputs.values
+                inputs = inputs.values[0]
         if isinstance(inputs, np.ndarray):
             if len(inputs) != 1:
                 raise MlflowException(

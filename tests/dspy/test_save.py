@@ -132,6 +132,7 @@ def test_dspy_save_preserves_object_state():
             self.generate_answer = dspy.ChainOfThought(GenerateAnswer)
 
         def forward(self, question):
+            assert question == "What is 2 + 2?"
             context = self.retrieve(question).passages
             prediction = self.generate_answer(context=context, question=question)
             return dspy.Prediction(context=context, answer=prediction.answer)
@@ -231,6 +232,7 @@ def test_serving_logged_model(dummy_model):
             self.prog = dspy.ChainOfThought("question -> answer")
 
         def forward(self, question):
+            assert question == "What is 2 + 2?"
             return self.prog(question=question)
 
     dspy_model = CoT()
@@ -247,7 +249,7 @@ def test_serving_logged_model(dummy_model):
             dspy_model,
             name=artifact_path,
             signature=signature,
-            input_example=input_examples,
+            input_example=["What is 2 + 2?"],
         )
         model_uri = model_info.model_uri
     dspy.settings.configure(lm=None)
@@ -274,6 +276,8 @@ def test_log_model_multi_inputs(dummy_model):
             self.prog = dspy.ChainOfThought("question, hint -> answer")
 
         def forward(self, question, hint):
+            assert question == "What is 2 + 2?"
+            assert hint == "Hint: 2 + 2 = ?"
             return self.prog(question=question, hint=hint)
 
     dspy_model = MultiInputCoT()
