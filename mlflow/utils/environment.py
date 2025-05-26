@@ -464,12 +464,20 @@ def _get_uv_envs_for_databricks() -> dict[str, str]:
     - https://docs.databricks.com/aws/en/compute/serverless/dependencies#setup-using-the-secrets-cli-or-rest-api
     - https://docs.astral.sh/uv/configuration/environment/#environment-variables
     """
-    from mlflow.utils.databricks_utils import _get_dbutils, is_in_databricks_runtime
+    from mlflow.utils.databricks_utils import (
+        _get_dbutils,
+        _NoDbutilsError,
+        is_in_databricks_runtime,
+    )
 
     if not is_in_databricks_runtime():
         return {}
 
-    dbutils = _get_dbutils()
+    try:
+        dbutils = _get_dbutils()
+    except _NoDbutilsError:
+        return {}
+
     envs: dict[str, str] = {}
     mapping = {
         # UV environment variable -> corresponding secret key
@@ -478,10 +486,13 @@ def _get_uv_envs_for_databricks() -> dict[str, str]:
         "SSL_CERT_FILE": "pip-cert",
     }
     for uv_env_var, secret_key in mapping.items():
-        if url := dbutils.secrets.get(scope="databricks-package-management", key=secret_key):
-            envs[uv_env_var] = url
+        try:
+            val = dbutils.secrets.get(scope="databricks-package-management", key=secret_key)
+        except Exception:
+            continue  # If the secret is not found, skip setting this environment variable
 
-    _logger.debug(f"UV environment variables: {envs}")
+        envs[uv_env_var] = val
+
     return envs
 
 
