@@ -39,6 +39,6 @@ runs:
     - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}
-    - uses: astral-sh/setup-uv@24d3975a35eafe2d850f72fbc4b3f7423b8d4bb4 # v3.5.1
+    - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
       with:
         version: 0.7.8
