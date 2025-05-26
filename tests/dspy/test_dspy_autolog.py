@@ -891,7 +891,7 @@ def test_autolog_link_traces_loaded_model_custom_module():
     model_infos = []
     for _ in range(5):
         with mlflow.start_run():
-            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model"))
+            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model", pip_requirements=[]))
 
     for model_info in model_infos:
         loaded_model = mlflow.dspy.load_model(model_info.model_uri)
@@ -915,7 +915,7 @@ def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
     model_infos = []
     for _ in range(5):
         with mlflow.start_run():
-            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model"))
+            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model", pip_requirements=[]))
 
     for model_info in model_infos:
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -941,7 +941,7 @@ def test_autolog_link_traces_active_model():
     model_infos = []
     for _ in range(5):
         with mlflow.start_run():
-            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model"))
+            model_infos.append(mlflow.dspy.log_model(dspy_model, name="model", pip_requirements=[]))
 
     for model_info in model_infos:
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -963,7 +963,7 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
     )
     dspy_model = CoT()
 
-    model_info = mlflow.dspy.log_model(dspy_model, name="model")
+    model_info = mlflow.dspy.log_model(dspy_model, name="model", pip_requirements=[])
 
     with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
         loaded_model = mlflow.dspy.load_model(model_info.model_uri)

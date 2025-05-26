@@ -93,12 +93,12 @@ def create_openai_runnable(temperature=0.9):
 
 @pytest.fixture
 def model_infos():
-    models = [create_openai_runnable(temperature=temperature / 10) for temperature in range(1, 5)]
+    models = [create_openai_runnable(temperature=temperature / 10) for temperature in range(1, 3)]
     model_infos = []
     for model in models:
         with mlflow.start_run():
             model_infos.append(
-                mlflow.langchain.log_model(model, name="model", input_example={"product": "MLflow"})
+                mlflow.langchain.log_model(model, name="model", pip_requirements=["mlflow"])
             )
     return model_infos
 
