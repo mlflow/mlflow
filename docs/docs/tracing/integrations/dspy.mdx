@@ -163,7 +163,11 @@ mlflow.dspy.autolog(log_traces_from_compile=True)
 
 # Optimize the DSPy program as usual
 tp = dspy.MIPROv2(metric=metric, auto="medium", num_threads=24)
-optimized = tp.compile(cot, trainset=trainset, ...)
+optimized = tp.compile(
+    cot,
+    trainset=trainset,
+    # other parameters...
+)
 ```
 
 ### Disable auto-tracing

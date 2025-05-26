@@ -2808,7 +2808,11 @@ top-level `predictions` parameter in <APILink fn="mlflow.evaluate" />:
 
 ```python
 # Assume that the model output is saved to the pandas_df["model_output"] column
-mlflow.evaluate(data=pandas_df, predictions="model_output", ...)
+mlflow.evaluate(
+    data=pandas_df,
+    predictions="model_output",
+    # other parameters...
+)
 ```
 
 If you are using an MLflow PandasDataset, you must specify the column name that contains the model output using
@@ -2818,7 +2822,11 @@ the `predictions` parameter in <APILink fn="mlflow.data.from_pandas" />, and spe
 ```python
 # Assume that the model output is saved to the pandas_df["model_output"] column
 dataset = mlflow.data.from_pandas(pandas_df, predictions="model_output")
-mlflow.evaluate(data=pandas_df, predictions=None, ...)
+mlflow.evaluate(
+    data=pandas_df,
+    predictions=None,
+    # other parameters...
+)
 ```
 
 When your model has multiple outputs, you must specify one column among the model output columns as the predictions
