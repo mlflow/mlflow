@@ -4,6 +4,7 @@ import logging
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,7 @@ from mlflow.environment_variables import (
     _MLFLOW_TESTING,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
+    MLFLOW_LOCK_MODEL_DEPENDENCIES,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
 )
 from mlflow.exceptions import MlflowException
@@ -450,7 +452,81 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
             )
         _logger.warning(msg)
         _logger.debug("", exc_info=True)
-        return fallback
+        return _lock_requirements(fallback)
+
+
+def _get_uv_envs_for_databricks() -> dict[str, str]:
+    """
+    Fetches secrets to configure pip on Databricks, and returns them as environment variables for
+    uv. Returns an empty dictionary if not running in Databricks.
+
+    References:
+    - https://docs.databricks.com/aws/en/compute/serverless/dependencies#setup-using-the-secrets-cli-or-rest-api
+    - https://docs.astral.sh/uv/configuration/environment/#environment-variables
+    """
+    from mlflow.utils.databricks_utils import _get_dbutils, is_in_databricks_runtime
+
+    if not is_in_databricks_runtime():
+        return {}
+
+    dbutils = _get_dbutils()
+    envs: dict[str, str] = {}
+    mapping = {
+        # UV environment variable -> corresponding secret key
+        "UV_INDEX_URL": "pip-index-url",
+        "UV_EXTRA_INDEX_URL": "pip-extra-index-urls",
+        "SSL_CERT_FILE": "pip-cert",
+    }
+    for uv_env_var, secret_key in mapping.items():
+        if url := dbutils.secrets.get(scope="databricks-package-management", key=secret_key):
+            envs[uv_env_var] = url
+
+    _logger.debug(f"UV environment variables: {envs}")
+    return envs
+
+
+def _lock_requirements(reqs: list[str]) -> list[str]:
+    if not MLFLOW_LOCK_MODEL_DEPENDENCIES.get():
+        return reqs
+
+    uv_bin = shutil.which("uv")
+    if uv_bin is None:
+        _logger.debug("`uv` binary not found. Skipping locking requirements.")
+        return reqs
+
+    _logger.debug("Locking requirements with `uv`...")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_dir_path = pathlib.Path(tmp_dir)
+        in_file = tmp_dir_path / "requirements.in"
+        in_file.write_text("\n".join(reqs))
+        out_file = tmp_dir_path / "requirements.txt"
+        try:
+            out = subprocess.check_output(
+                [
+                    uv_bin,
+                    "pip",
+                    "compile",
+                    "--color=never",
+                    "--universal",
+                    "--no-annotate",
+                    "--no-header",
+                    f"--python-version={PYTHON_VERSION}",
+                    f"--output-file={out_file}",
+                    in_file,
+                ],
+                stderr=subprocess.STDOUT,
+                env=os.environ.copy() | _get_uv_envs_for_databricks(),
+                text=True,
+            )
+            _logger.debug("Successfully compiled pip requirements with `uv`:\n%s", out)
+        except subprocess.CalledProcessError as e:
+            _logger.debug(
+                f"Failed to compile pip requirements. Falling back to the original requirements. "
+                f"Output: {e.stdout}"
+            )
+            return reqs
+
+        return out_file.read_text().splitlines()
 
 
 def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):
@@ -574,6 +650,8 @@ def _process_pip_requirements(
 
     # Check if pip requirements contain incompatible version with the current environment
     warn_dependency_requirement_mismatches(sanitized_pip_reqs)
+
+    sanitized_pip_reqs = _lock_requirements(sanitized_pip_reqs)
 
     if constraints:
         sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
