@@ -1,0 +1,115 @@
+---
+sidebar_position: 15
+toc_max_heading_level: 4
+sidebar_label: Overview
+pagination_next: model-registry/tutorial
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# MLflow Model Registry
+
+The MLflow Model Registry component is a centralized model store, set of APIs, and UI, to
+collaboratively manage the full lifecycle of an MLflow Model. It provides model lineage (which
+MLflow experiment and run produced the model), model versioning, model aliasing, model tagging, and
+annotations.
+
+## Why Model Registry?
+
+As machine learning projects grow in complexity and scale, managing models manually across different environments, teams, and iterations becomes increasingly error-prone and inefficient.
+The MLflow Model Registry addresses this challenge by providing a centralized, structured system for organizing and governing ML models throughout their lifecycle.
+
+Using the Model Registry offers the following benefits:
+
+- **Version Control**: The registry automatically tracks versions of each model, allowing teams to compare iterations, roll back to previous states, and manage multiple versions in parallel (e.g., staging vs. production).
+- **Model Lineage and Traceability**: Each registered model version is linked to the MLflow run, logged model or notebook that produced it, enabling full reproducibility. You can trace back exactly how a model was trained, with what data and parameters.
+- **Production-Ready Workflows**: Features like model aliases (e.g., @champion) and tags make it easier to manage deployment workflows, promoting models to experimental, staging, or production environments in a controlled and auditable way.
+- **Governance and Compliance**: With structured metadata, tagging, and role-based access controls (when used with a backend like Databricks or a managed MLflow service), the Model Registry supports governance requirements critical for enterprise-grade ML operations.
+
+Whether you’re a solo data scientist or part of a large ML platform team, the Model Registry is a foundational component for scaling reliable and maintainable machine learning systems.
+
+## Concepts
+
+The Model Registry introduces a few concepts that describe and facilitate the full lifecycle of an MLflow Model.
+
+<dl>
+  <dt>
+    #### Model
+  </dt>
+  <dd>
+    An MLflow Model is created from an experiment or run that is logged with one of the model flavor’s
+    **`mlflow.<model_flavor>.log_model()`** methods. Once logged, this model can then be registered with the Model Registry.
+  </dd>
+  <dt>
+    #### Registered Model
+  </dt>
+  <dd>
+    An MLflow Model can be registered with the Model Registry. A registered model has a unique name, contains versions, aliases, tags, and other metadata.
+  </dd>
+  <dt>
+    #### Model Version
+  </dt>
+  <dd>
+    Each registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to
+    the same model name increments the version number. Model versions have tags, which can be useful for tracking attributes of the model version (e.g. _`pre_deploy_checks: "PASSED"`_)
+  </dd>
+  <dt>
+    #### Model URI
+  </dt>
+  <dd>
+    You can refer to the registered model by using a URI of this format: `models:/<model-name>/<model-version>`, e.g., if you have a registered model with name "MyModel" and version 1, the URI referring to the model is: `models:/MyModel/1`".
+  </dd>
+  <dt>
+    #### Model Alias \{#using-registered-model-aliases}
+  </dt>
+  <dd>
+    Model aliases allow you to assign a mutable, named reference to a particular version of a registered model. By assigning an alias to a specific model version,
+    you can use the alias to refer that model version via a model URI or the model registry API. For example, you can create an alias named **`champion`** that
+    points to version 1 of a model named **`MyModel`**. You can then refer to version 1 of **`MyModel`** by using the URI **`models:/MyModel@champion`**.
+
+    Aliases are especially useful for deploying models. For example, you could assign a **`champion`** alias to the model version intended for production traffic
+    and target this alias in production workloads. You can then update the model serving production traffic by reassigning the **`champion`** alias to a different model version.
+
+  </dd>
+  <dt>
+    #### Tags
+  </dt>
+  <dd>
+    Tags are key-value pairs that you associate with registered models and model versions, allowing you to label and categorize them by function or status. For example, you
+    could apply a tag with key **`"task"`** and value **`"question-answering"`** (displayed in the UI as **`task:question-answering`**) to registered models intended for question
+    answering tasks. At the model version level, you could tag versions undergoing pre-deployment validation with **`validation_status:pending`** and those cleared for deployment
+    with **`validation_status:approved`**.
+  </dd>
+  <dt>
+    #### Annotations and Descriptions
+  </dt>
+  <dd>
+    You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm
+    descriptions, dataset employed or methodology.
+  </dd>
+</dl>
+
+## Model Registry in practice
+
+The MLflow Model Registry is available in both open-source (OSS) MLflow and managed platforms like Databricks. Depending on the environment, the registry offers different
+levels of integration, governance, and collaboration features.
+
+### Model Registry in OSS MLflow
+
+In the open-source version of MLflow, the Model Registry provides both a UI and API for managing the lifecycle of machine learning models.
+You can register models, track versions, add tags and descriptions, and transition models between stages such as Staging and Production.
+
+To get started with the OSS Model Registry, refer to the [tutorial on model registry](./tutorial).
+
+### Model Resgitry in Databricks
+
+Databricks extends MLflow’s capabilities by integrating the Model Registry with Unity Catalog, enabling centralized governance, fine-grained access control, and cross-workspace collaboration.
+
+Key benefits of Unity Catalog integration include:
+
+- **Enhanced governance**: Apply access policies and permission controls to model assets.
+- **Cross-workspace access**: Register models once and access them across multiple Databricks workspaces.
+- **Model lineage**: Track which notebooks, datasets, and experiments were used to create each model.
+- **Discovery and reuse**: Browse and reuse production-grade models from a shared catalog.
+
+For more information, refer to the [Databricks documentation](https://docs.databricks.com/aws/en/machine-learning/manage-model-lifecycle) on managing the model lifecycle.
