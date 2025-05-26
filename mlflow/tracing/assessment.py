@@ -252,6 +252,7 @@ def log_feedback(
     rationale: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
     span_id: Optional[str] = None,
+    supersedes: Optional[str] = None,
 ) -> Assessment:
     """
     Logs feedback to a Trace. This API only takes keyword arguments.
@@ -278,6 +279,9 @@ def log_feedback(
         metadata: Additional metadata for the feedback.
         span_id: The ID of the span associated with the feedback, if it needs be
                 associated with a specific span in the trace.
+        supersedes: The ID of the assessment which this assessment supersedes. If provided,
+            the backend will automatically set the `valid` field to `False` for the
+            superseded assessment.
 
     Returns:
         :py:class:`~mlflow.entities.Assessment`: The created feedback assessment.
@@ -291,5 +295,6 @@ def log_feedback(
         rationale=rationale,
         metadata=metadata,
         span_id=span_id,
+        supersedes=supersedes,
     )
     return TracingClient().log_assessment(trace_id, assessment)

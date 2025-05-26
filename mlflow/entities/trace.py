@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.span import Span, SpanType
@@ -14,6 +14,9 @@ from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
+
+if TYPE_CHECKING:
+    from mlflow.entities.assessment import Assessment
 
 _logger = logging.getLogger(__name__)
 
@@ -225,6 +228,32 @@ class Trace(_MlflowObject):
                 )
 
         return [span for span in self.data.spans if _match_name(span) and _match_type(span)]
+
+    def search_assessments(
+        self, name: str, span_id: Optional[str] = None, *, all: bool = False
+    ) -> list["Assessment"]:
+        """
+        Get assessments for a given name / span ID. By default, this only returns assessments
+        that are valid (i.e. have not been superseded by another assessment). To return all
+        assessments, specify `all=True`.
+
+        Args:
+            name: The name of the assessment to get.
+            span_id: The span ID to get assessments for.
+                If not provided, all assessments for the given name will be returned.
+            all: If True, return all assessments for the given name, regardless of validity.
+
+        Returns:
+            A list of assessments with the given name.
+        """
+        return [
+            assessment
+            for assessment in self.info.assessments
+            if assessment.name == name
+            and (span_id is None or assessment.span_id == span_id)
+            # valid defaults to true, so Nones are valid
+            and (all or assessment.valid in (True, None))
+        ]
 
     @staticmethod
     def pandas_dataframe_columns() -> list[str]:

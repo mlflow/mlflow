@@ -267,6 +267,45 @@ def test_update_feedback(store, tracking_uri):
     assert call_args["metadata"] == {"model": "gpt-4o-mini"}
 
 
+@pytest.mark.parametrize("legacy_api", [True, False])
+def test_log_feedback_with_supersedes(store, tracking_uri, legacy_api):
+    if legacy_api:
+        mlflow.log_feedback(
+            trace_id="1234",
+            name="faithfulness",
+            value=1.0,
+            source=_LLM_ASSESSMENT_SOURCE,
+            rationale="This answer is very faithful.",
+            metadata={"model": "gpt-4o-mini"},
+            supersedes="a-12345",
+        )
+    else:
+        feedback = Feedback(
+            name="faithfulness",
+            value=1.0,
+            source=_LLM_ASSESSMENT_SOURCE,
+            rationale="This answer is very faithful.",
+            metadata={"model": "gpt-4o-mini"},
+            supersedes="a-12345",
+        )
+        mlflow.log_assessment(trace_id="1234", assessment=feedback)
+
+    assert store.create_assessment.call_count == 1
+    assessment = store.create_assessment.call_args[0][0]
+    assert assessment.name == "faithfulness"
+    assert assessment.trace_id == "1234"
+    assert assessment.span_id is None
+    assert assessment.source == _LLM_ASSESSMENT_SOURCE
+    assert assessment.create_time_ms is not None
+    assert assessment.last_update_time_ms is not None
+    assert assessment.feedback.value == 1.0
+    assert assessment.feedback.error is None
+    assert assessment.expectation is None
+    assert assessment.rationale == "This answer is very faithful."
+    assert assessment.metadata == {"model": "gpt-4o-mini"}
+    assert assessment.supersedes == "a-12345"
+
+
 def test_delete_assessment(store, tracking_uri):
     mlflow.delete_assessment(trace_id="tr-1234", assessment_id="1234")
 
