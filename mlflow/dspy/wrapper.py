@@ -87,7 +87,18 @@ class DspyModelWrapper(PythonModel):
                     yield output
 
     def _get_model_input(self, inputs: Any) -> Union[str, dict[str, Any]]:
-        """Convert the PythonModel input into the DSPy program input"""
+        """Convert the PythonModel input into the DSPy program input
+
+        Examples of expected conversions:
+        - str -> str
+        - dict -> dict
+        - np.ndarray with one element -> single element
+        - pd.DataFrame with one row and string column -> single row dict
+        - pd.DataFrame with one row and non-string column -> single element
+        - list -> raises an exception
+        - np.ndarray with more than one element -> raises an exception
+        - pd.DataFrame with more than one row -> raises an exception
+        """
         import numpy as np
         import pandas as pd
 
