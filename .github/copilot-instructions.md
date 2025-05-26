@@ -12,5 +12,5 @@ We strongly encourage you to run `pre-commit` locally before pushing your change
 In this repository, we use the following comments to trigger GitHub Action workflows on the PR.
 These comments are not relevant to the code review process but are used to automate specific tasks.
 
-- `/autoformat`: Triggers the [`autoformat.yml`](../.github/workflows/autoformat.yml) workflow.
-- `/cvt`: Triggers the [`cross-version-tests.yml`](../.github/workflows/cross-version-tests.yml) workflow.
+- `/autoformat`: Triggers the [`autoformat.yml`](/.github/workflows/autoformat.yml) workflow.
+- `/cvt`: Triggers the [`cross-version-tests.yml`](/.github/workflows/cross-version-tests.yml) workflow.
