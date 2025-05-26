@@ -109,7 +109,7 @@ def test_reuse_environment(temp_mlflow_env_root, sklearn_model):
 
 
 @use_temp_mlflow_env_root
-def test_differenet_requirements_create_different_environments(temp_mlflow_env_root, sklearn_model):
+def test_different_requirements_create_different_environments(temp_mlflow_env_root, sklearn_model):
     sklearn_req = f"scikit-learn=={sklearn.__version__}"
     with mlflow.start_run():
         model_info1 = mlflow.sklearn.log_model(
