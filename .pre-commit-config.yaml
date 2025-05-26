@@ -57,8 +57,8 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: custom-python-lint
-        name: custom-python-lint
+      - id: clint
+        name: clint
         entry: clint
         language: system
         files: '\.(py|ipynb|rst)$'
