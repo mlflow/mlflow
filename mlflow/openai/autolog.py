@@ -297,7 +297,7 @@ def _start_span(
     # associated with the trace.
     if run_id is not None:
         tm = InMemoryTraceManager().get_instance()
-        tm.set_request_metadata(span.trace_id, TraceMetadataKey.SOURCE_RUN, run_id)
+        tm.set_trace_metadata(span.trace_id, TraceMetadataKey.SOURCE_RUN, run_id)
 
     return span
 
