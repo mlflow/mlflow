@@ -298,7 +298,7 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "autogen_agentchat"
         },
         "autologging": {
-            "minimum": "0.5.7",
+            "minimum": "0.4.9",
             "maximum": "0.5.7"
         }
     },

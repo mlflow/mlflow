@@ -15,12 +15,12 @@ from mlflow.types.chat import (
 if TYPE_CHECKING:
     from autogen_core import FunctionCall
     from autogen_core.models import LLMMessage
-    from autogen_core.tools import BaseTool
+    from autogen_core.tools import BaseTool, ToolSchema
 
 _logger = logging.getLogger(__name__)
 
 
-def log_tools(span: Span, tools: list["BaseTool"]):
+def log_tools(span: Span, tools: list[Union["BaseTool", "ToolSchema"]]):
     """
     Log Autogen tool definitions into the passed in span.
 
@@ -30,11 +30,13 @@ def log_tools(span: Span, tools: list["BaseTool"]):
         span: The span to log the tools into.
         tools: A list of Autogen BaseTool.
     """
+    from autogen_core.tools import BaseTool
+
     try:
         tools = [
             ChatTool(
                 type="function",
-                function=tool.schema,
+                function=tool.schema if isinstance(tool, BaseTool) else tool,
             )
             for tool in tools
         ]

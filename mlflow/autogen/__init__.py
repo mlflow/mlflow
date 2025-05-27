@@ -1,4 +1,4 @@
-import logging
+from pydantic import BaseModel
 
 import mlflow
 from mlflow.autogen.chat import (
@@ -16,8 +16,6 @@ from mlflow.utils.autologging_utils import (
 )
 
 FLAVOR_NAME = "autogen"
-
-_logger = logging.getLogger(__name__)
 
 
 @experimental
@@ -55,39 +53,62 @@ def autolog(
     from autogen_agentchat.agents import BaseChatAgent
     from autogen_core.models import ChatCompletionClient
 
-    async def patched_run(original, self, *args, **kwargs):
+    async def patched_completion(original, self, *args, **kwargs):
         if not get_autologging_config(FLAVOR_NAME, "log_traces"):
             return await original(self, *args, **kwargs)
         else:
-            span_type = SpanType.AGENT if isinstance(self, BaseChatAgent) else SpanType.LLM
-            with mlflow.start_span(original.__name__, span_type=span_type) as span:
+            with mlflow.start_span(original.__name__, span_type=SpanType.LLM) as span:
                 inputs = construct_full_inputs(original, self, *args, **kwargs)
-                span.set_inputs(inputs)
+                span.set_inputs(
+                    {key: _convert_value_to_dict(value) for key, value in inputs.items()}
+                )
 
-                if tools := getattr(self, "_tools", None):
+                if tools := inputs.get("tools"):
                     log_tools(span, tools)
 
-                if isinstance(self, ChatCompletionClient) and (messages := inputs.get("messages")):
+                if messages := inputs.get("messages"):
                     log_chat_messages(span, messages)
 
                 outputs = await original(self, *args, **kwargs)
 
-                if isinstance(self, ChatCompletionClient) and (
-                    content := getattr(outputs, "content", None)
-                ):
+                if content := getattr(outputs, "content", None):
                     if chat_message := convert_assistant_message_to_chat_message(content):
                         set_span_chat_messages(span, [chat_message], append=True)
 
-                span.set_outputs(outputs)
+                span.set_outputs(_convert_value_to_dict(outputs))
+
+                return outputs
+
+    async def patched_agent(original, self, *args, **kwargs):
+        if not get_autologging_config(FLAVOR_NAME, "log_traces"):
+            return await original(self, *args, **kwargs)
+        else:
+            with mlflow.start_span(original.__name__, span_type=SpanType.AGENT) as span:
+                inputs = construct_full_inputs(original, self, *args, **kwargs)
+                span.set_inputs(
+                    {key: _convert_value_to_dict(value) for key, value in inputs.items()}
+                )
+
+                if tools := getattr(self, "_tools", None):
+                    log_tools(span, tools)
+
+                outputs = await original(self, *args, **kwargs)
+
+                span.set_outputs(_convert_value_to_dict(outputs))
 
                 return outputs
 
     for cls in BaseChatAgent.__subclasses__():
-        safe_patch(FLAVOR_NAME, cls, "run", patched_run)
-        safe_patch(FLAVOR_NAME, cls, "on_messages", patched_run)
+        safe_patch(FLAVOR_NAME, cls, "run", patched_agent)
+        safe_patch(FLAVOR_NAME, cls, "on_messages", patched_agent)
 
     for cls in _get_all_subclasses(ChatCompletionClient):
-        safe_patch(FLAVOR_NAME, cls, "create", patched_run)
+        safe_patch(FLAVOR_NAME, cls, "create", patched_completion)
+
+
+def _convert_value_to_dict(value):
+    # BaseChatMessage does not contain content and type attributes
+    return value.model_dump(serialize_as_any=True) if isinstance(value, BaseModel) else value
 
 
 def _get_all_subclasses(cls):

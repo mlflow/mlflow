@@ -64,7 +64,7 @@ def _catch_exception(func):
     return wrapper
 
 
-class MlflowAutogenLogger(BaseLogger):
+class MlflowAg2Logger(BaseLogger):
     def __init__(self):
         self._chat_state = ChatState()
 

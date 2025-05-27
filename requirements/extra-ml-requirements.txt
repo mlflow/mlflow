@@ -70,7 +70,7 @@ sentence-transformers
 # Required by mlflow.anthropic
 anthropic
 # Required by mlflow.ag2
-autogen
+ag2
 # Required by mlflow.dspy
 # In dspy 2.6.9, `dspy.__name__` is not 'dspy', but 'dspy.__metadata__',
 # which causes auto-logging tests to fail.

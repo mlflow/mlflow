@@ -43,8 +43,20 @@ async def test_autolog_assistant_agent(disable):
         assert span.span_type == SpanType.AGENT
         assert span.inputs == {"task": "1+1"}
         assert span.outputs["messages"] == [
-            {"source": "user", "models_usage": None, "metadata": {}},
-            {"source": "assistant", "models_usage": _MODEL_USAGE, "metadata": {}},
+            {
+                "content": "1+1",
+                "source": "user",
+                "models_usage": None,
+                "metadata": {},
+                "type": "TextMessage",
+            },
+            {
+                "content": "2",
+                "source": "assistant",
+                "models_usage": _MODEL_USAGE,
+                "metadata": {},
+                "type": "TextMessage",
+            },
         ]
 
         span = trace.data.spans[1]
@@ -86,6 +98,22 @@ async def test_autolog_tool_agent():
         ],
     )
     model_client.model_info["function_calling"] = True
+    TOOL_ATTRIBUTES = [
+        {
+            "function": {
+                "name": "increment_number",
+                "description": "Increment a number by 1.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"number": {"description": "number", "type": "integer"}},
+                    "required": ["number"],
+                    "additionalProperties": False,
+                },
+                "strict": False,
+            },
+            "type": "function",
+        }
+    ]
 
     def increment_number(number: int) -> int:
         """Increment a number by 1."""
@@ -111,10 +139,47 @@ async def test_autolog_tool_agent():
     assert span.span_type == SpanType.AGENT
     assert span.inputs == {"task": "1+1"}
     assert span.outputs["messages"] == [
-        {"source": "user", "models_usage": None, "metadata": {}},
-        {"source": "assistant", "models_usage": _MODEL_USAGE, "metadata": {}},
-        {"source": "assistant", "models_usage": None, "metadata": {}},
-        {"source": "assistant", "models_usage": None, "metadata": {}},
+        {
+            "content": "1+1",
+            "source": "user",
+            "models_usage": None,
+            "metadata": {},
+            "type": "TextMessage",
+        },
+        {
+            "content": [
+                {
+                    "id": "1",
+                    "arguments": '{"number": 1}',
+                    "name": "increment_number",
+                }
+            ],
+            "source": "assistant",
+            "models_usage": _MODEL_USAGE,
+            "metadata": {},
+            "type": "ToolCallRequestEvent",
+        },
+        {
+            "content": [
+                {
+                    "call_id": "1",
+                    "content": "2",
+                    "is_error": False,
+                    "name": "increment_number",
+                }
+            ],
+            "source": "assistant",
+            "models_usage": None,
+            "metadata": {},
+            "type": "ToolCallExecutionEvent",
+        },
+        {
+            "content": "2",
+            "source": "assistant",
+            "models_usage": None,
+            "metadata": {},
+            "type": "ToolCallSummaryMessage",
+        },
     ]
 
     span = trace.data.spans[1]
@@ -127,6 +192,7 @@ async def test_autolog_tool_agent():
         "content": "2",
         "type": "ToolCallSummaryMessage",
     }
+    assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTES
 
     span = trace.data.spans[2]
     assert span.name == "create"
@@ -135,21 +201,7 @@ async def test_autolog_tool_agent():
         {"content": _SYSTEM_MESSAGE, "type": "SystemMessage"},
         {"content": "1+1", "source": "user", "type": "UserMessage"},
     ]
-    assert span.inputs["tools"] == [
-        {
-            "name": "increment_number",
-            "description": "Increment a number by 1.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "number": {"description": "number", "title": "Number", "type": "integer"}
-                },
-                "required": ["number"],
-                "additionalProperties": False,
-            },
-            "strict": False,
-        }
-    ]
+    assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTES
     assert span.outputs["content"] == [
         {"id": "1", "arguments": '{"number": 1}', "name": "increment_number"}
     ]
@@ -173,7 +225,7 @@ async def test_autolog_tool_agent():
 async def test_autolog_multi_modal():
     import PIL
 
-    pil_image = PIL.Image.new("RGB", (64, 64))
+    pil_image = PIL.Image.new("RGB", (8, 8))
     img = Image(pil_image)
     user_message = "Can you describe the number in the image?"
     multi_modal_message = MultiModalMessage(content=[user_message, img], source="user")
@@ -197,11 +249,24 @@ async def test_autolog_multi_modal():
     assert span.inputs["task"]["content"][0] == "Can you describe the number in the image?"
     assert "data" in span.inputs["task"]["content"][1]
     assert span.outputs["messages"] == [
-        {"source": "user", "models_usage": None, "metadata": {}},
         {
+            "content": [
+                "Can you describe the number in the image?",
+                {
+                    "data": "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAADElEQVR4nGNgGB4AAADIAAGtQHYiAAAAAElFTkSuQmCC",  # noqa: E501
+                },
+            ],
+            "source": "user",
+            "models_usage": None,
+            "metadata": {},
+            "type": "MultiModalMessage",
+        },
+        {
+            "content": "2",
             "source": "assistant",
             "models_usage": {"completion_tokens": 1, "prompt_tokens": 14},
             "metadata": {},
+            "type": "TextMessage",
         },
     ]
 

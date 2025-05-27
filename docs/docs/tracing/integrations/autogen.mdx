@@ -26,8 +26,9 @@ mlflow.autogen.autolog()
 
 :::note
 
-Note that `mlflow.autogen.autolog` should be called after importing AutoGen classes. Otherwise, auto tracing will not be fully enabled.
-Also note that this integration is for AutoGen 0.5.7 or above. If you are using AutoGen 0.2, please use the [AG2 integration](./ag2) instead.
+Note that `mlflow.autogen.autolog()` should be called after importing AutoGen classes that are traced.
+Subclasses of `ChatCompletionClient` such as `OpenAIChatCompletionClient` or `AnthropicChatCompletionClient` and subclasses of `BaseChatAgent` such as `AssistantAgent` or `CodeExecutorAgent` should be imported before calling `mlflow.autogen.autolog()`.
+Also note that this integration is for AutoGen 0.4.9 or above. If you are using AutoGen 0.2, please use the [AG2 integration](./ag2) instead.
 
 :::
 

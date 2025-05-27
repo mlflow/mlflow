@@ -23,7 +23,7 @@ def autolog(
     """
     from autogen import runtime_logging
 
-    from mlflow.ag2.ag2_logger import MlflowAutogenLogger
+    from mlflow.ag2.ag2_logger import MlflowAg2Logger
 
     # NB: The @autologging_integration annotation is used for adding shared logic. However, one
     # caveat is that the wrapped function is NOT executed when disable=True is passed. This prevents
@@ -31,7 +31,7 @@ def autolog(
     # annotate _autolog() instead of this entrypoint, and define the cleanup logic outside it.
     # TODO: since this implementation is inconsistent, explore a universal way to solve the issue.
     if log_traces and not disable:
-        runtime_logging.start(logger=MlflowAutogenLogger())
+        runtime_logging.start(logger=MlflowAg2Logger())
     else:
         runtime_logging.stop()
 
