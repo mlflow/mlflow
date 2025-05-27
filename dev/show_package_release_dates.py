@@ -7,14 +7,14 @@ import traceback
 import aiohttp
 
 
-def get_distributions():
+def get_distributions() -> list[tuple[str, str]]:
     res = subprocess.check_output(
         [sys.executable, "-m", "pip", "list", "--format", "json"], text=True
     )
     return [(pkg["name"], pkg["version"]) for pkg in json.loads(res)]
 
 
-async def get_release_date(session, package, version):
+async def get_release_date(session: aiohttp.ClientSession, package: str, version: str) -> str:
     try:
         async with session.get(f"https://pypi.python.org/pypi/{package}/json", timeout=10) as resp:
             if resp.status != 200:
@@ -34,11 +34,11 @@ async def get_release_date(session, package, version):
         return ""
 
 
-def get_longest_string_length(array):
+def get_longest_string_length(array: list[str]) -> int:
     return len(max(array, key=len))
 
 
-async def main():
+async def main() -> None:
     distributions = get_distributions()
     async with aiohttp.ClientSession() as session:
         tasks = [get_release_date(session, pkg, ver) for pkg, ver in distributions]
