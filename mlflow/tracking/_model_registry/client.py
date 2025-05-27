@@ -439,6 +439,199 @@ class ModelRegistryClient:
 
         Returns:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
-
         """
         return self.store.get_model_version_by_alias(name, alias)
+
+    # Prompt-related methods
+
+    def create_prompt(self, name, template, description=None, tags=None):
+        """
+        Create a new prompt in the registry.
+
+        Args:
+            name: Name of the prompt.
+            template: The prompt template text.
+            description: Optional description of the prompt.
+            tags: Optional dictionary of prompt tags.
+
+        Returns:
+            A :py:class:`mlflow.entities.model_registry.Prompt` object.
+        """
+        return self.store.create_prompt(name, template, description, tags)
+
+    def get_prompt(self, name, version=None):
+        """
+        Get prompt by name and version or alias.
+
+        Args:
+            name: Registered prompt name.
+            version: Registered prompt version or alias. If None, loads the latest version.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.Prompt` object, or None if not found.
+        """
+        return self.store.get_prompt(name, version)
+
+    def search_prompts(self, filter_string=None, max_results=None, order_by=None, page_token=None):
+        """
+        Search for prompts in the registry.
+
+        Args:
+            filter_string: Filter query string.
+            max_results: Maximum number of prompts to return.
+            order_by: List of column names with ASC|DESC annotation.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.Prompt` objects.
+        """
+        return self.store.search_prompts(filter_string, max_results, order_by, page_token)
+
+    def delete_prompt(self, name):
+        """
+        Delete a prompt from the registry.
+
+        Args:
+            name: Name of the prompt to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt(name)
+
+    def create_prompt_version(self, name, template, description=None, tags=None):
+        """
+        Create a new version of an existing prompt.
+
+        Args:
+            name: Name of the prompt.
+            template: The prompt template text for this version.
+            description: Optional description of this version.
+            tags: Optional dictionary of version tags.
+
+        Returns:
+            A :py:class:`mlflow.entities.model_registry.Prompt` object representing the new version.
+        """
+        return self.store.create_prompt_version(name, template, description, tags)
+
+    def get_prompt_version(self, name, version):
+        """
+        Get a specific version of a prompt.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+
+        Returns:
+            A :py:class:`mlflow.entities.model_registry.Prompt` object.
+        """
+        return self.store.get_prompt_version(name, version)
+
+    def delete_prompt_version(self, name, version):
+        """
+        Delete a specific version of a prompt.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_version(name, version)
+
+    def set_prompt_tag(self, name, key, value):
+        """
+        Set a tag on a prompt.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key.
+            value: Tag value.
+
+        Returns:
+            None
+        """
+        self.store.set_prompt_tag(name, key, value)
+
+    def delete_prompt_tag(self, name, key):
+        """
+        Delete a tag from a prompt.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_tag(name, key)
+
+    def set_prompt_version_tag(self, name, version, key, value):
+        """
+        Set a tag on a prompt version.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number.
+            key: Tag key.
+            value: Tag value.
+
+        Returns:
+            None
+        """
+        self.store.set_prompt_version_tag(name, version, key, value)
+
+    def delete_prompt_version_tag(self, name, version, key):
+        """
+        Delete a tag from a prompt version.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number.
+            key: Tag key to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_version_tag(name, version, key)
+
+    def set_prompt_alias(self, name, alias, version):
+        """
+        Set an alias for a prompt version.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to set.
+            version: Version to alias.
+
+        Returns:
+            None
+        """
+        self.store.set_prompt_alias(name, alias, version)
+
+    def delete_prompt_alias(self, name, alias):
+        """
+        Delete a prompt alias.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_alias(name, alias)
+
+    def get_prompt_version_by_alias(self, name, alias):
+        """
+        Get a prompt version by alias.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to look up.
+
+        Returns:
+            A :py:class:`mlflow.entities.model_registry.Prompt` object.
+        """
+        return self.store.get_prompt_version_by_alias(name, alias)

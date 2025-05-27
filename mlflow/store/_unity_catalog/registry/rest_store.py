@@ -1082,3 +1082,243 @@ class UcModelRegistryStore(BaseRestStore):
         Does not wait for the model version to become READY as a successful creation will
         immediately place the model version in a READY state.
         """
+
+    # Prompt-related method overrides for UC
+
+    def create_prompt(self, name, template, description=None, tags=None):
+        """
+        Create a new prompt in Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().create_prompt(name, template, description, tags)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().create_prompt(name, template, description, tags)
+
+    def get_prompt(self, name, version=None):
+        """
+        Get prompt by name and version from Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().get_prompt(name, version)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().get_prompt(name, version)
+
+    def search_prompts(self, filter_string=None, max_results=None, order_by=None, page_token=None):
+        """
+        Search for prompts in Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().search_prompts(filter_string, max_results, order_by, page_token)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().search_prompts(filter_string, max_results, order_by, page_token)
+
+    def delete_prompt(self, name):
+        """
+        Delete a prompt from Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().delete_prompt(name)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().delete_prompt(name)
+
+    def create_prompt_version(self, name, template, description=None, tags=None):
+        """
+        Create a new version of a prompt in Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().create_prompt_version(name, template, description, tags)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().create_prompt_version(name, template, description, tags)
+
+    def get_prompt_version(self, name, version):
+        """
+        Get a specific version of a prompt from Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().get_prompt_version(name, version)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().get_prompt_version(name, version)
+
+    def delete_prompt_version(self, name, version):
+        """
+        Delete a specific version of a prompt from Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().delete_prompt_version(name, version)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().delete_prompt_version(name, version)
+
+    def set_prompt_tag(self, name, key, value):
+        """
+        Set a tag on a prompt in Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().set_prompt_tag(name, key, value)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().set_prompt_tag(name, key, value)
+
+    def delete_prompt_tag(self, name, key):
+        """
+        Delete a tag from a prompt in Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().delete_prompt_tag(name, key)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().delete_prompt_tag(name, key)
+
+    def set_prompt_version_tag(self, name, version, key, value):
+        """
+        Set a tag on a prompt version in Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().set_prompt_version_tag(name, version, key, value)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().set_prompt_version_tag(name, version, key, value)
+
+    def delete_prompt_version_tag(self, name, version, key):
+        """
+        Delete a tag from a prompt version in Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().delete_prompt_version_tag(name, version, key)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().delete_prompt_version_tag(name, version, key)
+
+    def set_prompt_alias(self, name, alias, version):
+        """
+        Set an alias for a prompt version in Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().set_prompt_alias(name, alias, version)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().set_prompt_alias(name, alias, version)
+
+    def delete_prompt_alias(self, name, alias):
+        """
+        Delete a prompt alias from Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().delete_prompt_alias(name, alias)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().delete_prompt_alias(name, alias)
+
+    def get_prompt_version_by_alias(self, name, alias):
+        """
+        Get a prompt version by alias from Unity Catalog.
+
+        This method overrides the default implementation to use UC-specific prompt endpoints
+        when available, falling back to the tag-based approach otherwise.
+        """
+        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        
+        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
+            # Fall back to default implementation
+            return super().get_prompt_version_by_alias(name, alias)
+        
+        # TODO: Implement UC prompt endpoint calls when available
+        # For now, use the default implementation
+        return super().get_prompt_version_by_alias(name, alias)

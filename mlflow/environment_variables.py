@@ -825,3 +825,9 @@ MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, None)
 MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable(
     "MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", False
 )
+
+#: Specifies whether to enable Unity Catalog prompt support (experimental).
+#: (default: ``False``)
+MLFLOW_ENABLE_UC_PROMPT_SUPPORT = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_UC_PROMPT_SUPPORT", False
+)
