@@ -22,12 +22,6 @@ from mlflow.utils.uri import is_databricks_uri
 if TYPE_CHECKING:
     from genai.evaluation.utils import EvaluationDatasetTypes
 
-try:
-    # `pandas` is not required for `mlflow-skinny`.
-    import pandas as pd
-except ImportError:
-    pass
-
 
 logger = logging.getLogger(__name__)
 
