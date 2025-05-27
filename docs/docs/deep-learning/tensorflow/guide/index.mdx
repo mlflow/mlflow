@@ -195,7 +195,7 @@ model = keras.Sequential(
 save_path = "model"
 with mlflow.start_run() as run:
     mlflow.tensorflow.log_model(
-        model, "model", keras_model_kwargs={"save_format": "h5"}
+        model, name="model", keras_model_kwargs={"save_format": "h5"}
     )
 
 # Load back the model.

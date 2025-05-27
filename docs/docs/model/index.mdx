@@ -2809,9 +2809,9 @@ top-level `predictions` parameter in <APILink fn="mlflow.evaluate" />:
 ```python
 # Assume that the model output is saved to the pandas_df["model_output"] column
 mlflow.evaluate(
+    ...,
     data=pandas_df,
     predictions="model_output",
-    # other parameters...
 )
 ```
 
@@ -2825,7 +2825,7 @@ dataset = mlflow.data.from_pandas(pandas_df, predictions="model_output")
 mlflow.evaluate(
     data=pandas_df,
     predictions=None,
-    # other parameters...
+    # other arguments
 )
 ```
 
