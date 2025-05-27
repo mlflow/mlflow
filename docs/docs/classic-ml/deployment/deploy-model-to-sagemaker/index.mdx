@@ -11,7 +11,7 @@ Amazon SageMaker is a fully managed service designed for scaling ML inference co
 MLflow simplifies the deployment process by offering easy-to-use commands without the need
 for writing container definitions.
 
-If you are new to MLflow model deployment, please read [MLflow Deployment](/deployment)
+If you are new to MLflow model deployment, please read [MLflow Deployment](/ml/deployment)
 first to understand the basic concepts of MLflow models and deployments.
 
 ## How it works
@@ -25,7 +25,7 @@ MLflow automates the process by building a Docker image from the MLflow Model on
 and creates a SageMaker endpoint using this image. It also uploads the model artifact to an S3 bucket and configures the endpoint to download the model from there.
 
 The container provides the same REST endpoints as a local inference server. For instance, the `/invocations` endpoint accepts CSV and JSON input data and returns
-prediction results. For more details on the endpoints, refer to [Local Inference Server](/deployment/deploy-model-locally#local-inference-server-spec).
+prediction results. For more details on the endpoints, refer to [Local Inference Server](/ml/deployment/deploy-model-locally#local-inference-server-spec).
 
 ## Deploying Model to SageMaker Endpoint
 
@@ -50,9 +50,9 @@ This role should also be assumable by the user performing the deployment. Learn 
 
 #### Create an MLflow Model
 
-Before deploying, you must have an MLflow Model. If you don't have one, you can create a sample scikit-learn model by following the [MLflow Tracking Quickstart](/getting-started).
+Before deploying, you must have an MLflow Model. If you don't have one, you can create a sample scikit-learn model by following the [MLflow Tracking Quickstart](/ml/getting-started).
 Remember to note down the model URI, such as `runs:/<run_id>/<artifact_path>` (or `models:/<model_name>/<model_version>` if you registered the model in the
-[MLflow Model Registry](/model-registry)).
+[MLflow Model Registry](/ml/model-registry)).
 
 ### Step 1: Test your model locally
 
@@ -81,7 +81,7 @@ $ mlflow sagemaker build-and-push-container  -m runs:/<run_id>/model
 ```
 
 Alternatively, you can create a custom Docker image using the
-[official MLflow Docker image](/docker) and manually push it to ECR.
+[official MLflow Docker image](/ml/docker) and manually push it to ECR.
 
 ### Step 3: Deploy to SageMaker Endpoint
 

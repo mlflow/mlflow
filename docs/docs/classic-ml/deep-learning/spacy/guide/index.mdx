@@ -84,10 +84,12 @@ import spacy
 from spacy import Language
 import pandas as pd
 
+
 # Create a text classification pipeline
 @Language.component("custom_textcat")
 def create_textcat(nlp, name="textcat"):
     return nlp.add_pipe("textcat", name=name)
+
 
 nlp = spacy.blank("en")
 nlp.add_pipe("textcat")
@@ -150,13 +152,12 @@ import mlflow
 @spacy.registry.loggers("mlflow_logger.v1")
 def mlflow_logger():
     """Custom MLflow logger for spaCy training integration."""
-    
+
     def setup_logger(
         nlp: Language,
         stdout: IO = sys.stdout,
         stderr: IO = sys.stderr,
     ) -> Tuple[Callable, Callable]:
-        
         def log_step(info: Optional[Dict[str, Any]]):
             """Called by spaCy for every evaluation step."""
             if info:
@@ -170,7 +171,7 @@ def mlflow_logger():
                         loss = info["losses"][pipe_name]
                         metrics[f"{pipe_name}_loss"] = loss
                         metrics[f"{pipe_name}_score"] = score
-                
+
                 # Log overall metrics
                 metrics["overall_score"] = score
                 mlflow.log_metrics(metrics, step=step)
@@ -190,7 +191,7 @@ def mlflow_logger():
   <summary>Training Configuration Setup</summary>
 
   #### Configuration File Integration
-  
+
   1. **Generate Base Configuration**:
   ```bash
   python -m spacy init config --pipeline textcat --lang en config.cfg
@@ -200,7 +201,7 @@ def mlflow_logger():
   ```ini
   [training.logger]
   @loggers = "mlflow_logger.v1"
-  
+
   [training]
   max_steps = 1000
   eval_frequency = 100
@@ -245,16 +246,16 @@ def prepare_training_data():
         ("Amazing storyline and acting", {"cats": {"POSITIVE": 1.0, "NEGATIVE": 0.0}}),
         ("Boring and predictable", {"cats": {"POSITIVE": 0.0, "NEGATIVE": 1.0}}),
     ]
-    
+
     # Convert to spaCy format
     nlp = spacy.blank("en")
     doc_bin = DocBin()
-    
+
     for text, annotations in train_data:
         doc = nlp.make_doc(text)
         doc.cats = annotations["cats"]
         doc_bin.add(doc)
-    
+
     return doc_bin
 
 
@@ -296,14 +297,16 @@ with open("config.cfg", "w") as f:
 # Start MLflow experiment
 with mlflow.start_run(run_name="spacy_text_classification"):
     # Log training configuration
-    mlflow.log_params({
-        "model_type": "text_classification",
-        "pipeline": "textcat",
-        "language": "en",
-        "max_steps": 100,
-        "eval_frequency": 20
-    })
-    
+    mlflow.log_params(
+        {
+            "model_type": "text_classification",
+            "pipeline": "textcat",
+            "language": "en",
+            "max_steps": 100,
+            "eval_frequency": 20,
+        }
+    )
+
     # Train the model (this will use our custom logger)
     spacy_train("config.cfg")
 
@@ -344,7 +347,7 @@ for token in doc:
   ```python
   # Full spaCy functionality - all pipeline components
   nlp = mlflow.spacy.load_model("runs:/<run_id>/model")
-  
+
   # Access all spaCy features
   doc = nlp("Analyze this text completely.")
   entities = [(ent.text, ent.label_) for ent in doc.ents]
@@ -355,9 +358,10 @@ for token in doc:
   ```python
   # Simplified interface for text classification
   classifier = mlflow.pyfunc.load_model("runs:/<run_id>/model")
-  
+
   # DataFrame input required
   import pandas as pd
+
   test_data = pd.DataFrame({"text": ["Sample text to classify"]})
   predictions = classifier.predict(test_data)
   ```
@@ -391,14 +395,14 @@ if nlp.has_pipe("textcat"):
     class SpacyWrapper:
         def __init__(self, nlp):
             self.nlp = nlp
-            
+
         def predict(self, df):
             results = []
             for text in df.iloc[:, 0]:
                 doc = self.nlp(text)
                 results.append({"predictions": doc.cats})
             return pd.DataFrame(results)
-    
+
     wrapper = SpacyWrapper(nlp)
     sample_output = wrapper.predict(sample_input)
     signature = infer_signature(sample_input, sample_output)
@@ -408,10 +412,7 @@ else:
 # Log model with signature
 with mlflow.start_run():
     mlflow.spacy.log_model(
-        nlp, 
-        "spacy_model",
-        signature=signature,
-        input_example=sample_input
+        nlp, "spacy_model", signature=signature, input_example=sample_input
     )
 ```
 
@@ -426,14 +427,12 @@ with mlflow.start_run():
   from mlflow.models import ModelSignature
 
   # Define input schema for text classification
-  input_schema = Schema([
-      ColSpec("string", "text")
-  ])
+  input_schema = Schema([ColSpec("string", "text")])
 
   # Define output schema
-  output_schema = Schema([
-      ColSpec("object", "predictions")  # Dictionary with category probabilities
-  ])
+  output_schema = Schema(
+      [ColSpec("object", "predictions")]  # Dictionary with category probabilities
+  )
 
   # Create signature
   signature = ModelSignature(inputs=input_schema, outputs=output_schema)
@@ -470,20 +469,20 @@ def sentiment_analyzer(doc):
     # Simple rule-based sentiment (replace with actual ML model)
     positive_words = {"good", "great", "excellent", "amazing", "wonderful"}
     negative_words = {"bad", "terrible", "awful", "horrible", "worst"}
-    
+
     pos_count = sum(1 for token in doc if token.lower_ in positive_words)
     neg_count = sum(1 for token in doc if token.lower_ in negative_words)
-    
+
     if pos_count > neg_count:
         sentiment = "positive"
         score = 0.8
     elif neg_count > pos_count:
-        sentiment = "negative" 
+        sentiment = "negative"
         score = 0.8
     else:
         sentiment = "neutral"
         score = 0.5
-    
+
     # Add sentiment as custom attribute
     doc._.sentiment = sentiment
     doc._.sentiment_score = score
@@ -502,38 +501,39 @@ nlp.add_pipe("sentiment_analyzer")
 test_texts = [
     "This is a great product!",
     "Terrible service, very bad.",
-    "It's okay, nothing special."
+    "It's okay, nothing special.",
 ]
 
 with mlflow.start_run():
     # Log component information
-    mlflow.log_params({
-        "custom_components": ["sentiment_analyzer"],
-        "pipeline": nlp.pipe_names,
-        "model_version": "1.0"
-    })
-    
+    mlflow.log_params(
+        {
+            "custom_components": ["sentiment_analyzer"],
+            "pipeline": nlp.pipe_names,
+            "model_version": "1.0",
+        }
+    )
+
     # Evaluate custom component
     correct_predictions = 0
     total_predictions = len(test_texts)
-    
+
     results = []
     for text in test_texts:
         doc = nlp(text)
-        results.append({
-            "text": text,
-            "sentiment": doc._.sentiment,
-            "score": doc._.sentiment_score
-        })
-    
+        results.append(
+            {"text": text, "sentiment": doc._.sentiment, "score": doc._.sentiment_score}
+        )
+
     # Log evaluation metrics
     mlflow.log_metric("component_accuracy", correct_predictions / total_predictions)
-    
+
     # Log model with custom component
     mlflow.spacy.log_model(nlp, "custom_sentiment_model")
-    
+
     # Log evaluation results as artifact
     import json
+
     with open("evaluation_results.json", "w") as f:
         json.dump(results, f, indent=2)
     mlflow.log_artifact("evaluation_results.json")
@@ -554,68 +554,72 @@ Track experiments across different languages and models:
 
   def evaluate_multilingual_models():
       """Evaluate performance across multiple language models."""
-      
+
       # Define language models to test
       models = {
           "en": "en_core_web_sm",
-          "de": "de_core_news_sm", 
+          "de": "de_core_news_sm",
           "fr": "fr_core_news_sm",
-          "es": "es_core_news_sm"
+          "es": "es_core_news_sm",
       }
-      
+
       # Sample texts for each language
       test_texts = {
           "en": "Apple Inc. is a technology company based in California.",
           "de": "Apple Inc. ist ein Technologieunternehmen in Kalifornien.",
           "fr": "Apple Inc. est une entreprise technologique basée en Californie.",
-          "es": "Apple Inc. es una empresa de tecnología con sede en California."
+          "es": "Apple Inc. es una empresa de tecnología con sede en California.",
       }
-      
+
       with mlflow.start_run(run_name="multilingual_comparison"):
           results = {}
-          
+
           for lang, model_name in models.items():
               try:
                   with mlflow.start_run(run_name=f"{lang}_model", nested=True):
                       # Load language-specific model
                       nlp = spacy.load(model_name)
-                      
+
                       # Log model information
-                      mlflow.log_params({
-                          "language": lang,
-                          "model_name": model_name,
-                          "pipeline_components": nlp.pipe_names,
-                          "model_size": len(nlp.vocab)
-                      })
-                      
+                      mlflow.log_params(
+                          {
+                              "language": lang,
+                              "model_name": model_name,
+                              "pipeline_components": nlp.pipe_names,
+                              "model_size": len(nlp.vocab),
+                          }
+                      )
+
                       # Process text and extract entities
                       doc = nlp(test_texts[lang])
                       entities = [(ent.text, ent.label_) for ent in doc.ents]
-                      
+
                       # Log results
-                      mlflow.log_metrics({
-                          "num_entities": len(entities),
-                          "num_tokens": len(doc),
-                          "processing_time": 0.1  # Placeholder
-                      })
-                      
+                      mlflow.log_metrics(
+                          {
+                              "num_entities": len(entities),
+                              "num_tokens": len(doc),
+                              "processing_time": 0.1,  # Placeholder
+                          }
+                      )
+
                       # Log the model
                       mlflow.spacy.log_model(nlp, f"{lang}_model")
-                      
-                      results[lang] = {
-                          "entities": entities,
-                          "tokens": len(doc)
-                      }
-                      
+
+                      results[lang] = {"entities": entities, "tokens": len(doc)}
+
               except OSError:
                   print(f"Model {model_name} not available, skipping {lang}")
-          
+
           # Log summary results
           mlflow.log_param("total_languages", len(results))
-          mlflow.log_metric("avg_entities_per_lang", 
-                           sum(r["entities"].__len__() for r in results.values()) / len(results))
-          
+          mlflow.log_metric(
+              "avg_entities_per_lang",
+              sum(r["entities"].__len__() for r in results.values()) / len(results),
+          )
+
           return results
+
 
   # Run multilingual evaluation
   results = evaluate_multilingual_models()
@@ -642,37 +646,38 @@ from itertools import product
 
 def optimize_pipeline_configuration():
     """Test different pipeline configurations for optimal performance."""
-    
+
     # Define pipeline variations to test
     base_components = ["tok2vec", "tagger", "parser", "ner"]
     optional_components = ["lemmatizer", "textcat"]
-    
+
     # Test different combinations
     configurations = []
     for r in range(len(optional_components) + 1):
         from itertools import combinations
+
         for combo in combinations(optional_components, r):
             config = base_components + list(combo)
             configurations.append(config)
-    
+
     with mlflow.start_run(run_name="pipeline_optimization"):
         best_config = None
         best_score = 0
-        
+
         for i, components in enumerate(configurations):
             with mlflow.start_run(run_name=f"config_{i}", nested=True):
                 # Create model with specific components
                 nlp = spacy.blank("en")
-                
+
                 # Add components (simplified for example)
                 available_components = {
                     "tok2vec": "tok2vec",
-                    "tagger": "tagger", 
+                    "tagger": "tagger",
                     "parser": "parser",
                     "ner": "ner",
-                    "lemmatizer": "lemmatizer"
+                    "lemmatizer": "lemmatizer",
                 }
-                
+
                 pipeline_components = []
                 for comp in components:
                     if comp in available_components:
@@ -681,47 +686,56 @@ def optimize_pipeline_configuration():
                             pipeline_components.append(comp)
                         except:
                             continue
-                
+
                 # Log configuration
-                mlflow.log_params({
-                    "components": pipeline_components,
-                    "num_components": len(pipeline_components),
-                    "config_id": i
-                })
-                
+                mlflow.log_params(
+                    {
+                        "components": pipeline_components,
+                        "num_components": len(pipeline_components),
+                        "config_id": i,
+                    }
+                )
+
                 # Simulate performance testing
                 test_text = "This is a test sentence for pipeline evaluation."
-                
+
                 start_time = time.time()
                 doc = nlp(test_text)
                 processing_time = time.time() - start_time
-                
+
                 # Calculate synthetic performance score
-                performance_score = len(pipeline_components) * 10 - processing_time * 100
-                
+                performance_score = (
+                    len(pipeline_components) * 10 - processing_time * 100
+                )
+
                 # Log metrics
-                mlflow.log_metrics({
-                    "processing_time": processing_time,
-                    "performance_score": performance_score,
-                    "memory_usage": len(nlp.vocab)  # Simplified metric
-                })
-                
+                mlflow.log_metrics(
+                    {
+                        "processing_time": processing_time,
+                        "performance_score": performance_score,
+                        "memory_usage": len(nlp.vocab),  # Simplified metric
+                    }
+                )
+
                 # Log model
                 mlflow.spacy.log_model(nlp, "pipeline_model")
-                
+
                 # Track best configuration
                 if performance_score > best_score:
                     best_score = performance_score
                     best_config = pipeline_components
-        
+
         # Log best configuration summary
-        mlflow.log_params({
-            "best_config": best_config,
-            "best_score": best_score,
-            "total_configs_tested": len(configurations)
-        })
-        
+        mlflow.log_params(
+            {
+                "best_config": best_config,
+                "best_score": best_score,
+                "total_configs_tested": len(configurations),
+            }
+        )
+
         return best_config, best_score
+
 
 # Run pipeline optimization
 best_config, score = optimize_pipeline_configuration()
@@ -745,15 +759,15 @@ nlp = spacy.load("en_core_web_sm")
 with mlflow.start_run() as run:
     # Create example input for signature
     sample_input = pd.DataFrame({"text": ["Sample text for classification"]})
-    
+
     # Log model with dependencies
     mlflow.spacy.log_model(
         nlp,
         "spacy_model",
         input_example=sample_input,
-        pip_requirements=["spacy>=3.0.0"]
+        pip_requirements=["spacy>=3.0.0"],
     )
-    
+
     model_uri = f"runs:/{run.info.run_id}/spacy_model"
 ```
 

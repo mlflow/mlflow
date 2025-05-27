@@ -8,12 +8,12 @@ import { CardGroup, PageCard } from "@site/src/components/Card";
 
 # MLflow spaCy Integration
 
-**spaCy** is the leading industrial-strength natural language processing library, designed from the ground up for production use. 
-Created by Explosion AI, spaCy combines cutting-edge research with practical engineering to deliver fast, accurate, and scalable 
+**spaCy** is the leading industrial-strength natural language processing library, designed from the ground up for production use.
+Created by Explosion AI, spaCy combines cutting-edge research with practical engineering to deliver fast, accurate, and scalable
 NLP solutions that power everything from chatbots and content analysis to document processing and knowledge extraction systems.
 
-What makes spaCy exceptional is its **production-first philosophy** - unlike academic NLP libraries, spaCy is built for real-world 
-applications where performance, accuracy, and reliability matter. With its streamlined API, extensive pre-trained models, and 
+What makes spaCy exceptional is its **production-first philosophy** - unlike academic NLP libraries, spaCy is built for real-world
+applications where performance, accuracy, and reliability matter. With its streamlined API, extensive pre-trained models, and
 robust pipeline architecture, spaCy enables developers to build sophisticated NLP applications without sacrificing speed or maintainability.
 
 <details>
@@ -97,7 +97,7 @@ import mlflow
 with mlflow.start_run():
     # Automatic PyFunc flavor for text classification models
     mlflow.spacy.log_model(text_classifier, "classifier")
-    
+
 # Load and use for inference
 loaded_model = mlflow.pyfunc.load_model("runs:/<run_id>/classifier")
 predictions = loaded_model.predict(test_dataframe)
@@ -125,6 +125,7 @@ Deep integration with spaCy's training system through custom MLflow loggers:
   import spacy
   import mlflow
 
+
   @spacy.registry.loggers("mlflow_logger.v1")
   def mlflow_logger():
       def setup_logger(nlp, stdout, stderr):
@@ -144,6 +145,7 @@ Deep integration with spaCy's training system through custom MLflow loggers:
               mlflow.end_run()
 
           return log_step, finalize
+
       return setup_logger
   ```
 

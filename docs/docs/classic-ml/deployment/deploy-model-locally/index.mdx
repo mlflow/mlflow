@@ -13,13 +13,13 @@ MLflow allows you to deploy your model locally using just a single command.
 This approach is ideal for lightweight applications or for testing your model locally before moving
 it to a staging or production environment.
 
-If you are new to MLflow model deployment, please read the guide on [MLflow Deployment](/deployment)
+If you are new to MLflow model deployment, please read the guide on [MLflow Deployment](/ml/deployment)
 first to understand the basic concepts of MLflow models and deployments.
 
 ## Deploying Inference Server
 
-Before deploying, you must have an MLflow Model. If you don't have one, you can create a sample scikit-learn model by following the [MLflow Tracking Quickstart](/getting-started).
-Remember to note down the model URI, such as `runs:/<run_id>/<artifact_path>` (or `models:/<model_name>/<model_version>` if you registered the model in the [MLflow Model Registry](/model-registry)).
+Before deploying, you must have an MLflow Model. If you don't have one, you can create a sample scikit-learn model by following the [MLflow Tracking Quickstart](/ml/getting-started).
+Remember to note down the model URI, such as `runs:/<run_id>/<artifact_path>` (or `models:/<model_name>/<model_version>` if you registered the model in the [MLflow Model Registry](/ml/model-registry)).
 
 Once you have the model ready, deploying to a local server is straightforward. Use the <Link to="/api_reference/cli.html#mlflow-models-serve" target="_blank">mlflow models serve</Link> command for a one-step deployment.
 This command starts a local server that listens on the specified port and serves your model. Refer to the <Link to="/api_reference/cli.html#mlflow-models-serve" target="_blank">CLI reference</Link> for available options.
@@ -149,7 +149,7 @@ print(response.json())
 The JSON input can also include an optional `params` field for passing additional parameters.
 Valid parameter types are `Union[DataType, List[DataType], None]`, where DataType
 is <APILink fn="mlflow.types.DataType">`MLflow data types`</APILink>. To pass parameters,
-a valid [Model Signature](/model/signatures#model-signature) with `params` must be defined.
+a valid [Model Signature](/ml/model/signatures#model-signature) with `params` must be defined.
 
 ```bash
 curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
@@ -309,7 +309,7 @@ mlflow models serve -m runs:/<run_id>/model -p 5000 --enable-mlserver
 ```
 
 To read more about the integration between MLflow and MLServer, please check the [end-to-end example](https://mlserver.readthedocs.io/en/latest/examples/mlflow/README.html) in the MLServer documentation.
-You can also find guides to deploy MLflow models to a Kubernetes cluster using MLServer in [Deploying a model to Kubernetes](/deployment/deploy-model-to-kubernetes).
+You can also find guides to deploy MLflow models to a Kubernetes cluster using MLServer in [Deploying a model to Kubernetes](/ml/deployment/deploy-model-to-kubernetes).
 
 ## Running Batch Inference
 

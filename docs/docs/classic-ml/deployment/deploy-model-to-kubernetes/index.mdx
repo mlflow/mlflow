@@ -17,7 +17,7 @@ to serve the inference endpoint. However, FastAPI does not support horizontal sc
 at scale. To address this gap, MLflow integrates with [MLServer](https://mlserver.readthedocs.io/en/latest) as an alternative deployment option, which is used
 as a core Python inference server in Kubernetes-native frameworks like [Seldon Core](https://docs.seldon.ai/seldon-core-2) and
 [KServe](https://kserve.github.io/website) (formerly known as KFServing). Using MLServer, you can take advantage of the scalability and reliability
-of Kubernetes to serve your model at scale. See [Serving Framework](/deployment/deploy-model-locally#serving-frameworks) for the detailed comparison between FastAPI and MLServer,
+of Kubernetes to serve your model at scale. See [Serving Framework](/ml/deployment/deploy-model-locally#serving-frameworks) for the detailed comparison between FastAPI and MLServer,
 and why MLServer is a better choice for ML production use cases.
 
 ## Building a Docker Image for MLflow Model \{#build-docker-for-deployment}
@@ -68,5 +68,5 @@ Please refer to the following partner documentations for deploying MLflow Models
 You can also learn how to train a model in MLflow and deploy to Kubernetes in the following tutorial:
 
 <CardGroup>
-  <PageCard headerText="Develop ML model with MLflow and deploy to Kubernetes" link="/deployment/deploy-model-to-kubernetes/tutorial" text="This tutorial walks you through the end-to-end ML development process from training a machine learning model, compare the performance, and deploy the model to Kubernetes using KServe." />
+  <PageCard headerText="Develop ML model with MLflow and deploy to Kubernetes" link="/ml/deployment/deploy-model-to-kubernetes/tutorial" text="This tutorial walks you through the end-to-end ML development process from training a machine learning model, compare the performance, and deploy the model to Kubernetes using KServe." />
 </CardGroup>
