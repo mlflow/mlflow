@@ -177,6 +177,41 @@ def _iter_code_blocks(s: str) -> Iterator[CodeBlock]:
         yield CodeBlock(code=code, loc=code_block_loc)
 
 
+_MD_OPENING_FENCE_REGEX = re.compile(r"^(`{3,})\s*python\s*$")
+
+
+def _iter_md_code_blocks(s: str) -> Iterator[CodeBlock]:
+    """
+    Iterates over code blocks in a Markdown string.
+    """
+    code_block_loc: Location | None = None
+    code_lines: list[str] = []
+    closing_fence: str | None = None
+    line_iter = enumerate(s.splitlines())
+    while t := next(line_iter, None):
+        idx, line = t
+        if code_block_loc:
+            if line.strip() == closing_fence:
+                code = textwrap.dedent("\n".join(code_lines))
+                yield CodeBlock(code=code, loc=code_block_loc)
+
+                code_block_loc = None
+                code_lines.clear()
+                closing_fence = None
+                continue
+
+            code_lines.append(line)
+
+        elif m := _MD_OPENING_FENCE_REGEX.match(line.lstrip()):
+            closing_fence = m.group(1)
+            code_block_loc = Location(idx + 1, _get_indent(line))
+
+    # Code block at EOF
+    if code_lines:
+        code = textwrap.dedent("\n".join(code_lines))
+        yield CodeBlock(code=code, loc=code_block_loc)
+
+
 def _parse_docstring_args(docstring: str) -> list[str]:
     args: list[str] = []
     args_header_indent: int | None = None
@@ -293,7 +328,7 @@ class Linter(ast.NodeVisitor):
 
     def _no_rst(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         if (n := self._docstring(node)) and (PARAM_REGEX.search(n.s) or RETURN_REGEX.search(n.s)):
-            self._check(n, rules.NoRst())
+            self._check(Location.from_node(n), rules.NoRst())
 
     def _is_in_function(self) -> bool:
         return self.stack and isinstance(self.stack[-1], (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -675,9 +710,12 @@ def lint_file(path: Path, config: Config) -> list[Violation]:
             for idx, cell in enumerate(cells, start=1):
                 violations.extend(_lint_cell(path, config, cell, idx))
             return violations
-    elif path.suffix in {".rst"}:  # TODO: Add '.md' and '.mdx'
+    elif path.suffix in {".rst", ".md", ".mdx"}:
         violations = []
-        for code_block in _iter_code_blocks(code):
+        code_blocks = (
+            _iter_code_blocks(code) if path.suffix == ".rst" else _iter_md_code_blocks(code)
+        )
+        for code_block in code_blocks:
             violations.extend(Linter.visit_example(path, config, code_block))
         return violations
     else:

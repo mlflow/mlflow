@@ -26,10 +26,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# TODO (B-Step62): Remove underscore from the function name once we release
-# the new evaluate API
 @experimental
-def _evaluate(
+def evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
     predict_fn: Optional[Callable[..., Any]] = None,
@@ -291,7 +289,7 @@ def _evaluate(
 
 
 @experimental
-def _to_predict_fn(endpoint_uri: str) -> Callable:
+def to_predict_fn(endpoint_uri: str) -> Callable:
     """
     Convert an endpoint URI to a predict function.
 

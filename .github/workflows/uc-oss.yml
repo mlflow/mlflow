@@ -38,7 +38,6 @@ jobs:
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-          submodules: recursive
       - uses: ./.github/actions/setup-python
 
       - name: Install dependencies
