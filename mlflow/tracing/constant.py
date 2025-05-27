@@ -63,6 +63,8 @@ MAX_CHARS_IN_TRACE_INFO_TAGS_KEY = 250
 MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE = 4096
 TRUNCATION_SUFFIX = "..."
 
+TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH = 10000
+
 # Trace request ID must have the prefix "tr-" appended to the OpenTelemetry trace ID
 TRACE_REQUEST_ID_PREFIX = "tr-"
 
