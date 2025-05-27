@@ -5,11 +5,25 @@ class TraceMetadataKey:
     SOURCE_RUN = "mlflow.sourceRun"
     MODEL_ID = "mlflow.modelId"
     SIZE_BYTES = "mlflow.trace.sizeBytes"
+    # Aggregated token usage information in a single trace, stored as a dumped JSON string.
+    TOKEN_USAGE = "mlflow.trace.tokenUsage"
 
 
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
     EVAL_REQUEST_ID = "eval.requestId"
+
+
+class TokenUsageKey:
+    """Key for the token usage information in the `mlflow.chat.tokenUsage` span attribute."""
+
+    INPUT_TOKENS = "input_tokens"
+    OUTPUT_TOKENS = "output_tokens"
+    TOTAL_TOKENS = "total_tokens"
+
+    @classmethod
+    def all_keys(cls):
+        return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
 
 
 # A set of reserved attribute keys
@@ -27,6 +41,9 @@ class SpanAttributeKey:
     # such as evaluation
     CHAT_MESSAGES = "mlflow.chat.messages"
     CHAT_TOOLS = "mlflow.chat.tools"
+    # This attribute is used to store token usage information from LLM responses.
+    # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
+    CHAT_USAGE = "mlflow.chat.tokenUsage"
     # This attribute is used to populate `intermediate_outputs` property of a trace data
     # representing intermediate outputs of the trace. This attribute is not empty only on
     # the root span of a trace created by the `mlflow.log_trace` API. The `intermediate_outputs`
