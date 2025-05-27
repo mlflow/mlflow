@@ -20,6 +20,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     _try_get_prediction_context,
+    aggregate_usage_from_spans,
     deduplicate_span_names_in_place,
     generate_trace_id_v3,
     get_otel_attribute,
@@ -129,7 +130,13 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
 
             trace.info.execution_duration = (span.end_time - span.start_time) // 1_000_000
             trace.info.state = TraceState.from_otel_status(span.status)
-            deduplicate_span_names_in_place(list(trace.span_dict.values()))
+
+            spans = list(trace.span_dict.values())
+            deduplicate_span_names_in_place(spans)
+
+            # Aggregate token usage information from all spans
+            if usage := aggregate_usage_from_spans(spans):
+                trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
         super().on_end(span)
 

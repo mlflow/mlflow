@@ -164,6 +164,7 @@ class BaseRequestPayload(BaseModel):
     )
     max_tokens: Optional[int] = Field(None, ge=1)
     stream: Optional[bool] = None
+    stream_options: Optional[dict[str, Any]] = None
     model: Optional[str] = None
 
 
