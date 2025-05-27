@@ -914,10 +914,10 @@ def update_current_trace(
             mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
 
     Args:
-        tags: A dictionary of tags to set on the trace.
+        tags: A dictionary of tags to set on the trace. If None, no tags are updated.
         client_request_id: Client supplied request ID to associate with the trace. This is
             useful for linking the trace back to a specific request in your application or
-            external system.
+            external system. If None, the client request ID is not updated.
 
     """
     active_span = get_current_active_span()
