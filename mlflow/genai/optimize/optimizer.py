@@ -129,7 +129,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                 **{key: (_type, dspy.InputField()) for key, _type in input_fields.items()},
                 **{key: (_type, dspy.OutputField()) for key, _type in output_fields.items()},
             },
-            prompt.template,  # Extract only instructions from the existing prompt template
+            prompt.template,  # TODO: Extract only instructions from the existing prompt template
         )
 
         # Define main student program
