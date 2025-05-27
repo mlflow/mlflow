@@ -1269,6 +1269,59 @@ def test_update_current_trace():
     assert tags == expected_tags
 
 
+def test_update_current_trace_with_client_request_id():
+    """Test that update_current_trace correctly handles client_request_id parameter."""
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    # Test updating during span execution
+    with mlflow.start_span("test_span") as span:
+        # Update with both tags and client_request_id
+        mlflow.update_current_trace(tags={"operation": "test"}, client_request_id="req-12345")
+
+        # Check in-memory trace during execution
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as trace:
+            assert trace.info.client_request_id == "req-12345"
+            tags = {k: v for k, v in trace.info.tags.items() if not k.startswith("mlflow.")}
+            assert tags["operation"] == "test"
+
+    # Test with tags only
+    with mlflow.start_span("test_span_2") as span:
+        mlflow.update_current_trace(tags={"operation": "tags_only"})
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as trace:
+            assert trace.info.client_request_id is None
+            tags = {k: v for k, v in trace.info.tags.items() if not k.startswith("mlflow.")}
+            assert tags["operation"] == "tags_only"
+
+    # Test with client_request_id only
+    with mlflow.start_span("test_span_3") as span:
+        mlflow.update_current_trace(client_request_id="req-67890")
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as trace:
+            assert trace.info.client_request_id == "req-67890"
+
+
+def test_update_current_trace_client_request_id_overwrites():
+    """Test that client_request_id can be overwritten by subsequent calls."""
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    with mlflow.start_span("overwrite_test") as span:
+        # First set
+        mlflow.update_current_trace(client_request_id="req-initial")
+
+        # Overwrite with new value
+        mlflow.update_current_trace(client_request_id="req-updated")
+
+        # Check during execution
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as trace:
+            # Should have the updated value, not the initial one
+            assert trace.info.client_request_id == "req-updated"
+
+
 @skip_when_testing_trace_sdk
 def test_update_current_trace_should_not_raise_during_model_logging():
     """
