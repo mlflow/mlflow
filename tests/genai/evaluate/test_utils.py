@@ -338,10 +338,14 @@ def test_predict_fn_receives_correct_data(data_fixture, request):
         received_args.append(question)
         return question
 
+    @scorer
+    def dummy_scorer(inputs, outputs):
+        return 0
+
     mlflow.genai.evaluate(
         predict_fn=predict_fn,
         data=sample_data,
-        scorers=[safety],
+        scorers=[dummy_scorer],
     )
 
     received_args.pop(0)  # Remove the one-time prediction to check if a model is traced

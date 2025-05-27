@@ -226,20 +226,7 @@ def evaluate(
             "Please set the tracking URI to Databricks."
         )
 
-    builtin_scorers, custom_scorers = validate_scorers(scorers)
-
-    evaluation_config = {
-        GENAI_CONFIG_NAME: {
-            "metrics": [],
-        }
-    }
-    for _scorer in builtin_scorers:
-        evaluation_config = _scorer.update_evaluation_config(evaluation_config)
-
-    extra_metrics = []
-    for _scorer in custom_scorers:
-        extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
-
+    builtin_scorers, _ = validate_scorers(scorers)
     # convert into a pandas dataframe with current evaluation set schema
     data = _convert_to_legacy_eval_set(data)
 
@@ -276,8 +263,10 @@ def evaluate(
         return mlflow.models.evaluate(
             model=predict_fn,
             data=data,
-            evaluator_config=evaluation_config,
-            extra_metrics=extra_metrics,
+            # Turn off the default built-in metrics
+            evaluator_config={GENAI_CONFIG_NAME: {"metrics": []}},
+            # Scorers are passed to the eval harness as extra metrics
+            extra_metrics=[_convert_scorer_to_legacy_metric(_scorer) for _scorer in scorers],
             model_type=GENAI_CONFIG_NAME,
             model_id=model_id,
             _called_from_genai_evaluate=True,

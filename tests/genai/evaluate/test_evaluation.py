@@ -11,7 +11,8 @@ from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.base import scorer
-from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, safety
+from mlflow.genai.scorers.builtin_scorers import safety
+from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 from tests.tracing.helper import get_traces
@@ -89,6 +90,8 @@ def test_evaluate_with_static_dataset():
 @pytest.mark.skipif(not _IS_AGENT_SDK_V1, reason="Databricks Agent SDK v1 is required")
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
 def test_evaluate_with_predict_fn(is_predict_fn_traced):
+    model_id = mlflow.set_active_model(name="test-model-id").model_id
+
     data = [
         {
             "inputs": {"question": "What is MLflow?"},
@@ -112,6 +115,7 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced):
         predict_fn=predict_fn,
         data=data,
         scorers=[exact_match, max_length, relevance, has_trace],
+        model_id=model_id,
     )
 
     metrics = result.metrics
@@ -123,6 +127,10 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced):
     # Exact number of traces should be generated
     traces = get_traces()
     assert len(traces) == len(data)
+
+    # Check if the model_id is set in the traces
+    assert traces[0].info.trace_metadata[TraceMetadataKey.MODEL_ID] == model_id
+    assert traces[1].info.trace_metadata[TraceMetadataKey.MODEL_ID] == model_id
 
 
 @pytest.mark.skipif(not _IS_AGENT_SDK_V1, reason="Databricks Agent SDK v1 is required")
@@ -255,39 +263,6 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client):
     # Eval harness runs prediction in parallel, so the order is not deterministic
     assert spans[0].inputs in (data[0]["inputs"], data[1]["inputs"])
     assert spans[0].outputs == _DUMMY_CHAT_RESPONSE
-
-
-def test_evaluate_passes_model_id_to_mlflow_evaluate():
-    # Tracking URI = databricks is required to use mlflow.genai.evaluate()
-    mlflow.set_tracking_uri("databricks")
-    data = [
-        {"inputs": {"x": "bar"}, "outputs": "response from model"},
-        {"inputs": {"x": "qux"}, "outputs": "response from model"},
-    ]
-
-    with mock.patch("mlflow.models.evaluate") as mock_evaluate:
-
-        @mlflow.trace
-        def model(x):
-            return x
-
-        mlflow.genai.evaluate(
-            data=data,
-            predict_fn=model,
-            model_id="test_model_id",
-            scorers=[safety],
-        )
-
-        # Verify the call was made with the right parameters
-        mock_evaluate.assert_called_once_with(
-            model=mock.ANY,
-            data=mock.ANY,
-            evaluator_config={GENAI_CONFIG_NAME: {"metrics": ["safety"]}},
-            model_type="databricks-agent",
-            extra_metrics=[],
-            model_id="test_model_id",
-            _called_from_genai_evaluate=True,
-        )
 
 
 @patch("mlflow.get_tracking_uri", return_value="databricks")
