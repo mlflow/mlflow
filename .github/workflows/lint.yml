@@ -55,7 +55,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks
         run: |
-          pre-commit install
+          pre-commit install --install-hooks
       - name: Run pre-commit
         id: pre-commit
         env:
