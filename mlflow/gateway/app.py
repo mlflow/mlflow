@@ -280,6 +280,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             openapi_url="/openapi.json",
             title="MLflow AI Gateway",
             swagger_favicon_url="/favicon.ico",
+            **(config.swagger_config.model_dump(exclude_none=True,exclude_unset=True) or {})
         )
 
     # TODO: Remove deployments server URLs after deprecation window elapses
