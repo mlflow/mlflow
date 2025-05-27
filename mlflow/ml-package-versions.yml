@@ -107,7 +107,7 @@ tensorflow:
     maximum: "2.19.0"
     requirements:
       # Requirements to run tests for keras
-      ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
+      ">= 0.0.0": ["scikit-learn", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
       # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
       # incompatible with SQLAlchemy 2.0.25 and Pydantic v2 with error
       # `cannot import name 'TypeAliasType' from 'typing_extensions'`
@@ -535,7 +535,6 @@ openai:
     maximum: "1.78.1"
     requirements:
       ">= 0.0.0": [
-          "pyspark",
           "tiktoken",
           "aiohttp",
           "tenacity",
@@ -557,7 +556,6 @@ openai:
       ">= 1.33.0": "3.10"
     requirements:
       ">= 0.0.0": [
-          "pyspark",
           "tiktoken",
           "aiohttp",
           "tenacity",
@@ -602,7 +600,6 @@ langchain:
     maximum: "0.3.25"
     requirements:
       ">= 0.0.0": [
-          "pyspark",
           "transformers",
           "torch",
           "torchvision",
@@ -634,7 +631,8 @@ langchain:
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
-      pip install --no-deps --force-reinstall pyspark
+      # TODO(https://github.com/mlflow/mlflow/issues/15847): Remove this pin when MLflow is ready for pyspark 4.0.0
+      pip install --no-deps --force-reinstall pyspark<4.0.0
     run: |
       # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
       # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
@@ -654,7 +652,6 @@ langchain:
     maximum: "0.3.25"
     requirements:
       ">= 0.0.0": [
-          "pyspark",
           "openai",
           "google-search-results",
           "psutil",
@@ -677,7 +674,8 @@ langchain:
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
-      pip install --no-deps --force-reinstall pyspark
+      # TODO(https://github.com/mlflow/mlflow/issues/15847): Remove this pin when MLflow is ready for pyspark 4.0.0
+      pip install --no-deps --force-reinstall pyspark<4.0.0
     run: |
       pytest tests/langchain/test_langchain_autolog.py
       # test both pydantic v1 and v2
@@ -903,7 +901,6 @@ sentence_transformers:
     maximum: "4.1.0"
     requirements:
       ">= 0.0.0": [
-          "pyspark",
           "torch>1.6",
           "transformers>4.25",
           "hf_transfer",
@@ -946,7 +943,7 @@ promptflow:
       # Requirements to run sparkudf predict test
       # marshmallow 3.24.0 has breaking change causes `from marshmallow.fields import _T` error
       # inside promptflow
-      ">= 0.0.0": ["pyspark", "jinja2", "marshmallow<3.24.0"]
+      ">= 0.0.0": ["jinja2", "marshmallow<3.24.0"]
       ">= 1.11.0": ["openai>=1"]
       "< 1.18": ["numpy<2"]
     run: |
