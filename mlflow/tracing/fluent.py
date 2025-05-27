@@ -889,35 +889,80 @@ def _set_last_active_trace_id(trace_id: str):
 def update_current_trace(
     tags: Optional[dict[str, str]] = None,
     client_request_id: Optional[str] = None,
+    request_preview: Optional[str] = None,
+    response_preview: Optional[str] = None,
 ):
     """
-    Update the current active trace with the given tags and client request ID.
-
-    You can use this function either within a function decorated with `@mlflow.trace` or within the
-    scope of the `with mlflow.start_span` context manager. If there is no active trace found, this
-    function will raise an exception.
-
-    Using within a function decorated with `@mlflow.trace`:
-
-    .. code-block:: python
-
-        @mlflow.trace
-        def my_func(x):
-            mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
-            return x + 1
-
-    Using within the `with mlflow.start_span` context manager:
-
-    .. code-block:: python
-
-        with mlflow.start_span("span"):
-            mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
+    Update the current active trace with the given options.
 
     Args:
-        tags: A dictionary of tags to set on the trace. If None, no tags are updated.
+        tags: A dictionary of tags to update the trace with.
         client_request_id: Client supplied request ID to associate with the trace. This is
             useful for linking the trace back to a specific request in your application or
             external system. If None, the client request ID is not updated.
+        request_preview: A preview of the request to be shown in the Trace list view in the UI.
+            By default, MLflow will truncate the trace request naively by limiting the length.
+            This parameter allows you to specify a custom preview string.
+        response_preview: A preview of the response to be shown in the Trace list view in the UI.
+            By default, MLflow will truncate the trace response naively by limiting the length.
+            This parameter allows you to specify a custom preview string.
+
+    Example:
+
+        You can use this function either within a function decorated with `@mlflow.trace` or
+        within the scope of the `with mlflow.start_span` context manager. If there is no active
+        trace found, this function will raise an exception.
+
+        Using within a function decorated with `@mlflow.trace`:
+
+        .. code-block:: python
+
+            @mlflow.trace
+            def my_func(x):
+                mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
+                return x + 1
+
+        Using within the `with mlflow.start_span` context manager:
+
+        .. code-block:: python
+
+            with mlflow.start_span("span"):
+                mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
+
+        Updating request preview:
+
+        .. code-block:: python
+
+            import mlflow
+            import openai
+
+
+            @mlflow.trace
+            def predict(messages: list[dict]) -> str:
+                # Customize the request preview to show the first and last messages
+                custom_preview = f"{messages[0]['content'][:10]} ... {messages[-1]['content'][:10]}"
+                mlflow.update_current_trace(request_preview=custom_preview)
+
+                # Call the model
+                response = openai.chat.completions.create(
+                    model="o4-mini",
+                    messages=messages,
+                )
+
+                return response.choices[0].message.content
+
+
+            messages = [
+                {"role": "user", "content": "Hi, how are you?"},
+                {"role": "assistant", "content": "I'm good, thank you!"},
+                {"role": "user", "content": "What's your name?"},
+                # ... (long message history)
+                {"role": "assistant", "content": "Bye!"},
+            ]
+            predict(messages)
+
+            # The request preview rendered in the UI will be:
+            #     "Hi, how are you? ... Bye!"
 
     """
     active_span = get_current_active_span()
@@ -947,8 +992,25 @@ def update_current_trace(
     # Update tags and client request ID for the trace stored in-memory rather than directly
     # updating the backend store. The in-memory trace will be exported when it is ended.
     # By doing this, we can avoid unnecessary server requests for each tag update.
+    if request_preview is not None and not isinstance(request_preview, str):
+        raise MlflowException.invalid_parameter_value(
+            "The `request_preview` parameter must be a string."
+        )
+    if response_preview is not None and not isinstance(response_preview, str):
+        raise MlflowException.invalid_parameter_value(
+            "The `response_preview` parameter must be a string."
+        )
+
+    # Update trace info for the trace stored in-memory rather than directly updating the
+    # backend store. The in-memory trace will be exported when it is ended. By doing
+    # this, we can avoid unnecessary server requests for each tag update.
     request_id = active_span.request_id
     with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+        if request_preview:
+            trace.info.request_preview = request_preview
+        if response_preview:
+            trace.info.response_preview = response_preview
+
         trace.info.tags.update(tags or {})
         if client_request_id is not None:
             trace.info.client_request_id = str(client_request_id)
