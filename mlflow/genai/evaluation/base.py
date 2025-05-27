@@ -229,20 +229,7 @@ def evaluate(
 
     is_managed_dataset = isinstance(data, EvaluationDataset)
 
-    builtin_scorers, custom_scorers = validate_scorers(scorers)
-
-    evaluation_config = {
-        GENAI_CONFIG_NAME: {
-            "metrics": [],
-        }
-    }
-    for _scorer in builtin_scorers:
-        evaluation_config = _scorer.update_evaluation_config(evaluation_config)
-
-    extra_metrics = []
-    for _scorer in custom_scorers:
-        extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
-
+    builtin_scorers, _ = validate_scorers(scorers)
     # convert into a pandas dataframe with current evaluation set schema
     df = data.to_df() if is_managed_dataset else _convert_to_legacy_eval_set(data)
 
@@ -282,8 +269,9 @@ def evaluate(
             # If the input dataset is a managed dataset, we pass the original dataset
             # to the evaluate function to preserve metadata like dataset name.
             data=data if is_managed_dataset else df,
-            evaluator_config=evaluation_config,
-            extra_metrics=extra_metrics,
+            evaluator_config={GENAI_CONFIG_NAME: {"metrics": []}},  # Turn off the default metrics
+            # Scorers are passed to the eval harness as extra metrics
+            extra_metrics=[_convert_scorer_to_legacy_metric(_scorer) for _scorer in scorers],
             model_type=GENAI_CONFIG_NAME,
             model_id=model_id,
             _called_from_genai_evaluate=True,

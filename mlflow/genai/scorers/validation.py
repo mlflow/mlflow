@@ -3,8 +3,8 @@ from collections import defaultdict
 from typing import Any, Callable, Optional
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.base import BuiltInScorer, Scorer
-from mlflow.genai.scorers.builtin_scorers import MissingColumnsException
+from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.builtin_scorers import BuiltInScorer, MissingColumnsException
 
 try:
     # `pandas` is not required for `mlflow-skinny`.

@@ -163,17 +163,6 @@ class Scorer(BaseModel):
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
 
-class BuiltInScorer(Scorer):
-    def update_evaluation_config(evaluation_config) -> dict:
-        """
-        The builtin scorer will take in an evaluation_config and return an updated version
-        of it as necessary to comply with the expected format for mlflow.evaluate().
-        More details about built-in judges can be found at
-        https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/llm-judge-reference
-        """
-        raise NotImplementedError("Please use an instance of BuiltInScorer")
-
-
 @experimental
 def scorer(
     func=None,
