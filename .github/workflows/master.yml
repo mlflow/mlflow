@@ -45,8 +45,6 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
@@ -70,9 +68,6 @@ jobs:
           - splits: 2
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -111,8 +106,6 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-        with:
-          python-version: "3.10"
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
@@ -140,9 +133,6 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/untracked
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
@@ -194,9 +184,6 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -217,9 +204,6 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -260,9 +244,6 @@ jobs:
           - splits: 2
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -295,9 +276,6 @@ jobs:
           - splits: 2
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -322,12 +300,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-        with:
-          python-version: "3.10"
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -355,9 +328,6 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -384,9 +354,6 @@ jobs:
           - splits: 4
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -419,9 +386,6 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -447,9 +411,6 @@ jobs:
           - splits: 2
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java

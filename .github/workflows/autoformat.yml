@@ -28,15 +28,11 @@ jobs:
       pull_number: ${{ fromJSON(steps.judge.outputs.result).pull_number }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          sparse-checkout: |
             .github
       - uses: ./.github/actions/validate-author
       - name: judge
         id: judge
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          script: |
             core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
             const { comment } = context.payload;
@@ -59,8 +55,6 @@ jobs:
       reformatted: ${{ steps.patch.outputs.reformatted }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
           fetch-depth: 300
@@ -155,8 +149,6 @@ jobs:
 
       - name: Upload patch
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ github.run_id }}.diff
           path: ${{ github.run_id }}.diff
 
   push:
@@ -171,14 +163,10 @@ jobs:
     steps:
       - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
         id: app-token
-        with:
-          app-id: ${{ secrets.APP_ID }}
           # See https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps
           # for how to rotate the private key
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
           fetch-depth: 300
@@ -200,8 +188,6 @@ jobs:
 
       - name: Download patch
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
-        with:
-          name: ${{ github.run_id }}.diff
           path: /tmp
 
       - name: Apply patch and push
@@ -225,13 +211,9 @@ jobs:
       actions: write # To approve workflow runs
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          sparse-checkout: |
             .github
       - name: Update status
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          script: |
             const needs = ${{ toJson(needs) }};
             const head_sha = '${{ needs.check-comment.outputs.head_sha }}'
             const autoformat = require('./.github/workflows/autoformat.js');

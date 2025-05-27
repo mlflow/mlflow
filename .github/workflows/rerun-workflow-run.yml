@@ -18,13 +18,9 @@ jobs:
       actions: write # to rerun github action workflows
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          sparse-checkout: |
             .github
       - name: Download PR number
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          script: |
             const rerun = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/rerun.js`);
             await rerun.download({ context, github });
 
@@ -33,7 +29,5 @@ jobs:
 
       - name: Rerun workflows
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          script: |
             const rerun = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/rerun.js`);
             await rerun.rerun({ context, github });
