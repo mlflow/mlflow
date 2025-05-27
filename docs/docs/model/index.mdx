@@ -3975,6 +3975,23 @@ response = requests.post(url, json=json_data)
 print(f"\nPyfunc 'predict_interval':\n${response.json()}")
 ```
 
+## Automatic Model Dependency Locking
+
+By default, MLflow only pins the direct dependencies of the model and doesn't lock the transitive dependencies (e.g., `numpy` installed by `scikit-learn`).
+To lock both direct and transitive dependencies of the model, you can enable automatic dependency locking by setting the environment variable `MLFLOW_LOCK_MODEL_DEPENDENCIES` to `true`.
+
+```sh
+export MLFLOW_LOCK_MODEL_DEPENDENCIES=true
+```
+
+MLflow uses [uv](https://docs.astral.sh/uv/) to lock the dependencies. If `uv` is not installed, you can install it with the following command:
+
+```sh
+pip install uv
+```
+
+For other installation methods, refer to the [uv installation guidance](https://docs.astral.sh/uv/getting-started/installation).
+
 ## Validate Models before Deployment
 
 After logging your model with MLflow Tracking, it is highly recommended to validate the model locally before deploying it to production.

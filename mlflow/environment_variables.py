@@ -828,4 +828,6 @@ MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable(
 
 #: If True, MLflow locks both direct and transitive model dependencies when logging a model.
 #: (default: ``True``).
-MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable("MLFLOW_LOCK_MODEL_DEPENDENCIES", True)
+MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
+    "MLFLOW_LOCK_MODEL_DEPENDENCIES", False
+)

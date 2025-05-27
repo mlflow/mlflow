@@ -452,7 +452,7 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
             )
         _logger.warning(msg)
         _logger.debug("", exc_info=True)
-        return _lock_requirements(fallback)
+        return fallback
 
 
 def _get_uv_envs_for_databricks() -> dict[str, str]:
@@ -496,21 +496,29 @@ def _get_uv_envs_for_databricks() -> dict[str, str]:
     return envs
 
 
-def _lock_requirements(reqs: list[str]) -> list[str]:
+def _lock_requirements(
+    requirements: list[str], constraints: Optional[list[str]] = None
+) -> Optional[list[str]]:
+    """
+    Locks the given requirements using `uv`. Returns the locked requirements when the locking is
+    performed successfully, otherwise returns None.
+    """
     if not MLFLOW_LOCK_MODEL_DEPENDENCIES.get():
-        return reqs
+        return None
 
     uv_bin = shutil.which("uv")
     if uv_bin is None:
         _logger.debug("`uv` binary not found. Skipping locking requirements.")
-        return reqs
+        return None
 
     _logger.debug("Locking requirements with `uv`...")
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_dir_path = pathlib.Path(tmp_dir)
         in_file = tmp_dir_path / "requirements.in"
-        in_file.write_text("\n".join(reqs))
+        in_file.write_text("\n".join(requirements))
         out_file = tmp_dir_path / "requirements.txt"
+        constraints_file = tmp_dir_path / "constraints.txt"
+        constraints_file.write_text("\n".join(constraints or []))
         try:
             out = subprocess.check_output(
                 [
@@ -522,6 +530,7 @@ def _lock_requirements(reqs: list[str]) -> list[str]:
                     "--no-annotate",
                     "--no-header",
                     f"--python-version={PYTHON_VERSION}",
+                    f"--constrains={constraints_file}",
                     f"--output-file={out_file}",
                     in_file,
                 ],
@@ -535,7 +544,7 @@ def _lock_requirements(reqs: list[str]) -> list[str]:
                 f"Failed to compile pip requirements. Falling back to the original requirements. "
                 f"Output: {e.stdout}"
             )
-            return reqs
+            return None
 
         return out_file.read_text().splitlines()
 
@@ -662,10 +671,13 @@ def _process_pip_requirements(
     # Check if pip requirements contain incompatible version with the current environment
     warn_dependency_requirement_mismatches(sanitized_pip_reqs)
 
-    sanitized_pip_reqs = _lock_requirements(sanitized_pip_reqs)
-
-    if constraints:
-        sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
+    if locked_requirements := _lock_requirements(sanitized_pip_reqs, constraints):
+        # Locking requirements was successful
+        sanitized_pip_reqs = locked_requirements
+    else:
+        # Locking requirements was not performed or failed
+        if constraints:
+            sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
 
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
     conda_env = _mlflow_conda_env(additional_pip_deps=sanitized_pip_reqs, install_mlflow=False)
