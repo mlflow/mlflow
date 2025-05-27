@@ -25,6 +25,7 @@ from mlflow.genai.datasets import (
     delete_dataset,
     get_dataset,
 )
+from mlflow.genai.optimize import optimize_prompts
 
 __all__ = [
     # TODO (B-Step62): Add these back once we release the new evaluate API
@@ -34,6 +35,7 @@ __all__ = [
     "create_dataset",
     "delete_dataset",
     "get_dataset",
+    "optimize_prompts",
     # Labeling exports (only included when databricks-agents is installed)
     *(
         [

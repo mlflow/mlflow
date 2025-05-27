@@ -1,3 +1,4 @@
+import multiprocessing
 from dataclasses import dataclass
 from typing import Callable, Optional, Union
 
@@ -15,14 +16,14 @@ class PromptOptimizationResult:
 @dataclass
 class LLMParam:
     model_name: str  # <provider>/<model name>
-    base_uri: Optional[str]
-    temperature: Optional[float]
+    base_uri: Optional[str] = None
+    temperature: Optional[float] = None
 
 
 @dataclass
 class OptimizerParam:
     num_instruction_candidates: int = 8
     max_few_show_examples: int = 3
-    num_threads: int = 16
+    num_threads: int = (multiprocessing.cpu_count() * 2) + 1
     optimizer_llm: Optional[LLMParam] = None
     algorithm: str = "DSPy/MIPROv2"
