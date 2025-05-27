@@ -106,12 +106,41 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
 )
 from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
+from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+    CreatePromptRequest,
+    CreatePromptResponse,
+    GetPromptVersionRequest,
+    GetPromptVersionResponse,
+    GetLatestPromptVersionRequest,
+    GetLatestPromptVersionResponse,
+    GetPromptVersionByAliasRequest,
+    GetPromptVersionByAliasResponse,
+    GetPromptRequest,
+    GetPromptResponse,
+    SearchPromptsRequest,
+    SearchPromptsResponse,
+    DeletePromptRequest,
+    DeletePromptResponse,
+    CreatePromptVersionRequest,
+    CreatePromptVersionResponse,
+    DeletePromptVersionRequest,
+    DeletePromptVersionResponse,
+    SetPromptTagRequest,
+    SetPromptTagResponse,
+    DeletePromptTagRequest,
+    DeletePromptTagResponse,
+)
+from mlflow.protos.databricks_uc_prompt_service_pb2 import UcPromptRegistryService
 
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
-_METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
-_METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
-    UcModelRegistryService, _REST_API_PATH_PREFIX
-)
+_METHOD_TO_INFO = {
+    **extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX),
+    **extract_api_info_for_service(UcPromptRegistryService, _REST_API_PATH_PREFIX),
+}
+_METHOD_TO_ALL_INFO = {
+    **extract_all_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX),
+    **extract_all_api_info_for_service(UcPromptRegistryService, _REST_API_PATH_PREFIX),
+}
 
 _logger = logging.getLogger(__name__)
 _DELTA_TABLE = "delta_table"
@@ -310,9 +339,7 @@ class UcModelRegistryStore(BaseRestStore):
             GetRegisteredModelRequest: GetRegisteredModelResponse,
             GetModelVersionRequest: GetModelVersionResponse,
             SearchRegisteredModelsRequest: SearchRegisteredModelsResponse,
-            GenerateTemporaryModelVersionCredentialsRequest: (
-                GenerateTemporaryModelVersionCredentialsResponse
-            ),
+            GenerateTemporaryModelVersionCredentialsRequest: GenerateTemporaryModelVersionCredentialsResponse,
             GetRun: GetRun.Response,
             SetRegisteredModelAliasRequest: SetRegisteredModelAliasResponse,
             DeleteRegisteredModelAliasRequest: DeleteRegisteredModelAliasResponse,
@@ -321,6 +348,17 @@ class UcModelRegistryStore(BaseRestStore):
             SetModelVersionTagRequest: SetModelVersionTagResponse,
             DeleteModelVersionTagRequest: DeleteModelVersionTagResponse,
             GetModelVersionByAliasRequest: GetModelVersionByAliasResponse,
+            CreatePromptRequest: CreatePromptResponse,
+            GetPromptVersionRequest: GetPromptVersionResponse,
+            GetLatestPromptVersionRequest: GetLatestPromptVersionResponse,
+            GetPromptVersionByAliasRequest: GetPromptVersionByAliasResponse,
+            GetPromptRequest: GetPromptResponse,
+            SearchPromptsRequest: SearchPromptsResponse,
+            DeletePromptRequest: DeletePromptResponse,
+            CreatePromptVersionRequest: CreatePromptVersionResponse,
+            DeletePromptVersionRequest: DeletePromptVersionResponse,
+            SetPromptTagRequest: SetPromptTagResponse,
+            DeletePromptTagRequest: DeletePromptTagResponse,
         }
         return method_to_response[method]()
 
@@ -1088,9 +1126,6 @@ class UcModelRegistryStore(BaseRestStore):
     def create_prompt(self, name, template, description=None, tags=None):
         """
         Create a new prompt in Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
         """
         from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
         
@@ -1098,16 +1133,29 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().create_prompt(name, template, description, tags)
         
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().create_prompt(name, template, description, tags)
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+            CreatePromptRequest,
+            CreatePromptResponse,
+        )
+        from mlflow.store._unity_catalog.registry.utils import (
+            proto_to_mlflow_prompt,
+            mlflow_tags_to_proto,
+        )
+        
+        req_body = message_to_json(
+            CreatePromptRequest(
+                name=name,
+                template=template,
+                description=description,
+                tags=mlflow_tags_to_proto(tags) if tags else None,
+            )
+        )
+        response_proto = self._call_endpoint(CreatePromptRequest, req_body)
+        return proto_to_mlflow_prompt(response_proto.prompt_version, tags)
 
     def get_prompt(self, name, version=None):
         """
         Get prompt by name and version from Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
         """
         from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
         
@@ -1115,16 +1163,58 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().get_prompt(name, version)
         
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().get_prompt(name, version)
+        try:
+            from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+                GetPromptVersionRequest,
+                GetPromptVersionResponse,
+                GetLatestPromptVersionRequest,
+                GetLatestPromptVersionResponse,
+                GetPromptVersionByAliasRequest,
+                GetPromptVersionByAliasResponse,
+                GetPromptRequest,
+                GetPromptResponse,
+            )
+            from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
+            
+            if version is None:
+                req_body = message_to_json(GetLatestPromptVersionRequest(name=name))
+                response_proto = self._call_endpoint(GetLatestPromptVersionRequest, req_body)
+            else:
+                try:
+                    version_num = int(version)
+                    req_body = message_to_json(
+                        GetPromptVersionRequest(name=name, version=version_num)
+                    )
+                    response_proto = self._call_endpoint(GetPromptVersionRequest, req_body)
+                except ValueError:
+                    req_body = message_to_json(
+                        GetPromptVersionByAliasRequest(name=name, alias=version)
+                    )
+                    response_proto = self._call_endpoint(GetPromptVersionByAliasRequest, req_body)
+            
+            # Get prompt-level tags
+            prompt_tags = {}
+            try:
+                prompt_req_body = message_to_json(GetPromptRequest(name=name))
+                prompt_response = self._call_endpoint(GetPromptRequest, prompt_req_body)
+                if prompt_response.prompt.tags:
+                    prompt_tags = {tag.key: tag.value for tag in prompt_response.prompt.tags}
+            except:
+                pass
+            
+            return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags)
+            
+        except Exception as e:
+            from mlflow.exceptions import MlflowException
+            from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
+            
+            if isinstance(e, MlflowException) and e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                return None
+            raise
 
     def search_prompts(self, filter_string=None, max_results=None, order_by=None, page_token=None):
         """
         Search for prompts in Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
         """
         from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
         
@@ -1132,16 +1222,42 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().search_prompts(filter_string, max_results, order_by, page_token)
         
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().search_prompts(filter_string, max_results, order_by, page_token)
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+            SearchPromptsRequest,
+            SearchPromptsResponse,
+            GetPromptRequest,
+            GetPromptResponse,
+        )
+        from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
+        from mlflow.store.entities.paged_list import PagedList
+        
+        req_body = message_to_json(
+            SearchPromptsRequest(
+                filter=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
+        )
+        response_proto = self._call_endpoint(SearchPromptsRequest, req_body)
+        prompts = []
+        for prompt_version in response_proto.prompt_versions:
+            # Get prompt-level tags
+            prompt_tags = {}
+            try:
+                prompt_req_body = message_to_json(GetPromptRequest(name=prompt_version.name))
+                prompt_response = self._call_endpoint(GetPromptRequest, prompt_req_body)
+                if prompt_response.prompt.tags:
+                    prompt_tags = {tag.key: tag.value for tag in prompt_response.prompt.tags}
+            except:
+                pass
+            prompts.append(proto_to_mlflow_prompt(prompt_version, prompt_tags))
+        
+        return PagedList(prompts, response_proto.next_page_token)
 
     def delete_prompt(self, name):
         """
         Delete a prompt from Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
         """
         from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
         
@@ -1149,16 +1265,17 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().delete_prompt(name)
         
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().delete_prompt(name)
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+            DeletePromptRequest,
+            DeletePromptResponse,
+        )
+        
+        req_body = message_to_json(DeletePromptRequest(name=name))
+        self._call_endpoint(DeletePromptRequest, req_body)
 
     def create_prompt_version(self, name, template, description=None, tags=None):
         """
-        Create a new version of a prompt in Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
+        Create a new version of an existing prompt in Unity Catalog.
         """
         from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
         
@@ -1166,16 +1283,42 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().create_prompt_version(name, template, description, tags)
         
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().create_prompt_version(name, template, description, tags)
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+            CreatePromptVersionRequest,
+            CreatePromptVersionResponse,
+            GetPromptRequest,
+            GetPromptResponse,
+        )
+        from mlflow.store._unity_catalog.registry.utils import (
+            proto_to_mlflow_prompt,
+            mlflow_tags_to_proto,
+        )
+        
+        req_body = message_to_json(
+            CreatePromptVersionRequest(
+                name=name,
+                template=template,
+                description=description,
+                tags=mlflow_tags_to_proto(tags) if tags else None,
+            )
+        )
+        response_proto = self._call_endpoint(CreatePromptVersionRequest, req_body)
+        
+        # Get prompt-level tags
+        prompt_tags = {}
+        try:
+            prompt_req_body = message_to_json(GetPromptRequest(name=name))
+            prompt_response = self._call_endpoint(GetPromptRequest, prompt_req_body)
+            if prompt_response.prompt.tags:
+                prompt_tags = {tag.key: tag.value for tag in prompt_response.prompt.tags}
+        except:
+            pass
+        
+        return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags)
 
     def get_prompt_version(self, name, version):
         """
         Get a specific version of a prompt from Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
         """
         from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
         
@@ -1183,16 +1326,32 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().get_prompt_version(name, version)
         
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().get_prompt_version(name, version)
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+            GetPromptVersionRequest,
+            GetPromptVersionResponse,
+            GetPromptRequest,
+            GetPromptResponse,
+        )
+        from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
+        
+        req_body = message_to_json(GetPromptVersionRequest(name=name, version=int(version)))
+        response_proto = self._call_endpoint(GetPromptVersionRequest, req_body)
+        
+        # Get prompt-level tags
+        prompt_tags = {}
+        try:
+            prompt_req_body = message_to_json(GetPromptRequest(name=name))
+            prompt_response = self._call_endpoint(GetPromptRequest, prompt_req_body)
+            if prompt_response.prompt.tags:
+                prompt_tags = {tag.key: tag.value for tag in prompt_response.prompt.tags}
+        except:
+            pass
+        
+        return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags)
 
     def delete_prompt_version(self, name, version):
         """
         Delete a specific version of a prompt from Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
         """
         from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
         
@@ -1200,16 +1359,17 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().delete_prompt_version(name, version)
         
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().delete_prompt_version(name, version)
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+            DeletePromptVersionRequest,
+            DeletePromptVersionResponse,
+        )
+        
+        req_body = message_to_json(DeletePromptVersionRequest(name=name, version=int(version)))
+        self._call_endpoint(DeletePromptVersionRequest, req_body)
 
     def set_prompt_tag(self, name, key, value):
         """
         Set a tag on a prompt in Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
         """
         from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
         
@@ -1217,16 +1377,17 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().set_prompt_tag(name, key, value)
         
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().set_prompt_tag(name, key, value)
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+            SetPromptTagRequest,
+            SetPromptTagResponse,
+        )
+        
+        req_body = message_to_json(SetPromptTagRequest(name=name, key=key, value=value))
+        self._call_endpoint(SetPromptTagRequest, req_body)
 
     def delete_prompt_tag(self, name, key):
         """
         Delete a tag from a prompt in Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
         """
         from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
         
@@ -1234,84 +1395,17 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().delete_prompt_tag(name, key)
         
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().delete_prompt_tag(name, key)
-
-    def set_prompt_version_tag(self, name, version, key, value):
-        """
-        Set a tag on a prompt version in Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
-        """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+            DeletePromptTagRequest,
+            DeletePromptTagResponse,
+        )
         
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().set_prompt_version_tag(name, version, key, value)
-        
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().set_prompt_version_tag(name, version, key, value)
-
-    def delete_prompt_version_tag(self, name, version, key):
-        """
-        Delete a tag from a prompt version in Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
-        """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-        
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().delete_prompt_version_tag(name, version, key)
-        
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().delete_prompt_version_tag(name, version, key)
-
-    def set_prompt_alias(self, name, alias, version):
-        """
-        Set an alias for a prompt version in Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
-        """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-        
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().set_prompt_alias(name, alias, version)
-        
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().set_prompt_alias(name, alias, version)
-
-    def delete_prompt_alias(self, name, alias):
-        """
-        Delete a prompt alias from Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
-        """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-        
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().delete_prompt_alias(name, alias)
-        
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().delete_prompt_alias(name, alias)
+        req_body = message_to_json(DeletePromptTagRequest(name=name, key=key))
+        self._call_endpoint(DeletePromptTagRequest, req_body)
 
     def get_prompt_version_by_alias(self, name, alias):
         """
         Get a prompt version by alias from Unity Catalog.
-
-        This method overrides the default implementation to use UC-specific prompt endpoints
-        when available, falling back to the tag-based approach otherwise.
         """
         from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
         
@@ -1319,6 +1413,25 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().get_prompt_version_by_alias(name, alias)
         
-        # TODO: Implement UC prompt endpoint calls when available
-        # For now, use the default implementation
-        return super().get_prompt_version_by_alias(name, alias)
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+            GetPromptVersionByAliasRequest,
+            GetPromptVersionByAliasResponse,
+            GetPromptRequest,
+            GetPromptResponse,
+        )
+        from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
+        
+        req_body = message_to_json(GetPromptVersionByAliasRequest(name=name, alias=alias))
+        response_proto = self._call_endpoint(GetPromptVersionByAliasRequest, req_body)
+        
+        # Get prompt-level tags
+        prompt_tags = {}
+        try:
+            prompt_req_body = message_to_json(GetPromptRequest(name=name))
+            prompt_response = self._call_endpoint(GetPromptRequest, prompt_req_body)
+            if prompt_response.prompt.tags:
+                prompt_tags = {tag.key: tag.value for tag in prompt_response.prompt.tags}
+        except:
+            pass
+        
+        return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags)
