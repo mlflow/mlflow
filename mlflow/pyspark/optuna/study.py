@@ -216,13 +216,8 @@ class MlflowSparkStudy(Study):
                     mlflow_client,
                     num_trials,
                     timeout,
-                    1,
                     catch,
-                    callbacks,
-                    False,
-                    False,
-                    datetime.datetime.now(),
-                    None,
+                    callbacks
                 )
                 error_messages.append(None)
             except BaseException:
