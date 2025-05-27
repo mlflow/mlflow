@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from typing import Any, Optional, Union
 
+import mlflow
 from mlflow.entities import Assessment
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
@@ -94,12 +95,10 @@ class RetrievalRelevance(BuiltInScorer):
         Returns:
             A list of assessments evaluating the relevance of each context chunk.
         """
-        from databricks.agents.evals import judges
-
         request = parse_inputs_to_str(trace.data.spans[0].inputs)
         retrieved_context = extract_retrieval_context_from_trace(trace)
-        return judges.chunk_relevance(
-            request=request, retrieved_context=retrieved_context, assessment_name=self.name
+        return mlflow.genai.judges.is_context_relevant(
+            request=request, context=retrieved_context, name=self.name
         )
 
     def with_config(self, *, name: str = "retrieval_relevance") -> "RetrievalRelevance":
@@ -170,8 +169,6 @@ class RetrievalSufficiency(BuiltInScorer):
                 label(s) by calling :py:func:`mlflow.log_expectation` API. The annotated label(s)
                 will be considered when computing the sufficiency of retrieved context.
         """
-        from databricks.agents.evals import judges
-
         request = parse_inputs_to_str(trace.data.spans[0].inputs)
         retrieved_context = extract_retrieval_context_from_trace(trace)
 
@@ -183,12 +180,12 @@ class RetrievalSufficiency(BuiltInScorer):
             if assessment.name == "expected_response":
                 expected_response = assessment.value
 
-        return judges.context_sufficiency(
+        return mlflow.genai.judges.is_context_sufficient(
             request=request,
-            retrieved_context=retrieved_context,
+            context=retrieved_context,
             expected_response=expected_response,
             expected_facts=expected_facts,
-            assessment_name=self.name,
+            name=self.name,
         )
 
     def with_config(self, *, name: str = "retrieval_sufficiency") -> "RetrievalSufficiency":
@@ -250,16 +247,14 @@ class RetrievalGroundedness(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the groundedness of the response.
         """
-        from databricks.agents.evals import judges
-
         request = parse_inputs_to_str(trace.data.spans[0].inputs)
         response = trace.data.spans[0].outputs
         retrieved_context = extract_retrieval_context_from_trace(trace)
-        return judges.groundedness(
+        return mlflow.genai.judges.is_grounded(
             request=request,
             response=response,
-            retrieved_context=retrieved_context,
-            assessment_name=self.name,
+            context=retrieved_context,
+            name=self.name,
         )
 
     def with_config(self, *, name: str = "retrieval_groundedness") -> "RetrievalGroundedness":
@@ -412,8 +407,6 @@ class GuidelineAdherence(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Assessment~` object with a boolean value
             indicating the adherence to the specified guidelines.
         """
-        from databricks.agents.evals import judges
-
         request = parse_inputs_to_str(inputs)
         response = outputs
         guidelines = (expectations or {}).get("guidelines", self.global_guidelines)
@@ -423,8 +416,8 @@ class GuidelineAdherence(BuiltInScorer):
                 "by the :py:meth:`with_config` method of the scorer."
             )
 
-        return judges.guideline_adherence(
-            request=request, response=response, guidelines=guidelines, assessment_name=self.name
+        return mlflow.genai.judges.meets_guidelines(
+            request=request, response=response, guidelines=guidelines, name=self.name
         )
 
     def with_config(
@@ -515,12 +508,10 @@ class RelevanceToQuery(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the relevance of the response to the query.
         """
-        from databricks.agents.evals import judges
-
         request = parse_inputs_to_str(inputs)
         response = outputs
-        return judges.relevance_to_query(
-            request=request, response=response, assessment_name=self.name
+        return mlflow.genai.judges.is_relevant_to_query(
+            request=request, response=response, name=self.name
         )
 
     def with_config(self, *, name: str = "relevance_to_query") -> "RelevanceToQuery":
@@ -588,11 +579,9 @@ class Safety(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the safety of the response.
         """
-        from databricks.agents.evals import judges
-
         request = parse_inputs_to_str(inputs)
         response = outputs
-        return judges.safety(request=request, response=response, assessment_name=self.name)
+        return mlflow.genai.judges.is_safe(request=request, response=response, name=self.name)
 
     def with_config(self, *, name: str = "safety") -> "Safety":
         """
@@ -695,8 +684,6 @@ class Correctness(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the correctness of the response.
         """
-        from databricks.agents.evals import judges
-
         request = parse_inputs_to_str(inputs)
         response = outputs
         expected_facts = expectations.get("expected_facts")
@@ -708,12 +695,12 @@ class Correctness(BuiltInScorer):
                 "in the `expectations` dictionary."
             )
 
-        return judges.correctness(
+        return mlflow.genai.judges.is_correct(
             request=request,
             response=response,
             expected_response=expected_response,
             expected_facts=expected_facts,
-            assessment_name=self.name,
+            name=self.name,
         )
 
     def with_config(self, *, name: str = "correctness") -> "Correctness":

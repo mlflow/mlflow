@@ -1,6 +1,9 @@
 import warnings
 
-from mlflow.genai import scorers  # noqa: F401
+from mlflow.genai import (
+    judges,  # noqa: F401
+    scorers,  # noqa: F401
+)
 from mlflow.genai.evaluation import evaluate, to_predict_fn
 from mlflow.genai.scorers import Scorer, scorer
 
