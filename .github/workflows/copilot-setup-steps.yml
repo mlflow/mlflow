@@ -17,4 +17,4 @@ jobs:
           dev/install-taplo.sh
           dev/install-typos.sh
           dev/install-conftest.sh
-          pre-commit install
+          pre-commit install --install-hooks

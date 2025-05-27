@@ -342,7 +342,7 @@ commits are signed-off and runs `ruff check --fix` and `ruff format` to ensure t
 code will pass the lint check for python. You can enable it by running:
 
 ```bash
-pre-commit install -t pre-commit -t prepare-commit-msg
+pre-commit install --install-hooks -t pre-commit -t prepare-commit-msg
 ```
 
 Then, install the Python MLflow package from source - this is required

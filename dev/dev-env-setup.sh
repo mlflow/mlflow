@@ -357,7 +357,7 @@ set_pre_commit_and_git_signoff() {
   fi
 
   # Set up pre-commit hooks
-  pre-commit install -t pre-commit -t prepare-commit-msg
+  pre-commit install --install-hooks -t pre-commit -t prepare-commit-msg
 }
 
 # Execute mandatory setups with strict error handling
