@@ -121,15 +121,18 @@ async def test_chat_completions_autolog(client):
     assert span.attributes["model"] == "gpt-4o-mini"
     assert span.attributes["temperature"] == 0
 
-    assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
-    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
-        {
-            TokenUsageKey.INPUT_TOKENS: 9,
-            TokenUsageKey.OUTPUT_TOKENS: 12,
-            TokenUsageKey.TOTAL_TOKENS: 21,
-        }
-    )
+    assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+    assert trace.info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
 
 @pytest.mark.asyncio
@@ -164,13 +167,11 @@ async def test_chat_completions_autolog_under_current_active_span(client):
     assert child_span.parent_id == parent_span.span_id
 
     # Token usage should be aggregated correctly
-    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
-        {
-            TokenUsageKey.INPUT_TOKENS: 27,
-            TokenUsageKey.OUTPUT_TOKENS: 36,
-            TokenUsageKey.TOTAL_TOKENS: 63,
-        }
-    )
+    assert trace.info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 27,
+        TokenUsageKey.OUTPUT_TOKENS: 36,
+        TokenUsageKey.TOTAL_TOKENS: 63,
+    }
 
 
 @pytest.mark.asyncio
@@ -223,13 +224,11 @@ async def test_chat_completions_autolog_streaming(client, include_usage):
     assert chunk_2["choices"][0]["delta"]["content"] == " world"
 
     if include_usage:
-        assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
-            {
-                TokenUsageKey.INPUT_TOKENS: 9,
-                TokenUsageKey.OUTPUT_TOKENS: 12,
-                TokenUsageKey.TOTAL_TOKENS: 21,
-            }
-        )
+        assert trace.info.token_usage == {
+            TokenUsageKey.INPUT_TOKENS: 9,
+            TokenUsageKey.OUTPUT_TOKENS: 12,
+            TokenUsageKey.TOTAL_TOKENS: 21,
+        }
 
 
 @pytest.mark.asyncio
@@ -521,13 +520,11 @@ async def test_autolog_raw_response(client):
     )
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
-    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
-        {
-            TokenUsageKey.INPUT_TOKENS: 9,
-            TokenUsageKey.OUTPUT_TOKENS: 12,
-            TokenUsageKey.TOTAL_TOKENS: 21,
-        }
-    )
+    assert trace.info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
 
 @pytest.mark.asyncio

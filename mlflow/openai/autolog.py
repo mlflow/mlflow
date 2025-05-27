@@ -345,7 +345,7 @@ def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], outp
         output = "".join(output)
         # For ChatCompletion, the usage info is stored in the last chunk and only when
         # `stream_options={"include_usage": True}` is specified by the user.
-        if usage := chunk.usage:
+        if usage := getattr(chunk, "usage", None):
             usage_dict = {
                 TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
