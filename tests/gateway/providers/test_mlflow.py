@@ -288,7 +288,7 @@ async def test_chat():
         mock_client.post.assert_called_once_with(
             "http://127.0.0.1:4000/invocations",
             json={
-                "inputs": ["Is this a test?"],
+                "inputs": ["[USER]\nIs this a test?\n\n"],
                 "params": {"temperature": 0.0, "n": 1},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
