@@ -1,10 +1,13 @@
 from abc import abstractmethod
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from mlflow.entities import Assessment
+from mlflow.entities.assessment import Feedback
+from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import BuiltInScorer
+from mlflow.genai.utils.trace_utils import extract_retrieval_context_from_trace, parse_inputs_to_str
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.utils.annotations import experimental
 
@@ -28,30 +31,6 @@ class _BaseBuiltInScorer(BuiltInScorer):
             "get a new instance with the custom field values.",
             error_code=BAD_REQUEST,
         )
-
-    def __call__(self, **kwargs):
-        try:
-            from databricks.agents.evals import judges
-        except ImportError:
-            raise ImportError(
-                "databricks-agents is not installed. Please install it with "
-                "`pip install databricks-agents`"
-            )
-
-        if self.name and self.name in set(dir(judges)):
-            import pandas as pd
-
-            from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
-
-            converted_kwargs = _convert_to_legacy_eval_set(pd.DataFrame([kwargs])).iloc[0].to_dict()
-            return getattr(judges, self.name)(**converted_kwargs)
-        elif self.name:
-            raise ValueError(
-                f"The scorer '{self.name}' doesn't currently have a usable implementation in the "
-                "databricks-agents package."
-            )
-        else:
-            raise ValueError("This scorer isn't recognized since it doesn't have a name.")
 
     @abstractmethod
     def with_config(self, **kwargs) -> "_BaseBuiltInScorer":
@@ -94,14 +73,9 @@ class ChunkRelevance(_BaseBuiltInScorer):
         import mlflow
         from mlflow.genai.scorers import chunk_relevance
 
-        assessment = chunk_relevance(
-            inputs={"question": "What is the capital of France?"},
-            retrieved_context=[
-                {"content": "Paris is the capital city of France."},
-                {"content": "The chicken crossed the road."},
-            ],
-        )
-        print(assessment)
+        trace = mlflow.get_trace("<your-trace-id>")
+        feedback = chunk_relevance(trace)
+        print(feedback)
 
     Example (with evaluate):
 
@@ -109,44 +83,32 @@ class ChunkRelevance(_BaseBuiltInScorer):
 
         import mlflow
 
-        data = [
-            {
-                "inputs": {"question": "What is the capital of France?"},
-                "retrieved_context": [
-                    {"content": "Paris is the capital city of France."},
-                    {"content": "The chicken crossed the road."},
-                ],
-            }
-        ]
+        data = mlflow.search_traces(...)
         result = mlflow.genai.evaluate(data=data, scorers=[chunk_relevance])
     """
 
     name: str = "chunk_relevance"
-    required_columns: set[str] = {"inputs", "retrieved_context"}
+    required_columns: set[str] = {"inputs", "trace"}
 
-    def __call__(self, *, inputs: Any, retrieved_context: list[dict[str, Any]]) -> list[Assessment]:
+    def __call__(self, *, trace: Trace) -> list[Feedback]:
         """
         Evaluate chunk relevance for each context chunk.
 
         Args:
-            inputs: The input data.
-            retrieved_context: The retrieved context.
+            trace: The trace of the model's execution. Must contains at least one span with
+                type `RETRIEVER`. MLflow will extract the retrieved context from that span.
+                If multiple spans are found, MLflow will use the **last** one.
 
         Returns:
             A list of assessments evaluating the relevance of each context chunk.
-
-        Example:
-
-        .. code-block:: python
-
-            from mlflow.genai.scorers import chunk_relevance
-
-            assessments = chunk_relevance(
-                inputs={"question": "What is the capital of France?"},
-                retrieved_context=[{"content": "Paris is the capital city of France."}],
-            )
         """
-        return super().__call__(inputs=inputs, retrieved_context=retrieved_context)
+        from databricks.agents.evals import judges
+
+        request = parse_inputs_to_str(trace.data.spans[0].inputs)
+        retrieved_context = extract_retrieval_context_from_trace(trace)
+        return judges.chunk_relevance(
+            request=request, retrieved_context=retrieved_context, assessment_name=self.name
+        )
 
     def with_config(self, *, name: str = "chunk_relevance") -> "ChunkRelevance":
         """
@@ -177,11 +139,9 @@ class ContextSufficiency(_BaseBuiltInScorer):
         import mlflow
         from mlflow.genai.scorers import context_sufficiency
 
-        assessment = context_sufficiency(
-            inputs={"question": "What is the capital of France?"},
-            retrieved_context=[{"content": "Paris is the capital city of France."}],
-        )
-        print(assessment)
+        trace = mlflow.get_trace("<your-trace-id>")
+        feedback = context_sufficiency(trace)
+        print(feedback)
 
     Example (with evaluate):
 
@@ -189,21 +149,55 @@ class ContextSufficiency(_BaseBuiltInScorer):
 
         import mlflow
 
-        data = [
-            {
-                "inputs": {"question": "What is the capital of France?"},
-                "retrieved_context": [{"content": "Paris is the capital city of France."}],
-            }
-        ]
+        data = mlflow.search_traces(...)
         result = mlflow.genai.evaluate(data=data, scorers=[context_sufficiency])
     """
 
     name: str = "context_sufficiency"
-    required_columns: set[str] = {"inputs", "retrieved_context", "expectations/expected_response"}
+    required_columns: set[str] = {"inputs", "trace"}
 
-    def __call__(self, *, inputs: Any, retrieved_context: list[dict[str, Any]]) -> Assessment:
-        """Evaluate context sufficiency based on retrieved documents."""
-        return super().__call__(inputs=inputs, retrieved_context=retrieved_context)
+    def validate_columns(self, columns: set[str]) -> None:
+        super().validate_columns(columns)
+        if (
+            "expectations/expected_response" not in columns
+            and "expectations/expected_facts" not in columns
+        ):
+            raise MissingColumnsException(
+                self.name, ["expectations/expected_response or expectations/expected_facts"]
+            )
+
+    def __call__(self, *, trace: Trace) -> Feedback:
+        """
+        Evaluate context sufficiency based on retrieved documents.
+
+        Args:
+            trace: The trace of the model's execution. Must contains at least one span with
+                type `RETRIEVER`. MLflow will extract the retrieved context from that span.
+                If multiple spans are found, MLflow will use the **last** one.
+                Optionally, you can annotate the trace with `expected_facts` or `expected_response`
+                label(s) by calling :py:func:`mlflow.log_expectation` API. The annotated label(s)
+                will be considered when computing the sufficiency of retrieved context.
+        """
+        from databricks.agents.evals import judges
+
+        request = parse_inputs_to_str(trace.data.spans[0].inputs)
+        retrieved_context = extract_retrieval_context_from_trace(trace)
+
+        expected_facts = None
+        expected_response = None
+        for assessment in trace.info.assessments:
+            if assessment.name == "expected_facts":
+                expected_facts = assessment.value
+            if assessment.name == "expected_response":
+                expected_response = assessment.value
+
+        return judges.context_sufficiency(
+            request=request,
+            retrieved_context=retrieved_context,
+            expected_response=expected_response,
+            expected_facts=expected_facts,
+            assessment_name=self.name,
+        )
 
     def with_config(self, *, name: str = "context_sufficiency") -> "ContextSufficiency":
         """
@@ -234,12 +228,9 @@ class Groundedness(_BaseBuiltInScorer):
         import mlflow
         from mlflow.genai.scorers import groundedness
 
-        assessment = groundedness(
-            inputs={"question": "What is the capital of France?"},
-            outputs="The capital of France is Paris.",
-            retrieved_context=[{"content": "Paris is the capital city of France."}],
-        )
-        print(assessment)
+        trace = mlflow.get_trace("<your-trace-id>")
+        feedback = groundedness(trace)
+        print(feedback)
 
     Example (with evaluate):
 
@@ -247,24 +238,37 @@ class Groundedness(_BaseBuiltInScorer):
 
         import mlflow
 
-        data = [
-            {
-                "inputs": {"question": "What is the capital of France?"},
-                "outputs": "The capital of France is Paris.",
-                "retrieved_context": [{"content": "Paris is the capital city of France."}],
-            }
-        ]
+        data = mlflow.search_traces(...)
         result = mlflow.genai.evaluate(data=data, scorers=[groundedness])
     """
 
     name: str = "groundedness"
-    required_columns: set[str] = {"inputs", "outputs", "retrieved_context"}
+    required_columns: set[str] = {"inputs", "trace"}
 
-    def __call__(
-        self, *, inputs: Any, outputs: Any, retrieved_context: list[dict[str, Any]]
-    ) -> Assessment:
-        """Evaluate groundedness of response against context."""
-        return super().__call__(inputs=inputs, outputs=outputs, retrieved_context=retrieved_context)
+    def __call__(self, *, trace: Trace) -> Feedback:
+        """
+        Evaluate groundedness of response against retrieved context.
+
+        Args:
+            trace: The trace of the model's execution. Must contains at least one span with
+                type `RETRIEVER`. MLflow will extract the retrieved context from that span.
+                If multiple spans are found, MLflow will use the **last** one.
+
+        Returns:
+            An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
+            indicating the groundedness of the response.
+        """
+        from databricks.agents.evals import judges
+
+        request = parse_inputs_to_str(trace.data.spans[0].inputs)
+        response = trace.data.spans[0].outputs
+        retrieved_context = extract_retrieval_context_from_trace(trace)
+        return judges.groundedness(
+            request=request,
+            response=response,
+            retrieved_context=retrieved_context,
+            assessment_name=self.name,
+        )
 
     def with_config(self, *, name: str = "groundedness") -> "Groundedness":
         """
@@ -310,11 +314,11 @@ class GuidelineAdherence(_BaseBuiltInScorer):
             name="english_guidelines",
             global_guidelines=["The response must be in English"],
         )
-        assessment = english(
+        feedback = english(
             inputs={"question": "What is the capital of France?"},
             outputs="The capital of France is Paris.",
         )
-        print(assessment)
+        print(feedback)
 
     Example (with evaluate):
 
@@ -385,7 +389,7 @@ class GuidelineAdherence(_BaseBuiltInScorer):
     """
 
     name: str = "guideline_adherence"
-    global_guidelines: Optional[list[str]] = None
+    global_guidelines: Optional[Union[str, list[str]]] = None
     required_columns: set[str] = {"inputs", "outputs"}
 
     def update_evaluation_config(self, evaluation_config) -> dict:
@@ -416,17 +420,38 @@ class GuidelineAdherence(_BaseBuiltInScorer):
     def __call__(
         self,
         *,
-        inputs: Any,
+        inputs: dict[str, Any],
         outputs: Any,
-        guidelines: dict[str, list[str]],
-        guidelines_context: dict[str, Any],
+        expectations: Optional[dict[str, Any]] = None,
     ) -> Assessment:
-        """Evaluate adherence to specified guidelines."""
-        return super().__call__(
-            inputs=inputs,
-            outputs=outputs,
-            guidelines=guidelines,
-            guidelines_context=guidelines_context,
+        """
+        Evaluate adherence to specified guidelines.
+
+        Args:
+            inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
+            outputs: The response from the model, e.g. "The capital of France is Paris."
+            expectations: A dictionary of expectations for the response. This must contain either
+                `guidelines` key, which is used to evaluate the response against the guidelines
+                specified in the `guidelines` field of the `expectations` column of the dataset.
+                E.g., {"guidelines": ["The response must be factual and concise"]}
+
+        Returns:
+            An :py:class:`mlflow.entities.assessment.Assessment~` object with a boolean value
+            indicating the adherence to the specified guidelines.
+        """
+        from databricks.agents.evals import judges
+
+        request = parse_inputs_to_str(inputs)
+        response = outputs
+        guidelines = (expectations or {}).get("guidelines", self.global_guidelines)
+        if not guidelines:
+            raise MlflowException(
+                "Guidelines must be specified either in the `expectations` parameter or "
+                "by the :py:meth:`with_config` method of the scorer."
+            )
+
+        return judges.guideline_adherence(
+            request=request, response=response, guidelines=guidelines, assessment_name=self.name
         )
 
     def with_config(
@@ -505,9 +530,25 @@ class RelevanceToQuery(_BaseBuiltInScorer):
     name: str = "relevance_to_query"
     required_columns: set[str] = {"inputs", "outputs"}
 
-    def __call__(self, *, inputs: Any, outputs: Any) -> Assessment:
-        """Evaluate relevance to the user's query."""
-        return super().__call__(inputs=inputs, outputs=outputs)
+    def __call__(self, *, inputs: dict[str, Any], outputs: Any) -> Feedback:
+        """
+        Evaluate relevance to the user's query.
+
+        Args:
+            inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
+            outputs: The response from the model, e.g. "The capital of France is Paris."
+
+        Returns:
+            An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
+            indicating the relevance of the response to the query.
+        """
+        from databricks.agents.evals import judges
+
+        request = parse_inputs_to_str(inputs)
+        response = outputs
+        return judges.relevance_to_query(
+            request=request, response=response, assessment_name=self.name
+        )
 
     def with_config(self, *, name: str = "relevance_to_query") -> "RelevanceToQuery":
         """
@@ -562,9 +603,23 @@ class Safety(_BaseBuiltInScorer):
     name: str = "safety"
     required_columns: set[str] = {"inputs", "outputs"}
 
-    def __call__(self, *, inputs: Any, outputs: Any) -> Assessment:
-        """Evaluate safety of the response."""
-        return super().__call__(inputs=inputs, outputs=outputs)
+    def __call__(self, *, inputs: dict[str, Any], outputs: Any) -> Feedback:
+        """
+        Evaluate safety of the response.
+
+        Args:
+            inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
+            outputs: The response from the model, e.g. "The capital of France is Paris."
+
+        Returns:
+            An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
+            indicating the safety of the response.
+        """
+        from databricks.agents.evals import judges
+
+        request = parse_inputs_to_str(inputs)
+        response = outputs
+        return judges.safety(request=request, response=response, assessment_name=self.name)
 
     def with_config(self, *, name: str = "safety") -> "Safety":
         """
@@ -649,9 +704,44 @@ class Correctness(_BaseBuiltInScorer):
                 self.name, ["expectations/expected_response or expectations/expected_facts"]
             )
 
-    def __call__(self, *, inputs: Any, outputs: Any, expectations: list[str]) -> Assessment:
-        """Evaluate correctness of the response against expectations."""
-        return super().__call__(inputs=inputs, outputs=outputs, expectations=expectations)
+    def __call__(
+        self, *, inputs: dict[str, Any], outputs: Any, expectations: dict[str, Any]
+    ) -> Feedback:
+        """
+        Evaluate correctness of the response against expectations.
+
+        Args:
+            inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
+            outputs: The response from the model, e.g. "The capital of France is Paris."
+            expectations: A dictionary of expectations for the response. This must contain either
+                `expected_response` or `expected_facts` key, which is used to evaluate the response
+                against the expected response or facts respectively.
+                E.g., {"expected_facts": ["Paris", "France", "Capital"]}
+
+        Returns:
+            An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
+            indicating the correctness of the response.
+        """
+        from databricks.agents.evals import judges
+
+        request = parse_inputs_to_str(inputs)
+        response = outputs
+        expected_facts = expectations.get("expected_facts")
+        expected_response = expectations.get("expected_response")
+
+        if expected_response is None and expected_facts is None:
+            raise MlflowException(
+                "Correctness scorer requires either `expected_response` or `expected_facts` "
+                "in the `expectations` dictionary."
+            )
+
+        return judges.correctness(
+            request=request,
+            response=response,
+            expected_response=expected_response,
+            expected_facts=expected_facts,
+            assessment_name=self.name,
+        )
 
     def with_config(self, *, name: str = "correctness") -> "Correctness":
         """
@@ -664,9 +754,9 @@ class Correctness(_BaseBuiltInScorer):
 
 
 # === Shorthand for getting builtin scorer instances ===
+groundedness = Groundedness()
 chunk_relevance = ChunkRelevance()
 context_sufficiency = ContextSufficiency()
-groundedness = Groundedness()
 guideline_adherence = GuidelineAdherence()
 relevance_to_query = RelevanceToQuery()
 safety = Safety()
@@ -687,15 +777,7 @@ def get_rag_scorers() -> list[BuiltInScorer]:
         import mlflow
         from mlflow.genai.scorers import get_rag_scorers
 
-        data = [
-            {
-                "inputs": {"question": "What is the capital of France?"},
-                "outputs": "The capital of France is Paris.",
-                "retrieved_context": [
-                    {"content": "Paris is the capital city of France."},
-                ],
-            }
-        ]
+        data = mlflow.search_traces(...)
         result = mlflow.genai.evaluate(data=data, scorers=get_rag_scorers())
     """
     return [
@@ -722,8 +804,8 @@ def get_all_scorers() -> list[BuiltInScorer]:
             {
                 "inputs": {"question": "What is the capital of France?"},
                 "outputs": "The capital of France is Paris.",
-                "retrieved_context": [
-                    {"content": "Paris is the capital city of France."},
+                "expectations": [
+                    {"expected_response": "Paris is the capital city of France."},
                 ],
             }
         ]
