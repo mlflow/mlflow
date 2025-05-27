@@ -131,6 +131,23 @@ class MlflowModelServingProvider(BaseProvider):
             ),
         )
 
+    def _process_chat_request_for_mlflow_serving(self, messages: list[dict]) -> str:
+        blocks = []
+
+        for msg in messages:
+            content = msg["content"]
+
+            if not isinstance(content, str):
+                raise AIGatewayException(
+                    status_code=502,
+                    detail=f"Invalid content type: {type(content)}. Expected str.",
+                )
+
+            role = msg["role"].upper()
+            blocks.append(f"[{role}]\n{content.strip()}")
+
+        return "\n\n".join(blocks) + "\n\n"
+
     def _process_chat_response_for_mlflow_serving(self, response):
         try:
             validated_response = ServingTextResponse(**response)
@@ -152,15 +169,8 @@ class MlflowModelServingProvider(BaseProvider):
 
         payload = self._process_payload(payload, "messages")
 
-        query_count = len(payload["inputs"])
-        if query_count > 1:
-            raise AIGatewayException(
-                status_code=422,
-                detail="MLflow chat models are only capable of processing a single query at a "
-                f"time. The request submitted consists of {query_count} queries.",
-            )
-
-        payload["inputs"] = [payload["inputs"][0]["content"]]
+        # MLflow serving expects the input to be a single string so we must serialize the messages
+        payload["inputs"] = [self._process_chat_request_for_mlflow_serving(payload["inputs"])]
 
         resp = await send_request(
             headers=self.headers,
