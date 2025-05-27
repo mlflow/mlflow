@@ -3,6 +3,7 @@ sidebar_position: 2
 sidebar_label: Keras
 ---
 
+import { APILink } from "@site/src/components/APILink";
 import Link from "@docusaurus/Link";
 import { CardGroup, PageCard } from "@site/src/components/Card";
 
@@ -36,7 +37,7 @@ The combination of MLflow's experiment tracking capabilities with Keras 3.0's fl
 - 📊 **One-Line Setup**: Enable comprehensive experiment tracking with just `mlflow.tensorflow.autolog()` - no configuration required
 - 🔄 **Multi-Backend Consistency**: Track experiments consistently across TensorFlow, JAX, and PyTorch backends
 - ⚙️ **Zero-Code Integration**: Your existing Keras training code works unchanged - autologging captures everything automatically
-- 🛠️ **Advanced Customization**: When you need more control, use MLflow's callback system for specialized logging requirements
+- 🛠️ **Advanced Customization**: When you need more control, use the <APILink fn="mlflow.keras.callback.MlflowCallback" /> API for specialized logging requirements
 - 🔬 **Complete Reproducibility**: Every parameter, metric, and artifact is captured automatically for perfect experiment reproduction
 - 👥 **Effortless Collaboration**: Share comprehensive experiment results through MLflow's intuitive UI without any manual logging
 

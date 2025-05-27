@@ -357,63 +357,68 @@ You can view the saved model in the MLflow UI:
 
 ### Model Signatures
 
-A model signature defines the schema of inputs and outputs, enhancing model understanding and enabling validation:
-
-<details>
-  <summary>Automatic Signature Inference</summary>
-
-  The simplest way to add a signature is using <APILink fn="mlflow.models.infer_signature"/>:
-
-  ```python
-  import mlflow
-  from mlflow.models import infer_signature
-  import numpy as np
-  import torch
-
-  # Create sample input and predictions
-  sample_input = np.random.uniform(size=[1, 28, 28]).astype(np.float32)
-
-  # Get model output - convert tensor to numpy
-  with torch.no_grad():
-      output = model(torch.tensor(sample_input))
-      sample_output = output.numpy()
-
-  # Infer signature
-  signature = infer_signature(sample_input, sample_output)
-
-  # Log model with signature
-  with mlflow.start_run() as run:
-      mlflow.pytorch.log_model(model, "model", signature=signature)
-  ```
-
-  :::warning attention
-  As of MLflow 2.9.1, input and output to `mlflow.models.infer_signature()` must be `numpy.ndarray`, not `torch.Tensor`. Always convert tensors to numpy arrays first.
-  :::
-</details>
-
-You can also manually define a signature for complete control:
+A model signature defines the schema of inputs and outputs, enhancing model understanding and enabling validation. The simplest way to add a signature is using automatic inference:
 
 ```python
 import mlflow
+from mlflow.models import infer_signature
 import numpy as np
-from mlflow.types import Schema, TensorSpec
-from mlflow.models import ModelSignature
+import torch
 
-# Manually define input and output schemas
-input_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 28, 28))])
-output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
-signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+# Create sample input and predictions
+sample_input = np.random.uniform(size=[1, 28, 28]).astype(np.float32)
+
+# Get model output - convert tensor to numpy
+with torch.no_grad():
+    output = model(torch.tensor(sample_input))
+    sample_output = output.numpy()
+
+# Infer signature automatically
+signature = infer_signature(sample_input, sample_output)
 
 # Log model with signature
 with mlflow.start_run() as run:
     mlflow.pytorch.log_model(model, "model", signature=signature)
 ```
 
-The signature appears in the MLflow UI:
+:::warning attention
+As of MLflow 2.9.1, input and output to `mlflow.models.infer_signature()` must be `numpy.ndarray`, not `torch.Tensor`. Always convert tensors to numpy arrays first.
+:::
+
+The signature will appear in the MLflow UI:
 
 <div className="center-div" style={{ width: "90%" }}>
   ![PyTorch Model Signature](/images/deep-learning/pytorch/guide/pytorch-guide-model-signature.png)
 </div>
+
+<details>
+  <summary>Manual Signature Definition</summary>
+
+  For complete control over your model signature, you can manually define the input and output schemas:
+
+  ```python
+  import mlflow
+  import numpy as np
+  from mlflow.types import Schema, TensorSpec
+  from mlflow.models import ModelSignature
+
+  # Manually define input and output schemas
+  input_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 28, 28))])
+  output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
+  signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+  # Log model with signature
+  with mlflow.start_run() as run:
+      mlflow.pytorch.log_model(model, "model", signature=signature)
+  ```
+
+  Manual definition is useful when:
+  - You need precise control over tensor specifications
+  - Working with complex input/output structures
+  - The automatic inference doesn't capture your intended schema
+  - You want to specify exact data types and shapes upfront
+
+</details>
 
 ## Advanced PyTorch Tracking
 

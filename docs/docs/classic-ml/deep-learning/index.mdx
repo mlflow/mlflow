@@ -38,8 +38,6 @@ MLflow's tracking capabilities are tailor-made for the iterative nature of deep 
 - **One-Line Autologging** for PyTorch, TensorFlow, and Keras
 - **Step-Based Metrics** capture training dynamics across epochs and batches
 - **Hyperparameter Tracking** for architecture choices and training configurations
-- **TensorBoard Integration** combines familiar visualizations with MLflow's organizational benefits
-- **Git Integration** links code states to experimental results for perfect reproducibility
 - **Resource Monitoring** tracks GPU utilization, memory consumption, and training time
 
 <details>
@@ -129,11 +127,11 @@ Deep learning models are valuable assets that require careful management:
   The MLflow Model Registry enhances team productivity through:
 
   - **Transition Requests**: Team members can request model promotion with documented justifications
-  - **Approval Workflows**: Implement governance with required approvals for production deployments
+  - **Approval Workflows**: Implement governance with required approvals for production deployments (managed MLflow only)
   - **Performance Baselines**: Set threshold requirements before models can advance to production
   - **Rollback Capabilities**: Quickly revert to previous versions if issues arise
-  - **Activity Feeds**: Track who made changes to models and when
-  - **Webhook Integration**: Trigger CI/CD pipelines and notifications based on registry events
+  - **Activity Feeds**: Track who made changes to models and when (managed MLflow only)
+  - **Webhook Integration**: Trigger CI/CD pipelines and notifications based on registry events (managed MLflow only)
   - **Model Documentation**: Store comprehensive documentation alongside model artifacts
 </details>
 
@@ -145,9 +143,8 @@ Move from successful experiments to production with ease:
 - **GPU-Ready Deployments** for compute-intensive models
 - **Batch and Real-Time Serving** options for different application needs
 - **Docker Containerization** for portable, isolated environments
-- **Serverless Deployments** for scalable, cost-effective serving
+- **Serverless Deployments** for scalable, cost-effective serving within your cloud provider infrastructure
 - **Edge Deployment** support for mobile and IoT applications
-- **A/B Testing** infrastructure for safe model rollouts
 
 <details>
   <summary>Advanced Deployment Options</summary>
@@ -160,8 +157,8 @@ Move from successful experiments to production with ease:
   - **Custom Preprocessing/Postprocessing**: Attach data transformation pipelines to your model
   - **Optimized Inference**: Support for quantization, pruning, and other optimization techniques
   - **Monitoring Integration**: Connect to observability platforms for production tracking
-  - **Hardware Acceleration**: Leverage GPU/TPU resources for high-throughput inference
-  - **Scalable Architecture**: Handle variable loads with auto-scaling capabilities
+  - **Hardware Acceleration**: Leverage GPU/TPU resources for high-throughput inference in cloud provider infrastructure
+  - **Scalable Architecture**: Handle variable loads with auto-scaling capabilities (managed MLflow only)
   - **Multi-Framework Deployment**: Mix models from different frameworks in the same serving environment
 </details>
 
@@ -170,19 +167,19 @@ Move from successful experiments to production with ease:
 MLflow provides native support for all major deep learning frameworks, allowing you to use your preferred tools while gaining the benefits of unified experiment tracking and model management.
 
 <CardGroup>
-  <LogoCard description="Seamlessly track TensorFlow experiments with one-line autologging. Capture training metrics, model architecture, and TensorBoard visualizations in a centralized repository." link="/deep-learning/tensorflow">
+  <LogoCard description="Seamlessly track TensorFlow experiments with one-line autologging. Capture training metrics, model architecture, and TensorBoard visualizations in a centralized repository." link="/ml/deep-learning/tensorflow">
     <span>![TensorFlow Logo](/images/logos/TensorFlow-logo.svg)</span>
   </LogoCard>
 
-  <LogoCard description="Integrate MLflow with PyTorch's flexible deep learning ecosystem. Log metrics from custom training loops, save model checkpoints, and simplify deployment for production." link="/deep-learning/pytorch">
+  <LogoCard description="Integrate MLflow with PyTorch's flexible deep learning ecosystem. Log metrics from custom training loops, save model checkpoints, and simplify deployment for production." link="/ml/deep-learning/pytorch">
     <span>![PyTorch Logo](/images/logos/pytorch-logo.svg)</span>
   </LogoCard>
 
-  <LogoCard description="Harness Keras 3.0's multi-backend capabilities with comprehensive MLflow tracking. Monitor training across TensorFlow, PyTorch, and JAX backends with consistent experiment management." link="/deep-learning/keras">
+  <LogoCard description="Harness Keras 3.0's multi-backend capabilities with comprehensive MLflow tracking. Monitor training across TensorFlow, PyTorch, and JAX backends with consistent experiment management." link="/ml/deep-learning/keras">
     <span>![Keras Logo](/images/logos/keras-logo.svg)</span>
   </LogoCard>
 
-  <LogoCard description="Track and manage spaCy NLP models throughout their lifecycle. Log training metrics, compare model versions, and deploy language processing pipelines to production." link="/model/#spacyspacy">
+  <LogoCard description="Track and manage spaCy NLP models throughout their lifecycle. Log training metrics, compare model versions, and deploy language processing pipelines to production." link="/ml/model/#spacyspacy">
     <span>![spaCy Logo](/images/logos/spacy-logo.svg)</span>
   </LogoCard>
 
@@ -196,11 +193,16 @@ MLflow provides native support for all major deep learning frameworks, allowing 
 <details>
   <summary>Quick Setup Guide</summary>
 
-  ### 1. Install MLflow with Deep Learning Dependencies
+  ### 1. Install MLflow
 
   ```bash
-  # For comprehensive support
-  pip install mlflow[extras]
+  pip install mlflow
+  ```
+
+  Ensure that you have the appropriate DL integration package installed. For example, for PyTorch with image model support:
+
+  ```bash
+  pip install torch torchvision
   ```
 
   ### 2. Start Tracking Server (Optional)
@@ -393,9 +395,9 @@ Deep learning with MLflow powers a wide range of applications across industries:
 
 Dive deeper into MLflow's capabilities for deep learning in our framework-specific guides:
 
-- **[TensorFlow Guide](/deep-learning/tensorflow)**: Master MLflow's integration with TensorFlow and Keras
-- **[PyTorch Guide](/deep-learning/pytorch)**: Learn how to track custom PyTorch training loops
-- **[Keras Guide](/deep-learning/keras)**: Explore Keras 3.0's multi-backend capabilities with MLflow
+- **[TensorFlow Guide](/ml/deep-learning/tensorflow)**: Master MLflow's integration with TensorFlow and Keras
+- **[PyTorch Guide](/ml/deep-learning/pytorch)**: Learn how to track custom PyTorch training loops
+- **[Keras Guide](/ml/deep-learning/keras)**: Explore Keras 3.0's multi-backend capabilities with MLflow
 - **[Transformers Guide](/llms/transformers)**: Streamline your work with Hugging Face models
-- **[Model Registry](/model-registry)**: Manage model versions and transitions through development stages
-- **[MLflow Deployments](/deployment)**: Deploy deep learning models to production
+- **[Model Registry](/ml/model-registry)**: Manage model versions and transitions through development stages
+- **[MLflow Deployments](/ml/deployment)**: Deploy deep learning models to production

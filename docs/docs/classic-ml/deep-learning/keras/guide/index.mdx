@@ -51,10 +51,10 @@ Only versions of `tensorflow>=2.3` are supported. The autologging feature captur
 
 Autologging captures comprehensive information about your Keras training:
 
-| Framework | Metrics | Parameters | Tags | Artifacts |
-|-----------|---------|------------|------|-----------|
-| `tf.keras` | Training loss; validation loss; user-specified metrics | `fit()` parameters; optimizer name; learning rate; epsilon | -- | Model summary on training start; MLflow Model (Keras model); TensorBoard logs on training end |
-| `tf.keras.callbacks.EarlyStopping` | Metrics from EarlyStopping callbacks: `stopped_epoch`, `restored_epoch`, `restore_best_weight`, etc | `fit()` parameters from EarlyStopping: `min_delta`, `patience`, `baseline`, `restore_best_weights`, etc | -- | -- |
+| Framework | Metrics | Parameters | Artifacts |
+|-----------|---------|------------|-----------|
+| `tf.keras` | Training loss; validation loss; user-specified metrics | `fit()` parameters; optimizer name; learning rate; epsilon | Model summary on training start; MLflow Model (Keras model); TensorBoard logs on training end |
+| `tf.keras.callbacks.EarlyStopping` | Metrics from EarlyStopping callbacks: `stopped_epoch`, `restored_epoch`, `restore_best_weight`, etc | `fit()` parameters from EarlyStopping: `min_delta`, `patience`, `baseline`, `restore_best_weights`, etc | -- |
 
 #### Automatic Run Management
 
