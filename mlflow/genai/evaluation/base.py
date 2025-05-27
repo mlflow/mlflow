@@ -1,6 +1,5 @@
 import logging
 import warnings
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
@@ -14,6 +13,7 @@ from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
+    EvaluationResult,
     _is_model_deployment_endpoint_uri,
 )
 from mlflow.utils.annotations import experimental
@@ -30,14 +30,6 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
-
-
-@experimental
-@dataclass
-class EvaluationResult:
-    run_id: str
-    metrics: dict[str, float]
-    result_df: "pd.DataFrame"
 
 
 # TODO (B-Step62): Remove underscore from the function name once we release
@@ -220,6 +212,9 @@ def _evaluate(
             the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
 
+    Returns:
+        An :py:class:`mlflow.models.EvaluationResult~` object.
+
     Note:
         This function is only supported on Databricks. The tracking URI must be
         set to Databricks.
@@ -290,7 +285,7 @@ def _evaluate(
             module="mlflow.data.evaluation_dataset",
         )
 
-        result = mlflow.models.evaluate(
+        return mlflow.models.evaluate(
             model=predict_fn,
             data=data,
             evaluator_config=evaluation_config,
@@ -299,12 +294,6 @@ def _evaluate(
             model_id=model_id,
             _called_from_genai_evaluate=True,
         )
-
-    return EvaluationResult(
-        run_id=result._run_id,
-        metrics=result.metrics,
-        result_df=result.tables["eval_results"],
-    )
 
 
 @experimental

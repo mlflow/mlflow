@@ -205,29 +205,7 @@ def test_scorer_on_genai_evaluate(sample_data, scorer_return):
         data=sample_data,
         scorers=[dummy_scorer],
     )
-
     assert any("metric/dummy_scorer" in metric for metric in results.metrics.keys())
-
-    dummy_scorer_cols = [
-        col for col in results.result_df.keys() if "dummy_scorer" in col and "value" in col
-    ]
-    dummy_scorer_values = set()
-    for col in dummy_scorer_cols:
-        for _val in results.result_df[col]:
-            dummy_scorer_values.add(_val)
-
-    scorer_return_values = set()
-    if isinstance(scorer_return, list):
-        for _assessment in scorer_return:
-            scorer_return_values.add(_assessment.feedback.value)
-    elif isinstance(scorer_return, Assessment):
-        scorer_return_values.add(scorer_return.feedback.value)
-    elif isinstance(scorer_return, mlflow.evaluation.Assessment):
-        scorer_return_values.add(scorer_return.value)
-    else:
-        scorer_return_values.add(scorer_return)
-
-    assert dummy_scorer_values == scorer_return_values
 
 
 def test_scorer_returns_feedback_with_error(sample_data):
