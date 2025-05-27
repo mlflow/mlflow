@@ -53,7 +53,7 @@ The tracking server is organized by _Experiment ID_ and _Run ID_ and is responsi
 experiment artifacts, parameters, and metrics. The model registry, on the other hand, only stores
 metadata with pointers to our tracking server.
 
-As you can see, flavors that support [autologging](/tracking/autolog) provide lots of additional
+As you can see, flavors that support [autologging](/ml/tracking/autolog) provide lots of additional
 information out-of-the-box. Also note that even if we don't have autologging for our model of
 interest, we can easily store this information with explicit logging calls.
 
@@ -61,7 +61,7 @@ One more interesting callout is that by default you get three way to manage your
 environment: `python_env.yaml` (python virtualenv), `requirements.txt` (PyPi requirements), and
 `conda.yaml` (conda env).
 
-Ok, now that we have a very high-level understanding of what is logged, let's use the MLflow UI to
+Now that we have a very high-level understanding of what is logged, let's use the MLflow UI to
 view this information.
 
 ## Step 2: Start the Tracking Server
@@ -94,7 +94,7 @@ First, let's leave the experiment tracking tab and visit the model registry.
 </div>
 
 Next, let's add tags and a model version alias to
-[facilitate model deployment](/model-registry/#new-model-deployment-tools).
+[facilitate model deployment](/ml/model-registry/#new-model-deployment-tools).
 You can add or edit tags and aliases by clicking on the corresponding `Add` link or pencil icon in
 the model version table. Let's...
 
@@ -104,3 +104,5 @@ the model version table. Let's...
 <div className="center-div" style={{ width: 1024, maxWidth: "100%" }}>
   ![Model information from the mlflow ui.](/images/quickstart/model-registry-quickstart/model-alias-and-tags.png)
 </div>
+
+The next part of this tutorial centers on [Loading Models from the Registry](/ml/getting-started/registering-first-model/step3-load-model) within the MLflow UI.

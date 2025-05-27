@@ -27,8 +27,38 @@ const sidebarsClassicML: SidebarsConfig = {
           id: 'getting-started/running-notebooks/index',
         },
         {
-          type: 'doc',
-          id: 'getting-started/logging-first-model/index',
+          type: 'category',
+          label: 'Your First MLflow Model: Complete Tutorial',
+          items: [
+            {
+                type: 'doc',
+                id: 'getting-started/logging-first-model/step1-tracking-server/index',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/logging-first-model/step2-mlflow-client/index',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/logging-first-model/step3-create-experiment/index',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/logging-first-model/step4-experiment-search/index',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/logging-first-model/step5-synthetic-data/index',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/logging-first-model/step6-logging-a-run/index',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'getting-started/logging-first-model/index',
+          }
         },
         {
           type: 'doc',
