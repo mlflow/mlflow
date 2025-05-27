@@ -278,7 +278,7 @@ def test_input_is_required_if_trace_is_not_provided():
         with pytest.raises(MlflowException, match="inputs.*required"):
             mlflow.genai.evaluate(
                 data=pd.DataFrame({"outputs": ["Paris"]}),
-                scorers=[safety()],
+                scorers=[safety],
             )
 
         mock_evaluate.assert_not_called()
@@ -287,7 +287,7 @@ def test_input_is_required_if_trace_is_not_provided():
             data=pd.DataFrame(
                 {"inputs": [{"question": "What is the capital of France?"}], "outputs": ["Paris"]}
             ),
-            scorers=[safety()],
+            scorers=[safety],
         )
         mock_evaluate.assert_called_once()
 
@@ -302,7 +302,7 @@ def test_input_is_optional_if_trace_is_provided():
     with patch("mlflow.models.evaluate") as mock_evaluate:
         mlflow.genai.evaluate(
             data=pd.DataFrame({"trace": [trace]}),
-            scorers=[safety()],
+            scorers=[safety],
         )
 
         mock_evaluate.assert_called_once()
@@ -353,7 +353,7 @@ def test_predict_fn_receives_correct_data(data_fixture, request):
     mlflow.genai.evaluate(
         predict_fn=predict_fn,
         data=sample_data,
-        scorers=[safety()],
+        scorers=[safety],
     )
 
     received_args.pop(0)  # Remove the one-time prediction to check if a model is traced

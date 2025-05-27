@@ -7,3 +7,8 @@ litellm!=1.67.4
 llama-index-core!=0.12.34
 # https://github.com/mangiucugna/json_repair/issues/124
 json_repair!=0.45.0
+# https://github.com/huggingface/transformers/issues/38269
+transformers!=4.52.2
+transformers!=4.52.1
+# TODO(https://github.com/mlflow/mlflow/issues/15847): Remove this constraint when MLflow is ready for pyspark 4.0.0. Pyspark 3.5.6 has the same issue.
+pyspark<3.5.6
