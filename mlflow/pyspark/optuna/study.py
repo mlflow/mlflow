@@ -213,7 +213,7 @@ class MlflowSparkStudy(Study):
                 _optimize_sequential(
                     study,
                     func,
-                    mlflow_client
+                    mlflow_client,
                     num_trials,
                     timeout,
                     1,
