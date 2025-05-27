@@ -2542,3 +2542,16 @@ def test_pyfunc_model_traces_link_to_model_id():
     assert len(traces) == 3
     for i in range(3):
         assert traces[i].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_infos[i].model_id
+
+
+def test_lock_model_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
+
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str]) -> list[str]:
+            return model_input
+
+    model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
+    assert "# Locked requirements" in requirements_txt.read_text()
