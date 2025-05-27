@@ -479,9 +479,10 @@ class Route(ConfigModel):
 class SwaggerConfig(AliasedConfigModel):
     swagger_js_url: Optional[str] = None
     swagger_css_url: Optional[str] = None
+    use_static_assets: bool = False
 class GatewayConfig(AliasedConfigModel):
     endpoints: list[RouteConfig]
-    swagger_config: Optional[SwaggerConfig]
+    swagger_config: Optional[SwaggerConfig] = None
 
 
 def _load_route_config(path: Union[str, Path]) -> GatewayConfig:

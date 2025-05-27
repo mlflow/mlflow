@@ -58,4 +58,11 @@ def test_docs_custom_cdn(client: TestClient):
     assert f'<script src="{swagger_js_url}">' in html 
     assert f'<link type="text/css" rel="stylesheet" href="{swagger_css_url}">' in html
     assert response.status_code == 200
+
+@pytest.mark.parametrize("client", [{"use_static_assets": True}], indirect=True)
+def test_docs_static_assets(client: TestClient):
+    response = client.get("/docs")
+    html = response.content.decode()
+    assert '<script src="/static/swagger-ui-bundle.js">' in html 
+    assert '<link type="text/css" rel="stylesheet" href="/static/swagger-ui.css">' in html
     assert response.status_code == 200
