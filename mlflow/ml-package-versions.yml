@@ -632,7 +632,7 @@ langchain:
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
       # TODO(https://github.com/mlflow/mlflow/issues/15847): Remove this pin when MLflow is ready for pyspark 4.0.0
-      pip install --no-deps --force-reinstall 'pyspark<4.0.0'
+      pip install --no-deps --force-reinstall 'pyspark<3.5.6'
     run: |
       # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
       # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
@@ -675,7 +675,7 @@ langchain:
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
       # TODO(https://github.com/mlflow/mlflow/issues/15847): Remove this pin when MLflow is ready for pyspark 4.0.0
-      pip install --no-deps --force-reinstall 'pyspark<4.0.0'
+      pip install --no-deps --force-reinstall 'pyspark<3.5.6'
     run: |
       pytest tests/langchain/test_langchain_autolog.py
       # test both pydantic v1 and v2
