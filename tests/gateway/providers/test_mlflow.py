@@ -296,23 +296,58 @@ async def test_chat():
 
 
 @pytest.mark.asyncio
-async def test_chat_exception_raised_for_multiple_elements_in_query():
-    resp = {"predictions": "It is a test"}
+async def test_chat_for_multiple_elements_in_query():
+    resp = {
+        "predictions": ["Hello, it is a test"],
+        "headers": {"Content-Type": "application/json"},
+    }
     config = chat_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+    with (
+        mock.patch("time.time", return_value=1700242674),
+        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+    ):
         provider = MlflowModelServingProvider(RouteConfig(**config))
         payload = {
             "messages": [
+                {"role": "user", "content": "Hi!"},
                 {"role": "user", "content": "Is this a test?"},
-                {"role": "user", "content": "This is a second message."},
             ]
         }
-
-        with pytest.raises(AIGatewayException, match=r".*") as e:
-            await provider.chat(chat.RequestPayload(**payload))
-        assert "MLflow chat models are only capable of processing" in e.value.detail
+        response = await provider.chat(chat.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "id": None,
+            "created": 1700242674,
+            "object": "chat.completion",
+            "model": "chat-bot-9000",
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "Hello, it is a test",
+                        "tool_calls": None,
+                        "refusal": None,
+                    },
+                    "finish_reason": None,
+                    "index": 0,
+                }
+            ],
+            "usage": {
+                "prompt_tokens": None,
+                "completion_tokens": None,
+                "total_tokens": None,
+            },
+        }
+        mock_build_client.assert_called_once()
+        mock_client.post.assert_called_once_with(
+            "http://127.0.0.1:4000/invocations",
+            json={
+                "inputs": ["[USER]\nHi!\n\n[USER]\nIs this a test?\n\n"],
+                "params": {"temperature": 0.0, "n": 1},
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 def test_route_construction_fails_with_invalid_config():
