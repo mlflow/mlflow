@@ -33,6 +33,7 @@ def optimize_prompts(
     optimizer_params: Optional[OptimizerParam] = None,
 ) -> PromptOptimizationResult:
     """Optimize LLM prompts using a given dataset and evaluation metrics.
+    Currently, only supports MIPROv2 optimizer of DSPy.
 
     Args:
         agent_llm: Parameters for the agent LLM. The model name must be specified in the format
@@ -45,8 +46,9 @@ def optimize_prompts(
             - expectations (optional): A column containing ground truth values or a dictionary
               of ground truths for individual output fields
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
-            Note: Trace input is not supported for optimization. Use the objective function
-            for string or Assessment type outputs.
+            Note: Trace input is not supported for optimization. Use inputs, outputs and
+            expectations for optimization. Also, pass the `objective` argument
+            when using scorers with string or Assessment type outputs.
         objective: A callable that computes the overall performance metric from individual
             assessments. Takes a dict mapping assessment names to lists of assessments and
             returns a float value (higher is better).
