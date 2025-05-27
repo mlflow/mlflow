@@ -3,7 +3,7 @@ import importlib.metadata
 import inspect
 import logging
 import math
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union, Any
 
 from packaging.version import Version
 
@@ -12,7 +12,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParam, OptimizerParam
 from mlflow.genai.optimize.util import infer_type_from_value
 from mlflow.genai.scorers import Scorer
-from mlflow.types.chat import ChatMessage
 
 if TYPE_CHECKING:
     import dspy
@@ -33,7 +32,7 @@ class _BaseOptimizer:
         scorers: list[Scorer],
         objective: Optional[OBJECTIVE_FN] = None,
         eval_data: Optional["pd.DataFrame"] = None,
-    ) -> Union[str, list[ChatMessage]]:
+    ) -> Union[str, list[dict[str, Any]]]:
         raise NotImplementedError("Method not implemented")
 
 
@@ -117,7 +116,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         scorers: list[Scorer],
         objective: Optional[OBJECTIVE_FN] = None,
         eval_data: Optional["pd.DataFrame"] = None,
-    ) -> Union[str, list[ChatMessage]]:
+    ) -> Union[str, list[dict[str, Any]]]:
         import dspy
 
         _logger.info(f"Start optimizing prompt {prompt.uri}...")
