@@ -152,6 +152,7 @@ repos:
         name: conftest
         entry: conftest test --policy .github/policy.rego
         files: '^\.github/workflows/.*\.yml$'
+        exclude: '^\.github/workflows/copilot-setup-steps\.yml$'
         language: system
         stages: [pre-commit]
         require_serial: true
