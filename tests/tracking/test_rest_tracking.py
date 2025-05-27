@@ -1781,7 +1781,11 @@ def test_log_inputs_model(mlflow_client):
             dataset=dataset, tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="training")]
         )
     ]
-    mlflow_client.log_inputs(run.info.run_id, models=[LoggedModelInput(model_id=model.model_id)], datasets=dataset_inputs)
+    mlflow_client.log_inputs(
+        run.info.run_id,
+        models=[LoggedModelInput(model_id=model.model_id)],
+        datasets=dataset_inputs
+    )
     run = mlflow_client.get_run(run.info.run_id)
     assert len(run.inputs.model_inputs) == 1
 
