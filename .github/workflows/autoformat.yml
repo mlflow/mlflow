@@ -92,6 +92,8 @@ jobs:
       # ************************************************************************
       - run: |
           dev/install-taplo.sh
+          dev/install-typos.sh
+          dev/install-conftest.sh
       - run: |
           pip install -r requirements/lint-requirements.txt
           pre-commit install
