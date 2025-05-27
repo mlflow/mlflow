@@ -3,7 +3,7 @@ import importlib.metadata
 import inspect
 import logging
 import math
-from typing import TYPE_CHECKING, Callable, Optional, Union, Any
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from packaging.version import Version
 

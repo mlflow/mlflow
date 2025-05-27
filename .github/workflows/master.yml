@@ -319,6 +319,8 @@ jobs:
           source ./dev/install-common-deps.sh
           # GenAI evaluation tests require databricks-agents that only work with Python >= 3.10
           pip install 'databricks-agents<0.22.0' openai
+          # Prompt optimization tests require DSPy
+          pip install dspy
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests
         run: |

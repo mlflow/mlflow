@@ -3,6 +3,8 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
+pytest.importorskip("dspy", minversion="2.6.0")
+
 from mlflow.entities.model_registry import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize import optimize_prompts
