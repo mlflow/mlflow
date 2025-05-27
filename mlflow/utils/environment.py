@@ -511,14 +511,18 @@ def _lock_requirements(
         _logger.debug("`uv` binary not found. Skipping locking requirements.")
         return None
 
-    _logger.debug("Locking requirements with `uv`...")
+    _logger.info("Locking requirements...")
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_dir_path = pathlib.Path(tmp_dir)
         in_file = tmp_dir_path / "requirements.in"
         in_file.write_text("\n".join(requirements))
         out_file = tmp_dir_path / "requirements.txt"
-        constraints_file = tmp_dir_path / "constraints.txt"
-        constraints_file.write_text("\n".join(constraints or []))
+        constraints_opt: list = []
+        if constraints:
+            constraints_file = tmp_dir_path / "constraints.txt"
+            constraints_file.write_text("\n".join(constraints))
+            constraints_opt = [f"--constraints={constraints_file}"]
+
         try:
             out = subprocess.check_output(
                 [
@@ -529,8 +533,8 @@ def _lock_requirements(
                     "--universal",
                     "--no-annotate",
                     "--no-header",
+                    *constraints_opt,
                     f"--python-version={PYTHON_VERSION}",
-                    f"--constrains={constraints_file}",
                     f"--output-file={out_file}",
                     in_file,
                 ],
@@ -540,13 +544,16 @@ def _lock_requirements(
             )
             _logger.debug("Successfully compiled pip requirements with `uv`:\n%s", out)
         except subprocess.CalledProcessError as e:
-            _logger.debug(
-                f"Failed to compile pip requirements. Falling back to the original requirements. "
-                f"Output: {e.stdout}"
-            )
+            _logger.warning(f"Failed to lock requirements:\n{e.output}")
             return None
 
-        return out_file.read_text().splitlines()
+        return [
+            "# Original requirements",
+            *(f"# {l}" for l in requirements),  # Preserve original requirements as comments
+            "",
+            "# Locked requirements",
+            *out_file.read_text().splitlines(),
+        ]
 
 
 def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):
@@ -672,10 +679,10 @@ def _process_pip_requirements(
     warn_dependency_requirement_mismatches(sanitized_pip_reqs)
 
     if locked_requirements := _lock_requirements(sanitized_pip_reqs, constraints):
-        # Locking requirements was successful
+        # Locking requirements was performed successfully
         sanitized_pip_reqs = locked_requirements
     else:
-        # Locking requirements was not performed or failed
+        # Locking requirements was skipped or failed
         if constraints:
             sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
 
