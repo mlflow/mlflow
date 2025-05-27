@@ -99,6 +99,7 @@ class TraceInfo(_MlflowObject):
         if self.execution_duration is not None:
             execution_duration = Duration()
             execution_duration.FromMilliseconds(self.execution_duration)
+
         return ProtoTraceInfoV3(
             trace_id=self.trace_id,
             client_request_id=self.client_request_id,

@@ -9,6 +9,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.tracing.utils.truncation import truncate_request_response_preview
 
 
 def _truncate_request_metadata(d: dict[str, Any]) -> dict[str, str]:
@@ -135,8 +136,8 @@ class TraceInfoV2(_MlflowObject):
         return TraceInfo(
             trace_id=self.request_id,
             trace_location=TraceLocation.from_experiment_id(self.experiment_id),
-            request_preview=request,
-            response_preview=response,
+            request_preview=truncate_request_response_preview(request, role="user"),
+            response_preview=truncate_request_response_preview(response, role="assistant"),
             request_time=self.timestamp_ms,
             execution_duration=self.execution_time_ms,
             state=self.status.to_state(),
