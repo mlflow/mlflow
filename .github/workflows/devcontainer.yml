@@ -44,6 +44,8 @@ jobs:
       - name: Set up QEMU
         if: matrix.arch != 'amd64'
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+        with:
+          platforms: ${{ matrix.arch }}
       - name: Build image
         run: |
           docker buildx build \
@@ -70,6 +72,8 @@ jobs:
           bash -c "pip install --no-deps -e . && pytest tests/test_version.py"
       - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         if: github.event_name == 'push'
+        with:
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push image by digest
@@ -86,6 +90,8 @@ jobs:
       - name: Upload image digest artifact
         if: github.event_name == 'push'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: devcontainer-image-digest-${{ matrix.arch }}
           path: devcontainer-image-digest-${{ matrix.arch }}.txt
     outputs:
       repo: ${{ steps.image.outputs.name }}
@@ -100,8 +106,12 @@ jobs:
     steps:
       - name: Download image digest artifacts
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          pattern: devcontainer-image-digest-*
           merge-multiple: true
       - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Merge images and push # necessary to parallelize arch builds
