@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -211,3 +213,132 @@ def test_configure_builtin_scorers(scorer, updates):
     # Positional argument should not be allowed
     with pytest.raises(TypeError, match=rf"{scorer.__class__.__name__}.with_config\(\) takes"):
         scorer.with_config("custom_name")
+
+
+def test_groundedness(sample_rag_trace):
+    with patch("databricks.agents.evals.judges.groundedness") as mock_groundedness:
+        groundedness(trace=sample_rag_trace)
+
+    mock_groundedness.assert_called_once_with(
+        request="query",
+        response="answer",
+        retrieved_context=[
+            {"content": "content_1", "doc_uri": "url_1"},
+            {"content": "content_2", "doc_uri": "url_2"},
+            {"content": "content_3"},
+        ],
+        assessment_name="groundedness",
+    )
+
+
+def test_chunk_relevance(sample_rag_trace):
+    with patch("databricks.agents.evals.judges.chunk_relevance") as mock_chunk_relevance:
+        chunk_relevance(trace=sample_rag_trace)
+
+    mock_chunk_relevance.assert_called_once_with(
+        request="query",
+        retrieved_context=[
+            {"content": "content_1", "doc_uri": "url_1"},
+            {"content": "content_2", "doc_uri": "url_2"},
+            {"content": "content_3"},
+        ],
+        assessment_name="chunk_relevance",
+    )
+
+
+def test_context_sufficiency(sample_rag_trace):
+    with patch("databricks.agents.evals.judges.context_sufficiency") as mock_context_sufficiency:
+        context_sufficiency(trace=sample_rag_trace)
+
+    mock_context_sufficiency.assert_called_once_with(
+        request="query",
+        retrieved_context=[
+            {"content": "content_1", "doc_uri": "url_1"},
+            {"content": "content_2", "doc_uri": "url_2"},
+            {"content": "content_3"},
+        ],
+        expected_response="expected answer",
+        expected_facts=["fact1", "fact2"],
+        assessment_name="context_sufficiency",
+    )
+
+
+def test_guideline_adherence():
+    # 1. Called with per-row guidelines
+    with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
+        guideline_adherence(
+            inputs={"question": "query"},
+            outputs="answer",
+            expectations={"guidelines": ["guideline1", "guideline2"]},
+        )
+
+    mock_guideline_adherence.assert_called_once_with(
+        request="query",
+        response="answer",
+        guidelines=["guideline1", "guideline2"],
+        assessment_name="guideline_adherence",
+    )
+
+    # 2. Called with global guidelines
+    is_english = guideline_adherence.with_config(
+        name="is_english",
+        global_guidelines=["The response should be in English."],
+    )
+
+    with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
+        is_english(
+            inputs={"question": "query"},
+            outputs="answer",
+        )
+
+    mock_guideline_adherence.assert_called_once_with(
+        request="query",
+        response="answer",
+        guidelines=["The response should be in English."],
+        assessment_name="is_english",
+    )
+
+
+def test_relevance_to_query():
+    with patch("databricks.agents.evals.judges.relevance_to_query") as mock_relevance_to_query:
+        relevance_to_query(
+            inputs={"question": "query"},
+            outputs="answer",
+        )
+
+    mock_relevance_to_query.assert_called_once_with(
+        request="query",
+        response="answer",
+        assessment_name="relevance_to_query",
+    )
+
+
+def test_safety():
+    with patch("databricks.agents.evals.judges.safety") as mock_safety:
+        safety(
+            inputs={"question": "query"},
+            outputs="answer",
+        )
+
+    mock_safety.assert_called_once_with(
+        request="query",
+        response="answer",
+        assessment_name="safety",
+    )
+
+
+def test_correctness():
+    with patch("databricks.agents.evals.judges.correctness") as mock_correctness:
+        correctness(
+            inputs={"question": "query"},
+            outputs="answer",
+            expectations={"expected_facts": ["fact1", "fact2"]},
+        )
+
+    mock_correctness.assert_called_once_with(
+        request="query",
+        response="answer",
+        expected_facts=["fact1", "fact2"],
+        expected_response=None,
+        assessment_name="correctness",
+    )
