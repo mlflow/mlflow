@@ -178,14 +178,23 @@ async def test_chat_completions_autolog_under_current_active_span(client):
 async def test_chat_completions_autolog_streaming(client, include_usage):
     mlflow.openai.autolog()
 
+    stream_options_supported = Version(openai.__version__) >= Version("1.26")
+
+    if not stream_options_supported and include_usage:
+        pytest.skip("OpenAI SDK version does not support usage tracking in streaming")
+
     messages = [{"role": "user", "content": "test"}]
-    stream = client.chat.completions.create(
-        messages=messages,
-        model="gpt-4o-mini",
-        temperature=0,
-        stream=True,
-        stream_options={"include_usage": include_usage},
-    )
+
+    input_params = {
+        "messages": messages,
+        "model": "gpt-4o-mini",
+        "temperature": 0,
+        "stream": True,
+    }
+    if stream_options_supported:
+        input_params["stream_options"] = {"include_usage": include_usage}
+
+    stream = client.chat.completions.create(**input_params)
 
     if client._is_async:
         async for _ in await stream:
@@ -200,13 +209,7 @@ async def test_chat_completions_autolog_streaming(client, include_usage):
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
-    assert span.inputs == {
-        "messages": messages,
-        "model": "gpt-4o-mini",
-        "temperature": 0,
-        "stream": True,
-        "stream_options": {"include_usage": include_usage},
-    }
+    assert span.inputs == input_params
     assert span.outputs == "Hello world"  # aggregated string of streaming response
 
     stream_event_data = trace.data.spans[0].events
