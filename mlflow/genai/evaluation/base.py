@@ -183,10 +183,6 @@ def evaluate(
 
                 - expectations (optional): Column containing a dictionary of ground truths.
 
-            The input dataframe can contain extra columns that will be directly passed to
-            the scorers. For example, you can pass a dataframe with `retrieved_context`
-            column to use a scorer that takes `retrieved_context` as a parameter.
-
             For list of dictionaries, each dict should follow the above schema.
 
         scorers: A list of Scorer objects that produces evaluation scores from
