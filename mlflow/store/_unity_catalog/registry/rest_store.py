@@ -1170,11 +1170,8 @@ class UcModelRegistryStore(BaseRestStore):
             from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
 
             if version is None:
-                # TODO: GetLatestPromptVersionRequest not available in protobuf
-                # For now, raise NotImplementedError when version is None
+                # Getting latest prompt version is not supported in Unity Catalog
                 raise NotImplementedError("Getting latest prompt version not yet supported in UC")
-                # req_body = message_to_json(GetLatestPromptVersionRequest(name=name))
-                # response_proto = self._call_endpoint(GetLatestPromptVersionRequest, req_body)
             else:
                 try:
                     version_num = int(version)
