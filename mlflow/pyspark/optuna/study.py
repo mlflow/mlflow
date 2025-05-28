@@ -2,6 +2,7 @@ import datetime
 import logging
 import sys
 import tempfile
+import traceback
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Optional
@@ -72,8 +73,9 @@ def _optimize_sequential(
             state = TrialState.PRUNED
             func_err = e
         except (Exception, KeyboardInterrupt) as e:
+            traceback_string = traceback.format_exc()
             state = TrialState.FAIL
-            func_err = e
+            func_err = traceback_string
             func_err_fail_exc_info = sys.exc_info()
 
         try:
