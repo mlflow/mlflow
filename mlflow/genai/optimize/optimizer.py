@@ -21,8 +21,8 @@ _logger = logging.getLogger(__name__)
 
 
 class _BaseOptimizer:
-    def __init__(self, optimizer_params: OptimizerConfig):
-        self.optimizer_params = optimizer_params
+    def __init__(self, optimizer_config: OptimizerConfig):
+        self.optimizer_config = optimizer_config
 
     def optimize(
         self,
@@ -37,8 +37,8 @@ class _BaseOptimizer:
 
 
 class _DSPyOptimizer(_BaseOptimizer):
-    def __init__(self, optimizer_params: OptimizerConfig):
-        super().__init__(optimizer_params)
+    def __init__(self, optimizer_config: OptimizerConfig):
+        super().__init__(optimizer_config)
 
         if not importlib.util.find_spec("dspy"):
             raise ImportError("dspy is not installed. Please install it with `pip install dspy`.")
@@ -105,8 +105,8 @@ class _DSPyOptimizer(_BaseOptimizer):
 
 
 class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
-    def __init__(self, optimizer_params: OptimizerConfig):
-        super().__init__(optimizer_params)
+    def __init__(self, optimizer_config: OptimizerConfig):
+        super().__init__(optimizer_config)
 
     def optimize(
         self,
@@ -138,20 +138,20 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         eval_data = self._convert_to_dspy_dataset(eval_data) if eval_data is not None else None
 
         teacher_settings = {}
-        if self.optimizer_params.optimizer_llm:
+        if self.optimizer_config.optimizer_llm:
             teacher_lm = dspy.LM(
-                model=self.optimizer_params.optimizer_llm.model_name,
-                temperature=self.optimizer_params.optimizer_llm.temperature,
-                api_base=self.optimizer_params.optimizer_llm.base_uri,
+                model=self.optimizer_config.optimizer_llm.model_name,
+                temperature=self.optimizer_config.optimizer_llm.temperature,
+                api_base=self.optimizer_config.optimizer_llm.base_uri,
             )
             teacher_settings["lm"] = teacher_lm
 
-        num_candidates = self.optimizer_params.num_instruction_candidates
+        num_candidates = self.optimizer_config.num_instruction_candidates
         optimizer = dspy.MIPROv2(
             metric=self._convert_to_dspy_metric(input_fields, output_fields, scorers, objective),
-            max_bootstrapped_demos=self.optimizer_params.max_few_show_examples,
+            max_bootstrapped_demos=self.optimizer_config.max_few_show_examples,
             num_candidates=num_candidates,
-            num_threads=self.optimizer_params.num_threads,
+            num_threads=self.optimizer_config.num_threads,
             teacher_settings=teacher_settings,
             auto=None,
         )

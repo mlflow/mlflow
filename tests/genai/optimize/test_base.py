@@ -58,7 +58,7 @@ def test_optimize_prompt_basic(test_prompt, sample_data):
 
 
 def test_optimize_prompt_unsupported_algorithm(test_prompt, sample_data):
-    optimizer_params = OptimizerConfig(algorithm="UnsupportedAlgorithm")
+    optimizer_config = OptimizerConfig(algorithm="UnsupportedAlgorithm")
 
     with pytest.raises(ValueError, match="Algorithm UnsupportedAlgorithm is not supported"):
         optimize_prompt(
@@ -66,7 +66,7 @@ def test_optimize_prompt_unsupported_algorithm(test_prompt, sample_data):
             prompt=f"prompts:/{test_prompt.name}/{test_prompt.version}",
             train_data=sample_data,
             scorers=[sample_scorer],
-            optimizer_params=optimizer_params,
+            optimizer_config=optimizer_config,
         )
 
 

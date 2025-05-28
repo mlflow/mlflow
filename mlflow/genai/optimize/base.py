@@ -32,9 +32,9 @@ def optimize_prompt(
     scorers: list[Scorer],
     objective: Optional[OBJECTIVE_FN] = None,
     eval_data: Optional["EvaluationDatasetTypes"] = None,
-    optimizer_params: Optional[OptimizerConfig] = None,
+    optimizer_config: Optional[OptimizerConfig] = None,
 ) -> PromptOptimizationResult:
-    """Optimize LLM prompts using a given dataset and evaluation metrics.
+    """Optimize a LLM prompt using the given dataset and evaluation metrics.
     Currently, only supports MIPROv2 optimizer of DSPy.
 
     Args:
@@ -42,11 +42,20 @@ def optimize_prompt(
             `<provider>/<model>`.
         prompt: The URI of the MLflow prompt to optimize. This will be used as the initial
             instructions for the signature.
-        train_data: Training dataset used for optimization. The format is similar to
-            mlflow.genai.evaluate and must contain:
+        train_data: Training dataset used for optimization.
+            The data must be one of the following formats:
+
+            * An EvaluationDataset entity
+            * Pandas DataFrame
+            * Spark DataFrame
+            * List of dictionaries:
+
+            The dataset must include the following columns:
+
             - inputs (required): A column containing single inputs in dict format
-            - expectations (optional): A column containing ground truth values or a dictionary
+            - expectations (optional): A column containing a dictionary
               of ground truths for individual output fields
+
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
             Note: Trace input is not supported for optimization. Use inputs, outputs and
             expectations for optimization. Also, pass the `objective` argument
@@ -56,12 +65,13 @@ def optimize_prompt(
             returns a float value (higher is better).
         eval_data: Evaluation dataset with the same format as train_data. If not provided,
             train_data will be automatically split.
-        optimizer_params: Configuration parameters for the optimizer.
+        optimizer_config: Configuration parameters for the optimizer.
 
     Returns:
         PromptOptimizationResult: The optimized prompt.
 
     Example:
+
         .. code-block:: python
 
             import os
@@ -69,33 +79,34 @@ def optimize_prompt(
             from mlflow.genai.scorers import scorer
             from mlflow.genai.optimize import OptimizerParam, LLMParam
 
-            os.environ["OPENAI_API"]="YOUR_API_KEY"
+            os.environ["OPENAI_API"] = "YOUR_API_KEY"
+
 
             def exact_match(expectations, outputs) -> bool:
                 return expectations == outputs
 
+
             prompt = mlflow.register_prompt(
                 name="qa",
-                template='Answer the following question.'
-                'question: {{question}}',
+                template="Answer the following question.question: {{question}}",
             )
 
             result = mlflow.genai.optimize_prompt(
                 agent_llm=LLMParam(model_name="openai/gpt-4.1-nano"),
                 train_data=[
-                    {"inputs": {"question": f"{i}+1"}, "expectations": {"answer": f"{i+1}"}}
+                    {"inputs": {"question": f"{i}+1"}, "expectations": {"answer": f"{i + 1}"}}
                     for i in range(100)
                 ],
                 scorers=[exact_match],
                 prompt=prompt,
-                optimizer_params=OptimizerParam(num_instruction_candidates=5),
+                optimizer_config=OptimizerParam(num_instruction_candidates=5),
             )
 
             print(result.prompt.template)
     """
-    if optimizer_params is None:
-        optimizer_params = OptimizerConfig()
-    optimzer = _select_optimizer(optimizer_params)
+    if optimizer_config is None:
+        optimizer_config = OptimizerConfig()
+    optimzer = _select_optimizer(optimizer_config)
     _validate_scorers(scorers)
 
     train_data = _convert_to_legacy_eval_set(train_data)
@@ -121,14 +132,14 @@ def optimize_prompt(
     return PromptOptimizationResult(prompt=optimized_prompt)
 
 
-def _select_optimizer(optimizer_params: OptimizerConfig) -> _BaseOptimizer:
-    if optimizer_params.algorithm not in _ALGORITHMS:
+def _select_optimizer(optimizer_config: OptimizerConfig) -> _BaseOptimizer:
+    if optimizer_config.algorithm not in _ALGORITHMS:
         raise ValueError(
-            f"Algorithm {optimizer_params.algorithm} is not supported. "
+            f"Algorithm {optimizer_config.algorithm} is not supported. "
             f"Supported algorithms are {_ALGORITHMS}."
         )
 
-    return _ALGORITHMS[optimizer_params.algorithm](optimizer_params)
+    return _ALGORITHMS[optimizer_config.algorithm](optimizer_config)
 
 
 def _validate_scorers(scorers: list[Scorer]) -> None:

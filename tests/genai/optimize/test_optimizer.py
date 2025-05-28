@@ -103,14 +103,14 @@ def test_optimize_with_teacher_llm(mock_mipro, sample_data, sample_prompt):
     import dspy
 
     teacher_llm = LLMParam(model_name="test/model")
-    optimizer_params = OptimizerConfig(
+    optimizer_config = OptimizerConfig(
         num_instruction_candidates=4,
         max_few_show_examples=2,
         num_threads=2,
         optimizer_llm=teacher_llm,
     )
 
-    optimizer = _DSPyMIPROv2Optimizer(optimizer_params)
+    optimizer = _DSPyMIPROv2Optimizer(optimizer_config)
 
     optimized_program = dspy.Predict("input_text, language -> translation")
     mock_mipro.return_value.compile.return_value = optimized_program
