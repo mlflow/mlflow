@@ -28,7 +28,10 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
     ) -> Union[str, list[dict[str, Any]]]:
         import dspy
 
-        _logger.info(f"Started optimizing prompt {prompt.uri}...")
+        _logger.info(
+            f"Started optimizing prompt {prompt.uri}. "
+            "Please wait as this process typically takes several minutes..."
+        )
 
         input_fields = self._get_input_fields(train_data)
         self._validate_input_fields(input_fields, prompt)
