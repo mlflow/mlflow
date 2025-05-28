@@ -129,7 +129,10 @@ class Trace(_MlflowObject):
             return value
 
     def search_spans(
-        self, span_type: Optional[SpanType] = None, name: Optional[Union[str, re.Pattern]] = None
+        self,
+        span_type: Optional[SpanType] = None,
+        name: Optional[Union[str, re.Pattern]] = None,
+        span_id: Optional[str] = None,
     ) -> list[Span]:
         """
         Search for spans that match the given criteria within the trace.
@@ -137,6 +140,7 @@ class Trace(_MlflowObject):
         Args:
             span_type: The type of the span to search for.
             name: The name of the span to search for. This can be a string or a regular expression.
+            span_id: The ID of the span to search for.
 
         Returns:
             A list of spans that match the given criteria.
@@ -224,7 +228,17 @@ class Trace(_MlflowObject):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-        return [span for span in self.data.spans if _match_name(span) and _match_type(span)]
+        def _match_id(span: Span) -> bool:
+            if span_id is None:
+                return True
+            else:
+                return span.span_id == span_id
+
+        return [
+            span
+            for span in self.data.spans
+            if _match_name(span) and _match_type(span) and _match_id(span)
+        ]
 
     @staticmethod
     def pandas_dataframe_columns() -> list[str]:
