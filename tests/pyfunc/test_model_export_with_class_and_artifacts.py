@@ -2556,7 +2556,7 @@ def test_lock_model_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
     assert "# Locked requirements" in requirements_txt.read_text()
-    # Check that the locked requirements are installable
+    # Check that pip can install the locked requirements
     subprocess.check_call(
         [
             sys.executable,
@@ -2567,5 +2567,19 @@ def test_lock_model_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
             "--dry-run",
             "--requirement",
             requirements_txt,
+        ],
+    )
+    # Check that conda environment can be created with the locked requirements
+    conda_yaml = next(Path(pyfunc_model_path).rglob("conda.yaml"))
+    assert "# Locked requirements" in conda_yaml.read_text()
+    subprocess.check_call(
+        [
+            "conda",
+            "env",
+            "create",
+            "--file",
+            conda_yaml,
+            "--dry-run",
+            "--yes",
         ],
     )
