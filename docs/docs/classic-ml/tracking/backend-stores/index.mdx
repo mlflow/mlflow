@@ -4,8 +4,9 @@ import { APILink } from "@site/src/components/APILink";
 # Backend Stores
 
 The backend store is a core component in [MLflow Tracking](/ml/tracking) where MLflow stores metadata for
-[Runs](/ml/tracking#runs) and experiments such as:
+[Runs](/ml/tracking#runs), models and experiments such as:
 
+- Model ID
 - Run ID
 - Start & end time
 - Parameters
@@ -39,23 +40,20 @@ MLflow supports the following types of tracking URI for backend stores:
   [[Azure]](http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server), or [the quickstart](/ml/getting-started/intro-quickstart) to
   easily get started with hosted MLflow on the Databricks Free Trial.
 
-:::warning important
-In order to use [Model Registry](/ml/model-registry) functionality, you must run your server using a database-backed store. See [this FAQ](/ml/tracking#tracking-with-model-registry) for more information.
+:::warning database-requirements
+**Database-Backed Store Requirements**
+
+When using database-backed stores, please note:
+
+- **Model Registry Integration**: [Model Registry](/ml/model-registry) functionality requires a database-backed store. See [this FAQ](/ml/tracking#tracking-with-model-registry) for more information.
+
+- **Schema Migrations**: `mlflow server` will fail against a database with an out-of-date schema. Always run `mlflow db upgrade [db_uri]` to upgrade your database schema before starting the server. Schema migrations can result in database downtime and may take longer on larger databases. **Always backup your database before running migrations.**
 :::
 
-:::warning important
-`mlflow server` will fail against a database-backed store with an out-of-date database schema.
-To prevent this, upgrade your database schema to the latest supported version using
-`mlflow db upgrade [db_uri]`. Schema migrations can result in database downtime, may
-take longer on larger databases, and are not guaranteed to be transactional. You should always
-take a backup of your database prior to running `mlflow db upgrade` - consult your database's
-documentation for instructions on taking a backup.
-:::
-
-:::note
+:::note parameter-limits
 In Sep 2023, we increased the max length for params recorded in a Run from 500 to 8k (but we limit param value max length to 6000 internally).
 [mlflow/2d6e25af4d3e_increase_max_param_val_length](https://github.com/mlflow/mlflow/blob/master/mlflow/store/db_migrations/versions/2d6e25af4d3e_increase_max_param_val_length.py)
-is a non-invertible migration script that increases the cap in existing database to 8k . Please be careful if you want to upgrade and backup your database before upgrading.
+is a non-invertible migration script that increases the cap in existing database to 8k. Please be careful if you want to upgrade and backup your database before upgrading.
 :::
 
 ## Deletion Behavior

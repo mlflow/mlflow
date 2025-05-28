@@ -115,9 +115,14 @@ The generic autolog function <APILink fn="mlflow.autolog" /> enables autologging
 Alternatively, you can use library-specific autolog calls such as <APILink fn="mlflow.pytorch.autolog" /> to explicitly enable (or disable) autologging for a particular library.
 :::
 
-The following libraries support autologging:
+The following list covers the most popular libraries that support autologging within MLflow:
 
 <TOCInline toc={toc.slice(toc.findIndex((l) => l.id === "supported-libraries") + 1)} />
+
+:::note
+There are many more integrations that support autologging and the list of supported libraries is constantly growing. See the dedicated pages
+for further guidance on whether autologging support is available for a given library.
+:::
 
 For flavors that automatically save models as an artifact, [additional files](/ml/models.html#storage-format) for dependency management are logged.
 

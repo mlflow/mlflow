@@ -112,7 +112,7 @@ Depending on the value set for the environment variable `MLFLOW_S3_ENDPOINT_URL`
 To prevent path parsing issues, **ensure that reserved environment variables are removed (`unset`) from client environments**.
 :::
 
-## Azure Blob Storage
+### Azure Blob Storage
 
 To store artifacts in Azure Blob Storage, specify a URI of the form
 `wasbs://<container>@<storage-account>.blob.core.windows.net/<path>`.
@@ -134,7 +134,7 @@ You may set an MLflow environment variable to configure the timeout for artifact
 
 - `MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT` - (Experimental, may be changed or removed) Sets the timeout for artifact upload/download in seconds (Default: 600 for Azure blob).
 
-## Google Cloud Storage
+### Google Cloud Storage
 
 To store artifacts in Google Cloud Storage, specify a URI of the form `gs://<bucket>/<path>`.
 You should configure credentials for accessing the GCS container on the client and server as described

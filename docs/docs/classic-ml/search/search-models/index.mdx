@@ -11,7 +11,7 @@ MLflow's model search functionality allows you to leverage SQL-like syntax to fi
 When working with MLflow in production environments, you'll often have hundreds or thousands of logged models across different experiments. The `search_logged_models` API helps you find specific models based on their performance metrics, parameters, tags, and other attributes - making model selection and comparison much more efficient.
 
 :::tip
-Looking for guidance on searching over Runs? See the [Search Runs](/ml/search-runs) documentation.
+Looking for guidance on searching over Runs? See the [Search Runs](/ml/search/search-runs) documentation.
 :::
 
 ## Create Example Logged Models
@@ -351,6 +351,10 @@ print(f"Found {len(all_models)} models")
 ### Advanced Ordering
 
 Control the order of search results using the `order_by` parameter:
+
+:::tip
+The `order_by` functionality for results sorting must be supplied as a list of dictionaries that contains `field_name`. The `ascending` key is optional.
+:::
 
 ```python
 # Order by single metric

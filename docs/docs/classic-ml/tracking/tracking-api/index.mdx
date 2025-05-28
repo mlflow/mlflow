@@ -5,423 +5,479 @@ import { APILink } from "@site/src/components/APILink";
 
 # MLflow Tracking APIs
 
-[MLflow Tracking](/ml/tracking) provides Python, R, Java, or REST API to log your experiment data and models.
+[MLflow Tracking](/ml/tracking) provides comprehensive APIs across multiple programming languages to capture your machine learning experiments. Whether you prefer automatic instrumentation or granular control, MLflow adapts to your workflow.
 
-## [Auto Logging](/ml/tracking/autolog)
+## Choose Your Approach
 
-[Auto logging](/ml/tracking/autolog) is a powerful feature that allows you to log metrics, parameters, and models without the need for explicit log statements
-but just a single `mlflow.autolog()` call at the top of your ML code.
+MLflow offers two primary methods for experiment tracking, each optimized for different use cases:
+
+### **🤖 Automatic Logging** - Zero Setup, Maximum Coverage
+
+Perfect for getting started quickly or when using supported ML libraries. Just add one line and MLflow captures everything automatically.
 
 ```python
 import mlflow
 
-mlflow.autolog()
+mlflow.autolog()  # That's it!
 
-# Your training code...
+# Your existing training code works unchanged
+model.fit(X_train, y_train)
 ```
 
-See [Automatic Logging with MLflow Tracking](/ml/tracking/autolog) documentation for supported libraries and how to use autolog APIs with each of them.
+**What gets logged automatically:**
+- Model parameters and hyperparameters
+- Training and validation metrics
+- Model artifacts and checkpoints
+- Training plots and visualizations
+- Framework-specific metadata
 
-## Manual Logging
+**Supported libraries:** Scikit-learn, XGBoost, LightGBM, PyTorch, Keras/TensorFlow, Spark, and more.
 
-Alternatively, you log MLflow metrics by adding `log` methods in your ML code. For example:
+[**→ Explore Auto Logging**](/ml/tracking/autolog)
+
+### **🛠️ Manual Logging** - Complete Control, Custom Workflows
+
+Ideal for custom training loops, advanced experimentation, or when you need precise control over what gets tracked.
 
 <Tabs>
   <TabItem default label="Python" value="python">
     ```python
+    import mlflow
+
     with mlflow.start_run():
-        for epoch in range(0, 3):
-            mlflow.log_metric(key="quality", value=2 * epoch, step=epoch)
+        # Log parameters
+        mlflow.log_param("learning_rate", 0.01)
+        mlflow.log_param("batch_size", 32)
+
+        # Your training logic here
+        for epoch in range(num_epochs):
+            train_loss = train_model()
+            val_loss = validate_model()
+
+            # Log metrics with step tracking
+            mlflow.log_metrics({"train_loss": train_loss, "val_loss": val_loss}, step=epoch)
+
+        # Log final model
+        mlflow.sklearn.log_model(model, "model")
     ```
   </TabItem>
   <TabItem label="Java" value="java">
     ```java
     MlflowClient client = new MlflowClient();
     RunInfo run = client.createRun();
-    for (int epoch = 0; epoch < 3; epoch ++) {
-        client.logMetric(run.getRunId(), "quality", 2 * epoch, System.currentTimeMillis(), epoch);
+
+    // Log parameters
+    client.logParam(run.getRunId(), "learning_rate", "0.01");
+    client.logParam(run.getRunId(), "batch_size", "32");
+
+    // Log metrics with timesteps
+    for (int epoch = 0; epoch < numEpochs; epoch++) {
+        double trainLoss = trainModel();
+        client.logMetric(run.getRunId(), "train_loss", trainLoss,
+                        System.currentTimeMillis(), epoch);
     }
+    ```
+  </TabItem>
+  <TabItem label="R" value="r">
+    ```r
+    library(mlflow)
+
+    with(mlflow_start_run(), {
+      # Log parameters
+      mlflow_log_param("learning_rate", 0.01)
+      mlflow_log_param("batch_size", 32)
+
+      # Training loop
+      for (epoch in 1:num_epochs) {
+        train_loss <- train_model()
+        mlflow_log_metric("train_loss", train_loss, step = epoch)
+      }
+    })
     ```
   </TabItem>
 </Tabs>
 
-### Logging functions \{#tracking_logging_functions}
-
-Here are the full list of logging functions provided by the Tracking API (Python).
-
-:::note
-Java and R APIs provide similar but limited set of logging functions.
-:::
-
-<APILink fn="mlflow.set_tracking_uri" /> connects to a tracking URI. You can also set the `MLFLOW_TRACKING_URI` environment variable to have MLflow find a URI from there. In both cases, the URI can either be a HTTP/HTTPS URI for a remote server, a database connection string, or a local path to log data to a directory. The URI defaults to `mlruns`.
-
-<APILink fn="mlflow.get_tracking_uri" /> returns the current tracking URI.
-
-<APILink fn="mlflow.create_experiment" /> creates a new experiment and returns the experiment ID. Runs can be launched under the experiment by passing the experiment ID to <APILink fn="mlflow.start_run" /> or by setting the active experiment with <APILink fn="mlflow.set_experiment" />, passing in the experiment ID of the created experiment.
-
-<APILink fn="mlflow.set_experiment" /> sets an experiment as active and returns the active experiment instance. If you do not specify an experiment in <APILink fn="mlflow.start_run" />, new runs are launched under this experiment.
-
-:::note
-If the experiment being set by name does not exist, a new experiment will be
-created with the given name. After the experiment has been created, it will be set
-as the active experiment. On certain platforms, such as Databricks, the experiment name
-must be an absolute path, e.g. `"/Users/<username>/my-experiment"`.
-:::
-
-<APILink fn="mlflow.start_run" /> starts a new run and returns a <APILink fn="mlflow.ActiveRun">`mlflow.ActiveRun`</APILink> object usable as a context manager for the current run. If an active run is already in progress, you should either end the current run before starting the new run or nest the new run within the current run using ``nested=True``. You do not need to call `start_run` explicitly: calling one of the logging functions with no active run automatically starts a new one.
-
-:::note
-Unless the argument `run_name` is set in <APILink fn="mlflow.start_run" />, a unique run name will be generated for each run.
-:::
-
-<APILink fn="mlflow.end_run" /> ends the currently active run, if any, taking an optional run status.
-
-<APILink fn="mlflow.active_run" /> returns a <APILink fn="mlflow.entities.Run">`mlflow.entities.Run`</APILink> object corresponding to the currently active run, if any.
-
-:::note
-You cannot access currently-active run attributes (parameters, metrics, etc.) through the run returned by `mlflow.active_run`.
-
-In order to access such attributes, use the <APILink fn="mlflow.client.MlflowClient">`MlflowClient`</APILink> as follows:
-
-```python
-client = mlflow.MlflowClient()
-data = client.get_run(mlflow.active_run().info.run_id).data
-```
-:::
-
-<APILink fn="mlflow.last_active_run" /> returns a <APILink fn="mlflow.entities.Run">`mlflow.entities.Run`</APILink> object corresponding to the currently active run, if any. Otherwise, it returns a <APILink fn="mlflow.entities.Run">`mlflow.entities.Run`</APILink> object corresponding the last run started from the current Python process that reached a terminal status (i.e. `FINISHED`, `FAILED`, or `KILLED`).
-
-<APILink fn="mlflow.get_parent_run" /> returns a <APILink fn="mlflow.entities.Run">`mlflow.entities.Run`</APILink> object corresponding to the parent run for the given run id, if one exists. Otherwise, it returns `None`.
-
-<APILink fn="mlflow.log_param" /> logs a single key-value param in the currently active run. The key and value are both strings. Use <APILink fn="mlflow.log_params" /> to log multiple params at once.
-
-<APILink fn="mlflow.log_metric" /> logs a single key-value metric. The value must always be a number. MLflow remembers the history of values for each metric. Use <APILink fn="mlflow.log_metrics" /> to log multiple metrics at once.
-
-<APILink fn="mlflow.log_input" /> logs a single <APILink fn="mlflow.data.dataset.Dataset">`mlflow.data.dataset.Dataset`</APILink> object corresponding to the currently active run. You may also log a dataset context string and a dict of key-value tags.
-
-<APILink fn="mlflow.set_tag" /> sets a single key-value tag in the currently active run. The key and value are both strings. Use <APILink fn="mlflow.set_tags" /> to set multiple tags at once.
-
-<APILink fn="mlflow.log_artifact" /> logs a local file or directory as an artifact, optionally taking an `artifact_path` to place it in within the run's artifact URI. Run artifacts can be organized into directories, so you can place the artifact in a directory this way.
-
-<APILink fn="mlflow.log_artifacts" /> logs all the files in a given directory as artifacts, again taking an optional `artifact_path`.
-
-<APILink fn="mlflow.get_artifact_uri" /> returns the URI that artifacts from the current run should be logged to.
-
-## Tracking Tips
-
-### Logging with explicit step and timestamp
-
-The `log` methods support two alternative methods for distinguishing metric values on the x-axis: `timestamp` and `step` (number of training iterations, number of epochs, and so on).
-By default, `timestamp` is set to the current time and `step` is set to 0. You can override these values by passing
-`timestamp` and `step` arguments to the `log` methods. For example:
-
-```python
-mlflow.log_metric(key="train_loss", value=train_loss, step=epoch, timestamp=now)
-```
-
-`step` has the following requirements and properties:
-
-- Must be a valid 64-bit integer value.
-- Can be negative.
-- Can be out of order in successive write calls. For example, (1, 3, 2) is a valid sequence.
-- Can have "gaps" in the sequence of values specified in successive write calls. For example, (1, 5, 75, -20) is a valid sequence.
-
-If you specify both a timestamp and a step, metrics are recorded against both axes independently.
-
-### Organizing Runs in Experiments
-
-MLflow allows you to group runs under experiments, which can be useful for comparing runs intended
-to tackle a particular task. You can create experiments via multiple way - MLflow UI, the <Link to="/api_reference/cli.html" target="_blank">Command-Line Interface</Link> (`mlflow experiments`),
-or the <APILink fn="mlflow.create_experiment" /> Python API. You can pass the experiment name for an individual run
-using the CLI (for example, `mlflow run ... --experiment-name [name]`) or the `MLFLOW_EXPERIMENT_NAME`
-environment variable. Alternatively, you can use the experiment ID instead, via the
-`--experiment-id` CLI flag or the `MLFLOW_EXPERIMENT_ID` environment variable.
-
-```bash
-# Set the experiment via environment variables
-export MLFLOW_EXPERIMENT_NAME=fraud-detection
-
-mlflow experiments create --experiment-name fraud-detection
-```
-
-```python
-# Launch a run. The experiment is inferred from the MLFLOW_EXPERIMENT_NAME environment
-# variable, or from the --experiment-name parameter passed to the MLflow CLI (the latter
-# taking precedence)
-with mlflow.start_run():
-    mlflow.log_param("a", 1)
-    mlflow.log_metric("b", 2)
-```
-
-### Creating Child Runs \{#child_runs}
-
-You can also create multiple runs inside a single run. This is useful for scenario like hyperparameter tuning,
-cross-validation folds, where you need another level of organization within an experiment. You can create child runs
-by passing `parent_run_id` to <APILink fn="mlflow.start_run" /> function. For example:
-
-```python
-# Start parent run
-with mlflow.start_run() as parent_run:
-    param = [0.01, 0.02, 0.03]
-
-    # Create a child run for each parameter setting
-    for p in param:
-        with mlflow.start_run(nested=True) as child_run:
-            mlflow.log_param("p", p)
-            ...
-            mlflow.log_metric("val_loss", val_loss)
-```
-
-You can fetch all child runs under a parent run using tags.
-
-```python
-child_runs = mlflow.search_runs(
-    experiment_ids=[YOUR_EXPERIMENT_ID],
-    filter_string=f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'",
-)
-print("child runs:")
-print(results[["run_id", "params.p", "metrics.val_loss"]])
-# child runs:
-#             run_id params.p  metrics.val_loss
-#   0        0c0b...     0.01            0.1234
-#   0        c2a0...     0.02            0.0890
-#   0        g2j1...     0.03            0.1567
-```
-
-### Launching Multiple Runs in One Program \{#launching-multiple-runs}
-
-Sometimes you want to launch multiple MLflow runs in the same program: for example, maybe you are
-performing a hyperparameter search locally or your experiments are just very fast to run. The way to
-do this depends on whether you want to run them [sequentially](#sequential-runs) or in [parallel](#parallel-runs).
-
-#### Sequential Runs
-
-Running multiple runs one-by-one is easy to do because the `ActiveRun` object returned by <APILink fn="mlflow.start_run" />
-is a Python [context manager](https://docs.python.org/2.5/whatsnew/pep-343.html). You can "scope" each run to
-just one block of code as follows:
-
-```python
-# First run
-with mlflow.start_run():
-    mlflow.log_param("x", 1)
-    mlflow.log_metric("y", 2)
-    ...
-
-# Another run
-with mlflow.start_run():
-    ...
-```
-
-The run remains open throughout the `with` statement, and is automatically closed when the
-statement exits, even if it exits due to an exception.
-
-#### Parallel Runs
-
-MLflow also supports running multiple runs in parallel using [multiprocessing](https://docs.python.org/2/library/multiprocessing.html) or multi threading.
-
-**Multi-processing** is straightforward: just call <APILink fn="mlflow.start_run" /> in a separate process and it creates a new run for each. For example:
-
-```python
-import mlflow
-import multiprocessing as mp
-
-
-def train_model(param):
-    with mlflow.start_run():
-        mlflow.log_param("p", param)
-        ...
-
-
-if __name__ == "__main__":
-    mlflow.set_experiment("multi-process")
-    params = [0.01, 0.02, ...]
-    with mp.Pool(processes=4) as pool:
-        pool.map(train_model, params)
-```
-
-:::warning attention
-The above code will only work if the `fork` method is used for creating child processes. If you are using
-the `spawn` method, the child processes will not automatically inherit the global state of the parent process, which includes
-the active experiment and tracking URI, resulting in the child processes not being able to log to the same experiment. To
-overcome this limitation, you can set the active experiment and tracking URI explicitly in each child process as shown below.
-The `fork` is the default method on POSIX systems except MacOS, but otherwise `spawn` method will be used by default.
-
-```python
-import mlflow
-import multiprocessing as mp
-
-
-def train_model(params):
-    # Set the experiment and tracking URI in each child process
-    mlflow.set_tracking_uri("http://localhost:5000")
-    mlflow.set_experiment("multi-process")
-    with mlflow.start_run():
-        ...
-
-
-if __name__ == "__main__":
-    params = [0.01, 0.02, ...]
-    pool = mp.get_context("spawn").Pool(processes=4)
-    pool.map(train_model, params)
-```
-
-:::
-
-**Multi-threading** is a bit more complicated because MLflow uses a global state to keep track of the currently active run i.e. having multiple active
-runs in the same process may cause data corruption. However, you can avoid this issue and use multi threading by using [Child Runs](#child_runs).
-You can start child runs in each thread by passing `nested=True` to <APILink fn="mlflow.start_run" /> as described in the previous section. For example:
-
-```python
-import mlflow
-import threading
-
-
-def train_model(param):
-    # Create a child run by passing nested=True
-    with mlflow.start_run(nested=True):
-        mlflow.log_param("p", param)
-        ...
-
-
-if __name__ == "__main__":
-    params = [0.01, 0.02, ...]
-    threads = []
-    for p in params:
-        t = threading.Thread(target=train_model, args=(p,))
-        threads.append(t)
-        t.start()
-
-    for t in threads:
-        t.join()
-```
-
-Also [here](https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/search_random.py) is the full example of hyperparameter tuning using child runs with multi threading.
-
-### Adding Tags to Runs
-
-You can annotate runs with arbitrary tags to organize them into groups. This allows you to easily filter and search
-Runs in Tracking UI by using [filter expression](/ml/search-runs#mlflow_tags).
-
-#### System Tags \{#system_tags}
-
-Tag keys that start with `mlflow.` are reserved for internal use.
-
-:::note
-`mlflow.note.content` is an exceptional case where the tag is **not set automatically** and can be overridden by the user to include additional information about the run.
-:::
-
-The following tags are set automatically by MLflow, when appropriate:
+## Core Logging Functions
+
+### Setup & Configuration
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| <APILink fn="mlflow.set_tracking_uri" /> | Connect to tracking server or database | `mlflow.set_tracking_uri("http://localhost:5000")` |
+| <APILink fn="mlflow.get_tracking_uri" /> | Get current tracking URI | `uri = mlflow.get_tracking_uri()` |
+| <APILink fn="mlflow.create_experiment" /> | Create new experiment | `exp_id = mlflow.create_experiment("my-experiment")` |
+| <APILink fn="mlflow.set_experiment" /> | Set active experiment | `mlflow.set_experiment("fraud-detection")` |
+
+### Run Management
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| <APILink fn="mlflow.start_run" /> | Start new run (with context manager) | `with mlflow.start_run(): ...` |
+| <APILink fn="mlflow.end_run" /> | End current run | `mlflow.end_run(status="FINISHED")` |
+| <APILink fn="mlflow.active_run" /> | Get currently active run | `run = mlflow.active_run()` |
+| <APILink fn="mlflow.last_active_run" /> | Get last completed run | `last_run = mlflow.last_active_run()` |
+
+### Data Logging
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| <APILink fn="mlflow.log_param" /> / <APILink fn="mlflow.log_params" /> | Log hyperparameters | `mlflow.log_param("lr", 0.01)` |
+| <APILink fn="mlflow.log_metric" /> / <APILink fn="mlflow.log_metrics" /> | Log performance metrics | `mlflow.log_metric("accuracy", 0.95, step=10)` |
+| <APILink fn="mlflow.log_input" /> | Log dataset information | `mlflow.log_input(dataset)` |
+| <APILink fn="mlflow.set_tag" /> / <APILink fn="mlflow.set_tags" /> | Add metadata tags | `mlflow.set_tag("model_type", "CNN")` |
+
+### Artifact Management
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| <APILink fn="mlflow.log_artifact" /> | Log single file/directory | `mlflow.log_artifact("model.pkl")` |
+| <APILink fn="mlflow.log_artifacts" /> | Log entire directory | `mlflow.log_artifacts("./plots/")` |
+| <APILink fn="mlflow.get_artifact_uri" /> | Get artifact storage location | `uri = mlflow.get_artifact_uri()` |
+
+### Language-Specific API Coverage
 
 <table>
   <thead>
     <tr>
-      <th>Key</th>
-      <th>Description</th>
+      <th>Capability</th>
+      <th>Python</th>
+      <th>Java</th>
+      <th>R</th>
+      <th>REST API</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>`mlflow.docker.image.id`</td>
-      <td>ID of the Docker image used to execute this run.</td>
+      <td>**Basic Logging**</td>
+      <td>✅ Full</td>
+      <td>✅ Full</td>
+      <td>✅ Full</td>
+      <td>✅ Full</td>
     </tr>
     <tr>
-      <td>`mlflow.docker.image.name`</td>
-      <td>Name of the Docker image used to execute this run.</td>
+      <td>**Auto Logging**</td>
+      <td>✅ 15+ Libraries</td>
+      <td>❌ Not Available</td>
+      <td>✅ Limited</td>
+      <td>❌ Not Available</td>
     </tr>
     <tr>
-      <td>`mlflow.log-model.history`</td>
-      <td>Model metadata collected by log-model calls. Includes the serialized form of the MLModel model files logged to a run, although the exact format and information captured is subject to change.</td>
+      <td>**Model Logging**</td>
+      <td>✅ 20+ Flavors</td>
+      <td>✅ Basic Support</td>
+      <td>✅ Basic Support</td>
+      <td>✅ Via Artifacts</td>
     </tr>
     <tr>
-      <td>`mlflow.note.content`</td>
-      <td>A descriptive note about this run. <br /> This reserved tag is **not set automatically** and can be overridden by the user to include additional information about the run. The content is displayed on the run's page under the Notes section.</td>
+      <td>**Dataset Tracking**</td>
+      <td>✅ Full</td>
+      <td>✅ Basic</td>
+      <td>✅ Basic</td>
+      <td>✅ Basic</td>
     </tr>
     <tr>
-      <td>`mlflow.parentRunId`</td>
-      <td>The ID of the parent run, if this is a nested run.</td>
-    </tr>
-    <tr>
-      <td>`mlflow.project.entryPoint`</td>
-      <td>Name of the project entry point associated with the current run, if any.</td>
-    </tr>
-    <tr>
-      <td>`mlflow.project.env`</td>
-      <td>The runtime context used by the MLflow project. Possible values: `"docker"` and `"conda"`.</td>
-    </tr>
-    <tr>
-      <td>`mlflow.source.git.branch`</td>
-      <td>Name of the branch of the executed code, if in a git repository. This tag is only logged within the context of [MLflow Projects](/ml/projects).</td>
-    </tr>
-    <tr>
-      <td>`mlflow.source.git.commit`</td>
-      <td>Commit hash of the executed code, if in a git repository. This tag is only logged when the code is executed as a Python script like `python train.py` or as a project. If the code is executed in a notebook, this tag is not logged.</td>
-    </tr>
-    <tr>
-      <td>`mlflow.source.git.repoURL`</td>
-      <td>URL that the executed code was cloned from. This tag is only logged within the context of [MLflow Projects](/ml/projects).</td>
-    </tr>
-    <tr>
-      <td>`mlflow.source.name`</td>
-      <td>Source identifier (e.g., GitHub URL, local Python filename, name of notebook)</td>
-    </tr>
-    <tr>
-      <td>`mlflow.source.type`</td>
-      <td>Source type. Possible values: `"NOTEBOOK"`, `"JOB"`, `"PROJECT"`, `"LOCAL"`, and `"UNKNOWN"`</td>
-    </tr>
-    <tr>
-      <td>`mlflow.user`</td>
-      <td>Identifier of the user who created the run.</td>
+      <td>**Search & Query**</td>
+      <td>✅ Advanced</td>
+      <td>✅ Basic</td>
+      <td>✅ Basic</td>
+      <td>✅ Full</td>
     </tr>
   </tbody>
 </table>
 
-#### Custom Tags
+:::note api-parity
+The Python API provides the most comprehensive feature set. Java and R APIs offer core functionality with ongoing feature additions in each release.
+:::
 
-The <APILink fn="mlflow.client.MlflowClient.set_tag">`MlflowClient.set_tag()`</APILink> function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
+## Advanced Tracking Patterns
+
+### Precise Metric Tracking
+
+Control exactly when and how metrics are recorded with custom timestamps and steps:
 
 ```python
-client.set_tag(run.info.run_id, "tag_key", "tag_value")
+import time
+from datetime import datetime
+
+# Log with custom step (training iteration/epoch)
+for epoch in range(100):
+    loss = train_epoch()
+    mlflow.log_metric("train_loss", loss, step=epoch)
+
+# Log with custom timestamp
+now = int(time.time() * 1000)  # MLflow expects milliseconds
+mlflow.log_metric("inference_latency", latency, timestamp=now)
+
+# Log with both step and timestamp
+mlflow.log_metric("gpu_utilization", gpu_usage, step=epoch, timestamp=now)
 ```
 
-### Get MLflow Run instance from autologged results
+**Step Requirements:**
+- Must be a valid 64-bit integer
+- Can be negative or out of order
+- Supports gaps in sequences (e.g., 1, 5, 75, -20)
 
-In some cases, you may want to access the MLflow Run instance associated with the autologged results.
-You can access the most recent autologging run through the <APILink fn="mlflow.last_active_run" /> function.
+### Experiment Organization
 
-Here's a sklearn autolog example that makes use of this function:
+Structure your experiments for easy comparison and analysis:
+
+```python
+# Method 1: Environment variables
+import os
+
+os.environ["MLFLOW_EXPERIMENT_NAME"] = "fraud-detection-v2"
+
+# Method 2: Explicit experiment setting
+mlflow.set_experiment("hyperparameter-tuning")
+
+# Method 3: Create with custom configuration
+experiment_id = mlflow.create_experiment(
+    "production-models",
+    artifact_location="s3://my-bucket/experiments/",
+    tags={"team": "data-science", "environment": "prod"},
+)
+```
+
+### Hierarchical Runs with Parent-Child Relationships
+
+Organize complex experiments like hyperparameter sweeps or cross-validation:
+
+```python
+# Parent run for the entire experiment
+with mlflow.start_run(run_name="hyperparameter_sweep") as parent_run:
+    mlflow.log_param("search_strategy", "random")
+
+    best_score = 0
+    best_params = {}
+
+    # Child runs for each parameter combination
+    for lr in [0.001, 0.01, 0.1]:
+        for batch_size in [16, 32, 64]:
+            with mlflow.start_run(
+                nested=True, run_name=f"lr_{lr}_bs_{batch_size}"
+            ) as child_run:
+                mlflow.log_params({"learning_rate": lr, "batch_size": batch_size})
+
+                # Train and evaluate
+                model = train_model(lr, batch_size)
+                score = evaluate_model(model)
+                mlflow.log_metric("accuracy", score)
+
+                # Track best configuration in parent
+                if score > best_score:
+                    best_score = score
+                    best_params = {"learning_rate": lr, "batch_size": batch_size}
+
+    # Log best results to parent run
+    mlflow.log_params(best_params)
+    mlflow.log_metric("best_accuracy", best_score)
+
+# Query child runs
+child_runs = mlflow.search_runs(
+    filter_string=f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'"
+)
+print("Child run results:")
+print(child_runs[["run_id", "params.learning_rate", "metrics.accuracy"]])
+```
+
+### Parallel Execution Strategies
+
+Handle multiple runs efficiently with different parallelization approaches:
+
+<Tabs>
+  <TabItem default label="Sequential Runs" value="sequential">
+    Perfect for simple hyperparameter sweeps or A/B testing:
+
+    ```python
+    configs = [
+        {"model": "RandomForest", "n_estimators": 100},
+        {"model": "XGBoost", "max_depth": 6},
+        {"model": "LogisticRegression", "C": 1.0},
+    ]
+
+    for config in configs:
+        with mlflow.start_run(run_name=config["model"]):
+            mlflow.log_params(config)
+            model = train_model(config)
+            score = evaluate_model(model)
+            mlflow.log_metric("f1_score", score)
+    ```
+  </TabItem>
+  <TabItem label="Multiprocessing" value="multiprocessing">
+    Scale training across multiple CPU cores:
+
+    ```python
+    import multiprocessing as mp
+
+
+    def train_with_config(config):
+        # Set tracking URI in each process (required for spawn method)
+        mlflow.set_tracking_uri("http://localhost:5000")
+        mlflow.set_experiment("parallel-training")
+
+        with mlflow.start_run():
+            mlflow.log_params(config)
+            model = train_model(config)
+            score = evaluate_model(model)
+            mlflow.log_metric("accuracy", score)
+            return score
+
+
+    if __name__ == "__main__":
+        configs = [{"lr": lr, "bs": bs} for lr in [0.01, 0.1] for bs in [16, 32]]
+
+        with mp.Pool(processes=4) as pool:
+            results = pool.map(train_with_config, configs)
+
+        print(f"Completed {len(results)} experiments")
+    ```
+  </TabItem>
+  <TabItem label="Multithreading" value="multithreading">
+    Use child runs for thread-safe parallel execution:
+
+    ```python
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+
+    def train_worker(config):
+        with mlflow.start_run(nested=True):
+            mlflow.log_params(config)
+            model = train_model(config)
+            score = evaluate_model(model)
+            mlflow.log_metric("accuracy", score)
+            return score
+
+
+    # Start parent run
+    with mlflow.start_run(run_name="threaded_experiment"):
+        configs = [{"lr": 0.01, "epochs": e} for e in range(10, 101, 10)]
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(train_worker, config) for config in configs]
+            results = [future.result() for future in futures]
+
+        # Log summary to parent run
+        mlflow.log_metric("avg_accuracy", sum(results) / len(results))
+        mlflow.log_metric("max_accuracy", max(results))
+    ```
+  </TabItem>
+</Tabs>
+
+### Smart Tagging for Organization
+
+Use tags strategically to organize and filter experiments:
+
+```python
+with mlflow.start_run():
+    # Descriptive tags for filtering
+    mlflow.set_tags(
+        {
+            "model_family": "transformer",
+            "dataset_version": "v2.1",
+            "environment": "production",
+            "team": "nlp-research",
+            "gpu_type": "V100",
+            "experiment_phase": "hyperparameter_tuning",
+        }
+    )
+
+    # Special notes tag for documentation
+    mlflow.set_tag(
+        "mlflow.note.content",
+        "Baseline transformer model with attention dropout. "
+        "Testing different learning rate schedules.",
+    )
+
+    # Training code here...
+```
+
+**Search experiments by tags:**
+```python
+# Find all transformer experiments
+transformer_runs = mlflow.search_runs(filter_string="tags.model_family = 'transformer'")
+
+# Find production-ready models
+prod_models = mlflow.search_runs(
+    filter_string="tags.environment = 'production' AND metrics.accuracy > 0.95"
+)
+```
+
+### System Tags Reference
+
+MLflow automatically sets several system tags to capture execution context:
+
+| Tag | Description | When Set |
+|-----|-------------|----------|
+| `mlflow.source.name` | Source file or notebook name | Always |
+| `mlflow.source.type` | Source type (NOTEBOOK, JOB, LOCAL, etc.) | Always |
+| `mlflow.user` | User who created the run | Always |
+| `mlflow.source.git.commit` | Git commit hash | When run from git repo |
+| `mlflow.source.git.branch` | Git branch name | MLflow Projects only |
+| `mlflow.parentRunId` | Parent run ID for nested runs | Child runs only |
+| `mlflow.docker.image.name` | Docker image used | Docker environments |
+| `mlflow.note.content` | **User-editable** description | Manual only |
+
+:::tip pro-tip
+Use `mlflow.note.content` to document experiment insights, hypotheses, or results directly in the MLflow UI. This tag appears in a dedicated Notes section on the run page.
+:::
+
+### Integration with Auto Logging
+
+Combine auto logging with manual tracking for the best of both worlds:
 
 ```python
 import mlflow
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
 
-from sklearn.model_selection import train_test_split
-from sklearn.datasets import load_diabetes
-from sklearn.ensemble import RandomForestRegressor
-
+# Enable auto logging
 mlflow.autolog()
 
-db = load_diabetes()
-X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+with mlflow.start_run():
+    # Auto logging captures model training automatically
+    model = RandomForestClassifier(n_estimators=100)
+    model.fit(X_train, y_train)
 
-# Create and train models.
-rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
-rf.fit(X_train, y_train)
+    # Add custom metrics and artifacts
+    predictions = model.predict(X_test)
 
-# Use the model to make predictions on the test dataset.
-predictions = rf.predict(X_test)
-autolog_run = mlflow.last_active_run()
-print(autolog_run)
-# <Run:
-#    data=<RunData:
-#        metrics={'accuracy': 0.0},
-#        params={'n_estimators': '100', 'max_depth': '6', 'max_features': '3'},
-#        tags={'estimator_class': 'sklearn.ensemble._forest.RandomForestRegressor', 'estimator_name': 'RandomForestRegressor'}
-#    >,
-#    info=<RunInfo:
-#        artifact_uri='file:///Users/andrew/Code/mlflow/mlruns/0/0c0b.../artifacts',
-#        end_time=163...0,
-#        run_id='0c0b...',
-#        start_time=163...0,
-#        status='FINISHED',
-#        user_id='ME'>
-#    >
+    # Log custom evaluation metrics
+    report = classification_report(y_test, predictions, output_dict=True)
+    mlflow.log_metrics(
+        {
+            "precision_macro": report["macro avg"]["precision"],
+            "recall_macro": report["macro avg"]["recall"],
+            "f1_macro": report["macro avg"]["f1-score"],
+        }
+    )
+
+    # Log custom artifacts
+    feature_importance = pd.DataFrame(
+        {"feature": feature_names, "importance": model.feature_importances_}
+    )
+    feature_importance.to_csv("feature_importance.csv")
+    mlflow.log_artifact("feature_importance.csv")
+
+    # Access the auto-logged run for additional processing
+    current_run = mlflow.active_run()
+    print(f"Auto-logged run ID: {current_run.info.run_id}")
+
+# Access the completed run
+last_run = mlflow.last_active_run()
+print(f"Final run status: {last_run.info.status}")
 ```
+
+## Language-Specific Guides
+
+- **Python**: [Complete Python API Reference](http://localhost:3000/api_reference/python_api/index.html)
+- **Java**: [Java API Documentation](http://localhost:3000/api_reference/java_api/index.html)
+- **R**: [R API Documentation](http://localhost:3000/api_reference/R-api.html)
+- **REST**: [REST API Reference](http://localhost:3000/api_reference/rest-api.html)
+
+---
+
+**Next Steps:**
+- [Set up MLflow Tracking Server](/ml/tracking/server) for team collaboration
+- [Explore Auto Logging](/ml/tracking/autolog) for supported frameworks
+- [Learn advanced search patterns](/ml/search-runs) for experiment analysis
