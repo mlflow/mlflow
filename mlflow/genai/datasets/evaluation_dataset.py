@@ -24,6 +24,7 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def __init__(self, dataset: "ManagedDataset"):
         self._dataset = dataset
         self._df = None
+        self._digest = None
 
     @property
     def dataset_id(self) -> str:
@@ -35,7 +36,9 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """String digest (hash) of the dataset provided by the caller that uniquely identifies"""
         # NB: The managed Dataset entity in Agent SDK doesn't propagate the digest
         # information. So we compute the digest of the dataframe view.
-        return self._dataset.digest or compute_pandas_digest(self.to_df())
+        if self._digest is None:
+            self._digest = self._dataset.digest or compute_pandas_digest(self.to_df())
+        return self._digest
 
     @property
     def name(self) -> Optional[str]:

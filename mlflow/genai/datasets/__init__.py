@@ -8,7 +8,6 @@ The API docs can be found here:
 
 from typing import Optional, Union
 
-from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 
 _ERROR_MSG = (
@@ -33,7 +32,7 @@ def create_dataset(
     try:
         from databricks.agents.datasets import create_dataset
     except ImportError as e:
-        raise MlflowException(_ERROR_MSG) from e
+        raise ImportError(_ERROR_MSG) from e
     return EvaluationDataset(create_dataset(uc_table_name, experiment_id))
 
 
@@ -46,7 +45,7 @@ def delete_dataset(uc_table_name: str) -> None:
     try:
         from databricks.agents.datasets import delete_dataset
     except ImportError:
-        raise MlflowException(_ERROR_MSG) from None
+        raise ImportError(_ERROR_MSG) from None
     return delete_dataset(uc_table_name)
 
 
@@ -62,7 +61,7 @@ def get_dataset(uc_table_name: str) -> "EvaluationDataset":
     try:
         from databricks.agents.datasets import get_dataset
     except ImportError as e:
-        raise MlflowException(_ERROR_MSG) from e
+        raise ImportError(_ERROR_MSG) from e
     return EvaluationDataset(get_dataset(uc_table_name))
 
 

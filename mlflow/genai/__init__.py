@@ -1,5 +1,3 @@
-import warnings
-
 from mlflow.genai import (
     judges,
     scorers,
@@ -23,14 +21,12 @@ except ImportError:
     pass
 
 from mlflow.genai.datasets import (
-    EvaluationDataset,
     create_dataset,
     delete_dataset,
     get_dataset,
 )
 
 __all__ = [
-    "EvaluationDataset",
     "evaluate",
     "to_predict_fn",
     "Scorer",
