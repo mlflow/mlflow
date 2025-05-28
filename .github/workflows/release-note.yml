@@ -37,7 +37,7 @@ jobs:
           sparse-checkout: |
             .github
       - name: validate-labeled
-        uses: ./.github/actions/github-script
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
@@ -56,7 +56,7 @@ jobs:
           sparse-checkout: |
             .github
       - name: post-merge
-        uses: ./.github/actions/github-script
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
