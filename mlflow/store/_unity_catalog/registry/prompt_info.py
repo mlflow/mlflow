@@ -1,16 +1,21 @@
 """
-The prompt info entity for Unity Catalog MLflow Model Registry.
+Internal PromptInfo entity for Unity Catalog prompt operations.
+
+This is an implementation detail for the Unity Catalog store and should not be
+considered part of the public MLflow API.
 """
 
-from typing import Dict, List, Optional
+from typing import Optional
 
 
 class PromptInfo:
     """
-    MLflow entity for prompt information from Unity Catalog. This represents
+    Internal entity for prompt information from Unity Catalog. This represents
     prompt metadata without version-specific details like template.
-    
+
     This maps to the Unity Catalog PromptInfo protobuf message.
+
+    Note: This is an internal implementation detail and not part of the public API.
     """
 
     def __init__(
@@ -18,7 +23,7 @@ class PromptInfo:
         name: str,
         description: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
-        tags: Optional[Dict[str, str]] = None,
+        tags: Optional[dict[str, str]] = None,
     ):
         """
         Construct a PromptInfo entity.
@@ -50,7 +55,7 @@ class PromptInfo:
         return self._creation_timestamp
 
     @property
-    def tags(self) -> Dict[str, str]:
+    def tags(self) -> dict[str, str]:
         """Prompt-level metadata as key-value pairs."""
         return self._tags.copy()
 
@@ -68,4 +73,4 @@ class PromptInfo:
         return (
             f"<PromptInfo: name='{self.name}', description='{self.description}', "
             f"tags={self.tags}>"
-        ) 
+        )

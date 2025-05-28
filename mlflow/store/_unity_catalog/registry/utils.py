@@ -5,7 +5,6 @@ Utility functions for converting between Unity Catalog proto and MLflow entities
 from typing import Optional
 
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.entities.model_registry.prompt_info import PromptInfo
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptAlias as ProtoPromptAlias,
 )
@@ -15,6 +14,7 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptVersionInfo as ProtoPromptVersion,
 )
+from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 
 
 def proto_to_mlflow_tags(proto_tags: list[ProtoPromptTag]) -> dict[str, str]:
