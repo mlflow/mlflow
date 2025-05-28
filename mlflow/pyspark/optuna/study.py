@@ -155,7 +155,7 @@ class MlflowSparkStudy(Study):
         storage: MlflowStorage,
         sampler: Optional["samplers.BaseSampler"] = None,
         pruner: Optional[pruners.BasePruner] = None,
-        mlflow_tracking_uri: Optional[str] = "databricks",
+        mlflow_tracking_uri: Optional[str] = None,
     ):
         self.study_name = study_name
         self._storage = storages.get_storage(storage)
@@ -166,10 +166,12 @@ class MlflowSparkStudy(Study):
 
         # check whether the SparkConnect mode
         self._is_spark_connect_mode = is_spark_connect_mode()
-        self._mlflow_tracking_env = mlflow_tracking_uri
-        self.mlflow_client = MlflowClient()
+        if mlflow_tracking_uri is None:
+            self._mlflow_tracking_env = mlflow.get_tracking_uri
+        else:
+            self._mlflow_tracking_env = mlflow_tracking_uri
+        self.mlflow_client = MlflowClient(self._mlflow_tracking_env)
 
-        mlflow.set_tracking_uri(self._mlflow_tracking_env)
         self._study = optuna.create_study(
             study_name=self.study_name, sampler=self.sampler, storage=self._storage
         )
@@ -204,8 +206,7 @@ class MlflowSparkStudy(Study):
             from mlflow import MlflowClient
             from mlflow.optuna.storage import MlflowStorage
 
-            mlflow.set_tracking_uri(mlflow_tracking_env)
-            mlflow_client = MlflowClient()
+            mlflow_client = MlflowClient(mlflow_tracking_env)
 
             storage = MlflowStorage(experiment_id=experiment_id)
             study = optuna.load_study(study_name=study_name, sampler=sampler, storage=storage)
@@ -226,12 +227,7 @@ class MlflowSparkStudy(Study):
             except BaseException:
                 traceback_string = traceback.format_exc()
                 error_messages.append(traceback_string)
-            finally:
-                yield pd.DataFrame(
-                    {
-                        "error": error_messages,
-                    }
-                )
+            yield pd.DataFrame({"error": error_messages})
 
         num_tasks = n_trials
         if n_jobs == -1:

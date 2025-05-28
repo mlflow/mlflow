@@ -56,10 +56,8 @@ spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 
 @pytest.fixture
 def store():
-    mock_store = mock.MagicMock()
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
-        mock_get_store.return_value = mock_store
-        yield mock_store
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock.MagicMock()) as mock_get_store:
+        yield mock_get_store.return_value
 
 
 @pytest.mark.usefixtures("setup_storage", "spark")
