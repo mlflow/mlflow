@@ -49,14 +49,14 @@ def optimize_prompt(
             * An EvaluationDataset entity
             * Pandas DataFrame
             * Spark DataFrame
-            * List of dictionaries:
+            * List of dictionaries
 
             The dataset must include the following columns:
 
             - inputs (required): A column containing single inputs in dict format.
-              Each input should contain keys in the prompt template.
-            - expectations (required): A column containing a dictionary
-              of ground truths for individual output fields
+              Each input should contain keys matching the variables in the prompt template.
+            - expectations (optional): A column containing a dictionary
+              of ground truths for individual output fields.
 
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
             Note: Trace input is not supported for optimization. Use inputs, outputs and
@@ -101,7 +101,7 @@ def optimize_prompt(
                     for i in range(100)
                 ],
                 scorers=[exact_match],
-                prompt_uri=prompt,
+                prompt_uri=prompt.uri,
                 optimizer_config=OptimizerConfig(num_instruction_candidates=5),
             )
 
