@@ -49,23 +49,11 @@ def sample_dict_data_multiple():
             "inputs": {"question": "What is Spark?"},
             "outputs": "actual response for first question",
             "expectations": {"expected_response": "expected response for first question"},
-            # Additional columns required by the judges
-            "retrieved_context": [
-                {
-                    "content": "doc content 1",
-                    "doc_uri": "doc_uri_2_1",
-                },
-                {
-                    "content": "doc content 2.",
-                    "doc_uri": "doc_uri_6_extra",
-                },
-            ],
         },
         {
             "inputs": {"question": "How can you minimize data shuffling in Spark?"},
             "outputs": "actual response for second question",
             "expectations": {"expected_response": "expected response for second question"},
-            "retrieved_context": [],
         },
         # Some records might not have expectations
         {
