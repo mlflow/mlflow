@@ -543,7 +543,7 @@ def _lock_requirements(
                 env=os.environ.copy() | _get_uv_envs_for_databricks(),
                 text=True,
             )
-            _logger.debug("Successfully compiled pip requirements with `uv`:\n%s", out)
+            _logger.debug(f"Successfully compiled requirements with `uv`:\n{out}")
         except subprocess.CalledProcessError as e:
             _logger.warning(f"Failed to lock requirements:\n{e.output}")
             return None
