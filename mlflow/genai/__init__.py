@@ -1,5 +1,9 @@
 import warnings
 
+from mlflow.genai import (
+    judges,
+    scorers,
+)
 from mlflow.genai.evaluation import evaluate, to_predict_fn
 from mlflow.genai.scorers import Scorer, scorer
 
@@ -34,6 +38,8 @@ __all__ = [
     "to_predict_fn",
     "Scorer",
     "scorer",
+    "judges",
+    "scorers",
     "create_dataset",
     "delete_dataset",
     "get_dataset",
