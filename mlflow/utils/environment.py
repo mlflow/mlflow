@@ -550,7 +550,7 @@ def _lock_requirements(
         return [
             "# Original requirements",
             *(f"# {l}" for l in requirements),  # Preserve original requirements as comments
-            "",
+            "#",
             "# Locked requirements",
             *out_file.read_text().splitlines(),
         ]
