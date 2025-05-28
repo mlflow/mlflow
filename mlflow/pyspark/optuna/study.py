@@ -11,7 +11,6 @@ from typing import Optional
 import optuna
 from optuna import exceptions, pruners, samplers, storages
 from optuna.study import Study
-from optuna.study._tell import _tell_with_warning
 from optuna.trial import FrozenTrial
 from optuna.trial import TrialState
 
@@ -80,7 +79,7 @@ def _optimize_sequential(
             func_err_fail_exc_info = sys.exc_info()
 
         try:
-            frozen_trial, warning_message = _tell_with_warning(
+            frozen_trial, warning_message = optuna.study._tell._tell_with_warning(
                 study=study,
                 trial=trial,
                 value_or_values=value_or_values,
@@ -171,6 +170,7 @@ class MlflowSparkStudy(Study):
         else:
             self._mlflow_tracking_env = mlflow_tracking_uri
         self.mlflow_client = MlflowClient(self._mlflow_tracking_env)
+        mlflow.set_tracking_uri(self._mlflow_tracking_env)
 
         self._study = optuna.create_study(
             study_name=self.study_name, sampler=self.sampler, storage=self._storage
