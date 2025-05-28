@@ -266,7 +266,7 @@ class Trace(_MlflowObject):
                 If not provided, this will match all assessment types.
 
         Returns:
-            A list of assessments with the given name.
+            A list of assessments that meet the given conditions.
         """
 
         def validate_type(assessment: Assessment) -> bool:
