@@ -720,6 +720,18 @@ service MlflowService {
     };
   }
 
+  rpc GetAssessment(GetAssessmentRequest) returns (GetAssessmentRequest.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Assessment",
+    };
+  }
+
   // Create an assessment associated with a trace.
   rpc createAssessment(CreateAssessment) returns (CreateAssessment.Response) {
     option (rpc) = {
@@ -1664,6 +1676,19 @@ message DeleteAssessment {
   optional string assessment_id = 2 [(validate_required) = true];
 
   message Response {}
+}
+
+message GetAssessmentRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  // The ID of the trace the assessment belongs to.
+  optional string trace_id = 1 [(validate_required) = true];
+  // The ID of the assessment.
+  optional string assessment_id = 2 [(validate_required) = true];
+
+  message Response {
+    // The requested assessment.
+    optional assessments.Assessment assessment = 1;
+  }
 }
 
 
