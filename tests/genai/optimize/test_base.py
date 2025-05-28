@@ -7,7 +7,7 @@ pytest.importorskip("dspy", minversion="2.6.0")
 
 from mlflow.entities.model_registry import Prompt
 from mlflow.exceptions import MlflowException
-from mlflow.genai.optimize import optimize_prompts
+from mlflow.genai.optimize import optimize_prompt
 from mlflow.genai.optimize.types import LLMParam, OptimizerParam
 from mlflow.genai.scorers import scorer
 from mlflow.tracking._model_registry.fluent import register_prompt
@@ -39,11 +39,11 @@ def sample_scorer(inputs, outputs, expectations):
     return 1.0
 
 
-def test_optimize_prompts_basic(test_prompt, sample_data):
+def test_optimize_prompt_basic(test_prompt, sample_data):
     with patch(
         "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize", return_value="optimized"
     ) as mock_optimizer:
-        result = optimize_prompts(
+        result = optimize_prompt(
             agent_llm=LLMParam(model_name="test/model"),
             prompt=f"prompts:/{test_prompt.name}/{test_prompt.version}",
             train_data=sample_data,
@@ -57,11 +57,11 @@ def test_optimize_prompts_basic(test_prompt, sample_data):
     assert mock_optimizer.call_count == 1
 
 
-def test_optimize_prompts_unsupported_algorithm(test_prompt, sample_data):
+def test_optimize_prompt_unsupported_algorithm(test_prompt, sample_data):
     optimizer_params = OptimizerParam(algorithm="UnsupportedAlgorithm")
 
     with pytest.raises(ValueError, match="Algorithm UnsupportedAlgorithm is not supported"):
-        optimize_prompts(
+        optimize_prompt(
             agent_llm=LLMParam(model_name="test/model"),
             prompt=f"prompts:/{test_prompt.name}/{test_prompt.version}",
             train_data=sample_data,
@@ -70,12 +70,12 @@ def test_optimize_prompts_unsupported_algorithm(test_prompt, sample_data):
         )
 
 
-def test_optimize_prompts_with_invalid_scorer(test_prompt, sample_data):
+def test_optimize_prompt_with_invalid_scorer(test_prompt, sample_data):
     def invalid_scorer(inputs, outputs):
         return 1.0
 
     with pytest.raises(MlflowException, match="is not a valid scorer"):
-        optimize_prompts(
+        optimize_prompt(
             agent_llm=LLMParam(model_name="test/model"),
             prompt=f"prompts:/{test_prompt.name}/{test_prompt.version}",
             train_data=sample_data,
@@ -83,13 +83,13 @@ def test_optimize_prompts_with_invalid_scorer(test_prompt, sample_data):
         )
 
 
-def test_optimize_prompts_with_trace_scorer(test_prompt, sample_data):
+def test_optimize_prompt_with_trace_scorer(test_prompt, sample_data):
     @scorer
     def trace_scorer(inputs, outputs, expectations, trace):
         return 1.0
 
     with pytest.raises(MlflowException, match="Trace input is found in Scorer"):
-        optimize_prompts(
+        optimize_prompt(
             agent_llm=LLMParam(model_name="test/model"),
             prompt=f"prompts:/{test_prompt.name}/{test_prompt.version}",
             train_data=sample_data,

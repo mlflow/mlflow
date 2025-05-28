@@ -24,7 +24,7 @@ _ALGORITHMS = {"DSPy/MIPROv2": _DSPyMIPROv2Optimizer}
 
 
 @experimental
-def optimize_prompts(
+def optimize_prompt(
     *,
     agent_llm: LLMParam,
     prompt: str,
@@ -80,7 +80,7 @@ def optimize_prompts(
                 'question: {{question}}',
             )
 
-            result = mlflow.genai.optimize_prompts(
+            result = mlflow.genai.optimize_prompt(
                 agent_llm=LLMParam(model_name="openai/gpt-4.1-nano"),
                 train_data=[
                     {"inputs": {"question": f"{i}+1"}, "expectations": {"answer": f"{i+1}"}}
