@@ -41,8 +41,8 @@ def optimize_prompt(
     Args:
         target_llm_params: Parameters for the the LLM that prompt is optimized for.
             The model name must be specified in the format `<provider>/<model>`.
-        prompt_uri: The URI of the MLflow prompt to optimize. This will be used as the initial
-            instructions for the signature.
+        prompt_uri: The URI of the MLflow prompt to optimize. The optimized prompt
+            is registered as a new version of the prompt with the same name.
         train_data: Training dataset used for optimization.
             The data must be one of the following formats:
 
@@ -63,7 +63,7 @@ def optimize_prompt(
             expectations for optimization. Also, pass the `objective` argument
             when using scorers with string or Assessment type outputs.
         objective: A callable that computes the overall performance metric from individual
-            assessments. Takes a dict mapping assessment names to lists of assessments and
+            assessments. Takes a dict mapping assessment names to assessment scores and
             returns a float value (greater is better).
         eval_data: Evaluation dataset with the same format as train_data. If not provided,
             train_data will be automatically split into training and evaluation sets.
@@ -157,5 +157,5 @@ def _validate_scorers(scorers: list[Scorer]) -> None:
         if "trace" in signature.parameters:
             raise MlflowException.invalid_parameter_value(
                 f"Trace input is found in Scorer {scorer}. "
-                "Scorers for optimization can only use inputs, outputs or expectations."
+                "Scorers for optimization can only take inputs, outputs or expectations."
             )
