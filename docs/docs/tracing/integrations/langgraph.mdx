@@ -100,7 +100,7 @@ print(f"  Total tokens: {total_usage['total_tokens']}")
 # Print the token usage for each LLM call
 print("\n== Token usage for each LLM call: ==")
 for span in trace.data.spans:
-    if usage := span.attributes.get("mlflow.chat.tokenUsage"):
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
         print(f"{span.name}:")
         print(f"  Input tokens: {usage['input_tokens']}")
         print(f"  Output tokens: {usage['output_tokens']}")

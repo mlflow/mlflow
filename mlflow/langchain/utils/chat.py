@@ -35,6 +35,17 @@ from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 _logger = logging.getLogger(__name__)
 
 
+_TOKEN_USAGE_KEY_MAPPING = {
+    # OpenAI
+    "prompt_tokens": TokenUsageKey.INPUT_TOKENS,
+    "completion_tokens": TokenUsageKey.OUTPUT_TOKENS,
+    "total_tokens": TokenUsageKey.TOTAL_TOKENS,
+    # OpenAI Streaming, Anthropic, etc.
+    "input_tokens": TokenUsageKey.INPUT_TOKENS,
+    "output_tokens": TokenUsageKey.OUTPUT_TOKENS,
+}
+
+
 def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> ChatMessage:
     """
     Convert LangChain's message format to the MLflow's standard chat message format.
@@ -377,25 +388,13 @@ def _parse_token_usage_from_generation(generation: Generation) -> Optional[dict[
 
 def _parse_token_counts(usage_metadata: dict[str, Any]) -> dict[str, int]:
     """Standardize token usage metadata keys to MLflow's token usage keys."""
-    key_mapping = {
-        # OpenAI
-        "prompt_tokens": TokenUsageKey.INPUT_TOKENS,
-        "completion_tokens": TokenUsageKey.OUTPUT_TOKENS,
-        "total_tokens": TokenUsageKey.TOTAL_TOKENS,
-        # OpenAI Streaming, Anthropic, etc.
-        "input_tokens": TokenUsageKey.INPUT_TOKENS,
-        "output_tokens": TokenUsageKey.OUTPUT_TOKENS,
-    }
-
     usage = {}
     for key, value in usage_metadata.items():
-        if key in key_mapping:
-            usage[key_mapping[key]] = value
+        if usage_key := _TOKEN_USAGE_KEY_MAPPING.get(key):
+            usage[usage_key] = value
 
     # If the total tokens are not present, calculate it from the input and output tokens
     if usage and usage.get(TokenUsageKey.TOTAL_TOKENS) is None:
-        input_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
-        output_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
-        usage[TokenUsageKey.TOTAL_TOKENS] = input_tokens + output_tokens
+        usage[TokenUsageKey.TOTAL_TOKENS] = usage.get(TokenUsageKey.INPUT_TOKENS, 0) + usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
 
     return usage
