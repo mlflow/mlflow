@@ -1322,6 +1322,36 @@ def test_update_current_trace_client_request_id_overwrites():
             assert trace.info.client_request_id == "req-updated"
 
 
+def test_update_current_trace_client_request_id_stringification():
+    """Test that client_request_id is stringified when it's not a string."""
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    test_cases = [
+        (123, "123"),
+        (45.67, "45.67"),
+        (True, "True"),
+        (False, "False"),
+        (None, None),  # None should remain None
+        (["list", "value"], "['list', 'value']"),
+        ({"dict": "value"}, "{'dict': 'value'}"),
+    ]
+
+    for input_value, expected_output in test_cases:
+        with mlflow.start_span(f"stringification_test_{input_value}") as span:
+            if input_value is None:
+                # None should not update the client_request_id
+                mlflow.update_current_trace(client_request_id=input_value)
+                trace_manager = InMemoryTraceManager.get_instance()
+                with trace_manager.get_trace(span.trace_id) as trace:
+                    assert trace.info.client_request_id is None
+            else:
+                mlflow.update_current_trace(client_request_id=input_value)
+                trace_manager = InMemoryTraceManager.get_instance()
+                with trace_manager.get_trace(span.trace_id) as trace:
+                    assert trace.info.client_request_id == expected_output
+                    assert isinstance(trace.info.client_request_id, str)
+
+
 @skip_when_testing_trace_sdk
 def test_update_current_trace_should_not_raise_during_model_logging():
     """

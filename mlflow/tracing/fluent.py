@@ -951,7 +951,7 @@ def update_current_trace(
     with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
         trace.info.tags.update(tags or {})
         if client_request_id is not None:
-            trace.info.client_request_id = client_request_id
+            trace.info.client_request_id = str(client_request_id)
 
 
 @request_id_backward_compatible
