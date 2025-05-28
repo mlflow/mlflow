@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: ./.github/actions/checkout
       - uses: ./.github/actions/setup-python
 
       # Install mlflow-tracing SDK from the current directory
