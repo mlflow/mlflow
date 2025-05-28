@@ -4,15 +4,18 @@ from typing import Callable, Optional, Union
 
 from mlflow.entities import Assessment
 from mlflow.entities.model_registry import Prompt
+from mlflow.utils.annotations import experimental
 
 OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Assessment]]], float]
 
 
+@experimental
 @dataclass
 class PromptOptimizationResult:
     prompt: Prompt
 
 
+@experimental
 @dataclass
 class LLMParam:
     model_name: str  # <provider>/<model name>
@@ -20,6 +23,7 @@ class LLMParam:
     temperature: Optional[float] = None
 
 
+@experimental
 @dataclass
 class OptimizerParam:
     num_instruction_candidates: int = 8

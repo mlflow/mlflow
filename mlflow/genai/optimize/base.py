@@ -15,6 +15,7 @@ from mlflow.genai.optimize.types import (
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.tracking._model_registry.fluent import load_prompt, register_prompt
+from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     from genai.evaluation.utils import EvaluationDatasetTypes
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 _ALGORITHMS = {"DSPy/MIPROv2": _DSPyMIPROv2Optimizer}
 
 
+@experimental
 def optimize_prompts(
     *,
     agent_llm: LLMParam,
