@@ -1,5 +1,5 @@
-from typing import TYPE_CHECKING, Any, Optional, Union
 import abc
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.entities.model_registry import Prompt
 from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams, OptimizerConfig
@@ -36,4 +36,3 @@ class _BaseOptimizer(abc.ABC):
         Returns:
             The optimized prompt template.
         """
-        raise NotImplementedError("Method not implemented.")

@@ -12,8 +12,8 @@ from mlflow.genai.optimize.util import infer_type_from_value
 from mlflow.genai.scorers import Scorer
 
 if TYPE_CHECKING:
-    import pandas as pd
     import dspy
+    import pandas as pd
 
 
 class _DSPyOptimizer(_BaseOptimizer):
@@ -25,7 +25,10 @@ class _DSPyOptimizer(_BaseOptimizer):
 
         dspy_version = importlib.metadata.version("dspy")
         if Version(dspy_version) < Version("2.6.0"):
-            raise MlflowException(f"Current dspy version {dspy_version} is too old. Please upgrade to version >= 2.6.0")
+            raise MlflowException(
+                f"Current dspy version {dspy_version} is too old. "
+                "Please upgrade to version >= 2.6.0"
+            )
 
     def _get_input_fields(self, train_data: "pd.DataFrame") -> list[dict[str, type]]:
         if "request" in train_data.columns:
@@ -76,10 +79,13 @@ class _DSPyOptimizer(_BaseOptimizer):
                 # Use total score by default if no objective is provided
                 return sum(scores.values())
             else:
-                non_numerical_scorers = [k for k, v in scores.items() if not isinstance(v, (int, float, bool))]
+                non_numerical_scorers = [
+                    k for k, v in scores.items() if not isinstance(v, (int, float, bool))
+                ]
                 raise MlflowException(
-                    f"Scorer [{','.join(non_numerical_scorers)}] return a string, Assessment or a list of Assessment. "
-                    "Please provide `objective` function to aggregate non-numerical values into a single score for optimization."
+                    f"Scorer [{','.join(non_numerical_scorers)}] return a string, Assessment or a "
+                    "list of Assessment. Please provide `objective` function to aggregate "
+                    "non-numerical values into a single value for optimization."
                 )
 
         return metric
