@@ -451,7 +451,7 @@ class ModelRegistryClient:
         name: str,
         template: str,
         description: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None
+        tags: Optional[dict[str, str]] = None,
     ) -> Prompt:
         """
         Create a new prompt in the registry.
@@ -485,7 +485,7 @@ class ModelRegistryClient:
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None
+        page_token: Optional[str] = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the registry.
@@ -518,7 +518,7 @@ class ModelRegistryClient:
         name: str,
         template: str,
         description: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None
+        tags: Optional[dict[str, str]] = None,
     ) -> Prompt:
         """
         Create a new version of an existing prompt.

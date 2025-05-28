@@ -469,7 +469,7 @@ class AbstractStore:
         name: str,
         template: str,
         description: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None
+        tags: Optional[dict[str, str]] = None,
     ) -> Prompt:
         """
         Create a new prompt in the registry.
@@ -494,18 +494,18 @@ class AbstractStore:
         # Create initial version with template
         version_tags = [
             ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
-            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template)
+            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template),
         ]
         mv = self.create_model_version(
             name=name,
             source="dummy-source",  # Required field for ModelVersion
             tags=version_tags,
-            description=description
+            description=description,
         )
 
         # Convert tags list to dictionary
         prompt_tags_dict = {}
-        if hasattr(rm, 'tags') and rm.tags:
+        if hasattr(rm, "tags") and rm.tags:
             prompt_tags_dict = rm.tags.copy()
 
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags_dict)
@@ -525,6 +525,7 @@ class AbstractStore:
             # Handle latest version resolution when version is None
             if version is None:
                 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+
                 latest_versions = self.get_latest_versions(name, stages=ALL_STAGES)
                 if not latest_versions:
                     return None
@@ -547,7 +548,7 @@ class AbstractStore:
             try:
                 rm = self.get_registered_model(name)
                 prompt_tags = {}
-                if hasattr(rm, 'tags') and rm.tags:
+                if hasattr(rm, "tags") and rm.tags:
                     prompt_tags = rm.tags.copy()
             except MlflowException:
                 prompt_tags = {}
@@ -564,7 +565,7 @@ class AbstractStore:
         filter_string: Optional[str] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None
+        page_token: Optional[str] = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the registry.
@@ -589,7 +590,7 @@ class AbstractStore:
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
-            page_token=page_token
+            page_token=page_token,
         )
 
         # Convert to prompts
@@ -599,12 +600,9 @@ class AbstractStore:
             latest_versions = self.get_latest_versions(rm.name)
             if latest_versions:
                 prompt_tags = {}
-                if hasattr(rm, 'tags') and rm.tags:
+                if hasattr(rm, "tags") and rm.tags:
                     prompt_tags = rm.tags.copy()
-                prompt = Prompt.from_model_version(
-                    latest_versions[0],
-                    prompt_tags=prompt_tags
-                )
+                prompt = Prompt.from_model_version(latest_versions[0], prompt_tags=prompt_tags)
                 prompts.append(prompt)
 
         return PagedList(prompts, paged_models.token)
@@ -627,7 +625,7 @@ class AbstractStore:
         name: str,
         template: str,
         description: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None
+        tags: Optional[dict[str, str]] = None,
     ) -> Prompt:
         """
         Create a new version of an existing prompt.
@@ -644,7 +642,7 @@ class AbstractStore:
         # Default implementation: create ModelVersion with prompt tags
         version_tags = [
             ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
-            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template)
+            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template),
         ]
         if tags:
             version_tags.extend([ModelVersionTag(key=k, value=v) for k, v in tags.items()])
@@ -653,13 +651,13 @@ class AbstractStore:
             name=name,
             source="dummy-source",  # Required field for ModelVersion
             tags=version_tags,
-            description=description
+            description=description,
         )
 
         # Get prompt-level tags
         rm = self.get_registered_model(name)
         prompt_tags = {}
-        if hasattr(rm, 'tags') and rm.tags:
+        if hasattr(rm, "tags") and rm.tags:
             prompt_tags = rm.tags.copy()
 
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
@@ -680,7 +678,7 @@ class AbstractStore:
         # Get prompt-level tags
         rm = self.get_registered_model(name)
         prompt_tags = {}
-        if hasattr(rm, 'tags') and rm.tags:
+        if hasattr(rm, "tags") and rm.tags:
             prompt_tags = rm.tags.copy()
 
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
@@ -711,6 +709,7 @@ class AbstractStore:
             None
         """
         from mlflow.entities.model_registry import RegisteredModelTag
+
         self.set_registered_model_tag(name, RegisteredModelTag(key=key, value=value))
 
     def delete_prompt_tag(self, name: str, key: str) -> None:
@@ -800,7 +799,7 @@ class AbstractStore:
         # Get prompt-level tags
         rm = self.get_registered_model(name)
         prompt_tags = {}
-        if hasattr(rm, 'tags') and rm.tags:
+        if hasattr(rm, "tags") and rm.tags:
             prompt_tags = rm.tags.copy()
 
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags)

@@ -25,13 +25,14 @@ def test_proto_to_mlflow_tags():
     # Test with tags
     proto_tags = [
         ProtoPromptTag(key="key1", value="value1"),
-        ProtoPromptTag(key="key2", value="value2")
+        ProtoPromptTag(key="key2", value="value2"),
     ]
     expected = {"key1": "value1", "key2": "value2"}
     assert proto_to_mlflow_tags(proto_tags) == expected
 
     # Test with None
     assert proto_to_mlflow_tags(None) == {}
+
 
 def test_mlflow_tags_to_proto():
     # Test with empty tags
@@ -47,6 +48,7 @@ def test_mlflow_tags_to_proto():
     # Test with None
     assert mlflow_tags_to_proto(None) == []
 
+
 def test_proto_info_to_mlflow_prompt_info():
     # Create test proto info
     proto_info = ProtoPromptInfo(
@@ -54,8 +56,8 @@ def test_proto_info_to_mlflow_prompt_info():
         description="Test prompt description",
         tags=[
             ProtoPromptTag(key="key1", value="value1"),
-            ProtoPromptTag(key="key2", value="value2")
-        ]
+            ProtoPromptTag(key="key2", value="value2"),
+        ],
     )
 
     # Test without prompt tags
@@ -70,6 +72,7 @@ def test_proto_info_to_mlflow_prompt_info():
     prompt_info = proto_info_to_mlflow_prompt_info(proto_info, prompt_tags)
     expected_tags = {"key1": "value1", "key2": "value2", "tag1": "value1", "tag2": "value2"}
     assert prompt_info.tags == expected_tags
+
 
 def test_proto_to_mlflow_prompt():
     # Create test proto version using proper message initialization
@@ -108,6 +111,7 @@ def test_proto_to_mlflow_prompt():
     # Version metadata should still be there
     assert prompt.version_metadata == {"key1": "value1", "key2": "value2"}
 
+
 def test_mlflow_prompt_to_proto():
     # Create test prompt (skip timestamp for simplicity)
     prompt = Prompt(
@@ -116,7 +120,7 @@ def test_mlflow_prompt_to_proto():
         template="Hello {{name}}!",
         commit_message="Test prompt",
         version_metadata={"key1": "value1", "key2": "value2"},
-        aliases=["production"]
+        aliases=["production"],
     )
 
     # Convert to proto
@@ -132,10 +136,6 @@ def test_mlflow_prompt_to_proto():
     assert tags_dict == {"key1": "value1", "key2": "value2"}
 
     # Test with empty fields
-    prompt = Prompt(
-        name="test_prompt",
-        version=1,
-        template="Hello {{name}}!"
-    )
+    prompt = Prompt(name="test_prompt", version=1, template="Hello {{name}}!")
     proto_version = mlflow_prompt_to_proto(prompt)
     assert len(proto_version.tags) == 0

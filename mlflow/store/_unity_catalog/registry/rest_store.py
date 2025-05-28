@@ -392,7 +392,7 @@ class UcModelRegistryStore(BaseRestStore):
                 body_dict = json.loads(json_body) if isinstance(json_body, str) else json_body
 
                 # Extract all path parameters from the endpoint template
-                path_param_names = re.findall(r'\{(\w+)\}', endpoint)
+                path_param_names = re.findall(r"\{(\w+)\}", endpoint)
 
                 path_params = {}
                 for param_name in path_param_names:
@@ -1239,8 +1239,9 @@ class UcModelRegistryStore(BaseRestStore):
             from mlflow.exceptions import MlflowException
             from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 
-            if (isinstance(e, MlflowException) and
-                e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)):
+            if isinstance(e, MlflowException) and e.error_code == ErrorCode.Name(
+                RESOURCE_DOES_NOT_EXIST
+            ):
                 return None
             raise
 
