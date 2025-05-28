@@ -467,6 +467,25 @@ class TracingClient:
         else:
             self.store.delete_trace_tag(request_id, key)
 
+    def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        """
+        Get an assessment entity from the backend store.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the assessment to get.
+
+        Returns:
+            The Assessment object.
+        """
+        if not is_databricks_uri(self.tracking_uri):
+            raise MlflowException(
+                "This API is currently only available for Databricks Managed MLflow. This "
+                "will be available in the open-source version of MLflow in a future release."
+            )
+
+        return self.store.get_assessment(trace_id, assessment_id)
+
     def log_assessment(self, trace_id: str, assessment: Assessment) -> Assessment:
         if not is_databricks_uri(self.tracking_uri):
             raise MlflowException(
