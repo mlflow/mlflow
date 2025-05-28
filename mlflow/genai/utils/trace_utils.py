@@ -67,8 +67,7 @@ def parse_inputs_to_str(inputs: Any) -> str:
 
     # If it is a single key dictionary, return the value
     if isinstance(inputs, dict) and len(inputs) == 1:
-        if len(inputs) == 1:
-            return inputs[list(inputs.keys())[0]]
+        return inputs[list(inputs.keys())[0]]
 
     # Otherwise, encode the inputs to a JSON string
     return json.dumps(inputs, default=TraceJSONEncoder)
@@ -133,6 +132,7 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
             parents = trace.search_spans(span_id=parent_id)
             if len(parents) != 1:
                 # Malformed trace
+                _logger.debug(f"Malformed trace: span {span} has multiple parents: {parents}")
                 break
 
             parent_id = parents[0].parent_id
