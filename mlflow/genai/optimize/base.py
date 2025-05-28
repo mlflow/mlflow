@@ -39,8 +39,8 @@ def optimize_prompt(
     Currently, only supports MIPROv2 optimizer of DSPy.
 
     Args:
-        target_llm_params: Parameters for the agent LLM. The model name must be specified
-            in the format `<provider>/<model>`.
+        target_llm_params: Parameters for the the LLM that prompt is optimized for.
+            The model name must be specified in the format `<provider>/<model>`.
         prompt_uri: The URI of the MLflow prompt to optimize. This will be used as the initial
             instructions for the signature.
         train_data: Training dataset used for optimization.
