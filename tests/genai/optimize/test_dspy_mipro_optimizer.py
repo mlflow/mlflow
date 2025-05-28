@@ -23,7 +23,7 @@ def mock_mipro():
 def sample_data():
     return pd.DataFrame(
         {
-            "request": [
+            "inputs": [
                 {"input_text": "Hello", "language": "Spanish"},
                 {"input_text": "World", "language": "French"},
             ],
@@ -229,3 +229,19 @@ def test_optimize_prompt_with_old_dspy_version():
     with patch("importlib.metadata.version", return_value="2.5.0"):
         with pytest.raises(MlflowException, match="Current dspy version 2.5.0 is too old"):
             _DSPyMIPROv2Optimizer(OptimizerConfig())
+
+
+def test_validate_input_fields_with_missing_variables():
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
+    prompt = Prompt(
+        name="test_prompt",
+        template="Translate {{text}} to {{language}} and explain in {{style}}",
+        version=1,
+    )
+    input_fields = {"text": str, "language": str}  # Missing 'style' variable
+
+    with pytest.raises(
+        MlflowException,
+        match=r"The following variables of the prompt are missing from the dataset: {'style'}",
+    ):
+        optimizer._validate_input_fields(input_fields, prompt)

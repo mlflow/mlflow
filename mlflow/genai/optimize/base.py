@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional
 from mlflow.entities.model_registry import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import (
-    _convert_to_legacy_eval_set,
+    _convert_eval_set_to_df,
 )
 from mlflow.genai.optimize.optimizers import _BaseOptimizer, _DSPyMIPROv2Optimizer
 from mlflow.genai.optimize.types import (
@@ -111,9 +111,9 @@ def optimize_prompt(
     optimzer = _select_optimizer(optimizer_config)
     _validate_scorers(scorers)
 
-    train_data = _convert_to_legacy_eval_set(train_data)
+    train_data = _convert_eval_set_to_df(train_data)
     if eval_data is not None:
-        eval_data = _convert_to_legacy_eval_set(eval_data)
+        eval_data = _convert_eval_set_to_df(eval_data)
 
     prompt_uri: Prompt = load_prompt(prompt_uri)
 

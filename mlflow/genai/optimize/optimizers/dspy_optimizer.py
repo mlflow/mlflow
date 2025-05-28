@@ -31,8 +31,8 @@ class _DSPyOptimizer(_BaseOptimizer):
             )
 
     def _get_input_fields(self, train_data: "pd.DataFrame") -> list[dict[str, type]]:
-        if "request" in train_data.columns:
-            sample_input = train_data["request"].values[0]
+        if "inputs" in train_data.columns:
+            sample_input = train_data["inputs"].values[0]
             return {k: infer_type_from_value(v) for k, v in sample_input.items()}
         return {}
 
@@ -49,7 +49,7 @@ class _DSPyOptimizer(_BaseOptimizer):
         for _, row in data.iterrows():
             expectations = row["expectations"] if "expectations" in row else {}
             examples.append(
-                dspy.Example(**row["request"], **expectations).with_inputs(*row["request"].keys())
+                dspy.Example(**row["inputs"], **expectations).with_inputs(*row["inputs"].keys())
             )
         return examples
 

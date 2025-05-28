@@ -3,6 +3,7 @@ import math
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.entities.model_registry import Prompt
+from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.dspy_optimizer import _DSPyOptimizer
 from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams
 from mlflow.genai.scorers import Scorer
@@ -30,6 +31,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         _logger.info(f"Started optimizing prompt {prompt.uri}...")
 
         input_fields = self._get_input_fields(train_data)
+        self._validate_input_fields(input_fields, prompt)
         output_fields = self._get_output_fields(train_data)
         signature = dspy.make_signature(
             {
@@ -122,3 +124,10 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                 for message in messages
             ]
         )
+
+    def _validate_input_fields(self, input_fields: dict[str, type], prompt: Prompt) -> None:
+        if missing_fields := set(prompt.variables) - set(input_fields.keys()):
+            raise MlflowException(
+                "The following variables of the prompt are missing from "
+                f"the dataset: {missing_fields}"
+            )
