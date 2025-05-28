@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -11,6 +12,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
+from mlflow.tracing.constant import TraceMetadataKey
 
 
 @dataclass
@@ -97,6 +99,7 @@ class TraceInfo(_MlflowObject):
         if self.execution_duration is not None:
             execution_duration = Duration()
             execution_duration.FromMilliseconds(self.execution_duration)
+
         return ProtoTraceInfoV3(
             trace_id=self.trace_id,
             client_request_id=self.client_request_id,
@@ -184,3 +187,24 @@ class TraceInfo(_MlflowObject):
     @status.setter
     def status(self, value: TraceStatus) -> None:
         self.state = value.to_state()
+
+    @property
+    def token_usage(self) -> Optional[dict[str, int]]:
+        """
+        Returns the aggregated token usage for the trace.
+
+        Returns:
+            A dictionary containing the aggregated LLM token usage for the trace.
+            - "input_tokens": The total number of input tokens.
+            - "output_tokens": The total number of output tokens.
+            - "total_tokens": Sum of input and output tokens.
+
+        .. note::
+
+            The token usage tracking is not supported for all LLM providers.
+            Refer to the MLflow Tracing documentation for which providers
+            support token usage tracking.
+        """
+        if usage_json := self.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE):
+            return json.loads(usage_json)
+        return None

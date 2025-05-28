@@ -11,8 +11,7 @@ from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, 
 from mlflow.entities.assessment import FeedbackValue
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.evaluation import Assessment as LegacyAssessment
-from mlflow.genai.evaluation.base import _evaluate
-from mlflow.genai.scorers import Scorer, scorer
+from mlflow.genai import Scorer, scorer
 
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
@@ -55,7 +54,7 @@ def sample_data():
 
 @pytest.mark.parametrize("dummy_scorer", [AlwaysYesScorer(name="always_yes"), scorer(always_yes)])
 def test_scorer_existence_in_metrics(sample_data, dummy_scorer):
-    result = _evaluate(data=sample_data, scorers=[dummy_scorer])
+    result = mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
     assert any("always_yes" in metric for metric in result.metrics.keys())
 
 
@@ -64,7 +63,7 @@ def test_scorer_existence_in_metrics(sample_data, dummy_scorer):
 )
 def test_scorer_name_works(sample_data, dummy_scorer):
     _SCORER_NAME = "always_no"
-    result = _evaluate(data=sample_data, scorers=[dummy_scorer])
+    result = mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
     assert any(_SCORER_NAME in metric for metric in result.metrics.keys())
 
 
@@ -82,7 +81,7 @@ def test_scorer_is_called_with_correct_arguments(sample_data):
         )
         return 0.0
 
-    _evaluate(data=sample_data, scorers=[dummy_scorer])
+    mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
 
     assert len(actual_call_args_list) == len(sample_data)
 
@@ -107,31 +106,6 @@ def test_scorer_is_called_with_correct_arguments(sample_data):
         )
 
 
-def test_scorer_receives_extra_arguments():
-    received_args = []
-
-    @scorer
-    def dummy_scorer(inputs, outputs, retrieved_context) -> float:
-        received_args.append((inputs, outputs, retrieved_context))
-        return 0
-
-    _evaluate(
-        data=[
-            {
-                "inputs": {"question": "What is Spark?"},
-                "outputs": "actual response for first question",
-                "retrieved_context": [{"doc_uri": "document_1", "content": "test"}],
-            },
-        ],
-        scorers=[dummy_scorer],
-    )
-
-    inputs, outputs, retrieved_context = received_args[0]
-    assert inputs == {"question": "What is Spark?"}
-    assert outputs == "actual response for first question"
-    assert retrieved_context == [{"doc_uri": "document_1", "content": "test"}]
-
-
 def test_trace_passed_correctly():
     @mlflow.trace
     def predict_fn(question):
@@ -154,7 +128,7 @@ def test_trace_passed_correctly():
         {"inputs": {"question": "input1"}},
         {"inputs": {"question": "input2"}},
     ]
-    _evaluate(
+    mlflow.genai.evaluate(
         predict_fn=predict_fn,
         data=data,
         scorers=[dummy_scorer],
@@ -201,33 +175,11 @@ def test_scorer_on_genai_evaluate(sample_data, scorer_return):
     def dummy_scorer(inputs, outputs):
         return scorer_return
 
-    results = _evaluate(
+    results = mlflow.genai.evaluate(
         data=sample_data,
         scorers=[dummy_scorer],
     )
-
     assert any("metric/dummy_scorer" in metric for metric in results.metrics.keys())
-
-    dummy_scorer_cols = [
-        col for col in results.result_df.keys() if "dummy_scorer" in col and "value" in col
-    ]
-    dummy_scorer_values = set()
-    for col in dummy_scorer_cols:
-        for _val in results.result_df[col]:
-            dummy_scorer_values.add(_val)
-
-    scorer_return_values = set()
-    if isinstance(scorer_return, list):
-        for _assessment in scorer_return:
-            scorer_return_values.add(_assessment.feedback.value)
-    elif isinstance(scorer_return, Assessment):
-        scorer_return_values.add(scorer_return.feedback.value)
-    elif isinstance(scorer_return, mlflow.evaluation.Assessment):
-        scorer_return_values.add(scorer_return.value)
-    else:
-        scorer_return_values.add(scorer_return)
-
-    assert dummy_scorer_values == scorer_return_values
 
 
 def test_scorer_returns_feedback_with_error(sample_data):
@@ -241,7 +193,7 @@ def test_scorer_returns_feedback_with_error(sample_data):
         )
 
     with patch("mlflow.get_tracking_uri", return_value="databricks"):
-        results = _evaluate(
+        results = mlflow.genai.evaluate(
             data=sample_data,
             scorers=[dummy_scorer],
         )

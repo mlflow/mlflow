@@ -151,14 +151,10 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         response: Optional[Any],
         expected_response: Optional[Any],
         trace: Optional[Trace],
-        retrieved_context: Optional[list[dict[str, str]]],
         guidelines: Optional[Union[list[str], dict[str, list[str]]]],
         expected_facts: Optional[list[str]],
         expected_retrieved_context: Optional[list[dict[str, str]]],
         custom_expected: Optional[dict[str, Any]],
-        custom_inputs: Optional[dict[str, Any]],
-        custom_outputs: Optional[dict[str, Any]],
-        tool_calls: Optional[list[Any]],
         **kwargs,
     ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
         # Condense all expectations into a single dict
@@ -176,21 +172,11 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         if custom_expected is not None:
             expectations.update(custom_expected)
 
-        # TODO: scorer.aggregations require a refactor on the agents side
         merged = {
             "inputs": request,
             "outputs": response,
             "expectations": expectations,
             "trace": trace,
-            "guidelines": guidelines,
-            "retrieved_context": retrieved_context,
-            "expected_facts": expected_facts,
-            "expected_retrieved_context": expected_retrieved_context,
-            "custom_expected": custom_expected,
-            "custom_inputs": custom_inputs,
-            "custom_outputs": custom_outputs,
-            "tool_calls": tool_calls,
-            **kwargs,
         }
         return scorer.run(**merged)
 

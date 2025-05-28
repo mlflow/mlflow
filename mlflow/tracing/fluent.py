@@ -888,9 +888,10 @@ def _set_last_active_trace_id(trace_id: str):
 
 def update_current_trace(
     tags: Optional[dict[str, str]] = None,
+    client_request_id: Optional[str] = None,
 ):
     """
-    Update the current active trace with the given tags.
+    Update the current active trace with the given tags and client request ID.
 
     You can use this function either within a function decorated with `@mlflow.trace` or within the
     scope of the `with mlflow.start_span` context manager. If there is no active trace found, this
@@ -902,7 +903,7 @@ def update_current_trace(
 
         @mlflow.trace
         def my_func(x):
-            mlflow.update_current_trace(tags={"fruit": "apple"})
+            mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
             return x + 1
 
     Using within the `with mlflow.start_span` context manager:
@@ -910,7 +911,13 @@ def update_current_trace(
     .. code-block:: python
 
         with mlflow.start_span("span"):
-            mlflow.update_current_trace(tags={"fruit": "apple"})
+            mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
+
+    Args:
+        tags: A dictionary of tags to set on the trace. If None, no tags are updated.
+        client_request_id: Client supplied request ID to associate with the trace. This is
+            useful for linking the trace back to a specific request in your application or
+            external system. If None, the client request ID is not updated.
 
     """
     active_span = get_current_active_span()
@@ -937,12 +944,14 @@ def update_current_trace(
                 f"Non-string items: {non_string_items}"
             )
 
-    # Update tags for the trace stored in-memory rather than directly updating the
-    # backend store. The in-memory trace will be exported when it is ended. By doing
-    # this, we can avoid unnecessary server requests for each tag update.
+    # Update tags and client request ID for the trace stored in-memory rather than directly
+    # updating the backend store. The in-memory trace will be exported when it is ended.
+    # By doing this, we can avoid unnecessary server requests for each tag update.
     request_id = active_span.request_id
     with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
         trace.info.tags.update(tags or {})
+        if client_request_id is not None:
+            trace.info.client_request_id = str(client_request_id)
 
 
 @request_id_backward_compatible
@@ -1242,7 +1251,7 @@ def _merge_trace(
         # Order of merging is important to ensure the parent trace's metadata is
         # not overwritten by the child trace's metadata if they have the same key.
         parent_trace.info.tags = {**trace.info.tags, **parent_trace.info.tags}
-        parent_trace.info.request_metadata = {
+        parent_trace.info.trace_metadata = {
             **trace.info.request_metadata,
-            **parent_trace.info.request_metadata,
+            **parent_trace.info.trace_metadata,
         }

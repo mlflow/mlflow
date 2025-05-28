@@ -6,6 +6,7 @@ import pytest
 
 import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION,
@@ -31,7 +32,6 @@ from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import (
     create_mock_otel_span,
-    create_test_trace_info,
     skip_when_testing_trace_sdk,
 )
 
@@ -108,7 +108,7 @@ def test_on_start_adjust_span_timestamp_to_exclude_backend_latency(monkeypatch):
     span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=1, start_time=original_start_time)
 
     # make sure start_trace is invoked
-    assert processor._trace_manager.get_request_id_from_trace_id(span.context.trace_id) is None
+    assert processor._trace_manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id) is None
     processor.on_start(span)
 
     assert span.start_time > original_start_time
@@ -256,7 +256,7 @@ def test_on_start_warns_default_experiment(monkeypatch):
 
 
 def test_on_end():
-    trace_info = create_test_trace_info(_REQUEST_ID, 0)
+    trace_info = create_test_trace_info(_REQUEST_ID, 0).to_v3()
     trace_manager = InMemoryTraceManager.get_instance()
     trace_manager.register_trace(_TRACE_ID, trace_info)
 
@@ -284,6 +284,7 @@ def test_on_end():
 
     mock_exporter.export.assert_called_once_with((otel_span,))
     # Trace info should be updated according to the span attributes
+    trace_info = trace_manager.pop_trace(_TRACE_ID).info
     assert trace_info.status == TraceStatus.OK
     assert trace_info.execution_time_ms == 4
     assert trace_info.tags == {}
@@ -293,3 +294,23 @@ def test_on_end():
     child_span = create_mock_otel_span(trace_id=_TRACE_ID, span_id=2, parent_id=1)
     processor.on_end(child_span)
     mock_exporter.export.assert_not_called()
+
+
+def create_test_trace_info(
+    request_id,
+    experiment_id="test",
+    timestamp_ms=0,
+    execution_time_ms=1,
+    status=TraceStatus.OK,
+    request_metadata=None,
+    tags=None,
+):
+    return TraceInfoV2(
+        request_id=request_id,
+        experiment_id=experiment_id,
+        timestamp_ms=timestamp_ms,
+        execution_time_ms=execution_time_ms,
+        status=status,
+        request_metadata=request_metadata or {},
+        tags=tags or {},
+    )

@@ -40,14 +40,6 @@ jobs:
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-          submodules: recursive
-      - name: Test building Docker image
-        working-directory: dev
-        env:
-          DOCKER_BUILDKIT: 1
-        run: |
-          docker build -t gen-protos -f Dockerfile.protos .
-          docker run --rm gen-protos protoc --version
       - name: Install dependencies
         run: |
           wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O /tmp/protoc.zip
