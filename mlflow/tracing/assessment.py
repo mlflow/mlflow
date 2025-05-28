@@ -9,6 +9,7 @@ from mlflow.entities.assessment import (
     FeedbackValueType,
 )
 from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.client import TracingClient
 from mlflow.utils.annotations import experimental
 
@@ -298,3 +299,35 @@ def log_feedback(
         supersedes=supersedes,
     )
     return TracingClient().log_assessment(trace_id, assessment)
+
+
+@experimental
+def override_feedback(
+    *,
+    trace_id: str,
+    assessment_id: str,
+    value: FeedbackValueType,
+    rationale: Optional[str] = None,
+    source: Optional[AssessmentSource] = None,
+    metadata: Optional[dict[str, Any]] = None,
+) -> Assessment:
+    """
+    Overrides an existing feedback assessment with a new assessment.
+    """
+    old_assessment = get_assessment(trace_id, assessment_id)
+    if not isinstance(old_assessment, Feedback):
+        raise MlflowException.invalid_parameter_value(
+            f"The assessment with ID {assessment_id} is not a feedback assessment."
+        )
+
+    new_assessment = Feedback(
+        name=old_assessment.name,
+        span_id=old_assessment.span_id,
+        value=value,
+        rationale=rationale,
+        source=source,
+        metadata=metadata,
+        overrides=old_assessment.assessment_id,
+    )
+
+    return TracingClient().log_assessment(trace_id, new_assessment)

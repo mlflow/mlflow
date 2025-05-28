@@ -267,33 +267,36 @@ def test_update_feedback(store, tracking_uri):
     assert call_args["metadata"] == {"model": "gpt-4o-mini"}
 
 
-@pytest.mark.parametrize("legacy_api", [True, False])
-def test_log_feedback_with_supersedes(store, tracking_uri, legacy_api):
-    if legacy_api:
-        mlflow.log_feedback(
-            trace_id="1234",
-            name="faithfulness",
-            value=1.0,
-            source=_LLM_ASSESSMENT_SOURCE,
-            rationale="This answer is very faithful.",
-            metadata={"model": "gpt-4o-mini"},
-            supersedes="a-12345",
-        )
-    else:
-        feedback = Feedback(
-            name="faithfulness",
-            value=1.0,
-            source=_LLM_ASSESSMENT_SOURCE,
-            rationale="This answer is very faithful.",
-            metadata={"model": "gpt-4o-mini"},
-            supersedes="a-12345",
-        )
-        mlflow.log_assessment(trace_id="1234", assessment=feedback)
+def test_override_feedback(store, tracking_uri):
+    # Mock the store's get_assessment method to return a feedback
+    old_feedback = Feedback(
+        trace_id="tr-321",
+        name="faithfulness",
+        value=0.5,
+        source=_LLM_ASSESSMENT_SOURCE,
+        rationale="Original feedback",
+        metadata={"model": "gpt-3.5"},
+    )
+    old_feedback.assessment_id = "a-1234"
+    store.get_assessment.return_value = old_feedback
 
+    mlflow.override_feedback(
+        trace_id="tr-321",
+        assessment_id="a-1234",
+        value=1.0,
+        source=_LLM_ASSESSMENT_SOURCE,
+        rationale="This answer is very faithful.",
+        metadata={"model": "gpt-4o-mini"},
+    )
+
+    # assert that the old feedback is fetched
+    store.get_assessment.assert_called_once_with("tr-321", "a-1234")
+
+    # assert that the new feedback is created
     assert store.create_assessment.call_count == 1
     assessment = store.create_assessment.call_args[0][0]
     assert assessment.name == "faithfulness"
-    assert assessment.trace_id == "1234"
+    assert assessment.trace_id == "tr-321"
     assert assessment.span_id is None
     assert assessment.source == _LLM_ASSESSMENT_SOURCE
     assert assessment.create_time_ms is not None
@@ -303,7 +306,7 @@ def test_log_feedback_with_supersedes(store, tracking_uri, legacy_api):
     assert assessment.expectation is None
     assert assessment.rationale == "This answer is very faithful."
     assert assessment.metadata == {"model": "gpt-4o-mini"}
-    assert assessment.supersedes == "a-12345"
+    assert assessment.overrides == "a-1234"
 
 
 def test_delete_assessment(store, tracking_uri):

@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.span import Span, SpanType
@@ -230,7 +230,12 @@ class Trace(_MlflowObject):
         return [span for span in self.data.spans if _match_name(span) and _match_type(span)]
 
     def search_assessments(
-        self, name: str, span_id: Optional[str] = None, *, all: bool = False
+        self,
+        name: Optional[str] = None,
+        *,
+        span_id: Optional[str] = None,
+        all: bool = False,
+        type: Optional[Literal["expectation", "feedback"]] = None,
     ) -> list["Assessment"]:
         """
         Get assessments for a given name / span ID. By default, this only returns assessments
@@ -238,21 +243,38 @@ class Trace(_MlflowObject):
         assessments, specify `all=True`.
 
         Args:
-            name: The name of the assessment to get.
+            name: The name of the assessment to get. If not provided, this will match
+                all assessment names.
             span_id: The span ID to get assessments for.
-                If not provided, all assessments for the given name will be returned.
-            all: If True, return all assessments for the given name, regardless of validity.
+                If not provided, this will match all spans.
+            all: If True, return all assessments regardless of validity.
+            type: The type of assessment to get (one of "feedback" or "expectation").
+                If not provided, this will match all assessment types.
 
         Returns:
             A list of assessments with the given name.
         """
+
+        def validate_type(
+            assessment: Assessment, type: Optional[Literal["expectation", "feedback"]]
+        ) -> bool:
+            from mlflow.entities.assessment import Expectation, Feedback
+
+            if type == "expectation":
+                return isinstance(assessment, Expectation)
+            elif type == "feedback":
+                return isinstance(assessment, Feedback)
+
+            return True
+
         return [
             assessment
             for assessment in self.info.assessments
-            if assessment.name == name
+            if (name is None or assessment.name == name)
             and (span_id is None or assessment.span_id == span_id)
             # valid defaults to true, so Nones are valid
             and (all or assessment.valid in (True, None))
+            and (type is None or validate_type(assessment, type))
         ]
 
     @staticmethod

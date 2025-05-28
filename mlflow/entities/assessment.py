@@ -68,8 +68,8 @@ class Assessment(_MlflowObject):
     # use the`Expectation` or `Feedback` classes instead.
     expectation: Optional[ExpectationValue] = None
     feedback: Optional[FeedbackValue] = None
-    # The ID of the assessment which this assessment supersedes.
-    supersedes: Optional[str] = None
+    # The ID of the assessment which this assessment overrides.
+    overrides: Optional[str] = None
     # Whether this assessment is valid (i.e. has not been superseded).
     # This should not be set by the user, it is automatically set by the backend.
     valid: Optional[bool] = None
@@ -231,7 +231,7 @@ class Feedback(Assessment):
         create_time_ms: Optional[int] = None,
         last_update_time_ms: Optional[int] = None,
         rationale: Optional[str] = None,
-        supersedes: Optional[str] = None,
+        overrides: Optional[str] = None,
         valid: bool = True,
     ):
         if value is None and error is None:
@@ -263,7 +263,7 @@ class Feedback(Assessment):
             last_update_time_ms=last_update_time_ms,
             feedback=FeedbackValue(value=value, error=error),
             rationale=rationale,
-            supersedes=supersedes,
+            overrides=overrides,
             valid=valid,
         )
 
@@ -286,7 +286,7 @@ class Feedback(Assessment):
             rationale=proto.rationale or None,
             metadata=metadata,
             span_id=proto.span_id or None,
-            supersedes=proto.supersedes or None,
+            overrides=proto.overrides or None,
             valid=proto.valid,
         )
         feedback.assessment_id = proto.assessment_id or None
@@ -314,7 +314,7 @@ class Feedback(Assessment):
             rationale=d.get("rationale"),
             metadata=d.get("metadata"),
             span_id=d.get("span_id"),
-            supersedes=d.get("supersedes"),
+            overrides=d.get("overrides"),
             valid=d.get("valid", True),
         )
         feedback.assessment_id = d.get("assessment_id") or None
