@@ -884,6 +884,10 @@ def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Old version of LangChain does not support usage metadata",
+)
 async def test_langchain_autolog_token_usage():
     mlflow.langchain.autolog()
 

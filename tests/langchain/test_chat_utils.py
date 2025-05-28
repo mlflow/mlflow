@@ -226,5 +226,9 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
         (Generation(text="foo"), None),
     ],
 )
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Old version of LangChain does not support usage metadata",
+)
 def test_parse_token_usage(generation, expected):
     assert parse_token_usage([generation]) == expected
