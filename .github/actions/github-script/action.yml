@@ -1,4 +1,4 @@
-name: "GitHub Script"
+name: github-script
 description: "Run GitHub API queries and automate GitHub"
 inputs:
   script:
