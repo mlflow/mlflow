@@ -1,6 +1,11 @@
 from typing import TYPE_CHECKING, Optional, Union
 
 from mlflow.data import Dataset
+from mlflow.data.digest_utils import compute_pandas_digest
+from mlflow.data.evaluation_dataset import EvaluationDataset as LegacyEvaluationDataset
+from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
+from mlflow.data.spark_dataset_source import SparkDatasetSource
+from mlflow.entities import Dataset as DatasetEntity
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -8,7 +13,7 @@ if TYPE_CHECKING:
     from databricks.agents.datasets import Dataset as ManagedDataset
 
 
-class EvaluationDataset(Dataset):
+class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     A dataset for storing evaluation records (inputs and expectations).
 
@@ -18,6 +23,7 @@ class EvaluationDataset(Dataset):
 
     def __init__(self, dataset: "ManagedDataset"):
         self._dataset = dataset
+        self._df = None
 
     @property
     def dataset_id(self) -> str:
@@ -27,7 +33,9 @@ class EvaluationDataset(Dataset):
     @property
     def digest(self) -> Optional[str]:
         """String digest (hash) of the dataset provided by the caller that uniquely identifies"""
-        return self._dataset.digest
+        # NB: The managed Dataset entity in Agent SDK doesn't propagate the digest
+        # information. So we compute the digest of the dataframe view.
+        return self._dataset.digest or compute_pandas_digest(self.to_df())
 
     @property
     def name(self) -> Optional[str]:
@@ -47,7 +55,9 @@ class EvaluationDataset(Dataset):
     @property
     def source(self) -> Optional[str]:
         """Source information for the dataset."""
-        return self._dataset.source
+        # NB: The managed Dataset entity in Agent SDK doesn't propagate the source
+        # information. So we use the table name as the fallback source.
+        return self._dataset.source or SparkDatasetSource(table_name=self.name)
 
     @property
     def source_type(self) -> Optional[str]:
@@ -89,4 +99,30 @@ class EvaluationDataset(Dataset):
 
     def to_df(self) -> "pd.DataFrame":
         """Convert the dataset to a pandas DataFrame."""
-        return self._dataset.to_df()
+        # Cache the dataframe view to avoid re-fetching the records many times
+        if self._df is None:
+            self._df = self._dataset.to_df()
+        return self._df
+
+    def to_evaluation_dataset(self, path=None, feature_names=None) -> LegacyEvaluationDataset:
+        """
+        Converts the dataset to the legacy EvaluationDataset for model evaluation. Required
+        for use with mlflow.evaluate().
+        """
+        return LegacyEvaluationDataset(
+            data=self.to_df(),
+            path=path,
+            feature_names=feature_names,
+            name=self.name,
+            digest=self.digest,
+        )
+
+    def _to_mlflow_entity(self) -> DatasetEntity:
+        return DatasetEntity(
+            name=self.name,
+            digest=self.digest,
+            source_type=self.source_type,
+            source=self.source.to_json(),
+            schema=self.schema,
+            profile=self.profile,
+        )

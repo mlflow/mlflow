@@ -203,9 +203,8 @@ def test_evaluate_with_managed_dataset():
             dataset = Dataset(
                 dataset_id=str(uuid.uuid4()),
                 name=uc_table_name,
-                digest=str(uuid.uuid4()),
-                source="s3://mlflow-datasets/test-dataset",
-                source_type="S3",
+                digest=None,
+                source_type="databricks-uc-table",
             )
             self.records[dataset.dataset_id] = []
             return dataset
@@ -259,6 +258,13 @@ def test_evaluate_with_managed_dataset():
     assert metrics["metric/max_length/average"] == 0.5
     assert metrics["metric/relevance/relevance/average"] == 1.0
     assert metrics["metric/has_trace/average"] == 1.0
+
+    run = mlflow.get_run(result.run_id)
+    # Dataset metadata should be added to the run
+    assert len(run.inputs.dataset_inputs) == 1
+    assert run.inputs.dataset_inputs[0].dataset.name == dataset.name
+    assert run.inputs.dataset_inputs[0].dataset.digest == dataset.digest
+    assert run.inputs.dataset_inputs[0].dataset.source_type == "databricks-uc-table"
 
 
 @mock.patch("mlflow.deployments.get_deploy_client")

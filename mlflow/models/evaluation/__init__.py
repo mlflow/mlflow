@@ -8,7 +8,6 @@ from mlflow.models.evaluation.base import (
     list_evaluators,
     make_metric,
 )
-from mlflow.models.evaluation.evaluation_dataset import _ModelEvaluationDataset as EvaluationDataset
 from mlflow.models.evaluation.validation import MetricThreshold
 
 __all__ = [
