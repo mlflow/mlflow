@@ -392,13 +392,17 @@ def serve_wheel(request, tmp_path_factory):
         cwd=root,
     ) as prc:
         try:
-            url = f"http://localhost:{port}"
-            if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
-                url = f"{existing_url} {url}"
-            os.environ["PIP_EXTRA_INDEX_URL"] = url
+            localhost = f"http://localhost:{port}"
+            pip_extra_index_url = os.environ.get("PIP_EXTRA_INDEX_URL") or ""
+            os.environ["PIP_EXTRA_INDEX_URL"] = f"{pip_extra_index_url} {localhost}".strip()
             # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
             # url when using `uv` as environment manager
-            os.environ["UV_INDEX"] = f"mlflow={url}"
+            extra_index = re.sub(
+                r"https://download\.pytorch\.org/.*",
+                lambda m: f"torch={m.group(0)}",
+                pip_extra_index_url or "",
+            )
+            os.environ["UV_INDEX"] = f"mlflow={localhost} {extra_index}".strip()
             yield
         finally:
             prc.terminate()
