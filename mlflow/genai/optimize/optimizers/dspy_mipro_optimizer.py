@@ -33,19 +33,6 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         input_fields = self._get_input_fields(train_data)
         self._validate_input_fields(input_fields, prompt)
         output_fields = self._get_output_fields(train_data)
-        signature = dspy.make_signature(
-            {
-                **{key: (_type, dspy.InputField()) for key, _type in input_fields.items()},
-                **{key: (_type, dspy.OutputField()) for key, _type in output_fields.items()},
-            },
-            prompt.template,  # TODO: Extract only instructions from the existing prompt template
-        )
-
-        # Define main student program
-        program = dspy.Predict(signature)
-
-        train_data = self._convert_to_dspy_dataset(train_data)
-        eval_data = self._convert_to_dspy_dataset(eval_data) if eval_data is not None else None
 
         teacher_settings = {}
         if self.optimizer_config.optimizer_llm:
@@ -55,6 +42,28 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                 api_base=self.optimizer_config.optimizer_llm.base_uri,
             )
             teacher_settings["lm"] = teacher_lm
+
+        lm = dspy.LM(
+            model=target_llm_params.model_name,
+            temperature=target_llm_params.temperature,
+            api_base=target_llm_params.base_uri,
+        )
+
+        instructions = self._extract_instructions(prompt.template, teacher_settings.get("lm", lm))
+
+        signature = dspy.make_signature(
+            {
+                **{key: (_type, dspy.InputField()) for key, _type in input_fields.items()},
+                **{key: (_type, dspy.OutputField()) for key, _type in output_fields.items()},
+            },
+            instructions,
+        )
+
+        # Define main student program
+        program = dspy.Predict(signature)
+
+        train_data = self._convert_to_dspy_dataset(train_data)
+        eval_data = self._convert_to_dspy_dataset(eval_data) if eval_data is not None else None
 
         num_candidates = self.optimizer_config.num_instruction_candidates
         optimizer = dspy.MIPROv2(
@@ -67,11 +76,6 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         )
 
         adapter = dspy.JSONAdapter()
-        lm = dspy.LM(
-            model=target_llm_params.model_name,
-            temperature=target_llm_params.temperature,
-            api_base=target_llm_params.base_uri,
-        )
         with dspy.context(lm=lm, adapter=adapter):
             dspy_logger = logging.getLogger("dspy")
             original_level = dspy_logger.level
@@ -131,3 +135,20 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                 "The following variables of the prompt are missing from "
                 f"the dataset: {missing_fields}"
             )
+
+    def _extract_instructions(self, template: str, lm: "dspy.LM") -> str:
+        import dspy
+
+        extractor = dspy.Predict(
+            dspy.make_signature(
+                {
+                    "prompt": (str, dspy.InputField()),
+                    "instruction": (str, dspy.OutputField()),
+                },
+                "Extract the core instructions from the prompt "
+                "to use as the system message for the LLM.",
+            )
+        )
+
+        with dspy.context(lm=lm):
+            return extractor(prompt=template).instruction

@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -16,6 +16,15 @@ from mlflow.genai.scorers import scorer
 @pytest.fixture
 def mock_mipro():
     with patch("dspy.MIPROv2") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_extractor():
+    with patch(
+        "mlflow.genai.optimize.optimizers._DSPyMIPROv2Optimizer._extract_instructions",
+        new=lambda self, template, lm: template,
+    ) as mock:
         yield mock
 
 
@@ -99,7 +108,7 @@ def test_format_optimized_prompt():
     mock_format.assert_called_once()
 
 
-def test_optimize_with_teacher_llm(mock_mipro, sample_data, sample_prompt):
+def test_optimize_with_teacher_llm(mock_mipro, sample_data, sample_prompt, mock_extractor):
     import dspy
 
     teacher_llm = LLMParams(model_name="test/model")
@@ -130,7 +139,7 @@ def test_optimize_with_teacher_llm(mock_mipro, sample_data, sample_prompt):
     assert isinstance(result, str)
 
 
-def test_optimize_without_teacher_llm(mock_mipro, sample_data, sample_prompt):
+def test_optimize_without_teacher_llm(mock_mipro, sample_data, sample_prompt, mock_extractor):
     import dspy
 
     optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig(num_instruction_candidates=4))
@@ -153,7 +162,7 @@ def test_optimize_without_teacher_llm(mock_mipro, sample_data, sample_prompt):
     assert isinstance(result, str)
 
 
-def test_optimize_with_eval_data(mock_mipro, sample_data, sample_prompt):
+def test_optimize_with_eval_data(mock_mipro, sample_data, sample_prompt, mock_extractor):
     import dspy
 
     optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
@@ -245,3 +254,20 @@ def test_validate_input_fields_with_missing_variables():
         match=r"The following variables of the prompt are missing from the dataset: {'style'}",
     ):
         optimizer._validate_input_fields(input_fields, prompt)
+
+
+def test_extract_instructions():
+    import dspy
+
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
+    mock_lm = MagicMock(spec=dspy.LM)
+    template = "Translate {{text}} to {{language}}"
+
+    with patch(
+        "dspy.Predict.forward", return_value=dspy.Prediction(instruction="extracted system message")
+    ) as mock_forward:
+        result = optimizer._extract_instructions(template, mock_lm)
+
+    mock_forward.assert_called_once_with(prompt=template)
+
+    assert result == "extracted system message"

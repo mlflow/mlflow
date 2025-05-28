@@ -81,9 +81,10 @@ def optimize_prompt(
             from mlflow.genai.scorers import scorer
             from mlflow.genai.optimize import OptimizerParam, LLMParam
 
-            os.environ["OPENAI_API"] = "YOUR_API_KEY"
+            os.environ["OPENAI_API_KEY"] = "YOUR_API_KEY"
 
 
+            @scorer
             def exact_match(expectations, outputs) -> bool:
                 return expectations == outputs
 
