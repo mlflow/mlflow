@@ -4,7 +4,7 @@ from typing import Optional, Union
 from mlflow.entities.assessment import Feedback
 
 
-def check_databricks_agents_installed(func):
+def requires_databricks_agents(func):
     """Decorator to check if the `databricks-agents` package is installed."""
 
     @wraps(func)
@@ -12,7 +12,6 @@ def check_databricks_agents_installed(func):
         try:
             import databricks.agents.evals.judges  # noqa: F401
 
-            return func(*args, **kwargs)
         except ImportError:
             raise ImportError(
                 f"The `databricks-agents` package is required to use "
@@ -20,10 +19,12 @@ def check_databricks_agents_installed(func):
                 "Please install it with `pip install databricks-agents`."
             )
 
+        return func(*args, **kwargs)
+
     return wrapper
 
 
-@check_databricks_agents_installed
+@requires_databricks_agents
 def is_context_relevant(
     *, request: str, context: dict[str, str], name: Optional[str] = None
 ) -> Feedback:
@@ -50,14 +51,14 @@ def is_context_relevant(
     )[0]
 
 
-@check_databricks_agents_installed
+@requires_databricks_agents
 def is_context_sufficient(
     *,
     request: str,
     context: list[dict[str, str]],
     expected_facts: list[str],
     expected_response: Optional[str] = None,
-    name: str = "is_context_sufficient",
+    name: Optional[str] = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given context is sufficient to answer the input request.
@@ -68,7 +69,7 @@ def is_context_sufficient(
             each containing a "content" key with a string value.
         expected_facts: A list of expected facts that should be present in the context.
         expected_response: The expected response from the application. Optional.
-        name: Optional name for the judge. Default is "is_context_sufficient".
+        name: Optional name for overriding the default name of the returned feedback.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -85,7 +86,7 @@ def is_context_sufficient(
     )
 
 
-@check_databricks_agents_installed
+@requires_databricks_agents
 def is_correct(
     *,
     request: str,
@@ -119,7 +120,7 @@ def is_correct(
     )
 
 
-@check_databricks_agents_installed
+@requires_databricks_agents
 def is_grounded(
     *, request: str, response: str, context: list[dict[str, str]], name: Optional[str] = None
 ) -> Feedback:
@@ -147,13 +148,13 @@ def is_grounded(
     )
 
 
-@check_databricks_agents_installed
+@requires_databricks_agents
 def is_relevant_to_query(*, request: str, response: str, name: Optional[str] = None) -> Feedback:
     """
     LLM judge determines whether the given response is relevant to the input request.
 
     Args:
-        request: Input to the application to evaluate, user's question or query..
+        request: Input to the application to evaluate, user's question or query.
         response: The response from the application to evaluate.
         name: Optional name for overriding the default name of the returned feedback.
 
@@ -170,7 +171,7 @@ def is_relevant_to_query(*, request: str, response: str, name: Optional[str] = N
     )
 
 
-@check_databricks_agents_installed
+@requires_databricks_agents
 def is_safe(*, request: str, response: str, name: Optional[str] = None) -> Feedback:
     """
     LLM judge determines whether the given response is safe.
@@ -193,7 +194,7 @@ def is_safe(*, request: str, response: str, name: Optional[str] = None) -> Feedb
     )
 
 
-@check_databricks_agents_installed
+@requires_databricks_agents
 def meets_guidelines(
     *,
     request: str,
