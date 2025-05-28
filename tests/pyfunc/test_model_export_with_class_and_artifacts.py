@@ -2591,13 +2591,13 @@ def test_lock_model_requirements_requirements(monkeypatch: pytest.MonkeyPatch, t
     model_info = mlflow.pyfunc.log_model(
         name="model",
         python_model=ExampleModel(),
-        pip_requirements=["openai"],
+        pip_requirements=["uv"],
     )
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
     contents = requirements_txt.read_text()
     assert "# Locked requirements" in contents
-    assert "openai==" in contents
+    assert "uv==" in contents
 
 
 def test_lock_model_requirements_extra_pip_requirements(
@@ -2607,26 +2607,26 @@ def test_lock_model_requirements_extra_pip_requirements(
     model_info = mlflow.pyfunc.log_model(
         name="model",
         python_model=ExampleModel(),
-        extra_pip_requirements=["openai"],
+        extra_pip_requirements=["uv"],
     )
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
     contents = requirements_txt.read_text()
     assert "# Locked requirements" in contents
-    assert "openai==" in contents
+    assert "uv==" in contents
 
 
 def test_lock_model_requirements_constraints(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     constraints_file = tmp_path / "constraints.txt"
-    constraints_file.write_text("openai>1")
+    constraints_file.write_text("uv==0.7.8")
     monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
     model_info = mlflow.pyfunc.log_model(
         name="model",
-        python_model=Model(),
-        pip_requirements=["openai", f"-c {constraints_file}"],
+        python_model=ExampleModel(),
+        pip_requirements=["uv", f"-c {constraints_file}"],
     )
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
     contents = requirements_txt.read_text()
     assert "# Locked requirements" in contents
-    assert "openai==" in contents
+    assert "uv==0.7.8" in contents
