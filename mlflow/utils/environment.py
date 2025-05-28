@@ -524,7 +524,7 @@ def _lock_requirements(
             constraints_file = tmp_dir_path / "constraints.txt"
             constraints_file.write_text("\n".join(constraints))
             constraints_opt = [f"--constraints={constraints_file}"]
-
+        verbose_opt = ["--verbose"] if _logger.isEnabledFor(logging.DEBUG) else []
         try:
             out = subprocess.check_output(
                 [
@@ -535,9 +535,10 @@ def _lock_requirements(
                     "--universal",
                     "--no-annotate",
                     "--no-header",
-                    *constraints_opt,
                     f"--python-version={PYTHON_VERSION}",
                     f"--output-file={out_file}",
+                    *constraints_opt,
+                    *verbose_opt,
                     in_file,
                 ],
                 stderr=subprocess.STDOUT,
