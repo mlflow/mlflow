@@ -56,7 +56,7 @@ def is_prompt_supported_registry(registry_uri: Optional[str] = None) -> bool:
         return False
 
     # UC registries support prompts automatically
-    if registry_uri.startswith("databricks-uc") or registry_uri.startswith("uc:"):
+    if registry_uri.startswith("databricks-uc"):
         return True
 
     # OSS MLflow registry always supports prompts
