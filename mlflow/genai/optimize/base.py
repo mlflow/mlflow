@@ -10,7 +10,7 @@ from mlflow.genai.optimize.optimizer import _BaseOptimizer, _DSPyMIPROv2Optimize
 from mlflow.genai.optimize.types import (
     OBJECTIVE_FN,
     LLMParam,
-    OptimizerParam,
+    OptimizerConfig,
     PromptOptimizationResult,
 )
 from mlflow.genai.scorers import Scorer
@@ -32,7 +32,7 @@ def optimize_prompt(
     scorers: list[Scorer],
     objective: Optional[OBJECTIVE_FN] = None,
     eval_data: Optional["EvaluationDatasetTypes"] = None,
-    optimizer_params: Optional[OptimizerParam] = None,
+    optimizer_params: Optional[OptimizerConfig] = None,
 ) -> PromptOptimizationResult:
     """Optimize LLM prompts using a given dataset and evaluation metrics.
     Currently, only supports MIPROv2 optimizer of DSPy.
@@ -62,7 +62,7 @@ def optimize_prompt(
         PromptOptimizationResult: The optimized prompt.
 
     Example:
-        .. code:: python
+        .. code-block:: python
 
             import os
             import mlflow
@@ -94,7 +94,7 @@ def optimize_prompt(
             print(result.prompt.template)
     """
     if optimizer_params is None:
-        optimizer_params = OptimizerParam()
+        optimizer_params = OptimizerConfig()
     optimzer = _select_optimizer(optimizer_params)
     _validate_scorers(scorers)
 
@@ -121,7 +121,7 @@ def optimize_prompt(
     return PromptOptimizationResult(prompt=optimized_prompt)
 
 
-def _select_optimizer(optimizer_params: OptimizerParam) -> _BaseOptimizer:
+def _select_optimizer(optimizer_params: OptimizerConfig) -> _BaseOptimizer:
     if optimizer_params.algorithm not in _ALGORITHMS:
         raise ValueError(
             f"Algorithm {optimizer_params.algorithm} is not supported. "

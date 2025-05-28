@@ -9,7 +9,7 @@ pytest.importorskip("dspy", minversion="2.6.0")
 
 from mlflow.entities.model_registry import Prompt
 from mlflow.genai.optimize.optimizer import _DSPyMIPROv2Optimizer
-from mlflow.genai.optimize.types import LLMParam, OptimizerParam
+from mlflow.genai.optimize.types import LLMParam, OptimizerConfig
 from mlflow.genai.scorers import scorer
 
 
@@ -55,7 +55,7 @@ def sample_scorer(inputs, outputs, expectations):
     ],
 )
 def test_get_num_trials(num_candidates, expected_trials):
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerParam(num_instruction_candidates=num_candidates))
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig(num_instruction_candidates=num_candidates))
     assert optimizer._get_num_trials(num_candidates) == expected_trials
 
 
@@ -72,7 +72,7 @@ def test_get_minibatch_size(train_size, eval_size, expected_batch_size):
     train_data = pd.DataFrame({"col": range(train_size)})
     eval_data = pd.DataFrame({"col": range(eval_size)}) if eval_size else None
 
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerParam())
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
     assert optimizer._get_minibatch_size(train_data, eval_data) == expected_batch_size
 
 
@@ -81,7 +81,7 @@ def test_format_optimized_prompt():
 
     mock_program = dspy.Predict("input_text, language -> translation")
     input_fields = {"input_text": str, "language": str}
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerParam())
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
 
     with patch("dspy.JSONAdapter.format") as mock_format:
         mock_format.return_value = [
@@ -103,7 +103,7 @@ def test_optimize_with_teacher_llm(mock_mipro, sample_data, sample_prompt):
     import dspy
 
     teacher_llm = LLMParam(model_name="test/model")
-    optimizer_params = OptimizerParam(
+    optimizer_params = OptimizerConfig(
         num_instruction_candidates=4,
         max_few_show_examples=2,
         num_threads=2,
@@ -133,7 +133,7 @@ def test_optimize_with_teacher_llm(mock_mipro, sample_data, sample_prompt):
 def test_optimize_without_teacher_llm(mock_mipro, sample_data, sample_prompt):
     import dspy
 
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerParam(num_instruction_candidates=4))
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig(num_instruction_candidates=4))
 
     optimized_program = dspy.Predict("input_text, language -> translation")
     mock_mipro.return_value.compile.return_value = optimized_program
@@ -156,7 +156,7 @@ def test_optimize_without_teacher_llm(mock_mipro, sample_data, sample_prompt):
 def test_optimize_with_eval_data(mock_mipro, sample_data, sample_prompt):
     import dspy
 
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerParam())
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
     eval_data = sample_data.copy()
 
     optimized_program = dspy.Predict("input_text, language -> translation")
@@ -179,7 +179,7 @@ def test_optimize_with_eval_data(mock_mipro, sample_data, sample_prompt):
 def test_convert_to_dspy_metric():
     import dspy
 
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerParam())
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
 
     def objective(scores):
         return 2 * scores["sample_scorer"]
@@ -201,7 +201,7 @@ def test_convert_to_dspy_metric():
 def test_convert_to_dspy_metric_raises_on_non_numeric_score():
     import dspy
 
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerParam())
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
 
     @scorer
     def non_numeric_scorer(inputs, outputs, expectations):
@@ -228,4 +228,4 @@ def test_convert_to_dspy_metric_raises_on_non_numeric_score():
 def test_optimize_prompt_with_old_dspy_version():
     with patch("importlib.metadata.version", return_value="2.5.0"):
         with pytest.raises(MlflowException, match="dspy version is too old"):
-            _DSPyMIPROv2Optimizer(OptimizerParam())
+            _DSPyMIPROv2Optimizer(OptimizerConfig())

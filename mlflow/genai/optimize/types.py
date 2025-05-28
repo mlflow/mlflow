@@ -25,7 +25,7 @@ class LLMParam:
 
 @experimental
 @dataclass
-class OptimizerParam:
+class OptimizerConfig:
     num_instruction_candidates: int = 8
     max_few_show_examples: int = 3
     num_threads: int = (multiprocessing.cpu_count() * 2) + 1

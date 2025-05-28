@@ -9,7 +9,7 @@ from packaging.version import Version
 
 from mlflow.entities.model_registry import Prompt
 from mlflow.exceptions import MlflowException
-from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParam, OptimizerParam
+from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParam, OptimizerConfig
 from mlflow.genai.optimize.util import infer_type_from_value
 from mlflow.genai.scorers import Scorer
 
@@ -21,7 +21,7 @@ _logger = logging.getLogger(__name__)
 
 
 class _BaseOptimizer:
-    def __init__(self, optimizer_params: OptimizerParam):
+    def __init__(self, optimizer_params: OptimizerConfig):
         self.optimizer_params = optimizer_params
 
     def optimize(
@@ -37,7 +37,7 @@ class _BaseOptimizer:
 
 
 class _DSPyOptimizer(_BaseOptimizer):
-    def __init__(self, optimizer_params: OptimizerParam):
+    def __init__(self, optimizer_params: OptimizerConfig):
         super().__init__(optimizer_params)
 
         if not importlib.util.find_spec("dspy"):
@@ -105,7 +105,7 @@ class _DSPyOptimizer(_BaseOptimizer):
 
 
 class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
-    def __init__(self, optimizer_params: OptimizerParam):
+    def __init__(self, optimizer_params: OptimizerConfig):
         super().__init__(optimizer_params)
 
     def optimize(

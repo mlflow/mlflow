@@ -8,7 +8,7 @@ pytest.importorskip("dspy", minversion="2.6.0")
 from mlflow.entities.model_registry import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize import optimize_prompt
-from mlflow.genai.optimize.types import LLMParam, OptimizerParam
+from mlflow.genai.optimize.types import LLMParam, OptimizerConfig
 from mlflow.genai.scorers import scorer
 from mlflow.tracking._model_registry.fluent import register_prompt
 
@@ -58,7 +58,7 @@ def test_optimize_prompt_basic(test_prompt, sample_data):
 
 
 def test_optimize_prompt_unsupported_algorithm(test_prompt, sample_data):
-    optimizer_params = OptimizerParam(algorithm="UnsupportedAlgorithm")
+    optimizer_params = OptimizerConfig(algorithm="UnsupportedAlgorithm")
 
     with pytest.raises(ValueError, match="Algorithm UnsupportedAlgorithm is not supported"):
         optimize_prompt(
