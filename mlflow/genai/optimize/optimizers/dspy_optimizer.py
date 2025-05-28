@@ -26,7 +26,7 @@ class _DSPyOptimizer(_BaseOptimizer):
         dspy_version = importlib.metadata.version("dspy")
         if Version(dspy_version) < Version("2.6.0"):
             raise MlflowException(
-                f"Current dspy version {dspy_version} is too old. "
+                f"Current dspy version {dspy_version} is unsupported. "
                 "Please upgrade to version >= 2.6.0"
             )
 

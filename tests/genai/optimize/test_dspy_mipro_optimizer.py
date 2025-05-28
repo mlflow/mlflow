@@ -227,7 +227,7 @@ def test_convert_to_dspy_metric_raises_on_non_numeric_score():
 
 def test_optimize_prompt_with_old_dspy_version():
     with patch("importlib.metadata.version", return_value="2.5.0"):
-        with pytest.raises(MlflowException, match="Current dspy version 2.5.0 is too old"):
+        with pytest.raises(MlflowException, match="Current dspy version 2.5.0 is unsupported"):
             _DSPyMIPROv2Optimizer(OptimizerConfig())
 
 
