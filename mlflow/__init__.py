@@ -161,6 +161,7 @@ if MLFLOW_CONFIGURE_LOGGING.get() is True:
 # Core modules required for mlflow-tracing
 from mlflow.tracing.assessment import (
     delete_assessment,
+    get_assessment,
     log_assessment,
     log_expectation,
     log_feedback,
@@ -214,6 +215,7 @@ __all__ = [
     "trace",
     "update_current_trace",
     # Assessment APIs
+    "get_assessment",
     "delete_assessment",
     "log_assessment",
     "update_assessment",

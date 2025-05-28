@@ -14,6 +14,25 @@ from mlflow.utils.annotations import experimental
 
 
 @experimental
+def get_assessment(trace_id: str, assessment_id: str) -> Assessment:
+    """
+    .. important::
+
+        This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
+
+    Get an assessment entity from the backend store.
+
+    Args:
+        trace_id: The ID of the trace.
+        assessment_id: The ID of the assessment to get.
+
+    Returns:
+        :py:class:`~mlflow.entities.Assessment`: The Assessment object.
+    """
+    return TracingClient().get_assessment(trace_id, assessment_id)
+
+
+@experimental
 def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
     """
     .. important::
