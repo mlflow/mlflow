@@ -2105,7 +2105,6 @@ def test_create_and_update_registered_model_print_job_url(mock_http, store):
 
 @mock_http_200
 def test_create_prompt_uc(mock_http, store, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_UC_PROMPT_SUPPORT", "true")
     name = "prompt1"
     template = "Hello, {{name}}!"
     description = "A test prompt"
@@ -2126,7 +2125,6 @@ def test_create_prompt_uc(mock_http, store, monkeypatch):
 
 @mock_http_200
 def test_get_prompt_uc(mock_http, store, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_UC_PROMPT_SUPPORT", "true")
     name = "prompt1"
     version = "1"  # Pass specific version instead of None
     # Patch proto_to_mlflow_prompt to return a dummy Prompt
@@ -2143,7 +2141,6 @@ def test_get_prompt_uc(mock_http, store, monkeypatch):
 
 @mock_http_200
 def test_search_prompts_uc(mock_http, store, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_UC_PROMPT_SUPPORT", "true")
     # Patch proto_info_to_mlflow_prompt_info to return a dummy PromptInfo
     with mock.patch(
         "mlflow.store._unity_catalog.registry.utils.proto_info_to_mlflow_prompt_info",
@@ -2156,8 +2153,6 @@ def test_search_prompts_uc(mock_http, store, monkeypatch):
         assert proto_to_prompt.call_count == 0  # Correct behavior for empty results
 
 def test_search_prompts_with_results_uc(store, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_UC_PROMPT_SUPPORT", "true")
-
     # Create mock protobuf objects
     from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
         PromptInfo as ProtoPromptInfo,
@@ -2213,7 +2208,6 @@ def test_search_prompts_with_results_uc(store, monkeypatch):
 
 @mock_http_200
 def test_delete_prompt_uc(mock_http, store, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_UC_PROMPT_SUPPORT", "true")
     name = "prompt1"
     store.delete_prompt(name=name)
     # Should call the correct endpoint for DeletePromptRequest
@@ -2221,7 +2215,6 @@ def test_delete_prompt_uc(mock_http, store, monkeypatch):
 
 @mock_http_200
 def test_create_prompt_version_uc(mock_http, store, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_UC_PROMPT_SUPPORT", "true")
     name = "prompt1"
     template = "Hello, {{name}}!"
     description = "A test prompt version"
@@ -2234,8 +2227,8 @@ def test_create_prompt_version_uc(mock_http, store, monkeypatch):
         result = store.create_prompt_version(
             name=name, template=template, description=description, tags=tags
         )
-        # Should call the exact endpoint for CreatePromptVersionRequest
-        expected_endpoint = "/api/2.0/mlflow/unity-catalog/prompts/{name}/versions"
+        # Should call the exact endpoint for CreatePromptVersionRequest with substituted path
+        expected_endpoint = f"/api/2.0/mlflow/unity-catalog/prompts/{name}/versions"
         assert any(
             c[1]["endpoint"] == expected_endpoint for c in mock_http.call_args_list
         )
@@ -2245,7 +2238,6 @@ def test_create_prompt_version_uc(mock_http, store, monkeypatch):
 
 @mock_http_200
 def test_get_prompt_version_uc(mock_http, store, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_UC_PROMPT_SUPPORT", "true")
     name = "prompt1"
     version = "2"
     # Patch proto_to_mlflow_prompt to return a dummy Prompt
@@ -2254,10 +2246,8 @@ def test_get_prompt_version_uc(mock_http, store, monkeypatch):
         return_value=Prompt(name, 2, "Hello, {{name}}!"),
     ) as proto_to_prompt:
         result = store.get_prompt_version(name=name, version=version)
-        # Should call the exact endpoint for GetPromptVersionRequest
-        expected_endpoint = (
-            "/api/2.0/mlflow/unity-catalog/prompts/{name}/versions/{version}"
-        )
+        # Should call the exact endpoint for GetPromptVersionRequest with substituted path
+        expected_endpoint = f"/api/2.0/mlflow/unity-catalog/prompts/{name}/versions/{version}"
         assert any(
             c[1]["endpoint"] == expected_endpoint for c in mock_http.call_args_list
         )
@@ -2267,61 +2257,57 @@ def test_get_prompt_version_uc(mock_http, store, monkeypatch):
 
 @mock_http_200
 def test_delete_prompt_version_uc(mock_http, store, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_UC_PROMPT_SUPPORT", "true")
     name = "prompt1"
     version = "2"
     store.delete_prompt_version(name=name, version=version)
-    # Should call the exact endpoint for DeletePromptVersionRequest
-    expected_endpoint = (
-        "/api/2.0/mlflow/unity-catalog/prompts/{name}/versions/{version}"
-    )
+    # Should call the exact endpoint for DeletePromptVersionRequest with substituted path
+    expected_endpoint = f"/api/2.0/mlflow/unity-catalog/prompts/{name}/versions/{version}"
     assert any(
         c[1]["endpoint"] == expected_endpoint for c in mock_http.call_args_list
     )
 
 @mock_http_200
 def test_set_prompt_tag_uc(mock_http, store, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_UC_PROMPT_SUPPORT", "true")
     name = "prompt1"
     key = "env"
     value = "prod"
     store.set_prompt_tag(name=name, key=key, value=value)
-    # Should call the exact endpoint for SetPromptTagRequest
-    expected_endpoint = "/api/2.0/mlflow/unity-catalog/prompts/{name}/tags"
+    # Should call the exact endpoint for SetPromptTagRequest with substituted path
+    expected_endpoint = f"/api/2.0/mlflow/unity-catalog/prompts/{name}/tags"
     assert any(
         c[1]["endpoint"] == expected_endpoint for c in mock_http.call_args_list
     )
 
 @mock_http_200
 def test_delete_prompt_tag_uc(mock_http, store, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_UC_PROMPT_SUPPORT", "true")
     name = "prompt1"
     key = "env"
     store.delete_prompt_tag(name=name, key=key)
-    # Should call the exact endpoint for DeletePromptTagRequest
-    expected_endpoint = "/api/2.0/mlflow/unity-catalog/prompts/{name}/tags/{key}"
+    # Should call the exact endpoint for DeletePromptTagRequest with substituted path
+    expected_endpoint = f"/api/2.0/mlflow/unity-catalog/prompts/{name}/tags/{key}"
     assert any(
         c[1]["endpoint"] == expected_endpoint for c in mock_http.call_args_list
     )
 
 @mock_http_200
 def test_get_prompt_version_by_alias_uc(mock_http, store, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_UC_PROMPT_SUPPORT", "true")
     name = "prompt1"
-    alias = "champion"
+    alias = "production"
     # Patch proto_to_mlflow_prompt to return a dummy Prompt
     with mock.patch(
         "mlflow.store._unity_catalog.registry.utils.proto_to_mlflow_prompt",
         return_value=Prompt(name, 1, "Hello, {{name}}!"),
     ) as proto_to_prompt:
         result = store.get_prompt_version_by_alias(name=name, alias=alias)
-        # Should call the exact endpoint for GetPromptVersionByAliasRequest
+        # Should call the specific endpoint with path parameters substituted
         expected_endpoint = (
-            "/api/2.0/mlflow/unity-catalog/prompts/{name}/versions/by-alias/{alias}"
+            f"/api/2.0/mlflow/unity-catalog/prompts/{name}/versions/by-alias/{alias}"
         )
         assert any(
-            c[1]["endpoint"] == expected_endpoint for c in mock_http.call_args_list
+            c[1]["endpoint"] == expected_endpoint
+            for c in mock_http.call_args_list
         )
         proto_to_prompt.assert_called()
         # Verify result is Prompt
         assert isinstance(result, Prompt)
+        assert result.name == name

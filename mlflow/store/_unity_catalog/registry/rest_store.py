@@ -1,7 +1,9 @@
 import base64
 import functools
+import json
 import logging
 import os
+import re
 import shutil
 from contextlib import contextmanager
 from typing import Optional
@@ -123,6 +125,8 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
+    call_endpoint,
+    call_endpoints,
     extract_all_api_info_for_service,
     extract_api_info_for_service,
     http_request,
@@ -366,6 +370,52 @@ class UcModelRegistryStore(BaseRestStore):
 
     def _get_all_endpoints_from_method(self, method):
         return _METHOD_TO_ALL_INFO[method]
+
+    def _call_endpoint(self, api, json_body, call_all_endpoints=False, extra_headers=None):
+        """
+        Override the base _call_endpoint to handle path parameter substitution for
+        Unity Catalog endpoints that use REST-style paths with {name}, {version}, etc.
+        """
+        response_proto = self._get_response_from_method(api)
+
+        if call_all_endpoints:
+            endpoints = self._get_all_endpoints_from_method(api)
+            return call_endpoints(
+                self.get_host_creds(), endpoints, json_body, response_proto, extra_headers
+            )
+        else:
+            endpoint, method = self._get_endpoint_from_method(api)
+
+            # Handle path parameter substitution for Unity Catalog prompt endpoints
+            if json_body and "{" in endpoint and "}" in endpoint:
+                # Parse the JSON body to extract path parameters
+                body_dict = json.loads(json_body) if isinstance(json_body, str) else json_body
+
+                # Extract all path parameters from the endpoint template
+                path_param_names = re.findall(r'\{(\w+)\}', endpoint)
+
+                path_params = {}
+                for param_name in path_param_names:
+                    if param_name in body_dict:
+                        path_params[param_name] = body_dict[param_name]
+                        # For GET requests, remove path parameters from query parameters
+                        if method == "GET":
+                            del body_dict[param_name]
+
+                # Substitute path parameters into the endpoint URL
+                if path_params:
+                    endpoint = endpoint.format(**path_params)
+                    # For GET requests with modified body_dict, convert back to JSON
+                    if method == "GET" and body_dict:
+                        json_body = json.dumps(body_dict)
+                    elif method == "GET" and not body_dict:
+                        json_body = None
+                    # For non-GET requests, keep the original json_body since path params
+                    # are still needed in the request body for those methods
+
+            return call_endpoint(
+                self.get_host_creds(), endpoint, method, json_body, response_proto, extra_headers
+            )
 
     # CRUD API for RegisteredModel objects
 
@@ -1126,12 +1176,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Create a new prompt in Unity Catalog.
         """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().create_prompt(name, template, description, tags)
-
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             CreatePromptRequest,
         )
@@ -1155,12 +1199,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Get prompt by name and version from Unity Catalog.
         """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().get_prompt(name, version)
-
         try:
             from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
                 GetPromptRequest,
@@ -1210,12 +1248,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Search for prompts in Unity Catalog.
         """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().search_prompts(filter_string, max_results, order_by, page_token)
-
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             GetPromptRequest,
             SearchPromptsRequest,
@@ -1250,12 +1282,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Delete a prompt from Unity Catalog.
         """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().delete_prompt(name)
-
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             DeletePromptRequest,
         )
@@ -1267,12 +1293,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Create a new version of an existing prompt in Unity Catalog.
         """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().create_prompt_version(name, template, description, tags)
-
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             CreatePromptVersionRequest,
             GetPromptRequest,
@@ -1308,12 +1328,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Get a specific version of a prompt from Unity Catalog.
         """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().get_prompt_version(name, version)
-
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             GetPromptRequest,
             GetPromptVersionRequest,
@@ -1339,12 +1353,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Delete a specific version of a prompt from Unity Catalog.
         """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().delete_prompt_version(name, version)
-
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             DeletePromptVersionRequest,
         )
@@ -1356,12 +1364,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Set a tag on a prompt in Unity Catalog.
         """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().set_prompt_tag(name, key, value)
-
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             SetPromptTagRequest,
         )
@@ -1373,12 +1375,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Delete a tag from a prompt in Unity Catalog.
         """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().delete_prompt_tag(name, key)
-
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             DeletePromptTagRequest,
         )
@@ -1390,12 +1386,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Get a prompt version by alias from Unity Catalog.
         """
-        from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
-
-        if not MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get():
-            # Fall back to default implementation
-            return super().get_prompt_version_by_alias(name, alias)
-
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             GetPromptRequest,
             GetPromptVersionByAliasRequest,

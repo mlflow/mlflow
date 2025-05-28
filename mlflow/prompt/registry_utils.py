@@ -4,13 +4,11 @@ from textwrap import dedent
 from typing import Any, Optional, Union
 
 import mlflow
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
-from mlflow.environment_variables import MLFLOW_ENABLE_UC_PROMPT_SUPPORT
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import PROMPT_NAME_RULE
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
 
 
 def add_prompt_filter_string(
@@ -48,19 +46,19 @@ def is_prompt_supported_registry(registry_uri: Optional[str] = None) -> bool:
 
     Prompts registration is supported in:
     - OSS MLflow Tracking Server (always)
-    - Unity Catalog (when MLFLOW_ENABLE_UC_PROMPT_SUPPORT is enabled)
+    - Unity Catalog (always)
     - Not supported in legacy Databricks workspace registry
     """
     registry_uri = registry_uri or mlflow.get_registry_uri()
-    
+
     # Legacy Databricks workspace registry doesn't support prompts
     if registry_uri.startswith("databricks") and not registry_uri.startswith("databricks-uc"):
         return False
-    
-    # UC registries support prompts when feature flag is enabled
+
+    # UC registries support prompts automatically
     if registry_uri.startswith("databricks-uc") or registry_uri.startswith("uc:"):
-        return MLFLOW_ENABLE_UC_PROMPT_SUPPORT.get()
-    
+        return True
+
     # OSS MLflow registry always supports prompts
     return True
 
@@ -78,9 +76,8 @@ def require_prompt_registry(func):
         if not is_prompt_supported_registry(registry_uri):
             raise MlflowException(
                 f"The '{func.__name__}' API is not supported with the current registry. "
-                "Prompts are supported in OSS MLflow and Unity Catalog (with "
-                "MLFLOW_ENABLE_UC_PROMPT_SUPPORT=true), but not in the legacy Databricks "
-                "workspace registry.",
+                "Prompts are supported in OSS MLflow and Unity Catalog, but not in the "
+                "legacy Databricks workspace registry.",
                 INVALID_PARAMETER_VALUE,
             )
         return func(*args, **kwargs)
@@ -91,9 +88,8 @@ def require_prompt_registry(func):
 
         .. note::
 
-            This API is supported in OSS MLflow Model Registry and Unity Catalog (when 
-            MLFLOW_ENABLE_UC_PROMPT_SUPPORT is enabled). It is not supported in the 
-            legacy Databricks workspace model registry.
+            This API is supported in OSS MLflow Model Registry and Unity Catalog. It is
+            not supported in the legacy Databricks workspace model registry.
     """)
     return wrapper
 
