@@ -14,6 +14,7 @@ from mlflow.entities.model_registry import (
     RegisteredModel,
     RegisteredModelTag,
 )
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
@@ -426,3 +427,164 @@ def test_get_model_version_by_alias(mock_store):
     mock_store.get_model_version_by_alias.assert_called_once()
     assert result.name == "Model 1"
     assert result.aliases == ["test_alias"]
+
+
+# Prompt Registry API
+
+
+def test_create_prompt(mock_store):
+    """Test create_prompt method."""
+    expected_prompt = Prompt(name="test_prompt", version=1, template="Hello {{name}}!")
+    mock_store.create_prompt.return_value = expected_prompt
+
+    result = newModelRegistryClient().create_prompt(
+        name="test_prompt",
+        template="Hello {{name}}!",
+        description="Test prompt",
+        tags={"env": "test"}
+    )
+
+    mock_store.create_prompt.assert_called_once_with(
+        "test_prompt", "Hello {{name}}!", "Test prompt", {"env": "test"}
+    )
+    assert result == expected_prompt
+
+
+def test_get_prompt(mock_store):
+    """Test get_prompt method."""
+    expected_prompt = Prompt(name="test_prompt", version=1, template="Hello {{name}}!")
+    mock_store.get_prompt.return_value = expected_prompt
+
+    result = newModelRegistryClient().get_prompt("test_prompt", version="1")
+
+    mock_store.get_prompt.assert_called_once_with("test_prompt", "1")
+    assert result == expected_prompt
+
+
+def test_get_prompt_no_version(mock_store):
+    """Test get_prompt method without version."""
+    expected_prompt = Prompt(name="test_prompt", version=2, template="Hello {{name}}!")
+    mock_store.get_prompt.return_value = expected_prompt
+
+    result = newModelRegistryClient().get_prompt("test_prompt")
+
+    mock_store.get_prompt.assert_called_once_with("test_prompt", None)
+    assert result == expected_prompt
+
+
+def test_search_prompts(mock_store):
+    """Test search_prompts method."""
+    prompts = [
+        Prompt(name="prompt1", version=1, template="Template 1"),
+        Prompt(name="prompt2", version=1, template="Template 2"),
+    ]
+    expected_result = PagedList(prompts, "next_token")
+    mock_store.search_prompts.return_value = expected_result
+
+    result = newModelRegistryClient().search_prompts(
+        filter_string="name='test'",
+        max_results=10,
+        order_by=["name"],
+        page_token="token"
+    )
+
+    mock_store.search_prompts.assert_called_once_with(
+        "name='test'", 10, ["name"], "token"
+    )
+    assert result == expected_result
+
+
+def test_delete_prompt(mock_store):
+    """Test delete_prompt method."""
+    newModelRegistryClient().delete_prompt("test_prompt")
+
+    mock_store.delete_prompt.assert_called_once_with("test_prompt")
+
+
+def test_create_prompt_version(mock_store):
+    """Test create_prompt_version method."""
+    expected_prompt = Prompt(name="test_prompt", version=2, template="Hello {{name}}!")
+    mock_store.create_prompt_version.return_value = expected_prompt
+
+    result = newModelRegistryClient().create_prompt_version(
+        name="test_prompt",
+        template="Hello {{name}}!",
+        description="Version 2",
+        tags={"version": "2"}
+    )
+
+    mock_store.create_prompt_version.assert_called_once_with(
+        "test_prompt", "Hello {{name}}!", "Version 2", {"version": "2"}
+    )
+    assert result == expected_prompt
+
+
+def test_get_prompt_version(mock_store):
+    """Test get_prompt_version method."""
+    expected_prompt = Prompt(name="test_prompt", version=1, template="Hello {{name}}!")
+    mock_store.get_prompt_version.return_value = expected_prompt
+
+    result = newModelRegistryClient().get_prompt_version("test_prompt", 1)
+
+    mock_store.get_prompt_version.assert_called_once_with("test_prompt", 1)
+    assert result == expected_prompt
+
+
+def test_delete_prompt_version(mock_store):
+    """Test delete_prompt_version method."""
+    newModelRegistryClient().delete_prompt_version("test_prompt", 1)
+
+    mock_store.delete_prompt_version.assert_called_once_with("test_prompt", 1)
+
+
+def test_set_prompt_tag(mock_store):
+    """Test set_prompt_tag method."""
+    newModelRegistryClient().set_prompt_tag("test_prompt", "env", "prod")
+
+    mock_store.set_prompt_tag.assert_called_once_with("test_prompt", "env", "prod")
+
+
+def test_delete_prompt_tag(mock_store):
+    """Test delete_prompt_tag method."""
+    newModelRegistryClient().delete_prompt_tag("test_prompt", "env")
+
+    mock_store.delete_prompt_tag.assert_called_once_with("test_prompt", "env")
+
+
+def test_set_prompt_version_tag(mock_store):
+    """Test set_prompt_version_tag method."""
+    newModelRegistryClient().set_prompt_version_tag("test_prompt", 1, "env", "prod")
+
+    mock_store.set_prompt_version_tag.assert_called_once_with("test_prompt", 1, "env", "prod")
+
+
+def test_delete_prompt_version_tag(mock_store):
+    """Test delete_prompt_version_tag method."""
+    newModelRegistryClient().delete_prompt_version_tag("test_prompt", 1, "env")
+
+    mock_store.delete_prompt_version_tag.assert_called_once_with("test_prompt", 1, "env")
+
+
+def test_set_prompt_alias(mock_store):
+    """Test set_prompt_alias method."""
+    newModelRegistryClient().set_prompt_alias("test_prompt", "production", 1)
+
+    mock_store.set_prompt_alias.assert_called_once_with("test_prompt", "production", 1)
+
+
+def test_delete_prompt_alias(mock_store):
+    """Test delete_prompt_alias method."""
+    newModelRegistryClient().delete_prompt_alias("test_prompt", "production")
+
+    mock_store.delete_prompt_alias.assert_called_once_with("test_prompt", "production")
+
+
+def test_get_prompt_version_by_alias(mock_store):
+    """Test get_prompt_version_by_alias method."""
+    expected_prompt = Prompt(name="test_prompt", version=1, template="Hello {{name}}!")
+    mock_store.get_prompt_version_by_alias.return_value = expected_prompt
+
+    result = newModelRegistryClient().get_prompt_version_by_alias("test_prompt", "production")
+
+    mock_store.get_prompt_version_by_alias.assert_called_once_with("test_prompt", "production")
+    assert result == expected_prompt
