@@ -109,12 +109,12 @@ from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     CreatePromptRequest,
     CreatePromptResponse,
+    DeletePromptRequest,
+    DeletePromptResponse,
     GetPromptRequest,
     GetPromptResponse,
     SearchPromptsRequest,
     SearchPromptsResponse,
-    DeletePromptRequest,
-    DeletePromptResponse,
     CreatePromptVersionRequest,
     CreatePromptVersionResponse,
     DeletePromptVersionRequest,
@@ -123,8 +123,16 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     SetPromptTagResponse,
     DeletePromptTagRequest,
     DeletePromptTagResponse,
+    GetPromptVersionRequest,
+    GetPromptVersionResponse,
+    GetPromptVersionByAliasRequest,
+    GetPromptVersionByAliasResponse,
 )
 from mlflow.protos.unity_catalog_prompt_service_pb2 import UnityCatalogPromptService
+from mlflow.store._unity_catalog.registry.utils import (
+    proto_info_to_mlflow_prompt_info,
+    mlflow_tags_to_proto,
+)
 
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = {
@@ -350,6 +358,8 @@ class UcModelRegistryStore(BaseRestStore):
             DeletePromptVersionRequest: DeletePromptVersionResponse,
             SetPromptTagRequest: SetPromptTagResponse,
             DeletePromptTagRequest: DeletePromptTagResponse,
+            GetPromptVersionRequest: GetPromptVersionResponse,
+            GetPromptVersionByAliasRequest: GetPromptVersionByAliasResponse,
         }
         return method_to_response[method]()
 
@@ -1124,12 +1134,12 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().create_prompt(name, template, description, tags)
         
-        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             CreatePromptRequest,
             CreatePromptResponse,
         )
         from mlflow.store._unity_catalog.registry.utils import (
-            proto_to_mlflow_prompt,
+            proto_info_to_mlflow_prompt_info,
             mlflow_tags_to_proto,
         )
         
@@ -1142,7 +1152,7 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         response_proto = self._call_endpoint(CreatePromptRequest, req_body)
-        return proto_to_mlflow_prompt(response_proto.prompt_version, tags)
+        return proto_info_to_mlflow_prompt_info(response_proto.prompt, tags)
 
     def get_prompt(self, name, version=None):
         """
@@ -1155,11 +1165,9 @@ class UcModelRegistryStore(BaseRestStore):
             return super().get_prompt(name, version)
         
         try:
-            from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+            from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
                 GetPromptVersionRequest,
                 GetPromptVersionResponse,
-                GetLatestPromptVersionRequest,
-                GetLatestPromptVersionResponse,
                 GetPromptVersionByAliasRequest,
                 GetPromptVersionByAliasResponse,
                 GetPromptRequest,
@@ -1168,13 +1176,16 @@ class UcModelRegistryStore(BaseRestStore):
             from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
             
             if version is None:
-                req_body = message_to_json(GetLatestPromptVersionRequest(name=name))
-                response_proto = self._call_endpoint(GetLatestPromptVersionRequest, req_body)
+                # TODO: GetLatestPromptVersionRequest not available in protobuf
+                # For now, raise NotImplementedError when version is None
+                raise NotImplementedError("Getting latest prompt version not yet supported in UC")
+                # req_body = message_to_json(GetLatestPromptVersionRequest(name=name))
+                # response_proto = self._call_endpoint(GetLatestPromptVersionRequest, req_body)
             else:
                 try:
                     version_num = int(version)
                     req_body = message_to_json(
-                        GetPromptVersionRequest(name=name, version=version_num)
+                        GetPromptVersionRequest(name=name, version=str(version_num))
                     )
                     response_proto = self._call_endpoint(GetPromptVersionRequest, req_body)
                 except ValueError:
@@ -1213,36 +1224,35 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().search_prompts(filter_string, max_results, order_by, page_token)
         
-        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             SearchPromptsRequest,
             SearchPromptsResponse,
             GetPromptRequest,
             GetPromptResponse,
         )
-        from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
+        from mlflow.store._unity_catalog.registry.utils import proto_info_to_mlflow_prompt_info
         from mlflow.store.entities.paged_list import PagedList
         
         req_body = message_to_json(
             SearchPromptsRequest(
                 filter=filter_string,
                 max_results=max_results,
-                order_by=order_by,
                 page_token=page_token,
             )
         )
         response_proto = self._call_endpoint(SearchPromptsRequest, req_body)
         prompts = []
-        for prompt_version in response_proto.prompt_versions:
+        for prompt_info in response_proto.prompts:
             # Get prompt-level tags
             prompt_tags = {}
             try:
-                prompt_req_body = message_to_json(GetPromptRequest(name=prompt_version.name))
+                prompt_req_body = message_to_json(GetPromptRequest(name=prompt_info.name))
                 prompt_response = self._call_endpoint(GetPromptRequest, prompt_req_body)
                 if prompt_response.prompt.tags:
                     prompt_tags = {tag.key: tag.value for tag in prompt_response.prompt.tags}
             except:
                 pass
-            prompts.append(proto_to_mlflow_prompt(prompt_version, prompt_tags))
+            prompts.append(proto_info_to_mlflow_prompt_info(prompt_info, prompt_tags))
         
         return PagedList(prompts, response_proto.next_page_token)
 
@@ -1256,7 +1266,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().delete_prompt(name)
         
-        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             DeletePromptRequest,
             DeletePromptResponse,
         )
@@ -1274,7 +1284,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().create_prompt_version(name, template, description, tags)
         
-        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             CreatePromptVersionRequest,
             CreatePromptVersionResponse,
             GetPromptRequest,
@@ -1317,7 +1327,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().get_prompt_version(name, version)
         
-        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             GetPromptVersionRequest,
             GetPromptVersionResponse,
             GetPromptRequest,
@@ -1325,7 +1335,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
         from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
         
-        req_body = message_to_json(GetPromptVersionRequest(name=name, version=int(version)))
+        req_body = message_to_json(GetPromptVersionRequest(name=name, version=str(version)))
         response_proto = self._call_endpoint(GetPromptVersionRequest, req_body)
         
         # Get prompt-level tags
@@ -1350,12 +1360,12 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().delete_prompt_version(name, version)
         
-        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             DeletePromptVersionRequest,
             DeletePromptVersionResponse,
         )
         
-        req_body = message_to_json(DeletePromptVersionRequest(name=name, version=int(version)))
+        req_body = message_to_json(DeletePromptVersionRequest(name=name, version=str(version)))
         self._call_endpoint(DeletePromptVersionRequest, req_body)
 
     def set_prompt_tag(self, name, key, value):
@@ -1368,7 +1378,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().set_prompt_tag(name, key, value)
         
-        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             SetPromptTagRequest,
             SetPromptTagResponse,
         )
@@ -1386,7 +1396,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().delete_prompt_tag(name, key)
         
-        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             DeletePromptTagRequest,
             DeletePromptTagResponse,
         )
@@ -1404,7 +1414,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().get_prompt_version_by_alias(name, alias)
         
-        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             GetPromptVersionByAliasRequest,
             GetPromptVersionByAliasResponse,
             GetPromptRequest,
