@@ -267,6 +267,48 @@ def test_update_feedback(store, tracking_uri):
     assert call_args["metadata"] == {"model": "gpt-4o-mini"}
 
 
+def test_override_feedback(store, tracking_uri):
+    # Mock the store's get_assessment method to return a feedback
+    old_feedback = Feedback(
+        trace_id="tr-321",
+        name="faithfulness",
+        value=0.5,
+        source=_LLM_ASSESSMENT_SOURCE,
+        rationale="Original feedback",
+        metadata={"model": "gpt-3.5"},
+    )
+    old_feedback.assessment_id = "a-1234"
+    store.get_assessment.return_value = old_feedback
+
+    mlflow.override_feedback(
+        trace_id="tr-321",
+        assessment_id="a-1234",
+        value=1.0,
+        source=_LLM_ASSESSMENT_SOURCE,
+        rationale="This answer is very faithful.",
+        metadata={"model": "gpt-4o-mini"},
+    )
+
+    # assert that the old feedback is fetched
+    store.get_assessment.assert_called_once_with("tr-321", "a-1234")
+
+    # assert that the new feedback is created
+    assert store.create_assessment.call_count == 1
+    assessment = store.create_assessment.call_args[0][0]
+    assert assessment.name == "faithfulness"
+    assert assessment.trace_id == "tr-321"
+    assert assessment.span_id is None
+    assert assessment.source == _LLM_ASSESSMENT_SOURCE
+    assert assessment.create_time_ms is not None
+    assert assessment.last_update_time_ms is not None
+    assert assessment.feedback.value == 1.0
+    assert assessment.feedback.error is None
+    assert assessment.expectation is None
+    assert assessment.rationale == "This answer is very faithful."
+    assert assessment.metadata == {"model": "gpt-4o-mini"}
+    assert assessment.overrides == "a-1234"
+
+
 def test_delete_assessment(store, tracking_uri):
     mlflow.delete_assessment(trace_id="tr-1234", assessment_id="1234")
 
