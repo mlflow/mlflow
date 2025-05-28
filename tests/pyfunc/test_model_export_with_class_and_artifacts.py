@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import types
 import uuid
@@ -2555,3 +2556,16 @@ def test_lock_model_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
     assert "# Locked requirements" in requirements_txt.read_text()
+    # Check that the locked requirements are installable
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--ignore-installed",
+            "--dry-run",
+            "--requirement",
+            requirements_txt,
+        ],
+    )
