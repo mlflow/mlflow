@@ -239,7 +239,6 @@ const shouldFallbackToLoggedModelArtifacts = (
 
   // Execute only if feature is enabled and we are currently fetching >run< artifacts.
   // Also, do not fallback to logged model artifacts for Volume-based artifact paths.
-  console.log(isExperimentLoggedModelsUIEnabled(), !ownProps.isLoggedModelsMode && !isVolumePath);
   if (isExperimentLoggedModelsUIEnabled() && !ownProps.isLoggedModelsMode && !isVolumePath) {
     // Let's check if the root artifact is already present (i.e. run artifacts are fetched)
     const rootArtifact = getArtifacts(ownProps.runUuid, state);
