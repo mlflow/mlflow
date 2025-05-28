@@ -568,7 +568,6 @@ openai:
     run: |
       pytest tests/openai/test_openai_autolog.py tests/openai/test_openai_agent_autolog.py
     test_every_n_versions: 10
-    # Run integration test with the lightweight tracing SDK
     test_tracing_sdk: true
 
 dspy:
@@ -590,7 +589,6 @@ dspy:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy/test_dspy_autolog.py
-    # Run integration test with the lightweight tracing SDK
     test_tracing_sdk: true
 
 langchain:
@@ -692,7 +690,6 @@ langchain:
 
       # TODO: an unexpected issue happens when autolog test and evaluation test are run together, which need investigations
       pytest tests/langchain/test_langchain_autolog.py
-    # Run integration test with the lightweight tracing SDK
     test_tracing_sdk: true
 
 langgraph:
@@ -730,7 +727,6 @@ langgraph:
       ">= 0.3.0": ["langgraph-prebuilt"]
     run: |
       pytest tests/langgraph/test_langgraph_autolog.py
-    # Run integration test with the lightweight tracing SDK
     test_tracing_sdk: true
 
 llama_index:
@@ -768,7 +764,6 @@ llama_index:
         ]
       "< 0.11.0": ["pydantic<2"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
-    # Run integration test with the lightweight tracing SDK
     test_tracing_sdk: true
 
 ag2:
@@ -807,7 +802,6 @@ autogen:
           "autogen_ext",
         ]
     run: pytest tests/autogen
-    # Run integration test with the lightweight tracing SDK
     test_tracing_sdk: true
 
 gemini:
@@ -824,7 +818,6 @@ gemini:
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK 
       pip install google-generativeai
       pytest tests/gemini
-    # Run integration test with the lightweight tracing SDK
     test_tracing_sdk: true
 
 anthropic:
@@ -841,7 +834,6 @@ anthropic:
     # Our CI runs tests for every minor version of the library by default, which results in
     # many test tasks for anthropic. Reducing the number of testing only for every 5 version.
     test_every_n_versions: 5
-    # Run integration test with the lightweight tracing SDK
     test_tracing_sdk: true
 
 crewai:
@@ -858,7 +850,6 @@ crewai:
       ">= 0.80.0": "3.10"
     requirements:
     run: pytest tests/crewai
-    # Run integration test with the lightweight tracing SDK
     test_tracing_sdk: true
 
 pydantic_ai:
@@ -888,6 +879,7 @@ pydantic_ai:
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
+    test_tracing_sdk: true
 
 smolagents:
   package_info:
@@ -903,6 +895,7 @@ smolagents:
     requirements:
       ">= 0.0.0": ["duckduckgo-search"]
     run: pytest tests/smolagents
+    test_tracing_sdk: true
 
 mistral:
   package_info:
@@ -920,7 +913,6 @@ mistral:
     maximum: "1.8.1"
     requirements:
     run: pytest tests/mistral
-    # Run integration test with the lightweight tracing SDK
     test_tracing_sdk: true
 
 sentence_transformers:
@@ -1001,7 +993,7 @@ litellm:
         ]
     run: pytest tests/litellm
     # NB: LiteLLM tracing callback still depends on MLflowClient, so we need to migrate it before
-    # enabling tracing SDK tests. There are other issues like the above linked one, too.
+    # enabling tracing SDK tests. There are other issues like the one linked above, too.
     test_tracing_sdk: false
 
 groq:
@@ -1014,7 +1006,6 @@ groq:
     maximum: "0.26.0"
     requirements:
     run: pytest tests/groq
-    # Run integration test with the lightweight tracing SDK
     test_tracing_sdk: true
 
 bedrock:
@@ -1026,5 +1017,4 @@ bedrock:
     minimum: "1.33.0"
     maximum: "1.38.28"
     run: pytest tests/bedrock
-    # Run integration test with the lightweight tracing SDK
     test_tracing_sdk: true
