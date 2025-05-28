@@ -7,13 +7,13 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Optional
 
-try:
-    import optuna
-    from optuna import exceptions, pruners, samplers, storages
-    from optuna.study import Study
-    from optuna.study._tell import _tell_with_warning
-    from optuna.trial import FrozenTrial
-    from optuna.trial import TrialState
+
+import optuna
+from optuna import exceptions, pruners, samplers, storages
+from optuna.study import Study
+from optuna.study._tell import _tell_with_warning
+from optuna.trial import FrozenTrial
+from optuna.trial import TrialState
 
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, first
