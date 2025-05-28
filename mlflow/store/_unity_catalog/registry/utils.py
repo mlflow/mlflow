@@ -7,6 +7,9 @@ from typing import Optional
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_info import PromptInfo
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    PromptAlias as ProtoPromptAlias,
+)
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptTag as ProtoPromptTag,
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
@@ -54,12 +57,6 @@ def proto_to_mlflow_prompt(
     # Extract version tags
     version_tags = proto_to_mlflow_tags(proto_version.tags) if proto_version.tags else {}
 
-    # Combine prompt-level tags and version tags
-    all_tags = {}
-    if prompt_tags:
-        all_tags.update(prompt_tags)
-    all_tags.update(version_tags)
-
     # Extract aliases
     aliases = []
     if hasattr(proto_version, 'aliases') and proto_version.aliases:
@@ -67,24 +64,25 @@ def proto_to_mlflow_prompt(
 
     return Prompt(
         name=proto_version.name,
-        version=proto_version.version,
+        version=int(proto_version.version),
         template=proto_version.template,
         commit_message=proto_version.description,
         creation_timestamp=proto_version.creation_timestamp,
         version_metadata=version_tags,
-        _tags=all_tags,
+        prompt_tags=prompt_tags,
         aliases=aliases,
     )
 
 def mlflow_prompt_to_proto(prompt: Prompt) -> ProtoPromptVersion:
     """Convert MLflow prompt entity to proto prompt version."""
-    proto_version = ProtoPromptVersion(
-        name=prompt.name,
-        version=prompt.version,
-        template=prompt.template,
-        description=prompt.commit_message,
-        creation_timestamp=prompt.creation_timestamp,
-    )
+    proto_version = ProtoPromptVersion()
+    proto_version.name = prompt.name
+    proto_version.version = str(prompt.version)
+    proto_version.template = prompt.template
+    if prompt.commit_message:
+        proto_version.description = prompt.commit_message
+    if prompt.creation_timestamp:
+        proto_version.creation_timestamp = prompt.creation_timestamp
 
     # Add version tags
     if prompt.version_metadata:
@@ -93,6 +91,9 @@ def mlflow_prompt_to_proto(prompt: Prompt) -> ProtoPromptVersion:
     # Add aliases
     if prompt.aliases:
         for alias in prompt.aliases:
-            proto_version.aliases.append(ProtoPromptVersion.PromptAlias(alias=alias))
+            alias_proto = ProtoPromptAlias()
+            alias_proto.alias = alias
+            alias_proto.version = str(prompt.version)
+            proto_version.aliases.append(alias_proto)
 
     return proto_version
