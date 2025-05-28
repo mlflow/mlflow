@@ -5,6 +5,7 @@ pagination_next: traditional-ml/hyperparameter-tuning-with-child-runs/index
 ---
 
 import { CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
+import { APILink } from "@site/src/components/APILink";
 
 # Traditional ML
 
@@ -56,8 +57,9 @@ The officially supported integrations for traditional ML libraries include:
 Tracking is central to the MLflow ecosystem, facilitating the systematic organization of experiments and runs:
 
 - **Experiments and Runs**: Each experiment encapsulates a specific aspect of your research, and each experiment can house multiple runs. Runs document critical data like metrics, parameters, and the code state.
+- **Models**: In [MLflow 3.0](/mlflow-3), each model is captured as a dedicated <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> entity along with its own metrics and parameters, enabling this data to be viewed in one central location.
 - **Artifacts**: Store crucial output from runs, be it models, visualizations, datasets, or other metadata. This repository of artifacts ensures traceability and easy access.
-- **Metrics and Parameters**: By allowing users to log parameters and metrics, MLflow makes it straightforward to compare different runs, facilitating model optimization.
+- **Metrics and Parameters**: By allowing users to log parameters and metrics, MLflow makes it straightforward to compare different runs and models, facilitating model optimization.
 - **Dependencies and Environment**: The platform automatically captures the computational environment, ensuring that experiments are reproducible across different setups.
 - **Input Examples and Model Signatures**: These features allow developers to define the expected format of the model's inputs, making validation and debugging more straightforward.
 - **UI Integration**: The integrated UI provides a visual overview of all runs, enabling easy comparison and deeper insights.

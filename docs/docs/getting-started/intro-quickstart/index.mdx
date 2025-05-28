@@ -2,7 +2,10 @@
 sidebar_position: 2
 ---
 
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
 import { CardGroup, PageCard } from "@site/src/components/Card";
+import { APILink } from "@site/src/components/APILink";
 
 # MLflow Tracking Quickstart
 
@@ -142,6 +145,10 @@ accuracy = accuracy_score(y_test, y_pred)
 In this next step, we're going to use the model that we trained, the hyperparameters that we specified for the model's fit, and the
 loss metrics that were calculated by evaluating the model's performance on the test data to log to MLflow.
 
+:::note
+[MLflow 3.0](/mlflow-3) has made significant enhancements to the model tracking capabilities of MLflow, distinct <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> entity capturing its own metadata such as metrics and parameters. Follow the MLflow 3.0 version of the following step to experience these new features.
+:::
+
 The steps that we will take are:
 
 - Initiate an MLflow **run** context to start a new run that we will log the model and metadata to.
@@ -156,36 +163,76 @@ created, which will necessitate manual cleanup of the invalid run. It is best to
 to ensure that the loggable content (parameters, metrics, artifacts, and the model) are fully materialized prior to logging.
 :::
 
-```python
-# Set our tracking server uri for logging
-mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
+<Tabs>
+  <TabItem default label="MLflow 2.XX" value="mlflow-2xx">
+    ```python
+    # Set our tracking server uri for logging
+    mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
 
-# Create a new MLflow Experiment
-mlflow.set_experiment("MLflow Quickstart")
+    # Create a new MLflow Experiment
+    mlflow.set_experiment("MLflow Quickstart")
 
-# Start an MLflow run
-with mlflow.start_run():
-    # Log the hyperparameters
-    mlflow.log_params(params)
+    # Start an MLflow run
+    with mlflow.start_run():
+        # Log the hyperparameters
+        mlflow.log_params(params)
 
-    # Log the loss metric
-    mlflow.log_metric("accuracy", accuracy)
+        # Log the loss metric
+        mlflow.log_metric("accuracy", accuracy)
 
-    # Set a tag that we can use to remind ourselves what this run was for
-    mlflow.set_tag("Training Info", "Basic LR model for iris data")
+        # Set a tag that we can use to remind ourselves what this run was for
+        mlflow.set_tag("Training Info", "Basic LR model for iris data")
 
-    # Infer the model signature
-    signature = infer_signature(X_train, lr.predict(X_train))
+        # Infer the model signature
+        signature = infer_signature(X_train, lr.predict(X_train))
 
-    # Log the model
-    model_info = mlflow.sklearn.log_model(
-        sk_model=lr,
-        name="iris_model",
-        signature=signature,
-        input_example=X_train,
-        registered_model_name="tracking-quickstart",
-    )
-```
+        # Log the model
+        model_info = mlflow.sklearn.log_model(
+            sk_model=lr,
+            name="iris_model",
+            signature=signature,
+            input_example=X_train,
+            registered_model_name="tracking-quickstart",
+        )
+    ```
+  </TabItem>
+  <TabItem default label="MLflow 3.0" value="mlflow-30">
+    ```python
+    # Set our tracking server uri for logging
+    mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
+
+    # Create a new MLflow Experiment
+    mlflow.set_experiment("MLflow Quickstart")
+
+    # Start an MLflow run
+    with mlflow.start_run():
+        # Infer the model signature
+        signature = infer_signature(X_train, lr.predict(X_train))
+
+        # Log the model with hyperparameters
+        model_info = mlflow.sklearn.log_model(
+            sk_model=lr,
+            name="iris_model",
+            signature=signature,
+            input_example=X_train,
+            params=params,
+            registered_model_name="tracking-quickstart",
+        )
+
+        # Log the hyperparameters to the run as well
+        mlflow.log_params(params)
+
+        # Log the loss metric, specify model_id so that it's attached to the model as well
+        mlflow.log_metric("accuracy", accuracy, model_id=model_info.model_id)
+
+        # Set tags that we can use to remind ourselves what this run/model was for
+        mlflow.set_tag("Training Info", "Basic LR model for iris data")
+        mlflow.set_logged_model_tags(
+            model_info.model_id, {"Training Info": "Basic LR model for iris data"}
+        )
+    ```
+  </TabItem>
+</Tabs>
 
 ## Step 5 - Load the model as a Python Function (pyfunc) and use it for inference
 
@@ -284,6 +331,22 @@ been highlighted below to show how and where this data is recorded within the UI
 <figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
   ![MLflow UI Run view page](/images/tutorials/introductory/quickstart-tracking/quickstart-our-run.png)
   <figcaption>The run view page for our run</figcaption>
+</figure>
+
+## Step 7 - View the Logged Model in the MLflow UI ([MLflow 3.0](/mlflow-3) only)
+
+Switch to the Models tab in the experiments page to view all the logged models under the Experiment, where you can see an entry for the logged model we just created ("iris_model").
+
+<figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
+  ![MLflow UI Experiment view page models tab](/images/tutorials/introductory/quickstart-tracking/quickstart-our-experiment-models-tab.png)
+  <figcaption>The models tab of the MLflow Tracking page, showing a list of all models created</figcaption>
+</figure>
+
+Clicking on the name of the model will take you to the Logged Model page, with details on the logged model and its metadata.
+
+<figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
+  ![MLflow UI Model view page](/images/tutorials/introductory/quickstart-tracking/quickstart-our-model.png)
+  <figcaption>The model view page for our logged model</figcaption>
 </figure>
 
 ## Conclusion

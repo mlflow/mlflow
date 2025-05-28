@@ -6,6 +6,7 @@ sidebar_label: Overview
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { CardGroup, LogoCard } from "@site/src/components/Card";
+import { APILink } from "@site/src/components/APILink";
 
 # Deep Learning
 
@@ -37,6 +38,7 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
 
 - **Experiments and Runs**: Organize your deep learning projects into experiments, with each experiment containing multiple runs.
   Each run captures essential data like metrics at various training steps, hyperparameters, and the code state.
+- **Models**: In [MLflow 3.0](/mlflow-3), each deep learning checkpoint is stored as a distinct <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> entity capturing its own metrics and parameters, allowing for easy comparison across model checkpoints. For a code example, see [Deep Learning with MLflow 3.0](/mlflow-3/deep-learning).
 - **Artifacts**: Store vital outputs such as deep learning models, visualizations, or even tensorboard logs. This artifact
   repository ensures traceability and easy access.
 - **Metrics at Steps**: With deep learning's iterative nature, MLflow allows logging metrics at various training steps,
@@ -102,6 +104,16 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
 
     <div  style={{ width: "90%" }}>
       ![](/images/deep-learning/dl-tracking.gif)
+    </div>
+
+  </TabItem>
+  <TabItem label="Model Comparison" value="model-comparison">
+    #### Model Comparison ([MLflow 3.0](/mlflow-3) only)
+
+    Track your all your DL checkpoints across epochs using the MLflow UI. Compare performance and quickly find the best checkpoints based on any metrics.
+
+    <div  style={{ width: "90%" }}>
+      ![](/images/deep-learning/dl-model-comparison.gif)
     </div>
 
   </TabItem>
