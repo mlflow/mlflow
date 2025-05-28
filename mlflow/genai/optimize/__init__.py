@@ -1,6 +1,6 @@
 from mlflow.genai.optimize.base import optimize_prompt
 from mlflow.genai.optimize.types import (
-    LLMParam,
+    LLMParams,
     OptimizerConfig,
     PromptOptimizationResult,
 )
@@ -8,6 +8,6 @@ from mlflow.genai.optimize.types import (
 __all__ = [
     "optimize_prompt",
     "OptimizerConfig",
-    "LLMParam",
+    "LLMParams",
     "PromptOptimizationResult",
 ]

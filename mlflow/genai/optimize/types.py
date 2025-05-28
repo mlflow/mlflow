@@ -2,11 +2,11 @@ import multiprocessing
 from dataclasses import dataclass
 from typing import Callable, Optional, Union
 
-from mlflow.entities import Assessment
+from mlflow.entities import Feedback
 from mlflow.entities.model_registry import Prompt
 from mlflow.utils.annotations import experimental
 
-OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Assessment]]], float]
+OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Feedback, list[Feedback]]]], float]
 
 
 @experimental
@@ -17,7 +17,7 @@ class PromptOptimizationResult:
 
 @experimental
 @dataclass
-class LLMParam:
+class LLMParams:
     model_name: str  # <provider>/<model name>
     base_uri: Optional[str] = None
     temperature: Optional[float] = None
@@ -28,6 +28,6 @@ class LLMParam:
 class OptimizerConfig:
     num_instruction_candidates: int = 8
     max_few_show_examples: int = 3
-    num_threads: int = (multiprocessing.cpu_count() * 2) + 1
-    optimizer_llm: Optional[LLMParam] = None
+    num_threads: int = ((multiprocessing.cpu_count() or 1) * 2) + 1
+    optimizer_llm: Optional[LLMParams] = None
     algorithm: str = "DSPy/MIPROv2"

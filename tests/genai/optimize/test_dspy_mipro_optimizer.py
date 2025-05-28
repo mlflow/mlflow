@@ -8,8 +8,8 @@ from mlflow.exceptions import MlflowException
 pytest.importorskip("dspy", minversion="2.6.0")
 
 from mlflow.entities.model_registry import Prompt
-from mlflow.genai.optimize.optimizer import _DSPyMIPROv2Optimizer
-from mlflow.genai.optimize.types import LLMParam, OptimizerConfig
+from mlflow.genai.optimize.optimizers import _DSPyMIPROv2Optimizer
+from mlflow.genai.optimize.types import LLMParams, OptimizerConfig
 from mlflow.genai.scorers import scorer
 
 
@@ -102,7 +102,7 @@ def test_format_optimized_prompt():
 def test_optimize_with_teacher_llm(mock_mipro, sample_data, sample_prompt):
     import dspy
 
-    teacher_llm = LLMParam(model_name="test/model")
+    teacher_llm = LLMParams(model_name="test/model")
     optimizer_config = OptimizerConfig(
         num_instruction_candidates=4,
         max_few_show_examples=2,
@@ -117,7 +117,7 @@ def test_optimize_with_teacher_llm(mock_mipro, sample_data, sample_prompt):
 
     result = optimizer.optimize(
         prompt=sample_prompt,
-        agent_lm=LLMParam(model_name="agent/model"),
+        target_llm_params=LLMParams(model_name="agent/model"),
         train_data=sample_data,
         scorers=[sample_scorer],
         eval_data=None,
@@ -140,7 +140,7 @@ def test_optimize_without_teacher_llm(mock_mipro, sample_data, sample_prompt):
 
     result = optimizer.optimize(
         prompt=sample_prompt,
-        agent_lm=LLMParam(model_name="agent/model"),
+        target_llm_params=LLMParams(model_name="agent/model"),
         train_data=sample_data,
         scorers=[sample_scorer],
         eval_data=None,
@@ -164,7 +164,7 @@ def test_optimize_with_eval_data(mock_mipro, sample_data, sample_prompt):
 
     optimizer.optimize(
         prompt=sample_prompt,
-        agent_lm=LLMParam(model_name="agent/model"),
+        target_llm_params=LLMParams(model_name="agent/model"),
         train_data=sample_data,
         scorers=[sample_scorer],
         eval_data=eval_data,
@@ -215,8 +215,8 @@ def test_convert_to_dspy_metric_raises_on_non_numeric_score():
     )
 
     with pytest.raises(
-        ValueError,
-        match="Non numerical score value found.",
+        MlflowException,
+        match=r"Scorer \[non_numeric_scorer\] return a string, Assessment or a list of Assessment.",
     ):
         metric(
             dspy.Example(input_text="Hello", language="Spanish"),
@@ -227,5 +227,5 @@ def test_convert_to_dspy_metric_raises_on_non_numeric_score():
 
 def test_optimize_prompt_with_old_dspy_version():
     with patch("importlib.metadata.version", return_value="2.5.0"):
-        with pytest.raises(MlflowException, match="dspy version is too old"):
+        with pytest.raises(MlflowException, match="Current dspy version 2.5.0 is too old"):
             _DSPyMIPROv2Optimizer(OptimizerConfig())

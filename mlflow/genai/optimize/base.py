@@ -6,10 +6,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import (
     _convert_to_legacy_eval_set,
 )
-from mlflow.genai.optimize.optimizer import _BaseOptimizer, _DSPyMIPROv2Optimizer
+from mlflow.genai.optimize.optimizers import _BaseOptimizer, _DSPyMIPROv2Optimizer
 from mlflow.genai.optimize.types import (
     OBJECTIVE_FN,
-    LLMParam,
+    LLMParams,
     OptimizerConfig,
     PromptOptimizationResult,
 )
@@ -26,21 +26,22 @@ _ALGORITHMS = {"DSPy/MIPROv2": _DSPyMIPROv2Optimizer}
 @experimental
 def optimize_prompt(
     *,
-    agent_llm: LLMParam,
-    prompt: str,
+    target_llm_params: LLMParams,
+    prompt_uri: str,
     train_data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
     objective: Optional[OBJECTIVE_FN] = None,
     eval_data: Optional["EvaluationDatasetTypes"] = None,
     optimizer_config: Optional[OptimizerConfig] = None,
 ) -> PromptOptimizationResult:
-    """Optimize a LLM prompt using the given dataset and evaluation metrics.
+    """
+    Optimize a LLM prompt using the given dataset and evaluation metrics.
     Currently, only supports MIPROv2 optimizer of DSPy.
 
     Args:
-        agent_llm: Parameters for the agent LLM. The model name must be specified in the format
-            `<provider>/<model>`.
-        prompt: The URI of the MLflow prompt to optimize. This will be used as the initial
+        target_llm_params: Parameters for the agent LLM. The model name must be specified
+            in the format `<provider>/<model>`.
+        prompt_uri: The URI of the MLflow prompt to optimize. This will be used as the initial
             instructions for the signature.
         train_data: Training dataset used for optimization.
             The data must be one of the following formats:
@@ -52,7 +53,8 @@ def optimize_prompt(
 
             The dataset must include the following columns:
 
-            - inputs (required): A column containing single inputs in dict format
+            - inputs (required): A column containing single inputs in dict format.
+              Each input should contain keys in the prompt template.
             - expectations (optional): A column containing a dictionary
               of ground truths for individual output fields
 
@@ -62,9 +64,9 @@ def optimize_prompt(
             when using scorers with string or Assessment type outputs.
         objective: A callable that computes the overall performance metric from individual
             assessments. Takes a dict mapping assessment names to lists of assessments and
-            returns a float value (higher is better).
+            returns a float value (greater is better).
         eval_data: Evaluation dataset with the same format as train_data. If not provided,
-            train_data will be automatically split.
+            train_data will be automatically split into training and evaluation sets.
         optimizer_config: Configuration parameters for the optimizer.
 
     Returns:
@@ -92,7 +94,7 @@ def optimize_prompt(
             )
 
             result = mlflow.genai.optimize_prompt(
-                agent_llm=LLMParam(model_name="openai/gpt-4.1-nano"),
+                target_llm_params=LLMParams(model_name="openai/gpt-4.1-nano"),
                 train_data=[
                     {"inputs": {"question": f"{i}+1"}, "expectations": {"answer": f"{i + 1}"}}
                     for i in range(100)
@@ -113,11 +115,11 @@ def optimize_prompt(
     if eval_data is not None:
         eval_data = _convert_to_legacy_eval_set(eval_data)
 
-    prompt: Prompt = load_prompt(prompt)
+    prompt_uri: Prompt = load_prompt(prompt_uri)
 
     optimized_prompt_template = optimzer.optimize(
-        prompt=prompt,
-        agent_lm=agent_llm,
+        prompt=prompt_uri,
+        target_llm_params=target_llm_params,
         train_data=train_data,
         scorers=scorers,
         objective=objective,
@@ -125,7 +127,7 @@ def optimize_prompt(
     )
 
     optimized_prompt = register_prompt(
-        name=prompt.name,
+        name=prompt_uri.name,
         template=optimized_prompt_template,
     )
 
