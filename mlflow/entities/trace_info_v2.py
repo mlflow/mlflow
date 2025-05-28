@@ -133,6 +133,12 @@ class TraceInfoV2(_MlflowObject):
         return cls(**trace_info_dict)
 
     def to_v3(self, request: Optional[str] = None, response: Optional[str] = None) -> TraceInfo:
+        from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
+
+        # Update trace metadata to use current schema version
+        trace_metadata = self.request_metadata.copy()
+        trace_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
+
         return TraceInfo(
             trace_id=self.request_id,
             trace_location=TraceLocation.from_experiment_id(self.experiment_id),
@@ -141,7 +147,7 @@ class TraceInfoV2(_MlflowObject):
             request_time=self.timestamp_ms,
             execution_duration=self.execution_time_ms,
             state=self.status.to_state(),
-            trace_metadata=self.request_metadata,
+            trace_metadata=trace_metadata,
             tags=self.tags,
             assessments=self.assessments,
         )
