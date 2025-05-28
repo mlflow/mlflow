@@ -70,7 +70,7 @@ class Assessment(_MlflowObject):
     feedback: Optional[FeedbackValue] = None
     # The ID of the assessment which this assessment overrides.
     overrides: Optional[str] = None
-    # Whether this assessment is valid (i.e. has not been superseded).
+    # Whether this assessment is valid (i.e. has not been overridden).
     # This should not be set by the user, it is automatically set by the backend.
     valid: Optional[bool] = None
 
@@ -130,8 +130,8 @@ class Assessment(_MlflowObject):
 
         if self.metadata:
             assessment.metadata.update(self.metadata)
-        if self.supersedes:
-            assessment.supersedes = self.supersedes
+        if self.overrides:
+            assessment.overrides = self.overrides
         if self.valid is not None:
             assessment.valid = self.valid
 
