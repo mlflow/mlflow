@@ -1,5 +1,5 @@
 import inspect
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 from mlflow.entities.model_registry import Prompt
 from mlflow.exceptions import MlflowException
@@ -27,7 +27,7 @@ _ALGORITHMS = {"DSPy/MIPROv2": _DSPyMIPROv2Optimizer}
 def optimize_prompt(
     *,
     target_llm_params: LLMParams,
-    prompt_uri: str,
+    prompt: Union[str, Prompt],
     train_data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
     objective: Optional[OBJECTIVE_FN] = None,
@@ -41,8 +41,8 @@ def optimize_prompt(
     Args:
         target_llm_params: Parameters for the the LLM that prompt is optimized for.
             The model name must be specified in the format `<provider>/<model>`.
-        prompt_uri: The URI of the MLflow prompt to optimize. The optimized prompt
-            is registered as a new version of the prompt with the same name.
+        prompt: The URI or Prompt object of the MLflow prompt to optimize.
+            The optimized prompt is registered as a new version of the prompt.
         train_data: Training dataset used for optimization.
             The data must be one of the following formats:
 
@@ -101,7 +101,7 @@ def optimize_prompt(
                     for i in range(100)
                 ],
                 scorers=[exact_match],
-                prompt_uri=prompt.uri,
+                prompt=prompt.uri,
                 optimizer_config=OptimizerConfig(num_instruction_candidates=5),
             )
 
@@ -116,10 +116,11 @@ def optimize_prompt(
     if eval_data is not None:
         eval_data = _convert_eval_set_to_df(eval_data)
 
-    prompt_uri: Prompt = load_prompt(prompt_uri)
+    if isinstance(prompt, str):
+        prompt: Prompt = load_prompt(prompt)
 
     optimized_prompt_template = optimzer.optimize(
-        prompt=prompt_uri,
+        prompt=prompt,
         target_llm_params=target_llm_params,
         train_data=train_data,
         scorers=scorers,
@@ -128,7 +129,9 @@ def optimize_prompt(
     )
 
     optimized_prompt = register_prompt(
-        name=prompt_uri.name,
+        name=prompt.name,
+        # TODO: we should revisit the optimized template format
+        # once multi-turn messages are supported.
         template=optimized_prompt_template,
     )
 
