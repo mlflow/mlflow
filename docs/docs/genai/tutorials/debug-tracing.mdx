@@ -1,0 +1,451 @@
+# Tutorial: Prototype and Debug AI Agents with MLflow Tracing
+
+This is the first part of a tutorial series on developing and iterating on AI agents using MLflow.
+
+There are several unique challenges associated with AI agents and agent systems:
+
+- Different combinations of models, prompts, tools, and inference parameters can have huge impacts on an agent's performance. Keeping track of tests and experiments comparing performance across different combinations of these elements is challenging.
+- It can be difficult to define what makes an agent's responses "good" or "bad," making it challenging to evaluate agent performance.
+- Identifying sources of errors or breakdowns in application logic is very difficult when dealing with complex agent systems that include a mix of AI models calls,  tool calls, handoffs, human input, and other complex interactions.
+
+MLflow helps to solve these problems by providing a suite of tools for tracing and visualizing all of your AI agent calls, evaluating your models and applications, building application logic into custom models, tracking and versioning your models, and deploying your models to production.
+
+## Use Case: Building a Food Delivery Support Chat Agent
+
+In this tutorial, we will be building a food delivery support chat agent that can help customers with their orders. We will build tools enabling the agent to search for the status of an order, to cancel an order, and to escalate the order to a human agent. This is a simple but highly representative use case for an AI agent: it handles human input, retrieves data, and takes actions on behalf of users.
+
+It's also a use case where mistakes can be costly and can lead to customer churn, so iterating on the agent's quality is critical. It should be friendly and polite when interacting with customers; the information it provides must be accurate; and escalations should be handled gracefully. This is where MLflow comes in: it will help us iterate on the agent's quality during prototyping with MLflow tracing, define our evaluation criteria with MLflow scorers, and compare different agent configurations with MLflow evaluation.
+
+### Simplifying Assumptions
+
+The goal of this tutorial is to show you how to use MLflow to prototype, debug, evaluate, and iterate on your AI agents; *not* to build a complete production-ready system. To that end, we will make a number of simplifications for the sake of brevity and clarity:
+
+- We will only consider single-turn interactions between the agent and the user.
+- Unlike in a real-world application, chats will not be scoped to a single authenticated user.
+- Tool calls that are intended to take an action on behalf of the user, such as canceling an order, will only trigger simulated API calls and responses.
+- We will use a static dataset of order statuses. In a real-world application, your agent would likely retrieve ordert statuses from a database or API.
+
+## Setup
+
+Before we build our agent, let's install the dependencies we'll need and prepare our dataset of order statuses.
+{/* What messaging are we going with here? */}
+:::info[Managed MLflow]
+
+For the best experience with all the features in this tutorial, we recommend using managed MLflow in Databricks. You can sign up for free [here](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS). Not all of the features in this tutorial are currently available in the open-source version of MLflow.
+
+:::
+
+### Install Dependencies
+
+{/* Any notes about MLflow3/upgrading/migrating, or are we assuming users will be following along after the stable release?  */}
+For this tutorial, we will need to install the latest version of MLflow (we will be using some features only available in MLflow 3). We will be defining our agent using LlamaIndex, so we will also need to install the LlamaIndex and LlamaIndex-LLMs-OpenAI packages. The [databricks-agents](https://pypi.org/project/databricks-agents/) SDK is used by managed MLflow on Databricks for some evaluation-related functionality.
+
+```bash
+%pip install openai python-dotenv llama-index llama-index-llms-openai databricks-agents pandas
+%pip install mlflow --upgrade --pre -q
+%restart_python
+```
+
+### Prepare the Data
+
+Next, we will load a dataset of order statuses for our delivery service. For demonstration purposes, we will use a static dataset of order statuses. In a real-world application, your agent would likely retrieve order statuses from a database or API.
+
+Each order has a unique ID, a customer name, a brand, a list of items, an order total, a timestamp for when the order was placed, a timestamp for when the order was estimated to be delivered, a current status, a driver location, and a timestamp for when the order was last updated.
+
+<details>
+<summary>Show full code for loading the order statuses (click to expand)</summary>
+
+```python
+orders_data = [
+    {
+        "order_id": "ORD-001",
+        "customer_name": "Sarah Chen",
+        "brand": "McDoodles",
+        "items": ["Big Stack", "Famous Frites"],
+        "order_total": 11.18,
+        "placed_at": "2025-05-21T09:00:00Z",
+        "estimated_delivery": "2025-05-21T09:30:00Z",
+        "current_status": "Out for Delivery",
+        "driver_location": "0.3 miles away",
+        "last_updated": "2025-05-21T09:22:00Z",
+    },
+    {
+        "order_id": "ORD-002",
+        "customer_name": "Mike Johnson",
+        "brand": "ChipoLot",
+        "items": ["Chicken Burrito", "Chips & Guac"],
+        "order_total": 14.43,
+        "placed_at": "2025-05-21T09:10:00Z",
+        "estimated_delivery": "2025-05-21T09:45:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:15:00Z",
+    },
+    {
+        "order_id": "ORD-003",
+        "customer_name": "Lisa Park",
+        "brand": "Pando Dash",
+        "items": ["Orange Chickadee", "Fried Rice"],
+        "order_total": 10.39,
+        "placed_at": "2025-05-21T08:45:00Z",
+        "estimated_delivery": "2025-05-21T09:20:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:18:00Z",
+    },
+    {
+        "order_id": "ORD-004",
+        "customer_name": "David Kim",
+        "brand": "Yo! Sushii",
+        "items": ["California Roll", "Spicy Tuna Roll", "Miso Soup"],
+        "order_total": 22.68,
+        "placed_at": "2025-05-21T08:30:00Z",
+        "estimated_delivery": "2025-05-21T09:15:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:12:00Z",
+    },
+    {
+        "order_id": "ORD-005",
+        "customer_name": "Emma Wilson",
+        "brand": "GreenSprout",
+        "items": ["Harvest Bowl"],
+        "order_total": 10.18,
+        "placed_at": "2025-05-21T09:15:00Z",
+        "estimated_delivery": "2025-05-21T09:50:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:20:00Z",
+    },
+    {
+        "order_id": "ORD-006",
+        "customer_name": "Carlos Rodriguez",
+        "brand": "Taco Ring",
+        "items": ["Doritos Locos Taco x2", "Baja Blast"],
+        "order_total": 20.68,
+        "placed_at": "2025-05-21T09:05:00Z",
+        "estimated_delivery": "2025-05-21T09:40:00Z",
+        "current_status": "Out for Delivery",
+        "driver_location": "0.8 miles away",
+        "last_updated": "2025-05-21T09:28:00Z",
+    },
+    {
+        "order_id": "ORD-007",
+        "customer_name": "Jennifer Lee",
+        "brand": "Shack Stack",
+        "items": ["ShackBurger Double", "Vanilla Shake"],
+        "order_total": 13.62,
+        "placed_at": "2025-05-21T08:50:00Z",
+        "estimated_delivery": "2025-05-21T09:25:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:23:00Z",
+    },
+    {
+        "order_id": "ORD-008",
+        "customer_name": "Robert Taylor",
+        "brand": "Jinya Noodle Bar",
+        "items": ["Tonkotsu Ramen", "Pork Gyoza"],
+        "order_total": 22.43,
+        "placed_at": "2025-05-21T09:20:00Z",
+        "estimated_delivery": "2025-05-21T09:55:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:25:00Z",
+    },
+    {
+        "order_id": "ORD-009",
+        "customer_name": "Ashley Davis",
+        "brand": "Starbrews",
+        "items": ["Caramel Frappuccino", "Plain Bagel"],
+        "order_total": 11.01,
+        "placed_at": "2025-05-21T09:25:00Z",
+        "estimated_delivery": "2025-05-21T10:00:00Z",
+        "current_status": "Order Received",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:25:00Z",
+    },
+    {
+        "order_id": "ORD-010",
+        "customer_name": "Kevin Zhang",
+        "brand": "Five Gals",
+        "items": ["Bacon Cheeseburger", "Cajun Fries"],
+        "order_total": 9.21,
+        "placed_at": "2025-05-21T08:40:00Z",
+        "estimated_delivery": "2025-05-21T09:20:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:38:00Z",
+    },
+    {
+        "order_id": "ORD-011",
+        "customer_name": "Maria Gonzalez",
+        "brand": "Pho House",
+        "items": ["Pho Combo", "Vietnamese Iced Coffee"],
+        "order_total": 16.13,
+        "placed_at": "2025-05-21T09:12:00Z",
+        "estimated_delivery": "2025-05-21T09:47:00Z",
+        "current_status": "Out for Delivery",
+        "driver_location": "0.5 miles away",
+        "last_updated": "2025-05-21T09:30:00Z",
+    },
+    {
+        "order_id": "ORD-012",
+        "customer_name": "James Brown",
+        "brand": "Dominni Pizza",
+        "items": ["MeatZZa Pizza", "Coke"],
+        "order_total": 16.57,
+        "placed_at": "2025-05-21T09:18:00Z",
+        "estimated_delivery": "2025-05-21T09:53:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:23:00Z",
+    },
+    {
+        "order_id": "ORD-013",
+        "customer_name": "Amanda Clark",
+        "brand": "PokeCraft",
+        "items": ["Spicy Ahi Bowl"],
+        "order_total": 10.68,
+        "placed_at": "2025-05-21T09:22:00Z",
+        "estimated_delivery": "2025-05-21T09:57:00Z",
+        "current_status": "Order Received",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:22:00Z",
+    },
+    {
+        "order_id": "ORD-014",
+        "customer_name": "Ryan O'Connor",
+        "brand": "Kava Kitchen",
+        "items": ["Falafel Crunch Bowl", "Hot Harissa Chips"],
+        "order_total": 14.10,
+        "placed_at": "2025-05-21T08:55:00Z",
+        "estimated_delivery": "2025-05-21T09:30:00Z",
+        "current_status": "Out for Delivery",
+        "driver_location": "1.2 miles away",
+        "last_updated": "2025-05-21T09:38:00Z",
+    },
+    {
+        "order_id": "ORD-015",
+        "customer_name": "Nicole Torres",
+        "brand": "MaruNoodle",
+        "items": ["Chicken Katsu Udon", "Sweet Potato Tempura"],
+        "order_total": 17.60,
+        "placed_at": "2025-05-21T09:08:00Z",
+        "estimated_delivery": "2025-05-21T09:43:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:18:00Z",
+    },
+    {
+        "order_id": "ORD-016",
+        "customer_name": "Steven Adams",
+        "brand": "ChipoLot",
+        "items": ["Steak Burrito", "Barbacoa Burrito"],
+        "order_total": 16.71,
+        "placed_at": "2025-05-21T09:13:00Z",
+        "estimated_delivery": "2025-05-21T09:48:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:18:00Z",
+    },
+    {
+        "order_id": "ORD-017",
+        "customer_name": "Rachel Martinez",
+        "brand": "McDoodles",
+        "items": ["McChicklet", "Apple Slice Bites", "Iced Brew"],
+        "order_total": 10.99,
+        "placed_at": "2025-05-21T09:26:00Z",
+        "estimated_delivery": "2025-05-21T10:01:00Z",
+        "current_status": "Order Received",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:26:00Z",
+    },
+    {
+        "order_id": "ORD-018",
+        "customer_name": "Alex Thompson",
+        "brand": "GreenSprout",
+        "items": ["Kale Caesar", "Hummus & Focaccia"],
+        "order_total": 12.21,
+        "placed_at": "2025-05-21T08:35:00Z",
+        "estimated_delivery": "2025-05-21T09:10:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:18:00Z",
+    },
+    {
+        "order_id": "ORD-019",
+        "customer_name": "Samantha Lopez",
+        "brand": "Yo! Sushii",
+        "items": ["Salmon Nigiri x2", "Tuna Sashimi"],
+        "order_total": 20.50,
+        "placed_at": "2025-05-21T09:17:00Z",
+        "estimated_delivery": "2025-05-21T09:52:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:22:00Z",
+    },
+    {
+        "order_id": "ORD-020",
+        "customer_name": "Marcus Johnson",
+        "brand": "Shack Stack",
+        "items": ["Chicken Shack", "Crinkle Fries", "Chocolate Shake"],
+        "order_total": 16.56,
+        "placed_at": "2025-05-21T08:25:00Z",
+        "estimated_delivery": "2025-05-21T09:00:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T08:58:00Z",
+    },
+]
+```
+
+</details>
+
+```python
+import pandas as pd
+
+orders_df = pd.DataFrame(orders_data)
+
+orders_df
+```
+
+Here are the first few rows of our order statuses table:
+
+|order_id|customer_name|brand|items|order_total|placed_at|estimated_delivery|current_status|driver_location|last_updated|
+|---|---|---|---|---|---|---|---|---|---|
+|ORD-001|Sarah Chen|McDoodles|["Big Stack","Famous Frites"]|11.18|2025-05-21T09:00:00Z|2025-05-21T09:30:00Z|Out for Delivery|0.3 miles away|2025-05-21T09:22:00Z|
+|ORD-002|Mike Johnson|ChipoLot|["Chicken Burrito","Chips & Guac"]|14.43|2025-05-21T09:10:00Z|2025-05-21T09:45:00Z|Being Prepared|null|2025-05-21T09:15:00Z|
+|ORD-003|Lisa Park|Pando Dash|["Orange Chickadee","Fried Rice"]|10.39|2025-05-21T08:45:00Z|2025-05-21T09:20:00Z|Delivered|null|2025-05-21T09:18:00Z|
+
+## Prototyping a simple order status agent
+
+Suppose, at this phase, we have a very general sense of what we want to build—an agent for a food delivery service that can help customers with their orders—but we have not yet decided on the specifics. In many cases, the first step is building a very simple agent, trying out different prompts and tools, and iterating in an unstructured and informal way on the agent's behavior.
+
+ At this phase, we are often working in a notebook environment, and are not particularly systematic about structuring our code or recording formal experiments. Still, we might stumble upon some interesting ideas we want to apply later in the project, so having some system for recording our tests is helpful. To that end, we can use MLflow's autologging and tracing features to record our experiments.
+
+ We will start by building a very simple agent that can answer questions about the status of an order.
+
+ ### Configure the OpenAI Client
+ 
+ First, we will configure the OpenAI client. Make sure to set your OpenAI API key, either as an environment variable or in a `.env` file. In this case, we saved our API key in a `.env` file with a single line: `OPENAI_API_KEY=sk-...`. We then load the API key from the `.env` file using the `dotenv` package, as shown below.
+
+ ```python
+ from openai import OpenAI
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+```
+
+### Define the Order Status Tool
+
+Next, we will define a simple tool that can retrieve the status of an order based on the order ID. Following OpenAI's [function calling documentation](https://platform.openai.com/docs/guides/function-calling), we will write a function that takes an order ID as input and returns the order status. We will also define a schema for the function, which tells the model what the function does and what arguments it takes.
+
+```python
+def get_order_by_id(order_id: str):
+    """
+    Retrieves a single order by its unique order ID.
+    Useful when a user asks for a specific order by its ID.
+    """
+    result = orders_df[orders_df['order_id'] == order_id]
+    if not result.empty:
+        return result.iloc[0].to_dict()
+    return None
+
+get_order_by_id_schema = schema = {
+    "type": "function",
+    "function": {
+        "name": "get_order_by_id",
+        "description": "Retrieves a single order by its unique order ID. Useful when a user asks for a specific order by its ID.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "order_id": {
+                    "type": "string",
+                    "description": "The unique identifier for the order"
+                }
+            },
+            "required": ["order_id"]
+        }
+    }
+}
+```
+
+### Manually Define a Simple Tool Calling Agent
+
+With most LLM providers, tool calling works as follows:
+
+1. The user asks a question that requires the use of a tool.
+2. The model's response includes a `tool_calls` field that includes the name of the function to call and the arguments to pass to the function.
+3. The application—*not* the model itself—calls the function with the arguments and, optionally, passes the result back to the model as a new message with the `role` set to `tool`.
+
+In the code sample below, we define a simple function that implements this process. It takes a single query from the user, calls the model, and then calls the function with the arguments. It then appends the result of the function call to the message history and calls the model again with the updated message history, enabling the model to provide a final response that includes the result of the function call.
+
+```python
+import json
+
+user_query = [{"role": "user", "content": "Hello tell me about order ORD-018"}]
+tools = [get_order_by_id_schema]
+
+def request_order_status(client, messages, tools):
+    message_history = messages.copy()
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=message_history,
+        tools=tools
+    )
+
+    tool_call = completion.choices[0].message.tool_calls[0]
+    args = json.loads(tool_call.function.arguments)
+
+    order_info = get_order_by_id(args["order_id"])
+
+    message_history.append(completion.choices[0].message)
+    message_history.append({                               
+        "role": "tool",
+        "tool_call_id": tool_call.id,
+        "content": str(order_info)
+    })
+
+    final_completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=message_history,
+        tools=tools,
+    )
+
+    return final_completion
+
+print(request_order_status(client, user_query, tools).choices[0].message.content)
+```
+
+Which returns:
+
+> Order **ORD-018** details are as follows:
+> 
+> - **Customer Name**: Alex Thompson
+> - **Brand**: GreenSprout
+> - **Items Ordered**:
+>   - Kale Caesar
+>   - Hummus & Focaccia
+> - **Order Total**: $12.21
+> - **Placed At**: May 21, 2025, 08:35 AM (UTC)
+> - **Estimated Delivery**: May 21, 2025, 09:10 AM (UTC)
+> - **Current Status**: Delivered
+> - **Last Updated**: May 21, 2025, 09:18 AM (UTC) 
+> 
+> If you have any more questions or need further information, feel free to ask.
+
+Even in this simple example, we begin to see the complexity of building an agent. We need to manage the message history, invoke the AI model API multiple times, call on the tool based on the model's response, and manage the flow of control between the model and the tool. Furthermore, this isn't even close to the kind of response would want to provide to the user. We will ultimately want it to respond in a friendly and personal tone. At present, we do not have an obvious way to identify any points of failure or opportunities for improvement.
+
+This is where MLflow tracing comes in.
+
+## MLflow Tracing: Observability with One Line of Code
+
+### Manual Tracing: Add Tracing to our Agent's Tool
+
+### Using Tracing to Debug Errors
+
+## Using and Tracing an Agent Framework
