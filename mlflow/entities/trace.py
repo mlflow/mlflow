@@ -269,9 +269,7 @@ class Trace(_MlflowObject):
             A list of assessments with the given name.
         """
 
-        def validate_type(
-            assessment: Assessment, type: Optional[Literal["expectation", "feedback"]]
-        ) -> bool:
+        def validate_type(assessment: Assessment) -> bool:
             from mlflow.entities.assessment import Expectation, Feedback
 
             if type == "expectation":
@@ -288,7 +286,7 @@ class Trace(_MlflowObject):
             and (span_id is None or assessment.span_id == span_id)
             # valid defaults to true, so Nones are valid
             and (all or assessment.valid in (True, None))
-            and (type is None or validate_type(assessment, type))
+            and (type is None or validate_type(assessment))
         ]
 
     @staticmethod
