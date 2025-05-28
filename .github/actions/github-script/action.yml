@@ -12,11 +12,18 @@ inputs:
     description: "Encoding of the result (either json or string)"
     required: false
 
+outputs:
+  result:
+    description: "The result returned by the script."
+
 runs:
   using: "composite"
   steps:
     - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+      id: script
       with:
         script: ${{ inputs.script }}
         github-token: ${{ inputs.github-token }}
         result-encoding: ${{ inputs.result-encoding }}
+    - run: echo "result=${{ steps.script.outputs.result }}" >> $GITHUB_OUTPUT
+      shell: bash
