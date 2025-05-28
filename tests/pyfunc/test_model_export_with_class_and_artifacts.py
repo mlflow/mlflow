@@ -2545,7 +2545,7 @@ def test_pyfunc_model_traces_link_to_model_id():
         assert traces[i].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_infos[i].model_id
 
 
-class Model(mlflow.pyfunc.PythonModel):
+class ExampleModel(mlflow.pyfunc.PythonModel):
     def predict(self, model_input: list[str]) -> list[str]:
         return model_input
 
@@ -2553,7 +2553,7 @@ class Model(mlflow.pyfunc.PythonModel):
 def test_lock_model_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
 
-    model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
+    model_info = mlflow.pyfunc.log_model(name="model", python_model=ExampleModel())
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
     assert "# Locked requirements" in requirements_txt.read_text()
@@ -2590,7 +2590,7 @@ def test_lock_model_requirements_requirements(monkeypatch: pytest.MonkeyPatch, t
     monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
     model_info = mlflow.pyfunc.log_model(
         name="model",
-        python_model=Model(),
+        python_model=ExampleModel(),
         pip_requirements=["openai"],
     )
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
@@ -2606,7 +2606,7 @@ def test_lock_model_requirements_extra_pip_requirements(
     monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
     model_info = mlflow.pyfunc.log_model(
         name="model",
-        python_model=Model(),
+        python_model=ExampleModel(),
         extra_pip_requirements=["openai"],
     )
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
