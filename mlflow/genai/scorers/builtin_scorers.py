@@ -454,16 +454,15 @@ class GuidelineAdherence(_BaseBuiltInScorer):
         from databricks.agents.evals import judges
 
         request = parse_inputs_to_str(inputs)
-        response = outputs
         guidelines = (expectations or {}).get("guidelines", self.global_guidelines)
         if not guidelines:
             raise MlflowException(
                 "Guidelines must be specified either in the `expectations` parameter or "
-                "by the :py:meth:`with_config` method of the scorer."
+                "by the `with_config` method of the scorer."
             )
 
         return judges.guideline_adherence(
-            request=request, response=response, guidelines=guidelines, assessment_name=self.name
+            request=request, response=outputs, guidelines=guidelines, assessment_name=self.name
         )
 
     def with_config(
@@ -557,9 +556,8 @@ class RelevanceToQuery(_BaseBuiltInScorer):
         from databricks.agents.evals import judges
 
         request = parse_inputs_to_str(inputs)
-        response = outputs
         return judges.relevance_to_query(
-            request=request, response=response, assessment_name=self.name
+            request=request, response=outputs, assessment_name=self.name
         )
 
     def with_config(self, *, name: str = "relevance_to_query") -> "RelevanceToQuery":
@@ -630,8 +628,7 @@ class Safety(_BaseBuiltInScorer):
         from databricks.agents.evals import judges
 
         request = parse_inputs_to_str(inputs)
-        response = outputs
-        return judges.safety(request=request, response=response, assessment_name=self.name)
+        return judges.safety(request=request, response=outputs, assessment_name=self.name)
 
     def with_config(self, *, name: str = "safety") -> "Safety":
         """
@@ -737,7 +734,6 @@ class Correctness(_BaseBuiltInScorer):
         from databricks.agents.evals import judges
 
         request = parse_inputs_to_str(inputs)
-        response = outputs
         expected_facts = expectations.get("expected_facts")
         expected_response = expectations.get("expected_response")
 
@@ -749,7 +745,7 @@ class Correctness(_BaseBuiltInScorer):
 
         return judges.correctness(
             request=request,
-            response=response,
+            response=outputs,
             expected_response=expected_response,
             expected_facts=expected_facts,
             assessment_name=self.name,

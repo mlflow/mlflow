@@ -99,7 +99,7 @@ def valid_data_for_builtin_scorers(
         # Inputs and outputs are inferred from the trace.
         input_columns |= {"inputs", "outputs"}
 
-    if predict_fn is not None or "trace" in input_columns:
+    if predict_fn is not None:
         input_columns |= {"trace"}
 
     # Explode keys in the "expectations" column for easier processing.
