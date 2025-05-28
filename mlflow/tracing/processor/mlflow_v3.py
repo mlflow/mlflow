@@ -7,7 +7,11 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
+from mlflow.tracing.processor.base_mlflow import (
+    BaseMlflowSpanProcessor,
+    get_basic_trace_metadata,
+    get_basic_trace_tags,
+)
 from mlflow.tracing.utils import generate_trace_id_v3
 
 
@@ -40,8 +44,8 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
             request_time=root_span.start_time // 1_000_000,  # nanosecond to millisecond
             execution_duration=None,
             state=TraceState.IN_PROGRESS,
-            trace_metadata=self._get_basic_trace_metadata(),
-            tags=self._get_basic_trace_tags(root_span),
+            trace_metadata={**self._env_metadata, **get_basic_trace_metadata()},
+            tags=get_basic_trace_tags(root_span),
         )
         self._trace_manager.register_trace(root_span.context.trace_id, trace_info)
 

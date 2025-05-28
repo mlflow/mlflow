@@ -127,46 +127,6 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
 
         return _get_experiment_id()
 
-    def _get_basic_trace_metadata(self) -> dict[str, Any]:
-        metadata = {
-            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-            **self._env_metadata,
-        }
-
-        # If the span is started within an active MLflow run, we should record it as a trace tag
-        # Note `mlflow.active_run()` can only get thread-local active run,
-        # but tracing routine might be applied to model inference worker threads
-        # in the following cases:
-        #  - langchain model `chain.batch` which uses thread pool to spawn workers.
-        #  - MLflow langchain pyfunc model `predict` which calls `api_request_parallel_processor`.
-        # Therefore, we use `_get_global_active_run()` instead to get the active run from
-        # all threads and set it as the tracing source run.
-        if run := _get_latest_active_run():
-            metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
-
-        # The order is:
-        # 1. model_id of the current active model set by `set_active_model`
-        # 2. model_id from the current prediction context
-        #   (set by mlflow pyfunc predict, or explicitly using set_prediction_context)
-        if active_model_id := _get_active_model_id_global():
-            metadata[TraceMetadataKey.MODEL_ID] = active_model_id
-        elif model_id := maybe_get_logged_model_id():
-            metadata[TraceMetadataKey.MODEL_ID] = model_id
-
-        return metadata
-
-    def _get_basic_trace_tags(self, span: OTelReadableSpan) -> dict[str, Any]:
-        # If the trace is created in the context of MLflow model evaluation, we extract the request
-        # ID from the prediction context. Otherwise, we create a new trace info by calling the
-        # backend API.
-        tags = {}
-        if request_id := maybe_get_request_id(is_evaluate=True):
-            tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
-        if dependencies_schema := maybe_get_dependencies_schemas():
-            tags.update(dependencies_schema)
-        tags.update({TraceTagKey.TRACE_NAME: span.name})
-        return tags
-
     def _update_trace_info(self, trace: _Trace, root_span: OTelReadableSpan):
         """Update the trace info with the final values from the root span."""
         # The trace/span start time needs adjustment to exclude the latency of
@@ -202,3 +162,44 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
             trunc_length = MAX_CHARS_IN_TRACE_INFO_METADATA - len(TRUNCATION_SUFFIX)
             value = value[:trunc_length] + TRUNCATION_SUFFIX
         return value
+
+
+def get_basic_trace_metadata() -> dict[str, Any]:
+    metadata = {
+        TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+    }
+
+    # If the span is started within an active MLflow run, we should record it as a trace tag
+    # Note `mlflow.active_run()` can only get thread-local active run,
+    # but tracing routine might be applied to model inference worker threads
+    # in the following cases:
+    #  - langchain model `chain.batch` which uses thread pool to spawn workers.
+    #  - MLflow langchain pyfunc model `predict` which calls `api_request_parallel_processor`.
+    # Therefore, we use `_get_global_active_run()` instead to get the active run from
+    # all threads and set it as the tracing source run.
+    if run := _get_latest_active_run():
+        metadata[TraceMetadataKey.SOURCE_RUN] = run.info.run_id
+
+    # The order is:
+    # 1. model_id of the current active model set by `set_active_model`
+    # 2. model_id from the current prediction context
+    #   (set by mlflow pyfunc predict, or explicitly using set_prediction_context)
+    if active_model_id := _get_active_model_id_global():
+        metadata[TraceMetadataKey.MODEL_ID] = active_model_id
+    elif model_id := maybe_get_logged_model_id():
+        metadata[TraceMetadataKey.MODEL_ID] = model_id
+
+    return metadata
+
+
+def get_basic_trace_tags(span: OTelReadableSpan) -> dict[str, Any]:
+    # If the trace is created in the context of MLflow model evaluation, we extract the request
+    # ID from the prediction context. Otherwise, we create a new trace info by calling the
+    # backend API.
+    tags = {}
+    if request_id := maybe_get_request_id(is_evaluate=True):
+        tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
+    if dependencies_schema := maybe_get_dependencies_schemas():
+        tags.update(dependencies_schema)
+    tags.update({TraceTagKey.TRACE_NAME: span.name})
+    return tags

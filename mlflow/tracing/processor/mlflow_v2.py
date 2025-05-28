@@ -8,7 +8,11 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
+from mlflow.tracing.processor.base_mlflow import (
+    BaseMlflowSpanProcessor,
+    get_basic_trace_metadata,
+    get_basic_trace_tags,
+)
 from mlflow.tracing.utils import get_otel_attribute
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 
@@ -63,8 +67,8 @@ class MlflowV2SpanProcessor(BaseMlflowSpanProcessor):
             #   above, but can't do it for trace start time until the backend API supports
             #   updating the trace start time.
             timestamp_ms=(start_time_ns or span.start_time) // 1_000_000,  # ns to ms
-            request_metadata=self._get_basic_trace_metadata(),
-            tags=self._get_basic_trace_tags(span),
+            request_metadata={**self._env_metadata, **get_basic_trace_metadata()},
+            tags=get_basic_trace_tags(span),
         )
 
         self._trace_manager.register_trace(span.context.trace_id, trace_info.to_v3())

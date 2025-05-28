@@ -55,26 +55,32 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
 
-            _set_last_active_trace_id(trace.info.request_id)
+            self._export_trace(trace)
 
-            # Store mapping from eval request ID to trace ID so that the evaluation
-            # harness can access to the trace using mlflow.get_trace(eval_request_id)
-            if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
-                _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.trace_id
+    def _export_trace(self, trace: Trace):
+        _set_last_active_trace_id(trace.info.request_id)
 
-            if self._should_display_trace and not maybe_get_request_id(is_evaluate=True):
-                self._display_handler.display_traces([trace])
+        # Store mapping from eval request ID to trace ID so that the evaluation
+        # harness can access to the trace using mlflow.get_trace(eval_request_id)
+        # TODO: Stop doing this once we migrate the eval harness to MLflow. Since
+        #   trace ID is generated at client side in V3, we shouldn't need to keep
+        #   this mapping and instead directly use eval_request_id as trace ID.
+        if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
+            _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.trace_id
 
-            if self._should_log_async():
-                self._async_queue.put(
-                    task=Task(
-                        handler=self._log_trace,
-                        args=(trace,),
-                        error_msg="Failed to log trace to the trace server.",
-                    )
+        if self._should_display_trace and not maybe_get_request_id(is_evaluate=True):
+            self._display_handler.display_traces([trace])
+
+        if self._should_log_async():
+            self._async_queue.put(
+                task=Task(
+                    handler=self._log_trace,
+                    args=(trace,),
+                    error_msg="Failed to log trace to the trace server.",
                 )
-            else:
-                self._log_trace(trace)
+            )
+        else:
+            self._log_trace(trace)
 
     def _log_trace(self, trace: Trace):
         """

@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, Callable, Optional
 
@@ -6,10 +7,17 @@ from opentelemetry.trace import NoOpTracer
 import mlflow
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.data_validation import check_model_prediction
-from mlflow.tracing.constant import TraceTagKey
+from mlflow.tracing.client import TracingClient
+from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
-from mlflow.tracking.client import MlflowClient
+from mlflow.tracing.processor.base_mlflow import get_basic_trace_metadata
+from mlflow.tracing.provider import _get_trace_exporter
+from mlflow.tracing.utils import generate_trace_id_v3, maybe_get_request_id
 
 _logger = logging.getLogger(__name__)
 
@@ -196,7 +204,7 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
                 f"Found {len(extra_trace_ids)} extra traces generated during evaluation run. "
                 "Deleting them."
             )
-            MlflowClient().delete_traces(
+            TracingClient().delete_traces(
                 experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids
             )
             # Avoid displaying the deleted trace in notebook cell output
@@ -209,3 +217,63 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
             f"Failed to clean up extra traces generated during evaluation. The "
             f"result page might not show the correct list of traces. Error: {e}"
         )
+
+
+def copy_model_serving_trace_to_eval_run(trace_dict: dict[str, Any], experiment_id: str) -> str:
+    """
+    Copy a trace returned from model serving endpoint to the evaluation run. The copied
+    trace will have a new trace ID and location metadata.
+
+    .. attention::
+
+        Assessments logged to the original trace will NOT be copied to the new trace.
+        If you want to copy the assessments to the new trace, you can do it manually
+        by calling `mlflow.log_assessment()` API with the new trace ID.
+
+    Args:
+        trace_dict: The trace dictionary returned from model serving endpoint.
+        experiment_id: The ID of the experiment to copy the trace to.
+
+    Returns:
+        The ID of the copied trace in the target experiment.
+    """
+    # Add some important tags/metadata that are only available
+    # in the evaluation context e.g. Run ID.
+    trace_metadata = {**trace_dict["info"].get("trace_metadata", {}), **get_basic_trace_metadata()}
+    new_tags = {
+        TraceTagKey.EVAL_REQUEST_ID: maybe_get_request_id(is_evaluate=True),
+        # mlflow.artifactLocation tag should be removed because we create a new trace.
+        **{
+            k: v
+            for k, v in trace_dict["info"].get("tags", {}).items()
+            if k != "mlflow.artifactLocation"
+        },
+    }
+
+    new_trace_id = generate_trace_id_v3()
+    new_trace_info = TraceInfo.from_dict(
+        {
+            **trace_dict["info"],
+            "trace_id": new_trace_id,
+            "trace_location": TraceLocation.from_experiment_id(experiment_id).to_dict(),
+            "tags": new_tags,
+            "trace_metadata": trace_metadata,
+            # NB: Not copying assessments for simplicity.
+            "assessments": [],
+            # NB: Workaround for the eval UI tries to fetch artifact using client request ID.
+            "client_request_id": None,
+        }
+    )
+
+    def _copy_span_with_new_trace_id(span_dict: dict[str, Any]) -> Span:
+        """Create a new span object with the new trace ID."""
+        span_dict["attributes"][SpanAttributeKey.REQUEST_ID] = json.dumps(new_trace_id)
+        return Span.from_dict(span_dict)
+
+    spans = [_copy_span_with_new_trace_id(span) for span in trace_dict["data"]["spans"]]
+    new_trace = Trace(info=new_trace_info, data=TraceData(spans=spans))
+
+    # Export trace to backend as if it was created in the current run.
+    _get_trace_exporter()._export_trace(new_trace)
+
+    return new_trace_id
