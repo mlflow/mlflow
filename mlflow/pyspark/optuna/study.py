@@ -14,8 +14,6 @@ try:
     from optuna.study._tell import _tell_with_warning
     from optuna.trial import FrozenTrial
     from optuna.trial import TrialState
-except ImportError as e:
-    raise e
 
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, first
@@ -46,6 +44,10 @@ def _optimize_sequential(
     catch: Iterable[type[Exception]] = (),
     callbacks: Optional[Iterable[Callable[[Study, FrozenTrial], None]]] = None,
 ) -> None:
+    """
+    Run optimization sequentially. It is modified from _optimize_sequential in optuna
+    (https://github.com/optuna/optuna/blob/master/optuna/study/_optimize.py)
+    """
     i_trial = 0
     time_start = datetime.datetime.now()
 
@@ -73,9 +75,8 @@ def _optimize_sequential(
             state = TrialState.PRUNED
             func_err = e
         except (Exception, KeyboardInterrupt) as e:
-            traceback_string = traceback.format_exc()
             state = TrialState.FAIL
-            func_err = traceback_string
+            func_err = e
             func_err_fail_exc_info = sys.exc_info()
 
         try:
@@ -99,7 +100,7 @@ def _optimize_sequential(
             elif frozen_trial.state == TrialState.FAIL:
                 error_message = None
                 if func_err is not None:
-                    error_message = repr(func_err)
+                    error_message = func_err_fail_exc_info
                 elif warning_message is not None:
                     error_message = warning_message
 
@@ -166,6 +167,7 @@ class MlflowSparkStudy(Study):
         # check whether the SparkConnect mode
         self._is_spark_connect_mode = is_spark_connect_mode()
         self._mlflow_tracking_env = mlflow_tracking_uri
+        self.mlflow_client = MlflowClient()
 
         mlflow.set_tracking_uri(self._mlflow_tracking_env)
         self._study = optuna.create_study(
@@ -195,7 +197,6 @@ class MlflowSparkStudy(Study):
 
         def run_task_on_executor_pd(iterator):
             import traceback
-
             import optuna
             import pandas as pd
 
@@ -213,13 +214,13 @@ class MlflowSparkStudy(Study):
             try:
                 error_messages = []
                 _optimize_sequential(
-                    study,
-                    func,
-                    mlflow_client,
-                    num_trials,
-                    timeout,
-                    catch,
-                    callbacks
+                    study=study,
+                    func=func,
+                    mlflow_client=mlflow_client,
+                    n_trials=num_trials,
+                    timeout=timeout,
+                    catch=catch,
+                    callbacks=callbacks,
                 )
                 error_messages.append(None)
             except BaseException:
@@ -258,13 +259,16 @@ class MlflowSparkStudy(Study):
             else:
                 self.spark.sparkContext.cancelJobGroup(trial_tag)
             logger.debug("MlflowSparkStudy optimize terminated by user.")
+            self.mlflow_client.set_terminated(self._study_id, "KILLED")
             raise e
         if "error" in input_df.columns:
             error_count = input_df.filter(col("error") != "").count()
             if error_count > 0:
                 first_non_null_value = input_df.select(first("error", ignorenulls=True)).first()[0]
+                self.mlflow_client.set_terminated(self._study_id, "KILLED")
                 raise ExecutionException(
                     f"Optimization run for Optuna MlflowSparkStudy failed. "
                     f"See full error details in the failed MLflow runs. "
                     f"First trial failure message: {first_non_null_value}"
                 )
+        self.mlflow_client.set_terminated(self._study_id)
