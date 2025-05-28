@@ -909,7 +909,7 @@ def update_current_trace(
 
     Example:
 
-        You can use this function either within a function decorated with `@mlflow.trace` or
+        You can use this function either within a function decorated with ``@mlflow.trace`` or
         within the scope of the `with mlflow.start_span` context manager. If there is no active
         trace found, this function will raise an exception.
 
@@ -922,7 +922,7 @@ def update_current_trace(
                 mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
                 return x + 1
 
-        Using within the `with mlflow.start_span` context manager:
+        Using within the ``with mlflow.start_span`` context manager:
 
         .. code-block:: python
 
