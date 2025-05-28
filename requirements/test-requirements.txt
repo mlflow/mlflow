@@ -17,7 +17,6 @@ plotly
 kaleido
 # Required by tuning tests
 hyperopt
-
 # Required by evaluator tests
 shap
 # Required to evaluate language models in `mlflow.evaluate`
