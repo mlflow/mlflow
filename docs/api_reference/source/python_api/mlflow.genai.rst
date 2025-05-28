@@ -11,3 +11,8 @@ mlflow.genai
     :undoc-members:
     :show-inheritance:
     :exclude-members: Scorer
+
+.. automodule:: mlflow.genai.datasets
+    :members:
+    :undoc-members:
+    :show-inheritance:

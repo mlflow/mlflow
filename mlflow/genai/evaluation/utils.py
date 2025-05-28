@@ -2,7 +2,6 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import (
@@ -18,6 +17,8 @@ except ImportError:
     pass
 
 if TYPE_CHECKING:
+    from mlflow.genai.datasets import EvaluationDataset
+
     try:
         import pyspark.sql.dataframe
 

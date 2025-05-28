@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
@@ -226,6 +227,8 @@ def evaluate(
             "Please set the tracking URI to Databricks."
         )
 
+    is_managed_dataset = isinstance(data, EvaluationDataset)
+
     builtin_scorers, custom_scorers = validate_scorers(scorers)
 
     evaluation_config = {
@@ -241,15 +244,16 @@ def evaluate(
         extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
 
     # convert into a pandas dataframe with current evaluation set schema
-    data = _convert_to_legacy_eval_set(data)
+    df = data.to_df() if is_managed_dataset else _convert_to_legacy_eval_set(data)
 
-    valid_data_for_builtin_scorers(data, builtin_scorers, predict_fn)
+    valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
 
     # "request" column must exist after conversion
-    sample_input = data.iloc[0]["request"]
+    input_key = "inputs" if is_managed_dataset else "request"
+    sample_input = df.iloc[0][input_key]
 
     # Only check 'inputs' column when it is not derived from the trace object
-    if "trace" not in data.columns and not isinstance(sample_input, dict):
+    if "trace" not in df.columns and not isinstance(sample_input, dict):
         raise MlflowException.invalid_parameter_value(
             "The 'inputs' column must be a dictionary of field names and values. "
             "For example: {'query': 'What is MLflow?'}"
@@ -275,7 +279,9 @@ def evaluate(
 
         return mlflow.models.evaluate(
             model=predict_fn,
-            data=data,
+            # If the input dataset is a managed dataset, we pass the original dataset
+            # to the evaluate function to preserve metadata like dataset name.
+            data=data if is_managed_dataset else df,
             evaluator_config=evaluation_config,
             extra_metrics=extra_metrics,
             model_type=GENAI_CONFIG_NAME,
