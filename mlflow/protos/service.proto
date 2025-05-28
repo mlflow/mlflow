@@ -1687,7 +1687,7 @@ message GetAssessmentRequest {
 
   message Response {
     // The requested assessment.
-    optional Assessment assessment = 1;
+    optional assessments.Assessment assessment = 1;
   }
 }
 
