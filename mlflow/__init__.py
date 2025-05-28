@@ -165,6 +165,7 @@ from mlflow.tracing.assessment import (
     log_assessment,
     log_expectation,
     log_feedback,
+    override_feedback,
     update_assessment,
 )
 from mlflow.tracing.fluent import (
@@ -221,6 +222,7 @@ __all__ = [
     "update_assessment",
     "log_expectation",
     "log_feedback",
+    "override_feedback",
 ]
 
 # Only import these modules when mlflow or mlflow-skinny is installed i.e. not importing them

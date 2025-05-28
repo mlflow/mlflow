@@ -5515,6 +5515,58 @@ public final class Assessments {
     java.lang.String getMetadataOrThrow(
         java.lang.String key);
 
+    /**
+     * <pre>
+     * The ID of the assessment which this assessment overrides.
+     * </pre>
+     *
+     * <code>optional string overrides = 14;</code>
+     * @return Whether the overrides field is set.
+     */
+    boolean hasOverrides();
+    /**
+     * <pre>
+     * The ID of the assessment which this assessment overrides.
+     * </pre>
+     *
+     * <code>optional string overrides = 14;</code>
+     * @return The overrides.
+     */
+    java.lang.String getOverrides();
+    /**
+     * <pre>
+     * The ID of the assessment which this assessment overrides.
+     * </pre>
+     *
+     * <code>optional string overrides = 14;</code>
+     * @return The bytes for overrides.
+     */
+    com.google.protobuf.ByteString
+        getOverridesBytes();
+
+    /**
+     * <pre>
+     * Whether this assessment is valid (i.e. has not been superseded)
+     * defaults to true, and is set to false if a new superseding assessment
+     * is created.
+     * </pre>
+     *
+     * <code>optional bool valid = 15 [default = true];</code>
+     * @return Whether the valid field is set.
+     */
+    boolean hasValid();
+    /**
+     * <pre>
+     * Whether this assessment is valid (i.e. has not been superseded)
+     * defaults to true, and is set to false if a new superseding assessment
+     * is created.
+     * </pre>
+     *
+     * <code>optional bool valid = 15 [default = true];</code>
+     * @return The valid.
+     */
+    boolean getValid();
+
     public org.mlflow.api.proto.Assessments.Assessment.ValueCase getValueCase();
   }
   /**
@@ -5539,6 +5591,8 @@ public final class Assessments {
       traceId_ = "";
       spanId_ = "";
       rationale_ = "";
+      overrides_ = "";
+      valid_ = true;
     }
 
     @java.lang.Override
@@ -5693,6 +5747,17 @@ public final class Assessments {
                   MetadataDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
               metadata_.getMutableMap().put(
                   metadata__.getKey(), metadata__.getValue());
+              break;
+            }
+            case 114: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000800;
+              overrides_ = bs;
+              break;
+            }
+            case 120: {
+              bitField0_ |= 0x00001000;
+              valid_ = input.readBool();
               break;
             }
             default: {
@@ -6431,6 +6496,97 @@ public final class Assessments {
       return map.get(key);
     }
 
+    public static final int OVERRIDES_FIELD_NUMBER = 14;
+    private volatile java.lang.Object overrides_;
+    /**
+     * <pre>
+     * The ID of the assessment which this assessment overrides.
+     * </pre>
+     *
+     * <code>optional string overrides = 14;</code>
+     * @return Whether the overrides field is set.
+     */
+    @java.lang.Override
+    public boolean hasOverrides() {
+      return ((bitField0_ & 0x00000800) != 0);
+    }
+    /**
+     * <pre>
+     * The ID of the assessment which this assessment overrides.
+     * </pre>
+     *
+     * <code>optional string overrides = 14;</code>
+     * @return The overrides.
+     */
+    @java.lang.Override
+    public java.lang.String getOverrides() {
+      java.lang.Object ref = overrides_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          overrides_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * The ID of the assessment which this assessment overrides.
+     * </pre>
+     *
+     * <code>optional string overrides = 14;</code>
+     * @return The bytes for overrides.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getOverridesBytes() {
+      java.lang.Object ref = overrides_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        overrides_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int VALID_FIELD_NUMBER = 15;
+    private boolean valid_;
+    /**
+     * <pre>
+     * Whether this assessment is valid (i.e. has not been superseded)
+     * defaults to true, and is set to false if a new superseding assessment
+     * is created.
+     * </pre>
+     *
+     * <code>optional bool valid = 15 [default = true];</code>
+     * @return Whether the valid field is set.
+     */
+    @java.lang.Override
+    public boolean hasValid() {
+      return ((bitField0_ & 0x00001000) != 0);
+    }
+    /**
+     * <pre>
+     * Whether this assessment is valid (i.e. has not been superseded)
+     * defaults to true, and is set to false if a new superseding assessment
+     * is created.
+     * </pre>
+     *
+     * <code>optional bool valid = 15 [default = true];</code>
+     * @return The valid.
+     */
+    @java.lang.Override
+    public boolean getValid() {
+      return valid_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -6484,6 +6640,12 @@ public final class Assessments {
           internalGetMetadata(),
           MetadataDefaultEntryHolder.defaultEntry,
           13);
+      if (((bitField0_ & 0x00000800) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 14, overrides_);
+      }
+      if (((bitField0_ & 0x00001000) != 0)) {
+        output.writeBool(15, valid_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -6541,6 +6703,13 @@ public final class Assessments {
             .build();
         size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(13, metadata__);
+      }
+      if (((bitField0_ & 0x00000800) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(14, overrides_);
+      }
+      if (((bitField0_ & 0x00001000) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBoolSize(15, valid_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -6604,6 +6773,16 @@ public final class Assessments {
       }
       if (!internalGetMetadata().equals(
           other.internalGetMetadata())) return false;
+      if (hasOverrides() != other.hasOverrides()) return false;
+      if (hasOverrides()) {
+        if (!getOverrides()
+            .equals(other.getOverrides())) return false;
+      }
+      if (hasValid() != other.hasValid()) return false;
+      if (hasValid()) {
+        if (getValid()
+            != other.getValid()) return false;
+      }
       if (!getValueCase().equals(other.getValueCase())) return false;
       switch (valueCase_) {
         case 9:
@@ -6667,6 +6846,15 @@ public final class Assessments {
       if (!internalGetMetadata().getMap().isEmpty()) {
         hash = (37 * hash) + METADATA_FIELD_NUMBER;
         hash = (53 * hash) + internalGetMetadata().hashCode();
+      }
+      if (hasOverrides()) {
+        hash = (37 * hash) + OVERRIDES_FIELD_NUMBER;
+        hash = (53 * hash) + getOverrides().hashCode();
+      }
+      if (hasValid()) {
+        hash = (37 * hash) + VALID_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+            getValid());
       }
       switch (valueCase_) {
         case 9:
@@ -6878,6 +7066,10 @@ public final class Assessments {
         }
         bitField0_ = (bitField0_ & ~0x00000400);
         internalGetMutableMetadata().clear();
+        overrides_ = "";
+        bitField0_ = (bitField0_ & ~0x00001000);
+        valid_ = true;
+        bitField0_ = (bitField0_ & ~0x00002000);
         valueCase_ = 0;
         value_ = null;
         return this;
@@ -6976,6 +7168,14 @@ public final class Assessments {
         }
         result.metadata_ = internalGetMetadata();
         result.metadata_.makeImmutable();
+        if (((from_bitField0_ & 0x00001000) != 0)) {
+          to_bitField0_ |= 0x00000800;
+        }
+        result.overrides_ = overrides_;
+        if (((from_bitField0_ & 0x00002000) != 0)) {
+          to_bitField0_ |= 0x00001000;
+        }
+        result.valid_ = valid_;
         result.bitField0_ = to_bitField0_;
         result.valueCase_ = valueCase_;
         onBuilt();
@@ -7065,6 +7265,14 @@ public final class Assessments {
         }
         internalGetMutableMetadata().mergeFrom(
             other.internalGetMetadata());
+        if (other.hasOverrides()) {
+          bitField0_ |= 0x00001000;
+          overrides_ = other.overrides_;
+          onChanged();
+        }
+        if (other.hasValid()) {
+          setValid(other.getValid());
+        }
         switch (other.getValueCase()) {
           case FEEDBACK: {
             mergeFeedback(other.getFeedback());
@@ -8829,6 +9037,177 @@ public final class Assessments {
             .putAll(values);
         return this;
       }
+
+      private java.lang.Object overrides_ = "";
+      /**
+       * <pre>
+       * The ID of the assessment which this assessment overrides.
+       * </pre>
+       *
+       * <code>optional string overrides = 14;</code>
+       * @return Whether the overrides field is set.
+       */
+      public boolean hasOverrides() {
+        return ((bitField0_ & 0x00001000) != 0);
+      }
+      /**
+       * <pre>
+       * The ID of the assessment which this assessment overrides.
+       * </pre>
+       *
+       * <code>optional string overrides = 14;</code>
+       * @return The overrides.
+       */
+      public java.lang.String getOverrides() {
+        java.lang.Object ref = overrides_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            overrides_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of the assessment which this assessment overrides.
+       * </pre>
+       *
+       * <code>optional string overrides = 14;</code>
+       * @return The bytes for overrides.
+       */
+      public com.google.protobuf.ByteString
+          getOverridesBytes() {
+        java.lang.Object ref = overrides_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          overrides_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of the assessment which this assessment overrides.
+       * </pre>
+       *
+       * <code>optional string overrides = 14;</code>
+       * @param value The overrides to set.
+       * @return This builder for chaining.
+       */
+      public Builder setOverrides(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00001000;
+        overrides_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of the assessment which this assessment overrides.
+       * </pre>
+       *
+       * <code>optional string overrides = 14;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearOverrides() {
+        bitField0_ = (bitField0_ & ~0x00001000);
+        overrides_ = getDefaultInstance().getOverrides();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of the assessment which this assessment overrides.
+       * </pre>
+       *
+       * <code>optional string overrides = 14;</code>
+       * @param value The bytes for overrides to set.
+       * @return This builder for chaining.
+       */
+      public Builder setOverridesBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00001000;
+        overrides_ = value;
+        onChanged();
+        return this;
+      }
+
+      private boolean valid_ = true;
+      /**
+       * <pre>
+       * Whether this assessment is valid (i.e. has not been superseded)
+       * defaults to true, and is set to false if a new superseding assessment
+       * is created.
+       * </pre>
+       *
+       * <code>optional bool valid = 15 [default = true];</code>
+       * @return Whether the valid field is set.
+       */
+      @java.lang.Override
+      public boolean hasValid() {
+        return ((bitField0_ & 0x00002000) != 0);
+      }
+      /**
+       * <pre>
+       * Whether this assessment is valid (i.e. has not been superseded)
+       * defaults to true, and is set to false if a new superseding assessment
+       * is created.
+       * </pre>
+       *
+       * <code>optional bool valid = 15 [default = true];</code>
+       * @return The valid.
+       */
+      @java.lang.Override
+      public boolean getValid() {
+        return valid_;
+      }
+      /**
+       * <pre>
+       * Whether this assessment is valid (i.e. has not been superseded)
+       * defaults to true, and is set to false if a new superseding assessment
+       * is created.
+       * </pre>
+       *
+       * <code>optional bool valid = 15 [default = true];</code>
+       * @param value The valid to set.
+       * @return This builder for chaining.
+       */
+      public Builder setValid(boolean value) {
+        bitField0_ |= 0x00002000;
+        valid_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Whether this assessment is valid (i.e. has not been superseded)
+       * defaults to true, and is set to false if a new superseding assessment
+       * is created.
+       * </pre>
+       *
+       * <code>optional bool valid = 15 [default = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearValid() {
+        bitField0_ = (bitField0_ & ~0x00002000);
+        valid_ = true;
+        onChanged();
+        return this;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -8943,7 +9322,7 @@ public final class Assessments {
       "ialization_format\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"e" +
       "\n\010Feedback\022%\n\005value\030\002 \001(\0132\026.google.proto" +
       "buf.Value\0222\n\005error\030\003 \001(\0132#.mlflow.assess" +
-      "ments.AssessmentError\"\261\004\n\nAssessment\022\025\n\r" +
+      "ments.AssessmentError\"\331\004\n\nAssessment\022\025\n\r" +
       "assessment_id\030\001 \001(\t\022\035\n\017assessment_name\030\002" +
       " \001(\tB\004\370\206\031\001\022\020\n\010trace_id\030\003 \001(\t\022\017\n\007span_id\030" +
       "\004 \001(\t\0224\n\006source\030\005 \001(\0132$.mlflow.assessmen" +
@@ -8956,7 +9335,8 @@ public final class Assessments {
       "e\030\013 \001(\t\0226\n\005error\030\014 \001(\0132#.mlflow.assessme" +
       "nts.AssessmentErrorB\002\030\001\022>\n\010metadata\030\r \003(" +
       "\0132,.mlflow.assessments.Assessment.Metada" +
-      "taEntry\032/\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n" +
+      "taEntry\022\021\n\toverrides\030\016 \001(\t\022\023\n\005valid\030\017 \001(" +
+      "\010:\004true\032/\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n" +
       "\005value\030\002 \001(\t:\0028\001B\007\n\005valueB\031\n\024org.mlflow." +
       "api.proto\220\001\001"
     };
@@ -9002,7 +9382,7 @@ public final class Assessments {
     internal_static_mlflow_assessments_Assessment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_assessments_Assessment_descriptor,
-        new java.lang.String[] { "AssessmentId", "AssessmentName", "TraceId", "SpanId", "Source", "CreateTime", "LastUpdateTime", "Feedback", "Expectation", "Rationale", "Error", "Metadata", "Value", });
+        new java.lang.String[] { "AssessmentId", "AssessmentName", "TraceId", "SpanId", "Source", "CreateTime", "LastUpdateTime", "Feedback", "Expectation", "Rationale", "Error", "Metadata", "Overrides", "Valid", "Value", });
     internal_static_mlflow_assessments_Assessment_MetadataEntry_descriptor =
       internal_static_mlflow_assessments_Assessment_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_assessments_Assessment_MetadataEntry_fieldAccessorTable = new
