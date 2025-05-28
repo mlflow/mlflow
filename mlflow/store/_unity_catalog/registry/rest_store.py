@@ -109,12 +109,6 @@ from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     CreatePromptRequest,
     CreatePromptResponse,
-    GetPromptVersionRequest,
-    GetPromptVersionResponse,
-    # GetLatestPromptVersionRequest,
-    # GetLatestPromptVersionResponse,
-    GetPromptVersionByAliasRequest,
-    GetPromptVersionByAliasResponse,
     GetPromptRequest,
     GetPromptResponse,
     SearchPromptsRequest,
@@ -130,16 +124,16 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     DeletePromptTagRequest,
     DeletePromptTagResponse,
 )
-#from mlflow.protos.unity_catalog_prompt_service_pb2 import UcPromptRegistryService
+from mlflow.protos.unity_catalog_prompt_service_pb2 import UnityCatalogPromptService
 
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = {
     **extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX),
-    #**extract_api_info_for_service(UcPromptRegistryService, _REST_API_PATH_PREFIX),
+    **extract_api_info_for_service(UnityCatalogPromptService, _REST_API_PATH_PREFIX),
 }
 _METHOD_TO_ALL_INFO = {
     **extract_all_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX),
-    # **extract_all_api_info_for_service(UcPromptRegistryService, _REST_API_PATH_PREFIX),
+    **extract_all_api_info_for_service(UnityCatalogPromptService, _REST_API_PATH_PREFIX),
 }
 
 _logger = logging.getLogger(__name__)
@@ -349,9 +343,6 @@ class UcModelRegistryStore(BaseRestStore):
             DeleteModelVersionTagRequest: DeleteModelVersionTagResponse,
             GetModelVersionByAliasRequest: GetModelVersionByAliasResponse,
             CreatePromptRequest: CreatePromptResponse,
-            GetPromptVersionRequest: GetPromptVersionResponse,
-            GetLatestPromptVersionRequest: GetLatestPromptVersionResponse,
-            GetPromptVersionByAliasRequest: GetPromptVersionByAliasResponse,
             GetPromptRequest: GetPromptResponse,
             SearchPromptsRequest: SearchPromptsResponse,
             DeletePromptRequest: DeletePromptResponse,
@@ -1133,7 +1124,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().create_prompt(name, template, description, tags)
         
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
             CreatePromptRequest,
             CreatePromptResponse,
         )
@@ -1164,11 +1155,11 @@ class UcModelRegistryStore(BaseRestStore):
             return super().get_prompt(name, version)
         
         try:
-            from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+            from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
                 GetPromptVersionRequest,
                 GetPromptVersionResponse,
-                # GetLatestPromptVersionRequest,
-                # GetLatestPromptVersionResponse,
+                GetLatestPromptVersionRequest,
+                GetLatestPromptVersionResponse,
                 GetPromptVersionByAliasRequest,
                 GetPromptVersionByAliasResponse,
                 GetPromptRequest,
@@ -1222,7 +1213,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().search_prompts(filter_string, max_results, order_by, page_token)
         
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
             SearchPromptsRequest,
             SearchPromptsResponse,
             GetPromptRequest,
@@ -1265,7 +1256,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().delete_prompt(name)
         
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
             DeletePromptRequest,
             DeletePromptResponse,
         )
@@ -1283,7 +1274,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().create_prompt_version(name, template, description, tags)
         
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
             CreatePromptVersionRequest,
             CreatePromptVersionResponse,
             GetPromptRequest,
@@ -1326,7 +1317,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().get_prompt_version(name, version)
         
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
             GetPromptVersionRequest,
             GetPromptVersionResponse,
             GetPromptRequest,
@@ -1359,7 +1350,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().delete_prompt_version(name, version)
         
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
             DeletePromptVersionRequest,
             DeletePromptVersionResponse,
         )
@@ -1377,7 +1368,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().set_prompt_tag(name, key, value)
         
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
             SetPromptTagRequest,
             SetPromptTagResponse,
         )
@@ -1395,7 +1386,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().delete_prompt_tag(name, key)
         
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
             DeletePromptTagRequest,
             DeletePromptTagResponse,
         )
@@ -1413,7 +1404,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Fall back to default implementation
             return super().get_prompt_version_by_alias(name, alias)
         
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+        from mlflow.protos.databricks_uc_registry_prompts_pb2 import (
             GetPromptVersionByAliasRequest,
             GetPromptVersionByAliasResponse,
             GetPromptRequest,
