@@ -15,6 +15,7 @@ inputs:
 outputs:
   result:
     description: "The result returned by the script."
+    value: ${{ steps.script.outputs.result }}
 
 runs:
   using: "composite"
@@ -25,5 +26,3 @@ runs:
         script: ${{ inputs.script }}
         github-token: ${{ inputs.github-token }}
         result-encoding: ${{ inputs.result-encoding }}
-    - run: echo "result=${{ steps.script.outputs.result }}" >> $GITHUB_OUTPUT
-      shell: bash
