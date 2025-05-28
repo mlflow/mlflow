@@ -1,0 +1,38 @@
+name: "GitHub Script"
+description: "Run GitHub API queries and automate GitHub"
+inputs:
+  script:
+    description: "Script to execute"
+    required: false
+  script-file:
+    description: "Path to the script file to execute"
+    required: false
+  github-token:
+    description: "GitHub token"
+    required: false
+    default: ${{ github.token }}
+  debug:
+    description: "Whether to show debug logs"
+    required: false
+  result-encoding:
+    description: "Encoding of the result (either json or string)"
+    required: false
+  retries:
+    description: "Number of times to retry a request"
+    required: false
+  retry-exempt-status-codes:
+    description: "List of status codes that will not be retried"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+      with:
+        script: ${{ inputs.script }}
+        script-file: ${{ inputs.script-file }}
+        github-token: ${{ inputs.github-token }}
+        debug: ${{ inputs.debug }}
+        result-encoding: ${{ inputs.result-encoding }}
+        retries: ${{ inputs.retries }}
+        retry-exempt-status-codes: ${{ inputs.retry-exempt-status-codes }}
