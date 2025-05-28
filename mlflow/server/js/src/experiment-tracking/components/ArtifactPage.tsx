@@ -237,6 +237,26 @@ const shouldFallbackToLoggedModelArtifacts = (
 } => {
   const isVolumePath = validVolumesPrefix.some((prefix) => ownProps.artifactRootUri?.startsWith(prefix));
 
+  // Execute only if feature is enabled and we are currently fetching >run< artifacts.
+  // Also, do not fallback to logged model artifacts for Volume-based artifact paths.
+  console.log(isExperimentLoggedModelsUIEnabled(), !ownProps.isLoggedModelsMode && !isVolumePath);
+  if (isExperimentLoggedModelsUIEnabled() && !ownProps.isLoggedModelsMode && !isVolumePath) {
+    // Let's check if the root artifact is already present (i.e. run artifacts are fetched)
+    const rootArtifact = getArtifacts(ownProps.runUuid, state);
+    const isRunArtifactsEmpty = rootArtifact && !rootArtifact.fileInfo && isEmpty(rootArtifact.children);
+
+    // Check if we have a logged model id to fallback to
+    const loggedModelId = first(ownProps.runOutputs?.modelOutputs)?.modelId;
+
+    // If true, return relevant information to the component
+    if (isRunArtifactsEmpty && loggedModelId) {
+      return {
+        isFallbackToLoggedModelArtifacts: true,
+        fallbackLoggedModelId: loggedModelId,
+      };
+    }
+  }
+  // Otherwise, do not fallback to logged model artifacts
   return {
     isFallbackToLoggedModelArtifacts: false,
   };
