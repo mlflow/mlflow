@@ -206,6 +206,7 @@ class MlflowSparkStudy(Study):
             from mlflow import MlflowClient
             from mlflow.optuna.storage import MlflowStorage
 
+            mlflow.set_tracking_uri(mlflow_tracking_env)
             mlflow_client = MlflowClient(mlflow_tracking_env)
 
             storage = MlflowStorage(experiment_id=experiment_id)
