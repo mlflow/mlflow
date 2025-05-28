@@ -25,9 +25,6 @@ def create_dataset(
         uc_table_name: The UC table name of the dataset.
         experiment_id: The ID of the experiment to associate the dataset with. If not provided,
             the current experiment is inferred from the environment.
-
-    Returns:
-        EvaluationDataset: The created dataset.
     """
     try:
         from databricks.agents.datasets import create_dataset
@@ -54,9 +51,6 @@ def get_dataset(uc_table_name: str) -> "EvaluationDataset":
 
     Args:
         uc_table_name: The UC table name of the dataset.
-
-    Returns:
-        EvaluationDataset: The dataset.
     """
     try:
         from databricks.agents.datasets import get_dataset
