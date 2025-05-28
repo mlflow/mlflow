@@ -11,17 +11,8 @@ inputs:
     description: "GitHub token"
     required: false
     default: ${{ github.token }}
-  debug:
-    description: "Whether to show debug logs"
-    required: false
   result-encoding:
     description: "Encoding of the result (either json or string)"
-    required: false
-  retries:
-    description: "Number of times to retry a request"
-    required: false
-  retry-exempt-status-codes:
-    description: "List of status codes that will not be retried"
     required: false
 
 runs:
@@ -32,7 +23,4 @@ runs:
         script: ${{ inputs.script }}
         script-file: ${{ inputs.script-file }}
         github-token: ${{ inputs.github-token }}
-        debug: ${{ inputs.debug }}
         result-encoding: ${{ inputs.result-encoding }}
-        retries: ${{ inputs.retries }}
-        retry-exempt-status-codes: ${{ inputs.retry-exempt-status-codes }}
