@@ -52,6 +52,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --skinny
+      - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
           ./dev/run-python-skinny-tests.sh
@@ -83,6 +84,7 @@ jobs:
           pip install '.[gateway]'
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
           pip install tf-keras
+      - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
           source dev/setup-ssh.sh
