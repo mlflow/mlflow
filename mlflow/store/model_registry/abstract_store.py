@@ -1,15 +1,16 @@
 import logging
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
-from typing import Optional
+from typing import Optional, Union
 
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-from mlflow.entities.model_registry.prompt import Prompt, IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY, Prompt
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import has_prompt_tag
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
 
@@ -463,7 +464,13 @@ class AbstractStore:
 
     # Prompt-related methods with default implementations
 
-    def create_prompt(self, name, template, description=None, tags=None):
+    def create_prompt(
+        self,
+        name: str,
+        template: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None
+    ) -> Prompt:
         """
         Create a new prompt in the registry.
 
@@ -480,10 +487,10 @@ class AbstractStore:
         prompt_tags = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
         if tags:
             prompt_tags.extend([RegisteredModelTag(key=k, value=v) for k, v in tags.items()])
-        
+
         # Create registered model for the prompt
         rm = self.create_registered_model(name, tags=prompt_tags, description=description)
-        
+
         # Create initial version with template
         version_tags = [
             ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
@@ -495,15 +502,15 @@ class AbstractStore:
             tags=version_tags,
             description=description
         )
-        
+
         # Convert tags list to dictionary
         prompt_tags_dict = {}
         if hasattr(rm, 'tags') and rm.tags:
             prompt_tags_dict = rm.tags.copy()
-        
+
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags_dict)
 
-    def get_prompt(self, name, version=None):
+    def get_prompt(self, name: str, version: Optional[Union[str, int]] = None) -> Optional[Prompt]:
         """
         Get prompt by name and version or alias.
 
@@ -552,7 +559,13 @@ class AbstractStore:
                 return None
             raise
 
-    def search_prompts(self, filter_string=None, max_results=None, order_by=None, page_token=None):
+    def search_prompts(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None
+    ) -> PagedList[Prompt]:
         """
         Search for prompts in the registry.
 
@@ -567,10 +580,10 @@ class AbstractStore:
         """
         # Default implementation: search for RegisteredModels with prompt tag
         from mlflow.prompt.registry_utils import add_prompt_filter_string
-        
+
         # Add filter to only get prompts
         filter_string = add_prompt_filter_string(filter_string, is_prompt=True)
-        
+
         # Search registered models
         paged_models = self.search_registered_models(
             filter_string=filter_string,
@@ -578,7 +591,7 @@ class AbstractStore:
             order_by=order_by,
             page_token=page_token
         )
-        
+
         # Convert to prompts
         prompts = []
         for rm in paged_models:
@@ -593,11 +606,10 @@ class AbstractStore:
                     prompt_tags=prompt_tags
                 )
                 prompts.append(prompt)
-        
-        from mlflow.store.entities.paged_list import PagedList
+
         return PagedList(prompts, paged_models.token)
 
-    def delete_prompt(self, name):
+    def delete_prompt(self, name: str) -> None:
         """
         Delete a prompt from the registry.
 
@@ -610,7 +622,13 @@ class AbstractStore:
         # Default implementation: delete the RegisteredModel
         self.delete_registered_model(name)
 
-    def create_prompt_version(self, name, template, description=None, tags=None):
+    def create_prompt_version(
+        self,
+        name: str,
+        template: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None
+    ) -> Prompt:
         """
         Create a new version of an existing prompt.
 
@@ -630,23 +648,23 @@ class AbstractStore:
         ]
         if tags:
             version_tags.extend([ModelVersionTag(key=k, value=v) for k, v in tags.items()])
-        
+
         mv = self.create_model_version(
             name=name,
             source="dummy-source",  # Required field for ModelVersion
             tags=version_tags,
             description=description
         )
-        
+
         # Get prompt-level tags
         rm = self.get_registered_model(name)
         prompt_tags = {}
         if hasattr(rm, 'tags') and rm.tags:
             prompt_tags = rm.tags.copy()
-        
+
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
 
-    def get_prompt_version(self, name, version):
+    def get_prompt_version(self, name: str, version: Union[str, int]) -> Prompt:
         """
         Get a specific version of a prompt.
 
@@ -658,16 +676,16 @@ class AbstractStore:
             A :py:class:`mlflow.entities.model_registry.Prompt` object.
         """
         mv = self.get_model_version(name, version)
-        
+
         # Get prompt-level tags
         rm = self.get_registered_model(name)
         prompt_tags = {}
         if hasattr(rm, 'tags') and rm.tags:
             prompt_tags = rm.tags.copy()
-        
+
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
 
-    def delete_prompt_version(self, name, version):
+    def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
         """
         Delete a specific version of a prompt.
 
@@ -680,7 +698,7 @@ class AbstractStore:
         """
         self.delete_model_version(name, version)
 
-    def set_prompt_tag(self, name, key, value):
+    def set_prompt_tag(self, name: str, key: str, value: str) -> None:
         """
         Set a tag on a prompt.
 
@@ -695,7 +713,7 @@ class AbstractStore:
         from mlflow.entities.model_registry import RegisteredModelTag
         self.set_registered_model_tag(name, RegisteredModelTag(key=key, value=value))
 
-    def delete_prompt_tag(self, name, key):
+    def delete_prompt_tag(self, name: str, key: str) -> None:
         """
         Delete a tag from a prompt.
 
@@ -708,7 +726,9 @@ class AbstractStore:
         """
         self.delete_registered_model_tag(name, key)
 
-    def set_prompt_version_tag(self, name, version, key, value):
+    def set_prompt_version_tag(
+        self, name: str, version: Union[str, int], key: str, value: str
+    ) -> None:
         """
         Set a tag on a prompt version.
 
@@ -723,7 +743,7 @@ class AbstractStore:
         """
         self.set_model_version_tag(name, version, ModelVersionTag(key=key, value=value))
 
-    def delete_prompt_version_tag(self, name, version, key):
+    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
         """
         Delete a tag from a prompt version.
 
@@ -737,7 +757,7 @@ class AbstractStore:
         """
         self.delete_model_version_tag(name, version, key)
 
-    def set_prompt_alias(self, name, alias, version):
+    def set_prompt_alias(self, name: str, alias: str, version: Union[str, int]) -> None:
         """
         Set an alias for a prompt version.
 
@@ -751,7 +771,7 @@ class AbstractStore:
         """
         self.set_registered_model_alias(name, alias, version)
 
-    def delete_prompt_alias(self, name, alias):
+    def delete_prompt_alias(self, name: str, alias: str) -> None:
         """
         Delete a prompt alias.
 
@@ -764,7 +784,7 @@ class AbstractStore:
         """
         self.delete_registered_model_alias(name, alias)
 
-    def get_prompt_version_by_alias(self, name, alias):
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> Prompt:
         """
         Get a prompt version by alias.
 
@@ -776,11 +796,11 @@ class AbstractStore:
             A :py:class:`mlflow.entities.model_registry.Prompt` object.
         """
         mv = self.get_model_version_by_alias(name, alias)
-        
+
         # Get prompt-level tags
         rm = self.get_registered_model(name)
         prompt_tags = {}
         if hasattr(rm, 'tags') and rm.tags:
             prompt_tags = rm.tags.copy()
-        
+
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags)

@@ -5,14 +5,16 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import (
     add_prompt_filter_string,
     is_prompt_supported_registry,
 )
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -444,7 +446,13 @@ class ModelRegistryClient:
 
     # Prompt-related methods
 
-    def create_prompt(self, name, template, description=None, tags=None):
+    def create_prompt(
+        self,
+        name: str,
+        template: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None
+    ) -> Prompt:
         """
         Create a new prompt in the registry.
 
@@ -459,7 +467,7 @@ class ModelRegistryClient:
         """
         return self.store.create_prompt(name, template, description, tags)
 
-    def get_prompt(self, name, version=None):
+    def get_prompt(self, name: str, version: Optional[Union[str, int]] = None) -> Optional[Prompt]:
         """
         Get prompt by name and version or alias.
 
@@ -472,7 +480,13 @@ class ModelRegistryClient:
         """
         return self.store.get_prompt(name, version)
 
-    def search_prompts(self, filter_string=None, max_results=None, order_by=None, page_token=None):
+    def search_prompts(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None
+    ) -> PagedList[Prompt]:
         """
         Search for prompts in the registry.
 
@@ -487,7 +501,7 @@ class ModelRegistryClient:
         """
         return self.store.search_prompts(filter_string, max_results, order_by, page_token)
 
-    def delete_prompt(self, name):
+    def delete_prompt(self, name: str) -> None:
         """
         Delete a prompt from the registry.
 
@@ -499,7 +513,13 @@ class ModelRegistryClient:
         """
         self.store.delete_prompt(name)
 
-    def create_prompt_version(self, name, template, description=None, tags=None):
+    def create_prompt_version(
+        self,
+        name: str,
+        template: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None
+    ) -> Prompt:
         """
         Create a new version of an existing prompt.
 
@@ -514,7 +534,7 @@ class ModelRegistryClient:
         """
         return self.store.create_prompt_version(name, template, description, tags)
 
-    def get_prompt_version(self, name, version):
+    def get_prompt_version(self, name: str, version: Union[str, int]) -> Prompt:
         """
         Get a specific version of a prompt.
 
@@ -527,7 +547,7 @@ class ModelRegistryClient:
         """
         return self.store.get_prompt_version(name, version)
 
-    def delete_prompt_version(self, name, version):
+    def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
         """
         Delete a specific version of a prompt.
 
@@ -540,7 +560,7 @@ class ModelRegistryClient:
         """
         self.store.delete_prompt_version(name, version)
 
-    def set_prompt_tag(self, name, key, value):
+    def set_prompt_tag(self, name: str, key: str, value: str) -> None:
         """
         Set a tag on a prompt.
 
@@ -554,7 +574,7 @@ class ModelRegistryClient:
         """
         self.store.set_prompt_tag(name, key, value)
 
-    def delete_prompt_tag(self, name, key):
+    def delete_prompt_tag(self, name: str, key: str) -> None:
         """
         Delete a tag from a prompt.
 
@@ -567,7 +587,9 @@ class ModelRegistryClient:
         """
         self.store.delete_prompt_tag(name, key)
 
-    def set_prompt_version_tag(self, name, version, key, value):
+    def set_prompt_version_tag(
+        self, name: str, version: Union[str, int], key: str, value: str
+    ) -> None:
         """
         Set a tag on a prompt version.
 
@@ -582,7 +604,7 @@ class ModelRegistryClient:
         """
         self.store.set_prompt_version_tag(name, version, key, value)
 
-    def delete_prompt_version_tag(self, name, version, key):
+    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
         """
         Delete a tag from a prompt version.
 
@@ -596,7 +618,7 @@ class ModelRegistryClient:
         """
         self.store.delete_prompt_version_tag(name, version, key)
 
-    def set_prompt_alias(self, name, alias, version):
+    def set_prompt_alias(self, name: str, alias: str, version: Union[str, int]) -> None:
         """
         Set an alias for a prompt version.
 
@@ -610,7 +632,7 @@ class ModelRegistryClient:
         """
         self.store.set_prompt_alias(name, alias, version)
 
-    def delete_prompt_alias(self, name, alias):
+    def delete_prompt_alias(self, name: str, alias: str) -> None:
         """
         Delete a prompt alias.
 
@@ -623,7 +645,7 @@ class ModelRegistryClient:
         """
         self.store.delete_prompt_alias(name, alias)
 
-    def get_prompt_version_by_alias(self, name, alias):
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> Prompt:
         """
         Get a prompt version by alias.
 
