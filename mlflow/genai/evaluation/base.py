@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
@@ -226,6 +225,8 @@ def evaluate(
             "The genai evaluation function is only supported on Databricks. "
             "Please set the tracking URI to Databricks."
         )
+
+    from mlflow.genai.datasets import EvaluationDataset
 
     is_managed_dataset = isinstance(data, EvaluationDataset)
 
