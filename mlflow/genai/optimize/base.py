@@ -55,7 +55,7 @@ def optimize_prompt(
 
             - inputs (required): A column containing single inputs in dict format.
               Each input should contain keys in the prompt template.
-            - expectations (optional): A column containing a dictionary
+            - expectations (required): A column containing a dictionary
               of ground truths for individual output fields
 
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
@@ -79,7 +79,7 @@ def optimize_prompt(
             import os
             import mlflow
             from mlflow.genai.scorers import scorer
-            from mlflow.genai.optimize import OptimizerParam, LLMParam
+            from mlflow.genai.optimize import OptimizerConfig, LLMParams
 
             os.environ["OPENAI_API_KEY"] = "YOUR_API_KEY"
 
@@ -91,7 +91,7 @@ def optimize_prompt(
 
             prompt = mlflow.register_prompt(
                 name="qa",
-                template="Answer the following question.question: {{question}}",
+                template="Answer the following question: {{question}}",
             )
 
             result = mlflow.genai.optimize_prompt(
@@ -101,8 +101,8 @@ def optimize_prompt(
                     for i in range(100)
                 ],
                 scorers=[exact_match],
-                prompt=prompt,
-                optimizer_config=OptimizerParam(num_instruction_candidates=5),
+                prompt_uri=prompt,
+                optimizer_config=OptimizerConfig(num_instruction_candidates=5),
             )
 
             print(result.prompt.template)
