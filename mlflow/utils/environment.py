@@ -489,7 +489,7 @@ def _get_uv_envs_for_databricks() -> dict[str, str]:
         try:
             val = dbutils.secrets.get(scope="databricks-package-management", key=secret_key)
         except Exception as e:
-            _logger.debug(f"Failed to fetch secret '{secret_key}': {e}", exc_info=e)
+            _logger.debug(f"Failed to fetch secret '{secret_key}': {e}")
             continue  # If the secret is not found, skip setting this environment variable
 
         envs[uv_env_var] = val
