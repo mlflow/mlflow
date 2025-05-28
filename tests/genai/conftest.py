@@ -31,11 +31,13 @@ def spoof_tracking_uri_check():
 def sample_rag_trace():
     @mlflow.trace(span_type=SpanType.AGENT)
     def _predict(question):
-        _retrieve(question)
+        # Two retrievers calls
+        _retrieve_1(question)
+        _retrieve_2(question)
         return "answer"
 
     @mlflow.trace(span_type=SpanType.RETRIEVER)
-    def _retrieve(question):
+    def _retrieve_1(question):
         return [
             Document(
                 page_content="content_1",
@@ -45,8 +47,11 @@ def sample_rag_trace():
                 page_content="content_2",
                 metadata={"doc_uri": "url_2"},
             ),
-            Document(page_content="content_3"),
         ]
+
+    @mlflow.trace(span_type=SpanType.RETRIEVER)
+    def _retrieve_2(question):
+        return [Document(page_content="content_3")]
 
     _predict("query")
 

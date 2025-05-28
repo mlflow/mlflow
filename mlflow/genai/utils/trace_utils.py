@@ -5,6 +5,7 @@ from typing import Any, Callable, Optional
 from opentelemetry.trace import NoOpTracer
 
 import mlflow
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.genai.utils.data_validation import check_model_prediction
@@ -73,7 +74,7 @@ def parse_inputs_to_str(inputs: Any) -> str:
     return json.dumps(inputs, default=TraceJSONEncoder)
 
 
-def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> Optional[dict[str, list]]:
+def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> dict[str, list]:
     """
     Extract the retrieval context from the trace.
     Only consider the last retrieval span in the trace if there are multiple retrieval spans.
@@ -81,12 +82,12 @@ def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> Optional[dic
     ⚠️ Warning: Please make sure to not throw exception. If fails, return None.
     """
     if trace is None or trace.data is None:
-        return None
+        return {}
 
     # Only consider the top-level retrieval spans
     top_level_retrieval_spans = _get_top_level_retrieval_spans(trace)
     if len(top_level_retrieval_spans) == 0:
-        return None
+        return {}
 
     retrieved = {}  # span_id -> list of documents
 
@@ -152,3 +153,25 @@ def _parse_chunk(chunk: Any) -> Optional[dict[str, Any]]:
     if doc_uri := chunk.get("metadata", {}).get("doc_uri"):
         doc["doc_uri"] = doc_uri
     return doc
+
+
+def aggregate_per_span_feedbacks(
+    feedbacks: list[Feedback], aggregate_fn: Callable
+) -> Optional[Feedback]:
+    """Aggregate a list of feedbacks into a single feedback using the aggregate_fn."""
+    # Ignore errored feedbacks
+    values = [feedback.value for feedback in feedbacks if feedback.value is not None]
+
+    if len(values) == 0:
+        return None
+
+    feedback_name = feedbacks[0].name  # All feedbacks must have the same name
+    aggregated_value = aggregate_fn(values)
+
+    return Feedback(
+        name=feedback_name,
+        value=aggregated_value,
+        source=feedbacks[0].source,
+        trace_id=feedbacks[0].trace_id,
+        rationale=f"Aggregation of multiple per-span `{feedback_name}` feedbacks.",
+    )

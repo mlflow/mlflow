@@ -7,7 +7,10 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.utils.trace_utils import extract_retrieval_context_from_trace, parse_inputs_to_str
+from mlflow.genai.utils.trace_utils import (
+    extract_retrieval_context_from_trace,
+    parse_inputs_to_str,
+)
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.utils.annotations import experimental
 
@@ -67,8 +70,8 @@ class RetrievalRelevance(BuiltInScorer):
         from mlflow.genai.scorers import retrieval_relevance
 
         trace = mlflow.get_trace("<your-trace-id>")
-        feedback = retrieval_relevance(trace)
-        print(feedback)
+        feedbacks = retrieval_relevance(trace=trace)
+        print(feedbacks)
 
     Example (with evaluate):
 
@@ -94,33 +97,47 @@ class RetrievalRelevance(BuiltInScorer):
 
         Returns:
             A list of assessments evaluating the relevance of each context chunk.
+            If the number of retrievers is N and each retriever has M chunks, the list will
+            contain N * (M + 1) assessments. Each retriever span will emit M assessments
+            for the relevance of its chunks and 1 assessment for the average relevance of all
+            chunks.
         """
         request = parse_inputs_to_str(trace.data.spans[0].inputs)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
-        # NB: Only pass contexts from the last retriever span for now. This is the same
-        # behavior as the current judge implementation. TODO: Update this to the new
-        # behavior requested by eval team that consider all retriever spans.
-        context = list(span_id_to_context.values())[-1]
 
-        # Compute average relevance across all chunks. This is a temporary workaround to
-        # the fact that eval harness doesn't allow returning a list of feedbacks.
-        chunk_feedbacks = []
-        for chunk in context:
-            feedback = judges.is_context_relevant(request=request, context=chunk, name=self.name)
-            if feedback.value is not None:
-                chunk_feedbacks.append(feedback)
+        feedbacks = []
+        for span_id, context in span_id_to_context.items():
+            feedbacks.extend(self._compute_span_relevance(span_id, request, context))
+        return feedbacks
+
+    def _compute_span_relevance(
+        self, span_id: str, request: str, chunks: dict[str, str]
+    ) -> list[Feedback]:
+        """Compute the relevance of retrieved context for one retriever span."""
+        from databricks.agents.evals.judges import chunk_relevance
+
+        # Compute relevance for each chunk. Call `chunk_relevance` judge directly
+        # to get a list of feedbacks with ids.
+        chunk_feedbacks = chunk_relevance(
+            request=request, retrieved_context=chunks, assessment_name=self.name
+        )
+        for feedback in chunk_feedbacks:
+            feedback.span_id = span_id
 
         if len(chunk_feedbacks) == 0:
-            return None
+            return []
 
-        avg = sum(f.value == "yes" for f in chunk_feedbacks) / len(chunk_feedbacks)
-        return Feedback(
+        # Compute average relevance across all chunks.
+        # NB: Handling error feedback as 0.0 relevance for simplicity.
+        average = sum(f.value == "yes" for f in chunk_feedbacks) / len(chunk_feedbacks)
+
+        span_level_feedback = Feedback(
             name=self.name,
-            value=avg,
+            value=average,
             source=chunk_feedbacks[0].source,
-            trace_id=chunk_feedbacks[0].trace_id,
-            span_id=chunk_feedbacks[0].span_id,
+            span_id=span_id,
         )
+        return [span_level_feedback] + chunk_feedbacks
 
     def with_config(self, *, name: str = "retrieval_relevance") -> "RetrievalRelevance":
         """
@@ -152,7 +169,7 @@ class RetrievalSufficiency(BuiltInScorer):
         from mlflow.genai.scorers import retrieval_sufficiency
 
         trace = mlflow.get_trace("<your-trace-id>")
-        feedback = retrieval_sufficiency(trace)
+        feedback = retrieval_sufficiency(trace=trace)
         print(feedback)
 
     Example (with evaluate):
@@ -192,10 +209,6 @@ class RetrievalSufficiency(BuiltInScorer):
         """
         request = parse_inputs_to_str(trace.data.spans[0].inputs)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
-        # NB: Only pass contexts from the last retriever span for now. This is the same
-        # behavior as the current judge implementation. TODO: Update this to the new
-        # behavior requested by eval team that consider all retriever spans.
-        retrieved_context = list(span_id_to_context.values())[-1]
 
         expected_facts = None
         expected_response = None
@@ -205,13 +218,20 @@ class RetrievalSufficiency(BuiltInScorer):
             if assessment.name == "expected_response":
                 expected_response = assessment.value
 
-        return judges.is_context_sufficient(
-            request=request,
-            context=retrieved_context,
-            expected_response=expected_response,
-            expected_facts=expected_facts,
-            name=self.name,
-        )
+        # This scorer returns a list of feedbacks, one for retriever span in the trace.
+        feedbacks = []
+        for span_id, context in span_id_to_context.items():
+            feedback = judges.is_context_sufficient(
+                request=request,
+                context=context,
+                expected_response=expected_response,
+                expected_facts=expected_facts,
+                name=self.name,
+            )
+            feedback.span_id = span_id
+            feedbacks.append(feedback)
+
+        return feedbacks
 
     def with_config(self, *, name: str = "retrieval_sufficiency") -> "RetrievalSufficiency":
         """
@@ -243,7 +263,7 @@ class RetrievalGroundedness(BuiltInScorer):
         from mlflow.genai.scorers import retrieval_groundedness
 
         trace = mlflow.get_trace("<your-trace-id>")
-        feedback = retrieval_groundedness(trace)
+        feedback = retrieval_groundedness(trace=trace)
         print(feedback)
 
     Example (with evaluate):
@@ -275,13 +295,14 @@ class RetrievalGroundedness(BuiltInScorer):
         request = parse_inputs_to_str(trace.data.spans[0].inputs)
         response = trace.data.spans[0].outputs
         span_id_to_context = extract_retrieval_context_from_trace(trace)
-        # NB: Only pass contexts from the last retriever span for now. This is the same
-        # behavior as the current judge implementation. TODO: Update this to the new
-        # behavior requested by eval team that consider all retriever spans.
-        context = list(span_id_to_context.values())[-1]
-        return judges.is_grounded(
-            request=request, response=response, context=context, name=self.name
-        )
+        feedbacks = []
+        for span_id, context in span_id_to_context.items():
+            feedback = judges.is_grounded(
+                request=request, response=response, context=context, name=self.name
+            )
+            feedback.span_id = span_id
+            feedbacks.append(feedback)
+        return feedbacks
 
     def with_config(self, *, name: str = "retrieval_groundedness") -> "RetrievalGroundedness":
         """
@@ -327,10 +348,7 @@ class GuidelineAdherence(BuiltInScorer):
             name="english_guidelines",
             global_guidelines=["The response must be in English"],
         )
-        feedback = english(
-            inputs={"question": "What is the capital of France?"},
-            outputs="The capital of France is Paris.",
-        )
+        feedback = english(outputs="The capital of France is Paris.")
         print(feedback)
 
     Example (with evaluate):
@@ -414,7 +432,6 @@ class GuidelineAdherence(BuiltInScorer):
     def __call__(
         self,
         *,
-        inputs: dict[str, Any],
         outputs: Any,
         expectations: Optional[dict[str, Any]] = None,
     ) -> Assessment:
@@ -422,7 +439,6 @@ class GuidelineAdherence(BuiltInScorer):
         Evaluate adherence to specified guidelines.
 
         Args:
-            inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
             outputs: The response from the model, e.g. "The capital of France is Paris."
             expectations: A dictionary of expectations for the response. This must contain either
                 `guidelines` key, which is used to evaluate the response against the guidelines
@@ -433,7 +449,6 @@ class GuidelineAdherence(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Assessment~` object with a boolean value
             indicating the adherence to the specified guidelines.
         """
-        request = parse_inputs_to_str(inputs)
         guidelines = (expectations or {}).get("guidelines", self.global_guidelines)
         if not guidelines:
             raise MlflowException(
@@ -442,7 +457,9 @@ class GuidelineAdherence(BuiltInScorer):
             )
 
         return judges.meets_guidelines(
-            request=request, response=outputs, guidelines=guidelines, name=self.name
+            guidelines=guidelines,
+            context={"response": outputs},
+            name=self.name,
         )
 
     def with_config(
@@ -534,7 +551,11 @@ class RelevanceToQuery(BuiltInScorer):
             indicating the relevance of the response to the query.
         """
         request = parse_inputs_to_str(inputs)
-        return judges.is_relevant_to_query(request=request, response=outputs, name=self.name)
+        # NB: Reuse is_context_relevant judge to evaluate response
+        feedback = judges.is_context_relevant(request=request, context=outputs, name=self.name)
+        # drop chunk id metadata
+        feedback.metadata.pop("chunk_index", None)
+        return feedback
 
     def with_config(self, *, name: str = "relevance_to_query") -> "RelevanceToQuery":
         """
@@ -564,10 +585,7 @@ class Safety(BuiltInScorer):
         import mlflow
         from mlflow.genai.scorers import safety
 
-        assessment = safety(
-            inputs={"question": "What is the capital of France?"},
-            outputs="The capital of France is Paris.",
-        )
+        assessment = safety(outputs="The capital of France is Paris.")
         print(assessment)
 
     Example (with evaluate):
@@ -589,20 +607,18 @@ class Safety(BuiltInScorer):
     name: str = "safety"
     required_columns: set[str] = {"inputs", "outputs"}
 
-    def __call__(self, *, inputs: dict[str, Any], outputs: Any) -> Feedback:
+    def __call__(self, *, outputs: Any) -> Feedback:
         """
         Evaluate safety of the response.
 
         Args:
-            inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
             outputs: The response from the model, e.g. "The capital of France is Paris."
 
         Returns:
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the safety of the response.
         """
-        request = parse_inputs_to_str(inputs)
-        return judges.is_safe(request=request, response=outputs, name=self.name)
+        return judges.is_safe(content=outputs, name=self.name)
 
     def with_config(self, *, name: str = "safety") -> "Safety":
         """
