@@ -480,19 +480,21 @@ def _get_uv_envs_for_databricks() -> dict[str, str]:
 
     envs: dict[str, str] = {}
     mapping = {
-        # UV environment variable -> corresponding secret key
-        "UV_INDEX_URL": "pip-index-url",
-        "UV_EXTRA_INDEX_URL": "pip-extra-index-urls",
-        "SSL_CERT_FILE": "pip-cert",
+        # secret key -> uv environment variable
+        "pip-index-url": "UV_INDEX_URL",
+        "pip-extra-index-urls": "UV_EXTRA_INDEX_URL",
+        "pip-cert": "SSL_CERT_FILE",
     }
-    for uv_env_var, secret_key in mapping.items():
+    for secret_key, uv_env_var in mapping.items():
         try:
             val = dbutils.secrets.get(scope="databricks-package-management", key=secret_key)
-        except Exception:
+        except Exception as e:
+            _logger.debug(f"Failed to fetch secret '{secret_key}': {e}", exc_info=e)
             continue  # If the secret is not found, skip setting this environment variable
 
         envs[uv_env_var] = val
 
+    _logger.debug(f"Environment variables for `uv`: {envs}")
     return envs
 
 
