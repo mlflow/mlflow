@@ -3975,7 +3975,7 @@ response = requests.post(url, json=json_data)
 print(f"\nPyfunc 'predict_interval':\n${response.json()}")
 ```
 
-## Automatic Model Dependency Locking
+## Automatic Model Dependency Locking (Experimental)
 
 By default, MLflow only pins the direct dependencies of your model (for example, `scikit-learn` for a `scikit-learn` model), but does **not** lock transitive dependencies (such as `numpy` installed by `scikit-learn`). This can sometimes lead to inconsistencies when deploying or sharing models, as transitive dependencies may change over time.
 
