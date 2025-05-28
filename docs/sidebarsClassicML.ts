@@ -65,8 +65,26 @@ const sidebarsClassicML: SidebarsConfig = {
           id: 'getting-started/hyperparameter-tuning/index',
         },
         {
-          type: 'doc',
-          id: 'getting-started/registering-first-model/index',
+          type: 'category',
+          label: 'Model Registry Quickstart',
+          items: [
+            {
+                type: 'doc',
+                id: 'getting-started/registering-first-model/step1-register-model/index',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/registering-first-model/step2-explore-registered-model/index',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/registering-first-model/step3-load-model/index'
+            }
+          ],
+          link: {
+            type: 'doc',
+            id: 'getting-started/registering-first-model/index',
+          },
         },
         {
           type: 'doc',
