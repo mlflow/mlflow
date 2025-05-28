@@ -67,7 +67,7 @@ def parse_inputs_to_str(inputs: Any) -> str:
 
     # If it is a single key dictionary, return the value
     if isinstance(inputs, dict) and len(inputs) == 1:
-        return inputs[list(inputs.keys())[0]]
+        return list(inputs.values())[0]
 
     # Otherwise, encode the inputs to a JSON string
     return json.dumps(inputs, default=TraceJSONEncoder)
@@ -116,26 +116,27 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
     Span B and Span D are top-level retrieval spans.
     Span C and Span F are NOT top-level because they are children of other retrieval spans.
     """
-    retrieval_spans = {
-        span.span_id: span for span in trace.search_spans(span_type=SpanType.RETRIEVER)
-    }
-
     top_level_retrieval_spans = []
-
-    for span in retrieval_spans.values():
+    # Cache span_id -> span mapping for fast lookup
+    all_spans = {span.span_id: span for span in trace.data.spans}
+    for span in trace.search_spans(span_type=SpanType.RETRIEVER):
         # Check if this span is a child of another retrieval span
         parent_id = span.parent_id
         while parent_id:
-            if parent_id in retrieval_spans:
-                # This span is a child of another retrieval span
-                break
-            parents = trace.search_spans(span_id=parent_id)
-            if len(parents) != 1:
+            parent_span = all_spans.get(parent_id)
+            if not parent_span:
                 # Malformed trace
-                _logger.debug(f"Malformed trace: span {span} has multiple parents: {parents}")
+                _logger.debug(
+                    f"Malformed trace: span {span} has parent span ID {parent_id}, "
+                    "but the parent span is not found in the trace."
+                )
                 break
 
-            parent_id = parents[0].parent_id
+            if parent_span.span_type == SpanType.RETRIEVER:
+                # This span is a child of another retrieval span
+                break
+
+            parent_id = parent_span.parent_id
         else:
             # If the loop completes without breaking, this is a top-level span
             top_level_retrieval_spans.append(span)
