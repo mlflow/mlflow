@@ -62,12 +62,12 @@ def test_validate_scorers_legacy_metric():
     assert "legacy_metric_1" in mock_logger.warning.call_args[0][0]
 
 
-def test_validate_data(mock_logger):
+def test_validate_data(mock_logger, sample_rag_trace):
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
             "outputs": ["output1", "output2"],
-            "retrieved_context": [{"context": "context1"}, {"context": "context2"}],
+            "trace": [sample_rag_trace, sample_rag_trace],
         }
     )
 
@@ -83,13 +83,13 @@ def test_validate_data(mock_logger):
     mock_logger.info.assert_not_called()
 
 
-def test_validate_data_with_expectations(mock_logger):
+def test_validate_data_with_expectations(mock_logger, sample_rag_trace):
     """Test that expectations are unwrapped and validated properly"""
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
             "outputs": ["output1", "output2"],
-            "retrieved_context": ["context1", "context2"],
+            "trace": [sample_rag_trace, sample_rag_trace],
             "expectations": [
                 {"expected_response": "response1", "guidelines": ["Be polite", "Be kind"]},
                 {"expected_response": "response2", "guidelines": ["Be nice", "Be strong"]},
@@ -176,8 +176,8 @@ def test_validate_data_missing_columns(mock_logger):
 
     mock_logger.info.assert_called_once()
     msg = mock_logger.info.call_args[0][0]
-    assert " - `outputs` column is required by [groundedness, guideline_adherence]." in msg
-    assert " - `retrieved_context` column is required by [chunk_relevance, groundedness]." in msg
+    assert " - `outputs` column is required by [guideline_adherence]." in msg
+    assert " - `trace` column is required by [chunk_relevance, groundedness]." in msg
 
 
 def test_validate_data_with_trace(mock_logger):
