@@ -393,7 +393,7 @@ def _parse_token_counts(usage_metadata: dict[str, Any]) -> dict[str, int]:
             usage[key_mapping[key]] = value
 
     # If the total tokens are not present, calculate it from the input and output tokens
-    if usage and usage[TokenUsageKey.TOTAL_TOKENS] is None:
+    if usage and usage.get(TokenUsageKey.TOTAL_TOKENS) is None:
         input_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
         output_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
         usage[TokenUsageKey.TOTAL_TOKENS] = input_tokens + output_tokens
