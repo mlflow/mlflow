@@ -253,7 +253,7 @@ class Trace(_MlflowObject):
     ) -> list["Assessment"]:
         """
         Get assessments for a given name / span ID. By default, this only returns assessments
-        that are valid (i.e. have not been superseded by another assessment). To return all
+        that are valid (i.e. have not been overridden by another assessment). To return all
         assessments, specify `all=True`.
 
         Args:
