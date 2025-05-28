@@ -92,6 +92,10 @@ python_gencode_replacements = [
         "from . import unity_catalog_oss_messages_pb2 as unity_catalog_oss_messages_pb2",
     ),
     (
+        "import unity_catalog_prompt_messages_pb2 as unity__catalog__prompt__messages__pb2",
+        "from . import unity_catalog_prompt_messages_pb2 as unity_catalog_prompt_messages_pb2",
+    ),
+    (
         "import service_pb2 as service__pb2",
         "from . import service_pb2 as service__pb2",
     ),
