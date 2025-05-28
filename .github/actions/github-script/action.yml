@@ -4,9 +4,6 @@ inputs:
   script:
     description: "Script to execute"
     required: false
-  script-file:
-    description: "Path to the script file to execute"
-    required: false
   github-token:
     description: "GitHub token"
     required: false
@@ -21,6 +18,5 @@ runs:
     - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
       with:
         script: ${{ inputs.script }}
-        script-file: ${{ inputs.script-file }}
         github-token: ${{ inputs.github-token }}
         result-encoding: ${{ inputs.result-encoding }}
