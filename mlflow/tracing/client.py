@@ -491,7 +491,7 @@ class TracingClient:
                 if trace is None:
                     _logger.debug(
                         f"Trace {trace_id} is active but not found in the in-memory buffer. "
-                        "Something is wrong with the trace managing. Skipping assessment logging."
+                        "Something is wrong with trace handling. Skipping assessment logging."
                     )
                 trace.info.assessments.append(assessment)
             return assessment
