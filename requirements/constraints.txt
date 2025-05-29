@@ -12,3 +12,7 @@ transformers!=4.52.2
 transformers!=4.52.1
 # TODO(https://github.com/mlflow/mlflow/issues/15847): Remove this constraint when MLflow is ready for pyspark 4.0.0. Pyspark 3.5.6 has the same issue.
 pyspark<3.5.6
+# FLAML disables warnings globally using `warnings.simplefilter("ignore", category=...)`:
+# https://github.com/microsoft/FLAML/blob/01c3c836534a244ac8038535455a7fde367366ad/flaml/fabric/mlflow.py#L67-L68
+# This interferes with `test_autologging_warnings_are_redirected_as_expected`.
+FLAML<2.3.5

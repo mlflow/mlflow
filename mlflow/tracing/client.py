@@ -4,9 +4,11 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from typing import Optional, Union
 
+import mlflow
 from mlflow.entities.assessment import (
     Assessment,
 )
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -494,6 +496,25 @@ class TracingClient:
             )
 
         assessment.trace_id = trace_id
+
+        if trace_id is None or trace_id == NO_OP_SPAN_TRACE_ID:
+            _logger.debug(
+                "Skipping assessment logging for NO_OP_SPAN_TRACE_ID. This is expected when "
+                "tracing is disabled."
+            )
+            return assessment
+
+        # If the trace is the active trace, add the assessment to it in-memory
+        if trace_id == mlflow.get_active_trace_id():
+            with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
+                if trace is None:
+                    _logger.debug(
+                        f"Trace {trace_id} is active but not found in the in-memory buffer. "
+                        "Something is wrong with trace handling. Skipping assessment logging."
+                    )
+                trace.info.assessments.append(assessment)
+            return assessment
+
         return self.store.create_assessment(assessment)
 
     def update_assessment(
