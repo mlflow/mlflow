@@ -75,6 +75,7 @@ def autolog_function(patch_destination, logger):
     return test_autolog
 
 
+@pytest.mark.repeat(50)
 def test_autologging_warnings_are_redirected_as_expected(
     autolog_function, patch_destination, logger
 ):
