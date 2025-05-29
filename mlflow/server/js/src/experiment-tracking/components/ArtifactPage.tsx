@@ -155,6 +155,10 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
         errorThrown: false,
       });
     }
+    // If the component eventually falls back to logged model artifacts, poll artifacts for the current run
+    if (!prevProps.isFallbackToLoggedModelArtifacts && this.props.isFallbackToLoggedModelArtifacts) {
+      this.pollArtifactsForCurrentRun();
+    }
   }
 
   componentWillUnmount() {
