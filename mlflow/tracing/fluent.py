@@ -165,17 +165,10 @@ def trace(
         is_staticmethod = isinstance(fn, staticmethod)
 
         # Extract the original function if it's a descriptor
-        if is_classmethod:
-            original_fn = fn.__func__
-        elif is_staticmethod:
-            original_fn = fn.__func__
-        else:
-            original_fn = fn
+        original_fn = fn.__func__ if is_classmethod or is_staticmethod else fn
 
         # Apply the appropriate wrapper to the original function
-        if inspect.isgeneratorfunction(original_fn) or inspect.isasyncgenfunction(
-            original_fn
-        ):
+        if inspect.isgeneratorfunction(original_fn) or inspect.isasyncgenfunction(original_fn):
             wrapped = _wrap_generator(
                 original_fn,
                 name,

@@ -41,18 +41,14 @@ def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:
         bound_arguments = func_signature.bind(*args, **kwargs)
         bound_arguments.apply_defaults()
 
-        # Remove `self` from bound arguments if it exists (for instance methods)
+        # Remove `self` from bound arguments if it exists
         if bound_arguments.arguments.get("self"):
             del bound_arguments.arguments["self"]
 
         # Remove `cls` from bound arguments if it's the first parameter and it's a type
         # This detects classmethods more reliably
         params = list(bound_arguments.arguments.keys())
-        if (
-            params
-            and params[0] == "cls"
-            and isinstance(bound_arguments.arguments["cls"], type)
-        ):
+        if params and params[0] == "cls" and isinstance(bound_arguments.arguments["cls"], type):
             del bound_arguments.arguments["cls"]
 
         return bound_arguments.arguments
@@ -127,7 +123,8 @@ class TraceJSONEncoder(json.JSONEncoder):
             from llama_index.core.chat_engine.types import StreamingAgentChatResponse
 
             if isinstance(
-                obj, (AsyncStreamingResponse, StreamingResponse, StreamingAgentChatResponse),
+                obj,
+                (AsyncStreamingResponse, StreamingResponse, StreamingAgentChatResponse),
             ):
                 return False
         except ImportError:
@@ -192,9 +189,7 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
     """
     span_name_counter = Counter(span.name for span in spans)
     # Apply renaming only for duplicated spans
-    span_name_counter = {
-        name: 1 for name, count in span_name_counter.items() if count > 1
-    }
+    span_name_counter = {name: 1 for name, count in span_name_counter.items() if count > 1}
     # Add index to the duplicated span names
     for span in spans:
         if count := span_name_counter.get(span.name):
@@ -252,9 +247,7 @@ def get_otel_attribute(span: trace_api.Span, key: str) -> Optional[str]:
     try:
         return json.loads(span.attributes.get(key))
     except Exception:
-        _logger.debug(
-            f"Failed to get attribute {key} with from span {span}.", exc_info=True
-        )
+        _logger.debug(f"Failed to get attribute {key} with from span {span}.", exc_info=True)
 
 
 def _try_get_prediction_context():
@@ -492,10 +485,7 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
     """
     try:
         from mlflow.openai.utils.chat_schema import set_span_chat_attributes
-        from mlflow.types.responses import (
-            ResponsesAgentResponse,
-            ResponsesAgentStreamEvent,
-        )
+        from mlflow.types.responses import ResponsesAgentResponse, ResponsesAgentStreamEvent
 
         if isinstance(outputs, ResponsesAgentResponse):
             inputs = inputs["request"].model_dump_compat()
