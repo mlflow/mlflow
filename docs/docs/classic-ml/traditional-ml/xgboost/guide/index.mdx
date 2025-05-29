@@ -1,0 +1,1306 @@
+import { APILink } from "@site/src/components/APILink";
+
+# XGBoost within MLflow
+
+In this comprehensive guide, we'll explore how to use XGBoost with MLflow for experiment tracking, model management, and production deployment. We'll cover both the native XGBoost API and scikit-learn compatible interface, from basic autologging to advanced distributed training patterns.
+
+## Quick Start with Autologging
+
+The fastest way to get started is with MLflow's XGBoost autologging. Enable comprehensive experiment tracking with a single line:
+
+```python
+import mlflow
+import mlflow.xgboost
+import xgboost as xgb
+from sklearn.datasets import load_boston
+from sklearn.model_selection import train_test_split
+
+# Enable autologging for XGBoost
+mlflow.xgboost.autolog()
+
+# Load sample data
+data = load_boston()
+X_train, X_test, y_train, y_test = train_test_split(
+    data.data, data.target, test_size=0.2, random_state=42
+)
+
+# Prepare DMatrix format
+dtrain = xgb.DMatrix(X_train, label=y_train)
+dtest = xgb.DMatrix(X_test, label=y_test)
+
+# Define training parameters
+params = {
+    'objective': 'reg:squarederror',
+    'max_depth': 6,
+    'learning_rate': 0.1,
+    'subsample': 0.8,
+    'colsample_bytree': 0.8,
+    'random_state': 42
+}
+
+# Train model - MLflow automatically logs everything
+with mlflow.start_run():
+    model = xgb.train(
+        params=params,
+        dtrain=dtrain,
+        num_boost_round=100,
+        evals=[(dtrain, 'train'), (dtest, 'test')],
+        early_stopping_rounds=10,
+        verbose_eval=False
+    )
+    
+    print(f"Best iteration: {model.best_iteration}")
+    print(f"Best score: {model.best_score}")
+```
+
+This simple example automatically logs:
+- All XGBoost parameters and training configuration
+- Training and validation metrics for each boosting round
+- Feature importance plots and JSON artifacts
+- The trained model with proper serialization
+- Early stopping metrics and best iteration information
+
+## Understanding XGBoost Autologging
+
+### What Gets Automatically Logged
+
+MLflow's XGBoost autologging captures comprehensive information about your gradient boosting process:
+
+| **Category** | **Information Captured** |
+|--------------|--------------------------|
+| **Parameters** | All booster parameters, training configuration, callback settings |
+| **Metrics** | Training/validation metrics per iteration, early stopping metrics |
+| **Feature Importance** | Weight, gain, cover, and total_gain importance with visualizations |
+| **Artifacts** | Trained model, feature importance plots, JSON importance data |
+
+### Native XGBoost API vs Scikit-learn API
+
+XGBoost offers two main interfaces, and MLflow supports both seamlessly:
+
+```python
+# Native XGBoost API - Maximum control and performance
+import xgboost as xgb
+
+mlflow.xgboost.autolog()
+
+dtrain = xgb.DMatrix(X_train, label=y_train)
+model = xgb.train(params, dtrain, num_boost_round=100)
+
+# Scikit-learn API - Familiar interface with sklearn integration
+from xgboost import XGBClassifier
+
+mlflow.sklearn.autolog()  # Note: Use sklearn autolog for XGBoost sklearn API
+
+model = XGBClassifier(n_estimators=100, max_depth=6)
+model.fit(X_train, y_train)
+```
+
+<details>
+  <summary>Choosing the Right API</summary>
+
+  #### Native XGBoost API - When to Use
+  - **Maximum Performance**: Direct access to all XGBoost optimizations
+  - **Advanced Features**: Custom objectives, evaluation metrics, and callbacks
+  - **Memory Efficiency**: Fine-grained control over data loading and processing
+  - **Competition Settings**: When every bit of performance matters
+
+  #### Scikit-learn API - When to Use
+  - **Pipeline Integration**: Working with sklearn preprocessing and feature engineering
+  - **Hyperparameter Tuning**: Using GridSearchCV or RandomizedSearchCV
+  - **Team Familiarity**: When your team is more comfortable with sklearn patterns
+  - **Rapid Prototyping**: Faster experimentation with familiar interfaces
+
+</details>
+
+## Manual Logging for Advanced Control
+
+For complete control over experiment tracking, you can manually instrument your XGBoost training:
+
+```python
+import mlflow
+import mlflow.xgboost
+import xgboost as xgb
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, roc_auc_score
+import numpy as np
+
+# Generate sample data
+X, y = make_classification(n_samples=10000, n_features=20, n_classes=2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Manual logging approach
+with mlflow.start_run():
+    # Define and log parameters
+    params = {
+        'objective': 'binary:logistic',
+        'max_depth': 8,
+        'learning_rate': 0.05,
+        'subsample': 0.9,
+        'colsample_bytree': 0.9,
+        'min_child_weight': 1,
+        'gamma': 0,
+        'reg_alpha': 0,
+        'reg_lambda': 1,
+        'random_state': 42
+    }
+    
+    training_config = {
+        'num_boost_round': 500,
+        'early_stopping_rounds': 50,
+    }
+    
+    # Log all parameters
+    mlflow.log_params(params)
+    mlflow.log_params(training_config)
+    
+    # Prepare data
+    dtrain = xgb.DMatrix(X_train, label=y_train)
+    dtest = xgb.DMatrix(X_test, label=y_test)
+    
+    # Custom evaluation tracking
+    eval_results = {}
+    
+    # Train model with custom callback
+    model = xgb.train(
+        params=params,
+        dtrain=dtrain,
+        num_boost_round=training_config['num_boost_round'],
+        evals=[(dtrain, 'train'), (dtest, 'test')],
+        early_stopping_rounds=training_config['early_stopping_rounds'],
+        evals_result=eval_results,
+        verbose_eval=False
+    )
+    
+    # Log training history
+    for epoch, (train_metrics, test_metrics) in enumerate(
+        zip(eval_results['train']['logloss'], eval_results['test']['logloss'])
+    ):
+        mlflow.log_metrics({
+            'train_logloss': train_metrics,
+            'test_logloss': test_metrics
+        }, step=epoch)
+    
+    # Final evaluation
+    y_pred_proba = model.predict(dtest)
+    y_pred = (y_pred_proba > 0.5).astype(int)
+    
+    final_metrics = {
+        'accuracy': accuracy_score(y_test, y_pred),
+        'roc_auc': roc_auc_score(y_test, y_pred_proba),
+        'best_iteration': model.best_iteration,
+        'best_score': model.best_score
+    }
+    
+    mlflow.log_metrics(final_metrics)
+    
+    # Log feature importance
+    importance_types = ['weight', 'gain', 'cover']
+    for imp_type in importance_types:
+        importance = model.get_score(importance_type=imp_type)
+        # Log as individual metrics
+        for feature, score in importance.items():
+            mlflow.log_metric(f'importance_{imp_type}_{feature}', score)
+    
+    # Log the model with signature
+    from mlflow.models import infer_signature
+    signature = infer_signature(X_train, y_pred_proba)
+    
+    mlflow.xgboost.log_model(
+        xgb_model=model,
+        artifact_path="model",
+        signature=signature,
+        input_example=X_train[:5]
+    )
+```
+
+### Advanced Manual Logging Patterns
+
+<details>
+  <summary>Custom Callbacks and Real-time Monitoring</summary>
+
+  #### Custom Callback Implementation
+  ```python
+  class MLflowCallback(xgb.callback.TrainingCallback):
+      def __init__(self):
+          self.metrics_history = []
+          
+      def after_iteration(self, model, epoch, evals_log):
+          # Log metrics in real-time
+          metrics = {}
+          for dataset, metric_dict in evals_log.items():
+              for metric_name, values in metric_dict.items():
+                  key = f"{dataset}_{metric_name}"
+                  metrics[key] = values[-1]  # Latest value
+          
+          mlflow.log_metrics(metrics, step=epoch)
+          self.metrics_history.append(metrics)
+          
+          # Custom logic for model checkpointing
+          if epoch % 50 == 0:
+              temp_model_path = f"checkpoint_epoch_{epoch}.json"
+              model.save_model(temp_model_path)
+              mlflow.log_artifact(temp_model_path)
+          
+          return False  # Continue training
+  
+  # Usage
+  callback = MLflowCallback()
+  model = xgb.train(
+      params, dtrain, 
+      callbacks=[callback],
+      num_boost_round=1000
+  )
+  ```
+
+  #### Multi-Objective Optimization Tracking
+  ```python
+  def train_multi_objective_model():
+      """Train model with multiple evaluation metrics."""
+      
+      eval_metrics = ['logloss', 'auc', 'error']
+      
+      with mlflow.start_run():
+          model = xgb.train(
+              params={**params, 'eval_metric': eval_metrics},
+              dtrain=dtrain,
+              evals=[(dtrain, 'train'), (dtest, 'test')],
+              num_boost_round=100,
+              evals_result=eval_results
+          )
+          
+          # Log all metrics
+          for dataset in ['train', 'test']:
+              for metric in eval_metrics:
+                  if metric in eval_results[dataset]:
+                      values = eval_results[dataset][metric]
+                      for epoch, value in enumerate(values):
+                          mlflow.log_metric(f"{dataset}_{metric}", value, step=epoch)
+          
+          return model
+  ```
+
+</details>
+
+## Scikit-learn API Integration
+
+XGBoost's scikit-learn compatible estimators work seamlessly with MLflow's sklearn autologging:
+
+```python
+import mlflow
+import mlflow.sklearn
+from xgboost import XGBClassifier, XGBRegressor
+from sklearn.datasets import load_wine
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+# Enable sklearn autologging for XGBoost sklearn estimators
+mlflow.sklearn.autolog()
+
+# Load data
+wine = load_wine()
+X_train, X_test, y_train, y_test = train_test_split(
+    wine.data, wine.target, test_size=0.2, random_state=42
+)
+
+with mlflow.start_run(run_name="XGBoost Sklearn API"):
+    # XGBoost with scikit-learn interface
+    model = XGBClassifier(
+        n_estimators=100,
+        max_depth=6,
+        learning_rate=0.1,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        early_stopping_rounds=10,
+        eval_metric='logloss'
+    )
+    
+    # Fit with evaluation set for early stopping
+    model.fit(
+        X_train, y_train,
+        eval_set=[(X_test, y_test)],
+        verbose=False
+    )
+    
+    # Cross-validation scores are automatically logged
+    cv_scores = cross_val_score(model, X_train, y_train, cv=5)
+    print(f"CV Score: {cv_scores.mean():.3f} (+/- {cv_scores.std() * 2:.3f})")
+```
+
+### Pipeline Integration
+
+```python
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+
+# Create preprocessing pipeline
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', StandardScaler(), [0, 1, 2, 3]),
+        ('cat', OneHotEncoder(drop='first'), [4, 5])
+    ]
+)
+
+# Complete ML pipeline
+pipeline = Pipeline([
+    ('preprocessor', preprocessor),
+    ('classifier', XGBClassifier(n_estimators=100, random_state=42))
+])
+
+with mlflow.start_run():
+    # Entire pipeline is logged including preprocessing steps
+    pipeline.fit(X_train, y_train)
+    
+    # Pipeline scoring is automatically captured
+    train_score = pipeline.score(X_train, y_train)
+    test_score = pipeline.score(X_test, y_test)
+```
+
+<details>
+  <summary>Advanced Pipeline Patterns</summary>
+
+  #### Feature Engineering Pipeline
+  ```python
+  from sklearn.base import BaseEstimator, TransformerMixin
+  
+  class XGBoostFeatureEngineer(BaseEstimator, TransformerMixin):
+      def __init__(self, create_interactions=True, polynomial_features=False):
+          self.create_interactions = create_interactions
+          self.polynomial_features = polynomial_features
+          
+      def fit(self, X, y=None):
+          return self
+          
+      def transform(self, X):
+          X_transformed = X.copy()
+          
+          if self.create_interactions:
+              # Create interaction features
+              X_transformed = np.column_stack([
+                  X_transformed,
+                  X[:, 0] * X[:, 1],  # Feature interaction
+                  X[:, 0] / (X[:, 1] + 1e-8)  # Feature ratio
+              ])
+          
+          return X_transformed
+  
+  # Use in pipeline
+  feature_pipeline = Pipeline([
+      ('engineer', XGBoostFeatureEngineer(create_interactions=True)),
+      ('scaler', StandardScaler()),
+      ('xgb', XGBClassifier(n_estimators=100))
+  ])
+  
+  with mlflow.start_run():
+      feature_pipeline.fit(X_train, y_train)
+  ```
+
+</details>
+
+## Hyperparameter Optimization
+
+### Grid Search with XGBoost
+
+```python
+import mlflow
+from sklearn.model_selection import GridSearchCV
+from xgboost import XGBClassifier
+
+# Enable autologging with hyperparameter tracking
+mlflow.sklearn.autolog(max_tuning_runs=10)
+
+# Define parameter grid
+param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [3, 6, 9],
+    'learning_rate': [0.01, 0.1, 0.2],
+    'subsample': [0.8, 0.9, 1.0],
+    'colsample_bytree': [0.8, 0.9, 1.0]
+}
+
+with mlflow.start_run(run_name="XGBoost Grid Search"):
+    # Create base model
+    xgb_model = XGBClassifier(random_state=42)
+    
+    # Grid search with cross-validation
+    grid_search = GridSearchCV(
+        xgb_model,
+        param_grid,
+        cv=5,
+        scoring='roc_auc',
+        n_jobs=-1,
+        verbose=1
+    )
+    
+    grid_search.fit(X_train, y_train)
+    
+    # Best parameters and scores are automatically logged
+    print(f"Best parameters: {grid_search.best_params_}")
+    print(f"Best CV score: {grid_search.best_score_:.3f}")
+    
+    # Evaluate on test set
+    test_score = grid_search.score(X_test, y_test)
+    print(f"Test score: {test_score:.3f}")
+```
+
+### Advanced Optimization with Optuna
+
+<details>
+  <summary>Bayesian Hyperparameter Optimization</summary>
+
+  ```python
+  import optuna
+  from sklearn.model_selection import cross_val_score
+  
+  def objective(trial):
+      # Define hyperparameter search space
+      params = {
+          'n_estimators': trial.suggest_int('n_estimators', 50, 500),
+          'max_depth': trial.suggest_int('max_depth', 3, 12),
+          'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+          'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+          'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+          'min_child_weight': trial.suggest_int('min_child_weight', 1, 7),
+          'gamma': trial.suggest_float('gamma', 0, 0.5),
+          'reg_alpha': trial.suggest_float('reg_alpha', 0, 1),
+          'reg_lambda': trial.suggest_float('reg_lambda', 0, 1),
+          'random_state': 42
+      }
+      
+      with mlflow.start_run(nested=True):
+          # Log trial parameters
+          mlflow.log_params(params)
+          
+          # Create and evaluate model
+          model = XGBClassifier(**params)
+          
+          # Cross-validation score
+          cv_scores = cross_val_score(
+              model, X_train, y_train, cv=5, scoring='roc_auc'
+          )
+          
+          mean_cv_score = cv_scores.mean()
+          mlflow.log_metric('cv_roc_auc', mean_cv_score)
+          mlflow.log_metric('cv_roc_auc_std', cv_scores.std())
+          
+          return mean_cv_score
+  
+  # Run optimization
+  with mlflow.start_run(run_name="XGBoost Optuna Optimization"):
+      study = optuna.create_study(direction='maximize')
+      study.optimize(objective, n_trials=100)
+      
+      # Log best parameters
+      mlflow.log_params(study.best_params)
+      mlflow.log_metric('best_cv_score', study.best_value)
+      
+      # Train final model with best parameters
+      best_model = XGBClassifier(**study.best_params)
+      best_model.fit(X_train, y_train)
+      
+      # Log final model
+      mlflow.xgboost.log_model(best_model, "best_model")
+  ```
+
+</details>
+
+## Feature Importance Analysis
+
+XGBoost provides multiple types of feature importance, and MLflow captures them all:
+
+```python
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+def comprehensive_feature_importance_analysis(model, feature_names=None):
+    """Analyze and log comprehensive feature importance."""
+    
+    importance_types = ['weight', 'gain', 'cover', 'total_gain']
+    
+    with mlflow.start_run(run_name="Feature Importance Analysis"):
+        for imp_type in importance_types:
+            # Get importance scores
+            importance = model.get_score(importance_type=imp_type)
+            
+            if not importance:
+                continue
+                
+            # Sort features by importance
+            sorted_features = sorted(importance.items(), key=lambda x: x[1], reverse=True)
+            
+            # Log individual feature scores
+            for feature, score in sorted_features[:20]:  # Top 20 features
+                mlflow.log_metric(f"{imp_type}_{feature}", score)
+            
+            # Create visualization
+            features, scores = zip(*sorted_features[:20])
+            
+            plt.figure(figsize=(10, 8))
+            sns.barplot(x=list(scores), y=list(features))
+            plt.title(f'Top 20 Feature Importance ({imp_type.title()})')
+            plt.xlabel('Importance Score')
+            plt.tight_layout()
+            
+            # Save and log plot
+            plot_filename = f'feature_importance_{imp_type}.png'
+            plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
+            mlflow.log_artifact(plot_filename)
+            plt.close()
+            
+            # Log importance as JSON artifact
+            import json
+            json_filename = f'feature_importance_{imp_type}.json'
+            with open(json_filename, 'w') as f:
+                json.dump(importance, f, indent=2)
+            mlflow.log_artifact(json_filename)
+
+# Usage
+model = xgb.train(params, dtrain, num_boost_round=100)
+comprehensive_feature_importance_analysis(model, feature_names=wine.feature_names)
+```
+
+### Feature Selection Based on Importance
+
+<details>
+  <summary>Automated Feature Selection Pipeline</summary>
+
+  ```python
+  from sklearn.feature_selection import SelectFromModel
+  
+  def feature_selection_pipeline(X_train, y_train, X_test, y_test):
+      """Pipeline with XGBoost-based feature selection."""
+      
+      with mlflow.start_run(run_name="Feature Selection Pipeline"):
+          # Step 1: Train initial model for feature selection
+          selector_model = XGBClassifier(
+              n_estimators=50,
+              max_depth=6,
+              random_state=42
+          )
+          selector_model.fit(X_train, y_train)
+          
+          # Step 2: Feature selection based on importance
+          selector = SelectFromModel(
+              selector_model, 
+              threshold='median',  # Select features above median importance
+              prefit=True
+          )
+          
+          X_train_selected = selector.transform(X_train)
+          X_test_selected = selector.transform(X_test)
+          
+          # Log feature selection results
+          selected_features = selector.get_support()
+          n_selected = sum(selected_features)
+          
+          mlflow.log_metrics({
+              'original_features': X_train.shape[1],
+              'selected_features': n_selected,
+              'feature_reduction_ratio': n_selected / X_train.shape[1]
+          })
+          
+          # Step 3: Train final model on selected features
+          final_model = XGBClassifier(
+              n_estimators=100,
+              max_depth=8,
+              learning_rate=0.1,
+              random_state=42
+          )
+          
+          final_model.fit(X_train_selected, y_train)
+          
+          # Evaluate performance
+          train_score = final_model.score(X_train_selected, y_train)
+          test_score = final_model.score(X_test_selected, y_test)
+          
+          mlflow.log_metrics({
+              'train_accuracy_selected': train_score,
+              'test_accuracy_selected': test_score
+          })
+          
+          # Log the final model and selector
+          mlflow.sklearn.log_model(final_model, "final_model")
+          mlflow.sklearn.log_model(selector, "feature_selector")
+          
+          return final_model, selector
+  ```
+
+</details>
+
+## Model Evaluation and Validation
+
+### Comprehensive Model Evaluation
+
+```python
+import numpy as np
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    roc_auc_score, roc_curve, precision_recall_curve, confusion_matrix
+)
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+def comprehensive_xgboost_evaluation(model, X_test, y_test, X_train=None, y_train=None):
+    """Comprehensive XGBoost model evaluation with MLflow logging."""
+    
+    with mlflow.start_run(run_name="Comprehensive Model Evaluation"):
+        # Predictions
+        if hasattr(model, 'predict_proba'):
+            y_pred_proba = model.predict_proba(X_test)[:, 1]
+            y_pred = (y_pred_proba > 0.5).astype(int)
+        else:
+            # Native XGBoost model
+            if isinstance(X_test, xgb.DMatrix):
+                dtest = X_test
+            else:
+                dtest = xgb.DMatrix(X_test)
+            y_pred_proba = model.predict(dtest)
+            y_pred = (y_pred_proba > 0.5).astype(int)
+        
+        # Basic metrics
+        metrics = {
+            'accuracy': accuracy_score(y_test, y_pred),
+            'precision': precision_score(y_test, y_pred, average='weighted'),
+            'recall': recall_score(y_test, y_pred, average='weighted'),
+            'f1_score': f1_score(y_test, y_pred, average='weighted'),
+            'roc_auc': roc_auc_score(y_test, y_pred_proba)
+        }
+        
+        mlflow.log_metrics(metrics)
+        
+        # Training metrics if provided
+        if X_train is not None and y_train is not None:
+            if hasattr(model, 'predict_proba'):
+                y_train_pred = model.predict_proba(X_train)[:, 1]
+            else:
+                dtrain = xgb.DMatrix(X_train) if not isinstance(X_train, xgb.DMatrix) else X_train
+                y_train_pred = model.predict(dtrain)
+            
+            train_metrics = {
+                'train_accuracy': accuracy_score(y_train, (y_train_pred > 0.5).astype(int)),
+                'train_roc_auc': roc_auc_score(y_train, y_train_pred)
+            }
+            mlflow.log_metrics(train_metrics)
+        
+        # ROC Curve
+        fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
+        plt.figure(figsize=(8, 6))
+        plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {metrics["roc_auc"]:.3f})')
+        plt.plot([0, 1], [0, 1], 'k--', label='Random Classifier')
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('ROC Curve')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig('roc_curve.png', dpi=300, bbox_inches='tight')
+        mlflow.log_artifact('roc_curve.png')
+        plt.close()
+        
+        # Precision-Recall Curve
+        precision, recall, _ = precision_recall_curve(y_test, y_pred_proba)
+        avg_precision = average_precision_score(y_test, y_pred_proba)
+        
+        plt.figure(figsize=(8, 6))
+        plt.plot(recall, precision, label=f'PR Curve (AP = {avg_precision:.3f})')
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.title('Precision-Recall Curve')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig('precision_recall_curve.png', dpi=300, bbox_inches='tight')
+        mlflow.log_artifact('precision_recall_curve.png')
+        plt.close()
+        
+        # Confusion Matrix
+        cm = confusion_matrix(y_test, y_pred)
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+        plt.title('Confusion Matrix')
+        plt.ylabel('True Label')
+        plt.xlabel('Predicted Label')
+        plt.savefig('confusion_matrix.png', dpi=300, bbox_inches='tight')
+        mlflow.log_artifact('confusion_matrix.png')
+        plt.close()
+        
+        mlflow.log_metric('average_precision', avg_precision)
+        
+        return metrics
+
+# Usage
+metrics = comprehensive_xgboost_evaluation(model, X_test, y_test, X_train, y_train)
+```
+
+### Cross-Validation and Model Stability
+
+<details>
+  <summary>Advanced Cross-Validation Patterns</summary>
+
+  ```python
+  from sklearn.model_selection import StratifiedKFold, cross_validate
+  import pandas as pd
+  
+  def advanced_cross_validation(X, y, params, n_splits=5):
+      """Advanced cross-validation with detailed logging."""
+      
+      with mlflow.start_run(run_name="Advanced Cross-Validation"):
+          # Define cross-validation strategy
+          cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+          
+          # Define scoring metrics
+          scoring = ['accuracy', 'roc_auc', 'precision', 'recall', 'f1']
+          
+          # Create model
+          model = XGBClassifier(**params)
+          
+          # Perform cross-validation
+          cv_results = cross_validate(
+              model, X, y,
+              cv=cv,
+              scoring=scoring,
+              return_train_score=True,
+              return_estimator=True
+          )
+          
+          # Log cross-validation results
+          for metric in scoring:
+              test_scores = cv_results[f'test_{metric}']
+              train_scores = cv_results[f'train_{metric}']
+              
+              mlflow.log_metrics({
+                  f'cv_{metric}_mean': test_scores.mean(),
+                  f'cv_{metric}_std': test_scores.std(),
+                  f'cv_{metric}_train_mean': train_scores.mean(),
+                  f'cv_{metric}_train_std': train_scores.std(),
+                  f'cv_{metric}_overfitting': train_scores.mean() - test_scores.mean()
+              })
+          
+          # Feature importance stability across folds
+          importance_across_folds = []
+          for fold_idx, estimator in enumerate(cv_results['estimator']):
+              fold_importance = estimator.feature_importances_
+              importance_across_folds.append(fold_importance)
+              
+              # Log per-fold feature importance
+              for feat_idx, importance in enumerate(fold_importance):
+                  mlflow.log_metric(f'fold_{fold_idx}_feature_{feat_idx}_importance', importance)
+          
+          # Calculate importance stability
+          importance_matrix = np.array(importance_across_folds)
+          importance_std = np.std(importance_matrix, axis=0)
+          importance_mean = np.mean(importance_matrix, axis=0)
+          
+          # Log feature importance stability metrics
+          mlflow.log_metrics({
+              'feature_importance_stability_mean': np.mean(importance_std / (importance_mean + 1e-8)),
+              'feature_importance_stability_max': np.max(importance_std / (importance_mean + 1e-8))
+          })
+          
+          return cv_results
+  ```
+
+</details>
+
+## Model Serialization and Deployment
+
+### Multiple Serialization Formats
+
+XGBoost supports various serialization formats, each with different advantages:
+
+```python
+import mlflow.xgboost
+
+# Train model
+model = xgb.train(params, dtrain, num_boost_round=100)
+
+with mlflow.start_run():
+    # JSON format (recommended) - Human readable and version stable
+    mlflow.xgboost.log_model(
+        xgb_model=model,
+        artifact_path="model_json",
+        model_format="json"
+    )
+    
+    # UBJ format - More compact binary format
+    mlflow.xgboost.log_model(
+        xgb_model=model,
+        artifact_path="model_ubj", 
+        model_format="ubj"
+    )
+    
+    # Legacy XGBoost format (deprecated but sometimes needed)
+    mlflow.xgboost.log_model(
+        xgb_model=model,
+        artifact_path="model_xgb",
+        model_format="xgb"
+    )
+```
+
+### Model Signatures and Input Examples
+
+```python
+from mlflow.models import infer_signature
+import pandas as pd
+
+# Create model signature for production deployment
+X_sample = X_train[:100]
+
+# For native XGBoost
+predictions = model.predict(xgb.DMatrix(X_sample))
+signature = infer_signature(X_sample, predictions)
+
+# For sklearn XGBoost
+# predictions = model.predict(X_sample)
+# signature = infer_signature(X_sample, predictions)
+
+with mlflow.start_run():
+    mlflow.xgboost.log_model(
+        xgb_model=model,
+        artifact_path="model",
+        signature=signature,
+        input_example=X_sample[:5],  # Sample input for documentation
+        model_format="json"
+    )
+```
+
+### Loading and Using Models
+
+```python
+# Load model in different ways
+run_id = "your_run_id_here"
+
+# Load as native XGBoost model
+xgb_model = mlflow.xgboost.load_model(f"runs:/{run_id}/model")
+predictions = xgb_model.predict(xgb.DMatrix(X_test))
+
+# Load as PyFunc model (generic Python function interface)
+pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
+predictions = pyfunc_model.predict(pd.DataFrame(X_test))
+
+# Load from model registry
+registered_model = mlflow.pyfunc.load_model("models:/XGBoostModel/Production")
+```
+
+<details>
+  <summary>Advanced Model Loading and Serving Patterns</summary>
+
+  #### Batch Prediction Optimization
+  ```python
+  def optimized_batch_prediction(model_uri, data, batch_size=10000):
+      """Optimized batch prediction for large datasets."""
+      
+      model = mlflow.xgboost.load_model(model_uri)
+      predictions = []
+      
+      for i in range(0, len(data), batch_size):
+          batch = data[i:i+batch_size]
+          
+          # Create DMatrix for optimal performance
+          dbatch = xgb.DMatrix(batch)
+          batch_preds = model.predict(dbatch)
+          predictions.extend(batch_preds)
+      
+      return np.array(predictions)
+  
+  # Usage for large datasets
+  large_predictions = optimized_batch_prediction(
+      f"runs:/{run_id}/model", 
+      large_dataset, 
+      batch_size=50000
+  )
+  ```
+
+  #### Custom Model Wrapper for Production
+  ```python
+  class ProductionXGBoostWrapper(mlflow.pyfunc.PythonModel):
+      def __init__(self, preprocessing_pipeline=None):
+          self.preprocessing_pipeline = preprocessing_pipeline
+          
+      def load_context(self, context):
+          import xgboost as xgb
+          self.model = xgb.Booster()
+          self.model.load_model(context.artifacts["model"])
+          
+          if self.preprocessing_pipeline:
+              import joblib
+              self.preprocessor = joblib.load(context.artifacts["preprocessor"])
+      
+      def predict(self, context, model_input):
+          # Apply preprocessing if available
+          if hasattr(self, 'preprocessor'):
+              model_input = self.preprocessor.transform(model_input)
+          
+          # Convert to DMatrix for optimal performance
+          dmatrix = xgb.DMatrix(model_input)
+          predictions = self.model.predict(dmatrix)
+          
+          # Post-processing (e.g., probability threshold)
+          if hasattr(self, 'threshold'):
+              predictions = (predictions > self.threshold).astype(int)
+          
+          return predictions
+  
+  # Save custom model
+  artifacts = {
+      "model": "model.json",
+      "preprocessor": "preprocessor.pkl"
+  }
+  
+  wrapper = ProductionXGBoostWrapper()
+  mlflow.pyfunc.log_model(
+      artifact_path="production_model",
+      python_model=wrapper,
+      artifacts=artifacts
+  )
+  ```
+
+</details>
+
+## Production Deployment Patterns
+
+### Model Registry Integration
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+# Register model to MLflow Model Registry
+with mlflow.start_run():
+    mlflow.xgboost.log_model(
+        xgb_model=model,
+        artifact_path="model",
+        registered_model_name="XGBoostCustomerChurn",
+        signature=signature
+    )
+
+# Transition model through stages
+model_version = client.get_latest_versions(
+    "XGBoostCustomerChurn", 
+    stages=["None"]
+)[0]
+
+# Move to staging
+client.transition_model_version_stage(
+    name="XGBoostCustomerChurn",
+    version=model_version.version,
+    stage="Staging"
+)
+
+# Add model description and tags
+client.update_model_version(
+    name="XGBoostCustomerChurn",
+    version=model_version.version,
+    description="XGBoost model for customer churn prediction with 94% accuracy"
+)
+
+client.set_model_version_tag(
+    name="XGBoostCustomerChurn",
+    version=model_version.version,
+    key="validation_status",
+    value="passed"
+)
+```
+
+### Model Monitoring and Drift Detection
+
+<details>
+  <summary>Production Model Monitoring</summary>
+
+  ```python
+  def monitor_model_performance(model_uri, new_data, reference_predictions=None):
+      """Monitor XGBoost model performance and drift in production."""
+      
+      with mlflow.start_run(run_name="Model Monitoring"):
+          # Load production model
+          model = mlflow.pyfunc.load_model(model_uri)
+          
+          # Generate predictions
+          predictions = model.predict(new_data)
+          
+          # Basic prediction statistics
+          pred_stats = {
+              'prediction_mean': np.mean(predictions),
+              'prediction_std': np.std(predictions),
+              'prediction_min': np.min(predictions),
+              'prediction_max': np.max(predictions),
+              'prediction_count': len(predictions)
+          }
+          
+          mlflow.log_metrics(pred_stats)
+          
+          # Feature drift detection
+          if reference_predictions is not None:
+              from scipy import stats
+              
+              # Kolmogorov-Smirnov test for distribution drift
+              ks_stat, ks_p_value = stats.ks_2samp(reference_predictions, predictions)
+              
+              drift_metrics = {
+                  'ks_statistic': ks_stat,
+                  'ks_p_value': ks_p_value,
+                  'drift_detected': ks_p_value < 0.05
+              }
+              
+              mlflow.log_metrics(drift_metrics)
+          
+          # Log prediction distribution
+          plt.figure(figsize=(10, 6))
+          plt.hist(predictions, bins=50, alpha=0.7, label='New Predictions')
+          if reference_predictions is not None:
+              plt.hist(reference_predictions, bins=50, alpha=0.7, label='Reference')
+          plt.xlabel('Prediction Value')
+          plt.ylabel('Frequency')
+          plt.title('Prediction Distribution Comparison')
+          plt.legend()
+          plt.savefig('prediction_distribution.png', dpi=300, bbox_inches='tight')
+          mlflow.log_artifact('prediction_distribution.png')
+          plt.close()
+          
+          return pred_stats
+  ```
+
+</details>
+
+## Advanced XGBoost Features
+
+### Custom Objectives and Evaluation Metrics
+
+<details>
+  <summary>Implementing Custom Loss Functions</summary>
+
+  ```python
+  def custom_objective_function(y_pred, y_true):
+      """Custom objective function for XGBoost."""
+      # Example: Focal loss for imbalanced classification
+      alpha = 0.25
+      gamma = 2.0
+      
+      # Convert DMatrix to numpy array
+      y_true = y_true.get_label()
+      
+      # Calculate focal loss gradients and hessians
+      p = 1 / (1 + np.exp(-y_pred))  # sigmoid
+      
+      # Focal loss gradient
+      grad = alpha * (1 - p)**gamma * (gamma * p * np.log(p + 1e-8) + p - y_true)
+      
+      # Focal loss hessian  
+      hess = alpha * (1 - p)**gamma * (
+          gamma * (gamma + 1) * p * np.log(p + 1e-8) + 
+          2 * gamma * p + p
+      )
+      
+      return grad, hess
+  
+  def custom_eval_metric(y_pred, y_true):
+      """Custom evaluation metric."""
+      y_true = y_true.get_label()
+      y_pred = 1 / (1 + np.exp(-y_pred))  # sigmoid
+      
+      # Custom F-beta score
+      beta = 2.0
+      precision = np.sum((y_pred > 0.5) & (y_true == 1)) / np.sum(y_pred > 0.5)
+      recall = np.sum((y_pred > 0.5) & (y_true == 1)) / np.sum(y_true == 1)
+      
+      f_beta = (1 + beta**2) * precision * recall / (beta**2 * precision + recall)
+      
+      return 'f_beta', f_beta
+  
+  # Train with custom objective and metric
+  with mlflow.start_run():
+      model = xgb.train(
+          params=params,
+          dtrain=dtrain,
+          obj=custom_objective_function,
+          feval=custom_eval_metric,
+          num_boost_round=100,
+          evals=[(dtrain, 'train'), (dtest, 'test')],
+          verbose_eval=10
+      )
+  ```
+
+</details>
+
+### Multi-Class and Multi-Label Classification
+
+```python
+from sklearn.datasets import load_digits
+from sklearn.multiclass import OneVsRestClassifier
+
+# Multi-class classification
+digits = load_digits()
+X_train, X_test, y_train, y_test = train_test_split(
+    digits.data, digits.target, test_size=0.2, random_state=42
+)
+
+with mlflow.start_run(run_name="Multi-class XGBoost"):
+    # XGBoost naturally handles multi-class
+    model = XGBClassifier(
+        objective='multi:softprob',
+        num_class=10,  # 10 digit classes
+        n_estimators=100,
+        max_depth=6,
+        random_state=42
+    )
+    
+    model.fit(X_train, y_train)
+    
+    # Multi-class predictions
+    y_pred = model.predict(X_test)
+    y_pred_proba = model.predict_proba(X_test)
+    
+    # Multi-class metrics
+    from sklearn.metrics import classification_report
+    report = classification_report(y_test, y_pred, output_dict=True)
+    
+    # Log per-class metrics
+    for class_label, metrics in report.items():
+        if isinstance(metrics, dict):
+            mlflow.log_metrics({
+                f'class_{class_label}_precision': metrics['precision'],
+                f'class_{class_label}_recall': metrics['recall'],
+                f'class_{class_label}_f1': metrics['f1-score']
+            })
+```
+
+## Best Practices and Performance Tips
+
+### Memory and Performance Optimization
+
+<details>
+  <summary>XGBoost Performance Optimization</summary>
+
+  #### Memory Efficient Data Loading
+  ```python
+  # For large datasets, use XGBoost's built-in data loading
+  def memory_efficient_training(train_file, test_file):
+      """Memory efficient training for large datasets."""
+      
+      with mlflow.start_run():
+          # Load data directly from files
+          dtrain = xgb.DMatrix(train_file)
+          dtest = xgb.DMatrix(test_file)
+          
+          # Enable histogram-based algorithm for faster training
+          params = {
+              'tree_method': 'hist',  # Use histogram-based algorithm
+              'max_bin': 256,         # Number of bins for histogram
+              'single_precision_histogram': True,  # Use single precision
+              'objective': 'reg:squarederror',
+              'eval_metric': 'rmse'
+          }
+          
+          model = xgb.train(
+              params=params,
+              dtrain=dtrain,
+              num_boost_round=1000,
+              evals=[(dtest, 'test')],
+              early_stopping_rounds=50,
+              verbose_eval=100
+          )
+          
+          return model
+  ```
+
+  #### GPU Acceleration
+  ```python
+  def gpu_accelerated_training(X_train, y_train, X_test, y_test):
+      """GPU-accelerated XGBoost training."""
+      
+      with mlflow.start_run(run_name="GPU XGBoost"):
+          # GPU-optimized parameters
+          params = {
+              'tree_method': 'gpu_hist',  # Use GPU for training
+              'gpu_id': 0,                # GPU device ID
+              'predictor': 'gpu_predictor',  # Use GPU for prediction
+              'objective': 'binary:logistic',
+              'eval_metric': 'logloss',
+              'max_depth': 8,
+              'learning_rate': 0.1
+          }
+          
+          dtrain = xgb.DMatrix(X_train, label=y_train)
+          dtest = xgb.DMatrix(X_test, label=y_test)
+          
+          model = xgb.train(
+              params=params,
+              dtrain=dtrain,
+              num_boost_round=500,
+              evals=[(dtrain, 'train'), (dtest, 'test')],
+              early_stopping_rounds=50
+          )
+          
+          return model
+  ```
+
+</details>
+
+### Experiment Organization and Reproducibility
+
+```python
+# Comprehensive experiment setup for reproducibility
+def reproducible_xgboost_experiment(experiment_name, random_state=42):
+    """Set up reproducible XGBoost experiment."""
+    
+    # Set random seeds for reproducibility
+    np.random.seed(random_state)
+    import random
+    random.seed(random_state)
+    
+    # Set experiment
+    mlflow.set_experiment(experiment_name)
+    
+    with mlflow.start_run():
+        # Log environment information
+        import platform
+        import xgboost
+        
+        mlflow.set_tags({
+            "python_version": platform.python_version(),
+            "xgboost_version": xgboost.__version__,
+            "platform": platform.platform(),
+            "random_state": random_state
+        })
+        
+        # Log dataset information
+        mlflow.log_params({
+            "dataset_size": len(X_train),
+            "n_features": X_train.shape[1],
+            "n_classes": len(np.unique(y_train)),
+            "class_distribution": dict(zip(*np.unique(y_train, return_counts=True)))
+        })
+        
+        # Your model training code here
+        params = {
+            'objective': 'binary:logistic',
+            'max_depth': 6,
+            'learning_rate': 0.1,
+            'random_state': random_state,
+            'n_jobs': -1
+        }
+        
+        model = XGBClassifier(**params)
+        model.fit(X_train, y_train)
+        
+        return model
+
+# Usage
+model = reproducible_xgboost_experiment("Customer_Churn_Analysis_v2")
+```
+
+## Conclusion
+
+MLflow's XGBoost integration provides a comprehensive solution for gradient boosting experiment management and deployment. Whether you're using the native XGBoost API for maximum performance or the scikit-learn interface for pipeline integration, MLflow captures all the essential information needed for reproducible machine learning.
+
+Key benefits of using MLflow with XGBoost include:
+
+- **Comprehensive Autologging**: One-line setup captures parameters, metrics, and feature importance
+- **Dual API Support**: Seamless integration with both native and scikit-learn XGBoost interfaces  
+- **Advanced Feature Analysis**: Multiple importance types with automatic visualization
+- **Production-Ready Deployment**: Model registry integration with multiple serialization formats
+- **Performance Optimization**: Support for GPU acceleration and memory-efficient training
+- **Competition-Grade Tracking**: Detailed experiment management for winning ML solutions
+
+The patterns and examples in this guide provide a solid foundation for building scalable, reproducible gradient boosting systems with XGBoost and MLflow. Start with autologging for immediate benefits, then gradually adopt more advanced features as your projects grow in complexity and scale.

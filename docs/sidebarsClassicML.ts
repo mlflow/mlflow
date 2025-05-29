@@ -163,6 +163,51 @@ const sidebarsClassicML: SidebarsConfig = {
                         id: 'traditional-ml/serving-multiple-models-with-pyfunc/index',
                     },
                 },
+                {
+                    type: 'category',
+                    label: 'Scikit Learn',
+                    items: [
+                        {
+                            type: 'doc',
+                            id: 'traditional-ml/sklearn/guide/index',
+                            label: 'Scikit Learn within MLflow'
+                        },
+                    ],
+                    link: {
+                        type: 'doc',
+                        id: 'traditional-ml/sklearn/index'
+                    }
+                },
+                {
+                    type: 'category',
+                    label: 'XGBoost',
+                    items: [
+                        {
+                            type: 'doc',
+                            id: 'traditional-ml/xgboost/guide/index',
+                            label: 'XGBoost within MLflow'
+                        },
+                    ],
+                    link: {
+                        type: 'doc',
+                        id: 'traditional-ml/xgboost/index'
+                    }
+                },
+                {
+                    type: 'category',
+                    label: 'Prophet',
+                    items: [
+                        {
+                            type: 'doc',
+                            id: 'traditional-ml/prophet/guide/index',
+                            label: 'Prophet within MLflow'
+                        },
+                    ],
+                    link: {
+                        type: 'doc',
+                        id: 'traditional-ml/prophet/index'
+                    }
+                },
             ],
             link: {
                 type: 'doc',
@@ -372,6 +417,10 @@ const sidebarsClassicML: SidebarsConfig = {
             {
                 type: 'doc',
                 id: 'evaluation/shap/index',
+            },
+            {
+                type: 'doc',
+                id: 'evaluation/plugin-evaluators/index',
             },
         ],
         link: {

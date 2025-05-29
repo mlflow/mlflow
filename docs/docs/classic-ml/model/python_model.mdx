@@ -90,7 +90,7 @@ with mlflow.start_run():
 
 ### Validate the model before deployment
 Use <APILink fn="mlflow.models.predict" /> API to validate the model dependencies and input data before deploy it.
-Check [MLflow Model Validation](/model#validate-models-before-deployment) for more details.
+Check [MLflow Model Validation](/ml/model#validate-models-before-deployment) for more details.
 
 ```python
 import mlflow
@@ -112,7 +112,7 @@ pyfunc_model.predict(["hello", "world"])
 ```
 
 ### Deploy the model
-The final step to use your model in production is to deploy it. Follow [MLflow Model Deployment](/model#deployment_plugin) guide to deploy the model.
+The final step to use your model in production is to deploy it. Follow [MLflow Model Deployment](/ml/model#deployment_plugin) guide to deploy the model.
 
 ## Type hint usage in PythonModel
 Starting from MLflow 2.20.0, type hints are now a valid way to define your model's interfaces. You can use type hints to define the input and output types of the model.

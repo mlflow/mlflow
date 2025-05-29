@@ -1,0 +1,1030 @@
+---
+sidebar_label: Model Signature
+sidebar_position: 1
+---
+
+import Link from "@docusaurus/Link";
+import { NotebookDownloadButton } from "@site/src/components/NotebookDownloadButton";
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Model Signatures and Input Examples
+
+Model signatures and input examples are foundational components that define how your models should be used, ensuring consistent and reliable interactions across MLflow's ecosystem.
+
+## What Are Model Signatures and Input Examples?
+
+**Model Signature** - Defines the expected format for model inputs, outputs, and parameters. Think of it as a contract that specifies exactly what data your model expects and what it will return.
+
+**Model Input Example** - Provides a concrete example of valid model input. This helps developers understand the required data format and validates that your model works correctly.
+
+<div className="center-div" style={{ width: "90%" }}>
+  ![Model signatures comparison](/images/models/signature-vs-no-signature.png)
+</div>
+
+### Why They Matter
+
+Model signatures and input examples provide crucial benefits:
+
+<ul>
+  <li><strong>Consistency</strong>: Ensure all model interactions follow the same data format</li>
+  <li><strong>Validation</strong>: Catch data format errors before they reach your model</li>
+  <li><strong>Documentation</strong>: Serve as living documentation for model usage</li>
+  <li><strong>Deployment Safety</strong>: Enable MLflow deployment tools to validate requests automatically</li>
+  <li><strong>UI Integration</strong>: Allow MLflow UI to display clear model requirements</li>
+</ul>
+
+## Quick Start: Adding Signatures to Your Models
+
+The easiest way to add a signature is to provide an input example when logging your model:
+
+```python
+import mlflow
+from sklearn.datasets import load_iris
+from sklearn.ensemble import RandomForestClassifier
+import pandas as pd
+
+# Load data and train model
+iris = load_iris(as_frame=True)
+X, y = iris.data, iris.target
+model = RandomForestClassifier().fit(X, y)
+
+with mlflow.start_run():
+    # The input example automatically generates a signature
+    mlflow.sklearn.log_model(
+        model, 
+        "iris_model",
+        input_example=X.iloc[[0]]  # First row as example
+    )
+```
+
+MLflow automatically:
+1. Infers the signature from your input example
+2. Validates the model works with the example
+3. Stores both signature and example with your model
+
+## Understanding Model Signatures
+
+Model signatures consist of three components:
+
+<Tabs>
+  <TabItem value="inputs" label="Inputs Schema" default>
+
+Defines the structure and types of data your model expects:
+
+```python
+# Column-based signature (DataFrames)
+input_schema = Schema([
+    ColSpec("double", "sepal_length"),
+    ColSpec("double", "sepal_width"), 
+    ColSpec("string", "species", required=False)  # Optional field
+])
+
+# Tensor-based signature (NumPy arrays)
+input_schema = Schema([
+    TensorSpec(np.dtype(np.float32), (-1, 28, 28, 1))  # Batch of 28x28 images
+])
+```
+
+**Key Features:**
+<ul>
+  <li>Support for both tabular (DataFrame) and tensor (NumPy) data</li>
+  <li>Optional fields using <code>required=False</code></li>
+  <li>Rich data type support including arrays and objects</li>
+</ul>
+
+  </TabItem>
+  <TabItem value="outputs" label="Outputs Schema">
+
+Specifies what your model returns:
+
+```python
+# Single prediction column
+output_schema = Schema([ColSpec("long", "prediction")])
+
+# Multiple outputs
+output_schema = Schema([
+    ColSpec("double", "probability"),
+    ColSpec("string", "predicted_class"),
+    ColSpec("long", "confidence_score")
+])
+
+# Tensor output
+output_schema = Schema([
+    TensorSpec(np.dtype(np.float32), (-1, 10))  # 10-class probabilities
+])
+```
+
+  </TabItem>
+  <TabItem value="parameters" label="Parameters Schema">
+
+Defines optional inference parameters (like temperature, max_length):
+
+```python
+# Define inference parameters
+params_schema = ParamSchema([
+    ParamSpec("temperature", "double", 0.7),      # Default temperature
+    ParamSpec("max_tokens", "long", 100),         # Default max tokens
+    ParamSpec("stop_words", "string", [".", "!"], (-1,))  # List parameter
+])
+
+# Use in model signature
+signature = ModelSignature(
+    inputs=input_schema,
+    outputs=output_schema, 
+    params=params_schema
+)
+```
+
+**Common Parameters:**
+<ul>
+  <li><code>temperature</code>: Controls randomness in generation</li>
+  <li><code>max_length</code>/<code>max_tokens</code>: Limits output length</li>
+  <li><code>top_k</code>, <code>top_p</code>: Control sampling strategies</li>
+  <li><code>repetition_penalty</code>: Reduces repetitive outputs</li>
+</ul>
+
+  </TabItem>
+</Tabs>
+
+### Signature Types Overview
+
+MLflow supports two primary signature types:
+
+**Column-Based Signatures** - For tabular data (DataFrames, dictionaries):
+```python
+# Perfect for traditional ML models
+{"feature_1": 1.5, "feature_2": "category_a", "feature_3": [1, 2, 3]}
+```
+
+**Tensor-Based Signatures** - For array data (images, audio, embeddings):
+```python
+# Perfect for deep learning models  
+np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [1, 2, 3]]])  # Shape: (2, 2, 3)
+```
+
+## Data Types and Examples
+
+<Tabs>
+  <TabItem value="column-types" label="Column-Based Data Types" default>
+
+### Primitive Types
+
+| Python Type | MLflow Type | Example |
+|-------------|-------------|---------|
+| `str` | `string` | `"hello world"` |
+| `int` | `long` | `42` |
+| `float` | `double` | `3.14159` |
+| `bool` | `boolean` | `True` |
+| `datetime` | `datetime` | `pd.Timestamp("2023-01-01")` |
+
+### Composite Types
+
+**Arrays (Lists/NumPy arrays):**
+```python
+{
+    "simple_list": ["a", "b", "c"],
+    "nested_array": [[1, 2], [3, 4], [5, 6]],
+    "numpy_array": np.array([1.1, 2.2, 3.3])
+}
+```
+
+**Objects (Dictionaries):**
+```python
+{
+    "user_profile": {
+        "name": "Alice",
+        "age": 30,
+        "preferences": ["sports", "music"]
+    }
+}
+```
+
+**Optional Fields:**
+```python
+# Include None values to make fields optional
+pd.DataFrame({
+    "required_field": [1, 2, 3],
+    "optional_field": [1.0, None, 3.0]  # This becomes optional
+})
+```
+
+### Compatibility Notes
+
+:::warning version compatibility
+- **Array and Object types**: Require MLflow ≥ 2.10.0
+- **Spark ML vectors**: Require MLflow ≥ 2.15.0  
+- **AnyType**: Requires MLflow ≥ 2.19.0
+:::
+
+  </TabItem>
+  <TabItem value="tensor-types" label="Tensor-Based Data Types">
+
+### NumPy Data Types
+
+Tensor signatures support all [NumPy data types](https://numpy.org/devdocs/user/basics.types.html):
+
+```python
+np.float32    # 32-bit float
+np.float64    # 64-bit float (double)
+np.int8       # 8-bit integer
+np.int32      # 32-bit integer
+np.uint8      # Unsigned 8-bit (common for images)
+np.bool_      # Boolean
+```
+
+### Shape Specifications
+
+Use `-1` for dimensions that can vary (typically batch size):
+
+```python
+# Image batch: variable batch size, 28x28 pixels, 1 channel
+TensorSpec(np.dtype(np.uint8), (-1, 28, 28, 1))
+
+# Text embeddings: variable batch size, 768-dimensional vectors
+TensorSpec(np.dtype(np.float32), (-1, 768))
+
+# Fixed shape: exactly 10 classes
+TensorSpec(np.dtype(np.float32), (10,))
+```
+
+### Common Patterns
+
+**Computer Vision:**
+```python
+# Grayscale images
+TensorSpec(np.dtype(np.uint8), (-1, 28, 28, 1))
+
+# RGB images  
+TensorSpec(np.dtype(np.uint8), (-1, 224, 224, 3))
+
+# Feature maps
+TensorSpec(np.dtype(np.float32), (-1, 512, 7, 7))
+```
+
+**Natural Language Processing:**
+```python
+# Token IDs
+TensorSpec(np.dtype(np.int64), (-1, 512))
+
+# Embeddings
+TensorSpec(np.dtype(np.float32), (-1, 768))
+
+# Attention masks
+TensorSpec(np.dtype(np.bool_), (-1, 512))
+```
+
+  </TabItem>
+  <TabItem value="inference-params" label="Inference Parameters">
+
+### Parameter Specifications
+
+Parameters allow runtime customization of model behavior:
+
+```python
+ParamSpec(
+    name="temperature",           # Parameter name
+    dtype="double",              # Data type
+    default=0.7,                # Default value
+    shape=None                  # Shape (None for scalars, (-1,) for lists)
+)
+```
+
+### Supported Parameter Types
+
+| MLflow Type | Python Type | Example Values |
+|-------------|-------------|----------------|
+| `string` | `str` | `"gpt-4"`, `"claude"` |
+| `long` | `int` | `100`, `512` |
+| `double` | `float` | `0.7`, `1.2` |
+| `boolean` | `bool` | `True`, `False` |
+
+### Common Parameter Patterns
+
+**Text Generation:**
+```python
+params_schema = ParamSchema([
+    ParamSpec("temperature", "double", 0.7),
+    ParamSpec("max_tokens", "long", 100),
+    ParamSpec("top_p", "double", 0.9),
+    ParamSpec("frequency_penalty", "double", 0.0),
+    ParamSpec("stop_sequences", "string", [], (-1,))  # List of strings
+])
+```
+
+**Model Selection:**
+```python
+params_schema = ParamSchema([
+    ParamSpec("model_name", "string", "default"),
+    ParamSpec("use_cache", "boolean", True),
+    ParamSpec("timeout", "long", 30)
+])
+```
+
+### Using Parameters at Inference
+
+```python
+# Model with parameters
+loaded_model = mlflow.pyfunc.load_model(model_uri)
+
+# Use default parameters
+result = loaded_model.predict(input_data)
+
+# Override specific parameters  
+result = loaded_model.predict(
+    input_data, 
+    params={"temperature": 0.1, "max_tokens": 50}
+)
+```
+
+  </TabItem>
+</Tabs>
+
+## Signature Enforcement and Validation
+
+<div className="center-div" style={{ width: "90%" }}>
+  ![Signature enforcement process](/images/models/signature-enforcement.png)
+</div>
+
+MLflow automatically validates inputs against your model signature when:
+- Loading models as PyFunc (`mlflow.pyfunc.load_model`)
+- Using MLflow deployment tools
+- Serving models via MLflow's REST API
+
+### Validation Rules
+
+**Input Validation:**
+<ul>
+  <li><strong>Required fields</strong>: Must be present or validation fails</li>
+  <li><strong>Optional fields</strong>: Can be missing without errors</li>
+  <li><strong>Extra fields</strong>: Ignored (not passed to model)</li>
+  <li><strong>Type conversion</strong>: Safe conversions applied when possible</li>
+</ul>
+
+**Parameter Validation:**
+<ul>
+  <li><strong>Type checking</strong>: Parameters must match specified types</li>
+  <li><strong>Shape validation</strong>: List parameters validated for correct shape</li>
+  <li><strong>Default values</strong>: Applied when parameters not provided</li>
+  <li><strong>Unknown parameters</strong>: Generate warnings but don't fail</li>
+</ul>
+
+### Handling Common Issues
+
+**Integer Columns with Missing Values:**
+```python
+# ❌ Problem: Integer column with NaN becomes float, causing type mismatch
+df = pd.DataFrame({"int_col": [1, 2, None]})  # Becomes float64
+
+# ✅ Solution: Define as double from the start
+df = pd.DataFrame({"int_col": [1.0, 2.0, None]})  # Stays float64
+```
+
+**Type Conversion Examples:**
+```python
+# ✅ Safe conversions (allowed)
+int → long     # 32-bit to 64-bit integer
+int → double   # Integer to float
+float → double # 32-bit to 64-bit float
+
+# ❌ Unsafe conversions (rejected)  
+long → double  # Potential precision loss
+string → int   # No automatic parsing
+```
+
+## Working with Signatures
+
+<Tabs>
+  <TabItem value="logging-signatures" label="Logging Models with Signatures" default>
+
+### Automatic Signature Inference
+
+The easiest approach - provide an input example:
+
+```python
+import mlflow
+from sklearn.ensemble import RandomForestClassifier
+
+# Train your model
+model = RandomForestClassifier().fit(X_train, y_train)
+
+with mlflow.start_run():
+    mlflow.sklearn.log_model(
+        model,
+        "my_model", 
+        input_example=X_train.iloc[[0]]  # Signature inferred automatically
+    )
+```
+
+### Manual Signature Creation
+
+For more control, create signatures explicitly:
+
+```python
+from mlflow.models import ModelSignature
+from mlflow.types.schema import Schema, ColSpec
+
+# Define input schema
+input_schema = Schema([
+    ColSpec("double", "feature_1"),
+    ColSpec("string", "feature_2"),
+    ColSpec("long", "feature_3", required=False)  # Optional
+])
+
+# Define output schema  
+output_schema = Schema([ColSpec("double", "prediction")])
+
+# Create signature
+signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+# Log with explicit signature
+with mlflow.start_run():
+    mlflow.sklearn.log_model(model, "my_model", signature=signature)
+```
+
+### Signature Inference Helper
+
+Use `infer_signature` for custom workflows:
+
+```python
+from mlflow.models import infer_signature
+
+# Generate predictions for signature inference
+predictions = model.predict(X_test)
+
+# Infer signature from data
+signature = infer_signature(X_test, predictions)
+
+# Log with inferred signature
+with mlflow.start_run():
+    mlflow.sklearn.log_model(model, "my_model", signature=signature)
+```
+
+  </TabItem>
+  <TabItem value="updating-signatures" label="Updating Existing Models">
+
+### Adding Signatures to Logged Models
+
+Use `set_signature` to add or update signatures on existing models:
+
+```python
+from mlflow.models import set_signature, infer_signature
+
+# Load existing model (without signature)
+model_uri = "runs:/your-run-id/model"
+model = mlflow.pyfunc.load_model(model_uri)
+
+# Create signature from test data
+signature = infer_signature(X_test, model.predict(X_test))
+
+# Apply signature to existing model
+set_signature(model_uri, signature)
+
+# Verify signature was set
+from mlflow.models.model import get_model_info
+assert get_model_info(model_uri).signature == signature
+```
+
+### Working with Model Registry
+
+For registered models, update the source and create a new version:
+
+```python
+from mlflow.client import MlflowClient
+
+client = MlflowClient()
+model_name = "my_registered_model" 
+model_version = 1
+
+# Get existing model version
+mv = client.get_model_version(name=model_name, version=model_version)
+
+# Update signature on source artifacts
+signature = infer_signature(X_test, predictions)
+set_signature(mv.source, signature)
+
+# Create new model version with updated signature
+client.create_model_version(
+    name=model_name,
+    source=mv.source, 
+    run_id=mv.run_id
+)
+```
+
+  </TabItem>
+  <TabItem value="complex-signatures" label="Advanced Signature Patterns">
+
+### GenAI Model Signatures
+
+For LangChain, OpenAI, and similar models, use dictionary-based signatures:
+
+```python
+# Input example for chat model
+input_example = {
+    "messages": [
+        {
+            "role": "user",
+            "content": "What is machine learning?"
+        }
+    ]
+}
+
+# Optional fields example
+input_example = [
+    {"name": "Alice", "message": "Hello"},      # name is present
+    {"message": "Hi there"}                     # name is missing (becomes optional)
+]
+
+# Log model with automatic signature inference
+with mlflow.start_run():
+    mlflow.langchain.log_model(
+        chain,
+        "chat_model",
+        input_example=input_example  # Signature auto-generated
+    )
+```
+
+### Models with Parameters
+
+Include inference parameters in your signature:
+
+```python
+# Input data and parameters
+input_data = "Translate to French: Hello world"
+params = {
+    "temperature": 0.3,
+    "max_tokens": 50,
+    "stop_sequences": [".", "!"]
+}
+
+# Create signature with parameters
+signature = infer_signature(
+    input_data,
+    model.predict(input_data),
+    params  # Include parameters in signature
+)
+
+with mlflow.start_run():
+    mlflow.transformers.log_model(
+        model,
+        "translation_model", 
+        signature=signature
+    )
+```
+
+### Complex Data Structures
+
+Handle nested objects and arrays:
+
+```python
+# Complex input structure
+input_example = {
+    "user_data": {
+        "id": 12345,
+        "preferences": ["action", "comedy"],
+        "metadata": {
+            "created_date": "2023-01-01",
+            "is_premium": True
+        }
+    },
+    "context": {
+        "device": "mobile",
+        "location": None  # Optional field
+    }
+}
+
+# Signature automatically handles nested structure
+signature = infer_signature(input_example)
+```
+
+  </TabItem>
+</Tabs>
+
+## Input Examples in Detail
+
+Input examples serve multiple important purposes beyond signature inference:
+
+### Benefits of Input Examples
+
+<ul>
+  <li><strong>Signature Inference</strong>: Automatically generate model signatures</li>
+  <li><strong>Model Validation</strong>: Verify model works during logging</li>
+  <li><strong>Dependency Detection</strong>: Help identify required packages</li>
+  <li><strong>Documentation</strong>: Show developers proper input format</li>
+  <li><strong>Deployment Testing</strong>: Validate REST endpoint payload format</li>
+</ul>
+
+### Input Example Formats
+
+<Tabs>
+  <TabItem value="dataframe-examples" label="DataFrame Examples" default>
+
+```python
+import pandas as pd
+
+# Single record example
+single_record = pd.DataFrame([{
+    "sepal_length": 5.1,
+    "sepal_width": 3.5, 
+    "petal_length": 1.4,
+    "petal_width": 0.2
+}])
+
+# Multiple records example
+batch_example = pd.DataFrame([
+    {"feature_1": 1.0, "feature_2": "A"},
+    {"feature_1": 2.0, "feature_2": "B"},
+    {"feature_1": 3.0, "feature_2": "C"}
+])
+
+# Log model with DataFrame example
+mlflow.sklearn.log_model(model, "model", input_example=single_record)
+```
+
+  </TabItem>
+  <TabItem value="tensor-examples" label="Tensor Examples">
+
+```python
+import numpy as np
+
+# Image batch example (MNIST-style)
+image_batch = np.random.randint(0, 255, size=(3, 28, 28, 1), dtype=np.uint8)
+
+# Multi-input dictionary
+multi_input = {
+    "image": np.random.random((2, 224, 224, 3)),
+    "metadata": np.array([[1.0, 2.0], [3.0, 4.0]])
+}
+
+# Sparse matrix example
+from scipy.sparse import csr_matrix
+sparse_example = csr_matrix([[1, 0, 2], [0, 0, 3]])
+
+# Log model with tensor example
+mlflow.tensorflow.log_model(model, "model", input_example=image_batch)
+```
+
+  </TabItem>
+  <TabItem value="json-examples" label="JSON Examples">
+
+```python
+# Dictionary example
+dict_example = {
+    "messages": [
+        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "user", "content": "Hello!"}
+    ],
+    "temperature": 0.7
+}
+
+# List example
+list_example = [
+    {"text": "First document", "category": "news"},
+    {"text": "Second document", "category": "sports"}
+]
+
+# Simple scalar
+scalar_example = "What is the capital of France?"
+
+# Log model with JSON example
+mlflow.langchain.log_model(model, "model", input_example=dict_example)
+```
+
+  </TabItem>
+  <TabItem value="params-examples" label="Examples with Parameters">
+
+```python
+# Combine input data with parameters using tuple
+input_data = "Translate to Spanish: Good morning"
+params = {
+    "temperature": 0.2,
+    "max_length": 50,
+    "do_sample": True
+}
+
+# Create tuple for logging
+input_example = (input_data, params)
+
+# Log model with parameters
+mlflow.transformers.log_model(
+    model,
+    "translation_model",
+    input_example=input_example
+)
+
+# At inference time
+loaded_model = mlflow.pyfunc.load_model(model_uri)
+
+# Use default parameters
+result1 = loaded_model.predict(input_data)
+
+# Override parameters
+result2 = loaded_model.predict(input_data, params={"temperature": 0.1})
+```
+
+  </TabItem>
+</Tabs>
+
+## Model Serving and Deployment
+
+### Serving Input Examples
+
+MLflow automatically generates serving-compatible examples:
+
+```python
+# When you log a model with input_example
+input_example = {"question": "What is MLflow?"}
+
+with mlflow.start_run():
+    model_info = mlflow.pyfunc.log_model(
+        python_model=MyModel(),
+        artifact_path="model",
+        input_example=input_example
+    )
+
+# MLflow creates two files:
+# 1. input_example.json - Original format
+# 2. serving_input_example.json - REST API format
+```
+
+**Generated Files:**
+
+| File | Content | Purpose |
+|------|---------|---------|
+| `input_example.json` | `{"question": "What is MLflow?"}` | Original input format |
+| `serving_input_example.json` | `{"inputs": {"question": "What is MLflow?"}}` | REST endpoint format |
+
+### Validating Serving Examples
+
+Test your model before deployment:
+
+```python
+from mlflow.models.utils import load_serving_example
+from mlflow.models import validate_serving_input
+
+# Load serving example
+serving_example = load_serving_example(model_info.model_uri)
+
+# Validate it works
+result = validate_serving_input(model_info.model_uri, serving_example)
+print(f"Validation result: {result}")
+
+# Test with local server
+# mlflow models serve --model-uri <model_uri>
+# curl -X POST -H "Content-Type: application/json" \
+#      -d '<serving_example>' http://localhost:5000/invocations
+```
+
+## Signature Playground and Examples
+
+Explore signature behavior with our interactive examples:
+
+<NotebookDownloadButton href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/ml/model/notebooks/signature_examples.ipynb">
+  <span>Download Signature Examples Notebook</span>
+</NotebookDownloadButton>
+
+Or view examples directly: [Signature Examples Notebook](/ml/model/notebooks/signature_examples)
+
+### Quick Reference Examples
+
+<Tabs>
+  <TabItem value="basic-examples" label="Basic Examples" default>
+
+```python
+from mlflow.models import infer_signature
+
+# Simple dictionary
+simple_dict = {"name": "Alice", "age": 30, "active": True}
+print(infer_signature(simple_dict))
+# → Schema: [name: string, age: long, active: boolean]
+
+# With optional fields
+optional_fields = [
+    {"name": "Alice", "email": "alice@example.com"},
+    {"name": "Bob", "email": None}  # email becomes optional
+]
+print(infer_signature(optional_fields))
+# → Schema: [name: string, email: string (optional)]
+
+# Arrays and nested objects
+complex_data = {
+    "user": {"id": 123, "tags": ["premium", "beta"]},
+    "scores": [0.8, 0.9, 0.7]
+}
+print(infer_signature(complex_data))
+# → Nested schema with arrays and objects
+```
+
+  </TabItem>
+  <TabItem value="dataframe-examples" label="DataFrame Examples">
+
+```python
+import pandas as pd
+
+# Basic DataFrame
+df = pd.DataFrame({
+    "feature_1": [1.0, 2.0, 3.0],
+    "feature_2": ["A", "B", "C"],
+    "feature_3": [True, False, True]
+})
+print(infer_signature(df))
+# → Column-based schema
+
+# With missing values (creates optional columns)
+df_optional = pd.DataFrame({
+    "required_col": [1, 2, 3],
+    "optional_col": [1.0, None, 3.0]  # Contains None
+})
+print(infer_signature(df_optional))
+# → optional_col marked as optional
+
+# Mixed data types
+df_mixed = pd.DataFrame({
+    "numbers": [1, 2, 3],
+    "arrays": [[1, 2], [3, 4], [5, 6]],  # Lists in DataFrame
+    "objects": [{"a": 1}, {"b": 2}, {"c": 3}]  # Dicts in DataFrame
+})
+print(infer_signature(df_mixed))
+# → Complex schema with Array and Object types
+```
+
+  </TabItem>
+  <TabItem value="tensor-examples" label="Tensor Examples">
+
+```python
+import numpy as np
+
+# Simple tensor
+tensor_2d = np.array([[1, 2, 3], [4, 5, 6]])
+print(infer_signature(tensor_2d))
+# → Tensor(int64, (-1, 3))
+
+# Image-like tensor
+image_batch = np.random.randint(0, 255, (10, 28, 28, 1), dtype=np.uint8)
+print(infer_signature(image_batch))
+# → Tensor(uint8, (-1, 28, 28, 1))
+
+# Multiple tensors
+multi_tensor = {
+    "image": np.random.random((5, 224, 224, 3)),
+    "mask": np.random.randint(0, 2, (5, 224, 224, 1))
+}
+print(infer_signature(multi_tensor))
+# → Schema with multiple tensor specs
+```
+
+  </TabItem>
+</Tabs>
+
+## Best Practices and Tips
+
+### Development Workflow
+
+**Always Include Input Examples**
+```python
+# ✅ Good: Always provide examples
+mlflow.sklearn.log_model(model, "model", input_example=X_sample)
+
+# ❌ Avoid: Logging without examples
+mlflow.sklearn.log_model(model, "model")  # No signature or validation
+```
+
+**Test Your Signatures**
+```python
+# Validate signature works as expected
+signature = infer_signature(X_test, y_pred)
+loaded_model = mlflow.pyfunc.load_model(model_uri)
+
+# Test with your signature
+try:
+    result = loaded_model.predict(X_test)
+    print("✅ Signature validation passed")
+except Exception as e:
+    print(f"❌ Signature issue: {e}")
+```
+
+### Performance Considerations
+
+**For Large DataFrames:**
+```python
+# Use a representative sample for input_example
+large_df = pd.DataFrame(...)  # 1M+ rows
+sample_df = large_df.sample(n=100, random_state=42)  # Representative sample
+
+mlflow.sklearn.log_model(model, "model", input_example=sample_df)
+```
+
+**For Complex Objects:**
+```python
+# Provide minimal but representative examples
+minimal_example = {
+    "required_field": "example_value",
+    "optional_field": None,  # Shows field is optional
+    "array_field": ["sample"]  # Shows it's an array
+}
+```
+
+### Common Pitfalls
+
+**Integer Handling:**
+```python
+# ❌ Problem: Integers with NaN become floats
+df = pd.DataFrame({"int_col": [1, 2, None]})  # Type becomes float64
+
+# ✅ Solution: Use consistent types
+df = pd.DataFrame({"int_col": [1.0, 2.0, None]})  # Explicit float64
+```
+
+**Nested Structure Consistency:**
+```python
+# ❌ Problem: Inconsistent nesting
+inconsistent = [
+    {"level1": {"level2": "value"}},
+    {"level1": "direct_value"}  # Different structure
+]
+
+# ✅ Solution: Consistent structure
+consistent = [
+    {"level1": {"level2": "value1"}},
+    {"level1": {"level2": "value2"}}  # Same structure
+]
+```
+
+**Type Hints for PythonModel** (MLflow 2.20.0+):
+```python
+from typing import Dict, List
+
+class TypedModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input: List[Dict[str, str]]) -> List[str]:
+        # Signature automatically inferred from type hints!
+        return [item["text"].upper() for item in model_input]
+```
+
+## Troubleshooting
+
+### Common Error Messages
+
+**"Required input field missing":**
+
+This error occurs when your model expects a required field that's not present in the input data.
+
+```python
+# Example: Model expects field "age" but input only has "name"
+input_data = {"name": "Alice"}  # Missing required "age" field
+```
+
+**Solution:** Include all required fields in your input data, or mark the field as optional in your signature by including `None` values in your input example.
+
+**"Cannot convert type X to type Y":**
+
+This happens when you try to pass data of one type where the signature expects another type.
+
+```python
+# Example: Trying to pass string where integer expected
+input_data = {"score": "85"}  # String value
+# But signature expects: {"score": 85}  # Integer value
+```
+
+**Solution:** Fix your input data types to match the signature, or update the signature if the type change is intentional.
+
+**"Tensor shape mismatch":**
+
+This error occurs when tensor inputs don't match the expected shape defined in the signature.
+
+```python
+# Example: Model expects shape (None, 784) but got (None, 28, 28)
+input_tensor = np.random.random((10, 28, 28))  # Wrong shape
+# But signature expects: (10, 784)  # Flattened shape
+```
+
+**Solution:** Reshape your input data to match the expected dimensions, or update the signature if the shape requirements have changed.
+
+### Debugging Signatures
+
+Use these techniques to diagnose signature-related issues:
+
+```python
+# Inspect existing model signature
+from mlflow.models.model import get_model_info
+
+model_info = get_model_info(model_uri)
+print("Current signature:")
+print(model_info.signature)
+
+# Compare with inferred signature
+inferred = infer_signature(your_input_data)
+print("Inferred signature:")
+print(inferred)
+
+# Check compatibility
+if model_info.signature != inferred:
+    print("⚠️  Signatures don't match - consider updating")
+```
+
+## Additional Resources
+
+- [Signature Examples Notebook](/ml/model/notebooks/signature_examples) - Interactive examples
+- [Model API Documentation](/ml/model#model-api) - Complete API reference  
+- [Deployment Guide](/ml/deployment) - Using signatures in production
+- [MLflow Model Format](/ml/models) - Technical specification
