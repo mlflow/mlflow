@@ -6,7 +6,7 @@ There are several unique challenges associated with AI agents and agent systems:
 
 - Different combinations of models, prompts, tools, and inference parameters can have huge impacts on an agent's performance. Keeping track of tests and experiments comparing performance across different combinations of these elements is challenging.
 - It can be difficult to define what makes an agent's responses "good" or "bad," making it challenging to evaluate agent performance.
-- Identifying sources of errors or breakdowns in application logic is very difficult when dealing with complex agent systems that include a mix of AI models calls,  tool calls, handoffs, human input, and other complex interactions.
+- Identifying sources of errors or breakdowns in application logic is very difficult when dealing with complex agent systems that include a mix of AI models calls, tool calls, handoffs, human input, and other complex interactions.
 
 MLflow helps to solve these problems by providing a suite of tools for tracing and visualizing all of your AI agent calls, evaluating your models and applications, building application logic into custom models, tracking and versioning your models, and deploying your models to production.
 
@@ -18,7 +18,7 @@ It's also a use case where mistakes can be costly and can lead to customer churn
 
 ### Simplifying Assumptions
 
-The goal of this tutorial is to show you how to use MLflow to prototype, debug, evaluate, and iterate on your AI agents; *not* to build a complete production-ready system. To that end, we will make a number of simplifications for the sake of brevity and clarity:
+The goal of this tutorial is to show you how to use MLflow to prototype, debug, evaluate, and iterate on your AI agents; _not_ to build a complete production-ready system. To that end, we will make a number of simplifications for the sake of brevity and clarity:
 
 - We will only consider single-turn interactions between the agent and the user.
 - Unlike in a real-world application, chats will not be scoped to a single authenticated user.
@@ -37,7 +37,7 @@ For the best experience with all the features in this tutorial, we recommend usi
 
 ### Install Dependencies
 
-{/* Any notes about MLflow3/upgrading/migrating, or are we assuming users will be following along after the stable release?  */}
+{/* Any notes about MLflow3/upgrading/migrating, or are we assuming users will be following along after the stable release? */}
 For this tutorial, we will need to install the latest version of MLflow (we will be using some features only available in MLflow 3). We will be defining our agent using LlamaIndex, so we will also need to install the LlamaIndex and LlamaIndex-LLMs-OpenAI packages. The [databricks-agents](https://pypi.org/project/databricks-agents/) SDK is used by managed MLflow on Databricks for some evaluation-related functionality.
 
 ```bash
@@ -58,7 +58,6 @@ mlflow.set_experiment("mlflow-agent-tutorial")
 ```
 
 If you are using managed MLflow, you can skip this step.
-
 
 ### Prepare the Data
 
@@ -326,26 +325,26 @@ orders_df
 
 Here are the first few rows of our order statuses table:
 
-|order_id|customer_name|brand|items|order_total|placed_at|estimated_delivery|current_status|driver_location|last_updated|
-|---|---|---|---|---|---|---|---|---|---|
-|ORD-001|Sarah Chen|McDoodles|["Big Stack","Famous Frites"]|11.18|2025-05-21T09:00:00Z|2025-05-21T09:30:00Z|Out for Delivery|0.3 miles away|2025-05-21T09:22:00Z|
-|ORD-002|Mike Johnson|ChipoLot|["Chicken Burrito","Chips & Guac"]|14.43|2025-05-21T09:10:00Z|2025-05-21T09:45:00Z|Being Prepared|null|2025-05-21T09:15:00Z|
-|ORD-003|Lisa Park|Pando Dash|["Orange Chickadee","Fried Rice"]|10.39|2025-05-21T08:45:00Z|2025-05-21T09:20:00Z|Delivered|null|2025-05-21T09:18:00Z|
+| order_id | customer_name | brand      | items                              | order_total | placed_at            | estimated_delivery   | current_status   | driver_location | last_updated         |
+| -------- | ------------- | ---------- | ---------------------------------- | ----------- | -------------------- | -------------------- | ---------------- | --------------- | -------------------- |
+| ORD-001  | Sarah Chen    | McDoodles  | ["Big Stack","Famous Frites"]      | 11.18       | 2025-05-21T09:00:00Z | 2025-05-21T09:30:00Z | Out for Delivery | 0.3 miles away  | 2025-05-21T09:22:00Z |
+| ORD-002  | Mike Johnson  | ChipoLot   | ["Chicken Burrito","Chips & Guac"] | 14.43       | 2025-05-21T09:10:00Z | 2025-05-21T09:45:00Z | Being Prepared   | null            | 2025-05-21T09:15:00Z |
+| ORD-003  | Lisa Park     | Pando Dash | ["Orange Chickadee","Fried Rice"]  | 10.39       | 2025-05-21T08:45:00Z | 2025-05-21T09:20:00Z | Delivered        | null            | 2025-05-21T09:18:00Z |
 
 ## Prototyping a simple order status agent
 
 Suppose, at this phase, we have a very general sense of what we want to build—an agent for a food delivery service that can help customers with their orders—but we have not yet decided on the specifics. In many cases, the first step is building a very simple agent, trying out different prompts and tools, and iterating in an unstructured and informal way on the agent's behavior.
 
- At this phase, we are often working in a notebook environment, and are not particularly systematic about structuring our code or recording formal experiments. Still, we might stumble upon some interesting ideas we want to apply later in the project, so having some system for recording our tests is helpful. To that end, we can use MLflow's autologging and tracing features to record our experiments.
+At this phase, we are often working in a notebook environment, and are not particularly systematic about structuring our code or recording formal experiments. Still, we might stumble upon some interesting ideas we want to apply later in the project, so having some system for recording our tests is helpful. To that end, we can use MLflow's autologging and tracing features to record our experiments.
 
- We will start by building a very simple agent that can answer questions about the status of an order.
+We will start by building a very simple agent that can answer questions about the status of an order.
 
- ### Configure the OpenAI Client
- 
- First, we will configure the OpenAI client. Make sure to set your OpenAI API key, either as an environment variable or in a `.env` file. In this case, we saved our API key in a `.env` file with a single line: `OPENAI_API_KEY=sk-...`. We then load the API key from the `.env` file using the `dotenv` package, as shown below.
+### Configure the OpenAI Client
 
- ```python
- from openai import OpenAI
+First, we will configure the OpenAI client. Make sure to set your OpenAI API key, either as an environment variable or in a `.env` file. In this case, we saved our API key in a `.env` file with a single line: `OPENAI_API_KEY=sk-...`. We then load the API key from the `.env` file using the `dotenv` package, as shown below.
+
+```python
+from openai import OpenAI
 from dotenv import load_dotenv
 import os
 
@@ -394,7 +393,7 @@ With most LLM providers, tool calling works as follows:
 
 1. The user asks a question that requires the use of a tool.
 2. The model's response includes a `tool_calls` field that includes the name of the function to call and the arguments to pass to the function.
-3. The application—*not* the model itself—calls the function with the arguments and, optionally, passes the result back to the model as a new message with the `role` set to `tool`.
+3. The application—_not_ the model itself—calls the function with the arguments and, optionally, passes the result back to the model as a new message with the `role` set to `tool`.
 
 In the code sample below, we define a simple function that implements this process. It takes a single query from the user, calls the model, and then calls the function with the arguments. It then appends the result of the function call to the message history and calls the model again with the updated message history, enabling the model to provide a final response that includes the result of the function call.
 
@@ -418,7 +417,7 @@ def request_order_status(client, messages, tools):
     order_info = get_order_by_id(args["order_id"])
 
     message_history.append(completion.choices[0].message)
-    message_history.append({                               
+    message_history.append({
         "role": "tool",
         "tool_call_id": tool_call.id,
         "content": str(order_info)
@@ -438,7 +437,7 @@ print(request_order_status(client, user_query, tools).choices[0].message.content
 Which returns:
 
 > Order **ORD-018** details are as follows:
-> 
+>
 > - **Customer Name**: Alex Thompson
 > - **Brand**: GreenSprout
 > - **Items Ordered**:
@@ -448,8 +447,8 @@ Which returns:
 > - **Placed At**: May 21, 2025, 08:35 AM (UTC)
 > - **Estimated Delivery**: May 21, 2025, 09:10 AM (UTC)
 > - **Current Status**: Delivered
-> - **Last Updated**: May 21, 2025, 09:18 AM (UTC) 
-> 
+> - **Last Updated**: May 21, 2025, 09:18 AM (UTC)
+>
 > If you have any more questions or need further information, feel free to ask.
 
 Even in this simple example, we begin to see the complexity of building an agent. We need to manage the message history, invoke the AI model API multiple times, call on the tool based on the model's response, and manage the flow of control between the model and the tool. Furthermore, this isn't even close to the kind of response would want to provide to the user. We will ultimately want it to respond in a friendly and personal tone. At present, we do not have an obvious way to identify any points of failure or opportunities for improvement.
@@ -474,7 +473,6 @@ request_order_status(client, user_query, tools)
 ```
 
 ![MLflow Trace](/images/genai/tutorials/debug-tracing/1_trace.png)
-
 
 :::tip[View Traces in Jupyter Notebooks]
 
@@ -506,10 +504,10 @@ Now, when we log a trace, it will be associated with the model. You can find you
 
 ### Manual Tracing: Add Tracing to our Agent's Tool
 
-One thing you might notice if you investigate the trace we generated above is that our agent workflow actually resulted in *two* traces: one for the initial model call (where the model responded with the tool call parameters) and one for the final output from the model. There are two key issues here:
+One thing you might notice if you investigate the trace we generated above is that our agent workflow actually resulted in _two_ traces: one for the initial model call (where the model responded with the tool call parameters) and one for the final output from the model. There are two key issues here:
 
 1. These two calls are part of the same workflow, so we would like them to be recorded as one trace.
-2. The execution of `get_order_by_id` was *not* traced, leaving out a critical step in our workflow.
+2. The execution of `get_order_by_id` was _not_ traced, leaving out a critical step in our workflow.
 
 We can manually configure our workflow to record the trace exactly as we want it. Autologging is a great way to start with tracing, but MLflow also provides a rich set of tracing tools that can be used to fine-tune the tracing behavior.
 
@@ -550,7 +548,7 @@ def request_order_status(client, messages, tools):
         order_info = get_order_by_id(args["order_id"])
 
         message_history.append(completion.choices[0].message)
-        message_history.append({                               
+        message_history.append({
             "role": "tool",
             "tool_call_id": tool_call.id,
             "content": str(order_info)
@@ -571,7 +569,7 @@ request_order_status(client, user_query, tools)
 
 ![MLflow Trace](/images/genai/tutorials/debug-tracing/3_manual_trace.png)
 
-Now we can see the *entire* execution flow in a single trace, including tool calls and their inputs and outputs. This also shows how we can combine automatic and manual tracing: the model calls are still automatically traced; we just nested them under a parent span and added tracing to the tool call.
+Now we can see the _entire_ execution flow in a single trace, including tool calls and their inputs and outputs. This also shows how we can combine automatic and manual tracing: the model calls are still automatically traced; we just nested them under a parent span and added tracing to the tool call.
 
 ### Using Tracing to Debug Errors
 
@@ -654,13 +652,13 @@ from datetime import datetime
 
 def escalate_to_human(issue_summary: str) -> str:
     """
-    Escalate the issue to a human agent. This triggers (simulated) backend API calls to create 
+    Escalate the issue to a human agent. This triggers (simulated) backend API calls to create
     a support ticket and notify human agents.
-    
+
     Args:
         issue_summary: Brief summary of the customer's issue
     """
-    
+
     # Create the API payload
     escalation_payload = {
         "timestamp": datetime.now().isoformat(),
@@ -679,7 +677,7 @@ def escalate_to_human(issue_summary: str) -> str:
             "estimated_response_time_minutes": 15,
             "assigned_agent_id": "AGENT-456"
         }
-    
+
     api_response = send_api_request(escalation_payload)
     ticket_id = api_response["ticket_id"]
 
@@ -690,27 +688,27 @@ def escalate_to_human(issue_summary: str) -> str:
 def cancel_order(order_id: str, reason: str = "customer_request") -> str:
     """
     Cancel a food delivery order if possible.
-    
+
     Args:
         order_id: The order ID to cancel (e.g., ORD-009)
         reason: Reason for cancellation
     """
-    
+
     # Check order status in the dataframe
     order_row = orders_df[orders_df['order_id'] == order_id]
-    
+
     if order_row.empty:
         return f"Order {order_id} not found."
-    
+
     order_status = order_row['current_status'].iloc[0]
     order_total = order_row['order_total'].iloc[0]
-    
+
     if order_status != "Order Received":
         return f"Cannot cancel - order status is '{order_status}'"
-    
+
     # Simulate cancellation API call
     cancellation_id = f"CANCEL-{hash(order_id) % 10000:04d}"
-    
+
     return f"Cancellation successful. ID: {cancellation_id}, Refund: ${order_total}, ETA: 3 business days"
 ```
 
