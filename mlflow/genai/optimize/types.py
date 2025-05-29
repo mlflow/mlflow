@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+import multiprocessing
+from dataclasses import dataclass, field
 from typing import Callable, Optional, Union
 
 from mlflow.entities import Feedback
@@ -59,6 +60,7 @@ class OptimizerConfig:
         max_few_show_examples: Maximum number of examples to show in few-shot
             demonstrations. Default: 3
         num_threads: Number of threads to use for parallel optimization.
+            Default: (number of CPU cores * 2 + 1)
         optimizer_llm: Optional LLM parameters for the teacher model. If not provided,
             the target LLM will be used as the teacher.
         algorithm: The optimization algorithm to use. Default: "DSPy/MIPROv2"
@@ -66,6 +68,6 @@ class OptimizerConfig:
 
     num_instruction_candidates: int = 8
     max_few_show_examples: int = 3
-    num_threads: Optional[int] = None
+    num_threads: int = field(default_factory=lambda: (multiprocessing.cpu_count() or 1) * 2 + 1)
     optimizer_llm: Optional[LLMParams] = None
     algorithm: str = "DSPy/MIPROv2"

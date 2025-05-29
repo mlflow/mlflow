@@ -16,3 +16,8 @@ mlflow.genai
     :members:
     :undoc-members:
     :show-inheritance:
+
+.. automodule:: mlflow.genai.optimize
+    :members:
+    :undoc-members:
+    :show-inheritance:
