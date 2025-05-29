@@ -3715,6 +3715,7 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
         pyfunc_model._model_impl._predict_with_callbacks(
             data=input_example, callback_handlers=[tracer]
         )
+        mlflow.flush_trace_async_logging()
         mock_start_trace_v3.assert_called_once()
         trace = mock_start_trace_v3.call_args[0][0]
         assert trace.info.client_request_id == request_id
