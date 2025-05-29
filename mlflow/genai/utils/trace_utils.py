@@ -63,15 +63,11 @@ class NoOpTracerPatcher:
 
 def parse_inputs_to_str(inputs: Any) -> str:
     """Parse the inputs to a request string compatible with the judges API"""
-    if isinstance(inputs, str):
-        return inputs
-
-    # If it is a single key dictionary, return the value
+    # If it is a single key dictionary, extract the value
     if isinstance(inputs, dict) and len(inputs) == 1:
-        return list(inputs.values())[0]
+        inputs = list(inputs.values())[0]
 
-    # Otherwise, encode the inputs to a JSON string
-    return json.dumps(inputs, default=TraceJSONEncoder)
+    return inputs if isinstance(inputs, str) else json.dumps(inputs, default=TraceJSONEncoder)
 
 
 def parse_output_to_str(output: Any) -> str:
