@@ -53,9 +53,9 @@ def optimize_prompt(
 
             The dataset must include the following columns:
 
-            - inputs (required): A column containing single inputs in dict format.
+            - inputs: A column containing single inputs in dict format.
               Each input should contain keys matching the variables in the prompt template.
-            - expectations (required): A column containing a dictionary
+            - expectations: A column containing a dictionary
               of ground truths for individual output fields.
 
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
