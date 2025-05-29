@@ -372,7 +372,7 @@ html[data-genai-theme="true"] {
   transition: opacity 0.2s ease;
 }
 
-.navbar__link:hover::after {
+.navbar__link:hover::before {
   content: "";
   position: absolute;
   bottom: 0;
