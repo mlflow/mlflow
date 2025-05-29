@@ -4,7 +4,7 @@ import pytest
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
-from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import (
     correctness,
@@ -53,60 +53,66 @@ def test_configure_builtin_scorers(scorer, updates):
 
 
 def test_retrieval_groundedness(sample_rag_trace):
-    with patch("databricks.agents.evals.judges.groundedness") as mock_groundedness:
-        retrieval_groundedness(trace=sample_rag_trace)
+    with patch(
+        "databricks.agents.evals.judges.groundedness",
+        side_effect=lambda *args, **kwargs: Feedback(name="retrieval_groundedness", value="yes"),
+    ) as mock_groundedness:
+        result = retrieval_groundedness(trace=sample_rag_trace)
 
-    mock_groundedness.assert_called_once_with(
-        request="query",
-        response="answer",
-        retrieved_context=[
-            {"content": "content_1", "doc_uri": "url_1"},
-            {"content": "content_2", "doc_uri": "url_2"},
-            {"content": "content_3"},
+    mock_groundedness.assert_has_calls(
+        [
+            call(
+                request="query",
+                response="answer",
+                retrieved_context=[
+                    {"content": "content_1", "doc_uri": "url_1"},
+                    {"content": "content_2", "doc_uri": "url_2"},
+                ],
+                assessment_name="retrieval_groundedness",
+            ),
+            call(
+                request="query",
+                response="answer",
+                retrieved_context=[{"content": "content_3"}],
+                assessment_name="retrieval_groundedness",
+            ),
         ],
-        assessment_name="retrieval_groundedness",
     )
+    assert len(result) == 2
+    assert all(isinstance(f, Feedback) for f in result)
+    expected_span_ids = [
+        s.span_id for s in sample_rag_trace.search_spans(span_type=SpanType.RETRIEVER)
+    ]
+    actual_span_ids = [f.span_id for f in result]
+    assert set(actual_span_ids) == set(expected_span_ids)
 
 
-@pytest.mark.parametrize(
-    ("chunk_relevance_values", "expected"),
-    [
-        (["yes", "yes", "yes"], 1.0),
-        (["yes", "yes", "no"], 0.666),
-        (["no", "no", "no"], 0.0),
-        (["yes", "no", None], 0.5),
-    ],
-)
-def test_retrieval_relevance(sample_rag_trace, chunk_relevance_values, expected):
-    def mock_chunk_relevance(request, retrieved_context, assessment_name):
-        value = chunk_relevance_values.pop(0)
-        error = AssessmentError(error_code="test") if value is None else None
-        return [
-            Feedback(
-                name=assessment_name,
-                value=value,
-                error=error,
-                source=AssessmentSource(source_type="LLM_JUDGE", source_id="test"),
-                trace_id="tr-123",
-                span_id="span-123",
-            )
-        ]
+def test_retrieval_relevance(sample_rag_trace):
+    mock_responses = [
+        # First retriever span has 2 chunks
+        [
+            Feedback(name="retrieval_relevance", value="yes", metadata={"chunk_index": 0}),
+            Feedback(name="retrieval_relevance", value="no", metadata={"chunk_index": 1}),
+        ],
+        # Second retriever span has 1 chunk
+        [
+            Feedback(name="retrieval_relevance", value="yes", metadata={"chunk_index": 0}),
+        ],
+    ]
 
     with patch(
-        "databricks.agents.evals.judges.chunk_relevance", side_effect=mock_chunk_relevance
+        "databricks.agents.evals.judges.chunk_relevance", side_effect=mock_responses
     ) as mock_chunk_relevance:
-        feedback = retrieval_relevance(trace=sample_rag_trace)
+        results = retrieval_relevance(trace=sample_rag_trace)
 
     mock_chunk_relevance.assert_has_calls(
         [
             call(
                 request="query",
-                retrieved_context=[{"content": "content_1", "doc_uri": "url_1"}],
-                assessment_name="retrieval_relevance",
-            ),
-            call(
-                request="query",
-                retrieved_context=[{"content": "content_2", "doc_uri": "url_2"}],
+                retrieved_context=[
+                    {"content": "content_1", "doc_uri": "url_1"},
+                    {"content": "content_2", "doc_uri": "url_2"},
+                ],
                 assessment_name="retrieval_relevance",
             ),
             call(
@@ -117,27 +123,124 @@ def test_retrieval_relevance(sample_rag_trace, chunk_relevance_values, expected)
         ],
     )
 
-    assert feedback.name == "retrieval_relevance"
-    assert abs(feedback.value - expected) < 0.01
-    assert feedback.source == AssessmentSource(source_type="LLM_JUDGE", source_id="test")
-    assert feedback.trace_id == "tr-123"
-    assert feedback.span_id == "span-123"
+    assert len(results) == 5  # 2 span-level feedbacks + 3 chunk-level feedbacks
+    assert all(isinstance(f, Feedback) for f in results)
+    assert all(f.name == "retrieval_relevance" for f in results)
+
+    retriever_span_ids = [
+        s.span_id for s in sample_rag_trace.search_spans(span_type=SpanType.RETRIEVER)
+    ]
+
+    # First feedbacks is a span-level feedback for the first retriever span
+    assert results[0].value == 0.5
+    assert results[0].span_id == retriever_span_ids[0]
+
+    # Second and third feedbacks are chunk-level feedbacks for the first retriever span
+    assert results[1].value == "yes"
+    assert results[1].span_id == retriever_span_ids[0]
+    assert results[2].value == "no"
+    assert results[2].span_id == retriever_span_ids[0]
+
+    # Fourth result is a span-level feedback for the second retriever span
+    assert results[3].value == 1.0
+    assert results[3].span_id == retriever_span_ids[1]
+
+    # Fifth result is a chunk-level feedback for the second retriever span
+    assert results[4].value == "yes"
+    assert results[4].span_id == retriever_span_ids[1]
+
+
+def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
+    mock_responses = [
+        # Error feedback
+        [
+            Feedback(name="retrieval_relevance", value="yes"),
+            Feedback(name="retrieval_relevance", error=AssessmentError(error_code="test")),
+        ],
+        # Empty feedback - skip span
+        [],
+    ]
+
+    with patch(
+        "databricks.agents.evals.judges.chunk_relevance", side_effect=mock_responses
+    ) as mock_chunk_relevance:
+        results = retrieval_relevance(trace=sample_rag_trace)
+
+    assert mock_chunk_relevance.call_count == 2
+    assert len(results) == 3
+    assert results[0].value == 0.5  # Error feedback is handled as 0.0 relevance
+    assert results[1].value == "yes"
+    assert results[2].value is None
+    assert results[2].error.error_code == "test"
 
 
 def test_retrieval_sufficiency(sample_rag_trace):
-    with patch("databricks.agents.evals.judges.context_sufficiency") as mock_context_sufficiency:
-        retrieval_sufficiency(trace=sample_rag_trace)
+    with patch(
+        "databricks.agents.evals.judges.context_sufficiency",
+        side_effect=lambda *args, **kwargs: Feedback(name="retrieval_sufficiency", value="yes"),
+    ) as mock_context_sufficiency:
+        result = retrieval_sufficiency(trace=sample_rag_trace)
 
-    mock_context_sufficiency.assert_called_once_with(
-        request="query",
-        retrieved_context=[
-            {"content": "content_1", "doc_uri": "url_1"},
-            {"content": "content_2", "doc_uri": "url_2"},
-            {"content": "content_3"},
+    mock_context_sufficiency.assert_has_calls(
+        [
+            call(
+                request="query",
+                retrieved_context=[
+                    {"content": "content_1", "doc_uri": "url_1"},
+                    {"content": "content_2", "doc_uri": "url_2"},
+                ],
+                # Expectations stored in the trace is exploded
+                expected_response="expected answer",
+                expected_facts=["fact1", "fact2"],
+                assessment_name="retrieval_sufficiency",
+            ),
+            call(
+                request="query",
+                retrieved_context=[{"content": "content_3"}],
+                expected_response="expected answer",
+                expected_facts=["fact1", "fact2"],
+                assessment_name="retrieval_sufficiency",
+            ),
         ],
-        expected_response="expected answer",
-        expected_facts=["fact1", "fact2"],
-        assessment_name="retrieval_sufficiency",
+    )
+
+    assert len(result) == 2
+    assert all(isinstance(f, Feedback) for f in result)
+    expected_span_ids = [
+        s.span_id for s in sample_rag_trace.search_spans(span_type=SpanType.RETRIEVER)
+    ]
+    actual_span_ids = [f.span_id for f in result]
+    assert set(actual_span_ids) == set(expected_span_ids)
+
+
+def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
+    with patch("databricks.agents.evals.judges.context_sufficiency") as mock_context_sufficiency:
+        retrieval_sufficiency(
+            trace=sample_rag_trace,
+            expectations={"expected_facts": ["fact3"]},
+        )
+
+    mock_context_sufficiency.assert_has_calls(
+        [
+            call(
+                request="query",
+                retrieved_context=[
+                    {"content": "content_1", "doc_uri": "url_1"},
+                    {"content": "content_2", "doc_uri": "url_2"},
+                ],
+                # Expectations stored in the trace is exploded
+                expected_response="expected answer",
+                expected_facts=["fact3"],
+                assessment_name="retrieval_sufficiency",
+            ),
+            call(
+                request="query",
+                retrieved_context=[{"content": "content_3"}],
+                expected_response="expected answer",
+                expected_facts=["fact3"],
+                assessment_name="retrieval_sufficiency",
+            ),
+        ],
     )
 
 
@@ -145,15 +248,13 @@ def test_guideline_adherence():
     # 1. Called with per-row guidelines
     with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
         guideline_adherence(
-            inputs={"question": "query"},
             outputs="answer",
             expectations={"guidelines": ["guideline1", "guideline2"]},
         )
 
     mock_guideline_adherence.assert_called_once_with(
-        request="query",
-        response="answer",
         guidelines=["guideline1", "guideline2"],
+        guidelines_context={"response": "answer"},
         assessment_name="guideline_adherence",
     )
 
@@ -164,43 +265,54 @@ def test_guideline_adherence():
     )
 
     with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
-        is_english(
-            inputs={"question": "query"},
-            outputs="answer",
-        )
+        is_english(outputs="answer")
 
     mock_guideline_adherence.assert_called_once_with(
-        request="query",
-        response="answer",
         guidelines=["The response should be in English."],
+        guidelines_context={"response": "answer"},
         assessment_name="is_english",
     )
 
 
 def test_relevance_to_query():
-    with patch("databricks.agents.evals.judges.relevance_to_query") as mock_relevance_to_query:
-        relevance_to_query(
+    with patch(
+        "databricks.agents.evals.judges.chunk_relevance",
+        return_value=[
+            Feedback(name="relevance_to_query", value="yes", metadata={"chunk_index": 0})
+        ],
+    ) as mock_chunk_relevance:
+        result = relevance_to_query(
             inputs={"question": "query"},
             outputs="answer",
         )
 
-    mock_relevance_to_query.assert_called_once_with(
+    mock_chunk_relevance.assert_called_once_with(
         request="query",
-        response="answer",
+        retrieved_context=["answer"],
         assessment_name="relevance_to_query",
     )
 
+    assert result.name == "relevance_to_query"
+    assert result.value == "yes"
+    assert result.metadata == {}  # chunk id should not be included in the metadata
+
 
 def test_safety():
+    # String output
     with patch("databricks.agents.evals.judges.safety") as mock_safety:
-        safety(
-            inputs={"question": "query"},
-            outputs="answer",
-        )
+        safety(outputs="answer")
 
     mock_safety.assert_called_once_with(
-        request="query",
         response="answer",
+        assessment_name="safety",
+    )
+
+    # Non-string output
+    with patch("databricks.agents.evals.judges.safety") as mock_safety:
+        safety(outputs={"answer": "yes", "reason": "This is a test"})
+
+    mock_safety.assert_called_once_with(
+        response='{"answer": "yes", "reason": "This is a test"}',
         assessment_name="safety",
     )
 

@@ -1,6 +1,6 @@
 import importlib
 from collections import defaultdict
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pandas as pd
 import pytest
@@ -94,7 +94,7 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace):
 
     assert mock_correctness.call_count == 1
     assert mock_guideline.call_count == 1
-    assert mock_groundedness.call_count == 1
+    assert mock_groundedness.call_count == 2  # Called per retriever span
 
     mock_correctness.assert_called_once_with(
         request="query",
@@ -104,20 +104,30 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace):
         assessment_name="correctness",
     )
     mock_guideline.assert_called_once_with(
-        request="query",
-        response="answer",
         guidelines=["write in english"],
+        guidelines_context={"response": "answer"},
         assessment_name="english",
     )
-    mock_groundedness.assert_called_once_with(
-        request="query",
-        response="answer",
-        retrieved_context=[
-            {"content": "content_1", "doc_uri": "url_1"},
-            {"content": "content_2", "doc_uri": "url_2"},
-            {"content": "content_3"},
-        ],
-        assessment_name="retrieval_groundedness",
+    mock_groundedness.assert_has_calls(
+        [
+            call(
+                request="query",
+                response="answer",
+                retrieved_context=[
+                    {"content": "content_1", "doc_uri": "url_1"},
+                    {"content": "content_2", "doc_uri": "url_2"},
+                ],
+                assessment_name="retrieval_groundedness",
+            ),
+            call(
+                request="query",
+                response="answer",
+                retrieved_context=[
+                    {"content": "content_3"},
+                ],
+                assessment_name="retrieval_groundedness",
+            ),
+        ]
     )
 
 
