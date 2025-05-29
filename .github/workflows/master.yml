@@ -290,7 +290,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0'
+          pip install pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0' lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -318,7 +318,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           # GenAI evaluation tests require databricks-agents that only work with Python >= 3.10
-          pip install 'databricks-agents<0.22.0' openai
+          pip install 'databricks-agents<0.22.0' openai dspy
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests
         run: |

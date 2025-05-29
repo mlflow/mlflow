@@ -2,7 +2,6 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.entities import Assessment, Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import (
@@ -18,6 +17,8 @@ except ImportError:
     pass
 
 if TYPE_CHECKING:
+    from mlflow.genai.datasets import EvaluationDataset
+
     try:
         import pyspark.sql.dataframe
 
@@ -31,23 +32,11 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
+def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
-    Takes in a dataset in the format that mlflow.genai.evaluate() expects and converts it into
-    to the current eval-set schema that Agent Evaluation takes in. The transformed schema should
-    be accepted by mlflow.evaluate().
-    The expected schema can be found at:
-    https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
-
-    NB: The harness secretly support 'expectations' column as well. It accepts a dictionary of
-        expectations, which is same as the schema that mlflow.genai.evaluate() expects.
-        Therefore, we can simply pass through expectations column.
+    Takes in a dataset in the format that `mlflow.genai.evaluate()` expects and
+    converts it into a pandas DataFrame.
     """
-    column_mapping = {
-        "inputs": "request",
-        "outputs": "response",
-    }
-
     if isinstance(data, list):
         # validate that every item in the list is a dict and has inputs as key
         for item in data:
@@ -86,6 +75,28 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
             "Either `inputs` or `trace` column is required in the dataset. Please provide inputs "
             "for every datapoint or provide a trace."
         )
+
+    return df
+
+
+def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
+    """
+    Takes in a dataset in the format that mlflow.genai.evaluate() expects and converts it into
+    to the current eval-set schema that Agent Evaluation takes in. The transformed schema should
+    be accepted by mlflow.evaluate().
+    The expected schema can be found at:
+    https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
+
+    NB: The harness secretly support 'expectations' column as well. It accepts a dictionary of
+        expectations, which is same as the schema that mlflow.genai.evaluate() expects.
+        Therefore, we can simply pass through expectations column.
+    """
+    column_mapping = {
+        "inputs": "request",
+        "outputs": "response",
+    }
+
+    df = _convert_eval_set_to_df(data)
 
     return (
         df.rename(columns=column_mapping)

@@ -1,5 +1,3 @@
-import warnings
-
 from mlflow.genai import (
     judges,
     scorers,
@@ -8,11 +6,6 @@ from mlflow.genai.evaluation import evaluate, to_predict_fn
 from mlflow.genai.scorers import Scorer, scorer
 
 try:
-    with warnings.catch_warnings():
-        # Ignore warnings from the mlflow.genai.datasets module
-        warnings.filterwarnings("ignore", message="The `databricks-agents` package is required")
-        from mlflow.genai.datasets import EvaluationDataset  # noqa: F401
-
     from mlflow.genai.labeling import (
         Agent,  # noqa: F401
         LabelingSession,  # noqa: F401
@@ -32,6 +25,7 @@ from mlflow.genai.datasets import (
     delete_dataset,
     get_dataset,
 )
+from mlflow.genai.optimize import optimize_prompt
 
 __all__ = [
     "evaluate",
@@ -43,6 +37,7 @@ __all__ = [
     "create_dataset",
     "delete_dataset",
     "get_dataset",
+    "optimize_prompt",
     # Labeling exports (only included when databricks-agents is installed)
     *(
         [
@@ -56,14 +51,6 @@ __all__ = [
             "delete_labeling_session",
         ]
         if "Agent" in locals()
-        else []
-    ),
-    # Dataset exports (only included when databricks-agents is installed)
-    *(
-        [
-            "EvaluationDataset",
-        ]
-        if "EvaluationDataset" in locals()
         else []
     ),
 ]
