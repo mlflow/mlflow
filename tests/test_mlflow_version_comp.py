@@ -2,18 +2,69 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
+from typing import Literal
 
 import numpy
 import sklearn
+from pyspark.sql import SparkSession
 from sklearn.linear_model import LinearRegression
 
 import mlflow
+from mlflow.models import Model
+
+
+def check(run_id: str, version: Literal["2", "3"], tmp_path: Path) -> None:
+    """
+    Test various `runs:/<run_id>/model` URI consumers.
+    """
+    # Model loading
+    model_uri = f"runs:/{run_id}/model"
+    assert Model.load(model_uri).run_id == run_id
+    model = mlflow.sklearn.load_model(model_uri)
+    numpy.testing.assert_array_equal(model.predict([[1, 2]]), [3.0])
+    model = mlflow.pyfunc.load_model(model_uri)
+    numpy.testing.assert_array_equal(model.predict([[1, 2]]), [3.0])
+    # Model registration
+    mv = mlflow.register_model(model_uri, "model")
+    mlflow.pyfunc.load_model(f"models:/{mv.name}/{mv.version}")
+    # List artifacts
+    run_id = model_uri.split("/")[-2]
+    # TODO: Add support to list model artifacts in MLflow 3.x
+    if version == "2":
+        client = mlflow.MlflowClient()
+        assert len(client.list_artifacts(run_id=run_id)) == 1
+        assert len(client.list_artifacts(run_id=run_id, path="model")) == 6
+        assert len(client.list_artifacts(run_id=run_id, path="model/MLmodel")) == 0
+    # Download artifacts
+    out_path = mlflow.artifacts.download_artifacts(
+        artifact_uri=model_uri, dst_path=tmp_path / str(uuid.uuid4())
+    )
+    assert next(Path(out_path).rglob("MLmodel")) is not None
+    out_path = mlflow.artifacts.download_artifacts(
+        run_id=run_id, artifact_path="model", dst_path=tmp_path / str(uuid.uuid4())
+    )
+    assert next(Path(out_path).rglob("MLmodel")) is not None
+    out_path = client.download_artifacts(
+        run_id=run_id, path="model", dst_path=tmp_path / str(uuid.uuid4())
+    )
+    assert next(Path(out_path).rglob("MLmodel")) is not None
+    # Model evaluation
+    eval_res = mlflow.models.evaluate(
+        model=model_uri,
+        data=numpy.array([[1, 2]]),
+        targets=numpy.array([3]),
+        model_type="regressor",
+    )
+    assert "mean_squared_error" in eval_res.metrics
+    # Spark UDF
+    with SparkSession.builder.getOrCreate() as spark:
+        udf = mlflow.pyfunc.spark_udf(spark, model_uri, result_type="double", env_manager="local")
+        df = spark.createDataFrame([[1, 2]], ["col1", "col2"])
+        pred = df.select(udf("col1", "col2").alias("pred")).collect()
+        assert [row.pred for row in pred] == [3.0]
 
 
 def test_mlflow_2_x_comp(tmp_path: Path) -> None:
-    """
-    Test various `runs:/` model URI consumers with a model logged in MLflow 2.x.
-    """
     tracking_uri = (tmp_path / "tracking").as_uri()
     mlflow.set_tracking_uri(tracking_uri)
     artifact_location = (tmp_path / "artifacts").as_uri()
@@ -47,57 +98,21 @@ from sklearn.linear_model import LinearRegression
 assert mlflow.__version__.startswith("2."), mlflow.__version__
 
 fitted_model= LinearRegression().fit([[1, 2]], [3])
-with mlflow.start_run():
+with mlflow.start_run() as run:
     model_info = mlflow.sklearn.log_model(fitted_model, artifact_path="model")
     assert model_info.model_uri.startswith("runs:/")
     out = sys.argv[1]
     with open(out, "w") as f:
-        f.write(model_info.model_uri)
+        f.write(run.info.run_id)
 """,
             out_file,
         ],
     )
 
-    model_uri = out_file.read_text().strip()
-    # Model loading
-    mlflow.sklearn.load_model(model_uri)
-    mlflow.pyfunc.load_model(model_uri)
-    # Model registration
-    mv = mlflow.register_model(model_uri, "model")
-    mlflow.pyfunc.load_model(f"models:/{mv.name}/{mv.version}")
-    # List artifacts
-    run_id = model_uri.split("/")[-2]
-    client = mlflow.MlflowClient()
-    assert len(client.list_artifacts(run_id=run_id)) == 1
-    assert len(client.list_artifacts(run_id=run_id, path="model")) == 6
-    assert len(client.list_artifacts(run_id=run_id, path="model/MLmodel")) == 0
-    # Download artifacts
-    out_path = mlflow.artifacts.download_artifacts(
-        artifact_uri=model_uri, dst_path=tmp_path / str(uuid.uuid4())
-    )
-    assert next(Path(out_path).rglob("MLmodel")) is not None
-    out_path = mlflow.artifacts.download_artifacts(
-        run_id=run_id, artifact_path="model", dst_path=tmp_path / str(uuid.uuid4())
-    )
-    assert next(Path(out_path).rglob("MLmodel")) is not None
-    out_path = client.download_artifacts(
-        run_id=run_id, path="model", dst_path=tmp_path / str(uuid.uuid4())
-    )
-    assert next(Path(out_path).rglob("MLmodel")) is not None
-    # Model evaluation
-    eval_res = mlflow.models.evaluate(
-        model=model_uri,
-        data=numpy.array([[1, 2]]),
-        targets=numpy.array([3]),
-        model_type="regressor",
-    )
-    assert "mean_squared_error" in eval_res.metrics
+    check(run_id=out_file.read_text().strip(), version="2", tmp_path=tmp_path)
 
 
 def test_mlflow_3_x_comp(tmp_path: Path) -> None:
-    """
-    Does the same as `test_mlflow_2_x_comp`, but with a model logged in MLflow 3.x.
-    """
     tracking_uri = (tmp_path / "tracking").as_uri()
     mlflow.set_tracking_uri(tracking_uri)
     artifact_location = (tmp_path / "artifacts").as_uri()
@@ -108,38 +123,4 @@ def test_mlflow_3_x_comp(tmp_path: Path) -> None:
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(fitted_model, name="model")
 
-    # Model loading
-    run_id = run.info.run_id
-    model_uri = f"runs:/{run_id}/model"
-    mlflow.sklearn.load_model(model_uri)
-    mlflow.pyfunc.load_model(model_uri)
-    # Model registration
-    mv = mlflow.register_model(model_uri, "model")
-    mlflow.pyfunc.load_model(f"models:/{mv.name}/{mv.version}")
-    # List artifacts
-    client = mlflow.MlflowClient()
-    # TODO: Add support to list model artifacts
-    # assert len(client.list_artifacts(run_id=run_id)) == 1
-    # assert len(client.list_artifacts(run_id=run_id, path="model")) == 6
-    # assert len(client.list_artifacts(run_id=run_id, path="model/MLmodel")) == 0
-    # Download artifacts
-    out_path = mlflow.artifacts.download_artifacts(
-        artifact_uri=model_uri, dst_path=tmp_path / str(uuid.uuid4())
-    )
-    assert next(Path(out_path).rglob("MLmodel")) is not None
-    out_path = mlflow.artifacts.download_artifacts(
-        run_id=run_id, artifact_path="model", dst_path=tmp_path / str(uuid.uuid4())
-    )
-    assert next(Path(out_path).rglob("MLmodel")) is not None
-    out_path = client.download_artifacts(
-        run_id=run_id, path="model", dst_path=tmp_path / str(uuid.uuid4())
-    )
-    assert next(Path(out_path).rglob("MLmodel")) is not None
-    # Model evaluation
-    eval_res = mlflow.models.evaluate(
-        model=model_uri,
-        data=numpy.array([[1, 2]]),
-        targets=numpy.array([3]),
-        model_type="regressor",
-    )
-    assert "mean_squared_error" in eval_res.metrics
+    check(run_id=run.info.run_id, version="3", tmp_path=tmp_path)
