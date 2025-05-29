@@ -189,6 +189,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
                     {"content": "content_1", "doc_uri": "url_1"},
                     {"content": "content_2", "doc_uri": "url_2"},
                 ],
+                # Expectations stored in the trace is exploded
                 expected_response="expected answer",
                 expected_facts=["fact1", "fact2"],
                 assessment_name="retrieval_sufficiency",
@@ -210,6 +211,37 @@ def test_retrieval_sufficiency(sample_rag_trace):
     ]
     actual_span_ids = [f.span_id for f in result]
     assert set(actual_span_ids) == set(expected_span_ids)
+
+
+def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
+    with patch("databricks.agents.evals.judges.context_sufficiency") as mock_context_sufficiency:
+        retrieval_sufficiency(
+            trace=sample_rag_trace,
+            expectations={"expected_facts": ["fact3"]},
+        )
+
+    mock_context_sufficiency.assert_has_calls(
+        [
+            call(
+                request="query",
+                retrieved_context=[
+                    {"content": "content_1", "doc_uri": "url_1"},
+                    {"content": "content_2", "doc_uri": "url_2"},
+                ],
+                # Expectations stored in the trace is exploded
+                expected_response="expected answer",
+                expected_facts=["fact3"],
+                assessment_name="retrieval_sufficiency",
+            ),
+            call(
+                request="query",
+                retrieved_context=[{"content": "content_3"}],
+                expected_response="expected answer",
+                expected_facts=["fact3"],
+                assessment_name="retrieval_sufficiency",
+            ),
+        ],
+    )
 
 
 def test_guideline_adherence():

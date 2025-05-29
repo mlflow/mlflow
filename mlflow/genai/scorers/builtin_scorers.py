@@ -196,7 +196,7 @@ class RetrievalSufficiency(BuiltInScorer):
                 self.name, ["expectations/expected_response or expectations/expected_facts"]
             )
 
-    def __call__(self, *, trace: Trace) -> Feedback:
+    def __call__(self, *, trace: Trace, expectations: Optional[dict[str, Any]] = None) -> Feedback:
         """
         Evaluate context sufficiency based on retrieved documents.
 
@@ -204,9 +204,9 @@ class RetrievalSufficiency(BuiltInScorer):
             trace: The trace of the model's execution. Must contains at least one span with
                 type `RETRIEVER`. MLflow will extract the retrieved context from that span.
                 If multiple spans are found, MLflow will use the **last** one.
-                Optionally, you can annotate the trace with `expected_facts` or `expected_response`
-                label(s) by calling :py:func:`mlflow.log_expectation` API. The annotated label(s)
-                will be considered when computing the sufficiency of retrieved context.
+            expectations: A dictionary of expectations for the response. Either `expected_facts` or
+                `expected_response` key is required. Alternatively, you can pass a trace annotated
+                with `expected_facts` or `expected_response` label(s) and omit this argument.
         """
         request = parse_inputs_to_str(trace.data.spans[0].inputs)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
@@ -218,6 +218,11 @@ class RetrievalSufficiency(BuiltInScorer):
                 expected_facts = assessment.value
             if assessment.name == "expected_response":
                 expected_response = assessment.value
+
+        # If expectations are explicitly provided, use them.
+        if expectations:
+            expected_facts = expectations.get("expected_facts") or expected_facts
+            expected_response = expectations.get("expected_response") or expected_response
 
         # This scorer returns a list of feedbacks, one for retriever span in the trace.
         feedbacks = []
