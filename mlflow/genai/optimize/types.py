@@ -13,8 +13,7 @@ OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Feedback, list[Feedba
 @dataclass
 class PromptOptimizationResult:
     """
-    Result of prompt optimization.
-    This class represents the result of :py:func:`mlflow.genai.optimize_prompt()`.
+    Result of the :py:func:`mlflow.genai.optimize_prompt()` API.
 
     Args:
         prompt: A prompt entity containing the optimized template.
