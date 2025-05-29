@@ -20,23 +20,67 @@ const sidebarsClassicML: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'getting-started/intro-quickstart/index',
-        },
-        {
-          type: 'doc',
           id: 'getting-started/running-notebooks/index',
         },
         {
-          type: 'doc',
-          id: 'getting-started/logging-first-model/index',
+          type: 'category',
+          label: 'Your First MLflow Model: Complete Tutorial',
+          items: [
+            {
+                type: 'doc',
+                id: 'getting-started/logging-first-model/step1-tracking-server',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/logging-first-model/step2-mlflow-client',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/logging-first-model/step3-create-experiment',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/logging-first-model/step4-experiment-search',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/logging-first-model/step5-synthetic-data',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/logging-first-model/step6-logging-a-run',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'getting-started/logging-first-model/index',
+          }
         },
         {
           type: 'doc',
           id: 'getting-started/hyperparameter-tuning/index',
         },
         {
-          type: 'doc',
-          id: 'getting-started/registering-first-model/index',
+          type: 'category',
+          label: 'Model Registry Quickstart',
+          items: [
+            {
+                type: 'doc',
+                id: 'getting-started/registering-first-model/step1-register-model',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/registering-first-model/step2-explore-registered-model',
+            },
+            {
+                type: 'doc',
+                id: 'getting-started/registering-first-model/step3-load-model'
+            }
+          ],
+          link: {
+            type: 'doc',
+            id: 'getting-started/registering-first-model/index',
+          },
         },
         {
           type: 'doc',
@@ -135,7 +179,7 @@ const sidebarsClassicML: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
-                  id: 'deep-learning/keras/quickstart/quickstart-keras-ipynb',
+                  id: 'deep-learning/keras/quickstart/index',
                   label: 'Quickstart',
                 },
                 {
