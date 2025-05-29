@@ -136,13 +136,13 @@ def _register_model(
         # If the uri is of the form runs:/...
         (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(model_uri)
         runs_artifact_repo = RunsArtifactRepository(model_uri)
-        if runs_artifact_repo._is_directory(artifact_path):
-            # First check if run has artifact at artifact_path,
-            # if so use the run's artifact location as source
+        # List artifacts in `<run_artifact_root>/<artifact_path>` to see if the run has artifacts.
+        # If so use the run's artifact location as source.
+        if runs_artifact_repo._is_directory(""):
             source = RunsArtifactRepository.get_underlying_uri(model_uri)
+        # Otherwise check if there's a logged model with
+        # name artifact_path and source_run_id run_id
         else:
-            # Otherwise check if there's a logged model with
-            # name artifact_path and source_run_id run_id
             run = client.get_run(run_id)
             logged_models = _get_logged_models_from_run(run, artifact_path)
             if not logged_models:
