@@ -7,7 +7,6 @@ import mlflow
 from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
 from mlflow.genai.scorers.base import Scorer, scorer
 from mlflow.genai.scorers.builtin_scorers import (
-    BuiltInScorer,
     correctness,
     guideline_adherence,
     retrieval_groundedness,
