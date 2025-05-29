@@ -186,6 +186,20 @@ const sidebarsClassicML: SidebarsConfig = {
                 id: 'deep-learning/tensorflow/index',
               },
             },
+            {
+              type: 'category',
+              label: 'spaCy',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'deep-learning/spacy/guide/index',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'deep-learning/spacy/index',
+              },
+            },
           ],
           link: {
             type: 'doc',
@@ -338,7 +352,15 @@ const sidebarsClassicML: SidebarsConfig = {
             {
               type: 'doc',
               id: 'deployment/deploy-model-locally/index'
-            }
+            },
+            {
+                type: 'doc',
+                id: 'deployment/deploy-model-to-kubernetes/index',
+            },
+            {
+                type: 'doc',
+                id: 'deployment/deploy-model-to-sagemaker/index',
+            },
           ],
           link: {
             type: 'doc',
