@@ -215,18 +215,18 @@ class RetrievalSufficiency(BuiltInScorer):
         request = parse_inputs_to_str(trace.data.spans[0].inputs)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
-        expected_facts = None
-        expected_response = None
-        for assessment in trace.info.assessments:
-            if assessment.name == "expected_facts":
-                expected_facts = assessment.value
-            if assessment.name == "expected_response":
-                expected_response = assessment.value
-
         # If expectations are explicitly provided, use them.
-        if expectations:
-            expected_facts = expectations.get("expected_facts") or expected_facts
-            expected_response = expectations.get("expected_response") or expected_response
+        expectations = expectations or {}
+        expected_facts = expectations.get("expected_facts")
+        expected_response = expectations.get("expected_response")
+
+        # As a fallback, use the trace annotations as expectations.
+        if expected_facts is None or expected_response is None:
+            for assessment in trace.info.assessments:
+                if assessment.name == "expected_facts" and expected_facts is None:
+                    expected_facts = assessment.value
+                if assessment.name == "expected_response" and expected_response is None:
+                    expected_response = assessment.value
 
         # This scorer returns a list of feedbacks, one for retriever span in the trace.
         feedbacks = []
