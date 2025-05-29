@@ -101,10 +101,12 @@ For users who need more control, MLflow's TensorFlow integration also provides t
 
 ```python
 # Log your TensorFlow model with MLflow
-mlflow.tensorflow.log_model(model, "tensorflow_model")
+model_info = mlflow.tensorflow.log_model(model, name="tensorflow_model")
 
 # Later, load your model for inference
-loaded_model = mlflow.tensorflow.load_model("runs:/<run_id>/tensorflow_model")
+loaded_model = mlflow.tensorflow.load_model(
+    model_info.model_uri
+)  # The 'model_uri' attribute is in the format 'models:/<model_id>'
 predictions = loaded_model.predict(test_data)
 ```
 

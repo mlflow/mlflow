@@ -242,7 +242,7 @@ with mlflow.start_run():
         )
 
     # 5. Log the trained model
-    mlflow.pytorch.log_model(model, "model")
+    model_info = mlflow.pytorch.log_model(model, name="model")
 
     # 6. Final evaluation
     model.eval()
@@ -312,13 +312,10 @@ model = NeuralNetwork()
 
 # Train your model (code omitted for brevity)
 
-with mlflow.start_run() as run:
-    # Log the model
-    mlflow.pytorch.log_model(model, "model")
+model_info = mlflow.pytorch.log_model(model, "model")
 
 # Load and use the model
-logged_model = f"runs:/{run.info.run_id}/model"
-loaded_model = mlflow.pyfunc.load_model(logged_model)
+loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
 # Make predictions
 sample_input = np.random.uniform(size=[1, 28, 28]).astype(np.float32)
@@ -336,8 +333,7 @@ print("Predictions:", predictions)
   scripted_model = torch.jit.script(model)
 
   # Log the scripted model to MLflow
-  with mlflow.start_run() as run:
-      mlflow.pytorch.log_model(scripted_model, "scripted_model")
+  model_info = mlflow.pytorch.log_model(scripted_model, name="scripted_model")
 
   # The logged model will contain the compiled graph
   ```
@@ -377,8 +373,7 @@ with torch.no_grad():
 signature = infer_signature(sample_input, sample_output)
 
 # Log model with signature
-with mlflow.start_run() as run:
-    mlflow.pytorch.log_model(model, "model", signature=signature)
+model_info = mlflow.pytorch.log_model(model, name="model", signature=signature)
 ```
 
 :::warning attention
@@ -408,8 +403,7 @@ The signature will appear in the MLflow UI:
   signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
   # Log model with signature
-  with mlflow.start_run() as run:
-      mlflow.pytorch.log_model(model, "model", signature=signature)
+  model_info = mlflow.pytorch.log_model(model, name="model", signature=signature)
   ```
 
   Manual definition is useful when:
@@ -564,7 +558,7 @@ For more sophisticated tracking, you can implement custom callbacks and visualiz
       tracker.log_training_curves()
 
       # Log model
-      mlflow.pytorch.log_model(model, "model")
+      model_info = mlflow.pytorch.log_model(model, name="model")
   ```
 </details>
 
@@ -628,7 +622,7 @@ def objective(trial, train_loader, val_loader, device):
 
         # Final logging
         mlflow.log_metric("best_val_acc", best_val_acc)
-        mlflow.pytorch.log_model(model, "model")
+        mlflow.pytorch.log_model(model, name="model")
 
         return best_val_acc
 

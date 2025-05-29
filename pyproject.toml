@@ -322,10 +322,12 @@ extend-ignore-re = [
   # nd array
   "(?i)nd( |_|\\.)?array",
   "aNothEr",
-  # German words/sentences used for testing
+  # German / French words/sentences used for testing
   "MLflow ist",
   "Ich habe eine schöne Haufe von Kokos",
   "Ich bin das Modell eines modernen General",
+  "Apple Inc. ist ein",
+  "Apple Inc. est une entreprise technologique",
   # pytorch-lightning
   "lightning",
   # `typos` flags 'lok' as a typo of 'look'

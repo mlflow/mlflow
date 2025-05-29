@@ -174,7 +174,7 @@ with mlflow.start_run():
     mlflow.log_metrics({"test_loss": test_loss, "test_accuracy": test_accuracy})
 
     # Log the trained model
-    mlflow.keras.log_model(model, "model")
+    mlflow.keras.log_model(model, name="model")
 
     print(f"Test accuracy: {test_accuracy:.4f}")
 ```
@@ -253,13 +253,10 @@ model = create_model()
 model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 model.fit(x_train, y_train, epochs=5)
 
-with mlflow.start_run() as run:
-    # Log the model
-    mlflow.keras.log_model(model, "model")
+model_info = mlflow.keras.log_model(model, "model")
 
 # Load and use the model
-logged_model = f"runs:/{run.info.run_id}/model"
-loaded_model = mlflow.pyfunc.load_model(logged_model)
+loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
 # Make predictions
 predictions = loaded_model.predict(x_test[:5])
@@ -282,9 +279,8 @@ sample_predictions = model.predict(sample_input)
 # Infer signature from sample data
 signature = infer_signature(sample_input, sample_predictions)
 
-with mlflow.start_run():
-    # Log model with signature
-    mlflow.keras.log_model(model, "model", signature=signature)
+# Log model with signature
+model_info = mlflow.keras.log_model(model, name="model", signature=signature)
 ```
 
 You can also manually create signatures for more control:
@@ -299,8 +295,7 @@ input_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 784))])
 output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
 signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
-with mlflow.start_run():
-    mlflow.keras.log_model(model, "model", signature=signature)
+model_info = mlflow.keras.log_model(model, name="model", signature=signature)
 ```
 
 ## Multi-Backend Support with Keras 3.0
