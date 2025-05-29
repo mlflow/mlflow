@@ -36,7 +36,9 @@ def optimize_prompt(
 ) -> PromptOptimizationResult:
     """
     Optimize a LLM prompt using the given dataset and evaluation metrics.
-    Currently, only supports MIPROv2 optimizer of DSPy.
+    The optimized prompt template is automatically registered as a new version of the
+    original prompt and included in the result.
+    Currently, this API only supports DSPy's MIPROv2 optimizer.
 
     Args:
         target_llm_params: Parameters for the the LLM that prompt is optimized for.
@@ -53,15 +55,15 @@ def optimize_prompt(
 
             The dataset must include the following columns:
 
-            - inputs (required): A column containing single inputs in dict format.
+            - inputs: A column containing single inputs in dict format.
               Each input should contain keys matching the variables in the prompt template.
-            - expectations (optional): A column containing a dictionary
+            - expectations: A column containing a dictionary
               of ground truths for individual output fields.
 
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
             Note: Trace input is not supported for optimization. Use inputs, outputs and
             expectations for optimization. Also, pass the `objective` argument
-            when using scorers with string or Assessment type outputs.
+            when using scorers with string or :class:`~mlflow.entities.Feedback` type outputs.
         objective: A callable that computes the overall performance metric from individual
             assessments. Takes a dict mapping assessment names to assessment scores and
             returns a float value (greater is better).
@@ -70,7 +72,7 @@ def optimize_prompt(
         optimizer_config: Configuration parameters for the optimizer.
 
     Returns:
-        PromptOptimizationResult: The optimized prompt.
+        PromptOptimizationResult: The optimization result including the optimized prompt.
 
     Example:
 
