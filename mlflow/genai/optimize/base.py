@@ -55,13 +55,13 @@ def optimize_prompt(
 
             - inputs (required): A column containing single inputs in dict format.
               Each input should contain keys matching the variables in the prompt template.
-            - expectations (optional): A column containing a dictionary
+            - expectations (required): A column containing a dictionary
               of ground truths for individual output fields.
 
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
             Note: Trace input is not supported for optimization. Use inputs, outputs and
             expectations for optimization. Also, pass the `objective` argument
-            when using scorers with string or Assessment type outputs.
+            when using scorers with string or :class:`~mlflow.entities.Feedback` type outputs.
         objective: A callable that computes the overall performance metric from individual
             assessments. Takes a dict mapping assessment names to assessment scores and
             returns a float value (greater is better).

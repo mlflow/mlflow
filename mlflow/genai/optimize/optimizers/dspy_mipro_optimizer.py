@@ -1,5 +1,6 @@
 import logging
 import math
+import multiprocessing
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.entities.model_registry import Prompt
@@ -73,7 +74,8 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             metric=self._convert_to_dspy_metric(input_fields, output_fields, scorers, objective),
             max_bootstrapped_demos=self.optimizer_config.max_few_show_examples,
             num_candidates=num_candidates,
-            num_threads=self.optimizer_config.num_threads,
+            num_threads=self.optimizer_config.num_threads
+            or ((multiprocessing.cpu_count() or 1) * 2) + 1,
             teacher_settings=teacher_settings,
             auto=None,
         )
