@@ -290,6 +290,7 @@ spark:
       ">= 3.5.0": ["torch<2.6.0", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
     run: |
+      echo test
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
         echo "Sagemaker container build succeeded.";
@@ -317,6 +318,7 @@ spark:
       ">= 0.0.0": ["scikit-learn", "numpy<2"]
       "< 3.4.0": ["pandas<2"]
     run: |
+      echo test
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
       if [[ $(python -c "import pyspark;from packaging.version import Version;print(Version(pyspark.__version__).major >= 4)") = "True" ]]; then
