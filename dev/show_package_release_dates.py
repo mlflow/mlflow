@@ -28,7 +28,7 @@ async def get_release_date(session: aiohttp.ClientSession, package: str, version
                 return ""
 
             upload_time = matched[0][0]["upload_time"]
-            return upload_time.split("T")[0]  # return year-month-day
+            return upload_time.replace("T", " ")  # return year-month-day hour:minute:second
     except Exception:
         traceback.print_exc()
         return ""
@@ -47,9 +47,9 @@ async def main() -> None:
     packages, versions = list(zip(*distributions))
     package_length = get_longest_string_length(packages)
     version_length = get_longest_string_length(versions)
-    release_date_length = len("Release Date")
-    print("Package".ljust(package_length), "Version".ljust(version_length), "Release Date")
-    print("-" * (package_length + version_length + release_date_length + 2))
+    release_timestamp_length = len("Release Timestamp")
+    print("Package".ljust(package_length), "Version".ljust(version_length), "Release Timestamp")
+    print("-" * (package_length + version_length + release_timestamp_length + 2))
     for package, version, release_date in sorted(
         zip(packages, versions, release_dates),
         # Sort by release date in descending order
@@ -59,7 +59,7 @@ async def main() -> None:
         print(
             package.ljust(package_length),
             version.ljust(version_length),
-            release_date.ljust(release_date_length),
+            release_date.ljust(release_timestamp_length),
         )
 
 
