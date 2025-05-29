@@ -297,6 +297,10 @@ class Span:
             end_time=data["end_time"],
             attributes=data["attributes"],
             status=SpanStatus(data["status_code"], data["status_message"]).to_otel_status(),
+            # Setting an empty resource explicitly. Otherwise OTel create a new Resource by
+            # Resource.create(), which introduces a significant overhead in some environments.
+            # https://github.com/mlflow/mlflow/issues/15625
+            resource=_OTelResource.get_empty(),
             events=[
                 OTelEvent(
                     name=event["name"],
