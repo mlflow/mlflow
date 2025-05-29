@@ -71,7 +71,7 @@ const config: Config = {
       } satisfies Preset.Options,
     ],
   ],
- 
+
   clientModules: [
     require.resolve('./src/docusaurus.theme.js'),
   ],
@@ -96,23 +96,27 @@ const config: Config = {
         srcDark: "images/logo-dark.svg",
       },
       items: [
-        // Classic ML docs
         {
-          type: "docSidebar",
-          sidebarId: "classicMLSidebar",
-          position: "left",
-          label: "ML Docs",
-          docsPluginId: "classic-ml",
-          className: "ml-docs-link",
-        },
-        // GenAI docs
-        {
-          type: "docSidebar",
-          sidebarId: "genAISidebar",
-          position: "left",
-          label: "GenAI Docs",
-          docsPluginId: "genai",
-          className: "genai-docs-link",
+          type: "dropdown",
+          label: "GenAI",
+          items: [
+            // Classic ML docs
+            {
+              type: "docSidebar",
+              sidebarId: "classicMLSidebar",
+              label: "ML Docs",
+              docsPluginId: "classic-ml",
+              className: "ml-docs-link",
+            },
+            // GenAI docs
+            {
+              type: "docSidebar",
+              sidebarId: "genAISidebar",
+              label: "GenAI Docs",
+              docsPluginId: "genai",
+              className: "genai-docs-link",
+            },
+          ]
         },
         {
           to: `${apiReferencePrefix()}api_reference/index.html`,
