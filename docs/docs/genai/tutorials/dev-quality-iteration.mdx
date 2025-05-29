@@ -1,0 +1,701 @@
+# Tutorial: Iterate on Agent Quality during Development
+
+This is the second part in series of tutorials on building and iterating on AI agents with MLflow. In the [first part](./debug-tracing.mdx), we built an agent and used MLflow tracing to understand and debug its behavior. We also associated the collected traces with a model in MLflow.
+
+In this second part, we will build on that foundation and conduct more structured evaluation of the agent's quality. Doing so will help us to make informed decisions about the agent's design and development. Thoughtfully building evaluations also gives us a framework for assessing the impact of any changes we make to the agent over time.
+
+## Setup
+
+:::info[Continuing from Part 1]
+
+If you are working in the same notebook/environment as the first part of the tutorial, you can skip this section. We are installing the same packages, loading the same data, and re-creating the same agent.
+
+:::
+
+First, we will install the necessary packages.
+
+```bash
+%pip install openai python-dotenv llama-index llama-index-llms-openai databricks-agents
+%pip install mlflow --upgrade --pre -q
+%restart_python
+```
+
+Next, re-create the data and agent from the first part of the tutorial.
+
+<details>
+<summary>Show full code for loading the order statuses data (click to expand)</summary>
+
+```python
+import pandas as pd
+
+orders_data = [
+    {
+        "order_id": "ORD-001",
+        "customer_name": "Sarah Chen",
+        "brand": "McDoodles",
+        "items": ["Big Stack", "Famous Frites"],
+        "order_total": 11.18,
+        "placed_at": "2025-05-21T09:00:00Z",
+        "estimated_delivery": "2025-05-21T09:30:00Z",
+        "current_status": "Out for Delivery",
+        "driver_location": "0.3 miles away",
+        "last_updated": "2025-05-21T09:22:00Z",
+    },
+    {
+        "order_id": "ORD-002",
+        "customer_name": "Mike Johnson",
+        "brand": "ChipoLot",
+        "items": ["Chicken Burrito", "Chips & Guac"],
+        "order_total": 14.43,
+        "placed_at": "2025-05-21T09:10:00Z",
+        "estimated_delivery": "2025-05-21T09:45:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:15:00Z",
+    },
+    {
+        "order_id": "ORD-003",
+        "customer_name": "Lisa Park",
+        "brand": "Pando Dash",
+        "items": ["Orange Chickadee", "Fried Rice"],
+        "order_total": 10.39,
+        "placed_at": "2025-05-21T08:45:00Z",
+        "estimated_delivery": "2025-05-21T09:20:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:18:00Z",
+    },
+    {
+        "order_id": "ORD-004",
+        "customer_name": "David Kim",
+        "brand": "Yo! Sushii",
+        "items": ["California Roll", "Spicy Tuna Roll", "Miso Soup"],
+        "order_total": 22.68,
+        "placed_at": "2025-05-21T08:30:00Z",
+        "estimated_delivery": "2025-05-21T09:15:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:12:00Z",
+    },
+    {
+        "order_id": "ORD-005",
+        "customer_name": "Emma Wilson",
+        "brand": "GreenSprout",
+        "items": ["Harvest Bowl"],
+        "order_total": 10.18,
+        "placed_at": "2025-05-21T09:15:00Z",
+        "estimated_delivery": "2025-05-21T09:50:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:20:00Z",
+    },
+    {
+        "order_id": "ORD-006",
+        "customer_name": "Carlos Rodriguez",
+        "brand": "Taco Ring",
+        "items": ["Doritos Locos Taco x2", "Baja Blast"],
+        "order_total": 20.68,
+        "placed_at": "2025-05-21T09:05:00Z",
+        "estimated_delivery": "2025-05-21T09:40:00Z",
+        "current_status": "Out for Delivery",
+        "driver_location": "0.8 miles away",
+        "last_updated": "2025-05-21T09:28:00Z",
+    },
+    {
+        "order_id": "ORD-007",
+        "customer_name": "Jennifer Lee",
+        "brand": "Shack Stack",
+        "items": ["ShackBurger Double", "Vanilla Shake"],
+        "order_total": 13.62,
+        "placed_at": "2025-05-21T08:50:00Z",
+        "estimated_delivery": "2025-05-21T09:25:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:23:00Z",
+    },
+    {
+        "order_id": "ORD-008",
+        "customer_name": "Robert Taylor",
+        "brand": "Jinya Noodle Bar",
+        "items": ["Tonkotsu Ramen", "Pork Gyoza"],
+        "order_total": 22.43,
+        "placed_at": "2025-05-21T09:20:00Z",
+        "estimated_delivery": "2025-05-21T09:55:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:25:00Z",
+    },
+    {
+        "order_id": "ORD-009",
+        "customer_name": "Ashley Davis",
+        "brand": "Starbrews",
+        "items": ["Caramel Frappuccino", "Plain Bagel"],
+        "order_total": 11.01,
+        "placed_at": "2025-05-21T09:25:00Z",
+        "estimated_delivery": "2025-05-21T10:00:00Z",
+        "current_status": "Order Received",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:25:00Z",
+    },
+    {
+        "order_id": "ORD-010",
+        "customer_name": "Kevin Zhang",
+        "brand": "Five Gals",
+        "items": ["Bacon Cheeseburger", "Cajun Fries"],
+        "order_total": 9.21,
+        "placed_at": "2025-05-21T08:40:00Z",
+        "estimated_delivery": "2025-05-21T09:20:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:38:00Z",
+    },
+    {
+        "order_id": "ORD-011",
+        "customer_name": "Maria Gonzalez",
+        "brand": "Pho House",
+        "items": ["Pho Combo", "Vietnamese Iced Coffee"],
+        "order_total": 16.13,
+        "placed_at": "2025-05-21T09:12:00Z",
+        "estimated_delivery": "2025-05-21T09:47:00Z",
+        "current_status": "Out for Delivery",
+        "driver_location": "0.5 miles away",
+        "last_updated": "2025-05-21T09:30:00Z",
+    },
+    {
+        "order_id": "ORD-012",
+        "customer_name": "James Brown",
+        "brand": "Dominni Pizza",
+        "items": ["MeatZZa Pizza", "Coke"],
+        "order_total": 16.57,
+        "placed_at": "2025-05-21T09:18:00Z",
+        "estimated_delivery": "2025-05-21T09:53:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:23:00Z",
+    },
+    {
+        "order_id": "ORD-013",
+        "customer_name": "Amanda Clark",
+        "brand": "PokeCraft",
+        "items": ["Spicy Ahi Bowl"],
+        "order_total": 10.68,
+        "placed_at": "2025-05-21T09:22:00Z",
+        "estimated_delivery": "2025-05-21T09:57:00Z",
+        "current_status": "Order Received",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:22:00Z",
+    },
+    {
+        "order_id": "ORD-014",
+        "customer_name": "Ryan O'Connor",
+        "brand": "Kava Kitchen",
+        "items": ["Falafel Crunch Bowl", "Hot Harissa Chips"],
+        "order_total": 14.10,
+        "placed_at": "2025-05-21T08:55:00Z",
+        "estimated_delivery": "2025-05-21T09:30:00Z",
+        "current_status": "Out for Delivery",
+        "driver_location": "1.2 miles away",
+        "last_updated": "2025-05-21T09:38:00Z",
+    },
+    {
+        "order_id": "ORD-015",
+        "customer_name": "Nicole Torres",
+        "brand": "MaruNoodle",
+        "items": ["Chicken Katsu Udon", "Sweet Potato Tempura"],
+        "order_total": 17.60,
+        "placed_at": "2025-05-21T09:08:00Z",
+        "estimated_delivery": "2025-05-21T09:43:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:18:00Z",
+    },
+    {
+        "order_id": "ORD-016",
+        "customer_name": "Steven Adams",
+        "brand": "ChipoLot",
+        "items": ["Steak Burrito", "Barbacoa Burrito"],
+        "order_total": 16.71,
+        "placed_at": "2025-05-21T09:13:00Z",
+        "estimated_delivery": "2025-05-21T09:48:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:18:00Z",
+    },
+    {
+        "order_id": "ORD-017",
+        "customer_name": "Rachel Martinez",
+        "brand": "McDoodles",
+        "items": ["McChicklet", "Apple Slice Bites", "Iced Brew"],
+        "order_total": 10.99,
+        "placed_at": "2025-05-21T09:26:00Z",
+        "estimated_delivery": "2025-05-21T10:01:00Z",
+        "current_status": "Order Received",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:26:00Z",
+    },
+    {
+        "order_id": "ORD-018",
+        "customer_name": "Alex Thompson",
+        "brand": "GreenSprout",
+        "items": ["Kale Caesar", "Hummus & Focaccia"],
+        "order_total": 12.21,
+        "placed_at": "2025-05-21T08:35:00Z",
+        "estimated_delivery": "2025-05-21T09:10:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:18:00Z",
+    },
+    {
+        "order_id": "ORD-019",
+        "customer_name": "Samantha Lopez",
+        "brand": "Yo! Sushii",
+        "items": ["Salmon Nigiri x2", "Tuna Sashimi"],
+        "order_total": 20.50,
+        "placed_at": "2025-05-21T09:17:00Z",
+        "estimated_delivery": "2025-05-21T09:52:00Z",
+        "current_status": "Being Prepared",
+        "driver_location": None,
+        "last_updated": "2025-05-21T09:22:00Z",
+    },
+    {
+        "order_id": "ORD-020",
+        "customer_name": "Marcus Johnson",
+        "brand": "Shack Stack",
+        "items": ["Chicken Shack", "Crinkle Fries", "Chocolate Shake"],
+        "order_total": 16.56,
+        "placed_at": "2025-05-21T08:25:00Z",
+        "estimated_delivery": "2025-05-21T09:00:00Z",
+        "current_status": "Delivered",
+        "driver_location": None,
+        "last_updated": "2025-05-21T08:58:00Z",
+    },
+]
+orders_df = pd.DataFrame(orders_data)
+```
+
+</details>
+
+<details>
+<summary>Show full code for loading the agent (click to expand)</summary>
+
+```python
+from llama_index.core.agent.workflow import ReActAgent
+from llama_index.core.tools import FunctionTool
+from llama_index.llms.openai import OpenAI
+from dotenv import load_dotenv
+import json
+from datetime import datetime
+import mlflow
+
+load_dotenv()
+
+llm = OpenAI(model="gpt-4o-mini")
+
+def get_order_by_id(order_id: str):
+    """
+    Retrieves a single order by its unique order ID.
+    Useful when a user asks for a specific order by its ID.
+    """
+    result = orders_df[orders_df['order_id'] == order_id]
+    if not result.empty:
+        return result.iloc[0].to_dict()
+    return None
+
+def escalate_to_human(issue_summary: str) -> str:
+    """
+    Escalate the issue to a human agent. This triggers (simulated) backend API calls to create 
+    a support ticket and notify human agents.
+    
+    Args:
+        issue_summary: Brief summary of the customer's issue
+    """
+    
+    # Create the API payload
+    escalation_payload = {
+        "timestamp": datetime.now().isoformat(),
+        "customer_id": "CUST-12345",
+        "issue_summary": issue_summary,
+        "source": "chatbot_escalation",
+        "requires_human": True
+    }
+
+    # simulate API call
+    def send_api_request(payload):
+        ticket_id = f"ESCALATION-{hash(payload['issue_summary']) % 10000:04d}"
+        return {
+            "status": "success",
+            "ticket_id": ticket_id,
+            "estimated_response_time_minutes": 15,
+            "assigned_agent_id": "AGENT-456"
+        }
+    
+    api_response = send_api_request(escalation_payload)
+    ticket_id = api_response["ticket_id"]
+
+    # Return natural description for the LLM to work with
+    return str(api_response)
+
+
+def cancel_order(order_id: str, reason: str = "customer_request") -> str:
+    """
+    Cancel a food delivery order if possible.
+    
+    Args:
+        order_id: The order ID to cancel (e.g., ORD-009)
+        reason: Reason for cancellation
+    """
+    
+    # Check order status in the dataframe
+    order_row = orders_df[orders_df['order_id'] == order_id]
+    
+    if order_row.empty:
+        return f"Order {order_id} not found."
+    
+    order_status = order_row['current_status'].iloc[0]
+    order_total = order_row['order_total'].iloc[0]
+    
+    if order_status != "Order Received":
+        return f"Cannot cancel - order status is '{order_status}'"
+    
+    # Simulate cancellation API call
+    cancellation_id = f"CANCEL-{hash(order_id) % 10000:04d}"
+    
+    return f"Cancellation successful. ID: {cancellation_id}, Refund: ${order_total}, ETA: 3 business days"
+
+
+CURRENT_DATETIME = "2025-05-21T09:40:00Z"
+
+system_prompt = f"""You are a helpful customer service agent for a food delivery platform. Your goal is to efficiently resolve customer inquiries while maintaining a positive experience.
+
+The current date and time is {CURRENT_DATETIME}.
+
+## Communication Style
+- Be friendly, clear, and direct. Avoid overly formal or robotic responses
+- Keep responses concise unless more detail is specifically requested
+- Use natural, conversational language
+- Reply in the language used by the customer
+
+## Order Status Inquiries
+- Focus on delivery timing and current status when customers ask about their orders
+- Only mention order contents if explicitly asked ("what did I order?")
+- Prioritize the information customers care most about: "when will it arrive?" and "where is it now?"
+
+## Tool Usage
+- Use get_order_by_id for any order-related inquiries
+- Use cancel_order only when customers explicitly request cancellation
+- Use escalate_to_human when customers are upset or dissatisfied
+
+## Problem Solving
+- Try to resolve issues directly using available tools before considering escalation
+- Provide clear next steps and realistic timelines
+- Acknowledge concerns without over-apologizing
+
+Focus on being helpful and efficient while maintaining a human touch in your responses.
+"""
+
+tools = [FunctionTool.from_defaults(get_order_by_id),
+         FunctionTool.from_defaults(escalate_to_human),
+         FunctionTool.from_defaults(cancel_order),
+]
+
+agent = ReActAgent(llm=llm, tools=tools, system_prompt=system_prompt)
+```
+
+</details>
+
+## Define Quality Criteria with Scorers
+
+
+### Define some Scorers
+
+```python
+from mlflow.entities import Assessment, AssessmentSource, Feedback
+import mlflow
+
+@mlflow.genai.scorer()
+def appropriate_escalation(trace) -> Assessment:
+    """
+    Check if agent called both cancel_order and escalate_to_human tools.
+    This is inappropriate. Agent should explain policy instead of escalating
+    on simple cancellation requests, or escalate directly if customer is unhappy.
+    
+    Returns Assessment with boolean value and rationale.
+    """
+    trace_dict = trace.to_dict()
+    spans = trace_dict.get('data', {}).get('spans', [])
+    
+    cancel_called = False
+    escalate_called = False
+    
+    for span in spans:
+        span_name = span.get('name', '')
+        
+        if span_name.startswith('FunctionTool.acall'):
+            attributes = span.get('attributes', {})
+            tool_name = attributes.get('name', '').strip('"')
+            
+            if tool_name == 'cancel_order':
+                cancel_called = True
+            elif tool_name == 'escalate_to_human':
+                escalate_called = True
+    
+    # Determine if escalation was appropriate
+    if cancel_called and escalate_called:
+        return Assessment(
+            name="appropriate_escalation",
+            source=AssessmentSource(source_type="CODE"),
+            feedback=Feedback(value=False),
+            rationale="Inappropriate escalation: Agent called both cancel_order and escalate_to_human. Should either handle cancellation directly or escalate if customer is unhappy, not both."
+        )
+    else:
+        return Assessment(
+            name="appropriate_escalation", 
+            source=AssessmentSource(source_type="CODE"),
+            feedback=Feedback(value=True),
+            rationale="Appropriate behavior: Agent did not redundantly call both cancellation and escalation tools."
+        )
+```
+
+```python
+from pydantic import BaseModel, Field
+from openai import OpenAI as OpenAIClient
+from mlflow.entities import Assessment, AssessmentSource, Feedback, AssessmentError
+import mlflow
+
+class HelpfulnessEvaluation(BaseModel):
+    score: float = Field(description="Helpfulness score from 0.0-1.0", ge=0.0, le=1.0)
+    rationale: str = Field(description="Reasoning for the score")
+
+@mlflow.genai.scorer()
+def helpfulness(inputs, outputs) -> Assessment:
+    """Evaluates how helpful the agent's response is (0.0-1.0 scale)."""
+    
+    user_message = inputs.get('message', '') if isinstance(inputs, dict) else str(inputs)
+    agent_response = outputs.get('response', '') if isinstance(outputs, dict) else str(outputs)
+    
+    try:
+        client = OpenAIClient()
+        completion = client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": """Rate the helpfulness of this customer service response (0.0-1.0 scale):
+1.0: Extremely helpful - fully addresses concern with actionable info
+0.8: Very helpful - addresses most aspects well  
+0.6: Moderately helpful - addresses basic concern, missing some aspects
+0.4: Slightly helpful - some relevant info but misses key points
+0.2: Minimally helpful - barely addresses the concern
+0.0: Not helpful - fails to address the concern
+
+Provide score as decimal (e.g., 0.7, 0.85) based on overall helpfulness."""},
+                {"role": "user", "content": f"Customer: {user_message}\n\nAgent: {agent_response}"}
+            ],
+            response_format=HelpfulnessEvaluation,
+            temperature=0.1
+        )
+        
+        result = completion.choices[0].message.parsed
+        
+        return Assessment(
+            name="helpfulness",
+            source=AssessmentSource(source_id="gpt-4o-mini", source_type="LLM_JUDGE"),
+            feedback=Feedback(value=result.score),
+            rationale=result.rationale
+        )
+        
+    except Exception as e:
+        return Assessment(
+            name="helpfulness",
+            source=AssessmentSource(source_id="gpt-4o-mini", source_type="LLM_JUDGE"),
+            feedback=Feedback(error=AssessmentError(error_code=type(e).__name__, error_message=str(e))),
+            rationale=f"Error: {str(e)}"
+        )
+```
+
+```python
+from mlflow.genai.scorers import guideline_adherence
+
+communication_guidelines = guideline_adherence(
+    name="communication_style",
+    global_guidelines=["Be friendly, clear, and direct. Avoid overly formal or robotic responses."]
+)
+
+direct_address = guideline_adherence(
+    name="direct_address",
+    global_guidelines=["Address customers directly, not using the third person."]
+)
+
+proactive = guideline_adherence(
+    name="proactive",
+    global_guidelines=["If there is an obvious issue, such as the order being late, acknowledge it and offer a solution."]
+)
+```
+
+### Call Scorers Directly for Quick Feedback
+
+```python
+trace_df = mlflow.search_traces(experiment_ids=[mlflow.get_experiment_by_name("/Users/daniel.liden@databricks.com/MLflow GenAI/mlflow3_e2e_2").experiment_id], max_results=1)
+
+appropriate_escalation(trace_df.iloc[0].trace)$
+```
+
+## MLflow Evaluation
+
+### Generate an Evaluation Dataset
+
+```python
+evaluation_questions = [
+    "I want to cancel order ORD-009",
+    "I want to cancel order ORD-001", 
+    "I want to cancel order ORD-008",
+    "My order ORD-003 is really late, what's going on?",
+    "My order ORD-001 is really late, what's going on?",
+    "Where is my food? Order ORD-006 is taking forever!",
+    "My order ORD-020 was missing the chocolate shake",
+    "Order ORD-007 didn't have my vanilla shake, very disappointed",
+    "ORD-004 was missing the fries I ordered",
+    "What's the status of order ORD-001?",
+    "Where is my order ORD-008?",
+    "Can you check on ORD-011 please?",
+    "This is terrible service! My food was cold! Order ORD-003",
+    "Very unhappy with ORD-019, the quality was awful",
+    "I'm never ordering again, ORD-015 was a disaster",
+    "Can I cancel ORD-013? I changed my mind",
+    "What's happening with ORD-014?",
+    "Order ORD-002 is taking way too long",
+    "I need help with my order ORD-012",
+    "ORD-016 should have been here by now, where is it?"
+]
+```
+
+### Set up our Experiment and Generate Traces
+
+```python
+from llama_index.llms.openai import OpenAI
+import time
+import logging
+
+system_prompt_2 = f"""You are a caring customer service representative for a food delivery platform. Your goal is to make every customer feel heard, valued, and supported in your response.
+
+The current date and time is {CURRENT_DATETIME}.
+
+## Communication Philosophy
+- Lead with empathy and understanding - acknowledge how the customer feels before diving into solutions
+- Use warm, personal language that makes customers feel like they're talking to a friend
+- Take time to explain what you're doing and why to build trust
+- Provide complete, thorough responses since this may be your only interaction
+
+## Handling Customer Concerns
+- Always validate the customer's feelings first ("I completely understand your frustration...")
+- Use tools to fully understand their situation before responding
+- Explain your findings and reasoning clearly in your response
+- Provide actionable next steps or complete resolution when possible
+
+## Tool Usage Approach
+- Use get_order_by_id to thoroughly understand their situation before responding
+- Only suggest cancellation after considering if there are other ways to help
+- Escalate to human support as a premium service option when appropriate
+
+## Response Style
+- Thank customers for reaching out and show appreciation for their business
+- Provide comprehensive information so they feel fully informed
+- End with reassurance and confidence in the resolution provided
+
+Remember: this single response is your opportunity to turn their concern into a positive experience with our platform.
+"""
+
+
+logger = logging.getLogger("mlflow")
+logger.setLevel(logging.INFO)
+
+system_prompts = [system_prompt, system_prompt_2]
+
+llm = OpenAI(model="gpt-4o-mini")
+llm_2 = OpenAI(model="gpt-4o")
+
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+def run_single_agent_question(llm_instance, prompt, question, tools):
+    """Run single agent question in completely isolated event loop"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        async def _run():
+            fresh_agent = ReActAgent(llm=llm_instance, tools=tools, system_prompt=prompt)
+            return await fresh_agent.run(question)
+        
+        result = loop.run_until_complete(_run())
+        return result
+    finally:
+        loop.close()
+
+agent_names = ["4o_mini_prompt_1", "4o_mini_prompt_2", "4o_prompt_1", "4o_prompt_2"]
+
+for i, agent_config in enumerate([(llm, system_prompts[0]), (llm, system_prompts[1]), (llm_2, system_prompts[0]), (llm_2, system_prompts[1])]):
+    llm_instance, prompt = agent_config
+    print(f"Evaluating {agent_names[i]}...")
+    mlflow.set_active_model(name=agent_names[i])
+    
+    with mlflow.start_run() as run:
+        # Use ThreadPoolExecutor to run each question in isolated thread
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            for j, question in enumerate(evaluation_questions):
+                print(f"  Running question {j+1} in isolated thread")
+                
+                # Submit to thread pool and wait for result
+                future = executor.submit(run_single_agent_question, llm_instance, prompt, question, tools)
+                result = future.result()  # This blocks until complete
+                
+        traces = mlflow.search_traces(run_id=run.info.run_id)
+        print(f"  Found {len(traces)} traces")
+        
+        if len(traces) > 0:
+            mlflow.genai.evaluate(data=traces, scorers=[appropriate_escalation, communication_guidelines, direct_address, proactive, helpfulness])
+            print(f"  Evaluation completed with {len(traces)} traces")
+```
+
+### Retrieve and Compare Evaluation Results
+
+```python
+def extract_model_metrics(model):
+    """Extract key metrics from MLflow model"""
+    
+    # Get metrics with dataset_digest (avoid duplicates)
+    metrics_with_dataset = [m for m in model.metrics if m.dataset_digest is not None]
+    
+    parsed_metrics = {
+        'model_name': model.name,  # e.g., "4o_mini_prompt_1"
+    }
+    
+    for metric in metrics_with_dataset:
+        key = metric.key
+        value = metric.value
+        
+        if 'appropriate_escalation' in key:
+            parsed_metrics['appropriate_escalation'] = value
+        elif 'helpfulness' in key:
+            # Now already 0-1 scale, no conversion needed
+            parsed_metrics['helpfulness'] = value
+        elif 'overall_assessment' in key:
+            parsed_metrics['overall_adherence'] = value
+    
+    return parsed_metrics
+
+# Load your 4 models
+agent_names = ["4o_mini_prompt_1", "4o_mini_prompt_2", "4o_prompt_1", "4o_prompt_2"]
+models_to_compare = []
+
+for name in agent_names:
+    models = mlflow.search_logged_models(
+        filter_string=f"name = '{name}'", 
+        output_format="list"
+    )
+    if models:
+        models_to_compare.append(models[0])  # Get latest version
+
+comparison_df = pd.DataFrame([
+    extract_model_metrics(model) for model in models_to_compare
+])
+```
+
+![Evaluation Results](/images/genai/tutorials/dev-quality-iteration/_eval_results.png)
