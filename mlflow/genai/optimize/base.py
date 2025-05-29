@@ -36,7 +36,9 @@ def optimize_prompt(
 ) -> PromptOptimizationResult:
     """
     Optimize a LLM prompt using the given dataset and evaluation metrics.
-    Currently, only supports MIPROv2 optimizer of DSPy.
+    The optimized prompt template is automatically registered as a new version of the
+    original prompt and included in the result.
+    Currently, this API only supports DSPy's MIPROv2 optimizer.
 
     Args:
         target_llm_params: Parameters for the the LLM that prompt is optimized for.
@@ -70,7 +72,7 @@ def optimize_prompt(
         optimizer_config: Configuration parameters for the optimizer.
 
     Returns:
-        PromptOptimizationResult: The optimized prompt.
+        PromptOptimizationResult: The optimization result including the optimized prompt.
 
     Example:
 
