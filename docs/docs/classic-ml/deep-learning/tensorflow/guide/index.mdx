@@ -278,11 +278,10 @@ model = keras.Sequential(
 # Train model (code omitted for brevity)
 
 # Log the model to MLflow
-with mlflow.start_run() as run:
-    mlflow.tensorflow.log_model(model, name="model")
+model_info = mlflow.tensorflow.log_model(model, name="model")
 
 # Later, load the model for inference
-loaded_model = mlflow.tensorflow.load_model(f"runs:/{run.info.run_id}/model")
+loaded_model = mlflow.tensorflow.load_model(model_info.model_uri)
 predictions = loaded_model.predict(tf.random.uniform([1, 28, 28, 3]))
 ```
 
@@ -359,8 +358,7 @@ sample_output = model.predict(sample_input)
 signature = infer_signature(sample_input, sample_output)
 
 # Log model with inferred signature
-with mlflow.start_run():
-    mlflow.tensorflow.log_model(model, "model", signature=signature)
+model_info = mlflow.tensorflow.log_model(model, name="model", signature=signature)
 ```
 
 When autologging is enabled with `log_input_examples=True` and `log_model_signatures=True`, MLflow automatically infers and logs the signature from your training data.
@@ -407,8 +405,7 @@ The signature appears in the MLflow UI:
   signature = ModelSignature(inputs=input_schema)
 
   # Log model with signature
-  with mlflow.start_run() as run:
-      mlflow.tensorflow.log_model(model, name="model", signature=signature)
+  model_info = mlflow.tensorflow.log_model(model, name="model", signature=signature)
   ```
 
   Manual definition is useful when:
@@ -482,19 +479,19 @@ For more sophisticated models, you might want to track additional information:
       with mlflow.start_run(run_name="model_1", nested=True) as child_run_1:
           model_1 = create_model_1()
           # Train model_1
-          mlflow.tensorflow.log_model(model_1, "model_1")
+          mlflow.tensorflow.log_model(model_1, name="model_1")
           mlflow.log_metric("accuracy", accuracy_1)
 
       # Train second model
       with mlflow.start_run(run_name="model_2", nested=True) as child_run_2:
           model_2 = create_model_2()
           # Train model_2
-          mlflow.tensorflow.log_model(model_2, "model_2")
+          mlflow.tensorflow.log_model(model_2, name="model_2")
           mlflow.log_metric("accuracy", accuracy_2)
 
       # Create and log ensemble model
       ensemble_model = create_ensemble([model_1, model_2])
-      mlflow.tensorflow.log_model(ensemble_model, "ensemble_model")
+      mlflow.tensorflow.log_model(ensemble_model, name="ensemble_model")
       mlflow.log_metric("ensemble_accuracy", ensemble_accuracy)
   ```
 </details>
@@ -558,7 +555,7 @@ def objective(trial):
         mlflow.log_metric("val_accuracy", val_accuracy)
 
         # Log model
-        mlflow.tensorflow.log_model(model, "model")
+        mlflow.tensorflow.log_model(model, name="model")
 
         return val_accuracy
 
@@ -586,7 +583,7 @@ with mlflow.start_run(run_name="hyperparameter_optimization"):
     # Train final model with best parameters
     final_model = create_model(study.best_trial)
     final_model.fit(x_train, y_train, epochs=10)
-    mlflow.tensorflow.log_model(final_model, "best_model")
+    mlflow.tensorflow.log_model(final_model, name="best_model")
 ```
 
 ### Deployment Preparation
@@ -594,7 +591,7 @@ with mlflow.start_run(run_name="hyperparameter_optimization"):
 Once you've trained and logged your TensorFlow model with MLflow, deploying it locally is straightforward with a single command using the MLflow CLI:
 
 ```bash
-mlflow models serve -m runs:/<run_id>/model -p 5000
+mlflow models serve -m models:/<model_id> -p 5000
 ```
 
 Test your deployed model:
@@ -624,13 +621,13 @@ print("Predictions:", predictions)
 
   ```bash
   # Specify environment manager
-  mlflow models serve -m runs:/<run_id>/model -p 5000 --env-manager conda
+  mlflow models serve -m models:/<model_id> -p 5000 --env-manager conda
 
   # Enable MLServer for enhanced inference capabilities
-  mlflow models serve -m runs:/<run_id>/model -p 5000 --enable-mlserver
+  mlflow models serve -m models:/<model_id> -p 5000 --enable-mlserver
 
   # Set custom host
-  mlflow models serve -m runs:/<run_id>/model -p 5000 --host 0.0.0.0
+  mlflow models serve -m models:/<model_id> -p 5000 --host 0.0.0.0
   ```
 
   For production deployments, consider:
