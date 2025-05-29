@@ -398,9 +398,9 @@ def serve_wheel(request, tmp_path_factory):
             # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
             # url when using `uv` as environment manager
             extra_index = re.sub(
-                # Prepend 'torch=' to restrict this index to torch installations only.
+                # Prepend 'pytorch=' to restrict this index to pytorch installations only.
                 r"https://download\.pytorch\.org/.*",
-                lambda m: f"torch={m.group(0)}",
+                lambda m: f"pytorch={m.group(0)}",
                 pip_extra_index_url or "",
             )
             os.environ["UV_INDEX"] = f"mlflow={localhost} {extra_index}".strip()
