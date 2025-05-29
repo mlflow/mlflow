@@ -18,14 +18,14 @@
   /* Font family variables */
   --ifm-font-family-base: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   --ifm-font-family-monospace: 'DM Mono', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  
+
   /* Font weight variables - per designer specs */
   --font-weight-light: 300;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  
+
   /* Typography scale based on designer specs */
   --font-size-h1: 64px;
   --font-size-h2: 52px;
@@ -37,7 +37,7 @@
   --font-size-body-s: 14px;
   --font-size-label-l: 14px;
   --font-size-label-s: 12px;
-  
+
   /* Line heights per designer specs */
   --line-height-h1: 100%;
   --line-height-h2: 120%;
@@ -46,7 +46,7 @@
   --line-height-h5: 120%;
   --line-height-body: 140%;
   --line-height-label: 120%;
-  
+
   /* Letter spacing per designer specs */
   --letter-spacing-h1: -3%;
   --letter-spacing-h2: -1%;
@@ -55,7 +55,7 @@
   --letter-spacing-h5: 0;
   --letter-spacing-body: 0;
   --letter-spacing-label: 8%;
-  
+
   /* Map to Docusaurus variables */
   --ifm-font-size-base: var(--font-size-body-m);
   --ifm-line-height-base: 1.4;
@@ -64,7 +64,7 @@
   --ifm-h3-font-size: var(--font-size-h3);
   --ifm-h4-font-size: var(--font-size-h4);
   --ifm-h5-font-size: var(--font-size-h5);
-  
+
   /* Common layout variables */
   --card-border-radius: 4px;
   --card-shadow1: rgba(50, 50, 93, 0.05);
@@ -78,12 +78,12 @@
   --padding-lg: 24px;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
-  
+
   /* Color system */
   /* Light mode colors */
   --ifm-border-color: #6B7280;
   --ifm-color-emphasis-hover: #000000;
-  
+
   /* Classic ML - Blue theme (default) */
   --ifm-color-primary: #0194e2;
   --ifm-color-primary-dark: #0086cf;
@@ -101,7 +101,7 @@
   --genai-color-primary-light: #FF3A23;
   --genai-color-primary-lighter: #FF6C59;
   --genai-color-primary-lightest: #FF9D8F;
-  
+
   /* Secondary colors */
   --ifm-color-secondary: #85552e;
   --ifm-color-secondary-dark: #784c29;
@@ -146,23 +146,23 @@ body {
 
 /* Unified link styling for both Classic ML and GenAI modes */
 a {
-  color: var(--ifm-border-color) !important;
+  color: var(--ifm-border-color);
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
 a:hover {
-  color: var(--ifm-color-emphasis-hover) !important;
+  color: var(--ifm-color-emphasis-hover);
   text-decoration: none;
 }
 
 /* Exception for sidebar links which have their own styling */
 .menu__link {
-  color: var(--ifm-border-color) !important;
+  color: var(--ifm-border-color);
 }
 
 .menu__link:hover {
-  color: var(--ifm-color-emphasis-hover) !important;
+  color: var(--ifm-color-emphasis-hover);
 }
 
 h1 {
@@ -349,7 +349,7 @@ html[data-genai-theme="true"] {
 
 /* Base styling for all navbar links */
 .navbar__link {
-  color: var(--ifm-border-color) !important;
+  color: var(--ifm-border-color);
   position: relative;
   padding-bottom: 6px;
   transition: color 0.2s ease;
@@ -357,8 +357,8 @@ html[data-genai-theme="true"] {
 
 /* Hover state for navbar links */
 .navbar__link:not(.navbar__link--active):hover {
-  color: var(--ifm-color-emphasis-hover) !important;
-  background-color: transparent !important;
+  color: var(--ifm-color-emphasis-hover);
+  background-color: transparent;
 }
 
 /* Navbar underlines */
@@ -394,7 +394,7 @@ html[data-genai-theme="true"] {
 .navbar__items a[href^="/ml"],
 .navbar__items a[href$="/genai"],
 .navbar__items a[href^="/genai"] {
-  padding-left: 22px !important;
+  padding-left: 22px;
   position: relative;
 }
 
@@ -408,7 +408,7 @@ html[data-genai-theme="true"] {
   transform: translateY(-50%);
   width: 10px;
   height: 10px;
-  background-color: #0194e2 !important;
+  background-color: #0194e2;
   border-radius: 4px;
 }
 
@@ -422,7 +422,7 @@ html[data-genai-theme="true"] {
   transform: translateY(-50%);
   width: 10px;
   height: 10px;
-  background-color: #EB1700 !important;
+  background-color: #EB1700;
   border-radius: 4px;
 }
 
@@ -452,7 +452,7 @@ html[data-genai-theme="true"] {
 
 /* Regular menu links */
 .menu__link {
-  color: var(--ifm-border-color) !important;
+  color: var(--ifm-border-color);
   transition: color 0.2s ease;
 }
 
@@ -463,15 +463,15 @@ html[data-genai-theme="true"] {
 
 /* Light mode */
 html[data-theme='light'] .menu__link--active {
-  color: #000000 !important; /* Pure black text */
-  background-color: transparent !important; /* No background color */
+  color: #000000; /* Pure black text */
+  background-color: transparent; /* No background color */
   font-weight: var(--font-weight-medium);
 }
 
 /* Dark mode */
 html[data-theme='dark'] .menu__link--active {
-  color: #FFFFFF !important; /* Pure white text */
-  background-color: transparent !important; /* No background color */
+  color: #FFFFFF; /* Pure white text */
+  background-color: transparent; /* No background color */
   font-weight: var(--font-weight-medium);
 }
 
@@ -483,8 +483,8 @@ html[data-theme='dark'] .menu__link--active {
 
 /* Hover states */
 .menu__link:hover:not(.menu__link--active) {
-  color: var(--ifm-color-emphasis-hover) !important; /* Use hover variable */
-  background-color: transparent !important;
+  color: var(--ifm-color-emphasis-hover); /* Use hover variable */
+  background-color: transparent;
 }
 
 /* --------------------------------
@@ -493,31 +493,31 @@ html[data-theme='dark'] .menu__link--active {
 
 /* Breadcrumbs - make uniform with the link color scheme */
 .breadcrumbs__link {
-  color: var(--ifm-border-color) !important;
+  color: var(--ifm-border-color);
 }
 
 .breadcrumbs__link:hover {
-  color: var(--ifm-color-emphasis-hover) !important;
+  color: var(--ifm-color-emphasis-hover);
 }
 
 /* Active breadcrumb - consistent with active sidebar styling */
 .breadcrumbs__link--active {
-  color: var(--ifm-color-emphasis-hover) !important; /* Black in light mode, White in dark mode */
+  color: var(--ifm-color-emphasis-hover); /* Black in light mode, White in dark mode */
 }
 
 /* Breadcrumb separator */
 .breadcrumbs__item--active .breadcrumbs__link {
   background: none;
-  color: var(--ifm-color-emphasis-hover) !important;
+  color: var(--ifm-color-emphasis-hover);
 }
 
 /* Make pagination consistent with the link colors */
 .pagination-nav__link {
-  color: var(--ifm-border-color) !important;
+  color: var(--ifm-border-color);
 }
 
 .pagination-nav__link:hover {
-  color: var(--ifm-color-emphasis-hover) !important;
+  color: var(--ifm-color-emphasis-hover);
 }
 
 /* Pagination arrows now use the same color scheme instead of theme colors */
@@ -660,16 +660,16 @@ th {
 .tabs__item {
   padding: var(--padding-sm) var(--padding-md);
   border-radius: 0;
-  color: var(--ifm-border-color) !important;
+  color: var(--ifm-border-color);
 }
 
 .tabs__item:hover {
-  color: var(--ifm-color-emphasis-hover) !important;
+  color: var(--ifm-color-emphasis-hover);
   background-color: transparent;
 }
 
 .tabs__item--active {
-  color: var(--ifm-color-emphasis-hover) !important;
+  color: var(--ifm-color-emphasis-hover);
   border-bottom: 2px solid var(--ifm-color-emphasis-hover);
 }
 
@@ -696,11 +696,11 @@ th {
 
 /* Style admonition links to match main content */
 .admonition a {
-  color: var(--ifm-border-color) !important;
+  color: var(--ifm-border-color);
 }
 
 .admonition a:hover {
-  color: var(--ifm-color-emphasis-hover) !important;
+  color: var(--ifm-color-emphasis-hover);
 }
 
 /* --------------------------------
@@ -717,11 +717,11 @@ th {
 }
 
 .footer__link-item {
-  color: var(--ifm-footer-link-color) !important;
+  color: var(--ifm-footer-link-color);
 }
 
 .footer__link-item:hover {
-  color: #FFFFFF !important;
+  color: #FFFFFF;
   text-decoration: none;
 }
 
