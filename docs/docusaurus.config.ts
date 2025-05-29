@@ -5,7 +5,7 @@ import {
   postProcessSidebar,
   apiReferencePrefix,
 } from "./docusaurusConfigUtils";
-
+import tailwindPlugin from "./src/plugins/tailwind-config.cjs";
 
 // ensure baseUrl always ends in `/`
 const baseUrl = (process.env.DOCS_BASE_URL ?? "/").replace(/\/?$/, "/");
@@ -205,6 +205,7 @@ const config: Config = {
   } satisfies Preset.ThemeConfig,
 
   plugins: [
+    tailwindPlugin,
     // Classic ML docs plugin
     [
       "@docusaurus/plugin-content-docs",
