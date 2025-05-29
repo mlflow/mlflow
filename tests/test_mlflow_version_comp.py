@@ -88,7 +88,8 @@ def test_mlflow_2_x_comp(tmp_path: Path) -> None:
             f"--with=numpy=={np.__version__}",
             f"--with=scikit-learn=={sklearn.__version__}",
             "python",
-            "-I",  # Use the isolated mode to ignore mlflow in the repository
+            # Use the isolated mode to ignore mlflow in the repository
+            "-I",
             "-c",
             """
 import sys
