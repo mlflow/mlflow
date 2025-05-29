@@ -74,6 +74,11 @@ def parse_inputs_to_str(inputs: Any) -> str:
     return json.dumps(inputs, default=TraceJSONEncoder)
 
 
+def parse_output_to_str(output: Any) -> str:
+    """Parse the output to a string compatible with the judges API"""
+    return output if isinstance(output, str) else json.dumps(output, default=TraceJSONEncoder)
+
+
 def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> dict[str, list]:
     """
     Extract the retrieval context from the trace.

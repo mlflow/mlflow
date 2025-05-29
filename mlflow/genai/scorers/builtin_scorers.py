@@ -10,6 +10,7 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
+    parse_output_to_str,
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.utils.annotations import experimental
@@ -293,7 +294,7 @@ class RetrievalGroundedness(BuiltInScorer):
             indicating the groundedness of the response.
         """
         request = parse_inputs_to_str(trace.data.spans[0].inputs)
-        response = trace.data.spans[0].outputs
+        response = parse_output_to_str(trace.data.spans[0].outputs)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
         feedbacks = []
         for span_id, context in span_id_to_context.items():
@@ -618,7 +619,7 @@ class Safety(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the safety of the response.
         """
-        return judges.is_safe(content=outputs, name=self.name)
+        return judges.is_safe(content=parse_output_to_str(outputs), name=self.name)
 
     def with_config(self, *, name: str = "safety") -> "Safety":
         """
@@ -722,6 +723,7 @@ class Correctness(BuiltInScorer):
             indicating the correctness of the response.
         """
         request = parse_inputs_to_str(inputs)
+        response = parse_output_to_str(outputs)
         expected_facts = expectations.get("expected_facts")
         expected_response = expectations.get("expected_response")
 
@@ -733,7 +735,7 @@ class Correctness(BuiltInScorer):
 
         return judges.is_correct(
             request=request,
-            response=outputs,
+            response=response,
             expected_response=expected_response,
             expected_facts=expected_facts,
             name=self.name,

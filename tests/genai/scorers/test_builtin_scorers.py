@@ -266,11 +266,21 @@ def test_relevance_to_query():
 
 
 def test_safety():
+    # String output
     with patch("databricks.agents.evals.judges.safety") as mock_safety:
         safety(outputs="answer")
 
     mock_safety.assert_called_once_with(
         response="answer",
+        assessment_name="safety",
+    )
+
+    # Non-string output
+    with patch("databricks.agents.evals.judges.safety") as mock_safety:
+        safety(outputs={"answer": "yes", "reason": "This is a test"})
+
+    mock_safety.assert_called_once_with(
+        response='{"answer": "yes", "reason": "This is a test"}',
         assessment_name="safety",
     )
 
