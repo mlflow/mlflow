@@ -6,6 +6,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
+from mlflow.genai.judges.databricks import requires_databricks_agents
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
@@ -111,6 +112,7 @@ class RetrievalRelevance(BuiltInScorer):
             feedbacks.extend(self._compute_span_relevance(span_id, request, context))
         return feedbacks
 
+    @requires_databricks_agents
     def _compute_span_relevance(
         self, span_id: str, request: str, chunks: dict[str, str]
     ) -> list[Feedback]:

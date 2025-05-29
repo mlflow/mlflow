@@ -5,7 +5,6 @@ from typing import Any, Callable, Optional
 from opentelemetry.trace import NoOpTracer
 
 import mlflow
-from mlflow.entities.assessment import Feedback
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.genai.utils.data_validation import check_model_prediction
@@ -154,25 +153,3 @@ def _parse_chunk(chunk: Any) -> Optional[dict[str, Any]]:
     if doc_uri := chunk.get("metadata", {}).get("doc_uri"):
         doc["doc_uri"] = doc_uri
     return doc
-
-
-def aggregate_per_span_feedbacks(
-    feedbacks: list[Feedback], aggregate_fn: Callable
-) -> Optional[Feedback]:
-    """Aggregate a list of feedbacks into a single feedback using the aggregate_fn."""
-    # Ignore errored feedbacks
-    values = [feedback.value for feedback in feedbacks if feedback.value is not None]
-
-    if len(values) == 0:
-        return None
-
-    feedback_name = feedbacks[0].name  # All feedbacks must have the same name
-    aggregated_value = aggregate_fn(values)
-
-    return Feedback(
-        name=feedback_name,
-        value=aggregated_value,
-        source=feedbacks[0].source,
-        trace_id=feedbacks[0].trace_id,
-        rationale=f"Aggregation of multiple per-span `{feedback_name}` feedbacks.",
-    )
