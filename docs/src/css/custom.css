@@ -167,7 +167,6 @@ a:hover {
 
 h1 {
   font-family: var(--ifm-font-family-base);
-  font-size: var(--font-size-h1);
   font-weight: var(--font-weight-light);
   line-height: var(--line-height-h1);
   letter-spacing: -0.03em; /* -3% */
