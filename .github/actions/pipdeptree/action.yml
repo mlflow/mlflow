@@ -5,13 +5,12 @@ runs:
   steps:
     - shell: bash
       run: |
-        if [ -d ".venv" ]; then
+        if [ -e .venv/bin/activate ]; then
+          # Linux
           source .venv/bin/activate
+        elif [ -e .venv/Scripts/activate ]; then
+          # Windows
+          source .venv/Scripts/activate
         fi
         pip install pipdeptree
-    - shell: bash
-      run: |
-        if [ -d ".venv" ]; then
-          source .venv/bin/activate
-        fi
         pipdeptree --all
