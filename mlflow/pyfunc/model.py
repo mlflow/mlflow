@@ -12,7 +12,8 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any, Generator, Union
+from uuid import uuid4
 
 import cloudpickle
 import pandas as pd
@@ -827,6 +828,8 @@ def _maybe_decompress_cloudpickle_load(path, compression):
 
 if IS_PYDANTIC_V2_OR_NEWER:
     from mlflow.types.responses import (
+        Message,
+        OutputItem,
         ResponsesAgentRequest,
         ResponsesAgentResponse,
         ResponsesAgentStreamEvent,
@@ -994,6 +997,81 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "call_id": call_id,
                 "output": output,
             }
+
+        def _responses_to_cc(self, message: dict[str, Any]) -> list[dict[str, Any]]:
+            """Convert from a Responses API output item to ChatCompletion messages."""
+            msg_type = message.get("type")
+            if msg_type == "function_call":
+                return [
+                    {
+                        "role": "assistant",
+                        "content": "tool call",
+                        "tool_calls": [
+                            {
+                                "id": message["call_id"],
+                                "type": "function",
+                                "function": {
+                                    "arguments": message["arguments"],
+                                    "name": message["name"],
+                                },
+                            }
+                        ],
+                    }
+                ]
+            elif msg_type == "message" and isinstance(message["content"], list):
+                return [
+                    {"role": message["role"], "content": content["text"]}
+                    for content in message["content"]
+                ]
+            elif msg_type == "function_call_output":
+                return [
+                    {
+                        "role": "tool",
+                        "content": message["output"],
+                        "tool_call_id": message["call_id"],
+                    }
+                ]
+            compatible_keys = ["role", "content", "name", "tool_calls", "tool_call_id"]
+            return [{k: v for k, v in message.items() if k in compatible_keys}]
+
+        def _prep_msgs_for_cc_llm(
+            self, responses_input: list[Union[Message, OutputItem]]
+        ) -> list[dict[str, Any]]:
+            "Convert from Responses input items to ChatCompletion dictionaries"
+            cc_msgs = []
+            for msg in responses_input:
+                cc_msgs.extend(self._responses_to_cc(msg.model_dump()))
+
+        def _cc_to_responses(self, message: dict[str, Any]) -> dict[str, Any]:
+            "Convert from ChatCompletion dict to Responses output item dictionaries"
+            role = message["role"]
+            if role == "assistant":
+                if tool_calls := message.get("tool_calls"):
+                    return [
+                        self.create_function_call_item(
+                            id=str(uuid4()),
+                            call_id=tool_call["id"],
+                            name=tool_call["function"]["name"],
+                            arguments=tool_call["function"]["arguments"],
+                        )
+                        for tool_call in tool_calls
+                    ]
+                else:
+                    return [
+                        self.create_text_output_item(
+                            text=message["content"],
+                            id=str(uuid4()),
+                        )
+                    ]
+            elif role == "tool":
+                return [
+                    self.create_function_call_output_item(
+                        call_id=message["tool_call_id"],
+                        output=message["content"],
+                    )
+                ]
+            elif role == "user":
+                return [message]
 
 
 def _save_model_with_class_artifacts_params(
