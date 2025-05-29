@@ -72,7 +72,7 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "openai",
     "dspy",
     "autogen",
-    # "ag2",
+    "ag2",
     "gemini",
     "anthropic",
     "crewai",
