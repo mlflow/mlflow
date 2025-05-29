@@ -516,24 +516,66 @@ html[data-theme='dark'] .menu__link--active {
   color: var(--ifm-color-emphasis-hover);
 }
 
+.pagination-nav {
+    gap: 0;
+}
+
 /* Make pagination consistent with the link colors */
 .pagination-nav__link {
   color: var(--ifm-border-color);
+  border-radius: 0;
+  padding-block: 2rem;
+  position: relative;
 }
 
 .pagination-nav__link:hover {
-  color: var(--ifm-color-emphasis-hover);
+  background-color: var(--ifm-background-color);
+  border-color: var(--ifm-color-emphasis-300);
+}
+
+.pagination-nav__link .pagination-nav__sublabel {
+  font-size: var(--font-size-base);
+  color: var(--ifm-border-color);
+  padding-top: 0.5rem;
+}
+
+.pagination-nav__link .pagination-nav__label {
+  font-size: var(--font-size-h5);
+  color: white;
+}
+
+.pagination-nav__link--next {
+  padding-right: 3rem;
+}
+
+.pagination-nav__link--prev {
+  padding-left: 3rem;
 }
 
 /* Pagination arrows now use the same color scheme instead of theme colors */
 .pagination-nav__link--next .pagination-nav__label::after {
-  content: " →";
-  color: var(--ifm-border-color);
+  content: ''
+}
+.pagination-nav__link--prev .pagination-nav__label::before {
+  content: ''
 }
 
-.pagination-nav__link--prev .pagination-nav__label::before {
-  content: "← ";
+.pagination-nav__link--next::after {
+  content: ">";
   color: var(--ifm-border-color);
+  font-size: 2rem;
+  position: absolute;
+  right: 1rem;
+  top: 33%;
+}
+
+.pagination-nav__link--prev::before {
+  content: "<";
+  color: var(--ifm-border-color);
+  font-size: 2rem;
+  position: absolute;
+  left: 1rem;
+  top: 33%;
 }
 
 /* Hover state for pagination arrows */
