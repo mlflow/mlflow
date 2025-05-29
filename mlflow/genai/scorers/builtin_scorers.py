@@ -196,7 +196,9 @@ class RetrievalSufficiency(BuiltInScorer):
                 self.name, ["expectations/expected_response or expectations/expected_facts"]
             )
 
-    def __call__(self, *, trace: Trace, expectations: Optional[dict[str, Any]] = None) -> Feedback:
+    def __call__(
+        self, *, trace: Trace, expectations: Optional[dict[str, Any]] = None
+    ) -> list[Feedback]:
         """
         Evaluate context sufficiency based on retrieved documents.
 
@@ -285,7 +287,7 @@ class RetrievalGroundedness(BuiltInScorer):
     name: str = "retrieval_groundedness"
     required_columns: set[str] = {"inputs", "trace"}
 
-    def __call__(self, *, trace: Trace) -> Feedback:
+    def __call__(self, *, trace: Trace) -> list[Feedback]:
         """
         Evaluate groundedness of response against retrieved context.
 
