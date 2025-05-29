@@ -10,8 +10,10 @@ from mlflow.entities.span import SpanType
 from mlflow.tracing import set_span_chat_messages, set_span_chat_tools
 from mlflow.tracing.constant import (
     SpanAttributeKey,
+    TokenUsageKey,
 )
 from mlflow.tracing.utils import (
+    aggregate_usage_from_spans,
     construct_full_inputs,
     deduplicate_span_names_in_place,
     encode_span_id,
@@ -40,6 +42,40 @@ def test_deduplicate_span_names():
     ]
     # Check if the span order is preserved
     assert [span.span_id for span in spans] == [encode_span_id(i) for i in [0, 1, 2, 3, 4, 5]]
+
+
+def test_aggregate_usage_from_spans():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"), trace_id="tr-123")
+        for i in range(3)
+    ]
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 20,
+            TokenUsageKey.TOTAL_TOKENS: 30,
+        },
+    )
+    spans[1].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {TokenUsageKey.OUTPUT_TOKENS: 15, TokenUsageKey.TOTAL_TOKENS: 15},
+    )
+    spans[2].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 5,
+            TokenUsageKey.OUTPUT_TOKENS: 10,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 15,
+        TokenUsageKey.OUTPUT_TOKENS: 45,
+        TokenUsageKey.TOTAL_TOKENS: 60,
+    }
 
 
 def test_maybe_get_request_id():

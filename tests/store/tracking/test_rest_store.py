@@ -1258,6 +1258,55 @@ def test_update_assessment(updates, expected_request_json):
             assert isinstance(res, Assessment)
 
 
+def test_get_assessment():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps(
+        {
+            "assessment": {
+                "assessment_id": "1234",
+                "assessment_name": "assessment_name",
+                "trace_id": "tr-1234",
+                "source": {
+                    "source_type": "LLM_JUDGE",
+                    "source_id": "gpt-4o-mini",
+                },
+                "create_time": "2025-02-20T05:47:23Z",
+                "last_update_time": "2025-02-25T01:23:45Z",
+                "feedback": {"value": "test value"},
+                "rationale": "rationale",
+                "metadata": {"model": "gpt-4o-mini"},
+                "error": None,
+                "span_id": None,
+            }
+        }
+    )
+
+    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+        with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+            res = store.get_assessment(trace_id="tr-1234", assessment_id="1234")
+
+        expected_request_json = {"assessment_id": "1234", "trace_id": "tr-1234"}
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/tr-1234/assessments/1234",
+            "GET",
+            json.dumps(expected_request_json),
+            use_v3=True,
+        )
+
+    assert isinstance(res, Feedback)
+    assert res.assessment_id == "1234"
+    assert res.name == "assessment_name"
+    assert res.trace_id == "tr-1234"
+    assert res.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert res.source.source_id == "gpt-4o-mini"
+    assert res.value == "test value"
+
+
 def test_delete_assessment():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)

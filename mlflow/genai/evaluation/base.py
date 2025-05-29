@@ -1,19 +1,20 @@
 import logging
 import warnings
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
 )
 from mlflow.genai.scorers import Scorer
-from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
+    EvaluationResult,
     _is_model_deployment_endpoint_uri,
 )
 from mlflow.utils.annotations import experimental
@@ -22,22 +23,8 @@ from mlflow.utils.uri import is_databricks_uri
 if TYPE_CHECKING:
     from genai.evaluation.utils import EvaluationDatasetTypes
 
-try:
-    # `pandas` is not required for `mlflow-skinny`.
-    import pandas as pd
-except ImportError:
-    pass
-
 
 logger = logging.getLogger(__name__)
-
-
-@experimental
-@dataclass
-class EvaluationResult:
-    run_id: str
-    metrics: dict[str, float]
-    result_df: "pd.DataFrame"
 
 
 @experimental
@@ -197,10 +184,6 @@ def evaluate(
 
                 - expectations (optional): Column containing a dictionary of ground truths.
 
-            The input dataframe can contain extra columns that will be directly passed to
-            the scorers. For example, you can pass a dataframe with `retrieved_context`
-            column to use a scorer that takes `retrieved_context` as a parameter.
-
             For list of dictionaries, each dict should follow the above schema.
 
         scorers: A list of Scorer objects that produces evaluation scores from
@@ -217,6 +200,9 @@ def evaluate(
         model_id: Optional model identifier (e.g. "models:/my-model/1") to associate with
             the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
+
+    Returns:
+        An :py:class:`mlflow.models.EvaluationResult~` object.
 
     Note:
         This function is only supported on Databricks. The tracking URI must be
@@ -241,30 +227,21 @@ def evaluate(
             "Please set the tracking URI to Databricks."
         )
 
-    builtin_scorers, custom_scorers = validate_scorers(scorers)
+    is_managed_dataset = isinstance(data, EvaluationDataset)
 
-    evaluation_config = {
-        GENAI_CONFIG_NAME: {
-            "metrics": [],
-        }
-    }
-    for _scorer in builtin_scorers:
-        evaluation_config = _scorer.update_evaluation_config(evaluation_config)
-
-    extra_metrics = []
-    for _scorer in custom_scorers:
-        extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
-
+    scorers = validate_scorers(scorers)
     # convert into a pandas dataframe with current evaluation set schema
-    data = _convert_to_legacy_eval_set(data)
+    df = data.to_df() if is_managed_dataset else _convert_to_legacy_eval_set(data)
 
-    valid_data_for_builtin_scorers(data, builtin_scorers, predict_fn)
+    builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
+    valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
 
     # "request" column must exist after conversion
-    sample_input = data.iloc[0]["request"]
+    input_key = "inputs" if is_managed_dataset else "request"
+    sample_input = df.iloc[0][input_key]
 
     # Only check 'inputs' column when it is not derived from the trace object
-    if "trace" not in data.columns and not isinstance(sample_input, dict):
+    if "trace" not in df.columns and not isinstance(sample_input, dict):
         raise MlflowException.invalid_parameter_value(
             "The 'inputs' column must be a dictionary of field names and values. "
             "For example: {'query': 'What is MLflow?'}"
@@ -288,21 +265,18 @@ def evaluate(
             module="mlflow.data.evaluation_dataset",
         )
 
-        result = mlflow.models.evaluate(
+        return mlflow.models.evaluate(
             model=predict_fn,
-            data=data,
-            evaluator_config=evaluation_config,
-            extra_metrics=extra_metrics,
+            # If the input dataset is a managed dataset, we pass the original dataset
+            # to the evaluate function to preserve metadata like dataset name.
+            data=data if is_managed_dataset else df,
+            evaluator_config={GENAI_CONFIG_NAME: {"metrics": []}},  # Turn off the default metrics
+            # Scorers are passed to the eval harness as extra metrics
+            extra_metrics=[_convert_scorer_to_legacy_metric(_scorer) for _scorer in scorers],
             model_type=GENAI_CONFIG_NAME,
             model_id=model_id,
             _called_from_genai_evaluate=True,
         )
-
-    return EvaluationResult(
-        run_id=result._run_id,
-        metrics=result.metrics,
-        result_df=result.tables["eval_results"],
-    )
 
 
 @experimental
