@@ -65,7 +65,7 @@ For instance, let's say we have a model version alias called `production_model`,
 a production model. When our team builds a better model that is ready for deployment, we don't have
 to change our serving workload code. Instead, in MLflow we reassign the `production_model` alias
 from the old model version to the new one. This can be done simply in the UI. In the API, we run
-_client.set_registered_model_alias_ with the same model name, alias name, and **new** model version
+_client.set_registered_model_alias_ with the same model name, alias name, and a **new** model version
 ID. It's that easy!
 
 In the prior page, we added a model version alias to our model, but here's a programmatic example.
@@ -111,3 +111,5 @@ That's it! You should now be comfortable...
 1. Registering a model
 2. Finding a model and modifying the tags and model version alias via the MLflow UI
 3. Loading the registered model for inference
+
+Congratulations on finishing the in-depth tutorial for the MLflow Model Registry! You can now [return to the Getting Started](/ml/getting-started) content to learn more about MLflow.
