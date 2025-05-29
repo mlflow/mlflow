@@ -30,7 +30,11 @@ def remove_pip_index_env(monkeypatch):
     if env_var:
         urls = env_var.split(" ")
         urls = list(set(urls) - {"https://download.pytorch.org/whl/cpu"})
-        monkeypatch.setenv("PIP_EXTRA_INDEX_URL", " ".join(urls))
+        try:
+            os.environ["PIP_EXTRA_INDEX_URL"] = " ".join(urls)
+            yield
+        finally:
+            os.environ["PIP_EXTRA_INDEX_URL"] = env_var
 
 
 @pytest.mark.parametrize(
