@@ -10,7 +10,7 @@ from mlflow.genai.evaluation.utils import (
     _convert_to_legacy_eval_set,
 )
 from mlflow.genai.scorers import Scorer
-from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
@@ -229,23 +229,11 @@ def evaluate(
 
     is_managed_dataset = isinstance(data, EvaluationDataset)
 
-    builtin_scorers, custom_scorers = validate_scorers(scorers)
-
-    evaluation_config = {
-        GENAI_CONFIG_NAME: {
-            "metrics": [],
-        }
-    }
-    for _scorer in builtin_scorers:
-        evaluation_config = _scorer.update_evaluation_config(evaluation_config)
-
-    extra_metrics = []
-    for _scorer in custom_scorers:
-        extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
-
+    scorers = validate_scorers(scorers)
     # convert into a pandas dataframe with current evaluation set schema
     df = data.to_df() if is_managed_dataset else _convert_to_legacy_eval_set(data)
 
+    builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
     valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
 
     # "request" column must exist after conversion
@@ -282,8 +270,9 @@ def evaluate(
             # If the input dataset is a managed dataset, we pass the original dataset
             # to the evaluate function to preserve metadata like dataset name.
             data=data if is_managed_dataset else df,
-            evaluator_config=evaluation_config,
-            extra_metrics=extra_metrics,
+            evaluator_config={GENAI_CONFIG_NAME: {"metrics": []}},  # Turn off the default metrics
+            # Scorers are passed to the eval harness as extra metrics
+            extra_metrics=[_convert_scorer_to_legacy_metric(_scorer) for _scorer in scorers],
             model_type=GENAI_CONFIG_NAME,
             model_id=model_id,
             _called_from_genai_evaluate=True,
