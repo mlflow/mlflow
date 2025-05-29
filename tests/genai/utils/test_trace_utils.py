@@ -316,12 +316,12 @@ def create_span(
                     span_type=SpanType.LLM,
                 ),
             ],
-            None,
+            {},
         ),
         # None trace
         (
             None,
-            None,
+            {},
         ),
     ],
 )

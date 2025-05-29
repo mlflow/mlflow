@@ -21,3 +21,8 @@ mlflow.genai
     :members:
     :undoc-members:
     :show-inheritance:
+
+.. automodule:: mlflow.genai.judges
+    :members:
+    :undoc-members:
+    :show-inheritance:

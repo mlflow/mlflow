@@ -62,18 +62,19 @@ class NoOpTracerPatcher:
 
 def parse_inputs_to_str(inputs: Any) -> str:
     """Parse the inputs to a request string compatible with the judges API"""
-    if isinstance(inputs, str):
-        return inputs
-
-    # If it is a single key dictionary, return the value
+    # If it is a single key dictionary, extract the value
     if isinstance(inputs, dict) and len(inputs) == 1:
-        return list(inputs.values())[0]
+        inputs = list(inputs.values())[0]
 
-    # Otherwise, encode the inputs to a JSON string
-    return json.dumps(inputs, default=TraceJSONEncoder)
+    return inputs if isinstance(inputs, str) else json.dumps(inputs, default=TraceJSONEncoder)
 
 
-def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> Optional[dict[str, list]]:
+def parse_output_to_str(output: Any) -> str:
+    """Parse the output to a string compatible with the judges API"""
+    return output if isinstance(output, str) else json.dumps(output, default=TraceJSONEncoder)
+
+
+def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> dict[str, list]:
     """
     Extract the retrieval context from the trace.
     Only consider the last retrieval span in the trace if there are multiple retrieval spans.
@@ -81,12 +82,12 @@ def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> Optional[dic
     ⚠️ Warning: Please make sure to not throw exception. If fails, return None.
     """
     if trace is None or trace.data is None:
-        return None
+        return {}
 
     # Only consider the top-level retrieval spans
     top_level_retrieval_spans = _get_top_level_retrieval_spans(trace)
     if len(top_level_retrieval_spans) == 0:
-        return None
+        return {}
 
     retrieved = {}  # span_id -> list of documents
 
