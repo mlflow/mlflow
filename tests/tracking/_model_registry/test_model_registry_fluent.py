@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 from unittest import mock
@@ -288,7 +289,9 @@ with mlflow.start_run() as run:
     model_info = mlflow.pyfunc.log_model(
         python_model=lambda *args: None,
         artifact_path="model",
-        pip_requirements=["mlflow<3"],
+        # When `python_model` is a function, either `input_example` or `pip_requirements`
+        # must be provided.
+        pip_requirements=["mlflow"],
     )
     assert model_info.model_uri.startswith("runs:/")
     out = sys.argv[1]
@@ -311,6 +314,7 @@ with mlflow.start_run() as run:
             code,
             out,
         ],
+        env=os.environ.copy() | {"UV_INDEX_STRATEGY": "unsafe-first-match"},
     )
     # Register the model with MLflow 3.x
     model_uri = out.read_text().strip()
