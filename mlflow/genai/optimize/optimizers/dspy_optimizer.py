@@ -30,13 +30,13 @@ class _DSPyOptimizer(_BaseOptimizer):
                 "Please upgrade to version >= 2.6.0"
             )
 
-    def _get_input_fields(self, train_data: "pd.DataFrame") -> list[dict[str, type]]:
+    def _get_input_fields(self, train_data: "pd.DataFrame") -> dict[str, type]:
         if "inputs" in train_data.columns:
             sample_input = train_data["inputs"].values[0]
             return {k: infer_type_from_value(v) for k, v in sample_input.items()}
         return {}
 
-    def _get_output_fields(self, train_data: "pd.DataFrame") -> list[dict[str, type]]:
+    def _get_output_fields(self, train_data: "pd.DataFrame") -> dict[str, type]:
         if "expectations" in train_data.columns:
             sample_output = train_data["expectations"].values[0]
             return {k: infer_type_from_value(v) for k, v in sample_output.items()}
